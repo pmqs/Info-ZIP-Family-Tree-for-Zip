@@ -50,6 +50,8 @@
 **
 **  Modified by:
 **
+**      02-007          Steven Schweda          09-FEB-2005
+**              Added /PRESERVE_CASE.
 **      02-006          Onno van der Linden,
 **                      Christian Spieler       07-JUL-1998 23:03
 **              Support GNU CC 2.8 on Alpha AXP (vers-num unchanged).
@@ -161,6 +163,7 @@ $DESCRIPTOR(cli_display,        "DISPLAY");             /* -d? */
 $DESCRIPTOR(cli_display_bytes,  "DISPLAY.BYTES");       /* -db */
 $DESCRIPTOR(cli_display_counts, "DISPLAY.COUNTS");      /* -dc */
 $DESCRIPTOR(cli_display_dots,   "DISPLAY.DOTS");        /* -dd */
+$DESCRIPTOR(cli_dot_version,    "DOT_VERSION");         /* -Y */
 $DESCRIPTOR(cli_encrypt,        "ENCRYPT");             /* -e,-P */
 $DESCRIPTOR(cli_extra_fields,   "EXTRA_FIELDS");        /* -X */
 $DESCRIPTOR(cli_fix_archive,    "FIX_ARCHIVE");         /* -F[F] */
@@ -178,6 +181,11 @@ $DESCRIPTOR(cli_level,          "LEVEL");               /* -[0-9] */
 $DESCRIPTOR(cli_license,        "LICENSE");             /* -L */
 $DESCRIPTOR(cli_pause,          "PAUSE");               /* -sp */
 $DESCRIPTOR(cli_pkzip,          "PKZIP");               /* -k */
+$DESCRIPTOR(cli_pres_case,      "PRESERVE_CASE");       /* -C */
+$DESCRIPTOR(cli_pres_case_no2,  "PRESERVE_CASE.NOODS2");/* -C2- */
+$DESCRIPTOR(cli_pres_case_no5,  "PRESERVE_CASE.NOODS5");/* -C5- */
+$DESCRIPTOR(cli_pres_case_ods2, "PRESERVE_CASE.ODS2");  /* -C2 */
+$DESCRIPTOR(cli_pres_case_ods5, "PRESERVE_CASE.ODS5");  /* -C5 */
 $DESCRIPTOR(cli_quiet,          "QUIET");               /* -q */
 $DESCRIPTOR(cli_recurse,        "RECURSE");             /* -r,-R */
 $DESCRIPTOR(cli_recurse_path,   "RECURSE.PATH");        /* -r */
@@ -441,6 +449,100 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         if ((status = cli$present(&cli_comment_files)) & 1)
             /* /COMMENTS = FILES */
             *ptr++ = 'c';
+    }
+
+    /*
+    **  Preserve case in file names.
+    */
+#define OPT_C   "-C"            /* Preserve case all. */
+#define OPT_CN  "-C-"           /* Down-case all. */
+#define OPT_C2  "-C2"           /* Preserve case ODS2. */
+#define OPT_C2N "-C2-"          /* Down-case ODS2. */
+#define OPT_C5  "-C5"           /* Preserve case ODS5. */
+#define OPT_C5N "-C5-"          /* Down-case ODS5. */
+
+    status = cli$present( &cli_pres_case);
+    if ((status & 1) || (status == CLI$_NEGATED))
+    {
+        /* /[NO]PRESERVE_CASE */
+        char *opt;
+        int ods2 = 0;
+        int ods5 = 0;
+
+        if (status == CLI$_NEGATED)
+        {
+            x = cmdl_len;
+            cmdl_len += strlen( OPT_CN)+ 1;
+            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            strcpy( &the_cmd_line[ x], OPT_CN);
+        }
+        else
+        {
+            if (cli$present( &cli_pres_case_no2) & 1)
+            {
+                /* /PRESERVE_CASE = NOODS2 */
+                ods2 = -1;
+            }
+            if (cli$present( &cli_pres_case_no5) & 1)
+            {
+                /* /PRESERVE_CASE = NOODS5 */
+                ods5 = -1;
+            }
+            if (cli$present( &cli_pres_case_ods2) & 1)
+            {
+                /* /PRESERVE_CASE = ODS2 */
+                ods2 = 1;
+            }
+            if (cli$present( &cli_pres_case_ods5) & 1)
+            {
+                /* /PRESERVE_CASE = ODS5 */
+                ods5 = 1;
+            }
+
+            if (ods2 == ods5)
+            {
+                /* Plain "-C[-]". */
+                if (ods2 < 0)
+                    opt = OPT_CN;
+                else
+                    opt = OPT_C;
+
+                x = cmdl_len;
+                cmdl_len += strlen( opt)+ 1;
+                CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+                strcpy( &the_cmd_line[ x], opt);
+            }
+            else
+            {
+                if (ods2 != 0)
+                {
+                    /* "-C2[-]". */
+                    if (ods2 < 0)
+                        opt = OPT_C2N;
+                    else
+                        opt = OPT_C2;
+
+                    x = cmdl_len;
+                    cmdl_len += strlen( opt)+ 1;
+                    CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+                    strcpy( &the_cmd_line[ x], opt);
+                }
+
+                if (ods5 != 0)
+                {
+                    /* "-C5[-]". */
+                    if (ods5 < 0)
+                        opt = OPT_C5N;
+                    else
+                        opt = OPT_C5;
+
+                    x = cmdl_len;
+                    cmdl_len += strlen( opt)+ 1;
+                    CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+                    strcpy( &the_cmd_line[ x], opt);
+                }
+            }
+        }
     }
 
     /*
@@ -1269,7 +1371,7 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /FRESHEN, /UPDATE, /DELETE, /[NO]MOVE, /COMMENTS[={ZIP_FILE|FILES}],",
 "    /LATEST, /TEST, /ADJUST_OFFSETS, /FIX_ARCHIVE[=FULL], /UNSFX",
 "  Modifiers include:",
-"    /EXCLUDE=(file list), /INCLUDE=(file list), /SINCE=\"creation time\",",
+"    /EXCLUDE=(file_list), /INCLUDE=(file list), /SINCE=\"creation_time\",",
 #if CRYPT
 "\
     /QUIET,/VERBOSE[=MORE],/[NO]RECURSE,/[NO]DIRNAMES,/JUNK,/ENCRYPT[=\"pwd\"],\
@@ -1278,7 +1380,8 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /QUIET, /VERBOSE[=MORE], /[NO]RECURSE, /[NO]DIRNAMES, /JUNK,",
 #endif /* ?CRYPT */
 "    /[NO]KEEP_VERSION, /[NO]VMS, /[NO]PKZIP, /TRANSLATE_EOL[={LF|CRLF}],",
-"    /[NO]EXTRA_FIELDS /LEVEL=[0-9], /TEMP_PATH=directory, /BATCH[=list file]"
+"    /[NO]EXTRA_FIELDS /LEVEL=[0-9], /TEMP_PATH=directory, /BATCH[=list_file]",
+"    /[NO]PRESERVE_CASE[=([NO]ODS{2|5}[,...])]"
   };
 
   if (!show_VMSCLI_help) {

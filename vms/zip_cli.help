@@ -554,8 +554,7 @@ End-of-File (EOF) marker.
 
 /VMS provides good fidelity for well-formed files (no data past EOF)
 when unpacked on a VMS system.  Also, some types of file (notably
-Stream_LF text files and fixed-512 binary files) will be unpacked as
-expected on a non-VMS system.
+Stream_LF text files) will be unpacked as expected on a non-VMS system.
 
 /VMS=ALL provides good fidelity, even for files with data past EOF, when
 unpacked on a VMS system.  However, the data from beyond the EOF marker
@@ -704,10 +703,10 @@ with the -h command-line option:
 |  -V   save VMS file attributes
 |  -VV  save VMS file attributes, and all allocated blocks in files
 |  -w   append the VMS version number to name stored in zip file
-|  -ww  append the VMS version number to name stored in zip file as ".nnn"
 |  -x   exclude names matching the following patterns
 |  -x@  exclude names matching the patterns listed in "file"
 |  -X   suppress storing of any extra file attributes
+|  -Y   append the VMS version number to name stored in zip file as ".nnn"
 |  -z   add zipfile comment
 |  -0   store only
 |  -1   compress faster

@@ -284,6 +284,8 @@ extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
 #ifdef VMS
    extern int vmsver;           /* Append VMS version number to file names */
    extern int vms_native;       /* Store in VMS format */
+   extern int vms_case_2;       /* ODS2 file name case in VMS. -1: down. */
+   extern int vms_case_5;       /* ODS5 file name case in VMS. +1: preserve. */
 #endif /* VMS */
 #if defined(OS2) || defined(WIN32)
    extern int use_longname_ea;   /* use the .LONGNAME EA as the file's name */
@@ -313,12 +315,31 @@ extern int linkput;             /* Store symbolic links as such */
 extern int noisy;               /* False for quiet operation */
 extern int extra_fields;        /* do not create extra fields */
 #ifdef WIN32
- extern int use_privileges;  /* use security privilege overrides */
+ extern int use_privileges;     /* use security privilege overrides */
 #endif
+extern int use_descriptors;     /* use data descriptors (extended headings) */
+extern int zip_to_stdout;       /* output to stdout */
 #ifdef ZIP64_SUPPORT            /* zip64 globals 10/4/03 E. Gordon */
- extern int force_zip64;     /* force use of zip64 when streaming from stdin */
- extern int zip64_entry;     /* current entry needs Zip64 */
- extern int zip64_archive;   /* at least 1 entry needs zip64 */
+ extern int force_zip64;        /* force use of zip64 when streaming from stdin */
+ extern int zip64_entry;        /* current entry needs Zip64 */
+ extern int zip64_archive;      /* at least 1 entry needs zip64 */
+#endif
+#ifdef SPLIT_SUPPORT
+ extern ulg    current_disk;    /* current disk number */
+ extern ulg    cd_start_disk;   /* central directory start disk */
+ extern zoff_t cd_start_offset; /* offset of start of cd on cd start disk */
+ extern zoff_t cd_entries_this_disk; /* cd entries this disk */
+ extern zoff_t total_cd_entries; /* total cd entries */
+  /* for split method 1 (keep split with local header open and update) */
+ extern FILE  *current_local_file; /* file pointer for current local header */
+ extern ulg    current_local_disk; /* disk with current local header */
+ extern zoff_t current_local_offset; /* offset to start of current local header */
+  /* global */
+ extern int read_split_archive; /* 1=scanzipf_reg detected spanning signature */
+ extern int split_method;       /* 0=no splits, 1=update LHs, 2=data descriptors */
+ extern uzoff_t split_size;     /* how big each split should be */
+ extern uzoff_t bytes_prev_splits; /* total bytes written to all splits before this */
+ extern uzoff_t bytes_this_split_entry; /* bytes written for this entry in this split */
 #endif
 extern char *key;               /* Scramble password or NULL */
 extern char *tempath;           /* Path for temporary files */
@@ -529,9 +550,13 @@ int   shmatch      OF((ZCONST char *, ZCONST char *, int));
 #endif /* DOS || WIN32 */
 #endif /* !UTIL */
 
+/* functions to convert zoff_t to a string */
+char *zip_fuzofft      OF((uzoff_t, char *, char*));
+char *zip_fzofft       OF((zoff_t, char *, char*));
+
 /* read and write number strings like 10M */
-int WriteNumString OF((zoff_t num, char *outstring));
-zoff_t ReadNumString OF((char *numstring));
+int WriteNumString OF((uzoff_t num, char *outstring));
+uzoff_t ReadNumString OF((char *numstring));
 
 void init_upper    OF((void));
 int  namecmp       OF((ZCONST char *string1, ZCONST char *string2));

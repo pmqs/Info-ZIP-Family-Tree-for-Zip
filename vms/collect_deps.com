@@ -1,4 +1,6 @@
-$!                                              16 December 2004.  SMS.
+$!                                              3 March 2005.  SMS.
+$!
+$! Info-ZIP VMS accessory procedure.
 $!
 $!    Collect all source file dependencies specified by P2,
 $!    and add P3 prefix.
@@ -21,8 +23,6 @@ $    dev_dir_lose = dev_lose+ dir_lose- suffix
 $ else
 $    dev_dir_lose = dev_lose+ dir_lose- "]"
 $ endif
-$!
-$ write sys$output " d_d_l: ""''dev_dir_lose'""."
 $!
 $! For portability, make the output file record format Stream_LF.
 $!

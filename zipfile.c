@@ -17,8 +17,7 @@
 #include "revision.h"
 
 #ifdef VMS
-#  include <rms.h>
-#  include <starlet.h>
+#  include "vms/vms.h"
 #  include "vms/vmsmunch.h"
 #  include "vms/vmsdefs.h"
 #endif
@@ -108,6 +107,7 @@
 
 /* zip64 support 08/31/2003 R.Nausedat */
 
+/* EOCDL_SIG used to detect Zip64 archive */
 #define ZIP64_EOCDL_SIG                  0x07064b50
 
 #ifdef ZIP64_SUPPORT           
@@ -218,7 +218,7 @@ ZCONST char *n;         /* name to find */
 
 #endif /* !UTIL */
 
-#ifndef VMS
+#ifndef VMS     /* See [.VMS]VMS.C for VMS-specific ziptyp(). */
 #  ifndef PATHCUT
 #    define PATHCUT '/'
 #  endif
@@ -311,62 +311,7 @@ char *s;                /* file name to force to zip */
 #endif /* !RISCOS */
   return t;
 }
-
-#else /* VMS */
-
-# define PATHCUT ']'
-
-char *ziptyp(s)
-char *s;
-{   int status;
-    struct FAB fab;
-    struct NAM nam;
-    static char zero=0;
-    char result[NAM$C_MAXRSS+1],exp[NAM$C_MAXRSS+1];
-    char *p;
-
-    fab = cc$rms_fab;
-    nam = cc$rms_nam;
-
-    fab.fab$l_fna = s;
-    fab.fab$b_fns = strlen(fab.fab$l_fna);
-
-    fab.fab$l_dna = "sys$disk:[].zip";          /* Default fspec */
-    fab.fab$b_dns = strlen(fab.fab$l_dna);
-
-    fab.fab$l_nam = &nam;
-
-    nam.nam$l_rsa = result;                     /* Put resultant name of */
-    nam.nam$b_rss = sizeof(result)-1;           /* existing zipfile here */
-
-    nam.nam$l_esa = exp;                        /* For full spec of */
-    nam.nam$b_ess = sizeof(exp)-1;              /* file to create */
-
-    status = sys$parse(&fab);
-    if( (status & 1) == 0 )
-        return &zero;
-
-    status = sys$search(&fab);
-    if( status & 1 )
-    {               /* Existing ZIP file */
-        int l;
-        if( (p=malloc( (l=nam.nam$b_rsl) + 1 )) != NULL )
-        {       result[l] = 0;
-                strcpy(p,result);
-        }
-    }
-    else
-    {               /* New ZIP file */
-        int l;
-        if( (p=malloc( (l=nam.nam$b_esl) + 1 )) != NULL )
-        {       exp[l] = 0;
-                strcpy(p,exp);
-        }
-    }
-    return p;
-}
-
-#endif  /* VMS */
+#endif  /* ndef VMS */
 
 # ifdef ZIP64_SUPPORT           /* zip64 support 08/31/2003 R.Nausedat */
 
@@ -497,8 +442,9 @@ local void adjust_zip_local_entry(pZipListEntry)
   }
 }
 
-/* adds a zip64 extra field to the data the cextra member of zlist points to. If there is */
-/* already a zip64 extra field present delete it first.                                   */
+/* adds a zip64 extra field to the data the cextra member of zlist points to. If
+ * there is already a zip64 extra field present delete it first.
+ */
 local int add_central_zip64_extra_field(pZipListEntry)
   struct zlist far *pZipListEntry;
 {
@@ -511,17 +457,27 @@ local int add_central_zip64_extra_field(pZipListEntry)
   extent len;
 
   /* get length of ef based on which fields exceed limits */
+  /* AppNote says:
+   *      The order of the fields in the ZIP64 extended 
+   *      information record is fixed, but the fields will
+   *      only appear if the corresponding Local or Central
+   *      directory record field is set to 0xFFFF or 0xFFFFFFFF.
+   */
   efsize = ZIP_EF_HEADER_SIZE;             /* type + size */
-  if (pZipListEntry->dsk > ZIP_UWORD16_MAX) {
+  if (pZipListEntry->dsk > ZIP_UWORD16_MAX || force_zip64) {
+    /* disk number */
     efsize += 4;
   }
   if (pZipListEntry->off > ZIP_UWORD32_MAX || force_zip64) {
+    /* offset */
     efsize += 8;
   }
   if (pZipListEntry->siz > ZIP_UWORD32_MAX || force_zip64) {
+    /* uncompressed size */
     efsize += 8;
   }
   if (pZipListEntry->len > ZIP_UWORD32_MAX || force_zip64) {
+    /* compressed size */
     efsize += 8;
   }
     
@@ -542,8 +498,9 @@ local int add_central_zip64_extra_field(pZipListEntry)
     pExtraFieldPtr = get_extra_field(ZIP64_EF_TAG, pZipListEntry->cextra, pZipListEntry->cext);
     if( pExtraFieldPtr == NULL )
     {
-      /* ... we don't, so re-malloc enough memory for the old extra data plus */
-      /* the size of the zip64 extra field */
+      /* ... we don't, so re-malloc enough memory for the old extra data plus
+       * the size of the zip64 extra field
+       */
       if ((pExtraFieldPtr = (char *) malloc(efsize + pZipListEntry->cext)) == NULL) {
         return ZE_MEM;
       }
@@ -556,13 +513,17 @@ local int add_central_zip64_extra_field(pZipListEntry)
     }
     else
     {
-      /* ... we have. sort out the existing zip64 extra field and remove it from pZipListEntry->cextra, */
-      /* re-malloc enough memory for the old extra data left plus the size of the zip64 extra field     */
+      /* ... we have. sort out the existing zip64 extra field and remove it from
+       * pZipListEntry->cextra, re-malloc enough memory for the old extra data
+       * left plus the size of the zip64 extra field
+       */
       usTemp = SH(pExtraFieldPtr + 2);
-      /* if pZipListEntry->cextra == pExtraFieldPtr and pZipListEntry->cext == usTemp + efsize          */
-      /* we should have only one extra field, and this is a zip64 extra field. as some zip tools seem to        */
-      /* require fixed zip64 extra fields we have to check if usTemp + ZIP_EF_HEADER_SIZE is equal to           */
-      /* ZIP64_LARGE_FILE_HEAD_SIZE. if it isn't, we free the old extra field and allocate memory for a new one */
+      /* if pZipListEntry->cextra == pExtraFieldPtr and pZipListEntry->cext == usTemp + efsize
+       * we should have only one extra field, and this is a zip64 extra field. as some
+       * zip tools seem to require fixed zip64 extra fields we have to check if
+       * usTemp + ZIP_EF_HEADER_SIZE is equal to ZIP64_LARGE_FILE_HEAD_SIZE. if it
+       * isn't, we free the old extra field and allocate memory for a new one
+       */
       if( pZipListEntry->cext == (extent)(usTemp + ZIP_EF_HEADER_SIZE) )
       {
         /* just Zip64 extra field in extra field */
@@ -613,7 +574,7 @@ local int add_central_zip64_extra_field(pZipListEntry)
     write_int64_to_mem(pZipListEntry->off, pExtraFieldPtr + esize);
     esize += 8;
   }
-  if (pZipListEntry->dsk > ZIP_UWORD16_MAX) {
+  if (pZipListEntry->dsk > ZIP_UWORD16_MAX || force_zip64) {
     write_unsigned_to_mem(pZipListEntry->dsk, pExtraFieldPtr + esize);
   }
   
@@ -712,7 +673,12 @@ local int add_local_zip64_extra_field(pZEntry)
   return ZE_OK;
 }
 
-# else /* def ZIP64_SUPPORT */
+# endif /* ZIP64_SUPPORT */
+
+
+#if 0
+zoff_t ffile_size OF((FILE *));
+
 
 /* 2004-12-06 SMS.
  * ffile_size() returns reliable file size or EOF.
@@ -721,54 +687,54 @@ local int add_local_zip64_extra_field(pZEntry)
 zoff_t ffile_size( file)
 FILE *file;
 {
-    int sts;
-    size_t siz;
-    zoff_t ofs;
-    char waste[ 4];
+  int sts;
+  size_t siz;
+  zoff_t ofs;
+  char waste[ 4];
 
-    /* Seek to actual EOF. */
-    sts = zfseeko( file, 0, SEEK_END);
-    if (sts != 0)
+  /* Seek to actual EOF. */
+  sts = zfseeko( file, 0, SEEK_END);
+  if (sts != 0)
+  {
+    /* fseeko() failed.  (Unlikely.) */
+    ofs = EOF;
+  }
+  else
+  {
+    /* Get apparent offset at EOF. */
+    ofs = zftello( file);
+    if (ofs < 0)
     {
-        /* fseeko() failed.  (Unlikely.) */
-        ofs = EOF;
+      /* Offset negative (overflow).  File too big. */
+      ofs = EOF;
     }
     else
     {
-        /* Get apparent offset at EOF. */
-        ofs = zftello( file);
-        if (ofs < 0)
+      /* Seek to apparent EOF offset.
+         Won't be at actual EOF if offset was truncated.
+      */
+      sts = zfseeko( file, ofs, SEEK_SET);
+      if (sts != 0)
+      {
+        /* fseeko() failed.  (Unlikely.) */
+        ofs = EOF;
+      }
+      else
+      {
+        /* Read a byte at apparent EOF.  Should set EOF flag. */
+        siz = fread( waste, 1, 1, file);
+        if (feof( file) == 0)
         {
-            /* Offset negative (overflow).  File too big. */
-            ofs = EOF;
+          /* Not at EOF, but should be.  File too big. */
+          ofs = EOF;
         }
-        else
-        {
-            /* Seek to apparent EOF offset.
-               Won't be at actual EOF if offset was truncated.
-            */
-            sts = zfseeko( file, ofs, SEEK_SET);
-            if (sts != 0)
-            {
-                /* fseeko() failed.  (Unlikely.) */
-                ofs = EOF;
-            }
-            else
-            {
-                /* Read a byte at apparent EOF.  Should set EOF flag. */
-                siz = fread( waste, 1, 1, file);
-                if (feof( file) == 0)
-                {
-                    /* Not at EOF, but should be.  File too big. */
-                    ofs = EOF;
-                }
-            }
-        }
+      }  
     }
-return ofs;
+  }
+  sts = zfseeko( file, 0, SEEK_SET);
+  return ofs;
 }
-
-# endif /* def ZIP64_SUPPORT */
+#endif
 
 
 #ifndef UTIL
@@ -879,15 +845,18 @@ local int scanzipf_fix(f)
     struct zlist far * far *x;  /* pointer last entry's link */
     struct zlist far *z;        /* current zip entry structure */
 
+#if 0
 #ifndef ZIP64_SUPPORT
 
 /* 2004-12-06 SMS.
  * Check for too-big file before doing any serious work.
  */
     if (ffile_size( f) == EOF)
-      return ZE_LARGE;
+      return ZE_ZIP64;
 
 #endif /* ndef ZIP64_SUPPORT */
+#endif
+
 
     /* Get any file attribute valid for this OS, to set in the central
      * directory when fixing the archive:
@@ -1097,8 +1066,7 @@ local int scanzipf_fix(f)
         s = p - (z->off + 4 + LOCHEAD + n + z->ext);
         if (s != z->siz) {
           fprintf( mesg, " compressed size %s, actual size %s for %s\n",
-                   zip_fzofft(z->siz, NULL, "u"),
-                   zip_fzofft(s, NULL, "u"), z->zname);
+                   zip_fzofft(z->siz, NULL, "u"), zip_fzofft(s, NULL, "u"), z->zname);
           z->siz = s;
         }
         /* next LOCSIG already read at this point, don't read it again: */
@@ -1127,7 +1095,7 @@ local int scanzipf_fix(f)
 
     if (zipbeg && noisy)
       fprintf( mesg, "%s: adjusting offsets for a preamble of %s bytes\n",
-               zipfile, zip_fzofft(zipbeg, NULL, NULL));
+               zipfile, zip_fzofft(zipbeg, NULL, "d"));
     return ZE_OK;
 }
 
@@ -1167,15 +1135,19 @@ local int scanzipf_reg(f)
 # endif
     zoff_t deltaoff;
 
+
+#if 0
 #ifndef ZIP64_SUPPORT
 
 /* 2004-12-06 SMS.
  * Check for too-big file before doing any serious work.
  */
     if (ffile_size( f) == EOF)
-      return ZE_LARGE;
+      return ZE_ZIP64;
 
 #endif /* ndef ZIP64_SUPPORT */
+#endif
+
 
     buf = malloc(4096 + 4);
     if (buf == NULL)
@@ -1184,6 +1156,11 @@ local int scanzipf_reg(f)
 #ifdef HANDLE_AMIGA_SFX
     amiga_sfx_offset = (fread(buf, 1, 4, f) == 4 && LG(buf) == 0xF3030000);
     /* == 1 if this file is an Amiga executable (presumably UnZipSFX) */
+#endif
+#ifdef SPLIT_SUPPORT
+    /* detect spanning signature */
+    zfseeko(f, 0, SEEK_SET);
+    read_split_archive = (fread(buf, 1, 4, f) == 4 && LG(buf) == 0x08074b50L);
 #endif
     found = 0;
     t = &buf[4096];
@@ -1284,16 +1261,16 @@ local int scanzipf_reg(f)
     if (LG(b) == ZIP64_EOCDL_SIG) {
       zipwarn("found Zip64 EOCDL signature - this may be a Zip64 archive", "");
       zipwarn("Zip64 not supported - use Zip 3.0 or later", "");
-      return ZE_FORM;
+      return ZE_ZIP64;
     }
 
     /* now should be back at the EOCD signature */
     if (fread(b, 4, 1, f) != 1) {
-      zipwarn("unable to relative seek in archive being read", "");
+      zipwarn("unable to relative seek in archive being read (1)", "");
       return ZE_READ;
     }
-    if (LG(t) == ENDSIG) {
-      zipwarn("unable to relative seek in archive being read", "");
+    if (LG(t) != ENDSIG) {
+      zipwarn("unable to relative seek in archive being read (2)", "");
       return ZE_FORM;
     }
 #endif
@@ -1323,65 +1300,68 @@ local int scanzipf_reg(f)
 #ifdef ZIP64_SUPPORT
     /* account for Zip64 EOCD Record and Zip64 EOCD Locator */
 
-    /* Z64 EOCDL should be just before EOCD */
+    /* Z64 EOCDL should be just before EOCD (unless this is an empty archive) */
     cenbeg = zipbeg - ZIP64_EOCDL_OFS_SIZE;
-    /* look for signature */
-    if (zfseeko(f, cenbeg, SEEK_SET)) {
-      zipwarn("end of file seeking Z64EOCDL", "");
-      return ZE_FORM;
-    }
-    if (fread(bf, 4, 1, f) != 1) {
-      ziperr(ZE_FORM, "read error");
-    }
-    u4 = LG(bf);
-    if (u4 == ZIP64_EOCDL_SIG) {
-      /* found Zip64 EOCD Locator */
-      /* check for disk information */
-      zfseeko(f, cenbeg + ZIP64_EOCDL_OFS_TOTALDISKS, SEEK_SET);
+    /* check for empty archive */
+    if (cenbeg >= 0) {
+      /* look for signature */
+      if (zfseeko(f, cenbeg, SEEK_SET)) {
+        zipwarn("end of file seeking Z64EOCDL", "");
+        return ZE_FORM;
+      }
       if (fread(bf, 4, 1, f) != 1) {
         ziperr(ZE_FORM, "read error");
       }
       u4 = LG(bf);
-      if (u4 != 1) {
-        ziperr(ZE_FORM, "multiple disk archives not yet supported");
-      }
+      if (u4 == ZIP64_EOCDL_SIG) {
+        /* found Zip64 EOCD Locator */
+        /* check for disk information */
+        zfseeko(f, cenbeg + ZIP64_EOCDL_OFS_TOTALDISKS, SEEK_SET);
+        if (fread(bf, 4, 1, f) != 1) {
+          ziperr(ZE_FORM, "read error");
+        }
+        u4 = LG(bf);
+        if (u4 != 1) {
+          ziperr(ZE_FORM, "multiple disk archives not yet supported");
+        }
 
-      /* look for Zip64 EOCD Record */
-      zfseeko(f, cenbeg + ZIP64_EOCDL_OFS_EOCD_START, SEEK_SET);
-      if (fread(bf, 8, 1, f) != 1) {
-       ziperr(ZE_FORM, "read error");
+        /* look for Zip64 EOCD Record */
+        zfseeko(f, cenbeg + ZIP64_EOCDL_OFS_EOCD_START, SEEK_SET);
+        if (fread(bf, 8, 1, f) != 1) {
+         ziperr(ZE_FORM, "read error");
+        }
+        z64eocd = LLG(bf);
+        if (zfseeko(f, z64eocd, SEEK_SET)) {
+          ziperr(ZE_FORM, "error searching for Z64 EOCD Record");
+        }
+        if (fread(bf, 4, 1, f) != 1) {
+         ziperr(ZE_FORM, "read error");
+        }
+        u4 = LG(bf);
+        if (u4 != ZIP64_EOCD_SIG) {
+          ziperr(ZE_FORM, "Z64 EOCD not found but Z64 EOCD Locator exists");
+        }
+        /* get size of CD */
+        zfseeko(f, z64eocd + ZIP64_EOCD_OFS_SIZE, SEEK_SET);
+        if (fread(bf, 8, 1, f) != 1) {
+         ziperr(ZE_FORM, "read error");
+        }
+        censiz = LLG(bf);
+        /* get start of CD */
+        zfseeko(f, z64eocd + ZIP64_EOCD_OFS_CD_START, SEEK_SET);
+        if (fread(bf, 8, 1, f) == (size_t) -1) {
+         ziperr(ZE_FORM, "read error");
+        }
+        cenbeg = LLG(bf);
+        u8 = z64eocd - cenbeg;
+        deltaoff = adjust ? u8 - censiz : 0L;
+      } else {
+        /* assume no Locator and no Zip64 EOCD Record */
+        censiz = LG(ENDSIZ + b);
+        cenbeg = LG(b + ENDOFF);
+        u8 = zipbeg - censiz;
+        deltaoff = adjust ? u8 - censiz : 0L;
       }
-      z64eocd = LLG(bf);
-      if (zfseeko(f, z64eocd, SEEK_SET)) {
-        ziperr(ZE_FORM, "error searching for Z64 EOCD Record");
-      }
-      if (fread(bf, 4, 1, f) != 1) {
-       ziperr(ZE_FORM, "read error");
-      }
-      u4 = LG(bf);
-      if (u4 != ZIP64_EOCD_SIG) {
-        ziperr(ZE_FORM, "Z64 EOCD not found but Z64 EOCD Locator exists");
-      }
-      /* get size of CD */
-      zfseeko(f, z64eocd + ZIP64_EOCD_OFS_SIZE, SEEK_SET);
-      if (fread(bf, 8, 1, f) != 1) {
-       ziperr(ZE_FORM, "read error");
-      }
-      censiz = LLG(bf);
-      /* get start of CD */
-      zfseeko(f, z64eocd + ZIP64_EOCD_OFS_CD_START, SEEK_SET);
-      if (fread(bf, 8, 1, f) == (size_t) -1) {
-       ziperr(ZE_FORM, "read error");
-      }
-      cenbeg = LLG(bf);
-      u8 = z64eocd - cenbeg;
-      deltaoff = adjust ? u8 - censiz : 0L;
-    } else {
-      /* assume no Locator and no Zip64 EOCD Record */
-      censiz = LG(ENDSIZ + b);
-      cenbeg = LG(b + ENDOFF);
-      u8 = zipbeg - censiz;
-      deltaoff = adjust ? u8 - censiz : 0L;
     }
 #else
 /*
@@ -1392,6 +1372,11 @@ local int scanzipf_reg(f)
     /* offset to first entry of archive */
     deltaoff = adjust ? cenbeg - LG(b + ENDOFF) : 0L;
 #endif
+
+    if (cenbeg < 0) {
+      /* zip file seems empty */
+      return ZE_OK;
+    }
 
     if (zfseeko(f, cenbeg, SEEK_SET) != 0) {
         perror("fseek");
@@ -1649,7 +1634,7 @@ should be valid. comments are welcome
     if (zipbeg && noisy)
       fprintf(mesg, "%s: %s a preamble of %s bytes\n",
               zipfile, adjust ? "adjusting offsets for" : "found",
-              zip_fzofft(zipbeg, NULL, NULL));
+              zip_fzofft(zipbeg, NULL, "d"));
 #ifdef HANDLE_AMIGA_SFX
     if (zipbeg < 12 || (zipbeg & 3) != 0 /* must be longword aligned */)
       amiga_sfx_offset = 0;
@@ -1809,12 +1794,18 @@ int putlocal(z, f)
      
      For the local header if the extra field is created must store both
      uncompressed and compressed sizes.  10/6/03 EG
+
+     This assumes that for large entries the compressed size won't need a
+     Zip64 extra field if the uncompressed size did not.  12/30/04 EG
+
+     If streaming or use_descriptors is set then always create a Zip64 extra field
+     flagging the data descriptor as being in Zip64 format.  12/30/04 EG
    */
 #ifdef ZIP64_SUPPORT
   zip64_entry = 0;
 
-  if( z->siz > ZIP_UWORD32_MAX || z->len > ZIP_UWORD32_MAX ||
-      force_zip64 )
+  if (z->siz > ZIP_UWORD32_MAX || z->len > ZIP_UWORD32_MAX ||
+      force_zip64 || use_descriptors)
   {
     zip64_entry = 1;        /* header of this entry has a field needing Zip64 */
     zip64_archive = 1;      /* this archive needs Zip64 (version 4.5 unzipper) */
@@ -1832,8 +1823,8 @@ int putlocal(z, f)
 #ifdef ZIP64_SUPPORT        /* zip64 support 09/02/2003 R.Nausedat */
                             /* changes 10/5/03 EG */
   if (zip64_entry) {
-    PUTLG(0xFFFFFFFF, f);   /* uncompressed size - Zip64 flag */
     PUTLG(0xFFFFFFFF, f);   /* compressed size - Zip64 flag */
+    PUTLG(0xFFFFFFFF, f);   /* uncompressed size - Zip64 flag */
   } else {
     PUTLG((ulg)z->siz, f);
     PUTLG((ulg)z->len, f);
@@ -1867,11 +1858,10 @@ int putextended(z, f)
   PUTLG(EXTLOCSIG, f);
   PUTLG(z->crc, f);
 #ifdef ZIP64_SUPPORT
-  if (zip64_entry) {
+  if (zip64_entry || use_descriptors) {
     /* use Zip64 entries */
     PUTLLG(z->siz, f);
     PUTLLG(z->len, f);
-  } else {
     /* This is rather klugy as the AppNote handles this poorly.  Typically
        we don't know at this point if we are writing a Zip64 archive or not,
        unless a file has needed Zip64.  This is particularly annoying here
@@ -1886,6 +1876,7 @@ int putextended(z, f)
        data descriptors is messy and just not feasible when streaming
        to standard output.
 
+       This was the old thought:
        What we do here is to always write a standard data descriptor.  If the
        file has a large uncompressed or compressed size we set the field to
        the max field value, which we are defining as flagging the field as
@@ -1899,10 +1890,38 @@ int putextended(z, f)
        so just use those values which are correct, which seems to be what most
        unzips do.
 
+       After discussions with other groups this is the current thinking:
+       
+       If an entry is standard and the archive is updatable then seek back and
+       update the local header.  No change.
+
+       If an entry is zip64 and the archive is updatable assume the Zip64 extra
+       field was created and update it.  No change.
+
+       If data descriptors are needed then assume the archive is Zip64.  This is
+       a change and means if ZIP64_SUPPORT is enabled that any non-updatable archive
+       will be in Zip64 format and use Zip64 data deacriptors.
+
+       This should be compatible with other zippers that depend on the current
+       (though not perfect) AppNote description.
+
+       Here is the apparent industry interpretation of the standard for data descriptors:
+       Data descriptor size is determined for each entry.
+       If the local header version needed to extract is 45 or higher then the
+       entry can use Zip64 data descriptors but more checking is needed.
+       If Zip64 extra field is present then assume data descriptor is Zip64 and
+       local version needed to extract should be 45 or higher.
+       If standard data descriptor then local size fields are set to 0 and
+       correct sizes are in standard data descriptor.
+       If Zip64 data descriptor then local sizes are set to -1, Zip64 extra field
+       sizes are set to 0, and the correct sizes are in the Zip64 data descriptor.
+
        If anyone has some ideas on this I'd like to hear them.
 
-       7/24/04 EG
+       12/30/04 EG
     */
+#if 0
+  } else {
     if (z->siz > ZIP_UWORD32_MAX) {
       PUTLG(ZIP_UWORD32_MAX, f);
     } else {
@@ -1913,6 +1932,7 @@ int putextended(z, f)
     } else {
       PUTLG((ulg) z->len, f);
     }
+#endif
   }
 #else
   PUTLG(z->siz, f);

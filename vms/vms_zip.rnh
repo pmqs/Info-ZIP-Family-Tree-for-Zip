@@ -44,29 +44,30 @@
 .!              Added -P, -R, -i@, -x@ and -tt options, modified for Zip 2.2.
 .!      Christian Spieler       14 Oct 97
 .!              unified spelling of "Info-ZIP", final cleanups for 2.2.
-.!      Steven Schweda          24 Mar 2005
-.!              General update for version 3.0.
 .!
 .noflags
 .lm4 .rm72
 .indent -4
 1 ZIP
 .br
-Zip is a compression and file packaging utility for several operating
-systems, including Unix, VMS,  MSDOS, OS/2, Windows NT, Minix, Atari,
-Macintosh, Amiga and Acorn RISC OS.  It is analogous to a combination of
-tar and compress and is compatible with PKZIP (Phil Katz's ZIP) for
-MSDOS systems.
+Zip is a compression and file packaging utility for Unix, MSDOS, OS/2, and
+VMS.  It is analogous to a combination of tar and compress and is
+compatible with PKZIP (Phil Katz ZIP) for MSDOS systems.
 .sk
-A companion program, UnZip, unpacks  zip  archives.  Zip and UnZip can
-work with files produced by PKZIP, and PKZIP and PKUNZIP can work with
-files produced by Zip.
+There is a companion to Zip called UnZip (of course).  Zip and UnZip can
+work with files produced by PKZIP under MSDOS, and PKZIP and PKUNZIP can
+work with files produced by Zip.
+.sk
+Zip 2.2 is compatible with PKZIP 2.04.
+Note that PKUNZIP 1.10 cannot extract files produced by PKZIP 2.04
+or zip 2.2. You must use PKZIP 2.04g or unzip 5.0p1 (or later versions)
+to extract them.
 .sk
 For a brief help on Zip and UnZip, run each without specifying any
 parameters on the command line.
 .sk
-Zip is useful for packaging a set of files for distribution, for
-archiving files, and for saving disk space by temporarily compressing
+The program is useful for packaging a set of files for  distribution;
+for archiving files; and for saving disk space by temporarily compressing
 unused files or directories.
 .sk
 Zip puts one or more compressed files into a single "zipfile", along with
@@ -81,22 +82,16 @@ to be compressed.
 Format:
 .sk;.lm+1;.literal
 ZIP [-options] [-b path] [-n suffixes] [-t mmddyyyy] [-tt mmddyyyy]
-    [zipfile [file1 [file2 [...]]]] [-x list] [-i list]
+    zipfile file(s) [-x list] [-i list]
 .end literal;.lm-1
 .!------------------------------------------------------------------------------
 .indent -4
 2 Options
 .br
 The default action of Zip is to add or replace zipfile entries from list, which
-can include the special name -@ to read names from SYS$INPUT.  
-.sk
-With SET PROCESS /PARSE_STYLE = EXTENDED (available on recent non-VAX
-systems), Zip preserves the case of the command line.  Otherwise, mixed-
-or upper-case options and arguments must be quoted.  (For example,
-"-V".)
-.sk
-The following list of options was taken from the on-line help generated
-when Zip is run without any command-line parameters:
+can include the special name -@ to read names from SYS$INPUT.  The following
+list of options was taken from the on-line help generated when Zip is run
+without any command-line parameters:
 .sk
 .literal
   -A   adjust self-extracting exe
@@ -149,10 +144,10 @@ when Zip is run without any command-line parameters:
   -V   save VMS file attributes
   -VV  save VMS file attributes and all allocated blocks
   -w   save VMS version numbers in zipfile
-  -ww  save VMS version numbers in zipfile as ".nnn" instead of ";nnn"
   -x   exclude all names matching the following patterns
   -x@  exclude all names matching the patterns in "file"
   -X   suppress storing of any extra file attributes
+  -Y   save VMS version numbers in zipfile as ".nnn" instead of ";nnn"
   -z   add zipfile comment
   -0   store only
   -1   compress faster
@@ -381,7 +376,7 @@ comment followed by return, or just return for no comment.
 The -z option will prompt you for a multi-line comment for the entire
 zipfile.  This option can be used by itself, or in combination with other
 options.  The comment is ended by a line containing just a period, or an
-end of file condition (^D on Unix, ^Z on MSDOS, OS/2, and VMS).
+end of file condition (^D on Unix, ^Z on MSDOS, OS/2, and OpenVMS).
 .sk
 The -q (quiet) option eliminates the informational messages and comment
 prompts while Zip is operating.  This might be used in shell scripts, for
@@ -401,7 +396,7 @@ option.
 .sk
 The -X option (remember to quote it!) suppresses saving of additional
 "extra file attributes" in the zipfile. Its effect is to disable the
-VMS-only -V option (see below), and prevent storing of UNIX compatible
+VMS only -V option (see below), and prevent storing of UNIX compatible
 GMT modification time stamps. These UNIX compatible GMT time stamps
 -- which are quite useful when transporting Zip archives world wide (but
 are only recognized by Info-ZIP's UnZip 5.20 or later) --
@@ -410,13 +405,16 @@ version of Zip has the USE_EF_UT_TIME option compiled in).
 .sk
 Under VMS only, the -w option will append the version number of the files
 to the name and zip up multiple versions of files.  Without -w, Zip will
-only use the most recent version of the specified file(s).  -ww acts like
+only use the most recent version of the specified file(s).  -Y acts like
 -w, but the version numbers are stored as ".nnn" instead of ";nnn".
 .sk
 One more option that valid only under VMS is -V option. This option saves
 all (hopefully) file attributes needed to make EXACT copy of the
 file after extraction from archive. To extract a file with saved attributes,
-use UnZip version 5.20 or later.
+use UnZip version 5.20 or later. Note that to specify this option you should
+quote it ("-V"). Be carefull: it's rather hard (if possible at all) to extract
+a file archived on VMS with this option specified on other systems. See
+documentation on UnZip for further information.
 .sk
 The -l option translates the Unix end-of-line character LF into the
 MSDOS convention CR LF. This option should not be used on binary files.
@@ -485,103 +483,87 @@ information is especially valuable when reporting problems or bugs.
 .indent -4
 2 Copyright
 .br
-     Copyright (c) 1990-2003 Info-ZIP.  All rights reserved.
+     Copyright (C) 1990-1997 Mark Adler, Richard B. Wales, Jean-loup Gailly,
+     Onno van der Linden, Christian Spieler and Igor Mandrichenko.
+     Permission is granted to any individual or institution to use, copy, or
+     redistribute this software so long as all of the original files are
+     included, that it is not sold for profit, and that this copyright
+     notice is retained.
 .sk
-     This is version 2003-May-08 of the Info-ZIP copyright and license.
-     The definitive version of this document should be available at
-     ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely.
+     LIKE ANYTHING ELSE THAT'S FREE, ZIP AND ITS ASSOCIATED UTILITIES
+     ARE PROVIDED AS IS AND COME WITH NO WARRANTY OF ANY KIND, EITHER
+     EXPRESSED OR IMPLIED. IN NO EVENT WILL THE COPYRIGHT HOLDERS BE
+     LIABLE FOR ANY DAMAGES RESULTING FROM THE USE OF THIS SOFTWARE.
 .sk
-     For the purposes of this copyright and license, "Info-ZIP" is
-     defined as the following set of individuals:
-.sk
-     Mark Adler, John Bush, Karl Davis, Harald Denker, Jean-Michel Dubois,
-     Jean-loup Gailly, Hunter Goatley, Ian Gorman, Chris Herborth,
-     Dirk Haase, Greg Hartwig, Robert Heath, Jonathan Hudson, Paul Kienitz,
-     David Kirschbaum, Johnny Lee, Onno van der Linden, Igor Mandrichenko,
-     Steve P. Miller, Sergio Monesi, Keith Owens, George Petrov, Greg Roelofs,
-     Kai Uwe Rommel, Steve Salisbury, Dave Smith, Christian Spieler,
-     Antoine Verheijen, Paul von Behren, Rich Wales, Mike White
-.sk
-     This software is provided "as is," without warranty of any kind,
-     express or implied.  In no event shall Info-ZIP or its contributors
-     be held liable for any direct, indirect, incidental, special or
-     consequential damages arising out of the use of or inability to use
-     this software.
-.sk
-     Permission is granted to anyone to use this software for any purpose,
-     including commercial applications, and to alter it and redistribute it
-     freely, subject to the following restrictions:
-.sk
-    1. Redistributions of source code must retain the above copyright notice,
-       definition, disclaimer, and this list of conditions.
-.sk
-    2. Redistributions in binary form (compiled executables) must reproduce
-       the above copyright notice, definition, disclaimer, and this list of
-       conditions in documentation and/or other materials provided with the
-       distribution.  The sole exception to this condition is redistribution
-       of a standard UnZipSFX binary (including SFXWiz) as part of a
-       self-extracting archive; that is permitted without inclusion of this
-       license, as long as the normal SFX banner has not been removed from
-       the binary or disabled.
-.sk
-    3. Altered versions--including, but not limited to, ports to new operating
-       systems, existing ports with new graphical interfaces, and dynamic,
-       shared, or static library versions--must be plainly marked as such
-       and must not be misrepresented as being the original source.  Such
-       altered versions also must not be misrepresented as being Info-ZIP
-       releases--including, but not limited to, labeling of the altered
-       versions with the names "Info-ZIP" (or any variation thereof, including,
-       but not limited to, different capitalizations), "Pocket UnZip," "WiZ"
-       or "MacZip" without the explicit permission of Info-ZIP.  Such altered
-       versions are further prohibited from misrepresentative use of the
-       Zip-Bugs or Info-ZIP e-mail addresses or of the Info-ZIP URL(s).
-.sk
-    4. Info-ZIP retains the right to use the names "Info-ZIP," "Zip," "UnZip,"
-       "UnZipSFX," "WiZ," "Pocket UnZip," "Pocket Zip," and "MacZip" for its
-       own source and binary releases.
-.sk
-All bug reports or patches should go to zip-bugs via the web site
-contact form at http://www.Info-ZIP.org.
-Patches should be sent as unified or context diffs only (diff -u or
-diff -c).  
-.sk
-Any bug report should include the Zip version, any special compilation
-options (see zip -v), the host system type and operating system
-version, and any other relevant information (compiler version, lunar
-phase, ...).  
+     Please send bug reports or comments by email to:
+     Zip-Bugs@lists.wku.edu.  For bug reports, please include
+     the version of Zip (see zip -h), the make options you used to
+     compile it (see zip -v), the machine and operating system you are using,
+     and as much additional information as possible.
+     Thank you for your support.
 .!------------------------------------------------------------------------------
 .indent -4
 2 Acknowledgements
 .br
-       Thanks to R. P. Byrne for his Shrink.Pas program, which
-       inspired this project, and from which the shrink algorithm
-       was stolen; to Phil Katz for placing in the public domain
-       the zip file format, compression format, and .ZIP filename
-       extension, and for accepting minor changes to the file
-       format; to Steve Burg for clarifications on the deflate
-       format; to Haruhiko Okumura and Leonid Broukhis for pro-
-       viding some useful ideas for the compression algorithm; to
-       Keith Petersen, Rich Wales, Hunter Goatley and Mark Adler
-       for providing a mailing list and ftp site for the Info-ZIP
-       group to use; and most importantly, to the Info-ZIP group
-       itself (listed in the file infozip.who) without whose
-       tireless testing and bug-fixing efforts a portable zip
-       would not have been possible.  Finally we should thank
-       (blame) the first Info-ZIP moderator, David Kirschbaum,
-       for getting us into this mess in the first  place.
+     Thanks to R. P. Byrne  for  his  Shrink.Pas  program,  which
+     inspired  this  project, and from which the shrink algorithm
+     was stolen; to Phil Katz for placing in  the  public  domain
+     the  zip  file format, compression format, and .ZIP filename
+     extension, and for accepting minor changes to the file  for-
+     mat; to Steve Burg for clarifications on the deflate format;
+     to Keith Petersen, Rich Wales, Hunter Goatley and Mark Adler
+     for  providing  a mailing list and ftp site for the Info-ZIP
+     group to use; and most importantly, to  the  Info-ZIP  group
+     itself  (listed in the file infozip.who) without whose tire-
+     less testing and bug-fixing efforts a portable zip would not
+     have  been  possible.   Finally  we should thank (blame) the
+     first Info-ZIP moderator, David Kirschbaum, for  getting  us
+     into  this  mess  in  the  first place.
 .!------------------------------------------------------------------------------
 .indent -4
 2 Bugs
-.br
-     For the most portable archive, VMS file formats should be
-     restricted to Stream_LF and 512-byte fixed-length record file
-     formats.  "Zip -V" (or -VV) should preserve all RMS file attributes
-     for restoration on a VMS system, but file formats which include
-     embedded byte counts and other such data may be of limited use on
-     other systems
+.sk
+     Zip 2.2 is not compatible with PKUNZIP 1.10. Use Zip 1.1 instead
+     to produce zip archives which can be extracted by PKUNZIP 1.10.
+.sk
+     WARNING: zip files produced by this version of zip must not be
+     *updated* by zip 1.0 or PKZIP 1.10 or PKZIP 1.93a, if they contain
+     encrypted members, or if they have been produced in a pipe or on a non
+     seekable device. The old versions of zip or pkzip would destroy the
+     zip structure. The old versions can list the contents of the zip file
+     but cannot extract it anyway (because of the new compression algorithm).
+     If you do not use encryption and use regular disk files, you do
+     not have to care about this problem.
+.sk
+     Under VMS, not all of the odd file formats are treated properly.
+     Only zipfiles of format stream-LF and fixed length 512 byte are
+     expected to work with Zip.  Others can be converted using Rahul
+     Dhesi's BILF program.  This version of Zip handles some of the
+     conversion internally.  The use of the "-V" option to save the
+     VMS attributes should work without problem for at least all types
+     of sequential files.  Beginning with Zip 2.2, the "-V" option uses
+     a new format to store the VMS attributes that should now allow
+     proper restoration of all sorts of indexed files. It has been
+     approved that there are problems with VMS UnZip to restore some
+     indexed files which were saved with previous versions of Zip.
 .sk
      When using Kermit to transfer zipfiles from VMS to MSDOS, type "set
      file type block" on the VMS side.  When transfering from MSDOS to VMS,
      type "set file type fixed" on the VMS machine.  In both cases, type
      "set file type binary" on MSDOS.
+.sk
+     Under VMS, zip hangs for file specification that uses DECnet
+     syntax (foo::*.*).
+.sk
+     LIKE ANYTHING ELSE THAT'S FREE, ZIP AND ITS ASSOCIATED UTILITIES
+     ARE PROVIDED AS IS AND COME WITH NO WARRANTY OF ANY KIND, EITHER
+     EXPRESSED OR IMPLIED. IN NO EVENT WILL THE COPYRIGHT HOLDERS BE
+     LIABLE FOR ANY DAMAGES RESULTING FROM THE USE OF THIS SOFTWARE.
+.sk
+     That having been said, please send any problems or comments
+     via email to the Internet address Zip-Bugs@lists.wku.edu.  For
+     bug reports, please include the version of Zip, the make
+     options you used to compile it, the machine and operating
+     system you are using, and as much additional information as
+     possible.  Thank you for your support.
 .!------------------------------------------------------------------------------

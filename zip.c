@@ -398,7 +398,11 @@ local void help()
 
   /* help array */
   static ZCONST char *text[] = {
+#ifdef VMS
+"Zip %s (%s). Usage: zip==\"$disk:[dir]zip.exe\"",
+#else
 "Zip %s (%s). Usage:",
+#endif
 #ifdef MACOS
 "zip [-options] [-b fm] [-t mmddyyyy] [-n suffixes] [zipfile list] [-xi list]",
 "  The default action is to add or replace zipfile entries from list.",
@@ -458,8 +462,12 @@ local void help()
 "  -A   adjust self-extracting exe   -J   junk zipfile prefix (unzipsfx)",
 "  -T   test zipfile integrity       -X   eXclude eXtra file attributes",
 #ifdef VMS
+"  -C   preserve case of file names  -C-  down-case all file names",
+"  -C2  preserve case of ODS2 names  -C2- down-case ODS2 file names* (*=default)",
+"  -C5  preserve case of ODS5 names* -C5- down-case ODS5 file names",
 "  -V   save VMS file attributes (-VV also save allocated blocks past EOF)",
-"  -w   append version number to stored name",
+"  -w   store file version numbers\
+   -Y   store file version numbers as \".nnn\"",
 #endif /* def VMS */
 #ifdef WIN32
 "  -!   use privileges (if granted) to obtain all aspects of WinNT security",
@@ -557,7 +565,9 @@ local void help_extended()
 "Dots, counts:",
 "  -db       display a running count of bytes processed and bytes to go",
 "  -dc       display a running count of entries done and entries to go",
-"  -dd size  display dots every size MB while processing files (0 no dots)",
+"  -dd [siz] display dots every siz MB while processing files (0 no dots)",
+"   defaults to 10 (but dd will try read siz if same arg continues (-ddstuff)",
+"   or next arg not option (-dbdcdd archivename), but -dd \"\" works)",
 "",
 "More option highlights (see manual for additional options and details):",
 "  -b dir    when creating or updating archive create temp archive in dir",
@@ -1060,22 +1070,25 @@ ZCONST char *zfn;
    multichar short options set to arbitrary unused constant. */
 #define o_db            0x101
 #define o_dc            0x102
-#define o_df            0x103
-#define o_dots          0x104
-#define o_FF            0x105
-#define o_h2            0x106
-#define o_jj            0x107
-#define o_ll            0x108
-#define o_nw            0x109
-#define o_sc            0x110
-#define o_sd            0x111
-#define o_so            0x112
-#define o_sp            0x113
-#define o_tt            0x114
-#define o_VV            0x115
-#define o_z64           0x116
+#define o_des           0x103
+#define o_df            0x104
+#define o_dots          0x105
+#define o_FF            0x106
+#define o_h2            0x107
+#define o_jj            0x108
+#define o_ll            0x109
+#define o_nw            0x110
+#define o_sc            0x111
+#define o_sd            0x112
+#define o_so            0x113
+#define o_sp            0x114
+#define o_tt            0x115
+#define o_VV            0x116
+#define o_z64           0x117
+#define o_C2            0x118
+#define o_C5            0x119
 
-/* the below is mainly from the main command line
+/* the below is mainly from the old main command line
    switch with few changes */
 struct option_struct options[] = {
   /* short longopt        value_type        negatable        ID    name */
@@ -1101,10 +1114,16 @@ struct option_struct options[] = {
     {"A",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'A',  "adjust sfx"},
     {"b",  "temp-path",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'b',  "temp dir"},
     {"c",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'c',  "comments"},
+#ifdef VMS
+    {"C",  "preserve-case",   o_NO_VALUE,   o_NEGATABLE,     'C',  "Preserve (C-: down-) case all on VMS"},
+    {"C2", "preserve-case-2", o_NO_VALUE,   o_NEGATABLE,     o_C2, "Preserve (C2-: down-) case ODS2 on VMS"},
+    {"C5", "preserve-case-5", o_NO_VALUE,   o_NEGATABLE,     o_C5, "Preserve (C5-: down-) case ODS5 on VMS"},
+#endif /* VMS */
     {"d",  "delete",      o_NO_VALUE,       o_NOT_NEGATABLE, 'd',  "delete"},
     {"db", "display-bytes", o_NO_VALUE,     o_NOT_NEGATABLE, o_db, "display running bytes"},
     {"dc", "display-counts", o_NO_VALUE,    o_NOT_NEGATABLE, o_dc, "display running file count"},
     {"dd", "dotsize",     o_OPTIONAL_VALUE, o_NOT_NEGATABLE, o_dots,"display dot each size MBs"},
+    {"de", "force-descriptors", o_NO_VALUE, o_NOT_NEGATABLE, o_des,"force data descriptors"},
 #ifdef MACOS
     {"df", "",            o_NO_VALUE,       o_NOT_NEGATABLE, o_df, "datafork"},
 #endif /* MACOS */
@@ -1177,6 +1196,9 @@ struct option_struct options[] = {
 #ifdef S_IFLNK
     {"y",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'y',  "store symbolic links"},
 #endif /* S_IFLNK */
+#ifdef VMS
+    {"Y",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'Y',  "VMS version as \".nnn\" "},
+#endif /* def VMS */
     {"z",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'z',  "file comment"},
 #if defined(MSDOS) || defined(OS2)
     {"$",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, '$',  "volume label"},
@@ -1386,6 +1408,10 @@ char **argv;            /* command line tokens */
     ZIPERR(ZE_COMPERR, "LARGE_FILE_SUPPORT enabled but OS not supporting it");
   }
 #endif
+  /* test if sizes are the same - 12/30/04 EG */
+  if (sizeof(uzoff_t) != sizeof(zoff_t)){
+    ZIPERR(ZE_COMPERR, "uzoff_t not same size as zoff_t");
+  }
 
 #if (defined(WIN32) && defined(USE_EF_UT_TIME))
   /* For the Win32 environment, we may have to "prepare" the environment
@@ -1559,7 +1585,10 @@ char **argv;            /* command line tokens */
           /* dot_size = 1 is about 1 MB, 2 about 2 MB */
           if (value == NULL)
             dot_size = 10;
-          else {
+          else if (value[0] == '\0') {
+            dot_size = 10;
+            free(value);
+          } else {
             if (isdigit(value[0])) {
               dot_size = atoi(value);
             } else {
@@ -1714,25 +1743,47 @@ char **argv;            /* command line tokens */
             ZIPERR(ZE_PARMS, "do not specify both -r and -R");
           }
           recurse = 2;  break;
+
         case o_sc:  /* show command line args */
           show_args = 1; break;
         case o_sd:  /* show debugging */
           show_what_doing = 1; break;
         case o_so:  /* show all options */
           show_options = 1; break;
+
         case 's':   /* enable split archives */
-
+#ifndef SPLIT_SUPPORT
           ZIPERR(ZE_PARMS, "-s not yet supported");
-
+#else
           /* get the split size from value */
-          
+          if (value == NULL) {
+            /* should never happen as get_option should catch missing value */
+            ZIPERR(ZE_PARMS, "-s requires value");
+          } else {
+            split_size = ReadNumString(value);
+            if (split_size == (uzoff_t)-1) {
+              sprintf(errbuf, "bad split size:  '%s'", value);
+              ZIPERR(ZE_PARMS, errbuf);
+            }
+          }
+          printf("splitsize = %s\n", zip_fuzofft(split_size, NULL, NULL));
+          if (split_method == 0) {
+            split_method = 1;
+          }
+
+
+#endif
           free(value);
           break;
         case o_sp:  /* enable split select - pause splitting between splits */
-
+#ifndef SPLIT_SUPPORT
           ZIPERR(ZE_PARMS, "-sp not yet supported");
-
+#else
+          split_method = 2;
+          
+#endif
           break;
+
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(ATARI)
         case 'S':
           hidden_files = 1; break;
@@ -1780,6 +1831,62 @@ char **argv;            /* command line tokens */
           verbose++;
           break;
 #ifdef VMS
+        case 'C':  /* Preserve case (- = down-case) all. */
+          if (negated)
+          { /* Down-case all. */
+            if ((vms_case_2 > 0) || (vms_case_5 > 0))
+            {
+              ZIPERR( ZE_PARMS, "Conflicting case directives (-C-)");
+            }
+          vms_case_2 = -1;
+          vms_case_5 = -1;
+          }
+          else
+          { /* Not negated.  Preserve all. */
+            if ((vms_case_2 < 0) || (vms_case_5 < 0))
+            {
+              ZIPERR( ZE_PARMS, "Conflicting case directives (-C)");
+            }
+            vms_case_2 = 1;
+            vms_case_5 = 1;
+          }
+          break;
+        case o_C2:  /* Preserve case (- = down-case) ODS2. */
+          if (negated)
+          { /* Down-case ODS2. */
+            if (vms_case_2 > 0)
+            {
+              ZIPERR( ZE_PARMS, "Conflicting case directives (-C2-)");
+            }
+            vms_case_2 = -1;
+          }
+          else
+          { /* Not negated.  Preserve ODS2. */
+            if (vms_case_2 < 0)
+            {
+              ZIPERR( ZE_PARMS, "Conflicting case directives (-C2)");
+            }
+            vms_case_2 = 1;
+          }
+          break;
+        case o_C5:  /* Preserve case (- = down-case) ODS5. */
+          if (negated)
+          { /* Down-case ODS5. */
+            if (vms_case_5 > 0)
+            {
+              ZIPERR( ZE_PARMS, "Conflicting case directives (-C5-)");
+            }
+            vms_case_5 = -1;
+          }
+          else
+          { /* Not negated.  Preserve ODS5. */
+            if (vms_case_5 < 0)
+            {
+              ZIPERR( ZE_PARMS, "Conflicting case directives (-C5)");
+            }
+            vms_case_5 = 1;
+          }
+          break;
         case 'V':   /* Store in VMS format.  (Record multiples.) */
           vms_native = 1; break;
           /* below does work with new parser but doesn't allow tracking
@@ -1788,7 +1895,9 @@ char **argv;            /* command line tokens */
         case o_VV:  /* Store in VMS specific format */
           vms_native = 2; break;
         case 'w':   /* Append the VMS version number */
-          vmsver = 1;  break;
+          vmsver |= 1;  break;
+        case 'Y':   /* Append the VMS version number as ".nnn". */
+          vmsver |= 3;  break;
 #endif /* VMS */
         case 'W':   /* Wildcards do not include directory boundaries in matches */
           wild_stop_at_dir = 1;
@@ -1835,6 +1944,10 @@ char **argv;            /* command line tokens */
           exts2swap = value; /* override Zip$Exts */
           break;
 #endif
+        case o_des:
+          use_descriptors = 1;
+          break;
+
 #ifdef ZIP64_SUPPORT
         case o_z64:   /* Force creation of Zip64 entries */
           force_zip64 = 1; break;
@@ -1851,7 +1964,7 @@ char **argv;            /* command line tokens */
             filterlist_to_patterns();
           }
 
-          /* -- stops arg processing for remaining args - 7/25/04 EG */
+          /* "--" stops arg processing for remaining args - 7/25/04 EG */
           /*
           printf("value = '%s' kk=%d\n", value, kk);
           */
@@ -2084,6 +2197,13 @@ char **argv;            /* command line tokens */
   }
 #endif /* !MACOS && !WINDLL */
 
+  if (zipfile && !strcmp(zipfile, "-")) {
+    if (show_what_doing) {
+      printf("zipping to stdout\n");
+    }
+    zip_to_stdout = 1;
+  }
+
   if (show_what_doing) {
     fprintf(stderr, "Apply filters\n");
     fflush(stderr);
@@ -2145,11 +2265,19 @@ char **argv;            /* command line tokens */
     {
       zipwarn("can't use -F with -A, -F ignored", "");
     }
-  if (test && !strcmp(zipfile, "-")) {
+  if (test && zip_to_stdout) {
     test = 0;
     zipwarn("can't use -T on stdout, -T ignored", "");
   }
-  if ((action != ADD || d) && !strcmp(zipfile, "-")) {
+#ifdef SPLIT_SUPPORT
+  if (split_method && (fix || adjust)) {
+    ZIPERR(ZE_PARMS, "can't create split archive while fixing\n");
+  }
+  if (split_method && (d || zip_to_stdout)) {
+    ZIPERR(ZE_PARMS, "can't create split archive with -d or -g or on stdout\n");
+  }
+#endif
+  if ((action != ADD || d) && zip_to_stdout) {
     ZIPERR(ZE_PARMS, "can't use -d,-f,-u or -g on stdout\n");
   }
 #if defined(EBCDIC)  && !defined(OS390)
@@ -2293,7 +2421,7 @@ char **argv;            /* command line tokens */
     if (action == DELETE || action == FRESHEN ||
         (tf = filetime(f->name, (ulg *)NULL, &usize, (iztimes *)NULL)) == 0 ||
          tf < before || (after && tf >= after) ||
-          (namecmp(f->zname, zipfile) == 0 && strcmp(zipfile, "-"))
+          (namecmp(f->zname, zipfile) == 0 && !zip_to_stdout)
         )
       f = fexpel(f);
     else {
@@ -2441,6 +2569,9 @@ char **argv;            /* command line tokens */
   }
   else
   {
+    if (show_what_doing) {
+      printf("creating new zip file\n");
+    }
     if ((zfiles != NULL || zipbeg) && (x = zfopen(zipfile, FOPR_EX)) == NULL) {
       ZIPERR(ZE_NAME, zipfile);
     }
@@ -2469,13 +2600,41 @@ char **argv;            /* command line tokens */
 # endif /* _IOBUF */
 #endif /* !VMS  && !CMS_MVS */
 
+  /* if archive exists, not streaming and not deleting or growing copy existing entries */
   if (strcmp(zipfile, "-") != 0 && !d)  /* this must go *after* set[v]buf */
   {
+#ifdef SPLIT_SUPPORT
+    /* split support 12/30/04 EG */
+    if (!split_method && read_split_archive) {
+      /* skip spanning signature at top */
+      zipbeg += 4;
+    } else if (split_method && !read_split_archive) {
+      /* add spanning signature */
+      if (show_what_doing) {
+        printf("adding spanning/splitting signature at top of archive\n");
+      }
+      /* write the spanning signature at the top of the archive */
+      fputc('P', y);
+      fputc('K', y);
+      fputc(7, y);
+      fputc(8, y);
+      /* tempzn updated below */
+    } else if (split_method && read_split_archive) {
+      if (show_what_doing) {
+        printf("spanning/splitting signature already at top of archive\n");
+      }
+    }
+#endif
     if (zipbeg && (r = fcopy(x, y, zipbeg)) != ZE_OK) {
       ZIPERR(r, r == ZE_TEMP ? tempzip : zipfile);
-      }
+    }
     tempzn = zipbeg;
   }
+#ifdef SPLIT_SUPPORT
+  if (split_method && !read_split_archive) {
+    tempzn += 4;
+  }
+#endif
 
   o = 0;                                /* no ZE_OPEN errors yet */
 
@@ -2580,9 +2739,9 @@ char **argv;            /* command line tokens */
           if ((*lpZipUserFunctions->ServiceApplication)(z->zname, z->siz))
                   ZIPERR(ZE_ABORT, "User terminated operation");
         }
-#endif /* //ZIP64_SUPPORT - given below, I added older comments around this - EG */
+#endif /* //ZIP64_SUPPORT - I added comments around // comments - does that help below? EG */
 /* strange but true: if I delete this and put these two endifs adjacent to
-   each other, the Aztec Amiga compiler never sees the second endif!  WTF?? */
+   each other, the Aztec Amiga compiler never sees the second endif!  WTF?? PK */
 #endif /* //WINDLL */
 
         v = z->nxt;                     /* delete entry from list */
@@ -2877,8 +3036,7 @@ char **argv;            /* command line tokens */
     zipwarn("zip file empty", "");
   if (verbose) {
     fprintf( mesg, "total bytes=%s, compressed=%s -> %d%% savings\n",
-             zip_fzofft(n, NULL, "u"), zip_fzofft(t, NULL, "u"),
-             percent(n, t));
+             zip_fzofft(n, NULL, "u"), zip_fzofft(t, NULL, "u"), percent(n, t));
   }
   t = tempzn - c;               /* compute length of central */
   diag("writing end of central directory");
