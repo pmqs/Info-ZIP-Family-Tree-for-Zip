@@ -52,9 +52,13 @@ int rename OF((ZCONST char *, ZCONST char *));
 #endif
 
 
+/* Local functions */
+local int optionerr OF((char *, ZCONST char *, int, int));
+local unsigned long get_shortopt OF((char **, int, int *, int *, char **, int *, int));
+local unsigned long get_longopt OF((char **, int, int *, int *, char **, int *, int));
+
 #ifndef UTIL    /* the companion #endif is a bit of ways down ... */
 
-/* Local functions */
 local int fqcmp  OF((ZCONST zvoid *, ZCONST zvoid *));
 local int fqcmpz OF((ZCONST zvoid *, ZCONST zvoid *));
 
@@ -1178,9 +1182,9 @@ static ZCONST Far char no_arg_files_err[] = "argument files not enabled\n";
 
 
 /* copy error, option name, and option description if any to buf */
-int optionerr(buf, err, optind, islong)
+local int optionerr(buf, err, optind, islong)
   char *buf;
-  char *err;
+  ZCONST char *err;
   int optind;
   int islong;
 {
@@ -1221,7 +1225,7 @@ int optionerr(buf, err, optind, islong)
  *                  value lists.
  *    depth       - recursion depth (0 at top level, 1 or more in arg files)
  */
-unsigned long get_shortopt(args, argnum, optchar, negated, value, option_num, depth)
+local unsigned long get_shortopt(args, argnum, optchar, negated, value, option_num, depth)
   char **args;
   int argnum;
   int *optchar;
@@ -1442,7 +1446,7 @@ unsigned long get_shortopt(args, argnum, optchar, negated, value, option_num, de
  * Get the long option in args array at argnum.  Parameters same as for get_shortopt.
  */
 
-unsigned long get_longopt(args, argnum, optchar, negated, value, option_num, depth)
+local unsigned long get_longopt(args, argnum, optchar, negated, value, option_num, depth)
   char **args;
   int argnum;
   int *optchar;

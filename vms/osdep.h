@@ -65,6 +65,10 @@
 
 #include <types.h>
 
+#ifdef __GNUC__
+#include <sys/types.h>
+#endif /* def __GNUC__ */
+
 /* Need types.h for off_t. */
 
 #ifdef LARGE_FILE_SUPPORT

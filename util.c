@@ -744,7 +744,17 @@ int printnames()
 /* This implementation assumes that no more than FZOFF_NUM values will be
    needed in any printf using it.  */
 
-/* fzofft(): Format a zoff_t value in a cylindrical buffer set. */
+/* zip_fzofft(): Format a zoff_t value in a cylindrical buffer set.
+   This version renamed from fzofft because of name conflict in unzip
+   when combined in WiZ. */
+
+/* 2004-12-19 SMS.
+ * I still claim than the smart move would have been to disable one or
+ * the other instance with #if for Wiz.  But fine.  We'll change the
+ * name.  Everywhere.  Duh.
+ */
+
+/* zip_fzofft(): Format a zoff_t value in a cylindrical buffer set. */
 
 #define FZOFFT_NUM 4            /* Number of chambers. */
 #define FZOFFT_LEN 24           /* Number of characters/chamber. */
@@ -752,7 +762,7 @@ int printnames()
 
 /* Format a zoff_t value in a cylindrical buffer set. */
 
-char *fzofft( zoff_t val, char *pre, char *post)
+char *zip_fzofft( zoff_t val, char *pre, char *post)
 {
     /* Storage cylinder. */
     static char fzofft_buf[ FZOFFT_NUM][ FZOFFT_LEN];

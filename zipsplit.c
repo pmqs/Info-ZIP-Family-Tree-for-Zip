@@ -603,7 +603,7 @@ char **argv;            /* command line tokens */
   }
   printf("%ld zip files w%s be made (%s%% efficiency)\n",
          (ulg)s, d ? "ould" : "ill",
-         fzofft( ((200 * ((t + c - 1)/c)) / s + 1)/ 2, NULL, NULL));
+         zip_fzofft( ((200 * ((t + c - 1)/c)) / s + 1)/ 2, NULL, NULL));
   if (d)
   {
     tfreeall();

@@ -636,7 +636,7 @@ typedef struct ztimbuf {
 #define FZOFFT_HEX_WID ((char *) -1)
 #define FZOFFT_HEX_DOT_WID ((char *) -2)
 
-char *fzofft       OF((zoff_t, char *, char*));
+char *zip_fzofft       OF((zoff_t, char *, char*));
 
 
 /* The following default definition of the second input for the crypthead()

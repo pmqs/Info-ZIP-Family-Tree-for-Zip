@@ -60,11 +60,6 @@
  *                      new typedef for the ioctx structure.  Moved the
  *                      VMS_PK_EXTRA test into here from VMS.C to allow
  *                      more general automatic dependency generation.
- *                      08-Feb-2005, SMS.
- *                      Changed to accomodate ODS5 extended file names:
- *                      NAM structure -> NAM[L], and so on.  (VMS.H.)
- *                      Added some should-never-appear error messages in
- *                      vms_open().
  */
 
 #ifdef VMS                      /* For VMS only ! */
@@ -110,8 +105,8 @@ typedef struct
 {
     struct iosb         iosb;
     long                vbn;
-    uzoff_t             size;
-    uzoff_t             rest;
+    zoff_t              size;
+    zoff_t              rest;
     int                 status;
     ush                 chan;
     ush                 chan_pad;       /* alignment member */
@@ -146,22 +141,23 @@ ioctx_t *vms_open(file)
 char *file;
 {
     static struct atrdef        Atr[VMS_MAX_ATRCNT+1];
-    static struct NAM_STRUCT    Nam;
+    static struct NAM           Nam;
     static struct fibdef        Fib;
     static struct dsc$descriptor FibDesc =
         {sizeof(Fib),DSC$K_DTYPE_Z,DSC$K_CLASS_S,(char *)&Fib};
     static struct dsc$descriptor_s DevDesc =
-        {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,&Nam.NAM_DVI[1]};
-    static char EName[NAM_MAXRSS];
-    static char RName[NAM_MAXRSS];
+        {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,&Nam.nam$t_dvi[1]};
+    static struct dsc$descriptor_s FileName =
+        {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,0};
+    static char EName[NAM$C_MAXRSS];
+    static char RName[NAM$C_MAXRSS];
 
-    struct FAB Fab;
+    struct FAB  Fab;
     register ioctx_t *ctx;
     register struct fatdef *fat;
     int status;
     int i;
-    ulg efblk;
-    ulg hiblk;
+    ulg efblk, hiblk;
 
     if ( (ctx=(ioctx_t *)malloc(sizeof(ioctx_t))) == NULL )
         return NULL;
@@ -191,84 +187,50 @@ char *file;
     Atr[13].atr$w_size = 0;
     Atr[13].atr$l_addr = GVTC NULL;
 
-    /* Initialize RMS structures.  We need a NAM[L] to retrieve the FID. */
+    /* initialize RMS structures, we need a NAM to retrieve the FID */
     Fab = cc$rms_fab;
-    Nam = CC_RMS_NAM;
-    Fab.FAB_NAM = &Nam; /* FAB has an associated NAM[L]. */
+    Fab.fab$l_fna = file ; /* name of file */
+    Fab.fab$b_fns = strlen(file);
+    Fab.fab$l_nam = &Nam; /* FAB has an associated NAM */
+    Nam = cc$rms_nam;
+    Nam.nam$l_esa = EName; /* expanded filename */
+    Nam.nam$b_ess = sizeof(EName);
+    Nam.nam$l_rsa = RName; /* resultant filename */
+    Nam.nam$b_rss = sizeof(RName);
 
-#ifdef NAML$C_MAXRSS
-
-    Fab.fab$l_dna =(char *) -1;         /* Using NAML for default name. */
-    Fab.fab$l_fna = (char *) -1;        /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
-
-    FAB_OR_NAM( Fab, Nam).FAB_OR_NAM_FNA = file ; /* name of file */
-    FAB_OR_NAM( Fab, Nam).FAB_OR_NAM_FNS = strlen(file);
-    Nam.NAM_ESA = EName; /* expanded filename */
-    Nam.NAM_ESS = sizeof(EName);
-    Nam.NAM_RSA = RName; /* resultant filename */
-    Nam.NAM_RSS = sizeof(RName);
-
-    /* Do $PARSE and $SEARCH here. */
+    /* do $PARSE and $SEARCH here */
     status = sys$parse(&Fab);
+    if (!(status & 1)) return NULL;
 
-    if (!(status & 1))
-    {
-        fprintf( stderr,
-         " vms_open(): $parse sts = %%x%08x.\n", status);
-        return NULL;
-    }
-
-    /* Search for the first file.  If none, signal error. */
+    /* search for the first file.. If none signal error */
     status = sys$search(&Fab);
+    if (!(status & 1)) return NULL;
 
-    if (!(status & 1))
-    {
-        fprintf( stderr,
-         " vms_open(): $search sts = %%x%08x.\n", status);
-        return NULL;
-    }
-
-    /* Initialize Device name length.  Note that this points into the
-       NAM[L] to get the device name filled in by the $PARSE, $SEARCH
-       services.
-    */
-    DevDesc.dsc$w_length = Nam.NAM_DVI[0];
+    /* initialize Device name length, note that this points into the NAM
+         to get the device name filled in by the $PARSE, $SEARCH services */
+    DevDesc.dsc$w_length = Nam.nam$t_dvi[0];
 
     status = sys$assign(&DevDesc,&ctx->chan,0,0);
+    if (!(status & 1)) return NULL;
 
-    if (!(status & 1))
-    {
-        fprintf( stderr,
-         " vms_open(): $assign sts = %%x%08x.\n", status);
-        return NULL;
-    }
+    FileName.dsc$a_pointer = Nam.nam$l_name;
+    FileName.dsc$w_length = Nam.nam$b_name+Nam.nam$b_type+Nam.nam$b_ver;
 
-    /* Move the FID (and not the DID) into the FIB.
-       2005=02-08 SMS.
-       Note that only the FID is needed, not the DID, and not the file
-       name.  Setting these other items causes failures on ODS5.
-    */
+    /* Initialize the FIB */
     Fib.FIB$L_ACCTL = FIB$M_NOWRITE;
+    for (i=0;i<3;i++)
+        Fib.FIB$W_FID[i]=Nam.nam$w_fid[i];
+    for (i=0;i<3;i++)
+        Fib.FIB$W_DID[i]=Nam.nam$w_did[i];
 
-    for (i = 0; i < 3; i++)
-    {
-        Fib.FIB$W_FID[ i] = Nam.NAM_FID[ i];
-        Fib.FIB$W_DID[ i] = 0;
-    }
-
-    /* Use the IO$_ACCESS function to return info about the file. */
-    status = sys$qiow( 0, ctx->chan,
-     (IO$_ACCESS| IO$M_ACCESS), &ctx->iosb, 0, 0,
-     &FibDesc, 0, 0, 0, Atr, 0);
+    /* Use the IO$_ACCESS function to return info about the file */
+    status = sys$qiow( 0, ctx->chan, (IO$_ACCESS| IO$M_ACCESS),
+                       &ctx->iosb, 0, 0, &FibDesc, &FileName, 0, 0,
+                       Atr, 0);
 
     if (ERR(status) || ERR(status = ctx->iosb.status))
     {
         vms_close(ctx);
-        fprintf( stderr,
-         " vms_open(): $qiow (access) sts = %%x%08x, iosb sts = %%x%08x.\n",
-         status, ctx->iosb.status);
         return NULL;
     }
 
@@ -285,7 +247,7 @@ char *file;
            (This occurs with a zero-length file, for example.)
         */
         ctx -> size =
-        ctx -> rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
+        ctx -> rest = ((zoff_t) hiblk)* BLOCK_BYTES;
     }
     else
     {
@@ -294,12 +256,12 @@ char *file;
            If multiple -V, store allocated-blocks size in ->rest.
         */
         ctx -> size =
-         (((uzoff_t) efblk)- 1)* BLOCK_BYTES+ fat -> fat$w_ffbyte;
+         (((zoff_t) efblk)- 1)* BLOCK_BYTES+ fat -> fat$w_ffbyte;
 
         if (vms_native < 2)
             ctx -> rest = ctx -> size;
         else
-            ctx -> rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
+            ctx -> rest = ((zoff_t) hiblk)* BLOCK_BYTES;
     }
 
     ctx -> status = SS$_NORMAL;
@@ -325,10 +287,8 @@ ioctx_t *ctx;
 char *buf;
 size_t size;
 {
-    int act_cnt;
-    uzoff_t rest_rndup;
     int status;
-    size_t bytes_read = 0;
+    unsigned int bytes_read = 0;
 
     /* If previous read hit EOF, fail early. */
     if (ctx -> status == SS$_ENDOFFILE)
@@ -344,13 +304,6 @@ size_t size;
     if (size < BLOCK_BYTES)
         return 0;
 
-    /* Note that on old VMS VAX versions (like V5.5-2), QIO[W] may fail
-       with status %x0000034c (= %SYSTEM-F-IVBUFLEN, invalid buffer
-       length) when size is not a multiple of 512.  Thus the requested
-       size is boosted as needed, but the IOSB byte count returned is
-       reduced when it exceeds the actual bytes remaining (->rest).
-    */
-
     /* Adjust request size as appropriate. */
     if (size > MAX_READ_BYTES)
     {
@@ -364,7 +317,6 @@ size_t size;
         */
         size = (size+ BLOCK_BYTES- 1)& ~(BLOCK_BYTES- 1);
     }
-    rest_rndup = (ctx -> rest+ BLOCK_BYTES- 1)& ~(BLOCK_BYTES- 1);
 
     /* Read (QIOW) until error or "size" bytes have been read. */
     do
@@ -372,8 +324,10 @@ size_t size;
         /* Reduce "size" when next (last) read would overrun the EOF,
            but never below one block (so we'll always get a nice EOF).
         */
-        if (size > rest_rndup)
-            size = rest_rndup;
+        if (size > ctx->rest)
+            size = ctx->rest;
+        if (size == 0)
+            size = BLOCK_BYTES;
 
         status = sys$qiow( 0, ctx->chan, IO$_READVBLK,
             &ctx->iosb, 0, 0,
@@ -385,17 +339,10 @@ size_t size;
 
         if ( !ERR(status) || status == SS$_ENDOFFILE )
         {
-            act_cnt = ctx->iosb.count;
-            /* Ignore whole-block boost when remainder is smaller. */
-            if (act_cnt > ctx->rest)
-            {
-                act_cnt = ctx->rest;
-                status = SS$_ENDOFFILE;
-            }
             /* Adjust counters/pointers according to delivered bytes. */
-            size -= act_cnt;
-            buf += act_cnt;
-            bytes_read += act_cnt;
+            size -= ctx->iosb.count;
+            buf += ctx->iosb.count;
+            bytes_read += ctx->iosb.count;
             ctx->vbn += ctx->iosb.count/ BLOCK_BYTES;
         }
 

@@ -107,6 +107,9 @@
 #define ENDCOM  16              /* length of zip file comment */
 
 /* zip64 support 08/31/2003 R.Nausedat */
+
+#define ZIP64_EOCDL_SIG                  0x07064b50
+
 #ifdef ZIP64_SUPPORT           
 # define ZIP_UWORD16_MAX                 0xFFFF                        /* border value */
 # define ZIP_UWORD32_MAX                 0xFFFFFFFF                    /* border value */
@@ -116,7 +119,6 @@
 # define ZIP64_EOCD_SIG                  0x06064b50
 # define ZIP64_EOCD_OFS_SIZE             40
 # define ZIP64_EOCD_OFS_CD_START         48
-# define ZIP64_EOCDL_SIG                 0x07064b50
 # define ZIP64_EOCDL_OFS_SIZE                20
 # define ZIP64_EOCDL_OFS_EOCD_START      8
 # define ZIP64_EOCDL_OFS_TOTALDISKS      16
@@ -850,6 +852,7 @@ struct zlist far *z;
     }
 }
 
+
 /*
  * scanzipf_fix is called with zip -F or zip -FF
  * read the file from front to back and pick up the pieces
@@ -1094,7 +1097,8 @@ local int scanzipf_fix(f)
         s = p - (z->off + 4 + LOCHEAD + n + z->ext);
         if (s != z->siz) {
           fprintf( mesg, " compressed size %s, actual size %s for %s\n",
-           fzofft(z->siz, NULL, "u"), fzofft(s, NULL, "u"), z->zname);
+                   zip_fzofft(z->siz, NULL, "u"),
+                   zip_fzofft(s, NULL, "u"), z->zname);
           z->siz = s;
         }
         /* next LOCSIG already read at this point, don't read it again: */
@@ -1123,7 +1127,7 @@ local int scanzipf_fix(f)
 
     if (zipbeg && noisy)
       fprintf( mesg, "%s: adjusting offsets for a preamble of %s bytes\n",
-               zipfile, fzofft(zipbeg, NULL, NULL));
+               zipfile, zip_fzofft(zipbeg, NULL, NULL));
     return ZE_OK;
 }
 
@@ -1261,6 +1265,39 @@ local int scanzipf_reg(f)
       zipwarn("remember to use binary mode when you transferred it?)", "");
       return ZE_FORM;
     }
+
+/*
+ * Check for a Zip64 EOCD Locator signature - 12/10/04 EG
+ */
+#ifndef ZIP64_SUPPORT
+    /* If Zip64 not enabled check if archive being read is Zip64 */
+    /* back up 24 bytes (size of Z64 EOCDL and ENDSIG) */
+    if (fseek(f, -24, SEEK_CUR) != 0) {
+        perror("fseek");
+        return ZE_FORM; /* XXX */
+    }
+    /* read Z64 EOCDL if there */
+    if (fread(b, 20, 1, f) != 1) {
+      return ZE_READ;
+    }
+    /* first 4 bytes are the signature if there */
+    if (LG(b) == ZIP64_EOCDL_SIG) {
+      zipwarn("found Zip64 EOCDL signature - this may be a Zip64 archive", "");
+      zipwarn("Zip64 not supported - use Zip 3.0 or later", "");
+      return ZE_FORM;
+    }
+
+    /* now should be back at the EOCD signature */
+    if (fread(b, 4, 1, f) != 1) {
+      zipwarn("unable to relative seek in archive being read", "");
+      return ZE_READ;
+    }
+    if (LG(t) == ENDSIG) {
+      zipwarn("unable to relative seek in archive being read", "");
+      return ZE_FORM;
+    }
+#endif
+
     /* Read end header */
     if (fread(b, ENDHEAD, 1, f) != 1)
       return ferror(f) ? ZE_READ : ZE_EOF;
@@ -1612,7 +1649,7 @@ should be valid. comments are welcome
     if (zipbeg && noisy)
       fprintf(mesg, "%s: %s a preamble of %s bytes\n",
               zipfile, adjust ? "adjusting offsets for" : "found",
-              fzofft(zipbeg, NULL, NULL));
+              zip_fzofft(zipbeg, NULL, NULL));
 #ifdef HANDLE_AMIGA_SFX
     if (zipbeg < 12 || (zipbeg & 3) != 0 /* must be longword aligned */)
       amiga_sfx_offset = 0;

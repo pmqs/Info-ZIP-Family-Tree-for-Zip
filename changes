@@ -1046,6 +1046,26 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     approximately correct.  CMDLINE.C, ZIP_CLI.CLD, ZIP_CLI.HELP (SMS)
 28. The man file zip.1 updated and Makefile updated to generate manual
     pages for zipcloak.1, zipnote.1, and zipsplit.1 (Ed)
----------------------- December xx 2004 version 3.0e ----------------------
- 1. Added error exit to prevent archive corruption when updating a large-
+---------------------- December 10th 2004 version 3.0e ----------------------
+ 1. Debian patch 004 - apply 2.4i configure changes from Onno to remove
+    need for -fno-builtin in unix/configure (Onno, Ed)
+ 2. Debian patch 005 for bug 279867 - fix bug that could crash on large paths
+    and create security problem.  Apply patch changes from Greg (Greg, Ed)
+ 3. SourceForge patch 1074363 - add win32i64.c to win32/makefile.w32 (Ed)
+ 4. Add check when not ZIP64_SUPPORT in scanzipf_reg() in zipfile.c if
+    Zip64 archive being read (Ed)
+ 5. Renamed fzofft() used to format zoff_t values to zip_fzofft() to remove
+    conflict when combined with UnZip in WiZ (Mike)
+ 6. Add check in scanzipf_reg() in zipfile.c if Zip64 archive being read (Ed)
+ 7. Fixes for amiga/makefile.azt to define directory for object files (Paul)
+ 8. Define prototypes for local functions optionerr, get_shortopt and get_longopt
+    in fileio.c.  Define err argument of optionerr as ZCONST (Paul)
+ 9. Add help_extended and DisplayRunningStats prototypes and fix other prototypes
+    in zip.c (Paul)
+10. Split int kk off of k for argument types (Paul)
+11. Aztec #endif quirk fix in zip.c for Amiga (Paul)
+12. Add detection of binary in first buffer read from file in zipup.c to avoid
+    a -l or -ll translation on binary file.  Not perfect but at least should catch
+    some binary files (Ed)
+13. Added error exit to prevent archive corruption when updating a large-
     file archive with a small-file program.  ZIPERR.H, ZIPFILE.C  (SMS)
