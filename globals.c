@@ -75,6 +75,8 @@ int extra_fields = 1;         /* 0=do not create extra fields */
 int use_descriptors = 0;      /* 1=use data descriptors 12/29/04 EG */
 int zip_to_stdout = 0;        /* output zipfile to stdout 12/30/04 EG */
 
+int output_seekable = 1;      /* 1 = output seekable 3/13/05 EG */
+
 #ifdef ZIP64_SUPPORT          /* zip64 support 10/4/03 E. Gordon */
   int force_zip64 = 0;        /* if 1 force entries to be zip64 */
                               /* mainly for streaming from stdin */
@@ -83,7 +85,7 @@ int zip_to_stdout = 0;        /* output zipfile to stdout 12/30/04 EG */
   int zip64_archive = 0;      /* if 1 then at least 1 entry needs zip64 */
 #endif
 
-#ifdef WIN32
+#ifdef NTSD_EAS
   int use_privileges = 0;     /* 1=use security privilege overrides */
 #endif
 #ifndef RISCOS
@@ -130,21 +132,22 @@ zoff_t tempzn;                /* Count of bytes written to output zip file */
 #endif
 
 struct zlist far *zfiles = NULL;  /* Pointer to list of files in zip file */
-extent zcount;          /* Number of files in zip file */
-extent zcomlen;         /* Length of zip file comment */
-char *zcomment = NULL;  /* Zip file comment (not zero-terminated) */
-struct zlist far **zsort;       /* List of files sorted by name */
+ulg zcount;                       /* Number of files in zip file */
+ush zcomlen;                      /* Length of zip file comment */
+char *zcomment = NULL;            /* Zip file comment (not zero-terminated) */
+struct zlist far **zsort;         /* List of files sorted by name */
 
 /* Files to operate on that are not in zip file */
-struct flist far *found = NULL; /* List of names found */
+struct flist far *found = NULL;   /* List of names found */
 struct flist far * far *fnxt = &found;
-                        /* Where to put next name in found list */
-extent fcount;          /* Count of files in list */
+                                  /* Where to put next name in found list */
+ulg fcount;                       /* Count of files in list */
 
 /* Patterns to be matched */
 struct plist *patterns = NULL;  /* List of patterns to be matched */
 unsigned pcount = 0;            /* number of patterns */
 unsigned icount = 0;            /* number of include only patterns */
+unsigned Rcount = 0;            /* number of -R include patterns */
 
 #ifdef IZ_CHECK_TZ
 int zp_tz_is_valid;     /* signals "timezone info is available" */

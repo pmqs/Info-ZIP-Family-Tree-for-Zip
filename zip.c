@@ -1,7 +1,7 @@
 /*
   zip.c - Zip 3
 
-  Copyright (c) 1990-2004 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2003-May-08 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -260,7 +260,7 @@ int e;                  /* exit code */
 
 void ziperr(c, h)
 int c;                  /* error code from the ZE_ class */
-char *h;                /* message about how it happened */
+ZCONST char *h;         /* message about how it happened */
 /* Issue a message for the error, clean up files and memory, and exit. */
 {
 #ifndef WINDLL
@@ -339,7 +339,7 @@ char *h;                /* message about how it happened */
 
 
 void error(h)
-  char *h;
+  ZCONST char *h;
 /* Internal error, should never happen */
 {
   ziperr(ZE_LOGIC, h);
@@ -365,7 +365,7 @@ int s;                  /* signal number (ignored) */
 #endif /* !MACOS && !WINDLL */
 
 void zipwarn(a, b)
-char *a, *b;            /* message strings juxtaposed in output */
+ZCONST char *a, *b;     /* message strings juxtaposed in output */
 /* Print a warning message to stderr and return. */
 {
   if (noisy) fprintf(stderr, "\tzip warning: %s%s\n", a, b);
@@ -469,9 +469,9 @@ local void help()
 "  -w   store file version numbers\
    -Y   store file version numbers as \".nnn\"",
 #endif /* def VMS */
-#ifdef WIN32
+#ifdef NTSD_EAS
 "  -!   use privileges (if granted) to obtain all aspects of WinNT security",
-#endif /* WIN32 */
+#endif /* NTSD_EAS */
 #ifdef OS2
 "  -E   use the .LONGNAME Extended attribute (if found) as filename",
 #endif /* OS2 */
@@ -548,8 +548,17 @@ local void help_extended()
 "  Patterns are paths with optional wildcards matching internal archive paths.",
 "  Exclude and include lists end at next option, @, or end of line.",
 "",
+"Wildcards:",
+"  Internally Zip supports the following wildcards:",
+"    ? (or %% or #, depending on OS) matches any single character",
+"    * matches any number of characters, including zero",
+"    [list] matches any char in list (regex), can do range [ac-f], not [!bf]",
+"  If -W option used, * does not cross dir bounds (/) but ** does",
+"zip zipfile -r . -i '*.h'",
+"  For shells that support wildcards, escape (\\* or '*') so zip can recurse",
+"",
 "zip -dd 1000 --temp-dir=path zipfile path1 path2 --exclude pattern pattern",
-"  For short options that take values use either -ovalue or -o value",
+"  For short options that take values use -ovalue or -o value or -o=value",
 "  For long option values use either --longoption=value or --longoption value.",
 "",
 "End Of Line Translation:",
@@ -567,7 +576,7 @@ local void help_extended()
 "  -dc       display a running count of entries done and entries to go",
 "  -dd [siz] display dots every siz MB while processing files (0 no dots)",
 "   defaults to 10 (but dd will try read siz if same arg continues (-ddstuff)",
-"   or next arg not option (-dbdcdd archivename), but -dd \"\" works)",
+"   or next arg not option (-dbdcdd archivename), but -dd= (empty val) works)",
 "",
 "More option highlights (see manual for additional options and details):",
 "  -b dir    when creating or updating archive create temp archive in dir",
@@ -831,7 +840,7 @@ local void check_zipfile(zipname, zippath)
    if ((cmd = malloc(20 + strlen(zipname))) == NULL) {
      ziperr(ZE_MEM, "building command string for testing archive");
    }
-   
+
    /* Tell picky compilers to shut up about unused variables */
    zippath = zippath;
 
@@ -858,7 +867,7 @@ local void check_zipfile(zipname, zippath)
    result = system(cmd);
 # endif
   free(cmd);
-  if (result) { 
+  if (result) {
 #endif /* ?((MSDOS && !__GO32__) || __human68k__) */
      fprintf(mesg, "test of %s FAILED\n", zipfile);
      ziperr(ZE_TEST, "original files unmodified");
@@ -926,8 +935,6 @@ local int add_filter(flag, pattern)
         lastfilter->pattern = NULL;
       }
       lastfilter->flag = flag;
-      if (flag != 'x')
-        icount++;
       pcount++;
       lastfilter->next = NULL;
     }
@@ -953,8 +960,6 @@ local int add_filter(flag, pattern)
       lastfilter->pattern = NULL;
     }
     lastfilter->flag = flag;
-    if (flag != 'x')
-      icount++;
     pcount++;
     lastfilter->next = NULL;
   }
@@ -972,18 +977,27 @@ local int filterlist_to_patterns()
     patterns = NULL;
     return 0;
   }
-  if ((patterns = (struct plist *) malloc((pcount + 1) * sizeof(struct plist))) == NULL) {
+  if ((patterns = (struct plist *) malloc((pcount + 1) * sizeof(struct plist)))
+      == NULL) {
     ZIPERR(ZE_MEM, "was creating pattern list");
   }
-  
+
   for (i = 0; i < pcount && filterlist != NULL; i++) {
+    switch (filterlist->flag) {
+      case 'i':
+        icount++;
+        break;
+      case 'R':
+        Rcount++;
+        break;
+    }
     patterns[i].select = filterlist->flag;
     patterns[i].zname = filterlist->pattern;
     next = filterlist->next;
     free(filterlist);
     filterlist = next;
   }
-  
+
   return pcount;
 }
 
@@ -995,7 +1009,7 @@ int DisplayRunningStats()
   char tempstrg[100];
 
   if (display_counts) {
-    fprintf(mesg, "%3d/%3d ", files_so_far, files_total - files_so_far);
+    fprintf(mesg, "%3ld/%3ld ", files_so_far, files_total - files_so_far);
   }
   if (display_bytes) {
     WriteNumString(bytes_so_far, tempstrg);
@@ -1123,7 +1137,6 @@ struct option_struct options[] = {
     {"db", "display-bytes", o_NO_VALUE,     o_NOT_NEGATABLE, o_db, "display running bytes"},
     {"dc", "display-counts", o_NO_VALUE,    o_NOT_NEGATABLE, o_dc, "display running file count"},
     {"dd", "dotsize",     o_OPTIONAL_VALUE, o_NOT_NEGATABLE, o_dots,"display dot each size MBs"},
-    {"de", "force-descriptors", o_NO_VALUE, o_NOT_NEGATABLE, o_des,"force data descriptors"},
 #ifdef MACOS
     {"df", "",            o_NO_VALUE,       o_NOT_NEGATABLE, o_df, "datafork"},
 #endif /* MACOS */
@@ -1135,6 +1148,10 @@ struct option_struct options[] = {
     {"F",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'F',  "fix"},
     {"FF", "",            o_NO_VALUE,       o_NOT_NEGATABLE, o_FF, "fixfix"},
     {"f",  "freshen",     o_NO_VALUE,       o_NOT_NEGATABLE, 'f',  "freshen"},
+    {"fd", "force-descriptors", o_NO_VALUE, o_NOT_NEGATABLE, o_des,"force data descriptors"},
+#ifdef ZIP64_SUPPORT
+    {"fz", "force-zip64", o_NO_VALUE,       o_NOT_NEGATABLE, o_z64,"force Zip64"},
+#endif
     {"g",  "grow",        o_NO_VALUE,       o_NOT_NEGATABLE, 'g',  "grow"},
 #ifndef WINDLL
     {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
@@ -1158,7 +1175,7 @@ struct option_struct options[] = {
     {"L",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "licence"},
 #endif
     {"m",  "move",        o_NO_VALUE,       o_NOT_NEGATABLE, 'm',  "move"},
-    {"n",  "suffixes",    o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'n',  "suffixes"},
+    {"n",  "suffixes",    o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'n',  "suffixes to not compress: .gz:.zip"},
     {"nw", "no-wild",     o_NO_VALUE,       o_NOT_NEGATABLE, o_nw, "no wildcards during add or update"},
 #if defined(AMIGA) || defined(MACOS)
     {"N",  "notes",       o_NO_VALUE,       o_NOT_NEGATABLE, 'N',  "notes"},
@@ -1190,7 +1207,7 @@ struct option_struct options[] = {
     {"VV", "",            o_NO_VALUE,       o_NOT_NEGATABLE, o_VV, "VMS specific format"},
     {"w",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'w',  "VMS version"},
 #endif /* VMS */
-    {"W",  "wild-respects-dirs", o_NO_VALUE,o_NOT_NEGATABLE, 'W',  "wild respects dirs"},
+    {"W",  "wild-stop-dirs", o_NO_VALUE,    o_NOT_NEGATABLE, 'W',  "wild respects dirs"},
     {"x",  "exclude",     o_VALUE_LIST,     o_NOT_NEGATABLE, 'x',  "exclude"},
     {"X",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'X',  "no extra"},
 #ifdef S_IFLNK
@@ -1206,14 +1223,11 @@ struct option_struct options[] = {
 #ifndef MACOS
     {"@",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, '@',  "names from stdin"},
 #endif /* !MACOS */
-#ifdef WIN32
+#ifdef NTSD_EAS
     {"!",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, '!',  "use privileges"},
 #endif
 #ifdef RISCOS
     {"/",  "",            o_REQUIRED_VALUE, o_NOT_NEGATABLE, '/',  "override Zip$Exts"},
-#endif
-#ifdef ZIP64_SUPPORT
-    {"",  "force-zip64",  o_NO_VALUE,       o_NOT_NEGATABLE, o_z64,"force Zip64"},
 #endif
     /* the end of the list */
     {NULL, NULL,          o_NO_VALUE,       o_NOT_NEGATABLE, 0,    NULL} /* end has option_ID = 0 */
@@ -1350,8 +1364,10 @@ char **argv;            /* command line tokens */
   adjust = 0;          /* 1=adjust offsets for sfx'd file (keep preamble) */
   level = 6;           /* 0=fastest compression, 9=best compression */
   translate_eol = 0;   /* Translate end-of-line LF -> CR LF */
-#ifdef WIN32
+#if defined(OS2) || defined(WIN32)
   use_longname_ea = 0; /* 1=use the .LONGNAME EA as the file's name */
+#endif
+#ifdef NTSD_EAS
   use_privileges = 0;  /* 1=use security privileges overrides */
 #endif
   hidden_files = 0;    /* process hidden and system files */
@@ -1368,6 +1384,7 @@ char **argv;            /* command line tokens */
   patterns = NULL;     /* List of patterns to be matched */
   pcount = 0;          /* number of patterns */
   icount = 0;          /* number of include only patterns */
+  Rcount = 0;          /* number of -R include patterns */
   /* status 10/30/04 EG */
   files_so_far = 0;    /* count of files processed so far */
   files_total = 0;     /* files to get through */
@@ -1514,7 +1531,7 @@ char **argv;            /* command line tokens */
   are returned before non-option arguments (zipfile).
   Returns 0 when nothing left to read.
   */
-    
+
   /* set argnum = 0 on first call to init get_option */
   argnum = 0;
 
@@ -1587,7 +1604,6 @@ char **argv;            /* command line tokens */
             dot_size = 10;
           else if (value[0] == '\0') {
             dot_size = 10;
-            free(value);
           } else {
             if (isdigit(value[0])) {
               dot_size = atoi(value);
@@ -1780,7 +1796,7 @@ char **argv;            /* command line tokens */
           ZIPERR(ZE_PARMS, "-sp not yet supported");
 #else
           split_method = 2;
-          
+
 #endif
           break;
 
@@ -1933,7 +1949,7 @@ char **argv;            /* command line tokens */
           use_longname_ea = 1;
           break;
 #endif
-#ifdef WIN32
+#ifdef NTSD_EAS
         case '!':
           /* use security privilege overrides */
           use_privileges = 1;
@@ -2395,17 +2411,17 @@ char **argv;            /* command line tokens */
                  z->trash ? "up to date" : "missing or early");
         }
       }
-      else if (action != DELETE) {
+      else {
         files_total++;
-        bytes_total += usize;
+        bytes_total += z->len;
         k++;
       }
     } else {
       /* not marked */
-      if (action == DELETE) {
-        files_total++;
-        bytes_total += z->len;
-      }
+//      if (action == DELETE) {
+//        files_total++;
+//        bytes_total += z->len;
+//      }
 
     }
 
@@ -2420,9 +2436,9 @@ char **argv;            /* command line tokens */
     Trace((stderr, "zip diagnostic: new file=%s\n", f->zname));
     if (action == DELETE || action == FRESHEN ||
         (tf = filetime(f->name, (ulg *)NULL, &usize, (iztimes *)NULL)) == 0 ||
-         tf < before || (after && tf >= after) ||
-          (namecmp(f->zname, zipfile) == 0 && !zip_to_stdout)
-        )
+        tf < before || (after && tf >= after) ||
+        (namecmp(f->zname, zipfile) == 0 && !zip_to_stdout)
+       )
       f = fexpel(f);
     else {
       /* ??? */
@@ -2473,10 +2489,10 @@ char **argv;            /* command line tokens */
         strcat(strcat(errbuf, " "), argv[i]);
       ZIPERR(ZE_NONE, errbuf);
     }
-#endif /* !WINDLL */
     else {
       ZIPERR(ZE_NONE, zipfile);
     }
+#endif /* !WINDLL */
   }
   d = (d && k == 0 && (zipbeg || zfiles != NULL)); /* d true if appending */
 
@@ -2600,6 +2616,19 @@ char **argv;            /* command line tokens */
 # endif /* _IOBUF */
 #endif /* !VMS  && !CMS_MVS */
 
+  /* If not seekable set some flags 3/14/05 EG */
+  output_seekable = 1;
+  if (!is_seekable(y)) {
+    output_seekable = 0;
+    use_descriptors = 1;
+  }
+  /* If using descriptors and Zip64 enabled force Zip64 3/13/05 EG */
+#ifdef ZIP64_SUPPORT
+  if (use_descriptors) {
+    force_zip64 = 1;
+  }
+#endif
+  
   /* if archive exists, not streaming and not deleting or growing copy existing entries */
   if (strcmp(zipfile, "-") != 0 && !d)  /* this must go *after* set[v]buf */
   {
@@ -2712,13 +2741,16 @@ char **argv;            /* command line tokens */
       {
         if (noisy)
         {
+          DisplayRunningStats();
           fprintf(mesg, "deleting: %s\n", z->zname);
           fflush(mesg);
         }
+        files_so_far++;
+        bytes_so_far += z->len;
 #ifdef WINDLL
 #ifdef ZIP64_SUPPORT
         /* int64 support in caller */
-        if (lpZipUserFunctions->ServiceApplication64 != NULL) 
+        if (lpZipUserFunctions->ServiceApplication64 != NULL)
         {
           if ((*lpZipUserFunctions->ServiceApplication64)(z->zname, z->siz))
                     ZIPERR(ZE_ABORT, "User terminated operation");
@@ -2737,7 +2769,7 @@ char **argv;            /* command line tokens */
 #else
         if (lpZipUserFunctions->ServiceApplication != NULL) {
           if ((*lpZipUserFunctions->ServiceApplication)(z->zname, z->siz))
-                  ZIPERR(ZE_ABORT, "User terminated operation");
+            ZIPERR(ZE_ABORT, "User terminated operation");
         }
 #endif /* //ZIP64_SUPPORT - I added comments around // comments - does that help below? EG */
 /* strange but true: if I delete this and put these two endifs adjacent to
@@ -2766,8 +2798,6 @@ char **argv;            /* command line tokens */
         sprintf(errbuf, "was copying %s", z->zname);
         ZIPERR(r, errbuf);
       }
-      files_so_far++;
-      bytes_so_far += z->len;
       w = &z->nxt;
     }
   }
@@ -2856,6 +2886,20 @@ char **argv;            /* command line tokens */
     key = NULL;
   }
 
+  /* final status 3/17/05 EG */
+  if (noisy && files_so_far != files_total)
+  {
+    char tempstrg[100];
+
+    fprintf(mesg, "zip warning: Not all files were readable\n");
+    fprintf(mesg, "  files read:  %d", files_so_far);
+    WriteNumString(bytes_so_far, tempstrg);
+    fprintf(mesg, " (%s bytes)", tempstrg);
+    fprintf(mesg, "  files skipped:  %d", files_total - files_so_far);
+    WriteNumString(bytes_total - bytes_so_far, tempstrg);
+    fprintf(mesg, " (%s bytes)\n", tempstrg);
+    fflush(mesg);
+  }
 
   /* Get one line comment for each new entry */
   if (show_what_doing) {

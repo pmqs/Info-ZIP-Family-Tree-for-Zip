@@ -137,9 +137,10 @@ struct zlist {
   ush vem, ver, flg, how;
   ulg tim, crc;
   zoff_t siz, len;              /* zip64 support 08/29/2003 R.Nausedat */
-  extent nam, ext, cext, com;   /* offset of ext must be >= LOCHEAD */
+  /* changed from extent to ush 3/10/2005 EG */
+  ush nam, ext, cext, com;      /* offset of ext must be >= LOCHEAD */
   ush dsk, att, lflg;           /* offset of lflg must be >= LOCHEAD */
-  ulg atx; 
+  ulg atx;
   zoff_t off;
   char *name;                   /* File name in zip file */
   char *extra;                  /* Extra field (set only if ext != 0) */
@@ -314,11 +315,12 @@ extern int dirnames;            /* include directory names */
 extern int linkput;             /* Store symbolic links as such */
 extern int noisy;               /* False for quiet operation */
 extern int extra_fields;        /* do not create extra fields */
-#ifdef WIN32
+#ifdef NTSD_EAS
  extern int use_privileges;     /* use security privilege overrides */
 #endif
 extern int use_descriptors;     /* use data descriptors (extended headings) */
 extern int zip_to_stdout;       /* output to stdout */
+extern int output_seekable;     /* 1 = output seekable 3/13/05 EG */
 #ifdef ZIP64_SUPPORT            /* zip64 globals 10/4/03 E. Gordon */
  extern int force_zip64;        /* force use of zip64 when streaming from stdin */
  extern int zip64_entry;        /* current entry needs Zip64 */
@@ -361,17 +363,18 @@ extern zoff_t tempzn;           /* Count of bytes written to output zip file */
 extern zoff_t total_bytes_written; /* Bytes written to all files */
 
 extern struct zlist far *zfiles;/* Pointer to list of files in zip file */
-extern extent zcount;           /* Number of files in zip file */
-extern extent zcomlen;          /* Length of zip file comment */
+extern ulg zcount;              /* Number of files in zip file */
+extern ush zcomlen;             /* Length of zip file comment */
 extern char *zcomment;          /* Zip file comment (not zero-terminated) */
 extern struct zlist far **zsort;/* List of files sorted by name */
 extern struct flist far *found; /* List of names found */
 extern struct flist far *far *fnxt;     /* Where to put next in found list */
-extern extent fcount;           /* Count of names in found list */
+extern ulg fcount;              /* Count of names in found list */
 
 extern struct plist *patterns;  /* List of patterns to be matched */
 extern unsigned pcount;         /* number of patterns */
 extern unsigned icount;         /* number of include only patterns */
+extern unsigned Rcount;         /* number of -R include patterns */
 
 #ifdef IZ_CHECK_TZ
 extern int zp_tz_is_valid;      /* signals "timezone info is available" */
@@ -431,12 +434,12 @@ extern int aflag;
 #ifdef CMS_MVS
 extern int bflag;
 #endif /* CMS_MVS */
-void zipwarn  OF((char *, char *));
-void ziperr   OF((int, char *));
+void zipwarn  OF((ZCONST char *, ZCONST char *));
+void ziperr   OF((int, ZCONST char *));
 #ifdef UTIL
 #  define error(msg)    ziperr(ZE_LOGIC, msg)
 #else
-   void error OF((char *));
+   void error OF((ZCONST char *));
 #  ifdef VMSCLI
      void help OF((void));
 #  endif
@@ -475,7 +478,9 @@ int putlocal OF((struct zlist far *, FILE *));
 int putextended OF((struct zlist far *, FILE *));
 int putcentral OF((struct zlist far *, FILE *));
 /* zip64 support 09/05/2003 R.Nausedat */
-int putend OF((zoff_t, zoff_t, zoff_t, extent, char *, FILE *));
+int putend OF((zoff_t, zoff_t, zoff_t, ush, char *, FILE *));
+/* moved seekable to separate function 3/14/05 EG */
+int is_seekable OF((FILE *));
 int zipcopy OF((struct zlist far *, FILE *, FILE *));
 
         /* in fileio.c */

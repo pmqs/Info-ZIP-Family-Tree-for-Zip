@@ -771,7 +771,7 @@
 40. Change email address for Cosmin Truta (Cosmin Truta)
 -------------------------- February 11th 2001 version 2.4a ------------------
  1. Identify newer Borland compilers (Brad Clarke)
- 2. Detect Turbo C 2.01 which doens't have mktime (Brian Lindholm)
+ 2. Detect Turbo C 2.01 which doesn't have mktime (Brian Lindholm)
  3. Fix the use of -@ together with -i -x (Christian)
  4. Update msdos/README.DOS to match reality (Christian)
  5. win32: use assembler crc32 code (Christian)
@@ -797,7 +797,7 @@
  4. Use izshr044 (Christian)
 -------------------------- January 13th 2002 version 2.4d ------------------
  1. Don't use mmap for stored entries (Christian)
- 2. BIG_MEM and MMAP cannot be defiend at the same time (Christian)
+ 2. BIG_MEM and MMAP cannot be defined at the same time (Christian)
  3. Allow redirection of version screen to file (Christian)
  4. Fix for OS/2 output redirection bug (Christian, Kai Uwe)
  5. Acorn script for creating self extracting zips (Darren Salt)
@@ -879,17 +879,17 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     NO_LARGE_FILE_SUPPORT overrides this (Ed)
 14. Bugs compiling scanzipf_fix(...) in zipfile.c and the fix functions could
     use rewrite (Rainer and Ed)
-15. Added prototype for zfopen for mapping to 64-bit fopen on ports using
+15. Add prototype for zfopen for mapping to 64-bit fopen on ports using
     inodes but not implemented (Ed)
 16. More work on extended local headers and encypted archives (Rainer)
-17. Fixed DLL files so now compiles (Ed)
+17. Fix DLL files so now compiles (Ed)
 18. File size in dll limited to 32-bit in structure.  A new DLL api is needed
     to return 64-bit file sizes.  Current api fixed to return max 32-bit if
     more than that (Ed)
-19. Added local header Zip64 support and local extra field.  Fixed cast
+19. Add local header Zip64 support and local extra field.  Fixed cast
     to ulg missed previously that forced zstat to return value mod 4 GB in
     zipup.c which kept local header code from seeing actual file size (Ed)
-20. Added new option --force-zip64 to force use of zip64 fields.  Could
+20. Add new option --force-zip64 to force use of zip64 fields.  Could
     be temporary (Ed)
 21. Fix for VB added to api.c that just store the passed strings internally.
     Should update api to optionally return file sizes as 64-bit in call back
@@ -937,10 +937,10 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  9. ToDo30 file added to list what's left to do in this release (Ed)
 10. Change fopen to zfopen for large file code and map to fopen64 for
     Unix (Ed)
-11. ftello64 seems broke in zipup.c on Linux (kernel 2.4), returning negatives
-    past the 2 GB barrier, though ftello64 works in a test program.  Likely error
-    in defines.  For now skip ftello64 check for Unix with LARGE_FILE_SUPPORT.
-    With this fix able to create 2.5 GB Unix zip file (Ed)
+11. ftello64 seems broken in zipup.c on Linux (kernel 2.4), returning
+    negatives past the 2 GB barrier, though ftello64 works in a test program.
+    Likely error in defines.  For now skip ftello64 check for Unix with
+    LARGE_FILE_SUPPORT.
 12. A few updates in Readme.  Needs overhaul likely.  Also verified mxserver
     is gone and replaced with list addresses (Ed)
 13. First iterations at updating WinDLL for Zip64 (Mike)
@@ -983,6 +983,9 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     is set but no port 64-bit file defines are set up earlier in the file.
     Should allow other ports to set LARGE_FILE_SUPPORT on the compiler
     command line to test if the standard defines work (Ed)
+13. Adjust binary detection in trees.c by changing 20% binary (4 out of 5
+    ascii) that used >> 2 to 2% (64 out of 65) using >> 6 instead.
+    trees.c  (Ed)
 ---------------------- November 12th 2004 version 3.0d ----------------------
  1. Add global variable for EncryptionPassword in VBz64 example and
     some other password callback cleanup (Ed)
@@ -1007,17 +1010,17 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     of names in archive, instead of forcing lower-case (the former and
     current default behavior).  VMSZIP.C (SMS)
 12. On VMS, in some of the simplest cases, ODS5 extended file name
-    escape characters ("^") are removed from names in archive. 
+    escape characters ("^") are removed from names in archive.
     VMSZIP.C (SMS)
 13. On VMS, fixed a problem in some cases with mixed-case directory
     names, where too much of the directory hierarchy was included in the
     path names in the archive.  VMSZIP.C (SMS)
-14. On VMS, minor changes for large file support (long -> zoff_t). 
+14. On VMS, minor changes for large file support (long -> zoff_t).
     VMSZIP.C (SMS)
 15. On VMS, changed some structure declarations to typedefs, and
-    rearranged to simplify #if's and reduce potential name conflicts. 
+    rearranged to simplify #if's and reduce potential name conflicts.
     VMS.H, VMS_IM.C, VMS_PK.C (SMS)
-16. On VMS, reformed -V (/VMS) processing.  Added -VV (/VMS=ALL). 
+16. On VMS, reformed -V (/VMS) processing.  Added -VV (/VMS=ALL).
     Removed some sign bits to accomodate files bigger than 2GB.
     CMDLINE.C, VMS_IM.C, VMS_PK.C, ZIP.C, ZIP_CLI.CLD, ZIP_CLI.HELP,
     ZIPUP.H (SMS)
@@ -1046,7 +1049,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     approximately correct.  CMDLINE.C, ZIP_CLI.CLD, ZIP_CLI.HELP (SMS)
 28. The man file zip.1 updated and Makefile updated to generate manual
     pages for zipcloak.1, zipnote.1, and zipsplit.1 (Ed)
----------------------- January 17th 2005 version 3.0e ----------------------
+---------------------- March 20th 2005 version 3.0e ----------------------
  1. Debian patch 004 - apply 2.4i configure changes from Onno to remove
     need for -fno-builtin in unix/configure (Onno, Ed)
  2. Debian patch 005 for bug 279867 - fix bug that could crash on large paths
@@ -1058,51 +1061,133 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     conflict when combined with UnZip in WiZ (Mike)
  6. Add check in scanzipf_reg() in zipfile.c if Zip64 archive being read (Ed)
  7. Fixes for amiga/makefile.azt to define directory for object files (Paul)
- 8. Define prototypes for local functions optionerr, get_shortopt and get_longopt
-    in fileio.c.  Define err argument of optionerr as ZCONST (Paul)
- 9. Add help_extended and DisplayRunningStats prototypes and fix other prototypes
+ 8. Define prototypes for local functions optionerr, get_shortopt and
+    get_longopt in fileio.c.  Define err argument of optionerr as ZCONST (Paul)
+ 9. Add help_extended and DisplayRunningStats prototypes, fix other prototypes
     in zip.c (Paul)
 10. Split int kk off of k for argument types (Paul)
 11. Aztec #endif quirk fix in zip.c for Amiga (Paul)
 12. Add detection of binary in first buffer read from file in zipup.c to avoid
-    a -l or -ll translation on binary file.  Not perfect but at least should catch
-    some binary files (Ed)
+    a -l or -ll translation on binary file.  Not perfect but at least should
+    catch some binary files (Ed)
 13. Remove check for >= 128 from binary check in zipup.c as <= 6 enough for
     signed char (SMS, Ed)
 14. SF Bug 1074368 - check for empty zip file in readzipfile() in zipfile.c
     (Christian d'Heureuse, Ed)
-15. Add error exit to prevent archive corruption when updating a large-file archive
-    with a small-file program.  Add ZE_ZIP64 error.  ZIPERR.H, ZIPFILE.C (SMS)
+15. Add error exit to prevent archive corruption when updating a large-file
+    archive with a small-file program.  Add ZE_ZIP64 error.
+    ziperr.h, zipfile.c (SMS)
 16. Change percent() in zipup.c to do rounding better, handle cases near limits
     while rounding, and allow negative percent returns (SMS, Ed)
-17. Add function ffile_size() in zipfile.c but in #if 0 block until determine if
-    works on all ports under all conditions.  Currently only used for size check
-    for Zip64 archive detection if compiled without ZIP64_SUPPORT and this check
-    may already be handled in scanzipf_reg() and should be added to scanzipf_fix()
-    when that is updated (SMS, Ed)
+17. Add function ffile_size() in zipfile.c but in #if 0 block until determine
+    if works on all ports under all conditions.  Currently only used for size
+    check for Zip64 archive detection if compiled without ZIP64_SUPPORT and
+    this check may already be handled in scanzipf_reg() and should be added to
+    scanzipf_fix() when that is updated (SMS, Ed)
 18. Change >>1 to /2 in zipsplit.c to allow for negative percent returns (SMS)
-19. Add type uzoff_t for unsigned zoff_t things.  Should clean up some casting (Ed)
+19. Add type uzoff_t for unsigned zoff_t things.  Should clean up some casting
+    (Ed)
 20. Based on discussions with other development groups, when data descriptors
     (extended local headers) are used, force to Zip64.  This is compatible
-    with other unzips and does not require a change of the AppNote, but the resulting
-    archive requires Zip64 to read.  Using standard data descriptors would mean
-    that the zip operation would fail if a Zip64 entry was encountered.  See
-    zipfile.c (Ed)
-21. Add define SPLIT_SUPPORT to enable splits.  The command line options are done and
-    the globals are set up but nothing more.  globals.c, zip.h, and zip.c mainly (Ed)
-22. Create spanning signature at beginning of archive when splitting enabled.  If
-    reading a split archive skip the spanning signature unless creating a split
-    archive.  zip.c, globals.c (Ed)
-23. Start implementing split archives.  Define two methods. split_method = 1 updates
-    local headers and is the most compatible but requires updating previous splits.
-    split_method = 2 uses data descriptors and should work for streams and removable
-    media but may not be as compatible with other zip applications.  (In part based
-    on previous discussions with Rainer.)  Updated global variables to include bytes
-    written to just the current entry in the current split.  zipfile.c (Ed)
+    with other unzips and does not require a change of the AppNote, but the
+    resulting archive requires Zip64 to read.  Using standard data descriptors
+    would mean that the zip operation would fail if a Zip64 entry was
+    encountered.  See zipfile.c (Ed)
+21. Add define SPLIT_SUPPORT to enable splits.  The command line options are
+    done and the globals are set up but nothing more.  globals.c, zip.h, and
+    zip.c mainly (Ed)
+22. Create spanning signature at beginning of archive when splitting enabled.
+    If reading a split archive skip the spanning signature unless creating a
+    split archive.  zip.c, globals.c (Ed)
+23. Start implementing split archives.  Define two methods. split_method = 1
+    updates local headers and is the most compatible but requires updating
+    previous splits.  split_method = 2 uses data descriptors and should work
+    for streams and removable media but may not be as compatible with other
+    zip applications.  (In part based on previous discussions with Rainer.)
+    Updated global variables to include bytes written to just the current
+    entry in the current split.  zipfile.c (Ed)
 24. Add note about output redirection to zip.1 (?, Ed)
 25. Remove num < 0 check as num now unsigned.  util.c (SMS, Ed)
 26. Change lastchar to lastchr in fileio.c in places to avoid function by same
     name (SMS, Ed)
+27. Moved #endif /* !WINDLL */ in zip.c (Mike)
+28. Account for vms directory version being ;1.  vmszip.c (SMS)
+29. Fix Zip64 check in scanzipf_reg to use the buffer.  zipfile.c (Ed)
+30. Default define size_t (for use by Steve's ffile_size() function).  tailor.h (Ed)
+31. Enable Steve's ffile_size() function and enable large file check.  It
+    currently does not allow file sizes over 2 GB but the code is not supporting
+    it anyway without large file support.  Should remove that part of the check
+    when the casts are fixed.  zipfile.c (Ed)
+32. Fixes for djgpp.  Now compiles with djgpp 2 (Ed)
+33. Add new VB6 projects for win32 and windll (Cosmin)
+34. Convert some variables in zipsplit.c from ulg to zoff_t so compiles (Ed)
+35. Add wildcards to extended help.  zip.c (Ed)
+36. For optional option value now '-' is same as missing value.  fileio.c (Ed)
+37. Remove extra free() from -dd option switch.  zip.c (Ed)
+38. Change write_unsigned_to_mem() to write_ulong_to_mem() and write_short_to_mem()
+    to write_ushort_to_mem().  zipfile.c (Ed)
+39. Create new append to mem functions.  zipfile.c (Ed)
+40. Change zlist nam and ext from extent to ushort as that is what gets written.
+    zipfile.c (Ed)
+41. Change GetSD to use ush instead of size_t.  win32/win32zip.c (Ed)
+42. Change PutLocal(), PutExtended(), PutCentral(), and PutEnd() to write to
+    memory and then write the block at once to the file.  zipfile.c (Ed)
+43. Change zcomlen from extent to ush, other extent conversions.  zipfile.c,
+    globals.c, zip.h (Ed)
+44. Add is_seekable() and global output_is_seekable.  Do seekable check
+    when output file is opened.  zipup.c, globals.c, zip.h, zip.c (Ed)
+45. Do not increment files_so_far and bytes_so_far if file could not be read.
+    zip.c (Ed)
+46. If force_zip64 set, only force compressed size in central directory to Zip64
+    instead of all entries (csize, usize, off, disk) in Zip64 extra field.  This
+    fixes inconsistent handling of disk numbers.  zipfile.c (Ed)
+47. Add end status if displaying running stats and not all files were read.
+    zip.c (Ed)
+48. Change force_zip64 to zip64_archive in putend().  zipfile.c (Ed)
+49. Enable the i686-optimized code by default.  crc_i386.S,
+    win32/crc_i386.asm, win32/crc_i386.c (Cosmin)
+50. Document and implement a new text detection scheme provided by Cosmin in
+    set_file_type().  Should be able to handle UTF-8 and some other character sets.
+    proginfo/txtvsbin.txt, trees.c (Cosmin, Johnny, Christian)
+51. Update binary detection for -l and -ll to use Cosmin black list.  zipup.c (Ed)
+52. Change ZE_BIG to include read and write.  ziperr.h (Ed)
+53. If archive not seekable then use data descriptors.  If ZIP64_SUPPORT always
+    create Zip64 data descriptors and add a Zip64 extra field to flag it is
+    a Zip64 data descriptor.  This is klugy but should be compatible with other
+    unzips.  See the note in zipfile.c for details.  (Ed)
+54. Use ush for comment length in putend().  Instead of extent use ush for
+    zcount and fcount same as in zip file.  zip.h (Ed)
+55. Update VB readme.  windll/VB/readmeVB.txt (Ed)
+56. Change (INSTALL) to (INSTALL_PROGRAM).  unix/Makefile (, Ed)
+57. During update the file and byte status counts were off.  Fixed by not counting
+    files copied from old to new as those are not in totals.  zip.c (Ed)
+58. Change from -b to -bx for nroff of manuals to text files.  unix/Makefile (Ed)
+59. Add cygwin to makefile.  unix/Makefile (, Ed)
+60. Fix bug where files to delete not added to list.  zip.c (Ed)
+61. Fix delete stats.  zip.c (Ed)
+62. Increment version of crypt to 2.10.  Update default behavior notes.
+    crypt.c, crypt.h (Paul, Christian)
+63. Format changes, add parentheses to zfseeko(), fix output bytes, add ifdef
+    blocks for ZIP10, fzofft formatting, casts.  crypt.c (Christian)
+64. Cast block_start to unsigned.  deflate.c (Christian) 
+65. Let -R patterns match in subdirectories.  Update filter() to use switch,
+    use global icount and Rcount, handle subdirectories, update icount and RCount
+    in filterlist_to_patterns().  fileio.c, zip.c, zip.h, globals.c (Christian)
+66. Enclose option -! and use_privileges under NTSD_EAS guard.  globals.c,
+    zip.c, zip.h (Cosmin)
+67. Updates to version, copyright, license.  [I did not split the copyright
+    to 2 lines as it already takes up space on the help screen.  Ed]
+    revision.h (Christian)
+68. Add ZCONST to some read-only string pointer arguments in function
+    declarations.  zipcloak.c, zipnote.c, zipsplit.c, zip.c, zip.h (Christian)
+69. Fix byte counts on exit in zipcloak() and zipbare() to fix zipcloak bug
+    (Christian)
+70. Modified zipnote.c to use WRBUFSIZ to handle line widths of at least 2047
+    characters in write mode (Christian)
+71. Change simple() and greedy() from zoff_t to uzoff_t.  zipsplit.c (Christian)
+72. Remove duplicate copyright notices.  zipsplit.c (Christian)
+73. Remove export notice from help page.  Move notice to bottom of license
+    page.  zipcloak.c (Ed)
 
 ---------------------- February 18th 2005 version 3.0e ---------------------
 
