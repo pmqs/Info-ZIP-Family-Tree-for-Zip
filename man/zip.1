@@ -1,15 +1,15 @@
 .\" =========================================================================
-.\" Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+.\" Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 .\"
-.\" See the accompanying file LICENSE, version 1999-Oct-05 or later
+.\" See the accompanying file LICENSE, version 2005-Feb-10 or later
 .\" (the contents of which are also included in zip.h) for terms of use.
-.\" If, for some reason, both of these files are missing, the Info-ZIP license
-.\" also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+.\" If, for some reason, all these files are missing, the Info-ZIP license
+.\" also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 .\" ==========================================================================
 .\"
 .\" zip.1 by Mark Adler, Jean-loup Gailly and  R. P. C. Rodgers
 .\"
-.TH ZIP 1L "14 August 1999 (v2.3)" Info-ZIP
+.TH ZIP 1L "27 February 2005 (v2.31)" Info-ZIP
 .SH NAME
 zip, zipcloak, zipnote, zipsplit \- package and compress (archive) files
 .SH SYNOPSIS
@@ -63,11 +63,11 @@ programs can work with archives produced by PKZIP,
 and PKZIP and PKUNZIP can work with archives produced by
 .IR zip .
 .I zip
-version 2.3 is compatible with PKZIP 2.04.
+version 2.31 is compatible with PKZIP 2.04.
 Note that PKUNZIP 1.10 cannot extract files produced by PKZIP 2.04
 or
 .I zip
-2.3. You must use PKUNZIP 2.04g or
+2.31. You must use PKUNZIP 2.04g or
 .I unzip
 5.0p1 (or later versions) to extract them.
 .PP
@@ -178,7 +178,9 @@ input from another program. For example:
 .LP
 would compress the output of the tar command for the purpose of backing up
 the current directory. This generally produces better compression than
-the previous example using the -r option, because
+the previous example using the
+.B \-r
+option, because
 .I zip
 can take advantage of redundancy between files. The backup can be restored
 using the command
@@ -206,8 +208,8 @@ package, or by
 which is provided in the
 .I gzip
 package. For example:
-.LP
-\fPdd if=/dev/nrst0  ibs=16k | funzip | tar xvf -\fC
+.IP
+\fCdd if=/dev/nrst0  ibs=16k | funzip | tar xvf -\fP
 .LP
 When changing an existing
 .I zip
@@ -241,8 +243,9 @@ in the archive to take into account this "preamble" data.
 .LP
 Note: self-extracting archives for the Amiga are a special case.
 At present, only the Amiga port of Zip is capable of adjusting
-or updating these without corrupting them. -J can be used to remove
-the SFX stub if other updates need to be made.
+or updating these without corrupting them.
+.B \-J
+can be used to remove the SFX stub if other updates need to be made.
 .TP
 .BI \-B
 [VM/CMS and MVS] force file to be read binary (default is text).
@@ -319,6 +322,13 @@ enabling
 to match on the contents of the
 .I zip
 archive instead of the contents of the current directory.
+.IP
+Under systems where the shell does not expand wildcards, such as MSDOS,
+the backslashes are not needed.  The above would then be
+.RS
+.IP
+\fCzip -d foo foo/tom/junk foo/harry/* *.o\fP
+.RE
 .IP
 Under MSDOS,
 .B \-d
@@ -397,11 +407,11 @@ archives are always relative.
 .IP
 Note that the timezone environment variable TZ should be set according to
 the local timezone in order for the
-.B -f
+.B \-f
 ,
-.B -u
+.B \-u
 and
-.B -o
+.B \-o
 options to work correctly.
 .IP
 The reasons behind this are somewhat subtle but have to do with the differences
@@ -474,7 +484,14 @@ PKZIP does not allow recursion in directories other than the current one.)
 The backslash avoids the shell filename substitution, so that the
 name matching is performed by
 .I zip
-at all directory levels.
+at all directory levels.  Not escaping wildcards on shells that do
+wildcard substitution before zip gets the command line may seem to
+work but files in subdirectories matching the pattern will never be
+checked and so not matched.  For shells, such as Win32 command
+prompts, that do not replace file patterns containing wildcards
+with the respective file names,
+.I zip
+will do the recursion and escaping the wildcards is not needed.
 .IP
 Also possible:
 .RS
@@ -486,10 +503,12 @@ which will only include the files in the current directory and its
 subdirectories that match the patterns in the file include.lst.
 .TP
 .B \-I
-[Acorn RISC OS] Don't scan through Image files.  When used, zip will not
+[Acorn RISC OS] Don't scan through Image files.  When used,
+.I zip
+will not
 consider Image files (eg. DOS partitions or Spark archives when SparkFS
 is loaded) as directories but will store them as single files.
-
+.IP
 For example, if you have SparkFS loaded, zipping a Spark archive will result
 in a zipfile containing a directory (and its content) while using the 'I'
 option will result in a zipfile containing a Spark archive. Obviously this
@@ -521,17 +540,29 @@ Translate the Unix end-of-line character LF into the
 MSDOS convention CR LF. This option should not be used on binary files.
 This option can be used on Unix if the zip file is intended for PKUNZIP
 under MSDOS. If the input files already contain CR LF, this option adds
-an extra CR. This ensure that
-.I unzip -a
+an extra CR. This ensures that
+.I unzip \-a
 on Unix will get back an exact copy of the original file,
 to undo the effect of
-.I zip -l.
+.I zip \-l.
+See the note on binary detection for
+.B \-ll
+below.
 .TP
 .B \-ll
 Translate the MSDOS end-of-line CR LF into Unix LF.
-This option should not be used on binary files.
+This option should not be used on binary files and a warning will be
+issued when a file is converted that later is detected to be binary.
 This option can be used on MSDOS if the zip file is intended for unzip
 under Unix.
+.IP
+In Zip 2.31 binary detection has been changed from a simple percentage
+of binary characters being considered binary to a more selective method
+that should consider files in many character sets, including \fIUTF-8\fP,
+that only include text characters in that character set to be text.
+This allows
+.I unzip -a
+to convert these files.
 .TP
 .B \-L
 Display the
@@ -590,13 +621,13 @@ The environment variable ZIPOPT can be used to change the default options. For
 example under Unix with csh:
 .RS
 .IP
-setenv ZIPOPT "-n .gif:.zip"
+\fCsetenv ZIPOPT "-n .gif:.zip"\fP
 .RE
 .IP
 To attempt compression on all files, use:
 .RS
 .IP
-zip -n : foo
+\fCzip -n : foo\fP
 .RE
 .IP
 The maximum compression option
@@ -609,8 +640,12 @@ DDC:D96:68E (i.e. Archives, CFS files and PackDir files).
 .TP
 .B \-N
 [Amiga, MacOS] Save Amiga or MacOS filenotes as zipfile comments. They can be
-restored by using the -N option of unzip. If -c is used also, you are prompted
-for comments only for those files that do not have filenotes.
+restored by using the
+.B \-N
+option of unzip. If
+.B \-c
+is used also, you are prompted for comments only for those files that do not
+have filenotes.
 .TP
 .B \-o
 Set the "last modified" time of the
@@ -621,15 +656,17 @@ found among the entries in the
 archive.
 This can be used without any other operations, if desired.
 For example:
+.RS
 .IP
 \fCzip -o foo\fP
+.RE
 .IP
 will change the last modified time of
 .I foo.zip
 to the latest time of the entries in
 .IR foo.zip .
 .TP
-.IP \fB\-P\fP\ \fIpassword\fP
+\fB\-P\fP\ \fIpassword\fP
 use \fIpassword\fP to encrypt zipfile entries (if any).  \fBTHIS IS
 INSECURE!\fP  Many multi-user operating systems provide ways for any user to
 see the current command line of any other user; even on stand-alone systems
@@ -730,7 +767,7 @@ For example:
 .RS
 .IP
 \fCzip -rt 12071991 infamy foo\fP
-
+.IP
 \fCzip -rt 1991-12-07 infamy foo\fP
 .RE
 .IP
@@ -761,7 +798,7 @@ For example:
 .RS
 .IP
 \fCzip -rtt 11301995 infamy foo\fP
-
+.IP
 \fCzip -rtt 1995-11-30 infamy foo\fP
 .RE
 .IP
@@ -776,7 +813,7 @@ archive
 .B \-T
 Test the integrity of the new zip file. If the check fails, the old zip file
 is unchanged and (with the
-.B -m
+.B \-m
 option) no input files are removed.
 .TP
 .B \-u
@@ -818,7 +855,8 @@ info about zipfile structure oddities.
 .IP
 When
 .B \-v
-is the only command line argument, and stdout is not redirected to a file,
+is the only command line argument, and either stdin or stdout is
+not redirected to a file,
 a diagnostic screen is printed. In addition to the help screen header
 with program name, version, and release date, some pointers to the Info-ZIP
 home and distribution sites are given. Then, it shows information about the
@@ -828,10 +866,17 @@ and the enabled optional features used to create the
 executable.
 .TP
 .B \-V
+[VMS] Save VMS file attributes and use portable form.
+.I zip
+archives created with this option are truncated at EOF but still may not be
+usable on other systems depending on the file types being zipped.
+.TP
+.B \-VV
 [VMS] Save VMS file attributes.
 .I zip
-archives created with this option will generally not be usable
-on other systems.
+archives created with this option include the entire file and should be able
+to recreate most VMS files on VMS systems but these archives will generally
+not be usable on other systems.
 .TP
 .B \-w
 [VMS] Append the version number of the files to the name,
@@ -849,12 +894,13 @@ which will include the contents of
 .I foo
 in
 .I foo.zip
-while excluding all the files that end in
-.IR \& .o .
+while excluding all the files that end in \fI.o\fP.
 The backslash avoids the shell filename substitution, so that the
 name matching is performed by
 .I zip
-at all directory levels.
+at all directory levels.  If you do not escape wildcards in patterns
+it may seem to work but files in subdirectories will not be checked
+for matches.
 .IP
 Also possible:
 .RS
@@ -866,7 +912,8 @@ which will include the contents of
 .I foo
 in
 .I foo.zip
-while excluding all the files that match the patterns in the file exclude.lst.
+while excluding all the files that match the patterns in the file exclude.lst
+(each file pattern on a separate line).
 .TP
 .B \-X
 Do not save extra file attributes (Extended Attributes on OS/2, uid/gid
@@ -912,7 +959,7 @@ the suffix list). The default compression level is
 Take the list of input files from standard input. Only one filename per line.
 .TP
 .B \-$
-[MSDOS, OS/2, WIN32] Include the volume label for the the drive holding
+[MSDOS, OS/2, WIN32] Include the volume label for the drive holding
 the first file to be compressed.  If you want to include only the volume
 label or to force a specific drive, use the drive name as first file name,
 as in:
@@ -1001,7 +1048,8 @@ making room for the next
 .I zip
 command to function.
 .SH "PATTERN MATCHING"
-This section applies only to UNIX.
+This section applies only to UNIX, though the ?, *, and [] special
+characters are implemented on other systems including MSDOS and Win32.
 Watch this space for details on MSDOS and VMS operation.
 .LP
 The UNIX shells
@@ -1118,11 +1166,12 @@ program initialization.
 a severe error in the zipfile format was detected.  Processing probably
 failed immediately.
 .IP 6
-entry too large to be split with \fIzipsplit\fP
+entry too large to split (with \fIzipsplit\fP), read, or write
 .IP 7
 invalid comment format
 .IP 8
-\fIzip\fP -T failed or out of memory
+.I zip \-T
+failed or out of memory
 .IP 9
 the user aborted \fIzip\fP prematurely with control-C (or similar)
 .IP 10
@@ -1153,7 +1202,7 @@ and 4 (fatal error) for the remaining ones.
 .PD
 .SH BUGS
 .I zip
-2.3 is not compatible with PKUNZIP 1.10. Use
+2.31 is not compatible with PKUNZIP 1.10. Use
 .I zip
 1.1 to produce
 .I zip
@@ -1162,7 +1211,7 @@ files which can be extracted by PKUNZIP 1.10.
 .I zip
 files produced by
 .I zip
-2.3 must not be
+2.31 must not be
 .I updated
 by
 .I zip
@@ -1213,7 +1262,12 @@ to future RISC OS/2 versions. Therefore the value reported by
 stores the 32-bit format for portability, even the 16-bit
 MS-C-compiled version running on OS/2 1.3, so even this one shows the
 32-bit-mode size.
+.LP
+Development of Zip 3.0 is underway.  See that source distribution for
+many new features and the latest bug fixes.
 .SH AUTHORS
+Copyright (C) 1997-2005 Info-ZIP.
+.LP
 Copyright (C) 1990-1997 Mark Adler, Richard B. Wales, Jean-loup Gailly,
 Onno van der Linden, Kai Uwe Rommel, Igor Mandrichenko, John Bush and
 Paul Kienitz.
@@ -1227,16 +1281,14 @@ PROVIDED AS IS AND COME WITH NO WARRANTY OF ANY KIND, EITHER EXPRESSED OR
 IMPLIED. IN NO EVENT WILL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY DAMAGES
 RESULTING FROM THE USE OF THIS SOFTWARE.
 .LP
-Please send bug reports and comments by email to:
-.IR zip\-bugs@lists.wku.edu.
+Please send bug reports and comments to:
+.IR zip-bugs
+at
+.IR www.info-zip.org .
 For bug reports, please include the version of
 .IR zip
-(see
-.IR zip \-h
-),
-the make options used to compile it see
-.IR zip \-v
-),
+(see \fIzip\ \-h\fP),
+the make options used to compile it (see \fIzip\ \-v\fP),
 the machine and operating system in use,
 and as much additional information as possible.
 .SH ACKNOWLEDGEMENTS

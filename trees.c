@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2005-February-10 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
  *  trees.c by Jean-loup Gailly
@@ -1060,7 +1060,7 @@ ulg flush_block(buf, stored_len, eof)
 #endif /* PGP */
 
 #ifdef FORCE_METHOD
-    if (level == 2 && buf != (char*)NULL) { /* force stored block */
+    if (level <= 2 && buf != (char*)NULL) { /* force stored block */
 #else
     if (stored_len+4 <= opt_lenb && buf != (char*)NULL) {
                        /* 4: two words for the lengths */
@@ -1225,20 +1225,57 @@ local void compress_block(ltree, dtree)
 }
 
 /* ===========================================================================
- * Set the file type to ASCII or BINARY, using a crude approximation:
- * binary if more than 20% of the bytes are <= 6 or >= 128, ascii otherwise.
- * IN assertion: the fields freq of dyn_ltree are set and the total of all
- * frequencies does not exceed 64K (to fit in an int on 16 bit machines).
+ * Set the file type to TEXT (ASCII) or BINARY, using following algorithm:
+ * - TEXT, either ASCII or an ASCII-compatible extension such as ISO-8859,
+ *   UTF-8, etc., when the following two conditions are satisfied:
+ *    a) There are no non-portable control characters belonging to the
+ *       "black list" (0..6, 14..25, 28..31).
+ *    b) There is at least one printable character belonging to the
+ *       "white list" (9 {TAB}, 10 {LF}, 13 {CR}, 32..255).
+ * - BINARY otherwise.
+ *
+ * Note that the following partially-portable control characters form a
+ * "gray list" that is ignored in this detection algorithm:
+ * (7 {BEL}, 8 {BS}, 11 {VT}, 12 {FF}, 26 {SUB}, 27 {ESC}).
+ *
+ * Also note that, unlike in the previous 20% binary detection algorithm,
+ * any control characters in the black list will set the file type to
+ * BINARY.  If a text file contains a single accidental black character,
+ * the file will be flagged as BINARY in the archive.
+ *
+ * IN assertion: the fields freq of dyn_ltree are set.
  */
 local void set_file_type()
 {
-    int n = 0;
-    unsigned ascii_freq = 0;
-    unsigned bin_freq = 0;
-    while (n < 7)        bin_freq += dyn_ltree[n++].Freq;
-    while (n < 128)    ascii_freq += dyn_ltree[n++].Freq;
-    while (n < LITERALS) bin_freq += dyn_ltree[n++].Freq;
-    *file_type = (ush)(bin_freq > (ascii_freq >> 2) ? BINARY : ASCII);
+    /* bit-mask of black-listed bytes
+     * bit is set if byte is black-listed
+     * set bits 0..6, 14..25, and 28..31
+     * 0xf3ffc07f = binary 11110011111111111100000001111111
+     */
+    unsigned long mask = 0xf3ffc07fUL;
+    int n;
+
+    /* Check for non-textual ("black-listed") bytes. */
+    for (n = 0; n <= 31; n++, mask >>= 1)
+        if ((mask & 1) && (dyn_ltree[n].Freq != 0))
+        {
+            *file_type = BINARY;
+            return;
+        }
+
+    /* Check for textual ("white-listed") bytes. */
+    *file_type = ASCII;
+    if (dyn_ltree[9].Freq != 0 || dyn_ltree[10].Freq != 0
+            || dyn_ltree[13].Freq != 0)
+        return;
+    for (n = 32; n < LITERALS; n++)
+        if (dyn_ltree[n].Freq != 0)
+            return;
+
+    /* This deflate stream is either empty, or
+     * it has tolerated ("gray-listed") bytes only.
+     */
+    *file_type = BINARY;
 }
 
 

@@ -1,6 +1,6 @@
 # WMAKE makefile for 16 bit MSDOS or 32 bit DOS extender (PMODE/W or DOS/4GW)
-# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 25 Jun 98.  Makes
-# Zip.exe, ZipNote.exe, ZipCloak.exe, and ZipSplit.exe.
+# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 17 Feb 2005.
+# Makes Zip.exe, ZipNote.exe, ZipCloak.exe, and ZipSplit.exe.
 #
 # Invoke from Zip source dir with "WMAKE -F MSDOS\MAKEFILE.WAT [targets]"
 # To build with debug info use "WMAKE DEBUG=1 ..."
@@ -38,29 +38,30 @@ PM = 1      # both protected mode formats use the same object files
 
 !ifdef DEBUG
 !  ifdef PM
-O = od32d\  # comment here so backslash won't continue the line
+OBDIR = od32d
 !  else
 !    ifdef WSIZE
-O = od16l\  # ditto
+OBDIR = od16l
 size = -DWSIZE=$(WSIZE) -DSMALL_MEM
 !    else
-O = od16d\  # ditto
+OBDIR = od16d
 size = -DMEDIUM_MEM
 !    endif
 !  endif
 !else
 !  ifdef PM
-O = ob32d\  # ditto
+OBDIR = ob32d
 !  else
 !    ifdef WSIZE
-O = ob16l\  # ditto
+OBDIR = ob16l
 size = -DWSIZE=$(WSIZE) -DSMALL_MEM
 !    else
-O = ob16d\  # ditto
+OBDIR = ob16d
 size = -DMEDIUM_MEM
 !    endif
 !  endif
 !endif
+O = $(OBDIR)\   # comment here so backslash won't continue the line
 
 # The assembly hot-spot code in crc_i[3]86.asm and match[32].asm is
 # optional.  This section controls its usage.
@@ -167,7 +168,7 @@ n:   ZipNote.exe   .SYMBOLIC
 c:   ZipCloak.exe  .SYMBOLIC
 s:   ZipSplit.exe  .SYMBOLIC
 
-Zip.exe:	$(OBJZA) $(OBJZB) $(OBJV)
+Zip.exe:	$(OBDIR) $(OBJZA) $(OBJZB) $(OBJV)
 	set WLK_VA=file {$(OBJZA)}
 	set WLK_VB=file {$(OBJZB) $(OBJV)}
 	$(link) $(lflags) $(ldebug) name $@ @WLK_VA @WLK_VB
@@ -175,17 +176,17 @@ Zip.exe:	$(OBJZA) $(OBJZB) $(OBJV)
 	set WLK_VB=
 # We use WLK_VA and WLK_VB to keep the size of each command under 256 chars.
 
-ZipNote.exe:	$(OBJN)
+ZipNote.exe:	$(OBDIR) $(OBJN)
 	set WLK_VAR=file {$(OBJN)}
 	$(link) $(lflags) $(ldebug) name $@ @WLK_VAR
 	set WLK_VAR=
 
-ZipCloak.exe:	$(OBJC)
+ZipCloak.exe:	$(OBDIR) $(OBJC)
 	set WLK_VAR=file {$(OBJC)}
 	$(link) $(lflags) $(ldebug) name $@ @WLK_VAR
 	set WLK_VAR=
 
-ZipSplit.exe:	$(OBJS)
+ZipSplit.exe:	$(OBDIR) $(OBJS)
 	set WLK_VAR=file {$(OBJS)}
 	$(link) $(lflags) $(ldebug) name $@ @WLK_VAR
 	set WLK_VAR=
@@ -236,15 +237,14 @@ $(O)crypt_.obj:   crypt.c $(ZIP_H) crypt.h ttyio.h
 $(O)msdos_.obj:   msdos\msdos.c $(ZIP_H)
 	$(cc) $(cdebug) $(cflags) $(cvars) -DUTIL msdos\msdos.c -fo=$@
 
+# Creation of subdirectory for intermediate files
+$(OBDIR):
+	-mkdir $@
+
 # Unwanted file removal:
 
 clean:     .SYMBOLIC
-!ifdef PM
-	del ob32d\*.obj
-!else
-	del ob16d\*.obj
-	del ob16l\*.obj
-!endif
+	del $(O)*.obj
 
 cleaner:   clean  .SYMBOLIC
 	del Zip.exe

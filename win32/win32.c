@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
  * WIN32 specific functions for ZIP.
@@ -46,8 +46,9 @@ extern int noisy;
 #ifdef NT_TZBUG_WORKAROUND
 local int FSusesLocalTime(const char *path);
 #endif
-#if (defined(USE_EF_UT_TIME) || defined(NT_TZBUG_WORKAROUND))
-local int FileTime2utime(FILETIME *pft, time_t *ut);
+#if (defined(USE_EF_UT_TIME) || \
+     (defined(NT_TZBUG_WORKAROUND) && !defined(NO_W32TIMES_IZFIX)))
+local int NtfsFileTime2utime(const FILETIME *pft, time_t *ut);
 #endif
 #if (defined(NT_TZBUG_WORKAROUND) && defined(W32_STAT_BANDAID))
 local int VFatFileTime2utime(const FILETIME *pft, time_t *ut);
@@ -56,7 +57,7 @@ local int VFatFileTime2utime(const FILETIME *pft, time_t *ut);
 
 /* FAT / HPFS detection */
 
-int IsFileSystemOldFAT(char *dir)
+int IsFileSystemOldFAT(const char *dir)
 {
   char root[4];
   char vname[128];
@@ -97,14 +98,14 @@ int IsFileSystemOldFAT(char *dir)
 
 /* access mode bits and time stamp */
 
-int GetFileMode(char *name)
+int GetFileMode(const char *name)
 {
 DWORD dwAttr;
 #ifdef __RSXNT__        /* RSXNT/EMX C rtl uses OEM charset */
   char *ansi_name = (char *)alloca(strlen(name) + 1);
 
   OemToAnsi(name, ansi_name);
-  name = ansi_name;
+  name = (const char *)ansi_name;
 #endif
 
   dwAttr = GetFileAttributes(name);
@@ -124,15 +125,15 @@ DWORD dwAttr;
 #ifdef NT_TZBUG_WORKAROUND
 local int FSusesLocalTime(const char *path)
 {
-    char     *tmp0;
-    char      rootPathName[4];
-    char      tmp1[MAX_PATH], tmp2[MAX_PATH];
-    unsigned  volSerNo, maxCompLen, fileSysFlags;
+    char  *tmp0;
+    char   rootPathName[4];
+    char   tmp1[MAX_PATH], tmp2[MAX_PATH];
+    DWORD  volSerNo, maxCompLen, fileSysFlags;
 #ifdef __RSXNT__        /* RSXNT/EMX C rtl uses OEM charset */
     char *ansi_path = (char *)alloca(strlen(path) + 1);
 
     OemToAnsi(path, ansi_path);
-    path = ansi_path;
+    path = (const char *)ansi_path;
 #endif
 
     if (isalpha((uch)path[0]) && (path[1] == ':'))
@@ -146,8 +147,8 @@ local int FSusesLocalTime(const char *path)
     rootPathName[3] = '\0';           /* e.g. "A:/"                */
 
     GetVolumeInformation((LPCTSTR)rootPathName, (LPTSTR)tmp1, (DWORD)MAX_PATH,
-                         (LPDWORD)&volSerNo, (LPDWORD)&maxCompLen,
-                         (LPDWORD)&fileSysFlags, (LPTSTR)tmp2, (DWORD)MAX_PATH);
+                         &volSerNo, &maxCompLen, &fileSysFlags,
+                         (LPTSTR)tmp2, (DWORD)MAX_PATH);
 
     /* Volumes in (V)FAT and (OS/2) HPFS format store file timestamps in
      * local time!
@@ -160,7 +161,8 @@ local int FSusesLocalTime(const char *path)
 #endif /* NT_TZBUG_WORKAROUND */
 
 
-#if (defined(USE_EF_UT_TIME) || defined(NT_TZBUG_WORKAROUND))
+#if (defined(USE_EF_UT_TIME) || \
+     (defined(NT_TZBUG_WORKAROUND) && !defined(NO_W32TIMES_IZFIX)))
 
 #if (defined(__GNUC__) || defined(ULONG_LONG_MAX))
    typedef long long            LLONG64;
@@ -178,11 +180,13 @@ local int FSusesLocalTime(const char *path)
 #  define NO_INT64
 #endif
 
-#  define UNIX_TIME_ZERO_HI  0x019DB1DEUL
-#  define UNIX_TIME_ZERO_LO  0xD53E8000UL
+/* scale factor and offset for conversion time_t -> FILETIME */
 #  define NT_QUANTA_PER_UNIX 10000000L
 #  define FTQUANTA_PER_UT_L  (NT_QUANTA_PER_UNIX & 0xFFFF)
 #  define FTQUANTA_PER_UT_H  (NT_QUANTA_PER_UNIX >> 16)
+#  define UNIX_TIME_ZERO_HI  0x019DB1DEUL
+#  define UNIX_TIME_ZERO_LO  0xD53E8000UL
+/* special FILETIME values for bound-checks */
 #  define UNIX_TIME_UMAX_HI  0x0236485EUL
 #  define UNIX_TIME_UMAX_LO  0xD4A5E980UL
 #  define UNIX_TIME_SMIN_HI  0x0151669EUL
@@ -190,7 +194,7 @@ local int FSusesLocalTime(const char *path)
 #  define UNIX_TIME_SMAX_HI  0x01E9FD1EUL
 #  define UNIX_TIME_SMAX_LO  0xD4A5E980UL
 
-local int FileTime2utime(FILETIME *pft, time_t *ut)
+local int NtfsFileTime2utime(const FILETIME *pft, time_t *ut)
 {
 #ifndef NO_INT64
     ULLNG64 NTtime;
@@ -291,8 +295,8 @@ local int FileTime2utime(FILETIME *pft, time_t *ut)
                    (time_t)(60 * w32tm.wMinute + w32tm.wSecond));
     return TRUE;
 #endif /* ?NO_INT64 */
-} /* end function FileTime2utime() */
-#endif /* USE_EF_UT_TIME || NT_TZBUG_WORKAROUND */
+} /* end function NtfsFileTime2utime() */
+#endif /* USE_EF_UT_TIME || (NT_TZBUG_WORKAROUND && !NO_W32TIMES_IZFIX) */
 
 
 #if (defined(NT_TZBUG_WORKAROUND) && defined(W32_STAT_BANDAID))
@@ -303,7 +307,10 @@ local int VFatFileTime2utime(const FILETIME *pft, time_t *ut)
     SYSTEMTIME w32tm;
     struct tm ltm;
 
-    FileTimeToLocalFileTime(pft, &lft);
+    if (!FileTimeToLocalFileTime(pft, &lft)) {
+        /* if pft cannot be converted to local time, return current time */
+        return time(NULL);
+    }
     FileTimeToSystemTime(&lft, &w32tm);
     /* underflow and overflow handling */
     /* TODO: The range checks are not accurate, the actual limits may
@@ -364,11 +371,11 @@ local int VFatFileTime2utime(const FILETIME *pft, time_t *ut)
 
 #if 0           /* Currently, this is not used at all */
 
-long GetTheFileTime(char *name, iztimes *z_ut)
+long GetTheFileTime(const char *name, iztimes *z_ut)
 {
-HANDLE h;
-FILETIME Modft, Accft, Creft, lft;
-WORD dh, dl;
+  HANDLE h;
+  FILETIME Modft, Accft, Creft, lft;
+  WORD dh, dl;
 #ifdef __RSXNT__        /* RSXNT/EMX C rtl uses OEM charset */
   char *ansi_name = (char *)alloca(strlen(name) + 1);
 
@@ -383,13 +390,13 @@ WORD dh, dl;
     CloseHandle(h);
 #ifdef USE_EF_UT_TIME
     if (ftOK && (z_ut != NULL)) {
-      FileTime2utime(&Modft, &(z_ut->mtime));
+      NtfsFileTime2utime(&Modft, &(z_ut->mtime));
       if (Accft.dwLowDateTime != 0 || Accft.dwHighDateTime != 0)
-          FileTime2utime(&Accft, &(z_ut->atime));
+          NtfsFileTime2utime(&Accft, &(z_ut->atime));
       else
           z_ut->atime = z_ut->mtime;
       if (Creft.dwLowDateTime != 0 || Creft.dwHighDateTime != 0)
-          FileTime2utime(&Creft, &(z_ut->ctime));
+          NtfsFileTime2utime(&Creft, &(z_ut->ctime));
       else
           z_ut->ctime = z_ut->mtime;
     }
@@ -475,13 +482,13 @@ void ChangeNameForFAT(char *name)
       *src = '_';
 }
 
-char *GetLongPathEA(char *name)
+char *GetLongPathEA(const char *name)
 {
     return(NULL); /* volunteers ? */
 }
 
 int IsFileNameValid(x)
-char *x;
+const char *x;
 {
     WIN32_FIND_DATA fd;
     HANDLE h;
@@ -489,7 +496,7 @@ char *x;
     char *ansi_name = (char *)alloca(strlen(x) + 1);
 
     OemToAnsi(x, ansi_name);
-    x = ansi_name;
+    x = (const char *)ansi_name;
 #endif
 
     if ((h = FindFirstFile(x, &fd)) == INVALID_HANDLE_VALUE)
@@ -582,25 +589,40 @@ char *StringLower(char *szArg)
 #ifdef W32_STAT_BANDAID
 
 /* All currently known variants of WIN32 operating systems (Windows 95/98,
- * WinNT 3.x, 4.0, 5.0) have a nasty bug in the OS kernel concerning
+ * WinNT 3.x, 4.0, 5.x) have a nasty bug in the OS kernel concerning
  * conversions between UTC and local time: In the time conversion functions
  * of the Win32 API, the timezone offset (including seasonal daylight saving
  * shift) between UTC and local time evaluation is erratically based on the
  * current system time. The correct evaluation must determine the offset
  * value as it {was/is/will be} for the actual time to be converted.
  *
- * The C runtime lib's stat() returns utc time-stamps so that
- * localtime(timestamp) corresponds to the (potentially false) local
+ * Newer versions of MS C runtime lib's stat() returns utc time-stamps so
+ * that localtime(timestamp) corresponds to the (potentially false) local
  * time shown by the OS' system programs (Explorer, command shell dir, etc.)
+ * The RSXNT port follows the same strategy, but fails to recognize the
+ * access-time attribute.
  *
  * For the NTFS file system (and other filesystems that store time-stamps
  * as UTC values), this results in st_mtime (, st_{c|a}time) fields which
  * are not stable but vary according to the seasonal change of "daylight
  * saving time in effect / not in effect".
  *
+ * Other C runtime libs (CygWin, or the crtdll.dll supplied with Win9x/NT
+ * return the unix-time equivalent of the UTC FILETIME values as got back
+ * from the Win32 API call. This time, return values from NTFS are correct
+ * whereas utimes from files on (V)FAT volumes vary according to the DST
+ * switches.
+ *
  * To achieve timestamp consistency of UTC (UT extra field) values in
  * Zip archives, the Info-ZIP programs require work-around code for
  * proper time handling in stat() (and other time handling routines).
+ *
+ * However, nowadays most other programs on Windows systems use the
+ * time conversion strategy of Microsofts C runtime lib "msvcrt.dll".
+ * To improve interoperability in environments where a "consistent" (but
+ * false) "UTC<-->LocalTime" conversion is preferred over "stable" time
+ * stamps, the Info-ZIP specific time conversion handling can be
+ * deactivated by defining the preprocessor flag NO_W32TIMES_IZFIX.
  */
 /* stat() functions under Windows95 tend to fail for root directories.   *
  * Watcom and Borland, at least, are affected by this bug.  Watcom made  *
@@ -612,9 +634,11 @@ int zstat_zipwin32(const char *path, struct stat *buf)
 {
     if (!stat(path, buf))
     {
-#ifdef NT_TZBUG_WORKAROUND
+#if (!defined(UTIL) && defined(NT_TZBUG_WORKAROUND))
         /* stat was successful, now redo the time-stamp fetches */
+#ifndef NO_W32TIMES_IZFIX
         int fs_uses_loctime = FSusesLocalTime(path);
+#endif
         HANDLE h;
         FILETIME Modft, Accft, Creft;
 #ifdef __RSXNT__        /* RSXNT/EMX C rtl uses OEM charset */
@@ -635,24 +659,27 @@ int zstat_zipwin32(const char *path, struct stat *buf)
             CloseHandle(h);
 
             if (ftOK) {
+#ifndef NO_W32TIMES_IZFIX
                 if (!fs_uses_loctime) {
                     /*  On a filesystem that stores UTC timestamps, we refill
                      *  the time fields of the struct stat buffer by directly
                      *  using the UTC values as returned by the Win32
                      *  GetFileTime() API call.
                      */
-                    FileTime2utime(&Modft, &(buf->st_mtime));
+                    NtfsFileTime2utime(&Modft, &(buf->st_mtime));
                     if (Accft.dwLowDateTime != 0 || Accft.dwHighDateTime != 0)
-                        FileTime2utime(&Accft, &(buf->st_atime));
+                        NtfsFileTime2utime(&Accft, &(buf->st_atime));
                     else
                         buf->st_atime = buf->st_mtime;
                     if (Creft.dwLowDateTime != 0 || Creft.dwHighDateTime != 0)
-                        FileTime2utime(&Creft, &(buf->st_ctime));
+                        NtfsFileTime2utime(&Creft, &(buf->st_ctime));
                     else
                         buf->st_ctime = buf->st_mtime;
                     Tracev((stdout,"NTFS, recalculated modtime %08lx\n",
                             buf->st_mtime));
-                } else {
+                } else
+#endif /* NO_W32TIMES_IZFIX */
+                {
                     /*  On VFAT and FAT-like filesystems, the FILETIME values
                      *  are converted back to the stable local time before
                      *  converting them to UTC unix time-stamps.
@@ -672,7 +699,7 @@ int zstat_zipwin32(const char *path, struct stat *buf)
             }
         }
 #       undef Ansi_Path
-#endif /* NT_TZBUG_WORKAROUND */
+#endif /* !UTIL && NT_TZBUG_WORKAROUND */
         return 0;
     }
 #ifdef W32_STATROOT_FIX
@@ -711,6 +738,77 @@ int zstat_zipwin32(const char *path, struct stat *buf)
 }
 
 #endif /* W32_STAT_BANDAID */
+
+
+
+#ifdef W32_USE_IZ_TIMEZONE
+#include "timezone.h"
+#define SECSPERMIN      60
+#define MINSPERHOUR     60
+#define SECSPERHOUR     (SECSPERMIN * MINSPERHOUR)
+static void conv_to_rule(LPSYSTEMTIME lpw32tm, struct rule * ZCONST ptrule);
+
+static void conv_to_rule(LPSYSTEMTIME lpw32tm, struct rule * ZCONST ptrule)
+{
+    if (lpw32tm->wYear != 0) {
+        ptrule->r_type = JULIAN_DAY;
+        ptrule->r_day = ydays[lpw32tm->wMonth - 1] + lpw32tm->wDay;
+    } else {
+        ptrule->r_type = MONTH_NTH_DAY_OF_WEEK;
+        ptrule->r_mon = lpw32tm->wMonth;
+        ptrule->r_day = lpw32tm->wDayOfWeek;
+        ptrule->r_week = lpw32tm->wDay;
+    }
+    ptrule->r_time = (long)lpw32tm->wHour * SECSPERHOUR +
+                     (long)(lpw32tm->wMinute * SECSPERMIN) +
+                     (long)lpw32tm->wSecond;
+}
+
+int GetPlatformLocalTimezone(register struct state * ZCONST sp,
+        void (*fill_tzstate_from_rules)(struct state * ZCONST sp_res,
+                                        ZCONST struct rule * ZCONST start,
+                                        ZCONST struct rule * ZCONST end))
+{
+    TIME_ZONE_INFORMATION tzinfo;
+    DWORD res;
+
+    /* read current timezone settings from registry if TZ envvar missing */
+    res = GetTimeZoneInformation(&tzinfo);
+    if (res != TIME_ZONE_ID_INVALID)
+    {
+        struct rule startrule, stoprule;
+
+        conv_to_rule(&(tzinfo.StandardDate), &stoprule);
+        conv_to_rule(&(tzinfo.DaylightDate), &startrule);
+        sp->timecnt = 0;
+        sp->ttis[0].tt_abbrind = 0;
+        if ((sp->charcnt =
+             WideCharToMultiByte(CP_ACP, 0, tzinfo.StandardName, -1,
+                                 sp->chars, sizeof(sp->chars), NULL, NULL))
+            == 0)
+            sp->chars[sp->charcnt++] = '\0';
+        sp->ttis[1].tt_abbrind = sp->charcnt;
+        sp->charcnt +=
+            WideCharToMultiByte(CP_ACP, 0, tzinfo.DaylightName, -1,
+                                sp->chars + sp->charcnt,
+                                sizeof(sp->chars) - sp->charcnt, NULL, NULL);
+        if ((sp->charcnt - sp->ttis[1].tt_abbrind) == 0)
+            sp->chars[sp->charcnt++] = '\0';
+        sp->ttis[0].tt_gmtoff = - (tzinfo.Bias + tzinfo.StandardBias)
+                                * MINSPERHOUR;
+        sp->ttis[1].tt_gmtoff = - (tzinfo.Bias + tzinfo.DaylightBias)
+                                * MINSPERHOUR;
+        sp->ttis[0].tt_isdst = 0;
+        sp->ttis[1].tt_isdst = 1;
+        sp->typecnt = (startrule.r_mon == 0 && stoprule.r_mon == 0) ? 1 : 2;
+
+        if (sp->typecnt > 1)
+            (*fill_tzstate_from_rules)(sp, &startrule, &stoprule);
+        return TRUE;
+    }
+    return FALSE;
+}
+#endif /* W32_USE_IZ_TIMEZONE */
 
 
 
@@ -772,7 +870,7 @@ int getch_win32(void)
 
 void version_local()
 {
-    static ZCONST char CompiledWith[] = "Compiled with %s%s for %s%s%s%s.\n\n";
+    static ZCONST char CompiledWith[] = "Compiled with %s%s for %s%s%s.\n\n";
 #if (defined(_MSC_VER) || defined(__WATCOMC__) || defined(__DJGPP__))
     char buf[80];
 #if (defined(_MSC_VER) && (_MSC_VER > 900))
@@ -780,93 +878,110 @@ void version_local()
 #endif
 #endif
 
-    printf(CompiledWith,
-
+/* Define the compiler name and version strings */
 #if defined(_MSC_VER)  /* MSC == MSVC++, including the SDK compiler */
-      (sprintf(buf, "Microsoft C %d.%02d ", _MSC_VER/100, _MSC_VER%100), buf),
+    sprintf(buf, "Microsoft C %d.%02d ", _MSC_VER/100, _MSC_VER%100);
+#  define COMPILER_NAME1        buf
 #  if (_MSC_VER == 800)
-        "(Visual C++ v1.1)",
+#    define COMPILER_NAME2      "(Visual C++ v1.1)"
 #  elif (_MSC_VER == 850)
-        "(Windows NT v3.5 SDK)",
+#    define COMPILER_NAME2      "(Windows NT v3.5 SDK)"
 #  elif (_MSC_VER == 900)
-        "(Visual C++ v2.x)",
+#    define COMPILER_NAME2      "(Visual C++ v2.x)"
 #  elif (_MSC_VER > 900)
-        (sprintf(buf2, "(Visual C++ v%d.%d)", _MSC_VER/100 - 6,
-                 _MSC_VER%100/10), buf2),
+    sprintf(buf2, "(Visual C++ v%d.%d)", _MSC_VER/100 - 6, _MSC_VER%100/10);
+#    define COMPILER_NAME2      buf2
 #  else
-        "(bad version)",
+#    define COMPILER_NAME2      "(bad version)"
 #  endif
 #elif defined(__WATCOMC__)
 #  if (__WATCOMC__ % 10 > 0)
 /* We do this silly test because __WATCOMC__ gives two digits for the  */
 /* minor version, but Watcom packaging prefers to show only one digit. */
-        (sprintf(buf, "Watcom C/C++ %d.%02d", __WATCOMC__ / 100,
-                 __WATCOMC__ % 100), buf), "",
+    sprintf(buf, "Watcom C/C++ %d.%02d", __WATCOMC__ / 100,
+            __WATCOMC__ % 100);
 #  else
-        (sprintf(buf, "Watcom C/C++ %d.%d", __WATCOMC__ / 100,
-                 (__WATCOMC__ % 100) / 10), buf), "",
+    sprintf(buf, "Watcom C/C++ %d.%d", __WATCOMC__ / 100,
+            (__WATCOMC__ % 100) / 10);
 #  endif /* __WATCOMC__ % 10 > 0 */
+#  define COMPILER_NAME1        buf
+#  define COMPILER_NAME2        ""
 #elif defined(__TURBOC__)
 #  ifdef __BORLANDC__
-     "Borland C++",
+#    define COMPILER_NAME1      "Borland C++"
 #    if (__BORLANDC__ == 0x0452)   /* __BCPLUSPLUS__ = 0x0320 */
-        " 4.0 or 4.02",
+#      define COMPILER_NAME2    " 4.0 or 4.02"
 #    elif (__BORLANDC__ == 0x0460)   /* __BCPLUSPLUS__ = 0x0340 */
-        " 4.5",
+#      define COMPILER_NAME2    " 4.5"
 #    elif (__BORLANDC__ == 0x0500)   /* __TURBOC__ = 0x0500 */
-        " 5.0",
+#      define COMPILER_NAME2    " 5.0"
 #    elif (__BORLANDC__ == 0x0520)   /* __TURBOC__ = 0x0520 */
-        " 5.2 (C++ Builder)",
+#      define COMPILER_NAME2    " 5.2 (C++ Builder 1.0)"
+#    elif (__BORLANDC__ == 0x0530)   /* __BCPLUSPLUS__ = 0x0530 */
+#      define COMPILER_NAME2    " 5.3 (C++ Builder 3.0)"
+#    elif (__BORLANDC__ == 0x0540)   /* __BCPLUSPLUS__ = 0x0540 */
+#      define COMPILER_NAME2    " 5.4 (C++ Builder 4.0)"
+#    elif (__BORLANDC__ == 0x0550)   /* __BCPLUSPLUS__ = 0x0550 */
+#      define COMPILER_NAME2    " 5.5 (C++ Builder 5.0)"
+#    elif (__BORLANDC__ == 0x0551)   /* __BCPLUSPLUS__ = 0x0551 */
+#      define COMPILER_NAME2    " 5.5.1 (C++ Builder 5.0.1)"
+#    elif (__BORLANDC__ == 0x0560)   /* __BCPLUSPLUS__ = 0x0560 */
+#      define COMPILER_NAME2    " 5.6 (C++ Builder 6)"
 #    else
-        " later than 5.2",
+#      define COMPILER_NAME2    " later than 5.6"
 #    endif
 #  else /* !__BORLANDC__ */
-     "Turbo C",
+#    define COMPILER_NAME1      "Turbo C"
 #    if (__TURBOC__ >= 0x0400)     /* Kevin:  3.0 -> 0x0401 */
-        "++ 3.0 or later",
+#      define COMPILER_NAME2    "++ 3.0 or later"
 #    elif (__TURBOC__ == 0x0295)     /* [661] vfy'd by Kevin */
-        "++ 1.0",
+#      define COMPILER_NAME2    "++ 1.0"
 #    endif
 #  endif /* __BORLANDC__ */
 #elif defined(__GNUC__)
 #  ifdef __RSXNT__
 #    if (defined(__DJGPP__) && !defined(__EMX__))
-      (sprintf(buf, "rsxnt(djgpp v%d.%02d) / gcc ",
-        __DJGPP__, __DJGPP_MINOR__), buf),
+    sprintf(buf, "rsxnt(djgpp v%d.%02d) / gcc ",
+            __DJGPP__, __DJGPP_MINOR__);
+#      define COMPILER_NAME1    buf
 #    elif defined(__DJGPP__)
-      (sprintf(buf, "rsxnt(emx+djgpp v%d.%02d) / gcc ",
-        __DJGPP__, __DJGPP_MINOR__), buf),
+    sprintf(buf, "rsxnt(emx+djgpp v%d.%02d) / gcc ",
+            __DJGPP__, __DJGPP_MINOR__);
+#      define COMPILER_NAME1    buf
 #    elif (defined(__GO32__) && !defined(__EMX__))
-      "rsxnt(djgpp v1.x) / gcc ",
+#      define COMPILER_NAME1    "rsxnt(djgpp v1.x) / gcc "
 #    elif defined(__GO32__)
-      "rsxnt(emx + djgpp v1.x) / gcc ",
+#      define COMPILER_NAME1    "rsxnt(emx + djgpp v1.x) / gcc "
 #    elif defined(__EMX__)
-      "rsxnt(emx)+gcc ",
+#      define COMPILER_NAME1    "rsxnt(emx)+gcc "
 #    else
-      "rsxnt(unknown) / gcc ",
+#      define COMPILER_NAME1    "rsxnt(unknown) / gcc "
 #    endif
 #  elif defined(__CYGWIN__)
-      "Cygnus win32 / gcc ",
+#      define COMPILER_NAME1    "Cygnus win32 / gcc "
 #  elif defined(__MINGW32__)
-      "mingw32 / gcc ",
+#      define COMPILER_NAME1    "mingw32 / gcc "
 #  else
-      "gcc ",
+#      define COMPILER_NAME1    "gcc "
 #  endif
-      __VERSION__,
+#  define COMPILER_NAME2        __VERSION__
 #elif defined(__LCC__)
-      "LCC-Win32", "",
+#  define COMPILER_NAME1        "LCC-Win32"
+#  define COMPILER_NAME2        ""
 #else
-      "unknown compiler (SDK?)", "",
+#  define COMPILER_NAME1        "unknown compiler (SDK?)"
+#  define COMPILER_NAME2        ""
 #endif
 
-      "\nWindows 9x / Windows NT", " (32-bit)",
-
+/* Define the compile date string */
 #ifdef __DATE__
-      " on ", __DATE__
+#  define COMPILE_DATE " on " __DATE__
 #else
-      "", ""
+#  define COMPILE_DATE ""
 #endif
-    );
+
+    printf(CompiledWith, COMPILER_NAME1, COMPILER_NAME2,
+           "\nWindows 9x / Windows NT/2K/XP/2K3", " (32-bit)", COMPILE_DATE);
 
     return;
 

@@ -515,7 +515,7 @@ typedef struct
 }
 GEALST;
 
-char *GetLongNameEA(char *name)
+char *GetLongNameEA(const char *name)
 {
   EAOP eaop;
   GEALST gealst;
@@ -553,14 +553,17 @@ char *GetLongNameEA(char *name)
   return NULL;
 }
 
-char *GetLongPathEA(char *name)
+char *GetLongPathEA(const char *name)
 {
   static char nbuf[CCHMAXPATH + 1];
+  char tempbuf[CCHMAXPATH + 1];
   char *comp, *next, *ea, sep;
   BOOL bFound = FALSE;
 
   nbuf[0] = 0;
-  next = name;
+  strncpy(tempbuf, name, CCHMAXPATH);
+  tempbuf[CCHMAXPATH] = '\0';
+  next = tempbuf;
 
   while (*next)
   {
@@ -572,16 +575,14 @@ char *GetLongPathEA(char *name)
     sep = *next;
     *next = 0;
 
-    ea = GetLongNameEA(name);
+    ea = GetLongNameEA(tempbuf);
     strcat(nbuf, ea ? ea : comp);
     bFound = bFound || (ea != NULL);
 
-    *next = sep;
-
-    if (*next)
+    if (sep)
     {
       strcat(nbuf, "\\");
-      next++;
+      *next++ = sep;
     }
   }
 
@@ -706,10 +707,13 @@ void GetEAs(char *path, char **bufptr, size_t *size,
 
   /* The maximum compressed size is (in case of STORE type) the
      uncompressed size plus the size of the compression type field
-     plus the size of the CRC field. */
+     plus the size of the CRC field + 2*5 deflate overhead bytes
+     for uncompressable data.
+     (5 bytes per 32Kb block, max compressed size = 2 blocks) */
 
   ulAttributes = pFEAlist -> cbList;
-  ulMemoryBlock = ulAttributes + sizeof(USHORT) + sizeof(ULONG);
+  ulMemoryBlock = ulAttributes +
+                  sizeof(USHORT) + sizeof(ULONG) + EB_DEFLAT_EXTRA;
   pEAblock = (PEFHEADER) malloc(sizeof(EFHEADER) + ulMemoryBlock);
 
   if (pEAblock == NULL)
@@ -929,7 +933,13 @@ void GetACL(char *path, char **bufptr, size_t *size,
 
   bytes = strlen(buffer);
 
-  cbytes = bytes + sizeof(USHORT) + sizeof(ULONG);
+  /* The maximum compressed size is (in case of STORE type) the
+     uncompressed size plus the size of the compression type field
+     plus the size of the CRC field + 2*5 deflate overhead bytes
+     for uncompressable data.
+     (5 bytes per 32Kb block, max compressed size = 2 blocks) */
+
+  cbytes = bytes + sizeof(USHORT) + sizeof(ULONG) + EB_DEFLAT_EXTRA;
   if ((*bufptr = realloc(*bufptr, *size + sizeof(EFHEADER) + cbytes)) == NULL)
     return;
 

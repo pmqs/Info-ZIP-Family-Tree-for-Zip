@@ -35,9 +35,68 @@ Option Explicit
 '-- Or Visit Our Home Page At: http://www.ntplx.net/~king
 '--
 '---------------------------------------------------------------
+'
+' This is the original example with some small changes. Only
+' use with the original Zip32.dll (Zip 2.3).  Do not use this VB
+' example with Zip32z64.dll (Zip 3.0).
+'
+' 4/29/2004 Ed Gordon
+
+'---------------------------------------------------------------
+' Usage notes:
+'
+' This code uses Zip32.dll.  You DO NOT need to register the
+' DLL to use it.  You also DO NOT need to reference it in your
+' VB project.  You DO have to copy the DLL to your SYSTEM
+' directory, your VB project directory, or place it in a directory
+' on your command PATH.
+'
+' A bug has been found in the Zip32.dll when called from VB.  If
+' you try to pass any values other than NULL in the ZPOPT strings
+' Date, szRootDir, or szTempDir they get converted from the
+' VB internal wide character format to temporary byte strings by
+' the calling interface as they are supposed to.  However when
+' ZpSetOptions returns the passed strings are deallocated unless the
+' VB debugger prevents it by a break between ZpSetOptions and
+' ZpArchive.  When Zip32.dll uses these pointers later it
+' can result in unpredictable behavior.  A kluge is available
+' for Zip32.dll, just replacing api.c in Zip 2.3, but better to just
+' use the new Zip32z64.dll where these bugs are fixed.  However,
+' the kluge has been added to Zip 2.31.  To determine the version
+' of the dll you have right click on it, select the Version tab,
+' and verify the Product Version is at least 2.31.
+'
+' Another bug is where -R is used with some other options and can
+' crash the dll.  This is a bug in how zip processes the command
+' line and should be mostly fixed in Zip 2.31.  If you run into
+' problems try using -r instead for recursion.  The bug is fixed
+' in Zip 3.0 but note that Zip 3.0 creates dll zip32z64.dll and
+' it is not compatible with older VB including this example.  See
+' the new VB example code included with Zip 3.0 for calling
+' interface changes.
+'
+' Note that Zip32 is probably not thread safe.  It may be made
+' thread safe in a later version, but for now only one thread in
+' one program should use the DLL at a time.  Unlike Zip, UnZip is
+' probably thread safe, but an exception to this has been
+' found.  See the UnZip documentation for the latest on this.
+'
+' All code in this VB project is provided under the Info-Zip license.
+'
+' If you have any questions please contact Info-Zip at
+' http://www.info-zip.org.
+'
+' 4/29/2004 EG (Updated 3/1/2005 EG)
+'
+'---------------------------------------------------------------
+
 
 '-- C Style argv
 '-- Holds The Zip Archive Filenames
+' Max for this just over 8000 as each pointer takes up 4 bytes and
+' VB only allows 32 kB of local variables and that includes function
+' parameters.  - 3/19/2004 EG
+'
 Public Type ZIPnames
   zFiles(0 To 99) As String
 End Type
@@ -97,7 +156,7 @@ Public ZUSER As ZIPUSERFUNCTIONS
 
 '-- This Assumes ZIP32.DLL Is In Your \Windows\System Directory!
 '-- (alternatively, a copy of ZIP32.DLL needs to be located in the program
-'-- directory or in some other directory listed in the PATH.)
+'-- directory or in some other directory listed in PATH.)
 Private Declare Function ZpInit Lib "zip32.dll" _
   (ByRef Zipfun As ZIPUSERFUNCTIONS) As Long '-- Set Zip Callbacks
 
@@ -230,6 +289,8 @@ End Function
 '-- Callback For ZIP32.DLL - DLL Service Function
 Public Function ZDLLServ(ByRef mname As ZipCBChar, ByVal x As Long) As Long
 
+    ' x is the size of the file
+    
     Dim s0 As String
     Dim xx As Long
     
@@ -238,13 +299,19 @@ Public Function ZDLLServ(ByRef mname As ZipCBChar, ByVal x As Long) As Long
     
     s0 = ""
     '-- Get Zip32.DLL Message For processing
-    For xx = 0 To x
+    For xx = 0 To 4096
     If mname.ch(xx) = 0 Then
         Exit For
     Else
         s0 = s0 + Chr(mname.ch(xx))
     End If
     Next
+    ' Form1.Print "-- " & s0 & " - " & x & " bytes"
+    
+    ' This is called for each zip entry.
+    ' mname is usually the null terminated file name and x the file size.
+    ' s0 has trimmed file name as VB string.
+
     ' At this point, s0 contains the message passed from the DLL
     ' It is up to the developer to code something useful here :)
     ZDLLServ = 0 ' Setting this to 1 will abort the zip!
@@ -335,6 +402,11 @@ Public Function VBZip32() As Long
     
   '-- Set ZIP32.DLL Callbacks
   retcode = ZpInit(ZUSER)
+  If retcode = 0 Then
+    MsgBox "Zip32.dll did not initialize.  Is it in the current directory " & _
+                "or on the command path?", vbOKOnly, "VB Zip"
+    Exit Function
+  End If
     
   '-- Setup ZIP32 Options
   '-- (WARNING!) Do Not Change!

@@ -13,11 +13,11 @@ A) Hard limits of the Zip archive format:
    The number of archive entries and of multivolume parts are limited by
    the structure of the "end-of-central-directory" record, where the these
    numbers are stored in 2-Byte fields.
-   Some Zip and/or UnZip implementations allow handling of archives with
-   more than 64k entries. (The information from "number of entries" field
-   in the "end-of-central-directory" record is not really neccessary to
-   retrieve the contents of a Zip archive; it should rather be used for
-   consistency checks.)
+   Some Zip and/or UnZip implementations (for example Info-ZIP's) allow
+   handling of archives with more than 64k entries.  (The information
+   from "number of entries" field in the "end-of-central-directory" record
+   is not really neccessary to retrieve the contents of a Zip archive;
+   it should rather be used for consistency checks.)
 
    Length of an archive entry name:             64 kByte (2^16 - 1)
    Length of archive member comment:            64 kByte (2^16 - 1)
@@ -31,14 +31,44 @@ A) Hard limits of the Zip archive format:
      Size of central-directory structure (46 Bytes + filename +
       central extra field + member comment):  < 64 kByte
 
+   Note:
+   In 2001, PKWARE has published version 4.5 of the Zip format specification
+   (together with the release of PKZIP for Windows 4.5).  This specification
+   defines new extra field blocks that allow to break the size limits of the
+   standard zipfile structures.  In this extended "Zip64" format, the limits
+   on the size of zip entries and the size of the complete zip archive are
+   extended to (2^64 - 1) Bytes; the maximum number of archive entries and
+   split volumes are enlarged to (2^64 - 1) respective (2^32 - 1).
+   Currently, these extensions are not yet supported by the released Info-ZIP
+   software. However, new major releases (Zip 3.0 and UnZip 6.0) are under
+   development and will support Zip64 archives on selected environments.
+   (Beta releases are already available for Unix, VMS and Win32.)
+
 B) Implementation limits of UnZip:
 
  1. Size limits caused by file I/O and decompression handling:
    Size of Zip archive:                 2 GByte (2^31 - 1 Bytes)
    Compressed size of archive entry:    2 GByte (2^31 - 1 Bytes)
 
-   -->> ONLY for imploded and reduced archive members: <<--
-   Uncompressed size of archive entry:  2 GByte (2^31 - 1 Bytes)
+   Note: On some systems, UnZip may support archive sizes up to 4 GByte.
+         To get this support, the target environment has to meet the following
+         requirements:
+         a) The compiler's intrinsic "long" data types must be able to hold
+            integer numbers of 2^32. In other words - the standard intrinsic
+            integer types "long" and "unsigned long" have to be wider than
+            32 bit.
+         b) The system has to supply a C runtime library that is compatible
+            with the more-than-32-bit-wide "long int" type of condition a)
+         c) The standard file positioning functions fseek(), ftell() (and/or
+            the Unix style lseek() and tell() functions) have to be capable
+            to move to absolute file offsets of up to 4 GByte from the file
+            start.
+         On 32-bit CPU hardware, you generally cannot expect that a C compiler
+         provides a "long int" type that is wider than 32-bit. So, many of the
+         most popular systems (i386, PowerPC, 680x0, et. al) are out of luck.
+         You may find environment that provide all requirements on systems
+         with 64-bit CPU hardware. Examples might be Cray number crunchers
+         or Compaq (former DEC) Alpha AXP machines.
 
    The number of Zip archive entries is unlimited. The "number-of-entries"
    field of the "end-of-central-dir" record is checked against the "number
@@ -83,7 +113,6 @@ C) Implementation limits of the Zip executables:
          32-bit executables             <1G ((2^32)/4)
          (usual system limit of the "qsort()" function on 32-bit systems)
 
-
      b) stack space needed by qsort to sort list of archive entries
 
      NOTE: In the current executables, overflows of limits a) and b) are NOT
@@ -103,9 +132,9 @@ C) Implementation limits of the Zip executables:
      is most often limited by condition c).
      For example, with approx. 100 kBytes of free memory after loading and
      initializing the program, a 16-bit DOS Zip cannot process more than 600
-     to 1000 (+) archive entries. (For the 16-bit Windows DLL or the 16-bit
+     to 1000 (+) archive entries.  (For the 16-bit Windows DLL or the 16-bit
      OS/2 port, limit c) is less important because Windows or OS/2 executables
-     are not restricted to the 1024k area of real mode memory. These 16-bit
+     are not restricted to the 1024k area of real mode memory.  These 16-bit
      ports are limited by conditions a1) and b), say: at maximum approx.
      16000 entries!)
 
@@ -174,10 +203,16 @@ D) Some technical remarks:
     performance, stability and maintainability.  Therefore, it is
     quite unlikely that this will ever happen for Zip/UnZip.
 
-    Anyway, the Zip archive format is more and more showing its age...
-    The effort to lift the 2GByte limits should be better invested in
-    creating a successor for the Zip archive format and tools.
+    The argumentation above is somewhat out-dated. The new releases
+    Zip 3 and UnZip 6 will support archive sizes larger than 4GB on
+    systems where the required underlying support for 64-bit file offsets
+    and file sizes is available from the OS (and the C runtime environment).
+    However, this new support will partially break compatibility with
+    older "legacy" systems.  And it should be expected that the portability
+    and readability of the UnZip and Zip code may be reduced due to the
+    extensive use of non-standard language extension needed for 64-bit
+    support on the major target systems.
 
-Please report any problems to:  Zip-Bugs@lists.wku.edu
+Please report any problems to:  Zip-Bugs at www.info-zip.org
 
-Last updated:  04 June 1999, Christian Spieler
+Last updated:  22 February 2005, Christian Spieler

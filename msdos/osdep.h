@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.htmlhtml
 */
 /* The symbol DOS is used throughout the Zip source to identify code portions
  * specific to the MSDOS port.
@@ -198,8 +198,8 @@ int setmode(int, int);
 #  define localtime(t) msc7_localtime(t)
 #endif
 
-#if (defined(__TURBOC__) && !defined(__BORLANDC__) && __TURBOC__ <= 0x0200)
+#if (defined(__TURBOC__) && !defined(__BORLANDC__) && __TURBOC__ <= 0x0201)
 #  ifndef NO_MKTIME
-#    define NO_MKTIME           /* TC 2.0 and earlier do not supply mktime() */
+#    define NO_MKTIME           /* TC 2.01 and earlier do not supply mktime() */
 #  endif
 #endif

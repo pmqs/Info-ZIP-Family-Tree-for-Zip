@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 #include "zip.h"
 
@@ -141,8 +141,11 @@ int caseflag;           /* true to force case-sensitive match */
 #ifdef OS390
   if (S_ISREG(s.st_mode) || S_ISLNK(s.st_mode))
 #else
-  if ((s.st_mode & S_IFREG) == S_IFREG ||
-      (s.st_mode & S_IFLNK) == S_IFLNK)
+#  ifdef S_IFLNK
+  if ((s.st_mode & S_IFREG) == S_IFREG || (s.st_mode & S_IFLNK) == S_IFLNK)
+#  else
+  if ((s.st_mode & S_IFREG) == S_IFREG)
+#  endif
 #endif
   {
     /* add or remove name of file */
@@ -302,10 +305,10 @@ ulg d;                  /* dos-style time to change it to */
 }
 
 ulg filetime(f, a, n, t)
-char *f;                /* name of file to get info on */
-ulg *a;                 /* return value: file attributes */
-long *n;                /* return value: file size */
-iztimes *t;             /* return value: access, modific. and creation times */
+  char *f;                /* name of file to get info on */
+  ulg *a;                 /* return value: file attributes */
+  long *n;              /* return value: file size */
+  iztimes *t;             /* return value: access, modific. and creation times */
 /* If file *f does not exist, return 0.  Else, return the file's last
    modified date and time as an MSDOS date and time.  The date and
    time is returned in a long with the date most significant to allow
@@ -319,7 +322,8 @@ iztimes *t;             /* return value: access, modific. and creation times */
    a file size of -1 */
 {
   struct stat s;        /* results of stat() */
-  char name[FNMAX];
+  /* converted to pointer from using FNMAX - 11/8/04 EG */
+  char *name;
   int len = strlen(f);
 
   if (f == label) {
@@ -331,19 +335,27 @@ iztimes *t;             /* return value: access, modific. and creation times */
       t->atime = t->mtime = t->ctime = label_utim;
     return label_time;
   }
+  if ((name = malloc(len + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "filetime");
+  }
   strcpy(name, f);
   if (name[len - 1] == '/')
     name[len - 1] = '\0';
   /* not all systems allow stat'ing a file with / appended */
   if (strcmp(f, "-") == 0) {
-    if (fstat(fileno(stdin), &s) != 0)
+    if (fstat(fileno(stdin), &s) != 0) {
+      free(name);
       error("fstat(stdin)");
+    }
   }
-  else if (LSSTAT(name, &s) != 0)
+  else if (LSSTAT(name, &s) != 0) {
     /* Accept about any file kind including directories
      * (stored with trailing / with -r option)
      */
+    free(name);
     return 0;
+  }
+  free(name);
 
   if (a != NULL) {
 #ifndef OS390
@@ -367,7 +379,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
     {
     mode_t legacy_modes;
 
-    /* Initialize with permission bits - which are not implementation optional */
+    /* Initialize with permission bits--which are not implementation-optional */
     legacy_modes = s.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO | S_ISUID | S_ISGID | S_ISVTX);
     if (S_ISDIR(s.st_mode))
       legacy_modes |= UNX_IFDIR;
@@ -397,6 +409,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
     t->mtime = s.st_mtime;
     t->ctime = t->mtime;   /* best guess, (s.st_ctime: last status change!!) */
   }
+
   return unix2dostime(&s.st_mtime);
 }
 
@@ -410,11 +423,24 @@ int set_extra_field(z, z_utim)
      in central header */
 {
   struct stat s;
+  char *name;
+  int len = strlen(z->name);
 
   /* For the full sized UT local field including the UID/GID fields, we
    * have to stat the file again. */
-  if (LSSTAT(z->name, &s))
+
+  if ((name = malloc(len + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "set_extra_field");
+  }
+  strcpy(name, z->name);
+  if (name[len - 1] == '/')
+    name[len - 1] = '\0';
+  /* not all systems allow stat'ing a file with / appended */
+  if (LSSTAT(name, &s)) {
+    free(name);
     return ZE_OPEN;
+  }
+  free(name);
 
 #define EB_L_UT_SIZE    (EB_HEADSIZE + EB_UT_LEN(2))
 #define EB_C_UT_SIZE    (EB_HEADSIZE + EB_UT_LEN(1))
@@ -517,188 +543,209 @@ char *d;                /* directory to delete */
 
 void version_local()
 {
-    static ZCONST char CompiledWith[] = "Compiled with %s%s for %s%s%s%s.\n\n";
-#if defined(CRAY) || defined(NX_CURRENT_COMPILER_RELEASE)
-    char buf1[40];
-    char buf2[40];
+#ifdef __GNUC__
+#  ifdef NX_CURRENT_COMPILER_RELEASE
+    char compiler_name[80];
+#  endif
+#else
+#  if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
+    char compiler_name[40];
+#  endif
 #endif
 
 #ifdef BSD
-    char buf1[40];
-
-#if (BSD <= 199103)
-#ifdef __NetBSD__
-    static ZCONST char *netbsd[] = { "_ALPHA", "", "A", "B" };
-#endif /* __NetBSD__ */
-#else /* BSD > 199103 */
+# if (BSD > 199103)
     struct utsname u;
+    char os_name[40];
+# else
+# if defined(__NETBSD__))
+    static ZCONST char *netbsd[] = { "_ALPHA", "", "A", "B" };
+    char os_name[40];
+# endif /* __NETBSD__ */
+# endif /* BSD > 199103 */
+#else /* !BSD */
+#if ((defined(CRAY) || defined(cray)) && defined(_UNICOS))
+    char os_name[40];
+#endif /* (CRAY && defined(_UNICOS)) */
+#endif /* ?BSD */
 
-    uname(&u);
-#endif /* BSD <= 199103) */
-#endif /* BSD */
-
-    /* Pyramid, NeXT have problems with huge macro expansion, too:  no Info() */
-    printf(CompiledWith,
-
+/* Define the compiler name and version string */
 #ifdef __GNUC__
 #  ifdef NX_CURRENT_COMPILER_RELEASE
-      (sprintf(buf1, "NeXT DevKit %d.%02d ", NX_CURRENT_COMPILER_RELEASE/100,
-        NX_CURRENT_COMPILER_RELEASE%100), buf1),
-      (strlen(__VERSION__) > 8)? "(gcc)" :
-        (sprintf(buf2, "(gcc %s)", __VERSION__), buf2),
+    sprintf(compiler_name, "NeXT DevKit %d.%02d (gcc " __VERSION__ ")",
+        NX_CURRENT_COMPILER_RELEASE/100, NX_CURRENT_COMPILER_RELEASE%100);
+#    define COMPILER_NAME compiler_name
 #  else
-      "gcc ", __VERSION__,
+#    define COMPILER_NAME "gcc " __VERSION__
 #  endif
-#else
-#  if defined(CRAY) && defined(_RELEASE)
-      "cc ", (sprintf(buf1, "version %d", _RELEASE), buf1),
+#else /* !__GNUC__ */
+#  if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
+    sprintf(compiler_name, "cc version %d", _RELEASE);
+#    define COMPILER_NAME compiler_name
 #  else
 #  ifdef __VERSION__
-      "cc ", __VERSION__,
+#    define COMPILER_NAME "cc " __VERSION__
 #  else
-      "cc", "",
+#    define COMPILER_NAME "cc "
 #  endif
 #  endif
-#endif
+#endif /* ?__GNUC__ */
 
-      "Unix",
 
+/* Define the name to use for the OS we're compiling on */
 #if defined(sgi) || defined(__sgi)
-      " (Silicon Graphics IRIX)",
+#  define OS_NAME "Silicon Graphics IRIX"
 #else
 #ifdef sun
 #  ifdef sparc
 #    ifdef __SVR4
-      " (Sun Sparc/Solaris)",
+#      define OS_NAME "Sun Sparc/Solaris"
 #    else /* may or may not be SunOS */
-      " (Sun Sparc)",
+#      define OS_NAME "Sun Sparc"
 #    endif
 #  else
 #  if defined(sun386) || defined(i386)
-      " (Sun 386i)",
+#    define OS_NAME "Sun 386i"
 #  else
 #  if defined(mc68020) || defined(__mc68020__)
-      " (Sun 3)",
+#    define OS_NAME "Sun 3"
 #  else /* mc68010 or mc68000:  Sun 2 or earlier */
-      " (Sun 2)",
+#    define OS_NAME "Sun 2"
 #  endif
 #  endif
 #  endif
 #else
 #ifdef __hpux
-      " (HP/UX)",
+#  define OS_NAME "HP/UX"
 #else
 #ifdef __osf__
-      " (DEC OSF/1)",
+#  define OS_NAME "DEC OSF/1"
 #else
 #ifdef _AIX
-      " (IBM AIX)",
+#  define OS_NAME "IBM AIX"
 #else
 #ifdef aiws
-      " (IBM RT/AIX)",
+#  define OS_NAME "IBM RT/AIX"
 #else
 #if defined(CRAY) || defined(cray)
 #  ifdef _UNICOS
-      (sprintf(buf2, " (Cray UNICOS release %d)", _UNICOS), buf2),
+    sprintf(os_name, "Cray UNICOS release %d", _UNICOS);
+#    define OS_NAME os_name
 #  else
-      " (Cray UNICOS)",
+#    define OS_NAME "Cray UNICOS"
 #  endif
 #else
 #if defined(uts) || defined(UTS)
-      " (Amdahl UTS)",
+#  define OS_NAME "Amdahl UTS"
 #else
 #ifdef NeXT
 #  ifdef mc68000
-      " (NeXTStep/black)",
+#    define OS_NAME "NeXTStep/black"
 #  else
-      " (NeXTStep for Intel)",
+#    define OS_NAME "NeXTStep for Intel"
 #  endif
-#else              /* the next dozen or so are somewhat order-dependent */
+#else
 #if defined(linux) || defined(__linux__)
 #  ifdef __ELF__
-      " (Linux ELF)",
+#    define OS_NAME "Linux ELF"
 #  else
-      " (Linux a.out)",
+#    define OS_NAME "Linux a.out"
 #  endif
 #else
 #ifdef MINIX
-      " (Minix)",
+#  define OS_NAME "Minix"
 #else
 #ifdef M_UNIX
-      " (SCO Unix)",
+#  define OS_NAME "SCO Unix"
 #else
 #ifdef M_XENIX
-      " (SCO Xenix)",
+#  define OS_NAME "SCO Xenix"
 #else
 #ifdef BSD
-#if (BSD > 199103)
-     (sprintf(buf1, " (%s %s)", u.sysname, u.release), buf1),
+# if (BSD > 199103)
+#    define OS_NAME os_name
+    uname(&u);
+    sprintf(os_name, "%s %s", u.sysname, u.release);
+# else
+# ifdef __NetBSD__
+#   define OS_NAME os_name
+#   ifdef NetBSD0_8
+      sprintf(os_name, "NetBSD 0.8%s", netbsd[NetBSD0_8]);
+#   else
+#   ifdef NetBSD0_9
+      sprintf(os_name, "NetBSD 0.9%s", netbsd[NetBSD0_9]);
+#   else
+#   ifdef NetBSD1_0
+      sprintf(os_name, "NetBSD 1.0%s", netbsd[NetBSD1_0]);
+#   endif /* NetBSD1_0 */
+#   endif /* NetBSD0_9 */
+#   endif /* NetBSD0_8 */
+# else
+# ifdef __FreeBSD__
+#    define OS_NAME "FreeBSD 1.x"
+# else
+# ifdef __bsdi__
+#    define OS_NAME "BSD/386 1.0"
+# else
+# ifdef __386BSD__
+#    define OS_NAME "386BSD"
+# else
+#    define OS_NAME "Unknown BSD"
+# endif /* __386BSD__ */
+# endif /* __bsdi__ */
+# endif /* FreeBSD */
+# endif /* NetBSD */
+# endif /* BSD > 199103 */
 #else
-#ifdef __NetBSD__
-#  ifdef NetBSD0_8
-     (sprintf(buf1, " (NetBSD 0.8%s)", netbsd[NetBSD0_8]), buf1),
-#  else
-#  ifdef NetBSD0_9
-     (sprintf(buf1, " (NetBSD 0.9%s)", netbsd[NetBSD0_9]), buf1),
-#  else
-#  ifdef NetBSD1_0
-     (sprintf(buf1, " (NetBSD 1.0%s)", netbsd[NetBSD1_0]), buf1),
-#  endif /* NetBSD1_0 */
-#  endif /* NetBSD0_9 */
-#  endif /* NetBSD0_8 */
+#ifdef __CYGWIN__
+#  define OS_NAME "Cygwin"
 #else
-#ifdef __FreeBSD__
-      " (FreeBSD 1.x)",
+#if defined(i686) || defined(__i686) || defined(__i686__)
+#  define OS_NAME "Intel 686"
 #else
-#ifdef __bsdi__
-      " (BSD/386 1.0)",
-#else
-#ifdef __386BSD__
-      " (386BSD)",
-#else
-      " (Unknown BSD)"
-#endif /* __386BSD__ */
-#endif /* __bsdi__ */
-#endif /* FreeBSD */
-#endif /* NetBSD */
-#endif /* BSD > 199103 */
+#if defined(i586) || defined(__i586) || defined(__i586__)
+#  define OS_NAME "Intel 586"
 #else
 #if defined(i486) || defined(__i486) || defined(__i486__)
-      " (Intel 486)",
+#  define OS_NAME "Intel 486"
 #else
 #if defined(i386) || defined(__i386) || defined(__i386__)
-      " (Intel 386)",
+#  define OS_NAME "Intel 386"
 #else
 #ifdef pyr
-      " (Pyramid)",
+#  define OS_NAME "Pyramid"
 #else
 #if defined(ultrix) || defined(__ultrix)
 #  if defined(mips) || defined(__mips)
-      " (DEC/MIPS)",
+#    define OS_NAME "DEC/MIPS"
 #  else
 #  if defined(vax) || defined(__vax)
-      " (DEC/VAX)",
+#    define OS_NAME "DEC/VAX"
 #  else /* __alpha? */
-      " (DEC/Alpha)",
+#    define OS_NAME "DEC/Alpha"
 #  endif
 #  endif
 #else
 #ifdef gould
-      " (Gould)",
+#  define OS_NAME "Gould"
 #else
 #ifdef MTS
-      " (MTS)",
+#  define OS_NAME "MTS"
 #else
 #ifdef __convexc__
-      " (Convex)",
+#  define OS_NAME "Convex"
 #else
 #ifdef __QNX__
-      " (QNX 4)",
+#  define OS_NAME "QNX 4"
 #else
 #ifdef __QNXNTO__
-      " (QNX Neutrino)",
+#  define OS_NAME "QNX Neutrino"
 #else
-      "",
+#ifdef __APPLE__
+#  define OS_NAME "Mac OS X"
+#else
+#  define OS_NAME "Unknown"
+#endif /* Apple */
 #endif /* QNX Neutrino */
 #endif /* QNX 4 */
 #endif /* Convex */
@@ -708,6 +755,9 @@ void version_local()
 #endif /* Pyramid */
 #endif /* 386 */
 #endif /* 486 */
+#endif /* 586 */
+#endif /* 686 */
+#endif /* Cygwin */
 #endif /* BSD */
 #endif /* SCO Xenix */
 #endif /* SCO Unix */
@@ -723,11 +773,15 @@ void version_local()
 #endif /* Sun */
 #endif /* SGI */
 
+
+/* Define the compile date string */
 #ifdef __DATE__
-      " on ", __DATE__
+#  define COMPILE_DATE " on " __DATE__
 #else
-      "", ""
+#  define COMPILE_DATE ""
 #endif
-    );
+
+    printf("Compiled with %s for Unix (%s)%s.\n\n",
+           COMPILER_NAME, OS_NAME, COMPILE_DATE);
 
 } /* end function version_local() */

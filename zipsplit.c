@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
  *  zipsplit.c by Mark Adler.
@@ -55,8 +55,8 @@
 #ifdef MACOS
 #define ziperr(c, h)    zipspliterr(c, h)
 #define zipwarn(a, b)   zipsplitwarn(a, b)
-void zipsplitwarn(char *c,char *h);
-void zipspliterr(int c,char *h);
+void zipsplitwarn(ZCONST char *a, ZCONST char *b);
+void zipspliterr(int c, ZCONST char *h);
 #endif /* MACOS */
 
 /* Local functions */
@@ -134,12 +134,12 @@ local void tfreeall()
 
 void ziperr(c, h)
 int c;                  /* error code from the ZE_ class */
-char *h;                /* message about how it happened */
+ZCONST char *h;         /* message about how it happened */
 /* Issue a message for the error, clean up files and memory, and exit. */
 {
   if (PERR(c))
     perror("zipsplit error");
-  fprintf(stderr, "zipsplit error: %s (%s)\n", errors[c-1], h);
+  fprintf(stderr, "zipsplit error: %s (%s)\n", ziperrors[c-1], h);
   if (indexmade)
   {
     strcpy(name, INDEX);
@@ -170,7 +170,7 @@ int s;                  /* signal number (ignored) */
 
 
 void zipwarn(a, b)
-char *a, *b;            /* message strings juxtaposed in output */
+ZCONST char *a, *b;     /* message strings juxtaposed in output */
 /* Print a warning message to stderr and return. */
 {
   fprintf(stderr, "zipsplit warning: %s%s\n", a, b);
@@ -182,10 +182,6 @@ local void license()
 {
   extent i;             /* counter for copyright array */
 
-  for (i = 0; i < sizeof(copyright)/sizeof(char *); i++) {
-    printf(copyright[i], "zipsplit");
-    putchar('\n');
-  }
   for (i = 0; i < sizeof(swlicense)/sizeof(char *); i++)
     puts(swlicense[i]);
 }
@@ -618,23 +614,21 @@ char **argv;            /* command line tokens */
     tailchar = path[strlen(path) - 1];  /* last character */
     if (path[0] && (tailchar != '/') && (tailchar != ':'))
       strcat(path, "/");
-    name = path + strlen(path);
 #else
 #  ifdef RISCOS
     if (path[0] && path[strlen(path) - 1] != '.')
       strcat(path, ".");
-    name = path + strlen(path);
 #  else /* !RISCOS */
-#   ifndef QDOS
-    if (path[0] && path[strlen(path) - 1] != '/')
-      strcat(path, "/");
-#   else
+#   ifdef QDOS
     if (path[0] && path[strlen(path) - 1] != '_')
       strcat(path, "_");
+#   else
+    if (path[0] && path[strlen(path) - 1] != '/')
+      strcat(path, "/");
 #   endif
-    name = path + strlen(path);
 #  endif
 #endif /* ?AMIGA */
+    name = path + strlen(path);
   }
 
   /* Make linked lists of results */

@@ -46,10 +46,12 @@ LDFLAGS=$(MODEL)
 
 # ------------- Common declarations:
 STRIP=rem
-#    If you don't have lzexe, get it (by ftp on oak.oakland.edu in
-#    /pub/msdos/execomp/lzexe91e.zip). Then define:
+#    If you don't have UPX, LZEXE, or PKLITE, get one of them. Then define:
+#    (NOTE: upx needs a 386 or higher system to run the exe compressor)
+#STRIP=upx --8086 --best
+#    or
 #STRIP=lzexe
-#    Or if you've registered PKLITE, then define:
+#    or (if you've registered PKLITE)
 #STRIP=pklite
 #    This makes a big difference in .exe size (and possibly load time)
 

@@ -5,8 +5,8 @@ all:
 	@echo ''
 	@echo 'Make what?  You must say what system to make Zip for--e.g.'
 	@echo '"make generic".  Choices: generic, generic_gcc,'
-	@echo 'att6300nodir, coherent, cray_v3, lynx, minix, os390, qnx,'
-	@echo 'qnxnto, solaris, solaris_gcc'
+	@echo 'att6300nodir, coherent, cray_v3, cygwin, lynx, minix,'
+	@echo 'os390, qnx, qnxnto, solaris, solaris_gcc'
 	@echo 'See the files INSTALL and zip.txt for more information.'
 	@echo ''
 
@@ -20,17 +20,17 @@ LN = ln -s
 CC = cc
 BIND = $(CC)
 AS = $(CC) -c
-E =
 CPP = /lib/cpp
+EXE =
 
 # probably can change this to 'install' if you have it
-INSTALL = cp
+INSTALL_PROGRAM = cp
 # probably can change this to 'install -d' if you have it
 # XXX NextStep 3.3 and Openstep 4.x don't know about -p !
 INSTALL_D = mkdir -p
 CHMOD = chmod
-BINFLAGS = 555
-MANFLAGS = 444
+BINFLAGS = 755
+MANFLAGS = 644
 
 # target directories - where to install executables and man pages to
 prefix = /usr/local
@@ -39,7 +39,7 @@ manext=1
 MANDIR = $(prefix)/man/man$(manext)
 ZIPMANUAL = MANUAL
 PKGDIR = IZzip
-VERSION = Version 2.3
+VERSION = Version 2.31
 
 # flags
 #   CFLAGS    flags for C compile
@@ -72,7 +72,7 @@ ZIP_H = zip.h ziperr.h tailor.h unix/osdep.h
 	$(CC) -c $(CFLAGS) $<
 
 .1.doc:
-	nroff -man $< | col -b | uniq > $@
+	nroff -man $< | col -bx | uniq > $@
 
 # rules for zip, zipnote, zipcloak, zipsplit, and the Zip MANUAL.
 $(OBJZ): $(ZIP_H)
@@ -92,9 +92,10 @@ match.o: match.S
 	rm -f _match.s
 
 crc_i386.o: crc_i386.S
-	$(CPP) crc_i386.S > crc_i386.s
-	$(AS) crc_i386.s
-	rm -f crc_i386.s
+	$(CPP) crc_i386.S > _crc_i386.s
+	$(AS) _crc_i386.s
+	mv _crc_i386.o crc_i386.o
+	rm -f _crc_i386.s
 
 unix.o: unix/unix.c
 	$(CC) -c $(CFLAGS) unix/unix.c
@@ -104,28 +105,28 @@ unix_.o: unix/unix.c
 	$(CC) -c $(CFLAGS) -DUTIL unix_.c
 	rm -f unix_.c
 
-ZIPS = zip$E zipnote$E zipsplit$E zipcloak$E
+ZIPS = zip$(EXE) zipnote$(EXE) zipsplit$(EXE) zipcloak$(EXE)
 
 zips: $(ZIPS)
 zipsman: $(ZIPS) $(ZIPMANUAL)
 
-zip$E: $(OBJZ) $(OBJI) $(OBJA)
-	$(BIND) -o zip$E $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) $(LFLAGS2)
-zipnote$E: $(OBJN)
-	$(BIND) -o zipnote$E $(LFLAGS1) $(OBJN) $(LFLAGS2)
-zipcloak$E: $(OBJC)
-	$(BIND) -o zipcloak$E $(LFLAGS1) $(OBJC) $(LFLAGS2)
-zipsplit$E: $(OBJS)
-	$(BIND) -o zipsplit$E $(LFLAGS1) $(OBJS) $(LFLAGS2)
+zip$(EXE): $(OBJZ) $(OBJI) $(OBJA)
+	$(BIND) -o zip$(EXE) $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) $(LFLAGS2)
+zipnote$(EXE): $(OBJN)
+	$(BIND) -o zipnote$(EXE) $(LFLAGS1) $(OBJN) $(LFLAGS2)
+zipcloak$(EXE): $(OBJC)
+	$(BIND) -o zipcloak$(EXE) $(LFLAGS1) $(OBJC) $(LFLAGS2)
+zipsplit$(EXE): $(OBJS)
+	$(BIND) -o zipsplit$(EXE) $(LFLAGS1) $(OBJS) $(LFLAGS2)
 
 $(ZIPMANUAL): man/zip.1
-	nroff -man man/zip.1 | col -b | uniq > $(ZIPMANUAL)
+	nroff -man man/zip.1 | col -bx | uniq > $(ZIPMANUAL)
 
 
 # install
 install:        $(ZIPS)
 	-$(INSTALL_D) $(BINDIR)
-	$(INSTALL) $(ZIPS) $(BINDIR)
+	$(INSTALL_PROGRAM) $(ZIPS) $(BINDIR)
 	-cd $(BINDIR); $(CHMOD) $(BINFLAGS) $(ZIPS)
 	-$(INSTALL_D) $(MANDIR)
 	$(INSTALL) man/zip.1 $(MANDIR)/zip.$(manext)
@@ -179,6 +180,10 @@ coherent:
 cray_v3:
 	$(MAKE) zips CC="scc" \
 		CFLAGS="-DUNIX -I. -O -h vector2 -h scalar3 -DHAVE_DIRENT_H"
+
+# Cygwin
+cygwin:
+	$(MAKE) generic CC="gcc" CPP="gcc -E" EXE=".exe"
 
 # LynxOS
 lynx:

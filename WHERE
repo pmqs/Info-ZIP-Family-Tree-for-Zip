@@ -1,16 +1,16 @@
 __________________________________________________________________________
 
-   This is the Info-ZIP file ``WHERE,'' last updated on 18 November 1998.
+   This is the Info-ZIP file ``WHERE,'' last updated on 1 March 2005.
 __________________________________________________________________________
 
    The latest version of this file can be found online at:
 
-              http://www.cdrom.com/pub/infozip/doc/WHERE
+           ftp://ftp.info-zip.org/pub/infozip/doc/WHERE
 
    Note that some ftp sites may not yet have the latest versions of Zip
    and UnZip when you read this.  The latest versions always appear in
-   http://www.cdrom.com/pub/infozip/ (and subdirectories thereof) first,
-   except for encryption sources and binaries, which always appear in
+   ftp://ftp.info-zip.org/pub/infozip/ (and subdirectories thereof) first,
+   except for encryption binaries, which always appear in
    ftp://ftp.icce.rug.nl/infozip/ (and subdirectories) first.
 
    IF YOU FIND AN ERROR:  please let us know!  We don't have time to
@@ -22,210 +22,164 @@ __________________________________________________________________________
 
 Info-ZIP's home WWW site is listed on Yahoo and is at:
 
-   http://www.cdrom.com/pub/infozip/
+   ftp://ftp.info-zip.org/pub/infozip/Info-ZIP.html  (master version)
+   http://ftp.info-zip.org/pub/infozip/              (master version)
+   http://www.info-zip.org/
+
+Note that the old sites at http://www.cdrom.com/pub/infozip/ and
+http://www.freesoftware.com/pub/infozip are PERMANENTLY BROKEN.  They
+cannot be updated or removed, apparently.
 
 The Zip and UnZip pages have links to most known mirror sites carrying our
 source and/or binary distributions, and they generally are more up-to-date
 and have better information than what you are reading:
 
-   http://www.cdrom.com/pub/infozip/Zip.html
-   http://www.cdrom.com/pub/infozip/UnZip.html
+   ftp://ftp.info-zip.org/pub/infozip/Zip.html
+   ftp://ftp.info-zip.org/pub/infozip/UnZip.html
 
 The related zlib package by Info-ZIP's Jean-loup Gailly and Mark Adler is at:
 
-   http://www.cdrom.com/pub/infozip/zlib/
+   http://www.zlib.net/
 
 Source-code archives for Info-ZIP's portable Zip, UnZip, and related
 utilities:
 
-   zip23.zip         Zip 2.3 (deflation; includes zipnote, zipsplit, zipcloak)
-   zip23.tar.Z       ditto, compress'd tar format
+   zip231.zip        Zip 2.31 (deflation; includes zipnote/zipsplit/zipcloak)
+   zip231.tar.Z      ditto, compress'd tar format
 
    zip11.zip         Zip 1.1 (shrinking, implosion; compatible w. PKUNZIP 1.1)
    zip11.tar.Z       ditto, compress'd tar format
 
-   unzip540.zip      UnZip 5.4 (all methods[*]; unzip/funzip/unzipsfx/zipgrep)
-   unzip540.tar.Z    ditto, compress'd tar format
+   unzip552.zip      UnZip 5.52 (all methods[*]; unzip/funzip/unzipsfx/zipgrep)
+   unzip552.tar.gz   ditto, gzip'd tar format
+   unzip552.tar.Z    ditto, compress'd tar format
 
-   zcrypt28.zip      encryption/decryption support for Zip 2.3x and UnZip 5.4x
+   unred552.zip      UnZip 5.52 add-on, contains copyrighted unreduce support
+
+   zcrypt29.zip      encryption support for Zip 2.3[**]
    zcrypt10.zip      encryption support for Zip 1.1
 
-   MacZip100src.zip  contains all the GUI stuff and the project files to build
+   MacZip106src.zip  contains all the GUI stuff and the project files to build
                      the MacZip main-app.  To build MacZip successfully, both
-                     the Zip 2.3 and UnZip 5.4 sources are required, too.
+                     the Zip 2.31 and UnZip 5.52 sources are required, too.
 
-   wiz41.zip         WiZ 4.1, Windows 3.x/95/NT GUI front-end for Info-ZIP DLLs
+   wiz502.zip        WiZ 5.02, Windows 9x/NT GUI front-end for Info-ZIP DLLs
+   wiz502+dlls.zip   WiZ 5.02, Windows 9x/NT GUI front-end plus DLL sources
 
-[*] Unreducing and unshrinking are not turned on by default but are included
-    in source form.  See UnZip's INSTALL file for details.
+[*] Unreducing is disabled by default, but is available as add-on.
+    As of July 2004, Unisys's LZW patent was expired worldwide, and
+    unshrinking is turned on by default since the release of UnZip 5.52.
+    See UnZip's INSTALL file for details.
+
+[**] As of January 2000, US export regulations were amended to allow export
+     of free encryption source code from the US.  As of June 2002, these
+     regulations were further relaxed to allow export of encryption binaries
+     associated with free encryption source code.  The Zip 2.31, UnZip 5.52
+     and Wiz 5.02 archives now include full crypto source code.  As of the
+     Zip 2.31 release, all official binaries include encryption support; the
+     former "zcr" archives ceased to exist.
+     (Note that restrictions may still exist in other countries, of course.)
 
 Executables archives (and related files) for Info-ZIP's software; not all
 of these will be immediately available due to lack of access to appropriate
-systems on the part of Info-ZIP members.  See the BBS section below for
-special CompuServe (6.3) filenames:
+systems on the part of Info-ZIP members.
 
-   zip23x.zip        MSDOS executables and docs (no encryption)
-   zcr23x.zip        MSDOS executables and docs (with encryption)
-   zip23x1.zip       OS/2 1.x (16-bit) executables and docs (no encryption)
-   zcr23x1.zip       OS/2 1.x (16-bit) executables and docs (with encryption)
-   zip23x2.zip       OS/2 2/3/4.x (32-bit) executables and docs (no encryption)
-   zcr23x2.zip       OS/2 2/3/4.x (32-bit) executables and docs (w/encryption)
-   zip23xA.zip       Amiga executables and docs (no encryption)
-   zcr23xA.zip       Amiga executables and docs (with encryption)
-   zip23xB.zip       BeOS executables and docs (no encryption)
-   zcr23xB.zip       BeOS executables and docs (with encryption)
-   zip23xC.zip       VM/CMS executable and docs (no encryption)
-   zcr23xC.zip       VM/CMS executable and docs (with encryption)
-   zip23xK.zip       Tandem NSK executables and docs (no encryption)
-   zcr23xK.zip       Tandem NSK executables and docs (with encryption)
-   zip23xM.xmit      MVS classic executable (no encryption)
-   zcr23xM.xmit      MVS classic executable (with encryption)
-   zip23xM-docs.zip  MVS classic port, docs only
-   zip23dN.zip       WinNT/Win95 (Intel) DLL, header files, docs (no encryption)
-   zcr23dN.zip       WinNT/Win95 (Intel) DLL, header files, docs (w/encryption)
-   zip23xN.zip       WinNT/Win95 (Intel) executables and docs (no encryption)
-   zcr23xN.zip       WinNT/Win95 (Intel) executables and docs (with encryption)
-   zip23xN-axp.zip   WinNT (Alpha AXP) executables and docs (no encryption)
-   zcr23xN-axp.zip   WinNT (Alpha AXP) executables and docs (with encryption)
-   zip23xN-mip.zip   WinNT (MIPS R4000) executables and docs (no encryption)
-   zcr23xN-mip.zip   WinNT (MIPS R4000) executables and docs (with encryption)
-   zip23xN-ppc.zip   WinNT (PowerPC) executables and docs (no encryption)
-   zcr23xN-ppc.zip   WinNT (PowerPC) executables and docs (with encryption)
-   zip23xO.zip       IBM OS/390 Open Edition binaries and docs (no encryption)
-   zcr23xO.zip       IBM OS/390 Open Edition binaries and docs (w/ encryption)
-   zip23xQ.zip       SMS/QDOS executables and docs (no encryption)
-   zcr23xQ.zip       SMS/QDOS executables and docs (with encryption)
-   zip23xR.zip       Acorn RISC OS executables and docs (no encryption)
-   zcr23xR.zip       Acorn RISC OS executables and docs (with encryption)
-   zip23xT.zip       Atari TOS executables and docs (no encryption)
-   zcr23xT.zip       Atari TOS executables and docs (with encryption)
-   zip23-vms-axp-obj.zip        (no encryption)
+   zip231x.zip       MSDOS executables and docs
+   zip231x1.zip      OS/2 1.x (16-bit) executables and docs
+   zip231x2.zip      OS/2 2/3/4.x (32-bit) executables and docs
+   zip231xA.zip      Amiga executables and docs
+   zip231xB.zip      BeOS executables and docs
+   zip231xC.zip      VM/CMS executable and docs
+   zip231xK.zip      Tandem NSK executables and docs
+   zip231xM.xmit     MVS classic executable
+   zip231xM-docs.zip MVS classic port, docs only
+   zip231dN.zip      WinNT/Win9x (Intel) DLL, header files, docs
+   zip231xN.zip      WinNT/Win9x (Intel) executables and docs
+   zip231xN-axp.zip  WinNT (Alpha AXP) executables and docs
+   zip231xN-mip.zip  WinNT (MIPS R4000) executables and docs
+   zip231xN-ppc.zip  WinNT (PowerPC) executables and docs
+   zip231xO.zip      IBM OS/390 Open Edition binaries and docs
+   zip231xQ.zip      SMS/QDOS executables and docs
+   zip231xR.zip      Acorn RISC OS executables and docs
+   zip231xT.zip      Atari TOS executables and docs
+   zip231-vms-axp-obj.zip
                      VMS (Alpha AXP) object libs, link procedure and docs
-   zip23-vms-axp-exe.zip        (no encryption)
+   zip231-vms-axp-exe.zip
                      VMS (Alpha AXP) executables for VMS 6.1 or later and docs
-   zip23-vms-vax-decc-obj.zip   (no encryption)
+   zip231-vms-vax-decc-obj.zip
                      VMS (VAX) object libs (new DEC C), link procedure and docs
-   zip23-vms-vax-decc-exe.zip   (no encryption)
+   zip231-vms-vax-decc-exe.zip
                      VMS (VAX) executables (DEC C) for VMS 6.1 or later; docs
-   zip23-vms-vax-vaxc-obj.zip   (no encryption)
+   zip231-vms-vax-vaxc-obj.zip
                      VMS (VAX) object libs (old VAX C), link procedure and docs
-   zcr23-vms-axp-obj.zip        (with encryption)
-                     VMS (Alpha AXP) object libs, link procedure and docs
-   zcr23-vms-axp-exe.zip        (with encryption)
-                     VMS (Alpha AXP) executables for VMS 6.1 or later and docs
-   zcr23-vms-vax-decc-obj.zip   (with encryption)
-                     VMS (VAX) object libs (new DEC C), link procedure and docs
-   zcr23-vms-vax-decc-exe.zip   (with encryption)
-                     VMS (VAX) executables (DEC C) for VMS 6.1 or later; docs
-   zcr23-vms-vax-vaxc-obj.zip   (with encryption)
-                     VMS (VAX) object libs (old VAX C), link procedure and docs
-   zip23x.hqx        Macintosh BinHex'd executables and docs (no encryption)
+   zip231x.hqx       Macintosh BinHex'd executables and docs
 
-   unz540x.exe       MSDOS self-extracting executable (16-bit unzip, ..., docs)
-   unz540x3.exe      MSDOS self-extracting executable (16-, 32-bit unzip, docs)
-   unz540x1.exe      OS/2 1.x (16-bit) self-extracting executables and docs
-   unz540x2.exe      OS/2 2/3/4.x (32-bit) self-extracting executables and docs
-   unz540d2.zip      OS/2 2/3/4.x (32-bit) DLL, header file, demo exe and docs
-   unz540xA.ami      Amiga self-extracting executables and docs
-   unz540xA.lha      Amiga executables and docs, LHa archive
-   unz540xB.sfx      BeOS self-extracting executables and docs
-   unz540xB.tar.gz   BeOS executables and docs, gzip'd tar archive
-   unz540xC.mod      VM/CMS executable module in "packed" format
-   unz540xC-docs.zip VM/CMS docs, only
-   unz540xF.zip      FlexOS executable and docs
-   unz540xK.zip      Tandem NSK executable and docs
-   unz540xM.xmit     MVS classic executable
-   unz540xM-docs.zip MVS classic port, docs only
-   unz540dN.zip      WinNT/Win95 (32-bit Intel) DLL, header files, docs
-   unz540xN.exe      WinNT/Win95 self-extracting Intel executables and docs
-   unz540xN-axp.exe  WinNT (Alpha AXP) self-extracting executables and docs
-   unz540xN-mip.exe  WinNT (MIPS R4000) self-extracting executables and docs
-   unz540xN-ppc.exe  WinNT (PowerPC) self-extracting executables and docs
-   unz540xQ.sfx      SMS/QDOS self-extracting executables and docs
-   unz540xO.tar.Z    IBM OS/390 Open edition (Unix-like), exes and docs
-   unz540xR.exe      Acorn RISC OS self-extracting executables and docs
-   unz540xR.spk      Acorn RISC OS Spark'd executables and docs
-   unz540xT.tos      Atari TOS self-extracting executables and docs
-   unz540x-vms-axp-obj.bck    VMS backup saveset,
+   unz552x.exe       MSDOS self-extracting executable (16-bit unzip, ..., docs)
+   unz552x3.exe      MSDOS self-extracting executable (16-, 32-bit unzip, docs)
+   unz552x1.exe      OS/2 1.x (16-bit) self-extracting executables and docs
+   unz552x2.exe      OS/2 2/3/4.x (32-bit) self-extracting executables and docs
+   unz552d2.zip      OS/2 2/3/4.x (32-bit) DLL, header file, demo exe and docs
+   unz552xA.ami      Amiga self-extracting executables and docs
+   unz552xA.lha      Amiga executables and docs, LHa archive
+   unz552xB.sfx      BeOS self-extracting executables and docs
+   unz552xB.tar.gz   BeOS executables and docs, gzip'd tar archive
+   unz552xC.mod      VM/CMS executable module in "packed" format
+   unz552xC-docs.zip VM/CMS docs, only
+   unz552xF.zip      FlexOS executable and docs
+   unz552xK.zip      Tandem NSK executable and docs
+   unz552xM.xmit     MVS classic executable
+   unz552xM-docs.zip MVS classic port, docs only
+   unz552dN.zip      NT4/W2K/XP/2K3/W9x (32-bit Intel) DLL, header files, docs
+   unz552xN.exe      NT/2K/XP/2K3/W9x self-extracting i386 executables and docs
+   unz552xN-axp.exe  WinNT (Alpha AXP) self-extracting executables and docs
+   unz552xN-mip.exe  WinNT (MIPS R4000) self-extracting executables and docs
+   unz552xN-ppc.exe  WinNT (PowerPC) self-extracting executables and docs
+   unz552xQ.sfx      SMS/QDOS self-extracting executables and docs
+   unz552xO.tar.Z    IBM OS/390 Open edition (Unix-like), exes and docs
+   unz552xR.exe      Acorn RISC OS self-extracting executables and docs
+   unz552xR.spk      Acorn RISC OS Spark'd executables and docs
+   unz552xT.tos      Atari TOS self-extracting executables and docs
+   unz552x-vms-axp-obj.bck    VMS backup saveset,
                      contains UnZip (Alpha) obj libs, link procedure, docs
-   unz540x-vms-axp-obj.exe    VMS (Alpha AXP) SFX archive (statically linked),
+   unz552x-vms-axp-obj.exe    VMS (Alpha AXP) SFX archive (statically linked),
                      contains UnZip (Alpha) obj libs, link procedure, docs
-   unz540x-vms-axp-exe.exe    VMS (Alpha AXP) SFX archive (dynamically linked),
+   unz552x-vms-axp-exe.exe    VMS (Alpha AXP) SFX archive (dynamically linked),
                      contains UnZip (Alpha AXP, DEC C) executables and docs,
                      smaller than object archive, but requires VMS 6.1
-   unz540x-vms-vax-decc-obj.bck   VMS backup saveset,
+   unz552x-vms-vax-decc-obj.bck   VMS backup saveset,
                      contains UnZip (new DEC C) obj libs, link procedure, docs
-   unz540x-vms-vax-decc-obj.exe   VMS (VAX) SFX archive (statically linked),
+   unz552x-vms-vax-decc-obj.exe   VMS (VAX) SFX archive (statically linked),
                      contains UnZip (new DEC C) obj libs, link procedure, docs
-   unz540x-vms-vax-decc-exe.exe   VMS (VAX) SFX archive (dynamically linked),
+   unz552x-vms-vax-decc-exe.exe   VMS (VAX) SFX archive (dynamically linked),
                      contains UnZip (new DEC C) executables and docs,
                      smaller than object archive, but requires VMS 6.1
-   unz540x-vms-vax-vaxc-obj.bck   VMS backup saveset,
+   unz552x-vms-vax-vaxc-obj.bck   VMS backup saveset,
                      contains UnZip (old VAX C) obj libs, link procedure, docs
-   unz540x-vms-vax-vaxc-obj.exe   VMS (VAX) SFX archive (statically linked),
+   unz552x-vms-vax-vaxc-obj.exe   VMS (VAX) SFX archive (statically linked),
                      contains UnZip (old VAX C) obj libs, link procedure, docs
-   unz540x.hqx       Macintosh BinHex'd executables and docs for unzip
-  (unz540x.tar.{Z,gz}  Unix exes/docs for Solaris 2.x, SCO Unix, Linux, etc.,
+   unz552x.hqx       Macintosh BinHex'd executables and docs for unzip
+  (unz552x.tar.{Z,gz}  Unix exes/docs for Solaris 2.x, SCO Unix, Linux, etc.,
                      depending on directory/location; generally only provided
                      in cases where the OS does *not* ship with a bundled C
                      compiler)
 
-   MacZip100nc.hqx   Macintosh combined Zip&UnZip application with GUI,
+   MacZip106nc.hqx   Macintosh combined Zip&UnZip application with GUI,
                      executables and docs (no encryption)
-   MacZip100c.hqx    Macintosh combined Zip&UnZip application with GUI,
+   MacZip106c.hqx    Macintosh combined Zip&UnZip application with GUI,
                      executables and docs (with encryption)
 
-   wiz41xN.exe       WiZ 4.1 32-bit (WinNT/Win95) app+docs (self-extracting),
-                     includes unz540dN.zip & zcr23dN.zip (WinNT/95 32-bit DLLs)
+   wiz502xN.exe      WiZ 5.02 32-bit (Win9x/NT/2K/XP/2K3) app+docs (self-extr.)
 
    UnzpHist.zip      complete changes-history of UnZip and its precursors
    ZipHist.zip       complete changes-history of Zip
-
-The latest from PKWARE (the guys who started it all):
-
-   pkz204g.exe       MS-DOS PKZIP/PKUNZIP 2.04g (self-extracting archive)
-   pkz110eu.exe      MS-DOS PKZIP/PKUNZIP 1.1 (self-extracting)
-   pkos2250.exe      OS/2 PKZIP/PKUNZIP 2.50 (self-extracting)
-   pkz102-2.exe      OS/2 PKZIP/PKUNZIP 1.02 (self-extracting)
-   pk263w16.exe      Windows 16-bit PKZIP/PKUNZIP 2.60.03 (self-extracting)
-   pk263wsp.exe      Windows 32-bit PKZIP/PKUNZIP 2.60.03 (self-extracting)
-   pk260w_a.exe      Windows NT/Alpha PKZIP/PKUNZIP 2.60 (self-extracting)
-   pk260w_p.exe      Windows NT/PowerPC PKZIP/PKUNZIP 2.60 (self-extracting)
-   pk250c32.exe      Win95/NT command line PKZIP/PKUNZIP 2.50 (self-extracting)
-   pk250c_a.exe      Windows NT/Alpha command line PKZIP 2.50 (self-extracting)
-   pk250c_p.exe      Windows NT/PPC command line PKZIP 2.50 (self-extracting)
-   pk???251.exe      Unix PKZIP 2.51, ???=sun,dig,aix,sco,hpx,lin (self-extr.)
-
-Third-party software that incorporates Info-ZIP code:
-
-   OS/2:  Warp 3.0 BonusPak, FileJet, The UnZip Shell, zipmeister (PMZip),
-     ZipFly(?)
-   Windows (NT, 95 and/or 3.x):  Nico Mak WinZip, InnerMedia DynaZIP DLL,
-     NewVision Zip[Shell] Pro, FlashPoint ZIP Navigator and Unzip95,
-     Z (port of ZipInfo; z101.zip)
-   MS-DOS:  FileJet
-   Macintosh:  ZipIt
-   generic Unix:  lzpip103.zip
-
-Third-party software that uses (or can use) Info-ZIP software:
-
-   OS/2:  Zip Control, ZiPMe, Workplace Shell UnZip (WUZ), Drop and Zip,
-     Archive Front End, Archive Manager, Archive Viewer, File Manager/2,
-     FileStar/2, ZTreeBold, PMZipper, simple zipshell, HyperView, XBBS-OS/2,
-     LiveWire
-   Windows:  WinCMD
-   MS-DOS:  SHEZ archiver shell
-   NeXTStep 3.x:  Opener
 
 ftp/web sites for the US-exportable sources and executables:
 
    NOTE:  Look for the Info-ZIP file names given above (not PKWARE or third-
    party stuff) in the following locations.  Some sites like to use slightly
-   different names, such as zip-2.3.tar.gz instead of zip23.tar.Z.
+   different names, such as zip-2.31.tar.gz instead of zip231.tar.Z.
 
-   ftp://ftp.cdrom.com/pub/infozip/                    [THE INFO-ZIP HOME SITE]
-   ftp://ftp.uu.net/pub/archiving/zip/         [MIRRORS THE INFO-ZIP HOME SITE]
-   ftp://ftp.simtel.net/pub/simtelnet/infozip/ [MIRRORS THE INFO-ZIP HOME SITE]
+   ftp://ftp.info-zip.org/pub/infozip/                 [THE INFO-ZIP HOME SITE]
    ftp://sunsite.doc.ic.ac.uk/packages/zip/    [MIRRORS THE INFO-ZIP HOME SITE]
    ftp://unix.hensa.ac.uk/mirrors/uunet/pub/archiving/zip/
 
@@ -245,15 +199,8 @@ ftp/web sites for the US-exportable sources and executables:
 
 ftp/web sites for the encryption and decryption sources and/or executables:
 
-   NOTE:  Non-US users, please do NOT ftp from the US sites (US regulations
-   and all that).  Likewise, US users, please do not ftp from the European
-   sites if it can be avoided (it's not illegal, but it is a waste of
-   expensive trans-Atlantic bandwidth).
-
-   From the US:
-      ftp://ftp.wustl.edu/mirrors/garbo.uwasa.fi/arcers/
-
    Outside the US:
+      ftp://ftp.info-zip.org/pub/infozip/   [THE INFO-ZIP HOME SITE]
       ftp://ftp.icce.rug.nl/infozip/        [THE INFO-ZIP ENCRYPTION HOME SITE]
       ftp://ftp.elf.stuba.sk/pub/pc/pack/
       ftp://garbo.uwasa.fi/pc/arcers/
@@ -290,52 +237,12 @@ To find other ftp/web sites:
    news.announce.newusers or news.answers or some such, or ask your system
    administrator.
 
-UUCP sites:
-
-   uunet!~/pub/archiving/zip/ ...
-
-Bulletin boards (commercial and otherwise):
-
-   Sources, MS-DOS executables:
-      CompuServe IBMPRO forum, Library 10, Data Compression (unz540.zip,
-         sources; unz540.exe, self-extracting executables and docs)
-      CompuServe (ZiffNet) PBSUTIL forum and Public Brand Software BBS
-         [US, membership required; V.32 line, (317) 856-1490]
-         (unz540.zip, sources; unz540.exe, self-extracting exes and docs)
-      America Online OS/2 Forum, Free Uploading area; also Top Picks lib-
-         rary, File/Disk Utilities library, and OS/2 1.x library (do key-
-         word search via ctrl-K:  FILE SEARCH on "INFOZIP")
-      FidoNet node 1:124/2113, Lunatic Fringe [Richardson, Texas; BBS
-         (214) 235-5288; sysop john.stewart@lunatic.com; complete mirror
-         of Info-ZIP home site]
-      FidoNet node 1:246/74, Metal Shoppe BBS [Windsor, Ontario; CLink
-         node 911:6510/0; BBS (519) 256-0278; sysop rakey@cyberspace.net
-         (Ray Akey); micro-based files but no Unix/VMS/NT stuff]
-      Drealm Conference System [London, UK; V.22bis, subscriber lines
-         to V.32bis, etc.; (+44) 81 568 2204]
-      Compulink Information eXchange (CIX) [London, UK; BBS 14.4 and 28.8
-         lines, (+44) 181 390-1244, -1255 and -9787; executables in "the
-         filepool," sources in free_software/sources]
-
-   Windows sources and executables (filenames, locations not yet final):
-      CompuServe CRAFTS forum (wiz41.zip, WiZ 32-bit version)
-
-   OS/2 executables:
-      CompuServe OS2USER forum (zip23.zip and unz540.exe, OS/2 16- and
-         32-bit exes and docs)
-
-   Amiga executables:
-      BIX in AMIGA files section (perform keyword search on "info-zip")
-         [requires account; telnet bix.com, or "C BIX" via local Sprint
-         X.25 PAD, or dial direct in US at (617) 491-5410]
-
-
 Mail servers:
 
    To get the encryption sources by e-mail, send the following commands
    to ftp-mailer@informatik.tu-muenchen.de:
 
-      get /pub/comp/os/os2/archiver/zcrypt28.zip
+      get /pub/comp/os/os2/archiver/zcrypt29.zip
       quit
 
    To get the VMS Zip/UnZip package by e-mail, send the following

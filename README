@@ -1,12 +1,20 @@
-Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-See the accompanying file LICENSE (the contents of which are also
-included in unzip.h, zip.h and wiz.h) for terms of use.  If, for
-some reason, all of these files are missing, the Info-ZIP license
-also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+See the accompanying file LICENSE, version 2005-Feb-10 or later
+(the contents of which are also included in zip.h) for terms of use.
+If, for some reason, both of these files are missing, the Info-ZIP license
+also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 
+This is Zip 2.31, a maintenance update for Zip 2.3.  Changes include a
+few bug fixes for Debian and SourceForge bugs, inclusion of the standard
+zip encryption code in the main code, some VMS updates, some changes to
+the Win32 projects, and some other bug fixes.  We are also working on
+the new Zip 3.0 and companion UnZip 6.00 that finally support files and
+archives larger than 4 GB on systems that support large files and include
+other new features.  See the latest betas for details and the new releases
+when available.
 
-Zip 2.3 is a compression and file packaging utility.  It is compatible with
+Zip 2.31 is a compression and file packaging utility.  It is compatible with
 PKZIP 2.04g (Phil Katz ZIP) for MSDOS systems.  There is a companion to zip
 called unzip (of course) which you should be able to find the same place
 you got zip. See the file 'WHERE' for details on ftp sites and mail
@@ -22,27 +30,33 @@ device, VMS, BeOS and OS/2 extended file attributes, conversion from Unix to
 MSDOS text file format; and, of course, the ability to run on most of your
 favorite operating systems.  And it's free.
 
-See the file 'CHANGES' for a detailed list of all changes.
+See the file WhatsNew for a summary of new features and the file 'CHANGES' for
+a detailed list of all changes.
 
 This version does not support multi-volume archives as in pkzip 2.04g.
-This may be provided in a future version if time permits.
+This is currently being looked at and may be provided in the release of
+Zip 3.0 if time permits.
 
-Please read the file INSTALL for information on how to compile and
-install zip, zipsplit and zipnote.  Please read the file MANUAL for
-information on how to use them.  The file "contents" is a complete
-list of the files you should have in this distribution.  Also, if you
-are using MSDOS, you should read the note on file formats at the end
-of the contents file.
+Please read the file INSTALL for information on how to compile and install
+zip, zipsplit, zipcloak, and zipnote.  Please read the file MANUAL for
+information on how to use them.  The file "contents" is a complete list
+of the files you should have in this distribution.  Also, if you are
+using MSDOS, you should read the note on file formats at the end of the
+contents file.  (The contents file somehow got misplaced apparently in
+the Zip 2.3 distribution.  If time permits we will create a new one.)
 
-This version supports encryption, but the encryption code is distributed
-separately because of the US export regulations. See the file 'WHERE'
-for access to the encryption code. Decryption can be made with unzip 5.0p1
-or later, or with zipcloak.
+This version supports standard zip encryption.  The encryption code was
+distributed separately before this version because of US export regulations but
+recent relaxing of export restrictions now allow the code to be included.  Note
+that standard zip encryption is considered weak by today's standards.  We are
+looking at adding strong encryption to a later release.  Decryption can be made
+with unzip 5.0p1 or later, or with zipcloak.
 
-All bug reports or patches should go to zip-bugs@lists.wku.edu, and
-suggestions for new features can be sent to info-zip@lists.wku.edu
-(although we don't promise to use all suggestions).  Patches should be
-sent as context diffs only (diff -c).
+All bug reports should go to zip-bugs using the web form at www.info-zip.org,
+and suggestions for new features can be sent using the same form (although
+we don't promise to use all suggestions).  Contact us to send patches as we
+currently don't have a standard way to do that.  Patches should be sent as
+context diffs only (diff -c).
 
 If you're considering a port, please check in with zip-bugs FIRST,
 since the code is constantly being updated behind the scenes.  We'll
@@ -55,7 +69,11 @@ and LIST (on separate lines in the body of the message, not on the subject
 line) to mxserver@lists.wku.edu.  You'll receive two messages listing the
 various Info-ZIP mailing-list formats which are available (and also various
 unrelated lists) and instructions on how to subscribe to one or more of them
-(courtesy of Hunter Goatley).
+(courtesy of Hunter Goatley).  (Currently these are all discontinued but
+we are considering implementing new versions.  However, a discussion
+group for Info-ZIP issues is at http://www.quicktopic.com/27/H/V6ZQZ54uKNL
+and can be used to discuss issues, request features, and is one place new
+betas and releases are announced.)
 
 Frequently asked questions on zip and unzip:
 
@@ -107,9 +125,9 @@ A. You may redistribute the latest official distributions without any
    modification, without even asking us for permission. You can charge
    for the cost of the media (CDROM, diskettes, etc...) and a small copying
    fee.  If you want to distribute modified versions please contact us at
-   zip-bugs@lists.wku.edu first. You must not distribute beta versions.
-   The latest official distributions are always on ftp.uu.net in directory
-   /pub/archiving/zip and subdirectories.
+   zip-bugs at www.info-zip.org first. You must not distribute beta versions.
+   The latest official distributions are on ftp.info-zip.org in directory
+   /pub/archiving/zip and subdirectories as well as on mirror sites.
 
 
 Q. Can I use the executables of zip and unzip to distribute my software?
@@ -124,7 +142,7 @@ A. Yes, so long as it is made clear in the product documentation that
      utility.  The installation program uses UnZip to read zip files from
      the CD.  Info-ZIP's software (Zip, UnZip and related utilities) is
      free and can be obtained as source code or executables from various
-     anonymous-ftp sites, including ftp.uu.net:/pub/archiving/zip/*.
+     anonymous-ftp sites, including ftp.info-zip.org:/pub/archiving/zip/*.
 
 
 Q. Can I use the source code of zip and unzip in my commercial application?
@@ -134,4 +152,4 @@ A. Yes, so long as you include in your product an acknowledgment and an
    copying fee, and make clear that there are no extra or hidden charges
    resulting from the use of the compression code by your product. In other
    words, you are allowed to sell only your own work, not ours. If you have
-   special requirements contact us at zip-bugs@lists.wku.edu.
+   special requirements contact us at zip-bugs at www.info-zip.org.

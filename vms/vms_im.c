@@ -1,9 +1,9 @@
 /*
-  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2000-Apr-09 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, all these files are missing, the Info-ZIP license
+  If, for some reason, both of these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
@@ -375,10 +375,10 @@ int set_extra_field(z, z_utim)
     }
 
     /* Copy xtra[] data into cxtra[]. */
-    memcpy( cxtra, xtra, (scan- xtra));
+    memcpy( cxtra, xtra, (scan - xtra));
 
     /* Set sizes and pointers. */
-    z->cext = z->ext = scan- xtra;
+    z->cext = z->ext = scan - xtra;
     z->extra = (char*) xtra;
     z->cextra = (char*) cxtra;
 
@@ -531,7 +531,7 @@ struct RAB *vms_open(name)
            (This occurs with a zero-length file, for example.)
         */
         ctx->size =
-        ctx->rest = (fhc->xab$l_hbk)* BLOCK_BYTES;
+        ctx->rest = (fhc->xab$l_hbk) * BLOCK_BYTES;
     }
     else
     {
@@ -540,11 +540,11 @@ struct RAB *vms_open(name)
            If -VV, store allocated-blocks size in ->rest.
         */
         ctx->size =
-         ((fhc->xab$l_ebk)- 1)* BLOCK_BYTES+ fhc->xab$w_ffb;
+         ((fhc->xab$l_ebk)- 1) * BLOCK_BYTES + fhc->xab$w_ffb;
         if (vms_native < 2)
             ctx->rest = ctx->size;
         else
-            ctx->rest = (fhc->xab$l_hbk)* BLOCK_BYTES;
+            ctx->rest = (fhc->xab$l_hbk) * BLOCK_BYTES;
     }
 
     free(fhc);
@@ -600,8 +600,8 @@ int vms_rewind(rab)
 }
 
 
-#define KByte (2* BLOCK_BYTES)
-#define MAX_READ_BYTES (32* KByte)
+#define KByte (2 * BLOCK_BYTES)
+#define MAX_READ_BYTES (32 * KByte)
 
 /**************************
  *   Function vms_read    *
@@ -647,7 +647,7 @@ size_t size;
         /* Round odd-ball request up to the next whole block.
            This really should never happen.  (assert()?)
         */
-        size = (size+ BLOCK_BYTES- 1)& ~(BLOCK_BYTES- 1);
+        size = (size + BLOCK_BYTES - 1)& ~(BLOCK_BYTES - 1);
     }
 
     /* Reduce "size" when next (last) read would overrun the EOF,

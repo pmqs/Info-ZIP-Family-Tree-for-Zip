@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
  *  zipup.c by Mark Adler and Jean-loup Gailly.
@@ -55,6 +55,10 @@
 #ifdef __BEOS__
 #  include "beos/zipup.h"
 #endif
+
+#ifdef __ATHEOS__
+#  include "atheos/zipup.h"
+#endif /* __ATHEOS__ */
 
 #ifdef __human68k__
 #  include "human68k/zipup.h"
@@ -366,8 +370,10 @@ FILE *y;                /* output file */
     }
 #endif /* !(VMS && VMS_PK_EXTRA) */
     l = issymlnk(a);
-    if (l)
+    if (l) {
       ifile = fbad;
+      m = STORE;
+    }
     else if (isdir) { /* directory */
       ifile = fbad;
       m = STORE;
@@ -402,10 +408,12 @@ FILE *y;                /* output file */
     }
 #endif /* VMS && VMS_PK_EXTRA */
 
-#ifdef MMAP
+#if defined(MMAP) || defined(BIG_MEM)
     /* Map ordinary files but not devices. This code should go in fileio.c */
-    if (!translate_eol && q != -1L && (ulg)q > 0 &&
+    if (!translate_eol && m != STORE && q != -1L && (ulg)q > 0 &&
         (ulg)q + MIN_LOOKAHEAD > (ulg)q) {
+# ifdef MMAP
+      /* Map the whole input file in memory */
       if (window != NULL)
         free(window);  /* window can't be a mapped file here */
       window_size = (ulg)q + MIN_LOOKAHEAD;
@@ -432,12 +440,8 @@ FILE *y;                /* output file */
       } else {
         remain = (ulg)q;
       }
-    }
-#else /* !MMAP */
-# ifdef BIG_MEM
-    /* Read the whole input file at once */
-    if (!translate_eol && q != -1L && (ulg)q > 0 &&
-        (ulg)q + MIN_LOOKAHEAD > (ulg)q) {
+# else /* !MMAP, must be BIG_MEM */
+      /* Read the whole input file at once */
       window_size = (ulg)q + MIN_LOOKAHEAD;
       window = window ? (uch*) realloc(window, (unsigned)window_size)
                       : (uch*) malloc((unsigned)window_size);
@@ -451,13 +455,13 @@ FILE *y;                /* output file */
       } else {
         window_size = 0L;
       }
+# endif /* ?MMAP */
     }
-# endif /* BIG_MEM */
-#endif /* ?MMAP */
+#endif /* MMAP || BIG_MEM */
 
   } /* strcmp(z->name, "-") == 0 */
 
-  if (l || q == 0)
+  if (q == 0)
     m = STORE;
   if (m == BEST)
     m = DEFLATE;
@@ -813,6 +817,11 @@ local unsigned file_read(buf, size)
   }
   crc = crc32(crc, (uch *) buf, len);
   isize += (ulg)len;
+  /* added check for file size - 2/20/05 */
+  if ((isize & (ulg)0xffffffffL) < (ulg)len) {
+    /* fatal error: file size exceeds Zip limit */
+    ZIPERR(ZE_BIG, "file exceeds Zip's 4GB uncompressed size limit");
+  }
   return len;
 }
 
@@ -1115,6 +1124,7 @@ ulg memcompress(tgt, tgtsize, src, srcsize)
 {
     ulg crc;
     unsigned out_total;
+    int method   = DEFLATE;
 #ifdef USE_ZLIB
     int err      = Z_OK;
 #else
@@ -1153,7 +1163,7 @@ ulg memcompress(tgt, tgtsize, src, srcsize)
     window_size = 0L;
 
     bi_init(tgt + (2 + 4), (unsigned)(tgtsize - (2 + 4)), FALSE);
-    ct_init(&att, NULL);
+    ct_init(&att, &method);
     lm_init((level != 0 ? level : 1), &flags);
     out_total += (unsigned)deflate();
     window_size = 0L; /* was updated by lm_init() */
@@ -1163,8 +1173,8 @@ ulg memcompress(tgt, tgtsize, src, srcsize)
     crc = crc32(crc, (uch *)src, (extent)srcsize);
 
     /* For portability, force little-endian order on all machines: */
-    tgt[0] = (char)(DEFLATE & 0xff);
-    tgt[1] = (char)((DEFLATE >> 8) & 0xff);
+    tgt[0] = (char)(method & 0xff);
+    tgt[1] = (char)((method >> 8) & 0xff);
     tgt[2] = (char)(crc & 0xff);
     tgt[3] = (char)((crc >> 8) & 0xff);
     tgt[4] = (char)((crc >> 16) & 0xff);

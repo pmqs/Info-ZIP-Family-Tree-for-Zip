@@ -1,14 +1,13 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /* crc_i386.c -- Microsoft 32-bit C/C++ adaptation of crc_i386.asm
  * Created by Rodney Brown from crc_i386.asm, modified by Chr. Spieler.
- * Last revised: 24-Dec-1998
  *
  * Original coded (in crc_i386.asm) and put into the public domain
  * by Paul Kienitz and Christian Spieler.
@@ -52,16 +51,25 @@
  *
  * Revised 13-Dec-98, Chr. Spieler: Modified path to "zip.h" header file.
  *
+ * Revised 16-Jan-2005, Cosmin Truta: Added the ASM_CRC guard, for easier
+ *   switching between ASM vs. non-ASM builds, when handling makefiles.
+ *   Also enabled the 686 build by default, because there are hardly any
+ *   pre-686 CPUs in serious use nowadays. (See the 12-Oct-97 note above.)
+ *
  * FLAT memory model assumed.
  *
- * The loop unrolling can be disabled by defining the macro NO_UNROLLED_LOOPS.
+ * Loop unrolling can be disabled by defining the macro NO_UNROLLED_LOOPS.
  * This results in shorter code at the expense of reduced performance.
  *
  */
 
 #include "../zip.h"
 
-#ifndef USE_ZLIB
+#if defined(ASM_CRC) && !defined(USE_ZLIB)
+
+#if !defined(PRE_686) && !defined(__686)
+#  define __686
+#endif
 
 #ifndef ZCONST
 #  define ZCONST const
@@ -217,4 +225,4 @@ fine:
 #  pragma warning( default : 4035 )
 #endif
 #endif
-#endif /* !USE_ZLIB */
+#endif /* ASM_CRC && !USE_ZLIB */

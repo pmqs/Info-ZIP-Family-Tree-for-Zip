@@ -15,9 +15,9 @@ E    =
 #   LFLAGS2   flags after obj file list (libraries, etc)
 #
 LIB      =
-CFLAGS   = -throwback -wn -DASMV
-CFLAGS   = $(CFLAGS) -IC:,@.
-ASMFLAGS = -Throwback -Stamp -NoCache -CloseExec -quit
+CBASE    = -throwback -wn -DASMV -apcs 3/26
+CFLAGS   = $(CBASE) -IC:,@.
+ASMFLAGS = -Throwback -Stamp -NoCache -CloseExec -quit -apcs 3/26
 LFLAGS1  =
 LFLAGS2  = $(LIB) C:o.Stubs
 
@@ -41,11 +41,13 @@ ZIP_H = zip.h ziperr.h tailor.h acorn/osdep.h acorn/riscos.h acorn/swiven.h
 all:      zip zipnote zipsplit zipcloak
 
 
-install:  %.zip %.zipnote %.zipsplit %.zipcloak zip zipnote zipsplit zipcloak
+install:  %.zip %.zipnote %.zipsplit %.zipcloak %.zipsfx \
+          zip zipnote zipsplit zipcloak zipsfx
         $(SQUEEZE) zip %.zip
         $(SQUEEZE) zipnote %.zipnote
         $(SQUEEZE) zipsplit %.zipsplit
         $(SQUEEZE) zipcloak %.zipcloak
+        copy acorn.zipsfx %.zipsfx ~CVF
 
 # suffix rules
 .SUFFIXES:      _.o .o .c

@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
  *  zipfile.c by Mark Adler.
@@ -684,7 +684,8 @@ local int scanzipf_reg(f)
  * XXX far pointer arithmetic in DOS
  */
         while (t >= buf) {
-          /* Check for ENDSIG ("PK\5\6" in ASCII) */
+          /* Check for ENDSIG the End Of Central Directory Record signature
+             ("PK\5\6" in ASCII) */
           if (LG(t) == ENDSIG) {
             found = 1;
 /*
@@ -737,6 +738,10 @@ local int scanzipf_reg(f)
       zipwarn("remember to use binary mode when you transferred it?)", "");
       return ZE_FORM;
     }
+
+/*
+ * Read the End Of Central Directory Record
+ */
     /* Read end header */
     if (fread(b, ENDHEAD, 1, f) != 1)
       return ferror(f) ? ZE_READ : ZE_EOF;

@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
  *  zip.c by Mark Adler.
@@ -232,7 +232,7 @@ int e;                  /* exit code */
 
 void ziperr(c, h)
 int c;                  /* error code from the ZE_ class */
-char *h;                /* message about how it happened */
+ZCONST char *h;         /* message about how it happened */
 /* Issue a message for the error, clean up files and memory, and exit. */
 {
 #ifndef WINDLL
@@ -248,7 +248,7 @@ char *h;                /* message about how it happened */
     if (PERR(c))
       perror("zip I/O error");
     fflush(mesg);
-    fprintf(stderr, "\nzip error: %s (%s)\n", errors[c-1], h);
+    fprintf(stderr, "\nzip error: %s (%s)\n", ziperrors[c-1], h);
   }
   if (tempzip != NULL)
   {
@@ -306,7 +306,7 @@ char *h;                /* message about how it happened */
 
 
 void error(h)
-  char *h;
+  ZCONST char *h;
 /* Internal error, should never happen */
 {
   ziperr(ZE_LOGIC, h);
@@ -332,7 +332,7 @@ int s;                  /* signal number (ignored) */
 #endif /* !MACOS && !WINDLL */
 
 void zipwarn(a, b)
-char *a, *b;            /* message strings juxtaposed in output */
+ZCONST char *a, *b;     /* message strings juxtaposed in output */
 /* Print a warning message to stderr and return. */
 {
   if (noisy) fprintf(stderr, "\tzip warning: %s%s\n", a, b);
@@ -435,9 +435,9 @@ local void help()
 "  -A   adjust self-extracting exe   -J   junk zipfile prefix (unzipsfx)",
 "  -T   test zipfile integrity       -X   eXclude eXtra file attributes",
 #endif /* ?VMS */
-#ifdef WIN32
+#ifdef NTSD_EAS
 "  -!   use privileges (if granted) to obtain all aspects of WinNT security",
-#endif /* WIN32 */
+#endif /* NTSD_EAS */
 #ifdef OS2
 "  -E   use the .LONGNAME Extended attribute (if found) as filename",
 #endif /* OS2 */
@@ -522,6 +522,9 @@ local void version_info()
 #ifdef NTSD_EAS
     "NTSD_EAS",
 #endif
+#if defined(WIN32) && defined(NO_W32TIMES_IZFIX)
+    "NO_W32TIMES_IZFIX",
+#endif
 #ifdef VMS
 #ifdef VMSCLI
     "VMSCLI",
@@ -535,9 +538,6 @@ local void version_info()
 #endif /* VMS */
 #ifdef WILD_STOP_AT_DIR
     "WILD_STOP_AT_DIR",
-#endif
-#ifdef USE_ZLIB
-    "USE_ZLIB",
 #endif
 #if CRYPT && defined(PASSWD_FROM_STDIN)
     "PASSWD_FROM_STDIN",
@@ -599,11 +599,24 @@ local void version_info()
   {
     printf("\t%s\n",comp_opts[i]);
   }
+#ifdef USE_ZLIB
+  if (strcmp(ZLIB_VERSION, zlibVersion()) == 0)
+    printf("\tUSE_ZLIB [zlib version %s]\n", ZLIB_VERSION);
+  else
+    printf("\tUSE_ZLIB [compiled with version %s, using version %s]\n",
+      ZLIB_VERSION, zlibVersion());
+  i++;  /* zlib use means there IS at least one compilation option */
+#endif
 #if CRYPT
   printf("\t[encryption, version %d.%d%s of %s]\n",
             CR_MAJORVER, CR_MINORVER, CR_BETA_VER, CR_VERSION_DATE);
-  ++i;
-#endif /* CRYPT */
+  for (i = 0; i < sizeof(cryptnote)/sizeof(char *); i++)
+  {
+    printf(cryptnote[i]);
+    putchar('\n');
+  }
+  ++i;  /* crypt support means there IS at least one compilation option */
+#endif
   if (i == 0)
       puts("\t[none]");
 
@@ -752,6 +765,7 @@ local int get_filters(argc, argv)
     }
     if (flag && (archive_seen || p != NULL)) {
       if (patterns != NULL) {
+        /* second pass: create pattern entry */
         if (p != NULL) {
           fp = fopen(p, "r");
           if (fp == NULL) {
@@ -792,14 +806,18 @@ local int get_filters(argc, argv)
     } else {
       if (flag != 'R')
         flag = 0;               /* only 'R' is allowed before zipfile arg */
-      archive_seen = 1;         /* first non-flag arg is archive name */
+      if (argv[i][0] != '-') {
+        archive_seen = 1;       /* first non-flag arg is archive name */
+      }
     }
   }
   if (pcount == 0 || patterns != NULL) return ZE_OK;
+  /* first pass and pattern count > 0: allocate space for pattern list */
   patterns = (struct plist*) malloc(pcount * sizeof(struct plist));
   if (patterns == NULL) {
     ZIPERR(ZE_MEM, "was creating pattern list");
-    }
+  }
+  /* recall this function for second pass, filling the pattern list */
   return get_filters(argc, argv);
 }
 
@@ -893,6 +911,7 @@ char **argv;            /* command line tokens */
     atexit(DebugMalloc);
   }
 #endif
+
 #ifdef QDOS
   {
     extern void QDOSexit(void);
@@ -939,8 +958,10 @@ char **argv;            /* command line tokens */
   adjust = 0;          /* 1=adjust offsets for sfx'd file (keep preamble) */
   level = 6;           /* 0=fastest compression, 9=best compression */
   translate_eol = 0;   /* Translate end-of-line LF -> CR LF */
-#ifdef WIN32
+#if defined(OS2) || defined(WIN32)
   use_longname_ea = 0; /* 1=use the .LONGNAME EA as the file's name */
+#endif
+#ifdef NTSD_EAS
   use_privileges = 0;  /* 1=use security privileges overrides */
 #endif
   hidden_files = 0;    /* process hidden and system files */
@@ -970,6 +991,13 @@ char **argv;            /* command line tokens */
   comment_stream = (FILE *)stdin;
 
   init_upper();           /* build case map table */
+
+#if (defined(WIN32) && defined(USE_EF_UT_TIME))
+  /* For the Win32 environment, we may have to "prepare" the environment
+     prior to the tzset() call, to work around tzset() implementation bugs.
+   */
+  iz_w32_prepareTZenv();
+#endif
 
 #if (defined(IZ_CHECK_TZ) && defined(USE_EF_UT_TIME))
 #  ifndef VALID_TIMEZONE
@@ -1010,21 +1038,22 @@ char **argv;            /* command line tokens */
   /* Process arguments */
   diag("processing arguments");
   /* First, check if just the help or version screen should be displayed */
-  if (isatty(1)) {              /* output screen is available */
-    if (argc == 1)
-    {                           /* show help screen */
+  if (argc == 1 && isatty(1))   /* no arguments, and output screen available */
+  {                             /* show help screen */
 #ifdef VMSCLI
-      VMSCLI_help();
+    VMSCLI_help();
 #else
-      help();
+    help();
 #endif
-      EXIT(0);
-    }
-    else if (argc == 2 && strcmp(argv[1], "-v") == 0)
-    {                           /* show diagnostic version info */
-      version_info();
-      EXIT(0);
-    }
+    EXIT(0);
+  }
+  else if (argc == 2 && strcmp(argv[1], "-v") == 0 &&
+           /* only "-v" as argument, and */
+           (isatty(1) || isatty(0)))
+           /* stdout or stdin is connected to console device */
+  {                             /* show diagnostic version info */
+    version_info();
+    EXIT(0);
   }
 #ifndef VMS
 #  ifndef RISCOS
@@ -1053,7 +1082,7 @@ char **argv;            /* command line tokens */
   r = get_filters(argc, argv);      /* scan first the -x and -i patterns */
 #ifdef WINDLL
   if (r != ZE_OK)
-     return r;
+    return r;
 #endif
 
   for (i = 1; i < argc; i++)
@@ -1310,9 +1339,6 @@ char **argv;            /* command line tokens */
               comment_stream = NULL;
               if (k < 3)        /* zip file not read yet */
                 s = 1;          /* defer -@ until after zipfile read */
-              else if (strcmp(zipfile, "-") == 0) {
-                ZIPERR(ZE_PARMS, "can't use - and -@ together");
-              }
               else              /* zip file read--do it now */
                 while ((pp = getnam(errbuf, stdin)) != NULL)
                 {
@@ -1337,7 +1363,7 @@ char **argv;            /* command line tokens */
               use_longname_ea = 1;
               break;
 #endif
-#ifdef WIN32
+#ifdef NTSD_EAS
             case '!':
               /* use security privilege overrides */
               use_privileges = 1;
@@ -1356,9 +1382,6 @@ char **argv;            /* command line tokens */
         case 0:
           zipstdout();
           k = 3;
-          if (s) {
-            ZIPERR(ZE_PARMS, "can't use - and -@ together");
-          }
           break;
 #endif /* !MACOS && !WINDLL */
         case 1:
@@ -1414,21 +1437,6 @@ char **argv;            /* command line tokens */
             ZIPERR(r, zipfile);
           }
           k = 3;
-          if (s)
-          {
-            while ((pp = getnam(errbuf, stdin)) != NULL)
-            {
-              k = 4;
-              if ((r = PROCNAME(pp)) != ZE_OK) {
-                if (r == ZE_MISS)
-                  zipwarn("name not matched: ", pp);
-                else {
-                  ZIPERR(r, pp);
-                }
-              }
-            }
-            s = 0;
-          }
           if (recurse == 2)
             k = 6;
           break;
@@ -1476,6 +1484,23 @@ char **argv;            /* command line tokens */
           k = (zipfile != NULL ? (first_listarg > 0 ? 4 : 3) : 0);
       }
     }
+    if ((k == 3 || k == 6) && (s))
+    {
+      while ((pp = getnam(errbuf, stdin)) != NULL)
+      {
+        first_listarg = i + 1;
+        k = 4;
+        if ((r = PROCNAME(pp)) != ZE_OK) {
+          if (r == ZE_MISS)
+            zipwarn("name not matched: ", pp);
+          else {
+            ZIPERR(r, pp);
+          }
+        }
+      }
+      s = 0;
+      if (recurse == 2) k = 6;
+    }
 nextarg: ;
   }
   if (k == 7 || k == 1) {
@@ -1518,6 +1543,9 @@ nextarg: ;
     /* if -u or -f with no args, do all, but, when present, apply filters */
     for (z = zfiles; z != NULL; z = z->nxt) {
       z->mark = pcount ? filter(z->zname, 0) : 1;
+#ifdef DOS
+      if (z->mark) z->dosflag = 1;      /* force DOS attribs for incl. names */
+#endif
     }
   }
   if ((r = check_dup()) != ZE_OK) {     /* remove duplicates in found list */
@@ -1546,9 +1574,10 @@ nextarg: ;
     method  = BEST;
     dispose = 0;
     recurse = 0;
-    if (key != NULL)
+    if (key != NULL) {
       free((zvoid *)key);
-    key     = NULL;
+      key   = NULL;
+    }
     comadd  = 0;
     zipedit = 0;
   }
@@ -1747,8 +1776,13 @@ nextarg: ;
 
 #if CRYPT
   /* Initialize the crc_32_tab pointer, when encryption was requested. */
-  if (key != NULL)
+  if (key != NULL) {
     crc_32_tab = get_crc_table();
+#ifdef EBCDIC
+    /* convert encryption key to ASCII (ISO variant for 8-bit ASCII chars) */
+    strtoasc(key, key);
+#endif /* EBCDIC */
+  }
 #endif /* CRYPT */
 
   /* Before we get carried away, make sure zip file is writeable. This
@@ -2267,6 +2301,11 @@ nextarg: ;
 #ifdef __BEOS__
   /* Set the filetype of the zipfile to "application/zip" */
   setfiletype( zipfile, "application/zip" );
+#endif
+
+#ifdef __ATHEOS__
+  /* Set the filetype of the zipfile to "application/x-zip" */
+  setfiletype(zipfile, "application/x-zip");
 #endif
 
 #ifdef MACOS

@@ -13,7 +13,7 @@ trap "rm -f conftest* core a.out; exit 1" 1 2 3 15
 
 CC=${1-cc}
 CFLAGS=${2-"-O2 -I. -DUNIX"}
-LFLAGS1="-s"
+LFLAGS1=""
 LN="ln -s"
 
 echo Check for the C preprocessor
@@ -26,6 +26,9 @@ CPP="${CC} -E"
 [ -f /usr/bin/cpp ] && CPP=/usr/bin/cpp
 [ -f /xenix ] && CPP="${CC} -E"
 [ -f /lynx.os ] && CPP="${CC} -E"
+
+echo "#include <stdio.h>" > conftest.c
+$CPP conftest.c >/dev/null 2>/dev/null || CPP="${CC} -E"
 
 echo Check if we can use asm code
 OBJA=""
@@ -118,13 +121,28 @@ _EOF_
 $CC $CFLAGS -c conftest.c >/dev/null 2>/dev/null
 [ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_SIZE_T"
 
+echo Check for gcc no-builtin flag
+# -fno-builtin since version 2
+cat > conftest.c << _EOF_
+int main()
+{
+#if __GNUC__ >= 2
+   return 0;
+#else
+   forget it
+#endif
+}
+_EOF_
+$CC $CFLAGS -c conftest.c >/dev/null 2>/dev/null
+[ $? -eq 0 ] && BFLAG="-fno-builtin"
+
 # Check for missing functions
 # add NO_'function_name' to flags if missing
-for func in rmdir strchr strrchr rename mktemp mktime
+for func in rmdir strchr strrchr rename mktemp mktime mkstemp
 do
   echo Check for $func
   echo "int main(){ $func(); return 0; }" > conftest.c
-  $CC -o conftest conftest.c >/dev/null 2>/dev/null
+  $CC $BFLAG -o conftest conftest.c >/dev/null 2>/dev/null
   [ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_`echo $func | tr '[a-z]' '[A-Z]'`"
 done
 
@@ -192,7 +210,7 @@ do
    [ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_`echo $inc | tr '[a-z]./' '[A-Z]__'`"
 done
 
-echo Check for term I/O include file
+echo Check for terminal I/O include file
 OPT=""
 for inc in termios.h termio.h sgtty.h
 do
@@ -215,6 +233,21 @@ _EOF_
 $CC ${CFLAGS} conftest.c > /dev/null 2>/dev/null
 [ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_VALLOC"
 
+echo Check for 64bit fseek
+for func in fseeko fseek64
+do
+cat > conftest.c << _EOF_
+#include <stdio.h>
+main()
+{
+$func(stdin, 0, 0);
+}
+_EOF_
+$CC ${CFLAGS} conftest.c > /dev/null 2>/dev/null
+[ $? -eq 0 ] && OPT="-DHAVE_`echo $func | tr '[a-z]' '[A-Z]'`" && break
+done
+CFLAGS="${CFLAGS} ${OPT}"
+
 echo Check for /usr/local/bin and /usr/local/man
 BINDIR=$HOME/bin
 [ -d /usr/local/bin ] && BINDIR=/usr/local/bin
@@ -224,7 +257,7 @@ MANDIR=manl
 [ -d /usr/local/man/manl ] && MANDIR=/usr/local/man/manl
 [ -d /usr/local/man/man1 ] && MANDIR=/usr/local/man/man1
 
-echo Checking for OS specialties
+echo Check for OS-specific flags
 if [ -f /usr/bin/hostinfo ]; then
   if /usr/bin/hostinfo | grep NeXT > /dev/null; then
     CFLAGS="${CFLAGS} -posix"

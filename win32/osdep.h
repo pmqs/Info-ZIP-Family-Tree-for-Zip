@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /* Automatic setting of the common Microsoft C idenfifier MSC.
  * NOTE: Watcom also defines M_I*86 !
@@ -97,6 +97,12 @@
 #  define ASMV
 #endif
 
+/* Enable use of optimized x86 assembler version of crc32() for
+   MSDOS, WIN32 and OS2 per default.  */
+#if !defined(NO_ASM) && !defined(ASM_CRC)  && !defined(NO_ASM_CRC)
+#  define ASM_CRC
+#endif
+
 #if !defined(__GO32__) && !defined(__EMX__) && !defined(__CYGWIN__)
 #  define NO_UNISTD_H
 #endif
@@ -141,16 +147,47 @@
 
 #ifdef __LCC__
 #  include <time.h>
-#endif
-#if (defined(__RSXNT__) || defined(__EMX__)) && !defined(tzset)
-#  define tzset _tzset
+#  ifndef tzset
+#    define tzset _tzset
+#  endif
+#  ifndef utime
+#    define utime _utime
+#  endif
 #endif
 #ifdef __MINGW32__
-   extern void _tzset(void);  /* this is missing in <time.h> */
+   extern void _tzset(void);            /* this is missing in <time.h> */
 #  ifndef tzset
 #    define tzset _tzset
 #  endif
 #endif
+#if (defined(__RSXNT__) || defined(__EMX__)) && !defined(tzset)
+#  define tzset _tzset
+#endif
+#ifdef W32_USE_IZ_TIMEZONE
+#  ifdef __BORLANDC__
+#    define tzname tzname
+#    define IZTZ_DEFINESTDGLOBALS
+#  endif
+#  ifndef tzset
+#    define tzset _tzset
+#  endif
+#  ifndef timezone
+#    define timezone _timezone
+#  endif
+#  ifndef daylight
+#    define daylight _daylight
+#  endif
+#  ifndef tzname
+#    define tzname _tzname
+#  endif
+#  if (!defined(NEED__ISINDST) && !defined(__BORLANDC__))
+#    define NEED__ISINDST
+#  endif
+#  ifdef IZTZ_GETLOCALETZINFO
+#    undef IZTZ_GETLOCALETZINFO
+#  endif
+#  define IZTZ_GETLOCALETZINFO GetPlatformLocalTimezone
+#endif /* W32_USE_IZ_TIMEZONE */
 
 #ifdef MATCH
 #  undef MATCH
@@ -163,6 +200,24 @@
 #  else
 #    include <process.h>        /* getpid() declaration for srand seed */
 #  endif
+#endif
+
+/* Up to now, all versions of Microsoft C runtime libraries lack the support
+ * for customized (non-US) switching rules between daylight saving time and
+ * standard time in the TZ environment variable string.
+ * But non-US timezone rules are correctly supported when timezone information
+ * is read from the OS system settings in the Win32 registry.
+ * The following work-around deletes any TZ environment setting from
+ * the process environment.  This results in a fallback of the RTL time
+ * handling code to the (correctly interpretable) OS system settings, read
+ * from the registry.
+ */
+#ifdef USE_EF_UT_TIME
+# if (defined(__WATCOMC__) || defined(W32_USE_IZ_TIMEZONE))
+#   define iz_w32_prepareTZenv()
+# else
+#   define iz_w32_prepareTZenv()        putenv("TZ=")
+# endif
 #endif
 
 /* This patch of stat() is useful for at least three compilers.  It is   */

@@ -4,24 +4,28 @@ HOW TO INSTALL ZIP
      wide range of systems: Unix, VMS, MSDOS, OS/2, NT, Amiga, Atari,
      BeOS, VM/CMS, ...  You will need Unzip 5.0p1 (under any system) or
      PKUNZIP 2.04g or later (under MSDOS) to unpack the distribution
-     file, zip23.zip. But since you read this, you have unpacked it
+     file, zip231.zip. But since you read this, you have unpacked it
      already, or you cheated and got a tar.Z file...
 
 Installation on Unix
 
      Let's assume that you start from scratch and have not yet
      unpacked the sources. First, unpack the source as follows,
-     assuming that you have zip23.zip in the current directory.
+     assuming that you have zip231.zip in the current directory.
 
           mkdir zipsrc
           cd zipsrc
-          unzip ../zip23
+          unzip ../zip231
 
      This extracts all source files and documentation in the
-     directory called "zipsrc". If you wish to build a version
-     of zip with encryption capabilities, you must also get the
-     separate package zcrypt28.zip and overwrite the dummy files
-     crypt.c and crypt.h.
+     directory called "zipsrc". This release now includes the standard
+     encryption code previously in the separate package zcrypt29.zip,
+     but you still can decide wether to activate the crypt code or not.
+     Crypt is enabled by default, but you may disable it by specifying
+     the option -DNO_CRYPT in the LOCAL_ZIP environment variable (or by
+     adding this option to the compilation options in the appropiate
+     makefile).
+     See Readme.cr for more on crypt.
 
      You then do:
 
@@ -72,7 +76,7 @@ Installation on Unix
           rm -r zipsrc
 
      This will remove the directory zip and its contents created
-     by unzip.  You should keep the zip20.zip file around though,
+     by unzip.  You should keep the zip231.zip file around though,
      in case you need to build it again or want to give it to a
      colleague.
 
@@ -91,14 +95,16 @@ Installation on other systems
 
      The steps for installation under VMS, MSDOS, OS/2, NT, Amiga and
      Atari are similar to the above: first unzip the distribution
-     files into their own directory. The system dependant files are
+     files into their own directory.  The system dependant files are
      stored in special subdirectories.
 
      For all the non-unix ports which support the creation of "UT" extra
      fields (these ports contain USE_EF_UT_TIME in the list of optional
      features displayed with "zip -v"), the timezone environment variable TZ
      should be set according to the local timezone in order for the -f,
-     -u and -o options to work correctly.
+     -u and -o options to work correctly.  This is not needed for the WIN32
+     and WinDLL ports, since they get the timezone information from the OS by
+     other means.
 
   MSDOS:
 
@@ -108,7 +114,7 @@ Installation on other systems
           nmake -f msdos\makefile.msc           (Microsoft C 6.0 and newer)
           make -fmsdos\makefile.bor -DCC_REV=1  (Borland Turbo C++ 1.0)
           make -fmsdos\makefile.bor             (Borland C++ 2.0 and newer)
-          make -fmsdos\makefile.tc              (Borland Turbo C 2.0)
+          make -fmsdos\makefile.tc              (Borland Turbo C 2.0x)
           make -f msdos/makefile.dj1            (DJGPP v1.12m4)
           make -f msdos/makefile.dj2            (DJGPP v2.01 and newer)
           make -f msdos/makefile.emx            (gcc/emx 0.9b and newer)
@@ -122,18 +128,19 @@ Installation on other systems
      can be found in the respective makefiles.
 
 
-  WIN32 (Windows NT and Windows 95):
+  WIN32 (Windows NT/2K/XP/2K3 and Windows 95/98/ME):
 
-     Supported compilers are Microsoft Visual C++, Watcom C/C++ and
-     the free GNU C implementation gcc/emx+rsxnt. The makefiles supplied
-     in the win32/ subdirectory contain further information.
+     Supported compilers are Microsoft Visual C++, Borland C++, Watcom C/C++,
+     and miscellaneous free GNU C implementations (gcc/mingw, CygWin, ...).
+     The makefiles supplied in the win32/ subdirectory contain further
+     information.
 
 
-  Windows DLL (Windows 3.1 16-bit and WIN32):
+  Windows DLL (WIN32):
 
-     Supported environments are Visual C++ 5.x (32-bit only) and
-     Borland C++ (4.52, and newer). For instructions how to build
-     the DLLs and where find the makefiles, look into windll/contents.
+     Supported environments are Visual C++ (32-bit only, 5.x and newer).
+     For instructions how to build the DLLs and where find the makefiles,
+     look into windll/contents.
 
 
   OS/2:

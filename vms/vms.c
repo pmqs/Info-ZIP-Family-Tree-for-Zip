@@ -1,9 +1,9 @@
 /*
-  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2000-Apr-09 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, all these files are missing, the Info-ZIP license
+  If, for some reason, both of these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
@@ -15,7 +15,7 @@
  *      vms_stat() added - version of stat() that handles special
  *      case when end-of-file-block == 0
  *
- *  3.0         11-oct-2004     SMS
+ *  2.3.1       11-oct-2004     SMS
  *      It would be nice to know why vms_stat() is needed.  If EOF can't
  *      be trusted for a zero-length file, why trust it for any file?
  *      Anyway, I removed the (int) cast on ->st_size, which may now be
@@ -209,7 +209,7 @@ void version_local()
     char *chrp1;
     char *chrp2;
     char buf[40];
-    char vms_vers[ 16];
+    char vms_vers[16];
     int ver_maj;
 #endif
 #ifdef __DECC_VER
@@ -226,10 +226,10 @@ void version_local()
 
     /* Determine the major version number. */
     ver_maj = 0;
-    chrp1 = strchr( &vms_vers[ 1], '.');
-    for (chrp2 = &vms_vers[ 1];
-     chrp2 < chrp1;
-     ver_maj = ver_maj* 10+ *(chrp2++)- '0');
+    chrp1 = strchr( &vms_vers[1], '.');
+    for (chrp2 = &vms_vers[1];
+         chrp2 < chrp1;
+         ver_maj = ver_maj * 10 + *(chrp2++) - '0');
 
 #endif /* def VMS_VERSION */
 
@@ -366,23 +366,23 @@ char *zip;                      /* Path name of Zip archive. */
     } jpi_itm_lst = { sizeof( pid), JPI$_PID, &pid, &pid_len };
 
     /* ZI<UNIQUE> name storage. */
-    static char zip_tmp_nam[ 16] = "ZI<unique>.;";
+    static char zip_tmp_nam[16] = "ZI<unique>.;";
 
     struct FAB fab;             /* FAB structure. */
     struct NAM_STRUCT nam;      /* NAM[L] structure. */
 
-    char exp_str[ NAM_MAXRSS+ 1];   /* Expanded name storage. */
+    char exp_str[ NAM_MAXRSS + 1];   /* Expanded name storage. */
 
 #ifdef VMS_UNIQUE_TEMP_BY_TIME
 
     /* Use alternate time-based scheme to generate a unique temporary name. */
-    sprintf( &zip_tmp_nam[ 2], "%08X", time( NULL));
+    sprintf( &zip_tmp_nam[2], "%08X", time( NULL));
 
 #else /* def VMS_UNIQUE_TEMP_BY_TIME */
 
     /* Use the process ID to generate a unique temporary name. */
     sts = sys$getjpiw( 0, 0, 0, &jpi_itm_lst, 0, 0, 0);
-    sprintf( &zip_tmp_nam[ 2], "%08X", pid);
+    sprintf( &zip_tmp_nam[2], "%08X", pid);
 
 #endif /* def VMS_UNIQUE_TEMP_BY_TIME */
 
@@ -429,7 +429,7 @@ char *zip;                      /* Path name of Zip archive. */
         /* Allocate temp name storage (as caller expects), and copy the
            (truncated) temp name into the new location.
         */
-        temp_name = malloc( strlen( nam.NAM_ESA)+ 1);
+        temp_name = malloc( strlen( nam.NAM_ESA) + 1);
 
         if (temp_name != NULL)
         {
@@ -738,10 +738,10 @@ decc_init_done = 1;
 
 /* Loop through all items in the decc_feat_array[]. */
 
-for (i = 0; decc_feat_array[ i].name != NULL; i++)
+for (i = 0; decc_feat_array[i].name != NULL; i++)
    {
    /* Get the feature index. */
-   feat_index = decc$feature_get_index( decc_feat_array[ i].name);
+   feat_index = decc$feature_get_index( decc_feat_array[i].name);
    if (feat_index >= 0)
       {
       /* Valid item.  Collect its properties. */
@@ -749,29 +749,29 @@ for (i = 0; decc_feat_array[ i].name != NULL; i++)
       feat_value_min = decc$feature_get_value( feat_index, 2);
       feat_value_max = decc$feature_get_value( feat_index, 3);
 
-      if ((decc_feat_array[ i].value >= feat_value_min) &&
-       (decc_feat_array[ i].value <= feat_value_max))
+      if ((decc_feat_array[i].value >= feat_value_min) &&
+          (decc_feat_array[i].value <= feat_value_max))
          {
          /* Valid value.  Set it if necessary. */
-         if (feat_value != decc_feat_array[ i].value)
+         if (feat_value != decc_feat_array[i].value)
             {
             sts = decc$feature_set_value( feat_index,
              1,
-             decc_feat_array[ i].value);
+             decc_feat_array[i].value);
             }
          }
       else
          {
          /* Invalid DECC feature value. */
          printf( " INVALID DECC FEATURE VALUE, %d: %d <= %s <= %d.\n",
-          feat_value,
-          feat_value_min, decc_feat_array[ i].name, feat_value_max);
+                 feat_value,
+                 feat_value_min, decc_feat_array[i].name, feat_value_max);
          }
       }
    else
       {
       /* Invalid DECC feature name. */
-      printf( " UNKNOWN DECC FEATURE: %s.\n", decc_feat_array[ i].name);
+      printf( " UNKNOWN DECC FEATURE: %s.\n", decc_feat_array[i].name);
       }
    }
 }
@@ -784,7 +784,7 @@ for (i = 0; decc_feat_array[ i].name != NULL; i++)
    attributes.
 */
 globaldef { "LIB$INITIALIZ" } readonly _align (LONGWORD)
-   int spare[ 8] = { 0 };
+   int spare[8] = { 0 };
 globaldef { "LIB$INITIALIZE" } readonly _align (LONGWORD)
    void (*x_decc_init)() = decc_init;
 

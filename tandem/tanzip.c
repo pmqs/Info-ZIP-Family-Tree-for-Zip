@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
  * routines only used by TANDEM ZIP
@@ -491,7 +491,6 @@ char *q;
     iztimes *t;             /* return value: access and modification time */
   {
     struct stat s;
-    char fname[FILENAME_MAX + 1];
     nsk_stat_ov *nsk_ov;
 
     if (strcmp(f, "-") == 0) {    /* if compressing stdin */
@@ -500,9 +499,7 @@ char *q;
       }
     }
 
-    strcpy(fname, f);
-
-    if (stat(fname, &s) != 0) return 0;
+    if (stat(f, &s) != 0) return 0;
 
     if (a!= NULL) {
       *a = ((ulg)s.st_mode << 16) | !(s.st_mode & S_IWUSR);

@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 #include "zip.h"
 
@@ -356,6 +356,7 @@ int caseflag;           /* true to force case-sensitive match */
       if (MATCH(p, z->iname, caseflag))
       {
         z->mark = pcount ? filter(z->zname, caseflag) : 1;
+        if (z->mark) z->dosflag = 1;    /* force DOS attribs for incl. names */
         if (verbose)
             fprintf(mesg, "zip diagnostic: %scluding %s\n",
                z->mark ? "in" : "ex", z->name);
@@ -520,7 +521,7 @@ ulg d;                  /* dos-style time to change it to */
 
   if ((h = open(f, 0)) != -1)
   {
-    setftime(h, (struct ftime *)&d);
+    setftime(h, (struct ftime *)(void *)&d);
     close(h);
   }
 #else /* !__TURBOC__ && !__GO32__ */
@@ -552,8 +553,9 @@ iztimes *t;             /* return value: access, modific. and creation times */
    a file size of -1 */
 {
   struct stat s;        /* results of stat() */
-  char name[FNMAX];
-  int len = strlen(f), isstdin = !strcmp(f, "-");
+  char *name;
+  unsigned int len = strlen(f);
+  int isstdin = !strcmp(f, "-");
 
   if (f == label) {
     if (a != NULL)
@@ -564,23 +566,36 @@ iztimes *t;             /* return value: access, modific. and creation times */
       t->atime = t->mtime = t->ctime = label_utim;
     return label_time;
   }
+
+  if ((name = malloc(len + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "filetime");
+  }
   strcpy(name, f);
   if (name[len - 1] == '/')
     name[len - 1] = '\0';
   /* not all systems allow stat'ing a file with / appended */
 
   if (isstdin) {
-    if (fstat(fileno(stdin), &s) != 0)
+    if (fstat(fileno(stdin), &s) != 0) {
+      free(name);
       error("fstat(stdin)");
+    }
     time((time_t *)&s.st_mtime);       /* some fstat()s return time zero */
-  } else if (LSSTAT(name, &s) != 0)
+  } else if (LSSTAT(name, &s) != 0) {
              /* Accept about any file kind including directories
               * (stored with trailing / with -r option)
               */
+    free(name);
     return 0;
+  }
 
-  if (a != NULL)
+  if (a != NULL) {
     *a = ((ulg)s.st_mode << 16) | (isstdin ? 0L : (ulg)GetFileMode(name));
+#if (S_IFREG != 0x8000)
+    /* kludge to work around non-standard S_IFREG flag used in DJGPP V2.x */
+    if ((s.st_mode & S_IFMT) == S_IFREG) *a |= 0x80000000L;
+#endif
+  }
   if (n != NULL)
     *n = (s.st_mode & S_IFREG) != 0 ? s.st_size : -1L;
   if (t != NULL) {
@@ -588,6 +603,8 @@ iztimes *t;             /* return value: access, modific. and creation times */
     t->mtime = s.st_mtime;
     t->ctime = s.st_ctime;
   }
+
+  free(name);
 
   return unix2dostime((time_t *)&s.st_mtime);
 }
@@ -744,7 +761,7 @@ void xit(void)
 /*  Function version_local()  */
 /******************************/
 
-static ZCONST char CompiledWith[] = "Compiled with %s%s for %s%s%s%s.\n\n";
+static ZCONST char CompiledWith[] = "Compiled with %s%s for %s%s%s.\n\n";
                         /* At module level to keep Turbo C++ 1.0 happy !! */
 
 void version_local()
@@ -754,115 +771,128 @@ void version_local()
     char buf[80];
 #endif
 
-    printf(CompiledWith,
-
+/* Define the compiler name and version strings */
 #if defined(__GNUC__)
 #  if defined(__DJGPP__)
-      (sprintf(buf, "djgpp v%d.%02d / gcc ", __DJGPP__, __DJGPP_MINOR__), buf),
+    sprintf(buf, "djgpp v%d.%02d / gcc ", __DJGPP__, __DJGPP_MINOR__);
+#    define COMPILER_NAME1      buf
 #  elif defined(__GO32__)         /* __GO32__ is defined as "1" only (sigh) */
-      "djgpp v1.x / gcc ",
+#    define COMPILER_NAME1      "djgpp v1.x / gcc "
 #  elif defined(__EMX__)          /* ...so is __EMX__ (double sigh) */
-      "emx+gcc ",
+#    define COMPILER_NAME1      "emx+gcc "
 #  else
-      "gcc ",
+#    define COMPILER_NAME1      "gcc "
 #  endif
-      __VERSION__,
+#  define COMPILER_NAME2        __VERSION__
 #elif defined(__WATCOMC__)
 #  if (__WATCOMC__ % 10 > 0)
 /* We do this silly test because __WATCOMC__ gives two digits for the  */
 /* minor version, but Watcom packaging prefers to show only one digit. */
-      (sprintf(buf, "Watcom C/C++ %d.%02d", __WATCOMC__ / 100,
-               __WATCOMC__ % 100), buf), "",
+    sprintf(buf, "Watcom C/C++ %d.%02d", __WATCOMC__ / 100,
+            __WATCOMC__ % 100);
 #  else
-      (sprintf(buf, "Watcom C/C++ %d.%d", __WATCOMC__ / 100,
-               (__WATCOMC__ % 100) / 10), buf), "",
+    sprintf(buf, "Watcom C/C++ %d.%d", __WATCOMC__ / 100,
+            (__WATCOMC__ % 100) / 10);
 #  endif
+#  define COMPILER_NAME1        buf
+#  define COMPILER_NAME2        ""
 #elif defined(__TURBOC__)
 #  ifdef __BORLANDC__
-      "Borland C++",
+#    define COMPILER_NAME1      "Borland C++"
 #    if (__BORLANDC__ < 0x0200)
-        " 1.0",
+#      define COMPILER_NAME2    " 1.0"
 #    elif (__BORLANDC__ == 0x0200)   /* James:  __TURBOC__ = 0x0297 */
-        " 2.0",
+#      define COMPILER_NAME2    " 2.0"
 #    elif (__BORLANDC__ == 0x0400)
-        " 3.0",
+#      define COMPILER_NAME2    " 3.0"
 #    elif (__BORLANDC__ == 0x0410)   /* __BCPLUSPLUS__ = 0x0310 */
-        " 3.1",
+#      define COMPILER_NAME2    " 3.1"
 #    elif (__BORLANDC__ == 0x0452)   /* __BCPLUSPLUS__ = 0x0320 */
-        " 4.0 or 4.02",
+#      define COMPILER_NAME2    " 4.0 or 4.02"
 #    elif (__BORLANDC__ == 0x0460)   /* __BCPLUSPLUS__ = 0x0340 */
-        " 4.5",
+#      define COMPILER_NAME2    " 4.5"
 #    elif (__BORLANDC__ == 0x0500)   /* __TURBOC__ = 0x0500 */
-        " 5.0",
+#      define COMPILER_NAME2    " 5.0"
 #    else
-        " later than 5.0",
+#      define COMPILER_NAME2    " later than 5.0"
 #    endif
 #  else
-      "Turbo C",
+#    define COMPILER_NAME1      "Turbo C"
 #    if (__TURBOC__ > 0x0401)
-        "++ later than 3.0"
+#      define COMPILER_NAME2    "++ later than 3.0"
 #    elif (__TURBOC__ == 0x0401)     /* Kevin:  3.0 -> 0x0401 */
-        "++ 3.0",
+#      define COMPILER_NAME2    "++ 3.0"
+#    elif (__TURBOC__ == 0x0296)     /* [662] checked by SPC */
+#      define COMPILER_NAME2    "++ 1.01"
 #    elif (__TURBOC__ == 0x0295)     /* [661] vfy'd by Kevin */
-        "++ 1.0",
+#      define COMPILER_NAME2    "++ 1.0"
+#    elif (__TURBOC__ == 0x0201)     /* Brian:  2.01 -> 0x0201 */
+#      define COMPILER_NAME2    " 2.01"
 #    elif ((__TURBOC__ >= 0x018d) && (__TURBOC__ <= 0x0200)) /* James: 0x0200 */
-        " 2.0",
+#      define COMPILER_NAME2    " 2.0"
 #    elif (__TURBOC__ > 0x0100)
-        " 1.5",                    /* James:  0x0105? */
+#      define COMPILER_NAME2    " 1.5"          /* James:  0x0105? */
 #    else
-        " 1.0",                    /* James:  0x0100 */
+#      define COMPILER_NAME2    " 1.0"          /* James:  0x0100 */
 #    endif
 #  endif
 #elif defined(MSC)
 #  if defined(_QC) && !defined(_MSC_VER)
-      "Microsoft Quick C", "",      /* _QC is defined as 1 */
+#    define COMPILER_NAME1      "Microsoft Quick C"
+#    define COMPILER_NAME2      ""      /* _QC is defined as 1 */
 #  else
-      "Microsoft C ",
+#    define COMPILER_NAME1      "Microsoft C "
 #    ifdef _MSC_VER
 #      if (_MSC_VER == 800)
-        "8.0/8.0c (Visual C++ 1.0/1.5)",
+#        define COMPILER_NAME2  "8.0/8.0c (Visual C++ 1.0/1.5)"
 #      else
-        (sprintf(buf, "%d.%02d", _MSC_VER/100, _MSC_VER%100), buf),
+#        define COMPILER_NAME2 \
+           (sprintf(buf, "%d.%02d", _MSC_VER/100, _MSC_VER%100), buf)
 #      endif
 #    else
-      "5.1 or earlier",
+#      define COMPILER_NAME2    "5.1 or earlier"
 #    endif
 #  endif
 #else
-      "unknown compiler", "",
+#    define COMPILER_NAME1      "unknown compiler"
+#    define COMPILER_NAME2      ""
 #endif
 
+/* Define the OS name and memory environment strings */
 #if defined(__WATCOMC__) || defined(__TURBOC__) || defined(MSC) || \
     defined(__GNUC__)
-      "\nMS-DOS",
+#  define OS_NAME1      "\nMS-DOS"
 #else
-      "MS-DOS",
+#  define OS_NAME1      "MS-DOS"
 #endif
 
 #if (defined(__GNUC__) || (defined(__WATCOMC__) && defined(__386__)))
-      " (32-bit)",
+#  define OS_NAME2      " (32-bit)"
 #elif defined(M_I86HM) || defined(__HUGE__)
-      " (16-bit, huge)",
+#  define OS_NAME2      " (16-bit, huge)"
 #elif defined(M_I86LM) || defined(__LARGE__)
-      " (16-bit, large)",
+#  define OS_NAME2      " (16-bit, large)"
 #elif defined(M_I86MM) || defined(__MEDIUM__)
-      " (16-bit, medium)",
+#  define OS_NAME2      " (16-bit, medium)"
 #elif defined(M_I86CM) || defined(__COMPACT__)
-      " (16-bit, compact)",
+#  define OS_NAME2      " (16-bit, compact)"
 #elif defined(M_I86SM) || defined(__SMALL__)
-      " (16-bit, small)",
+#  define OS_NAME2      " (16-bit, small)"
 #elif defined(M_I86TM) || defined(__TINY__)
-      " (16-bit, tiny)",
+#  define OS_NAME2      " (16-bit, tiny)"
 #else
-      " (16-bit)",
+#  define OS_NAME2      " (16-bit)"
 #endif
 
+/* Define the compile date string */
 #ifdef __DATE__
-      " on ", __DATE__
+#  define COMPILE_DATE " on " __DATE__
 #else
-      "", ""
+#  define COMPILE_DATE ""
 #endif
-    );
+
+    printf(CompiledWith, COMPILER_NAME1, COMPILER_NAME2,
+           OS_NAME1, OS_NAME2, COMPILE_DATE);
 
 } /* end function version_local() */
 #endif /* !WINDLL */

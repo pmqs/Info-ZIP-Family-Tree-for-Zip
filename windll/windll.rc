@@ -1,69 +1,64 @@
-/*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
-  (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
-*/
-#include <windows.h>
-#ifdef WIN32
-#include <winver.h>
-#endif
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#define APSTUDIO_HIDDEN_SYMBOLS
+#include "windows.h"
+#undef APSTUDIO_HIDDEN_SYMBOLS
 #include "zipver.h"
 
-#ifndef WIN32
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+#ifndef _MAC
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION 1,1,0,0
-PRODUCTVERSION 3,0,0,0
-FILEFLAGSMASK 0x3L
-#ifndef MSC
-FILEOS VOS__WINDOWS16
-FILETYPE VFT_DLL
+ FILEVERSION 1,1,0,0
+ PRODUCTVERSION 2,3,1,0
+ FILEFLAGSMASK 0x3L
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
 #else
-FILEOS 0x1L //VOS__WINDOWS16
-FILETYPE 0x2L //VFT_DLL
+ FILEFLAGS 0x0L
 #endif
+ FILEOS 0x1L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
 BEGIN
     BLOCK "StringFileInfo"
     BEGIN
-        BLOCK "040904E4"
+        BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", COMPANY_NAME
+            VALUE "Comments", "\0"
+            VALUE "CompanyName", "Info-ZIP\0"
             VALUE "FileDescription", "Info-ZIP's Zip dll\0"
-            VALUE "FileVersion", ZIP_DLL_VERSION
-            VALUE "InternalName", "Zip16\0"
-            VALUE "LegalCopyright", "Info-ZIP 1997\0"
-            VALUE "OriginalFilename", "ZIP16.DLL\0"
-            VALUE "ProductName", "Info-ZIP's WiZ\0"
-            VALUE "ProductVersion", ZIP_DLL_VERSION
-        END
-    END
-    BLOCK "VarFileInfo"
-    BEGIN
-        VALUE "Translation", 0x409, 1252
-    END
-END
-#else
-VS_VERSION_INFO VERSIONINFO
-FILEVERSION 1,1,0,0
-PRODUCTVERSION 3,0,0,0
-FILEFLAGSMASK 0x3L
-FILEOS VOS__WINDOWS32
-FILETYPE VFT_DLL
-BEGIN
-    BLOCK "StringFileInfo"
-    BEGIN
-        BLOCK "040904E4"
-        BEGIN
-            VALUE "CompanyName", COMPANY_NAME
-            VALUE "FileDescription", "Info-ZIP's Zip dll\0"
-            VALUE "FileVersion", ZIP_DLL_VERSION
+            VALUE "FileVersion", "2.31\0"
             VALUE "InternalName", "Zip32\0"
-            VALUE "LegalCopyright", "Info-ZIP 1997\0"
+            VALUE "LegalCopyright", "Info-ZIP 2005\0"
+            VALUE "LegalTrademarks", "\0"
             VALUE "OriginalFilename", "ZIP32.DLL\0"
+            VALUE "PrivateBuild", "\0"
             VALUE "ProductName", "Info-ZIP's WiZ\0"
-            VALUE "ProductVersion", ZIP_DLL_VERSION
+            VALUE "ProductVersion", "2.31\0"
+            VALUE "SpecialBuild", "\0"
         END
     END
     BLOCK "VarFileInfo"
@@ -71,5 +66,50 @@ BEGIN
         VALUE "Translation", 0x409, 1252
     END
 END
-#endif
+
+#endif    // !_MAC
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#define APSTUDIO_HIDDEN_SYMBOLS\r\n"
+    "#include ""windows.h""\r\n"
+    "#undef APSTUDIO_HIDDEN_SYMBOLS\r\n"
+    "#include ""zipver.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
 

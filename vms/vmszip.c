@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 
 /* 2004-09-25 SMS.
@@ -113,7 +113,7 @@ size_t n;
     s1++;
     s2++;
   }
-return ((unsigned int) c1- (unsigned int) c2);
+return ((unsigned int)c1 - (unsigned int)c2);
 }
 
 #ifndef UINT_MAX
@@ -240,7 +240,7 @@ ZCONST char *n;         /* directory to open */
   {
     while (--c > p  &&  *c != ';')
       ;
-    if ((c- p < 5)  ||  strcasecmp( (c- 4), ".DIR"))
+    if ((c- p < 5)  ||  strncasecmp( (c- 4), ".DIR", 4))
     {
       free((zvoid *)d);  free((zvoid *)p);
       return NULL;
@@ -503,7 +503,7 @@ int *pdosflag;          /* output: force MSDOS file attributes? */
 
   if (isdir)
   {
-    if (strcasecmp( (t = n+ strlen( n)- 6), ".DIR;1"))
+    if (strcasecmp( (t = n + strlen( n) - 6), ".DIR;1"))
       error("directory not version 1");
     else
       if (pathput)
@@ -619,7 +619,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
    a file size of -1 */
 {
   struct stat s;        /* results of stat() */
-  /* convert to a malloc string dump FNMAX - 11/8/04 EG */
+  /* malloc name so not dependent on FNMAX - 11/8/04 EG */
   char *name;
   int len = strlen(f);
 

@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 #include <stdlib.h>
 #include <string.h>
@@ -301,7 +301,10 @@ int *pdosflag;          /* output: force MSDOS file attributes? */
     if (lastlastdir==NULL)
       lastlastdir=t;
     if (checkext(lastlastdir)) {
-      swapext(lastlastdir,lastdir-1);
+      if (swapext(lastlastdir,lastdir-1)) {
+        free((void *)tmp);
+        return NULL;
+      }
     }
   }
 
@@ -355,7 +358,10 @@ char *n;                /* internal file name */
     if (lastdir==NULL)
       lastdir=x;
     if (checkext(lastext)) {
-      swapext(lastdir,lastext-1);
+      if (swapext(lastdir,lastext-1)) {
+        free((void *)x);
+        return NULL;
+      }
     }
   }
 
@@ -419,8 +425,8 @@ iztimes *t;             /* return value: access, modific. and creation times */
    a file size of -1 */
 {
   struct stat s;        /* results of stat() */
-  char name[FNMAX];
-  int len = strlen(f);
+  char *name;
+  unsigned int len = strlen(f);
 
   if (f == label) {
     if (a != NULL)
@@ -430,6 +436,10 @@ iztimes *t;             /* return value: access, modific. and creation times */
     if (t != NULL)
       t->atime = t->mtime = t->ctime = label_utim;
     return label_time;
+  }
+
+  if ((name = malloc(len + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "filetime");
   }
   strcpy(name, f);
   if (name[len - 1] == '.')
@@ -441,11 +451,13 @@ iztimes *t;             /* return value: access, modific. and creation times */
     s.st_mode = (S_IREAD|S_IWRITE|S_IFREG);
     s.st_size = -1;
     s.st_mtime = time(&s.st_mtime);
-  } else if (LSSTAT(name, &s) != 0)
+  } else if (LSSTAT(name, &s) != 0) {
              /* Accept about any file kind including directories
               * (stored with trailing / with -r option)
               */
+    free(name);
     return 0;
+  }
 
   if (a != NULL) {
     *a = ((ulg)s.st_mode << 16) | !(s.st_mode & S_IWRITE);
@@ -460,6 +472,8 @@ iztimes *t;             /* return value: access, modific. and creation times */
     t->mtime = s.st_mtime;
     t->ctime = s.st_ctime;
   }
+
+  free(name);
 
   return unix2dostime((time_t *) &s.st_mtime);
 }

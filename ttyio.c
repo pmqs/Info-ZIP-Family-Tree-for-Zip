@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*---------------------------------------------------------------------------
 
@@ -51,6 +51,10 @@
 #endif
 
 #ifdef __BEOS__                /* why yes, we do */
+#  define HAVE_TERMIOS_H
+#endif
+
+#ifdef __ATHEOS__
 #  define HAVE_TERMIOS_H
 #endif
 
@@ -298,7 +302,7 @@ void Echon(__G)
 
 #if (defined(UNZIP) && !defined(FUNZIP))
 
-#if (defined(UNIX) || defined(__BEOS__))
+#if (defined(UNIX) || defined(__BEOS__) || defined(__ATHEOS__))
 #ifdef MORE
 
 /*
@@ -517,7 +521,7 @@ char *getp(__G__ m, p, n)
 #else /* !HAVE_WORKING_GETCH */
 
 
-#if (defined(UNIX) || defined(__MINT__) || defined(__BEOS__))
+#if (defined(UNIX) || defined(__MINT__) || defined(__BEOS__) || defined(__ATHEOS__))
 
 #ifndef _PATH_TTY
 #  ifdef __MINT__
@@ -574,7 +578,7 @@ char *getp(__G__ m, p, n)
 
 } /* end function getp() */
 
-#endif /* UNIX || __MINT__ || __BEOS__ */
+#endif /* UNIX || __MINT__ || __BEOS__ || __ATHEOS__ */
 
 
 

@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.htmlse.html
 */
 /* riscos.h */
 
@@ -107,7 +107,7 @@ int chmod(char *file, int mode);
 void setfiletype(char *fname,int ftype);
 void getRISCOSexts(char *envstr);
 int checkext(char *suff);
-void swapext(char *name, char *exptr);
+int swapext(char *name, char *exptr);
 void remove_prefix(void);
 void set_prefix(void);
 struct tm *riscos_localtime(const time_t *timer);

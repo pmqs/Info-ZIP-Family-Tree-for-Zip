@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
  *  zipnote.c by Mark Adler.
@@ -19,6 +19,13 @@
 #include "revision.h"
 #include <signal.h>
 
+/* Calculate size of static line buffer used in write (-w) mode. */
+#define WRBUFSIZ 2047
+/* The line buffer size should be at least as large as FNMAX. */
+#if FNMAX > WRBUFSIZ
+#  undef WRBUFSIZ
+#  define WRBUFSIZ FNMAX
+#endif
 
 /* Character to mark zip entry names in the comment file */
 #define MARK '@'
@@ -36,7 +43,8 @@ local void license OF((void));
 local void help OF((void));
 local void version_info OF((void));
 local void putclean OF((char *, extent));
-local char *getline OF((char *, extent));
+/* getline name conflicts with GNU getline() function */
+local char *_getline OF((char *, extent));
 local int catalloc OF((char * far *, char *));
 int main OF((int, char **));
 
@@ -44,8 +52,8 @@ int main OF((int, char **));
 #define ziperr(c, h)    zipnoteerr(c, h)
 #define zipwarn(a, b)   zipnotewarn(a, b)
 
-void zipnoteerr(int c,char *h);
-void zipnotewarn(char *a,char *b);
+void zipnoteerr(int c, ZCONST char *h);
+void zipnotewarn(ZCONST char *a, ZCONST char *b);
 #endif
 
 #ifdef QDOS
@@ -54,12 +62,12 @@ void zipnotewarn(char *a,char *b);
 
 void ziperr(c, h)
 int c;                  /* error code from the ZE_ class */
-char *h;                /* message about how it happened */
+ZCONST char *h;         /* message about how it happened */
 /* Issue a message for the error, clean up files and memory, and exit. */
 {
   if (PERR(c))
     perror("zipnote error");
-  fprintf(stderr, "zipnote error: %s (%s)\n", errors[c-1], h);
+  fprintf(stderr, "zipnote error: %s (%s)\n", ziperrors[c-1], h);
   if (tempzf != NULL)
     fclose(tempzf);
   if (tempzip != NULL)
@@ -86,7 +94,7 @@ int s;                  /* signal number (ignored) */
 
 
 void zipwarn(a, b)
-char *a, *b;            /* message strings juxtaposed in output */
+ZCONST char *a, *b;     /* message strings juxtaposed in output */
 /* Print a warning message to stderr and return. */
 {
   fprintf(stderr, "zipnote warning: %s%s\n", a, b);
@@ -98,10 +106,6 @@ local void license()
 {
   extent i;             /* counter for copyright array */
 
-  for (i = 0; i < sizeof(copyright)/sizeof(char *); i++) {
-    printf(copyright[i], "zipnote");
-    putchar('\n');
-  }
   for (i = 0; i < sizeof(swlicense)/sizeof(char *); i++)
     puts(swlicense[i]);
 }
@@ -240,7 +244,7 @@ extent n;               /* length of string */
 }
 
 
-local char *getline(buf, size)
+local char *_getline(buf, size)
 char *buf;
 extent size;
 /* Read a line of text from stdin into string buffer 'buf' of size 'size'.
@@ -294,7 +298,7 @@ int argc;               /* number of tokens in command line */
 char **argv;            /* command line tokens */
 /* Write the comments in the zipfile to stdout, or read them from stdin. */
 {
-  char a[FNMAX+1];      /* input line buffer */
+  char a[WRBUFSIZ+1];   /* input line buffer */
   ulg c;                /* start of central directory */
   int k;                /* next argument type */
   char *q;              /* steps through option arguments */
@@ -398,7 +402,8 @@ char **argv;            /* command line tokens */
 
   /* Process stdin, replacing comments */
   z = zfiles;
-  while (getline(a, FNMAX+1) != NULL && (a[0] != MARK || strcmp(a + 1, MARKZ)))
+  while (_getline(a, WRBUFSIZ+1) != NULL &&
+         (a[0] != MARK || strcmp(a + 1, MARKZ)))
   {                                     /* while input and not file comment */
     if (a[0] != MARK || a[1] != ' ')    /* better be "@ name" */
       ziperr(ZE_NOTE, "unexpected input");
@@ -406,7 +411,7 @@ char **argv;            /* command line tokens */
       z = z->nxt;                       /* allow missing entries in order */
     if (z == NULL)
       ziperr(ZE_NOTE, "unknown entry name");
-    if (getline(a, FNMAX+1) != NULL && a[0] == MARK && a[1] == '=')
+    if (_getline(a, WRBUFSIZ+1) != NULL && a[0] == MARK && a[1] == '=')
     {
       if (z->name != z->iname)
         free((zvoid *)z->iname);
@@ -422,7 +427,7 @@ char **argv;            /* command line tokens */
  * Don't update z->nam here, we need the old value a little later.....
  * The update is handled in zipcopy().
  */
-      getline(a, FNMAX+1);
+      _getline(a, WRBUFSIZ+1);
     }
     if (z->com)                         /* change zip entry comment */
       free((zvoid *)z->comment);
@@ -431,7 +436,7 @@ char **argv;            /* command line tokens */
     {
       if ((r = catalloc(&(z->comment), a)) != ZE_OK)
         ziperr(r, "was building new comments");
-      getline(a, FNMAX+1);
+      _getline(a, WRBUFSIZ+1);
     }
     z->com = strlen(z->comment);
     z = z->nxt;                         /* point to next entry */
@@ -439,7 +444,7 @@ char **argv;            /* command line tokens */
   if (a != NULL)                        /* change zip file comment */
   {
     zcomment = malloc(1);  *zcomment = 0;
-    while (getline(a, FNMAX+1) != NULL)
+    while (_getline(a, WRBUFSIZ+1) != NULL)
       if ((r = catalloc(&zcomment, a)) != ZE_OK)
         ziperr(r, "was building new comments");
     zcomlen = strlen(zcomment);

@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /* riscos.c */
 
@@ -14,13 +14,13 @@
 #include "zip.h"
 #include "riscos.h"
 
-#define MAXEXT 16
+#define MAXEXT 256
 
 /* External globals */
 extern int scanimage;
 
 /* Local globals (!?!?) */
-char *exts2swap = ""; /* Extensions to swap (actually, directory names) */
+char *exts2swap = NULL; /* Extensions to swap (actually, directory names) */
 
 int stat(char *filename,struct stat *res)
 {
@@ -271,7 +271,7 @@ int checkext(char *suff)
  register char *suffptr;
  register int e,s;
 
- while(*extptr) {
+ if (extptr != NULL) while(*extptr) {
    suffptr=suff;
    e=*extptr; s=*suffptr;
    while (e && e!=':' && s && s!='.' && s!='/' && e==s) {
@@ -290,25 +290,28 @@ int checkext(char *suff)
  return 0;
 }
 
-void swapext(char *name, char *exptr)
+int swapext(char *name, char *exptr)
 {
- char ext[MAXEXT];
- register char *p1=exptr+1;
- register char *p2=ext;
+ char *ext;
+ char *p1=exptr;
+ char *p2;
  int extchar=*exptr;
+ unsigned int i=0;
 
- while(*p1 && *p1!='.' && *p1!='/')
-   *p2++=*p1++;
- *p2=0;
+ while(*++p1 && *p1!='.' && *p1!='/')
+   ;
+ ext=malloc(i=p1-exptr);
+ if (!ext)
+   return 1;
+ memcpy(ext, exptr+1, i);
  p2=exptr-1;
- p1--;
+ p1=exptr+i-1;
  while(p2 >= name)
    *p1--=*p2--;
- p1=name;
- p2=ext;
- while(*p2)
-   *p1++=*p2++;
+ strcpy(name,ext);
  *p1=(extchar=='/'?'.':'/');
+ free(ext);
+ return 0;
 }
 
 void remove_prefix(void)
@@ -380,7 +383,7 @@ int riscos_fseek(FILE *fd, long offset, int whence)
     case SEEK_END:
       ret = (fseek) (fd, 0, SEEK_END);
       if (ret)
-	return ret;
+        return ret;
       /* fall through */
     case SEEK_CUR:
       offset += ftell (fd);

@@ -4,18 +4,24 @@ VPATH=.;msdos
 # ------------- djgpp -------------
 CPPFLAGS=-I. -DDOS -DASM_CRC $(LOCAL_ZIP)
 ASFLAGS=$(CPPFLAGS)
-CFLAGS=-Wall -O2 -m486 $(CPPFLAGS)
+CFLAGS=-Wall -O2 $(CPPFLAGS)
 UTILFLAGS=-c -DUTIL $(CFLAGS) -o
 CC=gcc
 LD=gcc
 LDFLAGS=-s
 
 # ------------- file packer --------
-# If djp.exe is in your PATH, (found in mlp105b.zip, or later, at the same
-# place you found DJGPP), you may reduce the size of the disk image of the
-# zip*.exe's by uncommenting the lines containing DJP below where the exe's
-# are built.
-DJP=djp -q
+# Laszlo Molnar who wrote DJ Packer and Markus F. X. J. Oberhumer who wrote
+# the compression library used by the DJ Packer have collaborated on the
+# Ultimate Packer for eXecutables, which has recently been released.  Look
+# for upx???d.zip at     http://upx.sourceforge.net
+# As an alternative, look for "djp.exe", now two years old, in the archive
+# mlp107[b,s].zip, found in the same location as csdpmi?[b,s].zip (see below).
+# If you have got an executable packer in your PATH, you may reduce the
+# size of the disk image of the zip*.exe's by uncommenting the lines
+# containing $(DJP) below where the exe's are built.
+#DJP=djp -q
+DJP=upx -qq --best
 
 # variables
 

@@ -11,13 +11,13 @@
 # to the declaration of LOC here:
 LOC = $(LOCAL_ZIP)
 
-# Uncomment the following macro to use the optimized assembler
-# routines in Zip:
-ASMOBJS = match32.obj
+# To avoid using the optimized assembler routines in Zip, comment
+# out the ASMOBJS macro below, and add -DNO_ASM to LOC above.
+ASMOBJS = match32.obj crc_i386.obj
 
 # ------------- 32-bit Microsoft Visual C++ -------------
 CC=cl -nologo
-CFLAGS=-W3 -O2 -DWIN32 -DMSDOS $(LOC)
+CFLAGS=-W3 -O2 -DWIN32 $(LOC)
 UTILFLAGS=$(CFLAGS) -DUTIL -Fo$@
 
 # Remove "-coff" from ASFLAGS if you do not have MASM 6.11.
@@ -30,7 +30,8 @@ ASFLAGS=-c -coff -Cx
 # by passing the -stub switch to the 32-bit linker to specify the 16-bit part.
 
 LD=link -nologo
-LDFLAGS=advapi32.lib
+#LDFLAGS=-stub:zipdos.exe
+LDFLAGS=
 
 # variables
 OBJZ = zip.obj crypt.obj ttyio.obj zipfile.obj zipup.obj fileio.obj util.obj \
@@ -44,6 +45,8 @@ OBJC = zipcloak.obj crctab.obj crypt_.obj ttyio.obj $(OBJU)
 OBJS = zipsplit.obj $(OBJU)
 
 ZIP_H = zip.h ziperr.h tailor.h win32/osdep.h
+
+LIBS = advapi32.lib
 
 ZIPS = zip.exe zipnote.exe zipsplit.exe zipcloak.exe
 
@@ -118,17 +121,27 @@ crypt_.obj:     crypt.c $(ZIP_H) crypt.h ttyio.h
 win32_.obj:     win32/win32.c $(ZIP_H) win32/win32zip.h
 	$(CC) -c $(UTILFLAGS) -I. win32/win32.c
 
+crci386c.obj:   win32/crc_i386.c $(ZIP_H)
+	$(CC) -c $(CFLAGS) -I. -Fo$@ win32/crc_i386.c
+	
+crc_i386.obj:   win32/crc_i386.c $(ZIP_H)
+	$(AS) $(ASFLAGS) win32\crc_i386.asm
+	
 match32.obj:    win32/match32.asm
 	$(AS) $(ASFLAGS) win32\match32.asm
 
 zip.exe: $(OBJZ) $(OBJI)
-	$(LD) $(LDFLAGS) $(OBJZ) $(OBJI)
+	$(LD) $(LDFLAGS) $(OBJZ) $(OBJI) $(LIBS)
 
 zipcloak.exe: $(OBJC)
-	$(LD) $(LDFLAGS) $(OBJC)
+	$(LD) $(LDFLAGS) $(OBJC) $(LIBS)
 
 zipnote.exe: $(OBJN)
-	$(LD) $(LDFLAGS) $(OBJN)
+	$(LD) $(LDFLAGS) $(OBJN) $(LIBS)
 
 zipsplit.exe: $(OBJS)
-	$(LD) $(LDFLAGS) $(OBJS)
+	$(LD) $(LDFLAGS) $(OBJS) $(LIBS)
+
+clean:
+	del *.obj
+	del *.exe

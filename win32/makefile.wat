@@ -1,5 +1,5 @@
 # WMAKE makefile for Windows 95 and Windows NT (Intel only)
-# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 13 Feb 99.
+# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 22 Feb 05.
 # Makes Zip.exe, ZipNote.exe, ZipCloak.exe, and ZipSplit.exe.
 #
 # Invoke from Zip source dir with "WMAKE -F WIN32\MAKEFILE.WAT [targets]"
@@ -25,10 +25,11 @@ variation = $(%LOCAL_ZIP)
 # at the beginning, for example "$(O)foo.obj".
 
 !ifdef DEBUG
-O = od32w\  # comment here so backslash won't continue the line
+OBDIR = od32w
 !else
-O = ob32w\  # likewise
+OBDIR = ob32w
 !endif
+O = $(OBDIR)\   # comment here so backslash won't continue the line
 
 # The assembly hot-spot code in crc_i386.asm and match32.asm is optional.
 # This section controls its usage.
@@ -100,16 +101,16 @@ n:   ZipNote.exe   .SYMBOLIC
 c:   ZipCloak.exe  .SYMBOLIC
 s:   ZipSplit.exe  .SYMBOLIC
 
-Zip.exe:	$(OBJZ)
+Zip.exe:	$(OBDIR) $(OBJZ)
 	$(link) $(lflags) $(ldebug) name $@ file {$(OBJZ)}
 
-ZipNote.exe:	$(OBJN)
+ZipNote.exe:	$(OBDIR) $(OBJN)
 	$(link) $(lflags) $(ldebug) name $@ file {$(OBJN)}
 
-ZipCloak.exe:	$(OBJC)
+ZipCloak.exe:	$(OBDIR) $(OBJC)
 	$(link) $(lflags) $(ldebug) name $@ file {$(OBJC)}
 
-ZipSplit.exe:	$(OBJS)
+ZipSplit.exe:	$(OBDIR) $(OBJS)
 	$(link) $(lflags) $(ldebug) name $@ file {$(OBJS)}
 
 # Source dependencies:
@@ -163,6 +164,10 @@ $(O)crypt_.obj:   crypt.c $(ZIP_H) crypt.h ttyio.h
 
 $(O)win32_.obj:   win32\win32.c $(ZIP_H) win32\win32zip.h
 	$(cc) $(cdebug) $(cflags) $(cvars) -DUTIL win32\win32.c -fo=$@
+
+# Creation of subdirectory for intermediate files
+$(OBDIR):
+	-mkdir $@
 
 # Unwanted file removal:
 

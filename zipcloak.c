@@ -1,17 +1,11 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
-/*
-   This code was originally written in Europe and can be freely distributed
-   from any country except the U.S.A. If this code is imported into the U.S.A,
-   it cannot be re-exported from the U.S.A to another country. (This
-   restriction might seem curious but this is what US law requires.)
- */
 #define __ZIPCLOAK_C
 
 #ifndef UTIL
@@ -52,10 +46,10 @@ ZCONST uLongf *crc_32_tab;
  */
 void ziperr(code, msg)
     int code;               /* error code from the ZE_ class */
-    char *msg;              /* message about how it happened */
+    ZCONST char *msg;       /* message about how it happened */
 {
     if (PERR(code)) perror("zipcloak error");
-    fprintf(stderr, "zipcloak error: %s (%s)\n", errors[code-1], msg);
+    fprintf(stderr, "zipcloak error: %s (%s)\n", ziperrors[code-1], msg);
     if (tempzf != NULL) fclose(tempzf);
     if (tempzip != NULL) {
         destroy(tempzip);
@@ -69,7 +63,7 @@ void ziperr(code, msg)
  * Print a warning message to stderr and return.
  */
 void zipwarn(msg1, msg2)
-    char *msg1, *msg2;        /* message strings juxtaposed in output */
+    ZCONST char *msg1, *msg2;   /* message strings juxtaposed in output */
 {
     fprintf(stderr, "zipcloak warning: %s%s\n", msg1, msg2);
 }
@@ -91,27 +85,16 @@ local void handler(sig)
 }
 
 
-static ZCONST char *public[] = {
-"The encryption code of this program is not copyrighted and is put in the",
-"public domain. It was originally written in Europe and can be freely",
-"distributed from any country except the U.S.A. If this program is imported",
-"into the U.S.A, it cannot be re-exported from the U.S.A to another country.",
-"The copyright notice of the zip program applies to the rest of the code."
-};
-
 /***********************************************************************
  * Print license information to stdout.
  */
 local void license()
 {
-    extent i;             /* counter for copyright array */
+    extent i;
 
-    for (i = 0; i < sizeof(public)/sizeof(char *); i++) {
-        puts(public[i]);
-    }
-    for (i = 0; i < sizeof(swlicense)/sizeof(char *); i++) {
+    for (i = 0; i < sizeof(swlicense)/sizeof(char *); i++)
         puts(swlicense[i]);
-    }
+    putchar('\n');
 }
 
 
@@ -140,9 +123,6 @@ local void help()
 {
     extent i;             /* counter for help array */
 
-    for (i = 0; i < sizeof(public)/sizeof(char *); i++) {
-        puts(public[i]);
-    }
     for (i = 0; i < sizeof(help_info)/sizeof(char *); i++) {
         printf(help_info[i], VERSION, REVDATE);
         putchar('\n');
@@ -188,6 +168,9 @@ local void version_info()
   }
   printf("\t[encryption, version %d.%d%s of %s]\n",
             CR_MAJORVER, CR_MINORVER, CR_BETA_VER, CR_VERSION_DATE);
+
+  for (i = 0; i < sizeof(cryptnote)/sizeof(char *); i++)
+      puts(cryptnote[i]);
 }
 
 
@@ -400,7 +383,7 @@ int main(argc, argv)
 int main OF((void));
 
 void zipwarn(msg1, msg2)
-char  *msg1, *msg2;
+ZCONST char  *msg1, *msg2;
 {
     /* Tell picky compilers to shut up about unused variables */
     msg1 = msg1; msg2 = msg2;
@@ -408,7 +391,7 @@ char  *msg1, *msg2;
 
 void ziperr(c, h)
 int  c;
-char *h;
+ZCONST char *h;
 {
     /* Tell picky compilers to shut up about unused variables */
     c = c; h = h;
@@ -417,8 +400,9 @@ char *h;
 int main()
 {
     fprintf(stderr, "\
-This version of ZipCloak does not support encryption.  Get zcrypt27.zip (or\n\
-a later version) and recompile.  The Info-ZIP file `WHERE' lists sites.\n");
+This version of ZipCloak does not support encryption.  Get the current Zip\n\
+source distribution and recompile ZipCloak after you have added an option to\n\
+define the symbol USE_CRYPT to the C compiler's command arguments.\n");
     RETURN(1);
 }
 

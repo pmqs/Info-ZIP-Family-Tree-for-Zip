@@ -769,3 +769,245 @@
 38. New acorn/srcrename (Darren Salt)
 39. amiga/makefile.azt: make clean should remove some more items (Paul)
 40. Change email address for Cosmin Truta (Cosmin Truta)
+------------------------ December 10th 2004 version 2.31a ------------------
+This is a patch to Zip 2.3 including various bug fixes.
+See Zip 3.0 for the latest additional features.
+ 1. Crypt added to source by default now that export restrictions have been
+    relaxed (Ed Gordon)
+ 2. Debian patch 001 for bug 99659 - Converted quoted strings in version compile
+    information to defines (Debian patch 001, Ed)
+ 3. Debian patch 002 - Sets the "normal" unix permissions in the Makefile, so
+    don't have to change them in debian/rules (Debian patch 002, Ed)
+ 4. Debian patch 003 - to support DEB_BUILD_OPTIONS as required by latest
+    policy.  The LFLAGS1 thing could be considered debian-specific, but
+    INSTALL_PROGRAM thing should be in the upstream version (Debian patch 003, Ed)
+ 5. Debian patch 004 - Make gcc happy (probably gcc 3.x) - apply 2.4i configure
+    changes to remove need for -fno-builtin in unix/configure (Onno, Ed)
+ 6. Debian patch 005 for bug 279867 - Fix for FNMAX path bug that could crash
+    on large paths and create security problem (Greg)
+------------------------ December 17th 2004 version 2.31b ------------------
+ 1. File cleanup (Ed)
+------------------------ December 30th 2004 version 2.31c ------------------
+ 1. Add VMS tempname (Steven Schweda (SMS))
+ 2. Add VMS option -VV for archiving most all file types on VMS and fix -V to create
+    more portable archives (SMS)
+ 3. Update VMS command line interface
+ 4. Update README (Ed)
+------------------------ January 1st 2005 version 2.31d ------------------
+ 1. Delete duplicate free(name) in filetime in unix/unix.c (Johnny Lee)
+------------------------ January 8th 2005 version 2.31e ------------------
+ 1. Change zfstat to fstat in unix/unix.c (Ed)
+------------------------ January 22nd 2005 version 2.31f ------------------
+ 1. Update file_id.diz  (Cosmin Truta)
+ 2. Initialize use_longname_ea under both OS2 and WIN32.  zip.c (Cosmin)
+ 3. Enclose option -! and use_privileges under NTSD_EAS guard.  api.c,
+    zip.c (Cosmin)
+ 4. Implement partial support for Cygwin inside the Unix port (Cosmin)
+ 5. Add i586, i686 and Cygwin to version_local().  unix/unix.c (Cosmin)
+ 6. Ensure stat'ing always works on file names with trailing '/' in
+    set_extra_field().  unix/unix.c (Cosmin)
+ 7. Define ASM_CRC by default.  win32/osdep.h (Cosmin)
+ 8. Update from zip24h.  win32/makefile.bor, win32/makefile.w32 (Cosmin)
+ 9. Enable the i686-optimized code by default.  crc_i386.S,
+    win32/crc_i386.asm, win32/crc_i386.c (Cosmin)
+10. Replaced win32/VC6.dsp with a complete Visual C++ 6.0 project to build
+    zip, zipnote, zipsplit and zipcloak, with both ASM and non-ASM settings.
+    (Note that win32/VC6.dsp was a new addition since Zip 2.3 and at this
+    point won't be released since this new workspace is better.  Ed)
+    win32/vc6/zip.dsw (new) (Cosmin)
+11. Add AtheOS port (Ruslan Nickolaev, Ed)
+12. Formatting and consistency fixes (Johnny Lee, Ed)
+13. Add kluge to api.c so zip32.dll supports string parameters in Visual
+    Basic.  See VB project files (Ed)
+------------------------ January 28th 2005 version 2.31g ------------------
+ 1. Adjust binary detection in trees.c by changing 20% binary (4 out of 5
+    ascii) to 2% (64 out of 65) (Ed)
+ 2. Update license and license headers (Ed)
+ 3. Update Install and Readme.cr (Ed)
+ 4. Update windll.rc (Ed)
+ 5. Update Readme (Ed)
+ 6. Update Manual (Ed)
+------------------------ February 5th 2005 version 2.31h ------------------
+ 1. Add error return for filetime() FXMAX bug fix where missed in acornzip.c,
+    atari.c, beos.c, human68k.c, msdos.c, os2.c, theos.c, tops20.c, and
+    win32zip.c (Ed)
+ 2. Move -r and -R code in api.c lower down to avoid -R bug (Ed)
+ 3. Update VB project ReadmeVB files and notes in new VB project (Ed)
+ 4. Update license.  revision.h (Ed)
+ 5. Update Readme.cr with updated encryption information and update zip.c
+    to include encryption notice in version information (Ed)
+ 6. Remove win32/VC6-old.dsp (Cosmin)
+ 7. Check for symlink support in procname().  unix/unix.c (Cosmin)
+ 8. Define (again) ASM_CRC by default.  win32/osdep.h (Cosmin)
+ 9. Use the right type (DWORD) for volSerNo, maxCompLen and fileSysFlags
+    in FSusesLocalTime().  win32/win32.c (Cosmin)
+10. Update win32/makefile.bor, win32/makefile.gcc, win32/makefile.w32 (Cosmin)
+11. Update Readme (Ed)
+------------------------ February 15th 2005 version 2.31i ------------------
+ 1. WHERE updated (Cosmin, Christian)
+ 2. Allow for reverting to Win32 time handling using NO_W32TIMES_IZFIX.
+    win32/win32.c, win32/win32zip.h, zip.c (Christian)
+ 3. Update crypt comments and default behavior.  crypt.h
+ 4. Kludge to work around non-standard S_IFREG flag used in DJGPP V2.x,
+    compiler version strings changes.  msdos/msdos.c (Christian)
+ 5. Changes to MS rtl function declarations.  win32/osdep.h (Christian)
+ 6. Time changes including GetPlatformLocalTimezone; force use of registry
+    to get timezone info with MS C rtl.  win32/win32.c (Christian)
+ 7. Compiler version string changes.  win32/win32.c (Christian, Brad Clarke)
+ 8. Changes to extra field bytes to compress.  win32/win32zip.c (Christian)
+ 9. Changes to get_filters(), changes to help and version option detection
+    (allow redirection of version screen to file), add set dosflag for DOS to
+    force the use of msdos style when updating zip entries originally created
+    under non-DOS OS.  zip.c (Christian)
+10. License update.  zip.h (Christian)
+11. Rename errors array to ziperrors to avoid MacOSX library clash.
+    ziperr.h (Mark)
+12. Updates to zipcloak.c for crypt and other changes. (Christian)
+13. Updates to zipsplit.c (use ZCONST in prototypes where appropiate).
+    (Christian)
+14. Update version.  windll/zipver.h (Mike)
+15. Makefile updates (use UPX compressor and ...).  msdos/makefile.bor,
+    msdos/makefile.dj2, msdos/makefile.msc, msdos/makefile.tc (Christian)
+16. Detect Turbo C 2.01 in msdos/osdep.h NO_MKTIME definition. (Brian Lindholm)
+17. Readme update.  msdos/README.DOS (Christian, Ed)
+18. Change Zip limits description.  msdos/README.DOS (Christian)
+19. Fixed ASFLAGS for watcom16dos.  os2/makefile.os2 (Christian)
+20. Changes to GetLongPathEA(); fix OS/2's ACL compression code.
+    os2/os2zip.c, os2/os2zip.h (Christian, Kai Uwe)
+21. Changes to acorn.  acorn/acornzip.c, acorn/GMakefile, acorn/makefile,
+    acorn/osdep.h, acorn/ReadMe.GMakefile, acorn/riscos.c, acorn/riscos.h,
+    acorn/RunMe1st (Darren Salt, Andy Wingate, Christian)
+22. Update proginfo/extra.fld (and appnote.iz). (Christian)
+23. Correct translation of EBCDIC passwords to ASCII. (Christian)
+------------------------ February 19th 2005 version 2.31j ------------------
+ 1. Data corruption, buffer size, type cast and other fixes for VMS.
+    vms/vms_pk.c, vms/vmsmunch.c (SMS)
+ 2. Update version in file_id.diz. (Cosmin)
+ 3. Update file version.  readme.cr (Cosmin)
+ 4. Put mktemp() declaration inside the NO_PROTO guard.  tailor.h (Cosmin)
+ 5. Remove getenv() declaration.  util.c (Cosmin)
+ 6. Document and implement a new text detection scheme in set_file_type().
+    proginfo/txtvsbin.txt, trees.c (Cosmin)
+ 7. Set the "zip Debug" configuration as default.  win32/vc6/zip.dsp (Cosmin)
+ 8. Move new encryption notice from zip.c into revision.h where the other
+    notice texts reside. (Cosmin)
+ 9. Change USE_ZLIB compiler message from -v to show version.  zip.c (Cosmin)
+10. Removed change of Zip 2.31i to MS rtl function declarations.
+    win32/osdep.h (Cosmin, Christian)
+11. Don't use mmap for stored entries.  zipup.c (Christian)
+12. msdos/msdos.c, corrected missing change in version_local. (Christian)
+13. BIG_MEM and MMAP cannot be defined at the same time. tailor.h (Christian)
+14. Update LICENSE to include the new Zip maintainer Ed Gordon and
+    Cosmin Truta.  LICENSE, revision.h (Christian)
+15. Format changes.  LICENSE, revision.h (Cosmin, Christian, Ed)
+16. WHERE: URLs updated, removed last zcrXXX references. (Christian)
+17. Note that ZIP64 enhancements will (probably) never be applicable for
+    MSDOS.  msdos/README.DOS (Christian, Ed)
+18. msdos/makefile.wat, win32/makefile.wat: bug-fixes (added creation of
+    intermediate object directories). (Christian)
+19. win32/win32.c, minor indentation and code format changes. (Christian)
+20. Modified zipnote.c to handle line widths of at least 2047 characters in
+    write mode. (Christian)
+------------------------ February 20th 2005 version 2.31k ------------------
+ 1. Update to msdos/README.DOS noting splits can support some Zip64 features
+    but we may not get to most Zip64 features for MSDOS. (Christian, Ed)
+ 2. Move encryption notice in revision.h and delete blank line. (Christian)
+ 3. Change old binary detection to new black list version.  Provided by
+    Cosmin.  trees.c (Cosmin, Johnny, Christian)
+ 4. Update documentation for new binary detection.  trees.c (Christian, Ed)
+ 5. Set debug directory to od32w.  win32/makefile.wat (Christian, Ed)
+ 6. Allow -@ and - (stdout) at same time.  The check for -@ and - was
+    intended to prevent having both file contents and file names from stdin
+    at the same time but prevented this case instead.  The case where both
+    -@ and - (stdin) is used at the same time was not trapped before and
+    is still not trapped in Zip 2.31.  It apparently results in an empty
+    file called "-" in the archive.  (This may be fixed in a later Zip 2.x
+    release.  It is fixed in the Zip 3.0 beta.  Ed) (Christian)
+ 7. Update zip.h with new license (Christian)
+ 8. Update version.  revision.h (Ed)
+ 9. Add check for file size beyond 4 GB limit to file_read but should only
+    get used for OS that support large files but Zip was not compiled with
+    large file support.  zipup.c (Christian)
+10. Allow store method in memcompress.  zipup.c (Christian)
+11. Add note to ToDo (Ed)
+12. Update ZE_BIG to include reading and writing.  ziperr.h (Ed)
+13. Update Whatsnew (Ed)
+------------------------ February 26th 2005 version 2.31l ------------------
+ 1. License date change, ftp site change from ftp.uu.net to ftp.info-zip.org,
+    and other minor changes in Readme (Ed)
+ 2. Update windll/VB-orig/readmeVB.txt, windll/VB/readmeVB.txt (Ed)
+ 3. Update man page including updating the date, notes about wildcard
+    escaping on various ports, add a note to -ll about binary detection,
+    note on -v now allowing stdin to print version, and update error code 6
+    (ZE_BIG) to include read and written files.  man/zip.1 (Ed)
+ 4. Remove zip32-old.dsp from windll/visualc/dll and windll/visualc/lib (Ed)
+ 5. Update notes on crypt, TZ, WIN32, and WINDLL.  INSTALL (Christian)
+ 6. Update indentation and add Steven Schweda to LICENSE (Christian)
+ 7. Add Steven Schweda to license.  zip.h (Ed)
+ 8. Update copyright and version in atheos/Makefile (Christian)
+ 9. Format changes.  atheos/README, athoes/atheos.c, atheos/osdep.h (Christian)
+10. Update header and error 6 in ziperr.h (Christian)
+11. Change 64k entries note, add Zip64 note, and add Zip 3 and UnZip 6 note.
+    proginfo/ziplimit.txt (Christian)
+11. Update report problems address.  proginfo/ziplimit.txt (Ed)
+12. Add Steven Schweda to license.  revision.h (Ed)
+13. Add directory for files.  makefile.w10 (Christian)
+14. Change ob32w to od32w for debugging.  makefile.wat (Christian)
+15. Remove Borland and Win16 support.  windll/contents (Christian)
+16. Update formatting of license.  zip.h (Christian)
+------------------------ February 28th 2005 version 2.31m ------------------
+ 1. Update txtvsbin.txt.  proginfo/txtvsbin.txt (Cosmin)
+ 2. Changes to comments for binary detection.  trees.c (Cosmin)
+ 3. Add USE_ZLIB note.  zip.c (Cosmin)
+ 4. Update zipcloak.c to use new crypto notice (Cosmin)
+ 5. Remove duplicate license copyright note.  zipnote.c (Cosmin)
+ 6. Remove duplicate license copyright note.  zipsplit.c (Cosmin)
+ 7. Format change in LICENSE (Christian)
+ 8. Update copyright.  atheos/zipup.h (Christian)
+ 9. Update license to match final official version.  revision.h (Christian)
+10. Update license to match final official version.  zip.h (Christian)
+11. Update version to Zip 2.31 for release.  revision.h (Ed)
+12. Update notes in VB files.  windll/vb/vbzipfrm.frm,
+    windll/vb/readmeVB.txt (Ed)
+13. Formatting fixes for Manual to get dashes to be consistent and other
+    changes.  man/zip.1 (Cosmin)
+14. Change Makefile to filter out tabs using col -bx to create MANUAL to
+    avoid problems with spacing on WIN32.  unix/Makefile (Ed)
+15. Additional formatting and other changes to manual (Ed)
+16. Recompile MANUAL from man/zip.1 (Ed)
+17. Fix ZipCloak to remove old crypt comment and get encryption notice off
+    front page and move to the version page.  zipcloak.c (Ed)
+18. Update file times on unchanged files that somehow became off 6 hours
+    to match times in Zip 2.3 release.  Bugs, USexport.msg, and many files
+    in acorn, amiga, aosvs, atari, beos, cmsmvs, human68k, macos, msdos,
+    os2, proginfo, qdos, tandem, theos, tops20, unix, vms, win32, and
+    windll (Cosmin)
+19. Add new longest_match in WIN64 assembler.  Must use the new makefile
+    to compile it.  Also change win32/osdep.h to allow use of assembler
+    for longest_match without using assembler for CRC.  THIS IS UNTESTED.
+    win32/gvmat64.asm, win32/readme.x64, win32/makefile.asm64,
+    win32/osdep.h (Gilles Vollant)
+20. Add note WIN64 assembler not completely tested.  win32/readme.x64 (Ed)
+21. Minor change of wording on regulations involving crypt.  readme.cr (Ed)
+22. Update release date to 28 Feb 2005 (Ed)
+23. Update USexport.msg (Greg)
+24. Rename makefile.asm64 to makefile.a64 to stay in 8.3 name restriction
+    if someone unpacks all this on MSDOS and rename readme.x64 to
+    readme.a64 to match.  win32/readme.a64, win32/makefile.a64 (Ed)
+------------------------ March 4th 2005 version 2.31n ------------------
+ 1. Fix byte counts on exit in zipcloak() and zipbare() to fix zipcloak bug.
+    crypt.c (Paul, Christian)
+ 2. Fix swlicense size from 40 to 50.  revision.h (Cosmin)
+ 3. For ZLIB use www.zlib.net instead of www.zlib.org.  WHERE (Cosmin)
+ 4. Remove windll/windll.aps as it is not needed (Cosmin)
+ 5. Update version date.  revision.h (Ed)
+ 6. Remove windll/vb-orig project (Ed)
+ 7. Changes to VB project comments.  readmeVB.txt, VBZipBas.bas (Ed)
+ 8. Change to ZCONST.  amiga/amiga.c (Paul)
+ 9. Update Atheos port to most recent changes.  zipup.c, zipnote.c, zip.h,
+    ttyio.c, tailor.h, atheos/atheos.c, atheos/contents, atheos/Makefile,
+    atheos/osdep.h, atheos/Readme, atheos/zipup.h (Ruslan Nickolaev, Ed)
+------------------------ March 8th 2005 version 2.31 ------------------
+ 1. Update gvmat64.asm (Gilles)
+ 2. Update version.  revision.h (Ed)
+ 3. Update WhatsNew (Ed)

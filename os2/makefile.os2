@@ -216,7 +216,7 @@ watcom16:
 	$(MAKE) -f os2/makefile.os2 zips \
 	CC="wcl -bt=os2 -zq -ml -Ox -s" \
 	CFLAGS="-Zp1 -DOS2 -DNO_ASM" \
-	AS="wasm -bt=os2 -3p" \
+	AS="wasm -bt=os2 -2p -ml" \
 	ASFLAGS="" \
 	LDFLAGS="/\"option newfiles\" -k0x3000 -x -l=os2 -Fe=" \
 	LDFLAGS2="" \
@@ -270,7 +270,7 @@ watcom16dos:
 	$(MAKE) -f os2/makefile.os2 zips \
 	CC="wcl -bt=dos -zq -ml -Ox -s" \
 	CFLAGS="-Zp1 -DDOS -DMSDOS -DDYN_ALLOC -DNO_ASM" \
-	AS="wasm -bt=dos -3p" \
+	AS="wasm -bt=dos -2p -ml" \
 	ASFLAGS="-DDYN_ALLOC" \
 	LDFLAGS="-k0x2000 -x -l=dos -Fe=" \
 	LDFLAGS2="" \

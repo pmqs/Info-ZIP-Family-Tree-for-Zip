@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 #include "zip.h"
 
@@ -162,8 +162,8 @@ iztimes *t;             /* return value: access, modific. and creation times */
    a file size of -1 */
 {
   struct stat s;        /* results of stat() */
-  char name[FNMAX];
-  int len = strlen(f);
+  char *name;
+  unsigned int len = strlen(f);
 
   if (f == label) {
     if (a != NULL)
@@ -174,18 +174,27 @@ iztimes *t;             /* return value: access, modific. and creation times */
       t->atime = t->mtime = t->ctime = label_utim;
     return label_time;
   }
+
+  name = malloc(len+1);
+  if (!name)
+    return 0;  /* ideally, would like to report alloc-failure warning/error */
+
   strcpy(name, f);
   if (name[len - 1] == '/')
     name[len - 1] = '\0';
   /* not all systems allow stat'ing a file with / appended */
   if (strcmp(f, "-") == 0) {
-    if (fstat(fileno(stdin), &s) != 0)
+    if (fstat(fileno(stdin), &s) != 0) {
+      free(name);
       error("fstat(stdin)");
-  } else if (LSSTAT(name, &s) != 0)
+    }
+  } else if (LSSTAT(name, &s) != 0) {
              /* Accept about any file kind including directories
               * (stored with trailing / with -r option)
               */
+    free(name);
     return 0;
+  }
 
   if (a != NULL) {
     *a = ((ulg)s.st_mode << 16) | !(s.st_mode & S_IWRITE);
@@ -200,6 +209,8 @@ iztimes *t;             /* return value: access, modific. and creation times */
     t->mtime = s.st_mtime;
     t->ctime = s.st_ctime;
   }
+
+  free(name);
 
   return unix2dostime(&s.st_mtime);
 }

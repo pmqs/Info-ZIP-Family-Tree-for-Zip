@@ -1,9 +1,8 @@
 # Makefile for Zip, ZipCloak, ZipNote and ZipSplit for port of gcc producing
 # native Win32-Intel binaries. Derived from makefile.w32.
-# Currently supported implementations: Cygnus/Win32 and MinGW32.
-#
-# First version: Cosmin Truta <cosmint@cs.ubbcluj.ro>, Dec 1997.
-# Last revision: Christian Spieler, 30-Jun-1998
+# Currently supported implementations: Cygwin and MinGW.
+# Authors: Cosmin Truta, Christian Spieler, and possibly others.
+# Last updated: 2005-Jan-24.
 #
 # To use, do "make -f win32/makefile.gcc".
 
@@ -15,7 +14,7 @@ LOC = $(LOCAL_ZIP)
 # ------------ GNU C ------------
 CC=gcc
 ifndef USEZLIB
-CFLAGS=-O2 -Wall -DWIN32 -DASM_CRC
+CFLAGS=-O2 -Wall -DWIN32
 else
 CFLAGS=-O2 -Wall -DWIN32 -DUSE_ZLIB
 endif
@@ -140,4 +139,4 @@ zipsplit.exe: $(OBJS)
 	$(LD) $(LDFLAGS) $(OBJS)
 
 clean:
-	rm -f *.o *.exe
+	rm -f *.o $(ZIPS)
