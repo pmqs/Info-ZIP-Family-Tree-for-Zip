@@ -67,7 +67,40 @@
 #define EXIT(exit_code) vms_exit(exit_code)
 #define RETURN(exit_code) return (vms_exit(exit_code), 1)
 
-/* File operations--use "b" for binary if allowed or fixed length 512 on VMS */
-#define FOPR  "rb","ctx=stm","mbc=64"
-#define FOPM  "r+b","ctx=stm","rfm=fix","mrs=512","mbc=64"
-#define FOPW  "wb","ctx=stm","rfm=fix","mrs=512","mbc=64"
+#ifdef __DECC
+
+/* File open callback ID values. */
+
+#  define FOPM_ID 1
+#  define FOPR_ID 2
+#  define FOPW_ID 3
+
+/* File open callback ID storage. */
+
+extern int fopm_id;
+extern int fopr_id;
+extern int fopw_id;
+
+/* File open callback ID function. */
+
+extern int acc_cb();
+
+/* Option macros for zfopen().
+ * General: Stream access
+ * Output: fixed-length, 512-byte records.
+ *
+ * Callback function (DEC C only) sets deq, mbc, mbf, rah, wbh, ...
+ */
+
+#  define FOPM "r+b", "ctx=stm", "rfm=fix", "mrs=512", "acc", acc_cb, &fopm_id
+#  define FOPR "rb",  "ctx=stm", "acc", acc_cb, &fopr_id
+#  define FOPW "wb",  "ctx=stm", "rfm=fix", "mrs=512", "acc", acc_cb, &fopw_id
+
+#else /* def __DECC */ /* (So, GNU C, VAX C, ...)*/
+
+#  define FOPM "r+b", "ctx=stm", "rfm=fix", "mrs=512"
+#  define FOPR "rb",  "ctx=stm"
+#  define FOPW "wb",  "ctx=stm", "rfm=fix", "mrs=512"
+
+#endif /* def __DECC */
+

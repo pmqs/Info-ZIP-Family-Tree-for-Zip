@@ -153,6 +153,7 @@ $DESCRIPTOR(cli_verbose,        "VERBOSE");             /* -v */
 $DESCRIPTOR(cli_verbose_more,   "VERBOSE.MORE");        /* -vv */
 $DESCRIPTOR(cli_verbose_debug,  "VERBOSE.DEBUG");       /* -vvv */
 $DESCRIPTOR(cli_vms,            "VMS");                 /* -V */
+$DESCRIPTOR(cli_vms_all,        "VMS.ALL");             /* -VV */
 
 $DESCRIPTOR(cli_yyz,            "YYZ_ZIP");
 
@@ -519,11 +520,17 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         *ptr++ = 'X';
 
     /*
-    **  Save the VMS file attributes.
+    **  Save the VMS file attributes (and all allocated blocks?).
     */
     status = cli$present(&cli_vms);
-    if (status & 1)
+    if (status & 1) {
+        /* /VMS */
         *ptr++ = 'V';
+        if ((status = cli$present(&cli_vms_all)) & 1) {
+            /* /VMS = ALL */
+            *ptr++ = 'V';
+        }
+    }
 
     /*
     **  Keep the VMS version number as part of the file name when stored.

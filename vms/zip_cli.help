@@ -443,10 +443,22 @@ This information is especially valuable when reporting problems or bugs.
 <QUALIFIER>
 /VMS
 
-/VMS
+/VMS[=ALL]
 
 Store VMS file attributes in Zip archive.
 
+When the optional keyword ALL is specified, all allocated blocks in a
+file are stored in the Zip archive, including data beyond the
+End-of-File (EOF) marker.
+
+/VMS provides good fidelity for well-formed files (no data past EOF)
+when unpacked on a VMS system.  Also, some types of file (notably
+Stream_LF text files) will be unpacked as expected on a non-VMS system.
+
+/VMS=ALL provides good fidelity, even for files with data past EOF, when
+unpacked on a VMS system.  However, the data from beyond the EOF marker
+will typically cause a file to appear corrupted when unpacked on a
+non-VMS system.
 <TOPIC>
 Authors
 

@@ -6,10 +6,35 @@
   If, for some reason, both of these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
 */
+
+/* 2004-09-25 SMS.
+   Added case-insensitive file name comparisons, with the option of
+   preserving case in file names.  Defining VMS_PRESERVE_CASE will cause
+   incompatibility with Zip 2.3 and earlier.
+*/
+
+/* #define VMS_PRESERVE_CASE */  /* Not for general use. */
+
 #include "zip.h"
 
+#include <ctype.h>
 #include <time.h>
 #include <unixlib.h>
+
+/* Judge availability of str[n]casecmp() in C RTL.
+   (Note: This must follow a "#include <decc$types.h>" in something to
+   ensure that __CRTL_VER is as defined as it will ever be.  DEC C on
+   VAX may not define it itself.)
+*/
+#ifdef __CRTL_VER
+#if __CRTL_VER >= 70000000
+#define HAVE_STRCASECMP
+#endif /* __CRTL_VER >= 70000000 */
+#endif /* def __CRTL_VER */
+
+#ifdef HAVE_STRCASECMP
+#include <strings.h>    /* str[n]casecmp() */
+#endif /* def HAVE_STRCASECMP */
 
 #include <descrip.h>
 #include <rms.h>
@@ -57,6 +82,92 @@ local char *readd OF((zDIR *));
 local char *strlower OF((char *));
 local char *strupper OF((char *));
 
+/* 2004-09-25 SMS.
+   str[n]casecmp() replacement for old C RTL.
+   Assumes a prehistorically incompetent toupper().
+*/
+#ifndef HAVE_STRCASECMP
+
+int strncasecmp( s1, s2, n)
+char *s1;
+char *s2;
+size_t n;
+{
+  /* Initialization prepares for n == 0. */
+  char c1 = '\0';
+  char c2 = '\0';
+
+  while (n-- > 0)
+  {
+    /* Set c1 and c2.  Convert lower-case characters to upper-case. */
+    if (islower( c1 = *s1))
+      c1 = toupper( c1);
+
+    if (islower( c2 = *s2))
+      c2 = toupper( c2);
+
+    /* Quit at inequality or NUL. */
+    if ((c1 != c2) || (c1 == '\0'))
+      break;
+
+    s1++;
+    s2++;
+  }
+return ((unsigned int) c1- (unsigned int) c2);
+}
+
+#ifndef UINT_MAX
+#define UINT_MAX 4294967295U
+#endif
+
+#define strcasecmp( s1, s2) strncasecmp( s1, s2, UINT_MAX)
+
+#endif /* ndef HAVE_STRCASECMP */
+
+
+/* 2004-09-27 SMS.
+   eat_carets().
+   Delete ODS5 extended file name escape characters ("^") in the
+   original buffer.
+   Note that the current scheme handles only simple EFN cases, but it
+   could be made more complicated.
+*/
+
+local void eat_carets( str)
+char *str;      /* Source pointer. */
+{
+  char *strd;   /* Destination pointer. */
+
+  /* Skip ahead to the first "^", if any. */
+  while ((*str != '\0') && (*str != '^'))
+     str++;
+
+  /* If no caret was found, quit early. */
+  if (*str != '\0')
+  {
+    /* Shift characters leftward as carets are found. */
+    strd = str;
+    while (*str != '\0')
+    {
+      if (*str == '^')
+      {
+        /* Found a caret.  Skip it, and take the next character. */
+        *strd = *(++str);
+      }
+      else
+      {
+        /* Found a non-caret.  Take it. */
+        *strd = *str;
+      }
+
+      /* Advance destination and source pointers. */
+      strd++;
+      str++;
+    }
+    /* Terminate the destination string. */
+    *strd = '\0';
+  }
+}
 
 /*---------------------------------------------------------------------------
 
@@ -129,7 +240,7 @@ ZCONST char *n;         /* directory to open */
   {
     while (--c > p  &&  *c != ';')
       ;
-    if (c-p < 5  ||  strncmp(c-4, ".DIR", 4))
+    if ((c- p < 5)  ||  strcasecmp( (c- 4), ".DIR"))
     {
       free((zvoid *)d);  free((zvoid *)p);
       return NULL;
@@ -273,27 +384,29 @@ int caseflag;           /* true to force case-sensitive match */
   return ZE_OK;
 }
 
-local char *strlower(s)
-char *s;                /* string to convert */
+/* 2004-09-24 SMS.
+   Cuter strlower() and strupper() functions.
+*/
+
+local char *strlower( s)
+char *s;
 /* Convert all uppercase letters to lowercase in string s */
 {
-  char *p;              /* scans string */
+  for ( ; *s != '\0'; s++)
+    if (isupper( *s))
+      *s = tolower( *s);
 
-  for (p = s; *p; p++)
-    if (*p >= 'A' && *p <= 'Z')
-      *p += 'a' - 'A';
   return s;
 }
 
-local char *strupper(s)
-char *s;                /* string to convert */
+local char *strupper( s)
+char *s;
 /* Convert all lowercase letters to uppercase in string s */
 {
-  char *p;              /* scans string */
+  for ( ; *s != '\0'; s++)
+    if (islower( *s))
+      *s = toupper( *s);
 
-  for (p = s; *p; p++)
-    if (*p >= 'a' && *p <= 'z')
-      *p -= 'a' - 'A';
   return s;
 }
 
@@ -344,11 +457,20 @@ int *pdosflag;          /* output: force MSDOS file attributes? */
     char cwd[256], *p, *q;
     int c;
 
+    q = getcwd( cwd, 256);
+
+    /* 2004-09-24 SMS.
+       With SET PROCESSS /PARSE = EXTENDED, getcwd() can return a
+       mixed-case result, confounding the comparisons below with an
+       all-uppercase name in "n".  Always use a case-insensitive
+       comparison around here.
+    */
+
 #if 0 /* fix by Igor */
-    if (getcwd(cwd, 256) && ((p = strchr(cwd, '.')) != NULL))
+    if ((q != NULL) && ((p = strchr(cwd, '.')) != NULL))
 #else
-    if (getcwd(cwd, 256) && ((p = strchr(cwd, PATH_START)) != NULL ||
-                             (p = strchr(cwd, PATH_START2)) != NULL))
+    if ((q != NULL) && ((p = strchr(cwd, PATH_START)) != NULL ||
+                        (p = strchr(cwd, PATH_START2)) != NULL))
 #endif
     {
       if (*(++p) == '.')
@@ -362,7 +484,7 @@ int *pdosflag;          /* output: force MSDOS file attributes? */
             *q = '/';
 
         /* strip bogus path parts from n */
-        if (strncmp(n, p, (c=strlen(p))) == 0)
+        if (strncasecmp( n, p, (c = strlen( p))) == 0)
         {
           q = n + c;
           while (*t++ = *q++)
@@ -371,11 +493,17 @@ int *pdosflag;          /* output: force MSDOS file attributes? */
       }
     }
   }
-  strlower(n);
+
+#ifndef VMS_PRESERVE_CASE
+  strlower( n);
+#endif /* ndef VMS_PRESERVE_CASE */
+
+  /* Remove simple ODS5 extended file name escape characters. */
+  eat_carets( n);
 
   if (isdir)
   {
-    if (strcmp((t=n+strlen(n)-6), ".dir;1"))
+    if (strcasecmp( (t = n+ strlen( n)- 6), ".DIR;1"))
       error("directory not version 1");
     else
       if (pathput)
@@ -434,7 +562,10 @@ char *n;                /* internal file name */
       if (*t == '/')
         *t = '.';
   }
-  strupper(x);
+
+#ifndef VMS_PRESERVE_CASE
+  strupper( x);
+#endif /* ndef VMS_PRESERVE_CASE */
 
   return x;
 }
@@ -488,17 +619,21 @@ iztimes *t;             /* return value: access, modific. and creation times */
    a file size of -1 */
 {
   struct stat s;        /* results of stat() */
-  char name[FNMAX];
+  /* convert to a malloc string dump FNMAX - 11/8/04 EG */
+  char *name;
   int len = strlen(f);
 
   if (f == label) {
     if (a != NULL)
       *a = label_mode;
     if (n != NULL)
-      *n = -2L; /* convention for a label name */
+      *n = -2; /* convention for a label name */
     if (t != NULL)
       t->atime = t->mtime = t->ctime = label_utim;
     return label_time;
+  }
+  if ((name = malloc(len + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "filetime");
   }
   strcpy(name, f);
   if (name[len - 1] == '/')
@@ -506,13 +641,18 @@ iztimes *t;             /* return value: access, modific. and creation times */
   /* not all systems allow stat'ing a file with / appended */
 
   if (strcmp(f, "-") == 0) {
-    if (fstat(fileno(stdin), &s) != 0)
+    if (fstat(fileno(stdin), &s) != 0) {
+      free(name);
       error("fstat(stdin)");
-  } else if (LSSTAT(name, &s) != 0)
+    }
+  } else if (LSSTAT(name, &s) != 0) {
              /* Accept about any file kind including directories
               * (stored with trailing / with -r option)
               */
+    free(name);
     return 0;
+  }
+  free(name);
 
   if (a != NULL) {
     *a = ((ulg)s.st_mode << 16) | !(s.st_mode & S_IWRITE);
@@ -521,7 +661,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
     }
   }
   if (n != NULL)
-    *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1L;
+    *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1;
   if (t != NULL) {
     t->atime = s.st_mtime;
 #ifdef USE_MTIME

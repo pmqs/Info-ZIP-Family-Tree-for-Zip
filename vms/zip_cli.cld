@@ -40,7 +40,7 @@ Define	Verb		ZIP
 			VALUE(type=EOL_KEYWORDS)
 	Qualifier	UNSFX, NonNegatable
 	Qualifier	VERBOSE, NonNegatable, VALUE(type=VERBOSE_OPTS)
-	Qualifier	VMS, NonNegatable
+	Qualifier	VMS, NonNegatable, VALUE(type=VMS_OPTS)
 	Qualifier	YYZ_ZIP, NonNegatable, Default
 
 	Disallow	FIX_ARCHIVE.NORMAL and FIX_ARCHIVE.FULL
@@ -67,3 +67,7 @@ Define	Type		RECURSE_OPTS
 Define	Type		VERBOSE_OPTS
 	Keyword		MORE
 	Keyword		DEBUG
+
+Define	Type		VMS_OPTS
+	Keyword		ALL
+

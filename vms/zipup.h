@@ -16,7 +16,7 @@ typedef void *ftype;
 #define zstdin stdin
 
 ftype vms_open OF((char *));
-int vms_read OF((ftype, char *, int));
+size_t vms_read OF((ftype, char *, size_t));
 int vms_close OF((ftype));
 int vms_error OF((ftype));
 #ifdef VMS_PK_EXTRA

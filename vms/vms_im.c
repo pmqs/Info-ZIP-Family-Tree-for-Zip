@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2000-Apr-09 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
  *  vms_im.c (zip) by Igor Mandrichenko    Version 2.2-2
@@ -26,15 +26,24 @@
  *      Generic functions (common to both flavours) are now collected
  *      in a `wrapper' source file that includes one of the VMS attribute
  *      handlers.
+ *  3.0         23-Oct-2004     Steven Schweda
+ *      Changed to maintain compatibility with VMS_PK.C.  Note that
+ *      reading with sys$read() prevents getting any data past EOF,
+ *      regardless of appearances.  Moved the VMS_PK_EXTRA test into
+ *      here from VMS.C to allow more general automatic dependency
+ *      generation.
  */
 
 #ifdef VMS                      /* For VMS only ! */
+
+#ifndef VMS_PK_EXTRA
 
 #define OLD_COMPRESS            /*To use old compression method define it.*/
 
 #ifdef VMS_ZIP
 #undef VMS_ZIP                  /* do NOT include PK style Zip definitions */
 #endif
+
 #include "vms.h"
 
 #ifndef __LIB$ROUTINES_LOADED
@@ -77,6 +86,11 @@ static void dump_rms_block(uch *p);
 /********************************
  *   Function set_extra_field   *
  ********************************/
+/*
+ |   2004-11-11 SMS.
+ |   Changed to use separate storage for ->extra and ->cextra.  Zip64
+ |   processing may move (reallocate) one and not the other.
+ */
 
 static uch *_compress_block(register struct IZ_block *to,
                             uch *from, int size, char *sig);
@@ -92,7 +106,9 @@ int set_extra_field(z, z_utim)
  */
 {
     int status;
-    uch *extra=(uch*)NULL, *scan;
+    uch *xtra;
+    uch *cxtra;
+    uch *scan;
     extent extra_l;
     static struct FAB fab;
     static struct XABSUM xabsum;
@@ -117,27 +133,37 @@ int set_extra_field(z, z_utim)
         *  transfered across time zone boundaries.
         */
 #  ifdef IZ_CHECK_TZ
-       if (!zp_tz_is_valid)
-           return ZE_OK;        /* skip silently if no valid TZ info */
+        if (!zp_tz_is_valid)
+            return ZE_OK;       /* skip silently if no valid TZ info */
 #  endif
-       if ((extra = (uch *)malloc(EB_HEADSIZE+EB_UT_LEN(1))) == NULL)
-           return ZE_MEM;
+        if ((xtra = (uch *) malloc( EB_HEADSIZE+ EB_UT_LEN( 1))) == NULL)
+            return ZE_MEM;
 
-       extra[0]  = 'U';
-       extra[1]  = 'T';
-       extra[2]  = EB_UT_LEN(1);          /* length of data part of e.f. */
-       extra[3]  = 0;
-       extra[4]  = EB_UT_FL_MTIME;
-       extra[5]  = (uch)(z_utim->mtime);
-       extra[6]  = (uch)(z_utim->mtime >> 8);
-       extra[7]  = (uch)(z_utim->mtime >> 16);
-       extra[8]  = (uch)(z_utim->mtime >> 24);
+        if ((cxtra = (uch *) malloc( EB_HEADSIZE+ EB_UT_LEN( 1))) == NULL)
+            return ZE_MEM;
 
-       z->cext = z->ext = (EB_HEADSIZE+EB_UT_LEN(1));
-       z->cextra = z->extra = (char*)extra;
+        /* Fill xtra[] with data. */
+        xtra[ 0] = 'U';
+        xtra[ 1] = 'T';
+        xtra[ 2] = EB_UT_LEN(1);        /* length of data part of e.f. */
+        xtra[ 3] = 0;
+        xtra[ 4] = EB_UT_FL_MTIME;
+        xtra[ 5] = (uch) (z_utim->mtime);
+        xtra[ 6] = (uch) (z_utim->mtime >> 8);
+        xtra[ 7] = (uch) (z_utim->mtime >> 16);
+        xtra[ 8] = (uch) (z_utim->mtime >> 24);
+
+        /* Copy xtra[] data into cxtra[]. */
+        memcpy( cxtra, xtra, (EB_HEADSIZE+ EB_UT_LEN( 1)));
+
+        /* Set sizes and pointers. */
+        z->cext = z->ext = (EB_HEADSIZE+ EB_UT_LEN( 1));
+        z->extra = (char *) xtra;
+        z->cextra = (char *) cxtra;
+
 #endif /* USE_EF_UT_TIME */
 
-       return RET_SUCCESS;
+        return RET_SUCCESS;
     }
 
     /*
@@ -265,14 +291,23 @@ int set_extra_field(z, z_utim)
 #endif
     }
 
-    if ((scan = extra = (uch *) malloc(extra_l)) == (uch*)NULL)
+    if ((scan = xtra = (uch *) malloc( extra_l)) == (uch*)NULL)
     {
 #ifdef DEBUG
-        printf("set_extra_field: Insufficient memory to allocate extra buffer\n");
+        printf(
+         "set_extra_field: Insufficient memory to allocate extra L buffer\n");
 #endif
         goto err_exit;
     }
 
+    if ((cxtra = (uch *) malloc( extra_l)) == (uch*)NULL)
+    {
+#ifdef DEBUG
+        printf(
+         "set_extra_field: Insufficient memory to allocate extra C buffer\n");
+#endif
+        goto err_exit;
+    }
 
     if (verlen > 0)
         scan = _compress_block((struct IZ_block *)scan, (uch *)verbuf,
@@ -339,8 +374,14 @@ int set_extra_field(z, z_utim)
         x = next;
     }
 
-    z->ext = z->cext = scan-extra;
-    z->extra = z->cextra = (char*)extra;
+    /* Copy xtra[] data into cxtra[]. */
+    memcpy( cxtra, xtra, (scan- xtra));
+
+    /* Set sizes and pointers. */
+    z->cext = z->ext = scan- xtra;
+    z->extra = (char*) xtra;
+    z->cextra = (char*) cxtra;
+
     rc = RET_SUCCESS;
 
 err_exit:
@@ -393,7 +434,8 @@ typedef struct user_context
     ulg sig;
     struct FAB *fab;
     struct RAB *rab;
-    ulg size,rest;
+    unsigned int size;
+    unsigned int rest;
     int status;
 } Ctx, *Ctxptr;
 
@@ -413,6 +455,9 @@ Ctx init_ctx =
                         (_r) -> rab$b_bln == RAB$C_BLN &&       \
                         (_r) -> rab$l_ctx != 0         &&       \
                         (_r) -> rab$l_fab != NULL )
+
+
+#define BLOCK_BYTES 512
 
 /**************************
  *   Function vms_open    *
@@ -480,15 +525,27 @@ struct RAB *vms_open(name)
     ctx->rab = rab;
     ctx->fab = fab;
 
-    if (fhc->xab$l_ebk > 0)
-        ctx->size = ctx->rest = ( fhc->xab$l_ebk-1 ) * 512 + fhc->xab$w_ffb;
-    else if ( fab->fab$b_org == FAB$C_IDX
-             || fab->fab$b_org == FAB$C_REL
-             || fab->fab$b_org == FAB$C_HSH )
-                /* Special case, when ebk=0: save entire allocated space */
-        ctx->size = ctx->rest = fhc->xab$l_hbk * 512;
+    if (fhc->xab$l_ebk == 0)
+    {
+        /* Only known size is all allocated blocks.
+           (This occurs with a zero-length file, for example.)
+        */
+        ctx->size =
+        ctx->rest = (fhc->xab$l_hbk)* BLOCK_BYTES;
+    }
     else
-        ctx->size = ctx->rest = fhc->xab$w_ffb;
+    {
+        /* Store normal (used) size in ->size.
+           If only one -V, store normal (used) size in ->rest.
+           If -VV, store allocated-blocks size in ->rest.
+        */
+        ctx->size =
+         ((fhc->xab$l_ebk)- 1)* BLOCK_BYTES+ fhc->xab$w_ffb;
+        if (vms_native < 2)
+            ctx->rest = ctx->size;
+        else
+            ctx->rest = (fhc->xab$l_hbk)* BLOCK_BYTES;
+    }
 
     free(fhc);
     fab->fab$l_xab = NULL;
@@ -542,13 +599,17 @@ int vms_rewind(rab)
     return RET_SUCCESS;
 }
 
+
+#define KByte (2* BLOCK_BYTES)
+#define MAX_READ_BYTES (32* KByte)
+
 /**************************
  *   Function vms_read    *
  **************************/
-int vms_read(rab, buf, size)
-    struct RAB *rab;
+size_t vms_read(rab, buf, size)
+struct RAB *rab;
 char *buf;
-int size;
+size_t size;
 /*
  *      size must be greater or equal to 512 !
  */
@@ -561,17 +622,46 @@ int size;
     if (!CHECK_RAB(rab))
         return 0;
 
-    if (ctx -> rest <= 0)
+    if (ctx -> rest == 0)
         return 0;               /* Eof */
 
-    if (size > 16*Kbyte)        /* RMS can not read too much */
-        size = 16*Kbyte;
+    /* If request is smaller than a whole block, fail.
+       This really should never happen.  (assert()?)
+    */
+    if (size < BLOCK_BYTES)
+        return 0;
+
+    /* 2004-09-27 SMS.
+       Code here now resembles low-level QIO code in VMS_PK.C, but I
+       doubt that sys$read() will actually get past the official EOF.
+    */
+
+    /* Adjust request size as appropriate. */
+    if (size > MAX_READ_BYTES)
+    {
+        /* Restrict request to MAX_READ_BYTES. */
+        size = MAX_READ_BYTES;
+    }
     else
-        size &= ~511L;
+    {
+        /* Round odd-ball request up to the next whole block.
+           This really should never happen.  (assert()?)
+        */
+        size = (size+ BLOCK_BYTES- 1)& ~(BLOCK_BYTES- 1);
+    }
+
+    /* Reduce "size" when next (last) read would overrun the EOF,
+       but never below one byte (so we'll always get a nice EOF).
+    */
+    if (size > ctx->rest)
+        size = ctx->rest;
+    if (size == 0)
+        size = 1;
 
     rab->rab$l_ubf = buf;
     rab->rab$w_usz = size;
     status = sys$read(rab);
+
     if (!ERR(status) && rab->rab$w_rsz > 0)
     {
         ctx -> status = 0;
@@ -582,7 +672,7 @@ int size;
     {
         ctx->status = (status==RMS$_EOF ? 0:status);
         if (status == RMS$_EOF)
-                ctx -> rest = 0L;
+                ctx -> rest = 0;
         return 0;
     }
 }
@@ -670,10 +760,10 @@ static void dump_rms_block(p)
 #endif /* DEBUG */
 
 #ifdef OLD_COMPRESS
-# define BC_METHOD      BC_00
+# define BC_METHOD      EB_IZVMS_BC00
 # define        COMP_BLK(to,tos,from,froms) _compress( from,to,froms )
 #else
-# define BC_METHOD      BC_DEFL
+# define BC_METHOD      EB_IZVMS_BCDEFL
 # define        COMP_BLK(to,tos,from,froms) memcompress(to,tos,from,froms)
 #endif
 
@@ -698,7 +788,7 @@ char *sig;
         if (cl >= size)
         {
                 memcpy(&(to->body[0]), from, size);
-                to->flags = BC_STORED;
+                to->flags = EB_IZVMS_BCSTOR;
                 cl = size;
 #ifdef DEBUG
                 printf("Storing block...\n");
@@ -754,4 +844,7 @@ int size;
 }
 
 #endif /* !UTIL */
+
+#endif /* ndef VMS_PK_EXTRA */
+
 #endif /* VMS */

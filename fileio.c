@@ -721,6 +721,7 @@ int a;                  /* attributes returned by getfileattr() */
 #endif
 }
 
+#ifndef VMS /* VMS-specific function is in VMS.C. */
 
 char *tempname(zip)
 char *zip;              /* path name of zip file to generate temp name for */
@@ -865,6 +866,7 @@ char *zip;              /* path name of zip file to generate temp name for */
 #endif /* CMS_MVS */
 }
 
+#endif /* ndef VMS */
 
 int fcopy(f, g, n)
 FILE *f, *g;            /* source and destination files */

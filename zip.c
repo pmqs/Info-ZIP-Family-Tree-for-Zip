@@ -1280,8 +1280,8 @@ char **argv;            /* command line tokens */
               verbose++;
               break;
 #ifdef VMS
-            case 'V':   /* Store in VMS format */
-              vms_native = 1; break;
+            case 'V':   /* Store in VMS format.  (Record multiples.) */
+              vms_native++; break;
             case 'w':   /* Append the VMS version number */
               vmsver = 1;  break;
 #endif /* VMS */

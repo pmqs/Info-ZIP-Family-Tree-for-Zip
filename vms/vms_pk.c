@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2000-Apr-09 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
  *    vms_pk.c  by Igor Mandrichenko
@@ -47,23 +47,33 @@
  *                      Fixed bug in vms_get_attributes() for directory
  *                      entries (access to uninitialized ioctx record).
  *                      Removed unused second arg for vms_open().
+ *    version 2.2-3     04-Apr-1999, Chr. Spieler
+ *                      Changed calling interface of vms_get_attributes()
+ *                      to accept a void pointer as first argument.
+ *    version 2.2-4     26-Jan-2002, Chr. Spieler
+ *                      Modified vms_read() to handle files larger than 2GByte
+ *                      (up to size limit of "unsigned long", resp. 4GByte).
+ *    version 3.0       20-Oct-2004, Steven Schweda.
+ *                      Changed vms_read() to read all the allocated
+ *                      blocks in a file, for sure.  Changed the default
+ *                      chunk size from 16K to 32K.  Changed to use the
+ *                      new typedef for the ioctx structure.  Moved the
+ *                      VMS_PK_EXTRA test into here from VMS.C to allow
+ *                      more general automatic dependency generation.
  */
 
 #ifdef VMS                      /* For VMS only ! */
 
-#ifndef __zip_h
-#include "zip.h"
-#endif
+#ifdef VMS_PK_EXTRA
 
-#ifndef __SSDEF_LOADED
 #include <ssdef.h>
-#endif
 
 #ifndef VMS_ZIP
 #define VMS_ZIP
 #endif
-#include "vms/vms.h"
-#include "vms/vmsdefs.h"
+
+#include "vms.h"
+#include "vmsdefs.h"
 
 #ifndef ERR
 #define ERR(x) (((x)&1)==0)
@@ -75,7 +85,7 @@
 
 #ifndef UTIL
 
-static struct PK_info PK_def_info =
+static PK_info_t PK_def_info =
 {
         ATR$C_RECATTR,  ATR$S_RECATTR,  {0},
         ATR$C_UCHAR,    ATR$S_UCHAR,    {0},
@@ -90,15 +100,35 @@ static struct PK_info PK_def_info =
         ATR$C_JOURNAL,  ATR$S_JOURNAL,  {0}
 };
 
+/* File description structure for Zip low level I/O */
+typedef struct
+{
+    struct iosb         iosb;
+    long                vbn;
+    unsigned int        size;
+    unsigned int        rest;
+    int                 status;
+    ush                 chan;
+    ush                 chan_pad;       /* alignment member */
+    long                acllen;
+    uch                 aclbuf[ATR$S_READACL];
+    PK_info_t           PKi;
+} ioctx_t;
+
+
 /* Forward declarations of public functions: */
-struct ioctx *vms_open(char *file);
-int  vms_read(register struct ioctx *ctx,
-              register char *buf, register int size);
-int  vms_error(struct ioctx *ctx);
-int  vms_rewind(struct ioctx *ctx);
-int  vms_get_attributes(struct ioctx *ctx, struct zlist far *z,
+ioctx_t *vms_open(char *file);
+size_t  vms_read(register ioctx_t *ctx,
+                 register char *buf, register size_t size);
+int  vms_error(ioctx_t *ctx);
+int  vms_rewind(ioctx_t *ctx);
+int  vms_get_attributes(ioctx_t *ctx, struct zlist far *z,
                         iztimes *z_utim);
-int  vms_close(struct ioctx *ctx);
+int  vms_close(ioctx_t *ctx);
+
+
+#define BLOCK_BYTES 512
+
 
 /*---------------*
  |  vms_open()   |
@@ -107,7 +137,7 @@ int  vms_close(struct ioctx *ctx);
  |  Returns pointer to file description structure.
  */
 
-struct ioctx *vms_open(file)
+ioctx_t *vms_open(file)
 char *file;
 {
     static struct atrdef        Atr[VMS_MAX_ATRCNT+1];
@@ -123,21 +153,22 @@ char *file;
     static char RName[NAM$C_MAXRSS];
 
     struct FAB  Fab;
-    register struct ioctx *ctx;
+    register ioctx_t *ctx;
     register struct fatdef *fat;
     int status;
     int i;
     ulg efblk, hiblk;
 
-    if ( (ctx=(struct ioctx *)malloc(sizeof(struct ioctx))) == NULL )
+    if ( (ctx=(ioctx_t *)malloc(sizeof(ioctx_t))) == NULL )
         return NULL;
     ctx -> PKi = PK_def_info;
 
 #define FILL_REQ(ix,id,b)   {       \
-    Atr[ix].atr$l_addr = &(b);      \
+    Atr[ix].atr$l_addr = GVTC &(b);      \
     Atr[ix].atr$w_type = (id);      \
     Atr[ix].atr$w_size = sizeof(b); \
 }
+
     FILL_REQ(0, ATR$C_RECATTR,  ctx->PKi.ra);
     FILL_REQ(1, ATR$C_UCHAR,    ctx->PKi.uc);
     FILL_REQ(2, ATR$C_REVDATE,  ctx->PKi.rd);
@@ -154,7 +185,7 @@ char *file;
 
     Atr[13].atr$w_type = 0;     /* End of ATR list */
     Atr[13].atr$w_size = 0;
-    Atr[13].atr$l_addr = (byte *)NULL;
+    Atr[13].atr$l_addr = GVTC NULL;
 
     /* initialize RMS structures, we need a NAM to retrieve the FID */
     Fab = cc$rms_fab;
@@ -193,8 +224,9 @@ char *file;
         Fib.FIB$W_DID[i]=Nam.nam$w_did[i];
 
     /* Use the IO$_ACCESS function to return info about the file */
-    status = sys$qiow(0,ctx->chan,IO$_ACCESS|IO$M_ACCESS,&ctx->iosb,0,0,
-                    &FibDesc,&FileName,0,0,&Atr,0);
+    status = sys$qiow( 0, ctx->chan, (IO$_ACCESS| IO$M_ACCESS),
+                       &ctx->iosb, 0, 0, &FibDesc, &FileName, 0, 0,
+                       Atr, 0);
 
     if (ERR(status) || ERR(status = ctx->iosb.status))
     {
@@ -209,91 +241,128 @@ char *file;
     efblk = SWAPW(fat->fat$l_efblk);
     hiblk = SWAPW(fat->fat$l_hiblk);
 
-    if( efblk == 0 && fat -> fat$w_ffbyte == 0 )
+    if (efblk == 0)
+    {
+        /* Only known size is all allocated blocks.
+           (This occurs with a zero-length file, for example.)
+        */
         ctx -> size =
-        ctx -> rest = hiblk * 512;
+        ctx -> rest = hiblk* BLOCK_BYTES;
+    }
     else
+    {
+        /* Store normal (used) size in ->size.
+           If only one -V, store normal (used) size in ->rest.
+           If multiple -V, store allocated-blocks size in ->rest.
+        */
         ctx -> size =
-        ctx -> rest = (efblk - 1) * 512 + fat -> fat$w_ffbyte;
+         ((efblk)- 1)* BLOCK_BYTES+ fat -> fat$w_ffbyte;
+
+        if (vms_native < 2)
+            ctx -> rest = ctx -> size;
+        else
+            ctx -> rest = hiblk* BLOCK_BYTES;
+    }
 
     ctx -> status = SS$_NORMAL;
     ctx -> vbn = 1;
     return ctx;
 }
 
-#define KByte 1024
+
+#define KByte (2* BLOCK_BYTES)
+#define MAX_READ_BYTES (32* KByte)
 
 /*----------------*
  |   vms_read()   |
  *----------------*
- |   Reads file block by block into the buffer.
- |   Stops on EOF, returns number of bytes actually read.
- |   Note: size of the buffer must be greater than or equal to 512 !
+ |   Reads file in (multi-)block-sized chunks into the buffer.
+ |   Stops on EOF. Returns number of bytes actually read.
+ |   Note: This function makes no sense (and will error) if the buffer
+ |   size ("size") is not a multiple of the disk block size (512).
  */
 
-int vms_read(ctx, buf, size)
-register struct ioctx *ctx;
-register char *buf;
-register int size;
+size_t vms_read( ctx, buf, size)
+ioctx_t *ctx;
+char *buf;
+size_t size;
 {
     int status;
-    long nr=0;
+    unsigned int bytes_read = 0;
 
-    if (ctx -> rest <= 0 || ctx -> status == SS$_ENDOFFILE)
-        return 0;               /* Eof */
+    /* If previous read hit EOF, fail early. */
+    if (ctx -> status == SS$_ENDOFFILE)
+        return 0;               /* EOF. */
 
-    if(size <= 0)
+    /* If no more expected to be read, fail early. */
+    if (ctx -> rest == 0)
+        return 0;               /* Effective EOF. */
+
+    /* If request is smaller than a whole block, fail.
+       This really should never happen.  (assert()?)
+    */
+    if (size < BLOCK_BYTES)
         return 0;
 
-    if(size > 16*KByte)
-        size = 16*KByte;
-    else if(size > 512)
-        size &= ~511L;          /* Round to integer number of blocks */
+    /* Adjust request size as appropriate. */
+    if (size > MAX_READ_BYTES)
+    {
+        /* Restrict request to MAX_READ_BYTES. */
+        size = MAX_READ_BYTES;
+    }
+    else
+    {
+        /* Round odd-ball request up to the next whole block.
+           This really should never happen.  (assert()?)
+        */
+        size = (size+ BLOCK_BYTES- 1)& ~(BLOCK_BYTES- 1);
+    }
 
+    /* Read (QIOW) until error or "size" bytes have been read. */
     do
     {
-        status = sys$qiow(0, ctx->chan, IO$_READVBLK,
+        /* Reduce "size" when next (last) read would overrun the EOF,
+           but never below one block (so we'll always get a nice EOF).
+        */
+        if (size > ctx->rest)
+            size = ctx->rest;
+        if (size == 0)
+            size = BLOCK_BYTES;
+
+        status = sys$qiow( 0, ctx->chan, IO$_READVBLK,
             &ctx->iosb, 0, 0,
-            buf, size, ctx->vbn,0,0,0);
+            buf, size, ctx->vbn, 0, 0, 0);
 
-        ctx->vbn += size>>9;
-        if( size < 512 )
-                ++ctx->vbn;
-
+        /* If initial status was good, use final status. */
         if ( !ERR(status) )
                 status = ctx->iosb.status;
 
         if ( !ERR(status) || status == SS$_ENDOFFILE )
         {
-            register int count;
-
-            if ( status == SS$_ENDOFFILE )
-                count = ctx->rest;
-            else
-                count = ctx->iosb.count;
-
-            size -= count;
-            buf  += count;
-            nr   += count;
+            /* Adjust counters/pointers according to delivered bytes. */
+            size -= ctx->iosb.count;
+            buf += ctx->iosb.count;
+            bytes_read += ctx->iosb.count;
+            ctx->vbn += ctx->iosb.count/ BLOCK_BYTES;
         }
-    } while ( !ERR(status) && size > 0 );
+
+    } while ( !ERR(status) && (size > 0) );
 
     if (!ERR(status))
     {
+        /* Record any successful status as SS$_NORMAL. */
         ctx -> status = SS$_NORMAL;
-        ctx -> rest -= nr;
     }
     else if (status == SS$_ENDOFFILE)
     {
+        /* Record EOF as SS$_ENDOFFILE.  (Ignore error status codes?) */
         ctx -> status = SS$_ENDOFFILE;
-        ctx -> rest = 0;
     }
-    else
-    {
-        ctx -> status = status;
-        ctx -> rest -= nr;
-    }
-    return nr;
+
+    /* Decrement bytes-to-read.  Return the total bytes read. */
+    ctx -> rest -= bytes_read;
+
+    return bytes_read;
 }
 
 /*-----------------*
@@ -303,7 +372,7 @@ register int size;
  */
 
 int vms_error(ctx)
-struct ioctx *ctx;
+ioctx_t *ctx;
 {   /* EOF is not actual error */
     return ERR(ctx->status) && (ctx->status != SS$_ENDOFFILE);
 }
@@ -315,7 +384,7 @@ struct ioctx *ctx;
  */
 
 int vms_rewind(ctx)
-struct ioctx *ctx;
+ioctx_t *ctx;
 {
     ctx -> vbn = 1;
     ctx -> rest = ctx -> size;
@@ -331,14 +400,20 @@ struct ioctx *ctx;
  |   called to fetch the file attributes.
  |   When `vms_native' is not set, a generic "UT" type timestamp extra
  |   field is generated instead.
+ |
+ |   2004-11-11 SMS.
+ |   Changed to use separate storage for ->extra and ->cextra.  Zip64
+ |   processing may move (reallocate) one and not the other.
  */
 
 int vms_get_attributes(ctx, z, z_utim)
-struct ioctx *ctx;
-struct zlist far *z;    /* zip entry to compress */
+ioctx_t *ctx;           /* Internal file control structure. */
+struct zlist far *z;    /* Zip entry to compress. */
 iztimes *z_utim;
 {
-    byte    *p, *b;
+    byte    *p;
+    byte    *xtra;
+    byte    *cxtra;
     struct  PK_header    *h;
     extent  l;
     int     notopened;
@@ -356,39 +431,54 @@ iztimes *z_utim;
         if (!zp_tz_is_valid)
             return ZE_OK;       /* skip silently if no valid TZ info */
 #  endif
-        if ((b = (uch *)malloc(EB_HEADSIZE+EB_UT_LEN(1))) == NULL)
+
+        if ((xtra = (uch *) malloc( EB_HEADSIZE+ EB_UT_LEN( 1))) == NULL)
             return ZE_MEM;
 
-        b[0]  = 'U';
-        b[1]  = 'T';
-        b[2]  = EB_UT_LEN(1);          /* length of data part of e.f. */
-        b[3]  = 0;
-        b[4]  = EB_UT_FL_MTIME;
-        b[5]  = (byte)(z_utim->mtime);
-        b[6]  = (byte)(z_utim->mtime >> 8);
-        b[7]  = (byte)(z_utim->mtime >> 16);
-        b[8]  = (byte)(z_utim->mtime >> 24);
+        if ((cxtra = (uch *) malloc( EB_HEADSIZE+ EB_UT_LEN( 1))) == NULL)
+            return ZE_MEM;
 
-        z->cext = z->ext = (EB_HEADSIZE+EB_UT_LEN(1));
-        z->cextra = z->extra = (char*)b;
+        /* Fill xtra[] with data. */
+        xtra[ 0] = 'U';
+        xtra[ 1] = 'T';
+        xtra[ 2] = EB_UT_LEN(1);        /* length of data part of e.f. */
+        xtra[ 3] = 0;
+        xtra[ 4] = EB_UT_FL_MTIME;
+        xtra[ 5] = (byte) (z_utim->mtime);
+        xtra[ 6] = (byte) (z_utim->mtime >> 8);
+        xtra[ 7] = (byte) (z_utim->mtime >> 16);
+        xtra[ 8] = (byte) (z_utim->mtime >> 24);
+
+        /* Copy xtra[] data into cxtra[]. */
+        memcpy( cxtra, xtra, (EB_HEADSIZE+ EB_UT_LEN( 1)));
+
+        /* Set sizes and pointers. */
+        z->cext = z->ext = (EB_HEADSIZE+ EB_UT_LEN( 1));
+        z->extra = (char*) xtra;
+        z->cextra = (char*) cxtra;
+
 #endif /* USE_EF_UT_TIME */
 
         return ZE_OK;
     }
 
-    notopened = (ctx == (struct ioctx *)NULL);
-    if ( notopened && ((ctx = vms_open(z->name)) == (struct ioctx *)NULL) )
+    notopened = (ctx == NULL);
+    if ( notopened && ((ctx = vms_open(z->name)) == NULL) )
         return ZE_OPEN;
 
     l = PK_HEADER_SIZE + sizeof(ctx->PKi);
     if (ctx->acllen > 0)
         l += PK_FLDHDR_SIZE + ctx->acllen;
 
-    b = (uch *)malloc(l);
-    if ( b==NULL )
+    if ((xtra = (uch *) malloc( l)) == NULL)
         return ZE_MEM;
 
-    h = (struct PK_header *)b;
+    if ((cxtra = (uch *) malloc( l)) == NULL)
+        return ZE_MEM;
+
+    /* Fill xtra[] with data. */
+
+    h = (struct PK_header *) xtra;
     h->tag = PK_SIGNATURE;
     h->size = l - EB_HEADSIZE;
     p = (h->data);
@@ -415,8 +505,13 @@ iztimes *z_utim;
     h->crc32 = CRCVAL_INITIAL;                  /* Init CRC register */
     h->crc32 = crc32(h->crc32, (uch *)(h->data), l - PK_HEADER_SIZE);
 
+    /* Copy xtra[] data into cxtra[]. */
+    memcpy( cxtra, xtra, l);
+
+    /* Set sizes and pointers. */
     z->ext = z->cext = l;
-    z->extra = z->cextra = (char *)b;
+    z->extra = (char *) xtra;
+    z->cextra = (char *) cxtra;
 
     if (notopened)              /* close "ctx", if we have opened it here */
         vms_close(ctx);
@@ -424,8 +519,9 @@ iztimes *z_utim;
     return ZE_OK;
 }
 
+
 int vms_close(ctx)
-struct ioctx *ctx;
+ioctx_t *ctx;
 {
         sys$dassgn(ctx->chan);
         free(ctx);
@@ -433,4 +529,7 @@ struct ioctx *ctx;
 }
 
 #endif /* !_UTIL */
+
+#endif /* def VMS_PK_EXTRA */
+
 #endif /* VMS */
