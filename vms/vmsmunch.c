@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 #define module_name     VMSMUNCH
 #define module_version  "V1.3-4"
@@ -149,6 +149,19 @@ static void bintim(char *time, long int binval[2]);
 #endif
 
 
+/* On VAX, define Goofy VAX Type-Cast to obviate /standard = vaxc.
+   Otherwise, lame system headers on VAX cause compiler warnings.
+   (GNU C may define vax but not __VAX.)
+*/
+#ifdef vax
+# define __VAX 1
+#endif /* def vax */
+
+#ifdef __VAX
+# define GVTC (unsigned int)
+#else /* def __VAX */
+# define GVTC
+#endif /* def __VAX */
 
 
 
@@ -199,16 +212,16 @@ int VMSmunch(
 #endif /* __DECC || __DECCXX */
 
     static struct atrdef Atr[] = {
-      {sizeof(Fat),ATR$C_RECATTR,&Fat},        /* record attributes */
-      {sizeof(uchar),ATR$C_UCHAR,&uchar},      /* File characteristics */
-      {sizeof(Cdate),ATR$C_CREDATE,&Cdate[0]}, /* Creation date */
-      {sizeof(Rdate),ATR$C_REVDATE,&Rdate[0]}, /* Revision date */
-      {sizeof(Edate),ATR$C_EXPDATE,&Edate[0]}, /* Expiration date */
-      {sizeof(Bdate),ATR$C_BAKDATE,&Bdate[0]}, /* Backup date */
-      {sizeof(revisions),ATR$C_ASCDATES,&revisions}, /* number of revisions */
-      {sizeof(prot),ATR$C_FPRO,&prot},         /* file protection  */
-      {sizeof(uic),ATR$C_UIC,&uic},            /* file owner */
-      {sizeof(jnl),ATR$C_JOURNAL,&jnl},        /* journal flags */
+      {sizeof(Fat),ATR$C_RECATTR, GVTC &Fat},          /* record attributes */
+      {sizeof(uchar),ATR$C_UCHAR, GVTC &uchar},    /* File characteristics */
+      {sizeof(Cdate),ATR$C_CREDATE, GVTC &Cdate[0]},   /* Creation date */
+      {sizeof(Rdate),ATR$C_REVDATE, GVTC &Rdate[0]},   /* Revision date */
+      {sizeof(Edate),ATR$C_EXPDATE, GVTC &Edate[0]},   /* Expiration date */
+      {sizeof(Bdate),ATR$C_BAKDATE, GVTC &Bdate[0]},   /* Backup date */
+      {sizeof(revisions),ATR$C_ASCDATES, GVTC &revisions}, /* number of revs */
+      {sizeof(prot),ATR$C_FPRO, GVTC &prot},           /* file protection  */
+      {sizeof(uic),ATR$C_UIC, GVTC &uic},              /* file owner */
+      {sizeof(jnl),ATR$C_JOURNAL, GVTC &jnl},          /* journal flags */
       {0,0,0}
     } ;
 

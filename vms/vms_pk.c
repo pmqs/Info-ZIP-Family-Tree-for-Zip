@@ -1,9 +1,9 @@
 /*
-  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2000-Apr-09 or later
+  See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, all these files are missing, the Info-ZIP license
+  If, for some reason, both of these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
@@ -53,7 +53,7 @@
  *    version 2.2-4     26-Jan-2002, Chr. Spieler
  *                      Modified vms_read() to handle files larger than 2GByte
  *                      (up to size limit of "unsigned long", resp. 4GByte).
- *    version 3.0       20-Oct-2004, Steven Schweda.
+ *    version 2.3.1     20-Oct-2004, Steven Schweda.
  *                      Changed vms_read() to read all the allocated
  *                      blocks in a file, for sure.  Changed the default
  *                      chunk size from 16K to 32K.  Changed to use the
@@ -247,7 +247,7 @@ char *file;
            (This occurs with a zero-length file, for example.)
         */
         ctx -> size =
-        ctx -> rest = hiblk* BLOCK_BYTES;
+        ctx -> rest = hiblk * BLOCK_BYTES;
     }
     else
     {
@@ -256,12 +256,12 @@ char *file;
            If multiple -V, store allocated-blocks size in ->rest.
         */
         ctx -> size =
-         ((efblk)- 1)* BLOCK_BYTES+ fat -> fat$w_ffbyte;
+         ((efblk) - 1) * BLOCK_BYTES + fat -> fat$w_ffbyte;
 
         if (vms_native < 2)
             ctx -> rest = ctx -> size;
         else
-            ctx -> rest = hiblk* BLOCK_BYTES;
+            ctx -> rest = hiblk * BLOCK_BYTES;
     }
 
     ctx -> status = SS$_NORMAL;
@@ -270,8 +270,8 @@ char *file;
 }
 
 
-#define KByte (2* BLOCK_BYTES)
-#define MAX_READ_BYTES (32* KByte)
+#define KByte (2 * BLOCK_BYTES)
+#define MAX_READ_BYTES (32 * KByte)
 
 /*----------------*
  |   vms_read()   |
@@ -287,6 +287,8 @@ ioctx_t *ctx;
 char *buf;
 size_t size;
 {
+    int act_cnt;
+    int rest_rndup;
     int status;
     unsigned int bytes_read = 0;
 
@@ -304,6 +306,13 @@ size_t size;
     if (size < BLOCK_BYTES)
         return 0;
 
+    /* Note that on old VMS VAX versions (like V5.5-2), QIO[W] may fail
+       with status %x0000034c (= %SYSTEM-F-IVBUFLEN, invalid buffer
+       length) when size is not a multiple of 512.  Thus the requested
+       size is boosted as needed, but the IOSB byte count returned is
+       reduced when it exceeds the actual bytes remaining (->rest).
+    */
+
     /* Adjust request size as appropriate. */
     if (size > MAX_READ_BYTES)
     {
@@ -317,6 +326,7 @@ size_t size;
         */
         size = (size+ BLOCK_BYTES- 1)& ~(BLOCK_BYTES- 1);
     }
+    rest_rndup = (ctx -> rest+ BLOCK_BYTES- 1)& ~(BLOCK_BYTES- 1);
 
     /* Read (QIOW) until error or "size" bytes have been read. */
     do
@@ -324,10 +334,8 @@ size_t size;
         /* Reduce "size" when next (last) read would overrun the EOF,
            but never below one block (so we'll always get a nice EOF).
         */
-        if (size > ctx->rest)
-            size = ctx->rest;
-        if (size == 0)
-            size = BLOCK_BYTES;
+        if (size > rest_rndup)
+            size = rest_rndup;
 
         status = sys$qiow( 0, ctx->chan, IO$_READVBLK,
             &ctx->iosb, 0, 0,
@@ -339,10 +347,17 @@ size_t size;
 
         if ( !ERR(status) || status == SS$_ENDOFFILE )
         {
+            act_cnt = ctx->iosb.count;
+            /* Ignore whole-block boost when remainder is smaller. */
+            if (act_cnt > ctx->rest)
+            {
+                act_cnt = ctx->rest;
+                status = SS$_ENDOFFILE;
+            }
             /* Adjust counters/pointers according to delivered bytes. */
-            size -= ctx->iosb.count;
-            buf += ctx->iosb.count;
-            bytes_read += ctx->iosb.count;
+            size -= act_cnt;
+            buf += act_cnt;
+            bytes_read += act_cnt;
             ctx->vbn += ctx->iosb.count/ BLOCK_BYTES;
         }
 
@@ -432,12 +447,12 @@ iztimes *z_utim;
             return ZE_OK;       /* skip silently if no valid TZ info */
 #  endif
 
-        if ((xtra = (uch *) malloc( EB_HEADSIZE+ EB_UT_LEN( 1))) == NULL)
+        if ((xtra = (uch *) malloc( EB_HEADSIZE + EB_UT_LEN( 1))) == NULL)
             return ZE_MEM;
 
-        if ((cxtra = (uch *) malloc( EB_HEADSIZE+ EB_UT_LEN( 1))) == NULL)
+        if ((cxtra = (uch *) malloc( EB_HEADSIZE + EB_UT_LEN( 1))) == NULL)
             return ZE_MEM;
-
+ 
         /* Fill xtra[] with data. */
         xtra[ 0] = 'U';
         xtra[ 1] = 'T';
@@ -450,10 +465,10 @@ iztimes *z_utim;
         xtra[ 8] = (byte) (z_utim->mtime >> 24);
 
         /* Copy xtra[] data into cxtra[]. */
-        memcpy( cxtra, xtra, (EB_HEADSIZE+ EB_UT_LEN( 1)));
+        memcpy( cxtra, xtra, (EB_HEADSIZE + EB_UT_LEN( 1)));
 
         /* Set sizes and pointers. */
-        z->cext = z->ext = (EB_HEADSIZE+ EB_UT_LEN( 1));
+        z->cext = z->ext = (EB_HEADSIZE + EB_UT_LEN( 1));
         z->extra = (char*) xtra;
         z->cextra = (char*) cxtra;
 
@@ -470,10 +485,10 @@ iztimes *z_utim;
     if (ctx->acllen > 0)
         l += PK_FLDHDR_SIZE + ctx->acllen;
 
-    if ((xtra = (uch *) malloc( l)) == NULL)
+    if ((xtra = (uch *) malloc(l)) == NULL)
         return ZE_MEM;
 
-    if ((cxtra = (uch *) malloc( l)) == NULL)
+    if ((cxtra = (uch *) malloc(l)) == NULL)
         return ZE_MEM;
 
     /* Fill xtra[] with data. */
