@@ -1,11 +1,11 @@
 /*
   ziperr.h - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2004 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2003-May-08 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, all these files are missing, the Info-ZIP license
+  If, for some reason, both of these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
@@ -21,7 +21,7 @@
 #define ZE_FORM         3       /* zip file structure error */
 #define ZE_MEM          4       /* out of memory */
 #define ZE_LOGIC        5       /* internal logic error */
-#define ZE_BIG          6       /* entry too large to split, read, or write */
+#define ZE_BIG          6       /* entry too large to split */
 #define ZE_NOTE         7       /* invalid comment format */
 #define ZE_TEST         8       /* zip test (-T) failed or out of memory */
 #define ZE_ABORT        9       /* user interrupt or termination */
@@ -34,7 +34,7 @@
 #define ZE_PARMS        16      /* bad command line */
 #define ZE_OPEN         18      /* could not open a specified file to read */
 #define ZE_COMPERR      19      /* error in compilation options */
-#define ZE_ZIP64        20      /* Zip64 not supported */
+#define ZE_LARGE        20      /* Large file in small-file program */
 
 #define ZE_MAXERR       20      /* the highest error number */
 
@@ -49,7 +49,7 @@ char *ziperrors[ZE_MAXERR] = {
 /*  3 */  "Zip file structure invalid",
 /*  4 */  "Out of memory",
 /*  5 */  "Internal logic error",
-/*  6 */  "Entry too big to split, read, or write",
+/*  6 */  "Entry too big to split",
 /*  7 */  "Invalid comment format",
 /*  8 */  "Zip file invalid or could not spawn unzip",
 /*  9 */  "Interrupted",
@@ -63,7 +63,7 @@ char *ziperrors[ZE_MAXERR] = {
 /* 17 */  "",
 /* 18 */  "File not found or no read permission",
 /* 19 */  "Not supported",
-/* 20 */  "Attempt to read unsupported Zip64 archive"
+/* 20 */  "Small-file program can't process large-file archive"
 #  ifdef AZTEC_C
           ,     /* extremely lame compiler bug workaround */
 #  endif

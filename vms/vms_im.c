@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2000-Apr-09 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -32,8 +32,6 @@
  *      regardless of appearances.  Moved the VMS_PK_EXTRA test into
  *      here from VMS.C to allow more general automatic dependency
  *      generation.
- *              17-Feb-2005     Steven Schweda
- *      Added support for ODS5 extended names.
  */
 
 #ifdef VMS                      /* For VMS only ! */
@@ -113,7 +111,6 @@ int set_extra_field(z, z_utim)
     uch *scan;
     extent extra_l;
     static struct FAB fab;
-    static struct NAM_STRUCT nam;
     static struct XABSUM xabsum;
     static struct XABFHC xabfhc;
     static struct XABDAT xabdat;
@@ -174,28 +171,19 @@ int set_extra_field(z, z_utim)
      */
 
     fab =    cc$rms_fab;
-    nam =    CC_RMS_NAM;
     xabsum = cc$rms_xabsum;
     xabdat = cc$rms_xabdat;
     xabfhc = cc$rms_xabfhc;
     xabpro = cc$rms_xabpro;
     xabrdt = cc$rms_xabrdt;
 
-    fab.FAB_NAM = &nam;
+
     fab.fab$l_xab = (char*)&xabsum;
     /*
      *  Open the file and read summary information.
      */
-
-#ifdef NAML$C_MAXRSS
-
-    fab.fab$l_dna = (char *) -1;    /* Using NAML for default name. */
-    fab.fab$l_fna = (char *) -1;    /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
-
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNA = z->name;
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNS = strlen( z->name);
+    fab.fab$b_fns = strlen(z->name);
+    fab.fab$l_fna = z->name;
 
     status = sys$open(&fab);
     if (ERR(status))
@@ -331,13 +319,10 @@ int set_extra_field(z, z_utim)
     fab.fab$b_fns = fab.fab$b_shr = fab.fab$b_dns = fab.fab$b_fac = 0;
     fab.fab$w_ifi = 0;
     fab.fab$l_stv = fab.fab$l_sts = fab.fab$l_ctx = 0;
-    fab.fab$l_dna = NULL;
     fab.fab$l_fna = NULL;
     fab.fab$l_nam = NULL;
-#ifdef NAML$C_MAXRSS
-    fab.fab$l_naml = NULL;
-#endif /* def NAML$C_MAXRSS */
     fab.fab$l_xab = NULL;
+    fab.fab$l_dna = NULL;
 
 #ifdef DEBUG
     dump_rms_block( (uch *)&fab );
@@ -448,17 +433,15 @@ typedef struct user_context
 {
     ulg sig;
     struct FAB *fab;
-    struct NAM_STRUCT *nam;
     struct RAB *rab;
-    uzoff_t size;
-    uzoff_t rest;
+    zoff_t size;
+    zoff_t rest;
     int status;
 } Ctx, *Ctxptr;
 
 Ctx init_ctx =
 {
         CTXSIG,
-        NULL,
         NULL,
         NULL,
         0L,
@@ -482,71 +465,46 @@ Ctx init_ctx =
 struct RAB *vms_open(name)
     char *name;
 {
-    struct FAB *fab;
-    struct NAM_STRUCT *nam;
     struct RAB *rab;
+    struct FAB *fab;
     struct XABFHC *fhc;
     Ctxptr ctx;
 
-    if ((fab = (struct FAB *) malloc(FABL)) == NULL)
+    if ((fab = (struct FAB *) malloc(FABL)) == (struct FAB *)NULL)
         return NULL;
-
-    if ((nam =
-     (struct NAM_STRUCT *) malloc( sizeof( struct NAM_STRUCT))) == NULL)
+    if ((rab = (struct RAB *) malloc(RABL)) == (struct RAB *)NULL)
     {
         free(fab);
-        return NULL;
+        return (struct RAB *)NULL;
     }
-
-    if ((rab = (struct RAB *) malloc(RABL)) == NULL)
-    {
-        free(fab);
-        free(nam);
-        return NULL;
-    }
-
     if ((fhc = (struct XABFHC *) malloc(XFHCL)) == (struct XABFHC *)NULL)
     {
-        free(fab);
-        free(nam);
         free(rab);
+        free(fab);
         return (struct RAB *)NULL;
     }
     if ((ctx = (Ctxptr) malloc(CTXL)) == (Ctxptr)NULL)
     {
-        free(fab);
-        free(nam);
-        free(rab);
         free(fhc);
+        free(fab);
+        free(rab);
         return (struct RAB *)NULL;
     }
     *fab = cc$rms_fab;
-    *nam = CC_RMS_NAM;
     *rab = cc$rms_rab;
     *fhc = cc$rms_xabfhc;
 
-    fab->FAB_NAM = nam;
-
-#ifdef NAML$C_MAXRSS
-
-    fab->fab$l_dna = (char *) -1;   /* Using NAML for default name. */
-    fab->fab$l_fna = (char *) -1;   /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
-
-    FAB_OR_NAM( fab, nam)->FAB_OR_NAM_FNA = name;
-    FAB_OR_NAM( fab, nam)->FAB_OR_NAM_FNS = strlen( name);
-
+    fab->fab$l_fna = name;
+    fab->fab$b_fns = strlen(name);
     fab->fab$b_fac = FAB$M_GET | FAB$M_BIO;
     fab->fab$l_xab = (char*)fhc;
 
     if (ERR(sys$open(fab)))
     {
         sys$close(fab);
-        free(fab);
-        free(nam);
-        free(rab);
         free(fhc);
+        free(fab);
+        free(rab);
         free(ctx);
         return (struct RAB *)NULL;
     }
@@ -558,16 +516,14 @@ struct RAB *vms_open(name)
     {
         sys$close(fab);
         free(fab);
-        free(nam);
         free(rab);
         free(ctx);
         return (struct RAB *)NULL;
     }
 
     *ctx = init_ctx;
-    ctx->fab = fab;
-    ctx->nam = nam;
     ctx->rab = rab;
+    ctx->fab = fab;
 
     if (fhc->xab$l_ebk == 0)
     {
@@ -575,7 +531,7 @@ struct RAB *vms_open(name)
            (This occurs with a zero-length file, for example.)
         */
         ctx->size =
-        ctx->rest = ((uzoff_t) fhc->xab$l_hbk)* BLOCK_BYTES;
+        ctx->rest = ((zoff_t) fhc->xab$l_hbk)* BLOCK_BYTES;
     }
     else
     {
@@ -584,11 +540,11 @@ struct RAB *vms_open(name)
            If -VV, store allocated-blocks size in ->rest.
         */
         ctx->size =
-         (((uzoff_t) fhc->xab$l_ebk)- 1)* BLOCK_BYTES+ fhc->xab$w_ffb;
+         (((zoff_t) fhc->xab$l_ebk)- 1)* BLOCK_BYTES+ fhc->xab$w_ffb;
         if (vms_native < 2)
             ctx->rest = ctx->size;
         else
-            ctx->rest = ((uzoff_t) fhc->xab$l_hbk)* BLOCK_BYTES;
+            ctx->rest = ((zoff_t) fhc->xab$l_hbk)* BLOCK_BYTES;
     }
 
     free(fhc);
@@ -604,17 +560,14 @@ int vms_close(rab)
     struct RAB *rab;
 {
     struct FAB *fab;
-    struct NAM_STRUCT *nam;
     Ctxptr ctx;
 
     if (!CHECK_RAB(rab))
         return RET_ERROR;
     fab = (ctx = (Ctxptr)(rab->rab$l_ctx))->fab;
-    nam = (ctx = (Ctxptr)(rab->rab$l_ctx))->nam;
     sys$close(fab);
 
     free(fab);
-    free(nam);
     free(rab);
     free(ctx);
 

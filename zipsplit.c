@@ -1,9 +1,9 @@
 /*
   zipsplit.c - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2004 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2000-Apr-09 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -57,8 +57,8 @@
 #ifdef MACOS
 #define ziperr(c, h)    zipspliterr(c, h)
 #define zipwarn(a, b)   zipsplitwarn(a, b)
-void zipsplitwarn(ZCONST char *a, ZCONST char *b);
-void zipspliterr(int c, ZCONST char *h);
+void zipsplitwarn(char *c,char *h);
+void zipspliterr(int c,char *h);
 #endif /* MACOS */
 
 /* Local functions */
@@ -69,9 +69,9 @@ local void handler OF((int));
 local void license OF((void));
 local void help OF((void));
 local void version_info OF((void));
-local extent simple OF((uzoff_t *, extent, uzoff_t, uzoff_t));
+local extent simple OF((ulg *, extent, ulg, ulg));
 local int descmp OF((ZCONST zvoid *, ZCONST zvoid *));
-local extent greedy OF((uzoff_t *, extent, uzoff_t, uzoff_t));
+local extent greedy OF((ulg *, extent, ulg, ulg));
 local int retry OF((void));
 int main OF((int, char **));
 
@@ -136,7 +136,7 @@ local void tfreeall()
 
 void ziperr(c, h)
 int c;                  /* error code from the ZE_ class */
-ZCONST char *h;         /* message about how it happened */
+char *h;                /* message about how it happened */
 /* Issue a message for the error, clean up files and memory, and exit. */
 {
   if (PERR(c))
@@ -172,7 +172,7 @@ int s;                  /* signal number (ignored) */
 
 
 void zipwarn(a, b)
-ZCONST char *a, *b;     /* message strings juxtaposed in output */
+char *a, *b;            /* message strings juxtaposed in output */
 /* Print a warning message to stderr and return. */
 {
   fprintf(stderr, "zipsplit warning: %s%s\n", a, b);
@@ -184,6 +184,10 @@ local void license()
 {
   extent i;             /* counter for copyright array */
 
+  for (i = 0; i < sizeof(copyright)/sizeof(char *); i++) {
+    printf(copyright[i], "zipsplit");
+    putchar('\n');
+  }
   for (i = 0; i < sizeof(swlicense)/sizeof(char *); i++)
     puts(swlicense[i]);
 }
@@ -199,9 +203,9 @@ local void help()
 "",
 "ZipSplit %s (%s)",
 #ifdef VM_CMS
-"Usage:  zipsplit [-tipqs] [-n size] [-r room] [-b fm] zipfile",
+"Usage:  zipsplit [-tips] [-n size] [-r room] [-b fm] zipfile",
 #else
-"Usage:  zipsplit [-tipqs] [-n size] [-r room] [-b path] zipfile",
+"Usage:  zipsplit [-tips] [-n size] [-r room] [-b path] zipfile",
 #endif
 "  -t   report how many files it will take, but don't make them",
 #ifdef RISCOS
@@ -216,7 +220,6 @@ local void help()
 #else
 "  -b   use \"path\" for the output zip files",
 #endif
-"  -q   quieter operation, suppress some informational messages",
 "  -p   pause between output zip files",
 "  -s   do a sequential split even if it takes more zip files",
 "  -h   show this help    -v   show version info    -L   show software license"
@@ -248,6 +251,12 @@ local void version_info()
     NULL
   };
 
+  for (i = 0; i < sizeof(copyright)/sizeof(char *); i++)
+  {
+    printf(copyright[i], "zipsplit");
+    putchar('\n');
+  }
+
   for (i = 0; i < sizeof(versinfolines)/sizeof(char *); i++)
   {
     printf(versinfolines[i], "ZipSplit", VERSION, REVDATE);
@@ -267,17 +276,17 @@ local void version_info()
 
 
 local extent simple(a, n, c, d)
-uzoff_t *a;     /* items to put in bins, return value: destination bins */
+ulg *a;         /* items to put in bins, return value: destination bins */
 extent n;       /* number of items */
-uzoff_t c;      /* capacity of each bin */
-uzoff_t d;      /* amount to deduct from first bin */
+ulg c;          /* capacity of each bin */
+ulg d;          /* amount to deduct from first bin */
 /* Return the number of bins of capacity c that are needed to contain the
    integers in a[0..n-1] placed sequentially into the bins.  The value d
    is deducted initially from the first bin (space for index).  The entries
    in a[] are replaced by the destination bins. */
 {
   extent k;     /* current bin number */
-  uzoff_t t;    /* space used in current bin */
+  ulg t;        /* space used in current bin */
 
   t = k = 0;
   while (n--)
@@ -298,29 +307,28 @@ local int descmp(a, b)
 ZCONST zvoid *a, *b;          /* pointers to pointers to ulg's to compare */
 /* Used by qsort() in greedy() to do a descending sort. */
 {
-  return **(uzoff_t **)a < **(uzoff_t **)b ? 1 :
-         (**(uzoff_t **)a > **(uzoff_t **)b ? -1 : 0);
+  return **(ulg **)a < **(ulg **)b ? 1 : (**(ulg **)a > **(ulg **)b ? -1 : 0);
 }
 
 
 local extent greedy(a, n, c, d)
-uzoff_t *a;         /* items to put in bins, return value: destination bins */
+ulg *a;         /* items to put in bins, return value: destination bins */
 extent n;       /* number of items */
-uzoff_t c;          /* capacity of each bin */
-uzoff_t d;          /* amount to deduct from first bin */
+ulg c;          /* capacity of each bin */
+ulg d;          /* amount to deduct from first bin */
 /* Return the number of bins of capacity c that are needed to contain the
    items with sizes a[0..n-1] placed non-sequentially into the bins.  The
    value d is deducted initially from the first bin (space for index).
    The entries in a[] are replaced by the destination bins. */
 {
-  uzoff_t *b;   /* space left in each bin (malloc'ed for each m) */
-  uzoff_t *e;   /* copy of argument a[] (malloc'ed) */
+  ulg *b;       /* space left in each bin (malloc'ed for each m) */
+  ulg *e;       /* copy of argument a[] (malloc'ed) */
   extent i;     /* steps through items */
   extent j;     /* steps through bins */
   extent k;     /* best bin to put current item in */
   extent m;     /* current number of bins */
-  uzoff_t **s;  /* pointers to e[], sorted descending (malloc'ed) */
-  uzoff_t t;    /* space left in best bin (index k) */
+  ulg **s;      /* pointers to e[], sorted descending (malloc'ed) */
+  ulg t;        /* space left in best bin (index k) */
 
   /* Algorithm:
      1. Copy a[] to e[] and sort pointers to e[0..n-1] (in s[]), in
@@ -336,15 +344,15 @@ uzoff_t d;          /* amount to deduct from first bin */
 
   /* Copy a[] to e[], put pointers to e[] in s[], and sort s[].  Also compute
      the initial number of bins (minus 1). */
-  if ((e = (uzoff_t *)malloc(n * sizeof(uzoff_t))) == NULL ||
-      (s = (uzoff_t **)malloc(n * sizeof(uzoff_t *))) == NULL)
+  if ((e = (ulg *)malloc(n * sizeof(ulg))) == NULL ||
+      (s = (ulg **)malloc(n * sizeof(ulg *))) == NULL)
   {
     if (e != NULL)
       free((zvoid *)e);
     ziperr(ZE_MEM, "was trying a smart split");
     return 0;                           /* only to make compiler happy */
   }
-  memcpy((char *)e, (char *)a, n * sizeof(uzoff_t));
+  memcpy((char *)e, (char *)a, n * sizeof(ulg));
   for (t = i = 0; i < n; i++)
     t += *(s[i] = e + i);
   m = (extent)((t + c - 1) / c) - 1;    /* pre-decrement for loop */
@@ -353,7 +361,7 @@ uzoff_t d;          /* amount to deduct from first bin */
   /* Stuff bins until successful */
   do {
     /* Increment the number of bins, allocate and initialize bins */
-    if ((b = (uzoff_t *)malloc(++m * sizeof(uzoff_t))) == NULL)
+    if ((b = (ulg *)malloc(++m * sizeof(ulg))) == NULL)
     {
       free((zvoid *)s);
       free((zvoid *)e);
@@ -378,7 +386,7 @@ uzoff_t d;          /* amount to deduct from first bin */
 
       /* Diminish that bin and save where it goes */
       b[k] -= *s[i];
-      a[(int)((uzoff_t huge *)(s[i]) - (uzoff_t huge *)e)] = k;
+      a[(int)((ulg huge *)(s[i]) - (ulg huge *)e)] = k;
     }
 
     /* Clean up */
@@ -422,19 +430,19 @@ char **argv;            /* command line tokens */
 /* Split a zip file into several zip files less than a specified size.  See
    the command help in help() above. */
 {
-  uzoff_t *a;           /* malloc'ed list of sizes, dest bins */
+  ulg *a;               /* malloc'ed list of sizes, dest bins */
   extent *b;            /* heads of bin linked lists (malloc'ed) */
-  uzoff_t c;            /* bin capacity, start of central directory */
+  zoff_t c;             /* bin capacity, start of central directory */
   int d;                /* if true, just report the number of disks */
   FILE *e;              /* input zip file */
   FILE *f;              /* output index and zip files */
   extent g;             /* number of bins from greedy(), entry to write */
   int h;                /* how to split--true means simple split, counter */
-  zoff_t i = 0;            /* size of index file plus room to leave */
+  ulg i = 0;            /* size of index file plus room to leave */
   extent j;             /* steps through zip entries, bins */
   int k;                /* next argument type */
   extent *n = NULL;     /* next item in bin list (heads in b) */
-  uzoff_t *p;           /* malloc'ed list of sizes, dest bins for greedy() */
+  ulg *p;               /* malloc'ed list of sizes, dest bins for greedy() */
   char *q;              /* steps through option characters */
   int r;                /* temporary variable, counter */
   extent s;             /* number of bins needed */
@@ -455,11 +463,8 @@ char **argv;            /* command line tokens */
   if (argc == 1)
   {
     help();
-    EXIT(ZE_OK);
+    EXIT(0);
   }
-
-  /* Informational messages are written to stdout. */
-  mesg = stdout;
 
   init_upper();           /* build case map table */
 
@@ -467,21 +472,6 @@ char **argv;            /* command line tokens */
   signal(SIGINT, handler);
 #ifdef SIGTERM                 /* Amiga has no SIGTERM */
   signal(SIGTERM, handler);
-#endif
-#ifdef SIGABRT
-  signal(SIGABRT, handler);
-#endif
-#ifdef SIGBREAK
-  signal(SIGBREAK, handler);
-#endif
-#ifdef SIGBUS
-  signal(SIGBUS, handler);
-#endif
-#ifdef SIGILL
-  signal(SIGILL, handler);
-#endif
-#ifdef SIGSEGV
-  signal(SIGSEGV, handler);
 #endif
   k = h = x = d = u = 0;
   c = DEFSIZ;
@@ -499,12 +489,12 @@ char **argv;            /* command line tokens */
                 k = 1;          /* Next non-option is path */
               break;
             case 'h':   /* Show help */
-              help();  EXIT(ZE_OK);
+              help();  EXIT(0);
             case 'i':   /* Make an index file */
               x = 1;
               break;
             case 'l': case 'L':  /* Show copyright and disclaimer */
-              license();  EXIT(ZE_OK);
+              license();  EXIT(0);
             case 'n':   /* Specify maximum size of resulting zip files */
               if (k)
                 ziperr(ZE_PARMS, "options are separate and precede zip file");
@@ -513,9 +503,6 @@ char **argv;            /* command line tokens */
               break;
             case 'p':
               u = 1;
-              break;
-            case 'q':   /* Quiet operation, suppress info messages */
-              noisy = 0;
               break;
             case 'r':
               if (k)
@@ -530,7 +517,7 @@ char **argv;            /* command line tokens */
               d = 1;
               break;
             case 'v':   /* Show version info */
-              version_info();  EXIT(ZE_OK);
+              version_info();  EXIT(0);
             default:
               ziperr(ZE_PARMS, "Use option -h for help.");
           }
@@ -576,7 +563,7 @@ char **argv;            /* command line tokens */
   /* Make a list of sizes and check against capacity.  Also compute the
      size of the index file. */
   c -= ENDHEAD + 4;                     /* subtract overhead/zipfile */
-  if ((a = (uzoff_t *)talloc(zcount * sizeof(uzoff_t))) == NULL ||
+  if ((a = (ulg *)talloc(zcount * sizeof(ulg))) == NULL ||
       (w = (struct zlist far **)talloc(zcount * sizeof(struct zlist far *))) ==
        NULL)
   {
@@ -590,7 +577,7 @@ char **argv;            /* command line tokens */
     if (x)
       i += z->nam + 6 + NL;
     t += a[j] = 8 + LOCHEAD + CENHEAD +
-           2 * (zoff_t)z->nam + 2 * (zoff_t)z->ext + z->com + z->siz;
+           2 * (ulg)z->nam + 2 * (ulg)z->ext + z->com + z->siz;
     if (a[j] > c)
       ziperr(ZE_BIG, z->zname);
   }
@@ -600,9 +587,9 @@ char **argv;            /* command line tokens */
     s = simple(a, zcount, c, i);
   else
   {
-    if ((p = (uzoff_t *)talloc(zcount * sizeof(uzoff_t))) == NULL)
+    if ((p = (ulg *)talloc(zcount * sizeof(ulg))) == NULL)
       ziperr(ZE_MEM, "was computing split");
-    memcpy((char *)p, (char *)a, zcount * sizeof(uzoff_t));
+    memcpy((char *)p, (char *)a, zcount * sizeof(ulg));
     s = simple(a, zcount, c, i);
     g = greedy(p, zcount, c, i);
     if (s <= g)
@@ -616,13 +603,13 @@ char **argv;            /* command line tokens */
   }
   printf("%ld zip files w%s be made (%s%% efficiency)\n",
          (ulg)s, d ? "ould" : "ill",
-         zip_fzofft( ((200 * ((t + c - 1)/c)) / s + 1) / 2, NULL, "d"));
+         fzofft( ((200 * ((t + c - 1)/c)) / s + 1)/ 2, NULL, NULL));
   if (d)
   {
     tfreeall();
     free((zvoid *)zipfile);
     zipfile = NULL;
-    EXIT(ZE_OK);
+    EXIT(0);
   }
 
   /* Set up path for output files */
@@ -759,9 +746,7 @@ char **argv;            /* command line tokens */
         ziperr(ZE_CREAT, path);
       }
       for (j = 0; j < zcount; j++)
-        fprintf(f, "%5s %s\n",
-         zip_fzofft( (a[j] + 1), NULL, "d"), w[j]->zname);
-
+        fprintf(f, "%5ld %s\n", a[j] + 1, w[j]->zname);
       if ((j = ferror(f)) != 0 || fclose(f))
       {
         if (j)
@@ -785,7 +770,7 @@ char **argv;            /* command line tokens */
     /* write local headers and copy compressed data */
     for (g = b[j]; g != (extent)-1; g = (extent)n[g])
     {
-      if (zfseeko(e, w[g]->off, SEEK_SET))
+      if (fseek(e, w[g]->off, SEEK_SET))
         ziperr(ferror(e) ? ZE_READ : ZE_EOF, zipfile);
       if ((r = zipcopy(w[g], e, f)) != ZE_OK)
       {
@@ -800,7 +785,7 @@ char **argv;            /* command line tokens */
     }
 
     /* write central headers */
-    if ((c = zftello(f)) == (uzoff_t)-1)
+    if ((c = zftello(f)) == (zoff_t)-1)
     {
       if (u && retry()) goto redobin;
       ziperr(ZE_WRITE, path);

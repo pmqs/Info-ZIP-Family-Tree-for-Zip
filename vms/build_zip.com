@@ -30,7 +30,7 @@ $!     - force installation of UNIX interface version of zip
 $!       (override LOCAL_ZIP environment): "NOVMSCLI" or "NOCLI"
 $!
 $!     To specify additional options, define the global symbol
-$!     LOCAL_ZIP as a comma-separated list of the C macros to be
+$!     LOCAL_UNZIP as a comma-separated list of the C macros to be
 $!     defined, and then run BUILD_ZIP.COM.  For example:
 $!
 $!             $ LOCAL_ZIP == "VMS_IM_EXTRA"

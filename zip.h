@@ -5,24 +5,23 @@
 
 Info-ZIP Licence
 
-This is version 2005-Feb-10 of the Info-ZIP copyright and license.
+This is version 2003-May-08 of the Info-ZIP copyright and license.
 The definitive version of this document should be available at
 ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely.
 
 
-Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2004 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
 
    Mark Adler, John Bush, Karl Davis, Harald Denker, Jean-Michel Dubois,
-   Jean-loup Gailly, Hunter Goatley, Ed Gordon, Ian Gorman, Chris Herborth,
-   Dirk Haase, Greg Hartwig, Robert Heath, Jonathan Hudson, Paul Kienitz,
-   David Kirschbaum, Johnny Lee, Onno van der Linden, Igor Mandrichenko,
-   Steve P. Miller, Sergio Monesi, Keith Owens, George Petrov, Greg Roelofs,
-   Kai Uwe Rommel, Steve Salisbury, Dave Smith, Steven M. Schweda,
-   Christian Spieler, Cosmin Truta, Antoine Verheijen, Paul von Behren,
-   Rich Wales, Mike White
+   Jean-loup Gailly, Hunter Goatley, Ian Gorman, Chris Herborth, Dirk Haase,
+   Greg Hartwig, Robert Heath, Jonathan Hudson, Paul Kienitz, David Kirschbaum,
+   Johnny Lee, Onno van der Linden, Igor Mandrichenko, Steve P. Miller,
+   Sergio Monesi, Keith Owens, George Petrov, Greg Roelofs, Kai Uwe Rommel,
+   Steve Salisbury, Dave Smith, Christian Spieler, Antoine Verheijen,
+   Paul von Behren, Rich Wales, Mike White
 
 This software is provided "as is," without warranty of any kind, express
 or implied.  In no event shall Info-ZIP or its contributors be held liable
@@ -135,18 +134,13 @@ typedef struct iztimes {
 /* Structures for in-memory file information */
 struct zlist {
   /* See central header in zipfile.c for what vem..off are */
-  /* Do not rearrange these as less than smart coding in zipfile.c
-     in scanzipf_reg() depends on u being set to ver and then stepping
-     through as a byte array.  Ack.  Should be fixed.  5/25/2005 EG */
   ush vem, ver, flg, how;
   ulg tim, crc;
-  uzoff_t siz, len;             /* zip64 support 08/29/2003 R.Nausedat */
-  /* changed from extent to ush 3/10/2005 EG */
-  ush nam, ext, cext, com;      /* offset of ext must be >= LOCHEAD */
-  ulg dsk;                      /* disk number was ush but now ulg */
-  ush att, lflg;                /* offset of lflg must be >= LOCHEAD */
-  uzoff_t off;
-  ulg atx;
+  zoff_t siz, len;              /* zip64 support 08/29/2003 R.Nausedat */
+  extent nam, ext, cext, com;   /* offset of ext must be >= LOCHEAD */
+  ush dsk, att, lflg;           /* offset of lflg must be >= LOCHEAD */
+  ulg atx; 
+  zoff_t off;
   char *name;                   /* File name in zip file */
   char *extra;                  /* Extra field (set only if ext != 0) */
   char *cextra;                 /* Extra in central (set only if cext != 0) */
@@ -163,7 +157,7 @@ struct flist {
   char *iname;                  /* Internal file name after cleanup */
   char *zname;                  /* External version of internal name */
   int dosflag;                  /* Set to force MSDOS file attributes */
-  uzoff_t usize;                /* usize from initial scan */
+  zoff_t usize;                 /* used for totals 10/30/04 EG */
   struct flist far *far *lst;   /* Pointer to link pointing here */
   struct flist far *nxt;        /* Link to next name */
 };
@@ -260,15 +254,12 @@ extern uch lower[256];
 extern ZCONST uch ascii[256];   /* EBCDIC <--> ASCII translation tables */
 extern ZCONST uch ebcdic[256];
 #endif /* EBCDIC */
-
-/* Are these ever used?  6/12/05 EG */
 #ifdef IZ_ISO2OEM_ARRAY         /* ISO 8859-1 (Win CP 1252) --> OEM CP 850 */
 extern ZCONST uch Far iso2oem[128];
 #endif
 #ifdef IZ_OEM2ISO_ARRAY         /* OEM CP 850 --> ISO 8859-1 (Win CP 1252) */
 extern ZCONST uch Far oem2iso[128];
 #endif
-
 extern char errbuf[FNMAX+81];   /* Handy place to build error messages */
 extern int recurse;             /* Recurse into directories encountered */
 extern int dispose;             /* Remove files after put in zip file */
@@ -293,8 +284,6 @@ extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
 #ifdef VMS
    extern int vmsver;           /* Append VMS version number to file names */
    extern int vms_native;       /* Store in VMS format */
-   extern int vms_case_2;       /* ODS2 file name case in VMS. -1: down. */
-   extern int vms_case_5;       /* ODS5 file name case in VMS. +1: preserve. */
 #endif /* VMS */
 #if defined(OS2) || defined(WIN32)
    extern int use_longname_ea;   /* use the .LONGNAME EA as the file's name */
@@ -311,19 +300,11 @@ extern int dot_count;           /* if dot_size not 0 counts buffers */
 /* status 10/30/04 EG */
 extern int display_counts;      /* display running file count */
 extern int display_bytes;       /* display running bytes remaining */
-extern int display_usize;       /* display uncompressed bytes */
-extern ulg files_so_far;        /* files processed so far */
-extern ulg bad_files_so_far;    /* files skipped so far */
-extern ulg files_total;         /* files total to process */
-extern uzoff_t bytes_so_far;    /* bytes processed so far (from initial scan) */
-extern uzoff_t good_bytes_so_far;/* good bytes read so far */
-extern uzoff_t bad_bytes_so_far;/* bad bytes skipped so far */
-extern uzoff_t bytes_total;     /* total bytes to process (from initial scan) */
-/* logfile 6/5/05 EG */
-extern int logall;          /* 0 = warnings/errors, 1 = all */
-extern FILE *logfile;           /* pointer to open logfile or NULL */
-extern int logfile_append;      /* append to existing logfile */
-extern char *logfile_path;      /* pointer to path of logfile */
+extern long files_so_far;       /* files processed so far */
+extern long files_total;        /* files total to process */
+extern zoff_t bytes_so_far;     /* bytes processed so far */
+extern zoff_t bytes_total;      /* total bytes to process */
+
 
 extern int hidden_files;        /* process hidden and system files */
 extern int volume_label;        /* add volume label */
@@ -331,33 +312,13 @@ extern int dirnames;            /* include directory names */
 extern int linkput;             /* Store symbolic links as such */
 extern int noisy;               /* False for quiet operation */
 extern int extra_fields;        /* do not create extra fields */
-#ifdef NTSD_EAS
- extern int use_privileges;     /* use security privilege overrides */
+#ifdef WIN32
+ extern int use_privileges;  /* use security privilege overrides */
 #endif
-extern int use_descriptors;     /* use data descriptors (extended headings) */
-extern int zip_to_stdout;       /* output to stdout */
-extern int output_seekable;     /* 1 = output seekable 3/13/05 EG */
 #ifdef ZIP64_SUPPORT            /* zip64 globals 10/4/03 E. Gordon */
- extern int force_zip64;        /* force use of zip64 when streaming from stdin */
- extern int zip64_entry;        /* current entry needs Zip64 */
- extern int zip64_archive;      /* at least 1 entry needs zip64 */
-#endif
-#ifdef SPLIT_SUPPORT
- extern ulg    current_disk;    /* current disk number */
- extern ulg    cd_start_disk;   /* central directory start disk */
- extern zoff_t cd_start_offset; /* offset of start of cd on cd start disk */
- extern uzoff_t cd_entries_this_disk; /* cd entries this disk */
- extern uzoff_t total_cd_entries; /* total cd entries */
-  /* for split method 1 (keep split with local header open and update) */
- extern FILE  *current_local_file; /* file pointer for current local header */
- extern ulg    current_local_disk; /* disk with current local header */
- extern zoff_t current_local_offset; /* offset to start of current local header */
-  /* global */
- extern int read_split_archive; /* 1=scanzipf_reg detected spanning signature */
- extern int split_method;       /* 0=no splits, 1=update LHs, 2=data descriptors */
- extern uzoff_t split_size;     /* how big each split should be */
- extern uzoff_t bytes_prev_splits; /* total bytes written to all splits before this */
- extern uzoff_t bytes_this_split_entry; /* bytes written for this entry in this split */
+ extern int force_zip64;     /* force use of zip64 when streaming from stdin */
+ extern int zip64_entry;     /* current entry needs Zip64 */
+ extern int zip64_archive;   /* at least 1 entry needs zip64 */
 #endif
 extern char *key;               /* Scramble password or NULL */
 extern char *tempath;           /* Path for temporary files */
@@ -367,26 +328,20 @@ extern char *zipfile;           /* New or existing zip archive (zip file) */
 /* splits 8/7/2004 EG */
 extern ulg disk_number;            /* current disk number */
 extern ulg cd_start_disk;          /* central directory start disk */
-extern uzoff_t cd_entries_this_disk;/* cd entries this disk */
-extern uzoff_t total_cd_entries;   /* total cd entries */
-extern uzoff_t cd_start_offset;    /* offset of start of cd on cd start disk */
+extern zoff_t cd_entries_this_disk;/* cd entries this disk */
+extern zoff_t total_cd_entries;    /* total cd entries */
+extern zoff_t cd_start_offset;     /* offset of start of cd on cd start disk */
 
 /* zip64 support 08/31/2003 R.Nausedat */
-extern uzoff_t zipbeg;          /* Starting offset of zip structures */
-extern uzoff_t cenbeg;          /* Starting offset of central directory */
-extern uzoff_t tempzn;          /* Count of bytes written to output zip file */
+extern zoff_t zipbeg;           /* Starting offset of zip structures */
+extern zoff_t cenbeg;           /* Starting offset of central directory */
+extern zoff_t tempzn;           /* Count of bytes written to output zip file */
 /* splits 8/7/2004 EG */
-extern uzoff_t total_bytes_written; /* Bytes written to all files */
-
-/* NOTE: zcount and fcount cannot exceed "size_t" (resp. "extent") range.
-   This is an internal limitation built into Zip's action handling:
-   Zip keeps "{z|f}count * struct {z|f}list" arrays in (flat) memory,
-   for sorting, file matching, and building the central-dir structures.
- */
+extern zoff_t total_bytes_written; /* Bytes written to all files */
 
 extern struct zlist far *zfiles;/* Pointer to list of files in zip file */
 extern extent zcount;           /* Number of files in zip file */
-extern ush zcomlen;             /* Length of zip file comment */
+extern extent zcomlen;          /* Length of zip file comment */
 extern char *zcomment;          /* Zip file comment (not zero-terminated) */
 extern struct zlist far **zsort;/* List of files sorted by name */
 extern struct flist far *found; /* List of names found */
@@ -396,7 +351,6 @@ extern extent fcount;           /* Count of names in found list */
 extern struct plist *patterns;  /* List of patterns to be matched */
 extern unsigned pcount;         /* number of patterns */
 extern unsigned icount;         /* number of include only patterns */
-extern unsigned Rcount;         /* number of -R include patterns */
 
 #ifdef IZ_CHECK_TZ
 extern int zp_tz_is_valid;      /* signals "timezone info is available" */
@@ -456,12 +410,12 @@ extern int aflag;
 #ifdef CMS_MVS
 extern int bflag;
 #endif /* CMS_MVS */
-void zipwarn  OF((ZCONST char *, ZCONST char *));
-void ziperr   OF((int, ZCONST char *));
+void zipwarn  OF((char *, char *));
+void ziperr   OF((int, char *));
 #ifdef UTIL
 #  define error(msg)    ziperr(ZE_LOGIC, msg)
 #else
-   void error OF((ZCONST char *));
+   void error OF((char *));
 #  ifdef VMSCLI
      void help OF((void));
 #  endif
@@ -471,7 +425,7 @@ void ziperr   OF((int, ZCONST char *));
         /* in zipup.c */
 #ifndef UTIL
   /* zip64 support 08/31/2003 R.Nausedat */
-   int percent OF((uzoff_t, uzoff_t));
+   int percent OF((zoff_t, zoff_t));
 
    int zipup OF((struct zlist far *, FILE *));
 #  ifdef USE_ZLIB
@@ -500,9 +454,7 @@ int putlocal OF((struct zlist far *, FILE *));
 int putextended OF((struct zlist far *, FILE *));
 int putcentral OF((struct zlist far *, FILE *));
 /* zip64 support 09/05/2003 R.Nausedat */
-int putend OF((uzoff_t, uzoff_t, uzoff_t, ush, char *, FILE *));
-/* moved seekable to separate function 3/14/05 EG */
-int is_seekable OF((FILE *));
+int putend OF((zoff_t, zoff_t, zoff_t, extent, char *, FILE *));
 int zipcopy OF((struct zlist far *, FILE *, FILE *));
 
         /* in fileio.c */
@@ -536,7 +488,7 @@ int getfileattr OF((char *));
 int setfileattr OF((char *, int));
 char *tempname OF((char *));
 
-int fcopy OF((FILE *, FILE *, uzoff_t));
+int fcopy OF((FILE *, FILE *, zoff_t));
 
 #ifdef ZMEM
    char *memset OF((char *, int, unsigned int));
@@ -577,14 +529,9 @@ int   shmatch      OF((ZCONST char *, ZCONST char *, int));
 #endif /* DOS || WIN32 */
 #endif /* !UTIL */
 
-/* functions to convert zoff_t to a string */
-char *zip_fuzofft      OF((uzoff_t, char *, char*));
-char *zip_fzofft       OF((zoff_t, char *, char*));
-
 /* read and write number strings like 10M */
-int DisplayNumString OF ((FILE *file, uzoff_t i));
-int WriteNumString OF((uzoff_t num, char *outstring));
-uzoff_t ReadNumString OF((char *numstring));
+int WriteNumString OF((zoff_t num, char *outstring));
+zoff_t ReadNumString OF((char *numstring));
 
 void init_upper    OF((void));
 int  namecmp       OF((ZCONST char *string1, ZCONST char *string2));
@@ -626,12 +573,12 @@ void free_crc_table OF((void));
 void lm_init OF((int, ush *));
 void lm_free OF((void));
 
-uzoff_t deflate OF((void));
+zoff_t deflate OF((void));
 
         /* in trees.c */
 void     ct_init      OF((ush *, int *));
 int      ct_tally     OF((int, int));
-uzoff_t  flush_block  OF((char far *, ulg, int));
+zoff_t   flush_block    OF((char far *, ulg, int));
 void     bi_init      OF((char *, unsigned int, int));
 #endif /* !USE_ZLIB */
 #endif /* !UTIL */

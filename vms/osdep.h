@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 1999-Oct-05 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, all these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
+  If, for some reason, both of these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
 */
 #ifndef VMS
 #  define VMS 1
@@ -65,18 +65,12 @@
 
 #include <types.h>
 
-#ifdef __GNUC__
-#include <sys/types.h>
-#endif /* def __GNUC__ */
-
 /* Need types.h for off_t. */
 
 #ifdef LARGE_FILE_SUPPORT
    typedef off_t zoff_t;
-   typedef unsigned long long uzoff_t;
 #else /* def LARGE_FILE_SUPPORT */
    typedef long zoff_t;
-   typedef unsigned long uzoff_t;
 #endif /* def LARGE_FILE_SUPPORT */
 
 #include <stat.h>

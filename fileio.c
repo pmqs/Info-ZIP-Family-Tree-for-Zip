@@ -1,11 +1,11 @@
 /*
   fileio.c - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2004 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2003-May-08 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, all these files are missing, the Info-ZIP license
+  If, for some reason, both of these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
@@ -52,13 +52,9 @@ int rename OF((ZCONST char *, ZCONST char *));
 #endif
 
 
-/* Local functions */
-local int optionerr OF((char *, ZCONST char *, int, int));
-local unsigned long get_shortopt OF((char **, int, int *, int *, char **, int *, int));
-local unsigned long get_longopt OF((char **, int, int *, int *, char **, int *, int));
-
 #ifndef UTIL    /* the companion #endif is a bit of ways down ... */
 
+/* Local functions */
 local int fqcmp  OF((ZCONST zvoid *, ZCONST zvoid *));
 local int fqcmpz OF((ZCONST zvoid *, ZCONST zvoid *));
 
@@ -88,7 +84,7 @@ char *getnam(fp)
   char name[GETNAM_MAX + 1];
   int c;                /* last character read */
   char *p;              /* pointer into name area */
-
+  
 
   p = name;
   while ((c = getc(fp)) == '\n' || c == '\r')
@@ -301,82 +297,65 @@ int check_dup()
 int filter(name, casesensitive)
   char *name;
   int casesensitive;
-  /* Scan the -R, -i and -x lists for matches to the given name.
-     Return TRUE if the name must be included, FALSE otherwise.
-     Give precedence to -x over -i and -R.
-     Note that if both R and i patterns are given then must
-     have a match for both.
-     This routine relies on the following global variables:
-       patterns                 array of match pattern structures
-       pcount                   total number of patterns
-       icount                   number of -i patterns
-       Rcount                   number of -R patterns
-     These data are set up by the command line parsing code.
+  /* Scan the -i and -x lists for matches to the given name.
+     Return true if the name must be included, false otherwise.
+     Give precedence to -x over -i.
    */
 {
    unsigned int n;
    int slashes;
+   int include = icount ? 0 : 1;
    char *p, *q;
-   /* without -i patterns, every name matches the "-i select rules" */
-   int imatch = (icount == 0);
-   /* without -R patterns, every name matches the "-R select rules" */
-   int Rmatch = (Rcount == 0);
+   int Icount = 0;
+   int Rmatch = 0;
+   int Rcount = 0;
 
-   if (pcount == 0) return TRUE;
+   if (pcount == 0) return 1;
+
+   /* do R separately so can give i precedence over R 8/7/2004 EG */
+   for (n = 0; n < pcount; n++) {
+      if (!patterns[n].zname[0])        /* it can happen... */
+          continue;
+      if (patterns[n].select != 'R')
+          continue;
+      Rcount++;
+      p = name;
+      /* With -R patterns, if the pattern has N path components (that is, */
+      /* N-1 slashes), then we test only the last N components of name.   */
+      slashes = 0;
+      for (q = patterns[n].zname; (q = MBSCHR(q, '/')) != NULL; INCSTR(q))
+         slashes++;
+      for (q = p; (q = MBSCHR(q, '/')) != NULL; INCSTR(q))
+         slashes--;
+      if (slashes < 0)
+         for (q = p; (q = MBSCHR(q, '/')) != NULL; INCSTR(q))
+            if (slashes++ == 0) {
+               p = q + CLEN(q);
+               break;
+            }
+      if (MATCH(patterns[n].zname, p, casesensitive)) {
+         Rmatch = 1;
+         break;
+      }
+   }
+   if (Rcount && !Rmatch)
+      return 0;
 
    for (n = 0; n < pcount; n++) {
       if (!patterns[n].zname[0])        /* it can happen... */
-         continue;
+          continue;
       p = name;
-      switch (patterns[n].select) {
-       case 'R':
-         if (Rmatch)
-            /* one -R match is sufficient, skip this pattern */
-            continue;
-         /* With -R patterns, if the pattern has N path components (that is,
-            N-1 slashes), then we test only the last N components of name.
-          */
-         slashes = 0;
-         for (q = patterns[n].zname; (q = MBSCHR(q, '/')) != NULL; INCSTR(q))
-            slashes++;
-         /* The name may have M path components (M-1 slashes) */
-         for (q = p; (q = MBSCHR(q, '/')) != NULL; INCSTR(q))
-            slashes--;
-         /* Now, "slashes" contains the difference "N-M" between the number
-            of path components in the pattern (N) and in the name (M).
-          */
-         if (slashes < 0)
-            /* We found "M > N"
-                --> skip the first (M-N) path components of the name.
-             */
-            for (q = p; (q = MBSCHR(q, '/')) != NULL; INCSTR(q))
-               if (++slashes == 0) {
-                  p = q + 1;    /* q points at '/', mblen("/") is 1 */
-                  break;
-               }
-         break;
-       case 'i':
-         if (imatch)
-            /* one -i match is sufficient, skip this pattern */
-            continue;
-         break;
-      }
+      if (patterns[n].select == 'R')
+          continue;
+      if (patterns[n].select == 'i')
+          Icount++;
       if (MATCH(patterns[n].zname, p, casesensitive)) {
-         switch (patterns[n].select) {
-            case 'x':
-               /* The -x match takes precedence over everything else */
-               return FALSE;
-            case 'R':
-               Rmatch = TRUE;
-               break;
-            default:
-               /* this must be a type -i match */
-               imatch = TRUE;
-               break;
-         }
+         if (patterns[n].select == 'x') return 0;
+         include = 1;
       }
    }
-   return imatch && Rmatch;
+   if (Icount == 0) include = 1;
+   return include;
 }
 
 int newname(name, isdir, casesensitive)
@@ -727,8 +706,8 @@ char *d, *s;            /* destination and source file names */
     if (SWI_OS_FSControl_26(s,d,0xA1)!=NULL) {
 #endif
 
-    /* Use zfopen for almost all opens where fopen is used.  For
-       most OS that support large files we use the 64-bit file
+    /* Use zfopen for all opens.  For most OS
+       that support large files we use the 64-bit file
        environment and zfopen maps to fopen, but this allows
        tweeking ports that don't do that.  7/24/04 EG */
     if ((f = zfopen(s, FOPR)) == NULL) {
@@ -856,7 +835,6 @@ char *zip;              /* path name of zip file to generate temp name for */
   char *tptr = &temp_subvol[0];
   short err;
   FILE *tempf;
-  int attempts;
 
   t = (char *)malloc(NAMELEN); /* malloc here as you cannot free */
                                /* tmpnam allocated storage later */
@@ -871,7 +849,7 @@ char *zip;              /* path name of zip file to generate temp name for */
     strcat(cptr, getenv("DEFAULTS"));
 
     strncat(tptr, zip, _min(FILENAME_MAX, (zptr - zip)) ); /* temp subvol */
-    strncat(t, zip, _min(NAMELEN, ((zptr - zip) + 1)) );   /* temp stem   */
+    strncat(t,zip, _min(NAMELEN, ((zptr - zip) + 1)) );    /* temp stem   */
 
     err = chvol(tptr);
     ptr = t + strlen(t);  /* point to end of stem */
@@ -883,16 +861,10 @@ char *zip;              /* path name of zip file to generate temp name for */
      with the temporary filename.  As a work around we attempt to create
      the file here, and if it already exists we get a new temporary name */
 
-  attempts = 0;
   do {
-    attempts++;
     tmpnam(ptr);  /* Add filename */
     tempf = zfopen(ptr, FOPW_TMP);    /* Attempt to create file */
-  } while (tempf == NULL && attempts < 100);
-
-  if (attempts >= 100) {
-    ziperr(ZE_TEMP, "Could not get unique temp file name");
-  }
+  } while (tempf == NULL);
 
   fclose(tempf);
 
@@ -968,21 +940,21 @@ char *zip;              /* path name of zip file to generate temp name for */
 
 int fcopy(f, g, n)
   FILE *f, *g;            /* source and destination files */
-  /* now use uzoff_t for all file sizes 5/14/05 CS */
-  uzoff_t n;               /* number of bytes to copy or -1 for all */
-/* Copy n bytes from file *f to file *g, or until EOF if (zoff_t)n == -1.
-   Return an error code in the ZE_ class. */
+  /* now use zoff_t for all file sizes and offsets 7/24/04 EG */
+  zoff_t n;               /* number of bytes to copy or -1 for all */
+/* Copy n bytes from file *f to file *g, or until EOF if n == -1.  Return
+   an error code in the ZE_ class. */
 {
   char *b;              /* malloc'ed buffer for copying */
   extent k;             /* result of fread() */
-  uzoff_t m;            /* bytes copied so far */
+  zoff_t m;             /* bytes copied so far */
 
   if ((b = malloc(CBSZ)) == NULL)
     return ZE_MEM;
   m = 0;
-  while (n == (uzoff_t)(-1L) || m < n)
+  while (n == (zoff_t)(-1L) || m < n)
   {
-    if ((k = fread(b, 1, n == (uzoff_t)(-1) ?
+    if ((k = fread(b, 1, n == (zoff_t)(-1) ?
                    CBSZ : (n - m < CBSZ ? (extent)(n - m) : CBSZ), f)) == 0)
     {
       if (ferror(f))
@@ -1136,9 +1108,8 @@ register unsigned int len;
    to represent additional characters than can fit in a single byte
    character set.  The code used here is based on the ANSI mblen function. */
 #ifdef MULTIBYTE_GETOPTNS
-  local int mb_clen OF((ZCONST char *));  /* declare proto first */
-  local int mb_clen(ptr)
-    ZCONST char *ptr;
+  int mb_clen(ptr)
+    char *ptr;
   {
     /* return the number of bytes that the char pointed to is.  Return 1 if
        null character or error like not start of valid multibyte character. */
@@ -1170,7 +1141,7 @@ register unsigned int len;
 /* 7/25/04 EG */
 #define READ_REST_ARGS_VERBATIM -7
 
-
+ 
 /* global veriables */
 
 int enable_permute = 1;                     /* yes - return options first */
@@ -1182,17 +1153,17 @@ int doubledash_ends_options = 1;            /* when -- what follows are not opti
 char optionerrbuf[OPTIONERR_BUF_SIZE + 1];
 
 /* error messages */
-static ZCONST char Far op_not_neg_err[] = "option %s not negatable";
-static ZCONST char Far op_req_val_err[] = "option %s requires a value";
-static ZCONST char Far op_no_allow_val_err[] = "option %s does not allow a value";
-static ZCONST char Far sh_op_not_sup_err[] = "short option '%c' not supported";
-static ZCONST char Far oco_req_val_err[] = "option %s requires one character value";
-static ZCONST char Far oco_no_mbc_err[] = "option %s does not support multibyte values";
-static ZCONST char Far num_req_val_err[] = "option %s requires number value";
-static ZCONST char Far long_op_ambig_err[] = "long option '%s' ambiguous";
-static ZCONST char Far long_op_not_sup_err[] = "long option '%s' not supported";
+static ZCONST Far char op_not_neg_err[] = "option %s not negatable";
+static ZCONST Far char op_req_val_err[] = "option %s requires a value";
+static ZCONST Far char op_no_allow_val_err[] = "option %s does not allow a value";
+static ZCONST Far char sh_op_not_sup_err[] = "short option '%c' not supported";
+static ZCONST Far char oco_req_val_err[] = "option %s requires one character value";
+static ZCONST Far char oco_no_mbc_err[] = "option %s does not support multibyte values";
+static ZCONST Far char num_req_val_err[] = "option %s requires number value";
+static ZCONST Far char long_op_ambig_err[] = "long option '%s' ambiguous";
+static ZCONST Far char long_op_not_sup_err[] = "long option '%s' not supported";
 
-static ZCONST char Far no_arg_files_err[] = "argument files not enabled\n";
+static ZCONST Far char no_arg_files_err[] = "argument files not enabled\n";
 
 
 /* below removed as only used for processing argument files */
@@ -1207,9 +1178,9 @@ static ZCONST char Far no_arg_files_err[] = "argument files not enabled\n";
 
 
 /* copy error, option name, and option description if any to buf */
-local int optionerr(buf, err, optind, islong)
+int optionerr(buf, err, optind, islong)
   char *buf;
-  ZCONST char *err;
+  char *err;
   int optind;
   int islong;
 {
@@ -1250,7 +1221,7 @@ local int optionerr(buf, err, optind, islong)
  *                  value lists.
  *    depth       - recursion depth (0 at top level, 1 or more in arg files)
  */
-local unsigned long get_shortopt(args, argnum, optchar, negated, value, option_num, depth)
+unsigned long get_shortopt(args, argnum, optchar, negated, value, option_num, depth)
   char **args;
   int argnum;
   int *optchar;
@@ -1397,21 +1368,14 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value, option_n
       clen = MB_CLEN(s);
     } else if (options[match].value_type == o_OPTIONAL_VALUE) {
       /* optional value */
-      /* This was inconsistent so now if no value attached to argument look to next
-         argument if that argument is not an option for option value - 11/12/04 EG */
+      /* this was inconsistent so now if no value attached to argument look to next argument
+         if that argument is not an option for option value - 11/12/04 EG */
       if (arg[(*optchar) + clen]) {
         /* has value */
-        /* add support for optional = - 2/6/05 EG */
-        if (arg[(*optchar) + clen] == '=') {
-          /* skip = */
-          clen++;
+        if ((*value = (char *) malloc(strlen(arg + (*optchar) + clen) + 1)) == NULL) {
+          oERR(ZE_MEM, "gso");
         }
-        if (arg[(*optchar) + clen]) {
-          if ((*value = (char *) malloc(strlen(arg + (*optchar) + clen) + 1)) == NULL) {
-            oERR(ZE_MEM, "gso");
-          }
-          strcpy(*value, arg + (*optchar) + clen);
-        }
+        strcpy(*value, arg + (*optchar) + clen);
         *optchar = THIS_ARG_DONE;
       } else if (args[argnum + 1] && args[argnum + 1][0] != '-') {
         /* use next arg for value */
@@ -1427,11 +1391,6 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value, option_n
       /* see if follows option */
       if (arg[(*optchar) + clen]) {
         /* has value following option as -ovalue */
-        /* add support for optional = - 6/5/05 EG */
-        if (arg[(*optchar) + clen] == '=') {
-          /* skip = */
-          clen++;
-        }
         if ((*value = (char *) malloc(strlen(arg + (*optchar) + clen) + 1)) == NULL) {
           oERR(ZE_MEM, "gso");
         }
@@ -1483,7 +1442,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value, option_n
  * Get the long option in args array at argnum.  Parameters same as for get_shortopt.
  */
 
-local unsigned long get_longopt(args, argnum, optchar, negated, value, option_num, depth)
+unsigned long get_longopt(args, argnum, optchar, negated, value, option_num, depth)
   char **args;
   int argnum;
   int *optchar;
@@ -1574,7 +1533,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value, option_nu
 
   /* one long option an arg */
   *optchar = THIS_ARG_DONE;
-
+  
   /* if negated then see if allowed */
   if (*negated && options[match].negatable == o_NOT_NEGATABLE) {
     optionerr(optionerrbuf, op_not_neg_err, match, 1);
@@ -1722,7 +1681,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value, option_nu
  * the - is not included in the value.  If the option is not negatable but takes
  * a value then the - will start the value.  If permuting then argnum and
  * first_nonopt_arg are unreliable and should not be used.
- *
+ *  
  * Command line is read from left to right.  As get_option() finds non-option
  * arguments (arguments not starting with - and that are not values to options) it
  * moves later options and values in front of the non-option arguments.  This
@@ -1752,11 +1711,6 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value, option_nu
  *             -evalue
  *       or
  *             -e value
- *       and now
- *             -e=value
- *       but now that = is optional a leading = is stripped for the first.
- *       This change allows optional short option values to be defaulted as
- *             -e=
  *       Either optional or required values can be specified.  Optional values
  *       now use both forms as ignoring the later got confusing.  Any
  *       non-value short options can preceed a valued short option as in
@@ -1772,9 +1726,6 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value, option_nu
  *       Any short option can be negated by following it with -.  Any - is
  *       handled and skipped over before any value is read unless the option
  *       is not negatable but takes a value and then - starts the value.
- *
- *       If the value for an optional value is just =, then treated as no
- *       value.
  *
  *  long options
  *       of arbitrary length are assumed if an arg starts with -- but is not
@@ -1811,7 +1762,6 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value, option_nu
  *       Long options with values can also be negated if this makes sense for
  *       the caller as:
  *             --longoption-=value
- *       If = is not followed by anything it is treated as no value.
  *
  *  @path
  *       Argument files support removed from this version.  It may be added
@@ -1842,7 +1792,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value, option_nu
  *  and option_num (if required) parameters after each call.
  *
  *  Ed Gordon
- *  8/24/2003 (last updated 2/5/2005 EG)
+ *  8/24/2003
  *
  */
 unsigned long get_option(pargs, argc, argnum, optchar, value,
@@ -1902,7 +1852,7 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
   if (optc == READ_REST_ARGS_VERBATIM) {
     read_rest_args_verbatim = 1;
   }
-
+  
   if (argn == -1 || (recursion_depth == 0 && argn == 0)) {
     /* first call */
     /* if depth = 0 then args[0] is argv[0] so skip */
@@ -2062,7 +2012,7 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
       option_ID = o_NON_OPTION_ARG;
       break;
     }
-
+    
     arg = args[argn];
 
     /* is it an option */
@@ -2143,12 +2093,12 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
       } else {
         /* short option */
         option_ID = get_shortopt(args, argn, &optc, negated, value, option_num, recursion_depth);
-
+        
         if (option_ID == o_ARG_FILE_ERR) {
           /* unwind as only get this if recursion_depth > 0 */
           return option_ID;
         }
-
+        
         if (optc == 0) {
           /* if optc = 0 then ran out of short opts this arg */
           optc = THIS_ARG_DONE;
@@ -2195,6 +2145,7 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
   *first_nonopt_arg = first_nonoption_arg;
   *argnum = argn;
   *optchar = optc;
-
+  
   return option_ID;
 }
+

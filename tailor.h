@@ -1,32 +1,13 @@
 /*
   tailor.h - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2004 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2003-May-08 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
-
-/* Some compiler distributions for Win32/i386 systems try to emulate
- * a Unix (POSIX-compatible) environment.
- */
-#if (defined(WIN32) && defined(UNIX))
-   /* Zip does not support merging both ports in a single executable. */
-#  if (defined(FORCE_WIN32_OVER_UNIX) && defined(FORCE_UNIX_OVER_WIN32))
-     /* conflicting choice requests -> we prefer the Win32 environment */
-#    undef FORCE_UNIX_OVER_WIN32
-#  endif
-#  ifdef FORCE_WIN32_OVER_UNIX
-     /* native Win32 support was explicitely requested... */
-#    undef UNIX
-#  else
-     /* use the POSIX (Unix) emulation features by default... */
-#    undef WIN32
-#  endif
-#endif
-
 #ifdef AMIGA
 #include "amiga/osdep.h"
 #endif
@@ -126,24 +107,20 @@
 #   define _LARGE_FILES         /* some OSes need this for 64-bit off_t */
 
     typedef off_t zoff_t;
-    typedef unsigned long long uzoff_t;  /* unsigned zoff_t (12/29/04 EG) */
 
     /* go with common prefix */
 #   define ZOFF_T_FORMAT_SIZE_PREFIX "ll"
-
+  
 # else
     /* Default type for offsets and file sizes was ulg but reports
        of using ulg to create files from 2 GB to 4 GB suggest
        it doesn't work well.  Now just switch to Zip64 or not
        support over 2 GB.  7/24/04 EG */
-    /* Now use uzoff_t for unsigned things.  12/29/04 EG */
     typedef long zoff_t;
-    typedef unsigned long uzoff_t;
-
 #   define ZOFF_T_FORMAT_SIZE_PREFIX "l"
 
 # endif
-
+  
   typedef struct stat z_stat;
 
   /* flag that we are defaulting */
@@ -272,11 +249,11 @@ IZ_IMP char *getenv();
 IZ_IMP long atol();
 #endif /* NO_STDLIB_H */
 
+#endif /* NO_PROTO */
+
 #ifndef NO_MKTEMP
 IZ_IMP char *mktemp();
 #endif /* !NO_MKTEMP */
-
-#endif /* NO_PROTO */
 
 /*
  * SEEK_* macros, should be defined in stdio.h
@@ -300,8 +277,6 @@ IZ_IMP char *mktemp();
 
 #ifdef NO_SIZE_T
    typedef unsigned int extent;
-   /* define size_t 3/17/05 EG */
-   typedef unsigned int size_t;
 #else
    typedef size_t extent;
 #endif
@@ -487,20 +462,11 @@ typedef struct ztimbuf {
 #   define zfstat fstat
 #   define zlstat lstat
 
-# if defined(__alpha) && defined(__osf__)  /* support for osf4.0f */
-    /* 64-bit fseek */
-#   define zfseeko fseek
-
-    /* 64-bit ftell */
-#   define zftello ftell
-
-# else
-     /* 64-bit fseeko */
+    /* 64-bit fseeko */
 #   define zfseeko fseeko
 
-     /* 64-bit ftello */
+    /* 64-bit ftello */
 #   define zftello ftello
-# endif                                    /* __alpha && __osf__ */
 
     /* 64-bit fopen */
 #   define zfopen fopen
@@ -531,30 +497,8 @@ typedef struct ztimbuf {
 /* ---------------------------- */
 # ifdef WIN32
 
-#   if defined(__MINGW32__)
-    /* GNU C, linked against "msvcrt.dll" */
-
-      /* 64-bit stat functions */
-#     define zstat _stati64
-#     define zfstat _fstati64
-#     define zlstat lstat
-
-      /* 64-bit fseeko */
-      /* function in win32.c */
-      int zfseeko OF((FILE *, zoff_t, int));
-
-      /* 64-bit ftello */
-      /* function in win32.c */
-      zoff_t zftello OF((FILE *));
-
-      /* 64-bit fopen */
-#     define zfopen fopen
-#     define zfdopen fdopen
-
-#   endif
-
-#   if defined(__CYGWIN__)
-    /* GNU C, CygWin with its own POSIX compatible runtime library */
+#   ifdef __GNUC__
+    /* GNU C */
 
       /* 64-bit stat functions */
 #     define zstat stat
@@ -577,17 +521,15 @@ typedef struct ztimbuf {
     /* WATCOM C */
 
       /* 64-bit stat functions */
-#     define zstat _stati64
-#     define zfstat _fstati64
+#     define zstat stat
+#     define zfstat fstat
 #     define zlstat lstat
 
       /* 64-bit fseeko */
-      /* function in win32.c */
-      int zfseeko OF((FILE *, zoff_t, int));
+#     define zfseeko fseeko
 
       /* 64-bit ftello */
-      /* function in win32.c */
-      zoff_t zftello OF((FILE *));
+#     define zftello ftello
 
       /* 64-bit fopen */
 #     define zfopen fopen
@@ -623,12 +565,8 @@ typedef struct ztimbuf {
       /* 64-bit stat functions */
 
       /* 64-bit fseeko */
-      /* function in win32.c */
-      int zfseeko OF((FILE *, zoff_t, int));
 
       /* 64-bit ftello */
-      /* function in win32.c */
-      zoff_t zftello OF((FILE *));
 
       /* 64-bit fopen */
 
@@ -677,30 +615,28 @@ typedef struct ztimbuf {
 
 #endif
 
-
 /* 2004-12-01 SMS.
  * Added fancy zofft() macros, et c.
  */
 
-/* Default fzofft() format selection.
- * Modified 2004-12-27 EG
- */
+/* Default fzofft() format selection. */
 
 #ifndef FZOFFT_FMT
-# define FZOFFT_FMT      ZOFF_T_FORMAT_SIZE_PREFIX /* printf for zoff_t values */
 
-# ifdef LARGE_FILE_SUPPORT
-#   define FZOFFT_HEX_WID_VALUE     "16"  /* width of 64-bit hex values */
-# else
-#   define FZOFFT_HEX_WID_VALUE     "8"   /* digits in 32-bit hex values */
-# endif
+#  ifdef LARGE_FILE_SUPPORT
+#    define FZOFFT_FMT "ll"
+#    define FZOFFT_HEX_WID_VALUE "16"
+#  else /* def LARGE_FILE_SUPPORT */
+#    define FZOFFT_FMT "l"
+#    define FZOFFT_HEX_WID_VALUE "8"
+#  endif /* def LARGE_FILE_SUPPORT */
 
 #endif /* ndef FZOFFT_FMT */
 
 #define FZOFFT_HEX_WID ((char *) -1)
 #define FZOFFT_HEX_DOT_WID ((char *) -2)
 
-
+char *fzofft       OF((zoff_t, char *, char*));
 
 
 /* The following default definition of the second input for the crypthead()
@@ -762,7 +698,6 @@ typedef struct ztimbuf {
 #ifdef THEOS
 #  define OS_CODE  0x1200
 #endif
-/* Yes, there is a gap here. */
 #ifdef __ATHEOS__
 #  define OS_CODE  0x1E00
 #endif

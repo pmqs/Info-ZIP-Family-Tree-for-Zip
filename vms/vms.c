@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2000-Apr-09 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -28,10 +28,9 @@
 
 #ifdef VMS                      /* For VMS only ! */
 
-#define NO_ZIPUP_H              /* Prevent full inclusion of vms/zipup.h. */
+#define NO_ZIPUP_H              /* prevent inclusion of vms/zipup.h */
 
 #include "zip.h"
-#include "zipup.h"              /* Only partial. */
 
 #include <stdio.h>
 #include <string.h>
@@ -65,7 +64,7 @@
 
 # include "vms.h"
 
-#else /* not UTIL */
+#else /* def UTIL */
 
 /* Include the `VMS attributes' preserving file-io code. We distinguish
    between two incompatible flavours of storing VMS attributes in the
@@ -85,7 +84,7 @@
 #include "vms_pk.c"
 #include "vms_im.c"
 
-#endif /* not UTIL [else] */
+#endif /* def UTIL */
 
 #ifndef ERR
 #define ERR(x) (((x)&1)==0)
@@ -95,12 +94,13 @@
 #define NULL (void*)(0L)
 #endif
 
-int vms_stat( char *file, stat_t *s)
+int vms_stat(file,s)
+char *file;
+stat_t *s;
 {
     int status;
     int staterr;
     struct FAB fab;
-    struct NAM_STRUCT nam;
     struct XABFHC fhc;
 
     /*
@@ -123,20 +123,10 @@ int vms_stat( char *file, stat_t *s)
      */
 
     fab = cc$rms_fab;
-    nam = CC_RMS_NAM;
     fhc = cc$rms_xabfhc;
-    fab.FAB_NAM = &nam;
+    fab.fab$l_fna = file;
+    fab.fab$b_fns = strlen(file);
     fab.fab$l_xab = (char*)(&fhc);
-
-#ifdef NAML$C_MAXRSS
-
-    fab.fab$l_dna = (char *) -1;    /* Using NAML for default name. */
-    fab.fab$l_fna = (char *) -1;    /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
-
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNA = file;
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNS = strlen( file);
 
     fab.fab$b_fac = FAB$M_GET;
 
@@ -314,9 +304,51 @@ void version_local()
  *    actually uses the directory part of the argument or "tempath".
  */
 
+/* Define macros for use with either NAM or NAML. */
 
-char *tempname( char *zip)
-/* char *zip; */                /* Path name of Zip archive. */
+#ifdef NAML$C_MAXRSS            /* NAML is available.  Use it. */
+
+#define NAM_STRUCT NAML
+
+#define CC_RMS_NAM cc$rms_naml
+#define FAB_NAM fab$l_naml
+#define NAME nam
+#define NAME_DNA naml$l_long_defname
+#define NAME_DNS naml$l_long_defname_size
+#define NAME_FNA naml$l_long_filename
+#define NAME_FNS naml$l_long_filename_size
+#define NAM_ESA naml$l_long_expand
+#define NAM_ESL naml$l_long_expand_size
+#define NAM_ESS naml$l_long_expand_alloc
+#define NAM_MAXRSS NAML$C_MAXRSS
+#define NAM_NOP naml$b_nop
+#define NAM_TYPE naml$l_long_type
+#define NAM_M_SYNCHK NAML$M_SYNCHK
+
+#else /* def NAML$C_MAXRSS */   /* NAML is not available.  Use NAM. */
+
+#define NAM_STRUCT NAM
+
+#define CC_RMS_NAM cc$rms_nam
+#define FAB_NAM fab$l_nam
+#define NAME fab
+#define NAME_DNA fab$l_dna
+#define NAME_DNS fab$b_dns
+#define NAME_FNA fab$l_fna
+#define NAME_FNS fab$b_fns
+#define NAM_ESA nam$l_esa
+#define NAM_ESL nam$l_esl
+#define NAM_ESS nam$b_ess
+#define NAM_MAXRSS NAM$C_MAXRSS
+#define NAM_NOP nam$b_nop
+#define NAM_TYPE nam$l_type
+#define NAM_M_SYNCHK NAM$M_SYNCHK
+
+#endif /* def NAML$C_MAXRSS */
+
+
+char *tempname( zip)
+char *zip;                      /* Path name of Zip archive. */
 {
     char *temp_name;            /* Return value. */
     int sts;                    /* System service status. */
@@ -375,13 +407,11 @@ char *tempname( char *zip)
 
 #endif /* def NAML$C_MAXRSS */
 
-    /* Default name = Zip archive name. */
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_DNA = zip;
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_DNS = strlen( zip);
+    NAME.NAME_DNA = zip;            /* Default name = Zip archive name. */
+    NAME.NAME_DNS = strlen( NAME.NAME_DNA);
 
-    /* File name = "ZI<unique>,;". */
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNA = zip_tmp_nam;
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNS = strlen( zip_tmp_nam);
+    NAME.NAME_FNA = zip_tmp_nam;    /* File name = "ZI<unique>,;". */
+    NAME.NAME_FNS = strlen( NAME.NAME_FNA);
 
     nam.NAM_ESA = exp_str;      /* Expanded name (result) storage. */
     nam.NAM_ESS = NAM_MAXRSS;   /* Size of expanded name storage. */
@@ -394,7 +424,7 @@ char *tempname( char *zip)
     if ((sts& STS$M_SEVERITY) == STS$M_SUCCESS)
     {
         /* Overlay any resulting file type (typically ".ZIP") with none. */
-        strcpy( nam.NAM_L_TYPE, ".;");
+        strcpy( nam.NAM_TYPE, ".;");
 
         /* Allocate temp name storage (as caller expects), and copy the
            (truncated) temp name into the new location.
@@ -407,97 +437,7 @@ char *tempname( char *zip)
         }
     }
     return temp_name;
-} /* tempname() for VMS. */
-
-
-/* 2005-02-17 SMS.
- *
- *       ziptyp() for VMS.
- *
- *    Generate a real Zip archive file name (exact, if it exists), using
- *    a default file name.
- *
- *    2005-02-17 SMS.  Moved to here from [-]ZIPFILE.C, to segregate
- *    better the RMS stuff.
- *
- *    Before 2005-02-17, if sys$parse() failed, ziptyp() returned a null
- *    string ("&zero", where "static char zero = '\0';").  This
- *    typically caused Zip to proceed, but then the final rename() of
- *    the temporary archive would (silently) fail (null file name, after
- *    all), leaving only the temporary archive file, and providing no
- *    warning message to the victim.  Now, when sys$parse() fails,
- *    ziptyp() returns the original string, so a later open() fails, and
- *    a relatively informative message is provided.  (A VMS-specific
- *    message could also be provided here, if desired.)
- */
-
-/* Default Zip archive file spec. */
-#define DEF_DEVDIRNAM "SYS$DISK:[].zip"
-
-char *ziptyp( char *s)
-{
-    int status;
-    struct FAB fab;
-    struct NAM_STRUCT nam;
-    char result[ NAM_MAXRSS+ 1];
-    char exp[ NAM_MAXRSS+ 1];
-    char *p;
-
-    fab = cc$rms_fab;                           /* Initialize FAB. */
-    nam = CC_RMS_NAM;                           /* Initialize NAM[L]. */
-    fab.FAB_NAM = &nam;                         /* FAB -> NAM[L] */
-
-#ifdef NAML$C_MAXRSS
-
-    fab.fab$l_dna =(char *) -1;         /* Using NAML for default name. */
-    fab.fab$l_fna = (char *) -1;        /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
-
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNA = s;           /* Arg file name, */
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNS = strlen( s);  /* length. */
-
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_DNA = DEF_DEVDIRNAM;   /* Default fspec */
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_DNS = sizeof( DEF_DEVDIRNAM)- 1;
-
-    nam.NAM_ESA = exp;                 /* Expanded name, */
-    nam.NAM_ESS = NAM_MAXRSS;          /* storage size. */
-    nam.NAM_RSA = result;              /* Resultant name, */
-    nam.NAM_RSS = NAM_MAXRSS;          /* storage size. */
-
-    status = sys$parse(&fab);
-    if ((status & 1) == 0)
-    {
-        /* Invalid file name.  Return (re-allocated) original, and hope
-           for a later error message.
-        */
-        if ((p = malloc( strlen( s)+ 1)) != NULL )
-        {
-            strcpy( p, s);
-        }
-        return p;
-    }
-
-    status = sys$search(&fab);
-    if (status & 1)
-    {   /* Zip file exists.  Use resultant (complete, exact) name. */
-        if ((p = malloc( nam.NAM_RSL+ 1)) != NULL )
-        {
-            result[ nam.NAM_RSL] = '\0';
-            strcpy( p, result);
-        }
-    }
-    else
-    {   /* New Zip file.  Use expanded name. */
-        if ((p = malloc( nam.NAM_ESL+ 1)) != NULL )
-        {
-            exp[ nam.NAM_ESL] = '\0';
-            strcpy( p, exp);
-        }
-    }
-    return p;
-} /* ziptyp() for VMS. */
-
+} /* tempname() for VMS */
 
 
 /* 2004-11-23 SMS.
@@ -512,7 +452,7 @@ char *ziptyp( char *s)
  *       rab$b_mbf         multi-buffer count (used with rah and wbh).
  */
 
-#define DIAG_FLAG (verbose >= 2)
+#define DIAG_FLAG verbose
 
 /* Default RMS parameter values. */
 
@@ -668,8 +608,6 @@ int fopm_id = FOPM_ID;          /* Callback id storage, modify. */
 int fopr_id = FOPR_ID;          /* Callback id storage, read. */
 int fopw_id = FOPW_ID;          /* Callback id storage, write. */
 
-int fhow_id = FHOW_ID;          /* Callback id storage, in read. */
-
 /* acc_cb() */
 
 int acc_cb( int *id_arg, struct FAB *fab, struct RAB *rab)
@@ -769,12 +707,16 @@ decc_feat_t decc_feat_array[] = {
    /* Preserve command-line case with SET PROCESS/PARSE_STYLE=EXTENDED */
  { "DECC$ARGV_PARSE_STYLE", 1 },
 
+#if 0  /* Possibly useful in the future. */
+
    /* Preserve case for file names on ODS5 disks. */
  { "DECC$EFS_CASE_PRESERVE", 1 },
 
    /* Enable multiple dots (and most characters) in ODS5 file names,
       while preserving VMS-ness of ";version". */
  { "DECC$EFS_CHARSET", 1 },
+
+#endif /* 0 */
 
    /* List terminator. */
  { (char *)NULL, 0 } };
@@ -838,28 +780,20 @@ for (i = 0; decc_feat_array[ i].name != NULL; i++)
 
 #pragma nostandard
 
-/* Establish the LIB$INITIALIZE PSECTs, with proper alignment and
-   other attributes.  Note that "nopic" is significant only on VAX.
+/* Establish the LIB$INITIALIZE PSECT, with proper alignment and
+   attributes.
 */
-#pragma extern_model save
-
-#pragma extern_model strict_refdef "LIB$INITIALIZ" 2, nopic, nowrt
-const int spare[ 8] = { 0 };
-
-#pragma extern_model strict_refdef "LIB$INITIALIZE" 2, nopic, nowrt
-void (*const x_decc_init)() = decc_init;
-
-#pragma extern_model restore
+globaldef { "LIB$INITIALIZ" } readonly _align (LONGWORD)
+   int spare[ 8] = { 0 };
+globaldef { "LIB$INITIALIZE" } readonly _align (LONGWORD)
+   void (*x_decc_init)() = decc_init;
 
 /* Fake reference to ensure loading the LIB$INITIALIZE PSECT. */
 
 #pragma extern_model save
-
 int lib$initialize(void);
-
 #pragma extern_model strict_refdef
 int dmy_lib$initialize = (int) lib$initialize;
-
 #pragma extern_model restore
 
 #pragma standard

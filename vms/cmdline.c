@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 1999-Oct-05 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, all these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
+  If, for some reason, both of these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
 */
 
 /*
@@ -50,8 +50,6 @@
 **
 **  Modified by:
 **
-**      02-007          Steven Schweda          09-FEB-2005
-**              Added /PRESERVE_CASE.
 **      02-006          Onno van der Linden,
 **                      Christian Spieler       07-JUL-1998 23:03
 **              Support GNU CC 2.8 on Alpha AXP (vers-num unchanged).
@@ -162,8 +160,7 @@ $DESCRIPTOR(cli_dirnames,       "DIRNAMES");            /* -D */
 $DESCRIPTOR(cli_display,        "DISPLAY");             /* -d? */
 $DESCRIPTOR(cli_display_bytes,  "DISPLAY.BYTES");       /* -db */
 $DESCRIPTOR(cli_display_counts, "DISPLAY.COUNTS");      /* -dc */
-$DESCRIPTOR(cli_display_dots,   "DISPLAY.DOTS");        /* -dd,-ds */
-$DESCRIPTOR(cli_dot_version,    "DOT_VERSION");         /* -ww */
+$DESCRIPTOR(cli_display_dots,   "DISPLAY.DOTS");        /* -dd */
 $DESCRIPTOR(cli_encrypt,        "ENCRYPT");             /* -e,-P */
 $DESCRIPTOR(cli_extra_fields,   "EXTRA_FIELDS");        /* -X */
 $DESCRIPTOR(cli_fix_archive,    "FIX_ARCHIVE");         /* -F[F] */
@@ -181,11 +178,6 @@ $DESCRIPTOR(cli_level,          "LEVEL");               /* -[0-9] */
 $DESCRIPTOR(cli_license,        "LICENSE");             /* -L */
 $DESCRIPTOR(cli_pause,          "PAUSE");               /* -sp */
 $DESCRIPTOR(cli_pkzip,          "PKZIP");               /* -k */
-$DESCRIPTOR(cli_pres_case,      "PRESERVE_CASE");       /* -C */
-$DESCRIPTOR(cli_pres_case_no2,  "PRESERVE_CASE.NOODS2");/* -C2- */
-$DESCRIPTOR(cli_pres_case_no5,  "PRESERVE_CASE.NOODS5");/* -C5- */
-$DESCRIPTOR(cli_pres_case_ods2, "PRESERVE_CASE.ODS2");  /* -C2 */
-$DESCRIPTOR(cli_pres_case_ods5, "PRESERVE_CASE.ODS5");  /* -C5 */
 $DESCRIPTOR(cli_quiet,          "QUIET");               /* -q */
 $DESCRIPTOR(cli_recurse,        "RECURSE");             /* -r,-R */
 $DESCRIPTOR(cli_recurse_path,   "RECURSE.PATH");        /* -r */
@@ -452,100 +444,6 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
-    **  Preserve case in file names.
-    */
-#define OPT_C   "-C"            /* Preserve case all. */
-#define OPT_CN  "-C-"           /* Down-case all. */
-#define OPT_C2  "-C2"           /* Preserve case ODS2. */
-#define OPT_C2N "-C2-"          /* Down-case ODS2. */
-#define OPT_C5  "-C5"           /* Preserve case ODS5. */
-#define OPT_C5N "-C5-"          /* Down-case ODS5. */
-
-    status = cli$present( &cli_pres_case);
-    if ((status & 1) || (status == CLI$_NEGATED))
-    {
-        /* /[NO]PRESERVE_CASE */
-        char *opt;
-        int ods2 = 0;
-        int ods5 = 0;
-
-        if (status == CLI$_NEGATED)
-        {
-            x = cmdl_len;
-            cmdl_len += strlen( OPT_CN)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
-            strcpy( &the_cmd_line[ x], OPT_CN);
-        }
-        else
-        {
-            if (cli$present( &cli_pres_case_no2) & 1)
-            {
-                /* /PRESERVE_CASE = NOODS2 */
-                ods2 = -1;
-            }
-            if (cli$present( &cli_pres_case_no5) & 1)
-            {
-                /* /PRESERVE_CASE = NOODS5 */
-                ods5 = -1;
-            }
-            if (cli$present( &cli_pres_case_ods2) & 1)
-            {
-                /* /PRESERVE_CASE = ODS2 */
-                ods2 = 1;
-            }
-            if (cli$present( &cli_pres_case_ods5) & 1)
-            {
-                /* /PRESERVE_CASE = ODS5 */
-                ods5 = 1;
-            }
-
-            if (ods2 == ods5)
-            {
-                /* Plain "-C[-]". */
-                if (ods2 < 0)
-                    opt = OPT_CN;
-                else
-                    opt = OPT_C;
-
-                x = cmdl_len;
-                cmdl_len += strlen( opt)+ 1;
-                CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
-                strcpy( &the_cmd_line[ x], opt);
-            }
-            else
-            {
-                if (ods2 != 0)
-                {
-                    /* "-C2[-]". */
-                    if (ods2 < 0)
-                        opt = OPT_C2N;
-                    else
-                        opt = OPT_C2;
-
-                    x = cmdl_len;
-                    cmdl_len += strlen( opt)+ 1;
-                    CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
-                    strcpy( &the_cmd_line[ x], opt);
-                }
-
-                if (ods5 != 0)
-                {
-                    /* "-C5[-]". */
-                    if (ods5 < 0)
-                        opt = OPT_C5N;
-                    else
-                        opt = OPT_C5;
-
-                    x = cmdl_len;
-                    cmdl_len += strlen( opt)+ 1;
-                    CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
-                    strcpy( &the_cmd_line[ x], opt);
-                }
-            }
-        }
-    }
-
-    /*
     **  Do not add/modify directory entries.
     */
     status = cli$present(&cli_dirnames);
@@ -701,14 +599,6 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
-    **  Test Zipfile.
-    */
-    status = cli$present(&cli_test);
-    if (status & 1)
-        /* /TEST */
-        *ptr++ = 'T';
-
-    /*
     **  Be verbose.
     */
     status = cli$present(&cli_verbose);
@@ -818,12 +708,11 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
-    **  Handle "-db", "-dc", "-dd", "-ds".
+    **  Handle "-db", "-dc", "-dd".
     */
 #define OPT_DB "-db"
 #define OPT_DC "-dc"
 #define OPT_DD "-dd"
-#define OPT_DS "-ds"
 
     status = cli$present( &cli_display);
     if (status & 1)
@@ -857,15 +746,9 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             strcpy( &the_cmd_line[ x], OPT_DD);
 
             x = cmdl_len;
-            /* -dd[=value] now -dd -ds=value - 5/8/05 EG */
-            if (work_str.dsc$w_length > 0) {
-                cmdl_len += strlen( OPT_DS);
-                cmdl_len += work_str.dsc$w_length+ 1;
-                CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
-                strcpy( &the_cmd_line[ x], OPT_DS);
-                strncpy( &the_cmd_line[ x],
-                 work_str.dsc$a_pointer, work_str.dsc$w_length);
-            }
+            cmdl_len += work_str.dsc$w_length+ 1;
+            strncpy( &the_cmd_line[ x],
+             work_str.dsc$a_pointer, work_str.dsc$w_length);
         }
     }
 
@@ -1386,7 +1269,7 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /FRESHEN, /UPDATE, /DELETE, /[NO]MOVE, /COMMENTS[={ZIP_FILE|FILES}],",
 "    /LATEST, /TEST, /ADJUST_OFFSETS, /FIX_ARCHIVE[=FULL], /UNSFX",
 "  Modifiers include:",
-"    /EXCLUDE=(file_list), /INCLUDE=(file list), /SINCE=\"creation_time\",",
+"    /EXCLUDE=(file list), /INCLUDE=(file list), /SINCE=\"creation time\",",
 #if CRYPT
 "\
     /QUIET,/VERBOSE[=MORE],/[NO]RECURSE,/[NO]DIRNAMES,/JUNK,/ENCRYPT[=\"pwd\"],\
@@ -1395,8 +1278,7 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /QUIET, /VERBOSE[=MORE], /[NO]RECURSE, /[NO]DIRNAMES, /JUNK,",
 #endif /* ?CRYPT */
 "    /[NO]KEEP_VERSION, /[NO]VMS, /[NO]PKZIP, /TRANSLATE_EOL[={LF|CRLF}],",
-"    /[NO]EXTRA_FIELDS /LEVEL=[0-9], /TEMP_PATH=directory, /BATCH[=list_file]",
-"    /[NO]PRESERVE_CASE[=([NO]ODS{2|5}[,...])]"
+"    /[NO]EXTRA_FIELDS /LEVEL=[0-9], /TEMP_PATH=directory, /BATCH[=list file]"
   };
 
   if (!show_VMSCLI_help) {

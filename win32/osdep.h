@@ -1,9 +1,9 @@
 /*
   win32/osdep.h
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2004 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2003-May-08 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -61,28 +61,22 @@
  *  defined here.  Any local implementations are
  *  in Win32.c and the protypes for the calls are
  *  in tailor.h.  Note that a port must support
- *  these calls fully or should not set
+ *  these calls fully or should not set 
  *  LARGE_FILE_SUPPORT.
  */
 
-/* Note also that ZOFF_T_FORMAT_SIZE_PREFIX has to be defined here
-   or tailor.h will define defaults */
-
 /* If port has LARGE_FILE_SUPPORT then define here
-   to make large file support automatic unless overridden */
+   to make automatic unless overridden */
 
-
-#ifndef LARGE_FILE_SUPPORT
-# ifndef NO_LARGE_FILE_SUPPORT
-    /* MS C and VC */
-#   if defined(_MSC_VER) || defined(__MINGW32__) || defined(__CYGWIN__)
-#     define LARGE_FILE_SUPPORT
-#   endif
-#   if defined(__WATCOMC__)
+/* MS C and VC */
+#if defined(_MSC_VER) || defined(__MINGW32__) || defined(__CYGWIN__)
+# ifndef LARGE_FILE_SUPPORT
+#   ifndef NO_LARGE_FILE_SUPPORT
 #     define LARGE_FILE_SUPPORT
 #   endif
 # endif
 #endif
+
 
 #ifdef LARGE_FILE_SUPPORT
   /* 64-bit Large File Support */
@@ -94,40 +88,42 @@
 # if (defined(__GNUC__) || defined(ULONG_LONG_MAX))
     /* GNU C */
 
-    /* base types for file offsets and file sizes */
-    typedef long long           zoff_t;
-    typedef unsigned long long  uzoff_t;
+    /* base type for file offsets and file sizes */
+    typedef long long    zoff_t;
 
-#  ifdef __CYGWIN__
-    /* Use Cygwin's own stat struct */
-     typedef struct stat z_stat;
-#  else
     /* 64-bit stat struct */
-    typedef struct _stati64 z_stat;
-#  endif
+    typedef struct stat z_stat;
 
     /* printf format size prefix for zoff_t values */
 #   define ZOFF_T_FORMAT_SIZE_PREFIX "ll"
+
+    /* 2004-12-01 SMS. Fancy zofft() macros, et c.*/
+    /* printf format size prefix for zoff_t values */
+#   define FZOFFT_FMT "ll"
+#   define FZOFFT_HEX_WID_VALUE "16"
 
 # elif (defined(__WATCOMC__) && (__WATCOMC__ >= 1100))
     /* WATCOM C */
 
-    /* base types for file offsets and file sizes */
-    typedef __int64             zoff_t;
-    typedef unsigned __int64    uzoff_t;
+    /* base type for file offsets and file sizes */
+    typedef __int64      zoff_t;
 
     /* 64-bit stat struct */
-    typedef struct _stati64 z_stat;
+    typedef struct stat z_stat;
 
     /* printf format size prefix for zoff_t values */
 #   define ZOFF_T_FORMAT_SIZE_PREFIX "ll"
 
+    /* 2004-12-01 SMS. Fancy zofft() macros, et c.*/
+    /* printf format size prefix for zoff_t values */
+#   define FZOFFT_FMT "ll"
+#   define FZOFFT_HEX_WID_VALUE "16"
+
 # elif (defined(_MSC_VER) && (_MSC_VER >= 1100)) || defined(__MINGW32__)
     /* MS C and VC */
 
-    /* base types for file offsets and file sizes */
-    typedef __int64             zoff_t;
-    typedef unsigned __int64    uzoff_t;
+    /* base type for file offsets and file sizes */
+    typedef __int64      zoff_t;
 
     /* 64-bit stat struct */
     typedef struct _stati64 z_stat;
@@ -135,17 +131,26 @@
     /* printf format size prefix for zoff_t values */
 #   define ZOFF_T_FORMAT_SIZE_PREFIX "I64"
 
+    /* 2004-12-01 SMS. Fancy zofft() macros, et c.*/
+    /* printf format size prefix for zoff_t values */
+#   define FZOFFT_FMT "I64"
+#   define FZOFFT_HEX_WID_VALUE "16"
+
 # elif (defined(__IBMC__) && (__IBMC__ >= 350))
     /* IBM C */
 
-    /* base types for file offsets and file sizes */
-    typedef __int64             zoff_t;
-    typedef unsigned __int64    uzoff_t;
+    /* base type for file offsets and file sizes */
+    typedef __int64              zoff_t;
 
     /* 64-bit stat struct */
 
     /* printf format size prefix for zoff_t values */
 #   define ZOFF_T_FORMAT_SIZE_PREFIX "I64"
+
+    /* 2004-12-01 SMS. Fancy zofft() macros, et c.*/
+    /* printf format size prefix for zoff_t values */
+#   define FZOFFT_FMT "I64"
+#   define FZOFFT_HEX_WID_VALUE "16"
 
 # else
 #   undef LARGE_FILE_SUPPORT
@@ -153,27 +158,11 @@
 
 #endif
 
-#if 0
-# ifndef ZOFF_T_FORMAT_SIZE_PREFIX
-    /* unsupported WIN32 */
-
-    /* base types for file offsets and file sizes */
-    typedef long long           zoff_t;
-    typedef unsigned long long  uzoff_t;
-
-    /* 64-bit stat struct */
-    typedef struct stat z_stat;
-
-    /* printf format size prefix for zoff_t values */
-#   define ZOFF_T_FORMAT_SIZE_PREFIX "ll"
-# endif
-#endif
-
 
 /* Automatically set ZIP64_SUPPORT if supported */
 
 /* MS C and VC */
-#if defined(_MSC_VER) || defined(__MINGW32__) || defined(__WATCOMC__)
+#if defined(_MSC_VER) || defined(__MINGW32__)
 # ifdef LARGE_FILE_SUPPORT
 #   ifndef NO_ZIP64_SUPPORT
 #     ifndef ZIP64_SUPPORT
@@ -189,13 +178,19 @@
 
   /* base type for file offsets and file sizes */
   typedef long zoff_t;
-  typedef unsigned long uzoff_t;
 
   /* stat struct */
   typedef struct stat z_stat;
 
-  /* printf format size prefix for zoff_t values */
-# define ZOFF_T_FORMAT_SIZE_PREFIX "l"
+# ifndef ZOFF_T_FORMAT_SIZE_PREFIX
+#   define ZOFF_T_FORMAT_SIZE_PREFIX "l"
+# endif
+
+    /* 2004-12-01 SMS. Fancy zofft() macros, et c.*/
+    /* printf format size prefix for zoff_t values */
+#  define FZOFFT_FMT "l"
+#  define FZOFFT_HEX_WID_VALUE "8"
+
 #endif
 
 
@@ -243,12 +238,6 @@
    MSDOS, WIN32 and OS2 per default.  */
 #if !defined(NO_ASM) && !defined(ASMV)
 #  define ASMV
-#endif
-
-/* Enable use of optimized x86 assembler version of crc32() for
-   MSDOS, WIN32 and OS2 per default.  */
-#if !defined(NO_ASM) && !defined(ASM_CRC)  && !defined(NO_ASM_CRC)
-#  define ASM_CRC
 #endif
 
 #if !defined(__GO32__) && !defined(__EMX__) && !defined(__CYGWIN__)
