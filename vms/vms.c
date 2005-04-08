@@ -512,7 +512,7 @@ char *ziptyp( char *s)
  *       rab$b_mbf         multi-buffer count (used with rah and wbh).
  */
 
-#define DIAG_FLAG verbose
+#define DIAG_FLAG (verbose >= 2)
 
 /* Default RMS parameter values. */
 
