@@ -1,9 +1,9 @@
 /*
   zipup.c - Zip 3
 
-  Copyright (c) 1990-2004 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2003-May-08 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -195,19 +195,50 @@ local ftype ifile;      /* file to compress */
 #else /* !DEBUG */
     local zoff_t isize; /* input file size. global only for debugging */
 #endif /* ?DEBUG */
+  /* If file_read detects binary it sets this flag - 12/16/04 EG */
+  local int file_binary = 0;
+
+
+/* moved check to function 3/14/05 EG */
+int is_seekable(y)
+  FILE *y;
+{
+  zoff_t pos;
+
+#ifdef BROKEN_FSEEK
+  if (!fseekable(y)) {
+    return 0;
+  }
+#endif
+ 
+  pos = zftello(y);
+  if (zfseeko(y, pos, SEEK_SET)) {
+    return 0;
+  }
+
+  return 1;
+}
 
 
 int percent(n, m)
   zoff_t n;
   zoff_t m;               /* n is the original size, m is the new size */
-{
 /* Return the percentage compression from n to m using only integer
- * operations */
+   operations */
+{
+#if 0
+  if (n > 0xffffffL)            /* If n >= 16M */
+  {                             /*  then divide n and m by 256 */
+    n += 0x80;  n >>= 8;
+    m += 0x80;  m >>= 8;
+  }
+  return n > m ? (int)(1 + (200 * (n - m)/n)) / 2 : 0;
+#endif
 
 /* 2004-12-01 SMS.
- * Changed to do big-n test only for small-zoff_t.
+ * Changed to do big-n test only for small zoff_t.
  * Changed big-n arithmetic to accomodate apparently negative values
- * when a small-zoff_t value exceeds 2G.
+ * when a small zoff_t value exceeds 2G.
  * Increased the reduction divisor from 256 to 512 to avoid the sign bit
  * in a reduced intermediate, allowing signed arithmetic for the final
  * result (which is no longer artificially limited to non-negative
@@ -216,26 +247,30 @@ int percent(n, m)
  * sign extension.
  */
 
+/* Handle n = 0 case and account for int maybe being 16-bit.  12/28/2004 EG
+ */
+
 #define PC_MAX_SAFE 0x007fffffUL    /* 9 clear bits at high end. */
 #define PC_MAX_RND  0xffffff00UL    /* 8 clear bits at low end. */
 
   if (sizeof( zoff_t) < 8)          /* Don't fiddle with big zoff_t. */
   {
-    if (((ulg) n) > PC_MAX_SAFE)    /* Reduce large values.  (n > m) */
+    if ((ulg)n > PC_MAX_SAFE)       /* Reduce large values.  (n > m) */
     {
-      if (((ulg) n) < PC_MAX_RND)   /* Divide n by 512 with rounding, */
-        n = ((ulg) n+ 0x100UL)>> 9; /* if boost won't overflow. */
+      if ((ulg)n < PC_MAX_RND)      /* Divide n by 512 with rounding, */
+        n = ((ulg)n + 0x100UL) >> 9;/* if boost won't overflow. */
       else                          /* Otherwise, use max value. */
         n = PC_MAX_SAFE;
 
-      if (((ulg) m) < PC_MAX_RND)   /* Divide m by 512 with rounding, */
-        m = ((ulg) m+ 0x100UL)>> 9; /* if boost won't overflow. */
+      if ((ulg)m < PC_MAX_RND)      /* Divide m by 512 with rounding, */
+        m = ((ulg)m + 0x100UL) >> 9;/* if boost won't overflow. */
       else                          /* Otherwise, use max value. */
         m = PC_MAX_SAFE;
     }
   }
-  return (1+ (200* (n- m)/ n))/ 2;  /* Return (rounded) % reduction. */
+  return n != 0 ? (int)((1 + (200 * (n - m) / n)) / 2) : 0;  /* Return (rounded) % reduction. */
 }
+
 
 #ifndef RISCOS
 
@@ -356,6 +391,8 @@ FILE *y;                /* output file */
   z->nam = strlen(z->iname);
   isdir = z->iname[z->nam-1] == (char)0x2f; /* ascii[(unsigned)('/')] */
 
+  file_binary = -1;      /* not set, set after first read */
+
   if ((tim = filetime(z->name, &a, &q, &f_utim)) == 0 || q == -3L)
     return ZE_OPEN;
 
@@ -371,6 +408,7 @@ FILE *y;                /* output file */
   z->atx = 0; /* may be changed by set_extra_field() */
 
   /* Free the old extra fields which are probably obsolete */
+  /* Should probably read these and keep any we don't update.  12/30/04 EG */
   if (z->ext) {
     free((zvoid *)(z->extra));
   }
@@ -394,6 +432,17 @@ FILE *y;                /* output file */
   m = method;
 #endif /* ?RISCOS */
 
+  /* For now force deflate if using descriptors.  Instead zip and unzip
+     could check bytes read against compressed size in each data descriptor
+     found and skip over any that don't match.  This is how at least one
+     other zipper (WinZip) does it.  To be added later.  Until then it
+     probably doesn't hurt to force deflation when streaming.  12/30/04 EG
+  */
+  if (use_descriptors && m == STORE)
+  {
+      m = DEFLATE;
+  }
+  
   /* Open file to zip up unless it is stdin */
   if (strcmp(z->name, "-") == 0)
   {
@@ -410,13 +459,20 @@ FILE *y;                /* output file */
     if (extra_fields) {
       /* create extra field and change z->att and z->atx if desired */
       set_extra_field(z, &f_utim);
-#ifdef QLZIP
+# ifdef QLZIP
       if(qlflag)
           a |= (S_IXUSR) << 16;   /* Cross compilers don't set this */
-#endif
-#ifdef RISCOS
+# endif
+# ifdef RISCOS
       m = special != NULL && filetypes(z->extra, special) ? STORE : method;
-#endif /* RISCOS */
+# endif /* RISCOS */
+
+      /* For now force deflation if using data descriptors. */
+      if (use_descriptors && m == STORE)
+      {
+        m = DEFLATE;
+      }
+
     }
 #endif /* !(VMS && VMS_PK_EXTRA) */
     l = issymlnk(a);
@@ -524,6 +580,14 @@ FILE *y;                /* output file */
    * ??? to be done.
    */
 
+  /* An alternative used by others is to allow storing but on reading do
+   * a second check when a signature is found.  This is simply to check
+   * the compressed size to the bytes read since the start of the file data.
+   * If this is the right signature then the compressed size should match
+   * the size of the compressed data to that point.  If not look for the
+   * next signature.  We should do this.  12/31/04 EG
+   */
+
   /* Fill in header information and write local header to zip file.
    * This header will later be re-written since compressed length and
    * crc are not yet known.
@@ -570,6 +634,7 @@ FILE *y;                /* output file */
   z->atx = dosify ? a & 0xff : a | (z->atx & 0x0000ff00);
 #endif /* DOS || OS2 || WIN32 */
   z->off = tempzn;
+
   if ((r = putlocal(z, y)) != ZE_OK) {
     if (ifile != fbad)
       zclose(ifile);
@@ -603,8 +668,17 @@ FILE *y;                /* output file */
     if (set_type) z->att = (ush)UNKNOWN; /* is finally set in filecompress() */
     s = filecompress(z, y, &m);
 #ifndef PGP
-    if (z->att == (ush)BINARY && translate_eol) {
-        zipwarn("-l used on binary file", "");
+    if (z->att == (ush)BINARY && translate_eol && file_binary) {
+      if (translate_eol == 1)
+        zipwarn("has binary so -l ignored", "");
+      else
+        zipwarn("has binary so -ll ignored", "");
+    }
+    else if (z->att == (ush)BINARY && translate_eol) {
+      if (translate_eol == 1)
+        zipwarn("-l used on binary file - corrupted?", "");
+      else
+        zipwarn("-ll used on binary file - corrupted?", "");
     }
 #endif
   }
@@ -705,10 +779,11 @@ FILE *y;                /* output file */
     z->siz += RAND_HEAD_LEN;
 #endif /* CRYPT */
   z->len = isize;
+  /* if can seek back to local header */
 #ifdef BROKEN_FSEEK
-  if (!fseekable(y) || zfseeko(y, z->off, SEEK_SET))
+  if (use_descriptors || !fseekable(y) || zfseeko(y, z->off, SEEK_SET))
 #else
-  if (zfseeko(y, z->off, SEEK_SET))
+  if (use_descriptors || zfseeko(y, z->off, SEEK_SET))
 #endif
   {
     if (z->how != (ush) m)
@@ -717,7 +792,15 @@ FILE *y;                /* output file */
        ZIPERR(ZE_PARMS, "zip -0 not supported for I/O on pipes or devices");
     if ((r = putextended(z, y)) != ZE_OK)
       return r;
+    /* if Zip64 and not seekable then Zip64 data descriptor */
+#ifdef ZIP64_SUPPORT
+    if (force_zip64)
+      tempzn += 24L;
+    else
+      tempzn += 16L;
+#else
     tempzn += 16L;
+#endif
     z->flg = z->lflg; /* if flg modified by inflate */
   } else {
      /* seek ok, ftell() should work, check compressed size */
@@ -732,17 +815,25 @@ FILE *y;                /* output file */
     if ((z->flg & 1) == 0)
       z->flg &= ~8; /* clear the extended local header flag */
     z->lflg = z->flg;
+
+    /* if not using descriptors back up and rewrite local header 3/13/05 EG */
     /* rewrite the local header: */
     if ((r = putlocal(z, y)) != ZE_OK)
       return r;
-
     if (zfseeko(y, p, SEEK_SET))
       return ZE_READ;
     if ((z->flg & 1) != 0) {
       /* encrypted file, extended header still required */
       if ((r = putextended(z, y)) != ZE_OK)
         return r;
+#ifdef ZIP64_SUPPORT
+      if (force_zip64)
+        tempzn += 24L;
+      else
+        tempzn += 16L;
+#else
       tempzn += 16L;
+#endif
     }
   }
   /* Free the local extra field which is no longer needed */
@@ -759,7 +850,7 @@ FILE *y;                /* output file */
   {
     if (verbose) {
       fprintf( mesg, "\t(in=%s) (out=%s)",
-       fzofft(isize, NULL, "u"), fzofft(s, NULL, "u"));
+               zip_fzofft(isize, NULL, "u"), zip_fzofft(s, NULL, "u"));
     }
     if (m == DEFLATE)
       fprintf(mesg, " (deflated %d%%)\n", percent(isize, s));
@@ -802,6 +893,8 @@ FILE *y;                /* output file */
 }
 
 
+
+
 local unsigned file_read(buf, size)
   char *buf;
   unsigned size;
@@ -812,6 +905,9 @@ local unsigned file_read(buf, size)
 {
   unsigned len;
   char *b;
+  unsigned bb;
+  char c;
+  zoff_t isize_prev;    /* Previous isize.  Used for overflow check. */
 
 #if defined(MMAP) || defined(BIG_MEM)
   if (remain == 0L) {
@@ -846,68 +942,125 @@ local unsigned file_read(buf, size)
     b = buf+size;
     size = len = zread(ifile, b, size);
     if (len == (unsigned)EOF || len == 0) return len;
-#ifdef EBCDIC
-    if (aflag == ASCII)
-    {
-       do {
-          char c;
 
-          if ((c = *b++) == '\n') {
-             *buf++ = CR; *buf++ = LF; len++;
-          } else {
-            *buf++ = (char)ascii[(uch)c];
-          }
-       } while (--size != 0);
+    /* check buf for binary - 12/16/04 EG */
+    if (file_binary == -1) {
+      /* first read */
+      for (bb = 0; bb < size; bb++) {
+        /* same range as in trees.c except that b and buf are signed char
+           so >= 128 is now < 0 */
+        /* Now use Cosmin range for "black list" (0..6, 14..25, 28..31)
+           3/19/05 EG */
+        c = b[bb];
+        if ((c >= 0 && c <= 6) || (c >= 14 && c <= 25) || (c >= 28 && c <= 31)) {
+          file_binary = 1;
+          break;
+        }
+      }
+      if (file_binary != 1) {
+        /* assume ascii for this check */
+        file_binary = 0;
+      }
     }
-    else
+
+    if (file_binary != 1) {
+#ifdef EBCDIC
+      if (aflag == ASCII)
+      {
+         do {
+            char c;
+
+            if ((c = *b++) == '\n') {
+               *buf++ = CR; *buf++ = LF; len++;
+            } else {
+              *buf++ = (char)ascii[(uch)c];
+            }
+         } while (--size != 0);
+      }
+      else
 #endif /* EBCDIC */
-    {
-       do {
-          if ((*buf++ = *b++) == '\n') *(buf-1) = CR, *buf++ = LF, len++;
-       } while (--size != 0);
+      {
+         do {
+            if ((*buf++ = *b++) == '\n') *(buf-1) = CR, *buf++ = LF, len++;
+         } while (--size != 0);
+      }
+      buf -= len;
+    } else { /* do not translate binary */
+      buf = b;
     }
-    buf -= len;
 
   } else {
     /* Transform CR LF to LF and suppress final ^Z */
     b = buf;
     size = len = zread(ifile, buf, size-1);
     if (len == (unsigned)EOF || len == 0) return len;
-    buf[len] = '\n'; /* I should check if next char is really a \n */
-#ifdef EBCDIC
-    if (aflag == ASCII)
-    {
-       do {
-          char c;
 
-          if ((c = *b++) == '\r' && *b == '\n') {
-             len--;
-          } else {
-             *buf++ = (char)(c == '\n' ? LF : ascii[(uch)c]);
-          }
-       } while (--size != 0);
+    /* check buf for binary - 12/16/04 EG */
+    if (file_binary == -1) {
+      /* first read */
+      for (bb = 0; bb < size; bb++) {
+        /* same range as in trees.c except b and buf are signed char
+           so >= 128 now < 0 */
+        /* Now use Cosmin range for "black list" (0..6, 14..25, 28..31)
+           3/19/05 EG */
+        c = buf[bb];
+        if ((c >= 0 && c <= 6) || (c >= 14 && c <= 25) || (c >= 28 && c <= 31)) {
+          file_binary = 1;
+          break;
+        }
+      }
+      if (file_binary != 1) {
+        /* assume ascii for this check */
+        file_binary = 0;
+      }
     }
-    else
-#endif /* EBCDIC */
-    {
-       do {
-          if (( *buf++ = *b++) == CR && *b == LF) buf--, len--;
-       } while (--size != 0);
-    }
-    if (len == 0) {
-       zread(ifile, buf, 1); len = 1; /* keep single \r if EOF */
+
+    if (file_binary != 1) {
+      buf[len] = '\n'; /* I should check if next char is really a \n */
 #ifdef EBCDIC
-       if (aflag == ASCII) {
-          *buf = (char)(*buf == '\n' ? LF : ascii[(uch)(*buf)]);
-       }
+      if (aflag == ASCII)
+      {
+         do {
+            char c;
+
+            if ((c = *b++) == '\r' && *b == '\n') {
+               len--;
+            } else {
+               *buf++ = (char)(c == '\n' ? LF : ascii[(uch)c]);
+            }
+         } while (--size != 0);
+      }
+      else
+#endif /* EBCDIC */
+      {
+         do {
+            if (( *buf++ = *b++) == CR && *b == LF) buf--, len--;
+         } while (--size != 0);
+      }
+      if (len == 0) {
+         zread(ifile, buf, 1); len = 1; /* keep single \r if EOF */
+#ifdef EBCDIC
+         if (aflag == ASCII) {
+            *buf = (char)(*buf == '\n' ? LF : ascii[(uch)(*buf)]);
+         }
 #endif
-    } else {
-       buf -= len;
-       if (buf[len-1] == CTRLZ) len--; /* suppress final ^Z */
+      } else {
+         buf -= len;
+         if (buf[len-1] == CTRLZ) len--; /* suppress final ^Z */
+      } 
     }
   }
   crc = crc32(crc, (uch *) buf, len);
+  /* 2005-05-23 SMS.
+     Increment file size.  A small-file program reading a large file may
+     cause isize to overflow, so complain (and abort) if it goes
+     negative or wraps around.  Awful things happen later otherwise.
+  */
+  isize_prev = isize;
   isize += (ulg)len;
+  if (isize < isize_prev) {
+    ZIPERR(ZE_BIG, "overflow in byte count");
+  }
   return len;
 }
 
@@ -976,7 +1129,7 @@ void zl_deflate_free()
 
 #else /* !USE_ZLIB */
 
-#ifdef ZP_NEED_MEMCOMPR
+# ifdef ZP_NEED_MEMCOMPR
 /* ===========================================================================
  * In-memory read function. As opposed to file_read(), this function
  * does not perform end-of-line translation, and does not update the
@@ -1000,7 +1153,7 @@ local unsigned mem_read(b, bsize)
         return 0; /* end of input */
     }
 }
-#endif /* ZP_NEED_MEMCOMPR */
+# endif /* ZP_NEED_MEMCOMPR */
 
 
 /* ===========================================================================
