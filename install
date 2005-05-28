@@ -95,7 +95,7 @@ Installation on other systems
 
      The steps for installation under VMS, MSDOS, OS/2, NT, Amiga and
      Atari are similar to the above: first unzip the distribution
-     files into their own directory.  The system-dependent files are
+     files into their own directory.  The system dependant files are
      stored in special subdirectories.
 
      For all the non-unix ports which support the creation of "UT" extra
@@ -192,7 +192,7 @@ Installation on other systems
 
           @ [.VMS]BUILD_ZIP LINK
           @ [.VMS]BUILD_ZIP LARGE LINK
-       or
+       or:
           MMK /DESC = [.VMS] CLEAN_EXE  ! Deletes existing executables.
           MMK /DESC = [.VMS]            ! Builds new executables.
           MMK /DESC = [.VMS] /MACRO = LARGE=1 CLEAN_EXE
@@ -224,7 +224,7 @@ Installation on other systems
      UNIX-like command-line interface, ZIP_CLI.HLP for the VMS-like
      command-line interface), are placed in the main directory.  With a
      mixed-architecture VMS cluster, the same main directory on a shared
-     disk may may be used by all system types.  (Using the NOHELP option
+     disk may may be used by all system types. (Using the NOHELP option
      with BUILD_ZIP.COM can keep it from making the same help files
      repeatedly.)
 
@@ -232,21 +232,48 @@ Installation on other systems
      [.VMS]00README. and [.VMS]00BINARY.VMS, though much of what's
      there is now obsolete.
 
-     While other methods (like DCL$PATH) exist, most users define
-     symbols to use Zip as a foreign command, often in the user's
-     SYS$LOGIN:LOGIN.COM, or in a more central location, like
-     SYS$MANAGER:SYLOGIN.COM.  A typical symbol definition might look
-     like this:
+     To complete the installation, the executables may be left in place,
+     or moved (or copied) to a convenient place.  While other methods
+     (like DCL$PATH) exist, most users define symbols to make the Zip
+     executables available as foreign commands.  These symbol
+     definitions may be placed in a user's SYS$LOGIN:LOGIN.COM, or in a
+     more central location, like SYS$MANAGER:SYLOGIN.COM.  Typical
+     symbol definitions might look like these:
 
-        zip :== $ dev:[dir]zip.exe      ! UNIX-like command line.
+          ZIP :== $ dev:[dir]ZIP.EXE            ! UNIX-like command line.
      or:
-        zip :== $ dev:[dir]zip_cli.exe  ! VMS-like command line.
+          ZIP :== $ dev:[dir]ZIP_CLI.EXE        ! VMS-like command line.
+
+     Similar commands may be added for the other programs, ZIPCLOAK,
+     ZIPNOTE, and ZIPSPLIT, if desired.
 
      On a non-VAX system, different symbols could be defined for the
      small-file and large-file programs.  For example:
 
-        zips  :== $ dev:[dir.ALPHA]zip.exe      ! ZIPS = small-file Zip.
-        zip*l :== $ dev:[dir.ALPHAL]zip.exe     ! ZIP[L] = large-file Zip.
+          ZIPS  :== $ dev:[dir.ALPHA]ZIP.EXE    ! ZIPS = small-file Zip.
+          ZIP*L :== $ dev:[dir.ALPHAL]ZIP.EXE   ! ZIP[L] = large-file Zip.
+
+     The builders create help text files, ZIP.HLP and ZIP_CLI.HLP.
+     These may be incorporated into an existing help library, or a
+     separate Zip help library may be created using commands like these,
+     using either ZIP.HLP (as shown) or ZIP_CLI.HLP:
+
+          LIBRARY /HELP dev:[dir]existing_library.HLB ZIP.HLP
+
+          LIBRARY /CREATE /HELP ZIP.HLB ZIP.HLP
+
+     Zip help may then be accessed from a separate Zip help library
+     using a command like:
+
+          HELP /LIBRARY = device:[dir]ZIP.HLB
+
+     For greater ease, the user (or system manager) may define a
+     HLP$LIBRARY logical name to allow the HELP utility to find the Zip
+     help library automatically.  See HELP HELP /USERLIBRARY for more
+     details.  The command procedure [.VMS]HLP_LIB_NEXT.COM may be used
+     to determine the next available HLP$LIBRARY logical name, and could
+     be adapted to define a HLP$LIBRARY logical name for a Zip help
+     library.
 
 
 For command help on any of the zip* utilities, simply enter

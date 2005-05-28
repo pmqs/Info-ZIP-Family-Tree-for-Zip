@@ -1,4 +1,4 @@
-#                                               25 May 2005.  SMS.
+#                                               22 February 2005.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -19,7 +19,7 @@
 #                   (Default is /NOTRACEBACK.)
 #
 #    IM=1           Use the old "IM" scheme for storing VMS/RMS file
-#                   attributes, instead of the newer "PK" scheme.
+#                   atributes, instead of the newer "PK" scheme.
 #
 #    LARGE=1        Enable large-file (>2GB) support.  Non-VAX only.
 #
