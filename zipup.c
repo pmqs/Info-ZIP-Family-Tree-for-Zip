@@ -20,6 +20,7 @@
    zip.h first seems to fix this.  8/14/04 EG */
 #include "zip.h"
 #include <ctype.h>
+#include <errno.h>
 
 #ifndef UTIL            /* This module contains no code for Zip Utilities */
 
@@ -210,7 +211,7 @@ int is_seekable(y)
     return 0;
   }
 #endif
- 
+
   pos = zftello(y);
   if (zfseeko(y, pos, SEEK_SET)) {
     return 0;
@@ -221,8 +222,8 @@ int is_seekable(y)
 
 
 int percent(n, m)
-  zoff_t n;
-  zoff_t m;               /* n is the original size, m is the new size */
+  uzoff_t n;
+  uzoff_t m;              /* n is the original size, m is the new size */
 /* Return the percentage compression from n to m using only integer
    operations */
 {
@@ -253,7 +254,7 @@ int percent(n, m)
 #define PC_MAX_SAFE 0x007fffffUL    /* 9 clear bits at high end. */
 #define PC_MAX_RND  0xffffff00UL    /* 8 clear bits at low end. */
 
-  if (sizeof( zoff_t) < 8)          /* Don't fiddle with big zoff_t. */
+  if (sizeof(uzoff_t) < 8)          /* Don't fiddle with big zoff_t. */
   {
     if ((ulg)n > PC_MAX_SAFE)       /* Reduce large values.  (n > m) */
     {
@@ -373,7 +374,8 @@ FILE *y;                /* output file */
   int m;                /* method for this entry */
 
   zoff_t o, p;          /* offsets in zip file */
-  zoff_t q = -3;        /* size returned by filetime */
+  zoff_t q = (zoff_t) -3; /* size returned by filetime */
+  uzoff_t uq;           /* unsigned q */ 
   zoff_t s = 0;         /* size of compressed data */
 
   int r;                /* temporary variable */
@@ -393,17 +395,35 @@ FILE *y;                /* output file */
 
   file_binary = -1;      /* not set, set after first read */
 
-  if ((tim = filetime(z->name, &a, &q, &f_utim)) == 0 || q == -3L)
+  if ((tim = filetime(z->name, &a, &q, &f_utim)) == 0 || q == (zoff_t) -3)
     return ZE_OPEN;
 
   /* q is set to -1 if the input file is a device, -2 for a volume label */
-  if (q == -2L) {
+  if (q == (zoff_t) -2) {
      isdir = 1;
      q = 0;
   } else if (isdir != ((a & MSDOS_DIR_ATTR) != 0)) {
      /* don't overwrite a directory with a file and vice-versa */
      return ZE_MISS;
   }
+  /* reset dot_count for each file */
+  dot_count = -1;
+  uq = ((uzoff_t) q > (uzoff_t) -3) ? 0 : (uzoff_t) q;
+  if (noisy && display_usize) {
+    fprintf(mesg, " (");
+    DisplayNumString( mesg, uq );
+    fprintf(mesg, ")");
+    fflush(mesg);
+    if (logall) {
+      fprintf(logfile, " (");
+      DisplayNumString( logfile, uq );
+      fprintf(logfile, ")");
+    }
+  }
+
+  /* initial z->len so if error later have something */
+  z->len = uq;
+
   z->att = (ush)UNKNOWN; /* will be changed later */
   z->atx = 0; /* may be changed by set_extra_field() */
 
@@ -442,7 +462,7 @@ FILE *y;                /* output file */
   {
       m = DEFLATE;
   }
-  
+
   /* Open file to zip up unless it is stdin */
   if (strcmp(z->name, "-") == 0)
   {
@@ -742,6 +762,8 @@ FILE *y;                /* output file */
   }
   if (ifile != fbad && zerr(ifile)) {
     perror("\nzip warning");
+    if (logfile)
+      fprintf(logfile, "\nzip warning: %s\n", strerror(errno));
     zipwarn("could not read input file: ", z->zname);
   }
   if (ifile != fbad)
@@ -806,7 +828,8 @@ FILE *y;                /* output file */
      /* seek ok, ftell() should work, check compressed size */
 #if !defined(VMS) && !defined(CMS_MVS)
     if (p - o != s) {
-      fprintf(mesg, " s=%ld, actual=%ld ", s, p-o);
+      fprintf(mesg, " s=%s, actual=%s ",
+              zip_fzofft(s, NULL, NULL), zip_fzofft(p-o, NULL, NULL));
       error("incorrect compressed size");
     }
 #endif /* !VMS && !CMS_MVS */
@@ -856,6 +879,12 @@ FILE *y;                /* output file */
       fprintf(mesg, " (deflated %d%%)\n", percent(isize, s));
     else
       fprintf(mesg, " (stored 0%%)\n");
+    if (logall) {
+      if (m == DEFLATE)
+        fprintf(logfile, " (deflated %d%%)\n", percent(isize, s));
+      else
+        fprintf(logfile, " (stored 0%%)\n");
+    }
     fflush(mesg);
   }
 
@@ -863,7 +892,7 @@ FILE *y;                /* output file */
 # ifdef ZIP64_SUPPORT
    /* The DLL api has been updated and uses a different
       interface.  7/24/04 EG */
-   if (lpZipUserFunctions->ServiceApplication64 != NULL) 
+   if (lpZipUserFunctions->ServiceApplication64 != NULL)
     {
     if ((*lpZipUserFunctions->ServiceApplication64)(z->zname, isize))
                 ZIPERR(ZE_ABORT, "User terminated operation");
@@ -1047,7 +1076,7 @@ local unsigned file_read(buf, size)
       } else {
          buf -= len;
          if (buf[len-1] == CTRLZ) len--; /* suppress final ^Z */
-      } 
+      }
     }
   }
   crc = crc32(crc, (uch *) buf, len);
