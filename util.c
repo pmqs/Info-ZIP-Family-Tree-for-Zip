@@ -26,7 +26,7 @@ uch upper[256], lower[256];
 #ifndef UTIL /* UTIL picks out namecmp code (all utils) */
 
 /* Local functions */
-local int recmatch OF((ZCONST uch *, ZCONST uch *, int));
+local int recmatch OF((ZCONST char *, ZCONST char *, int));
 local int count_args OF((char *s));
 
 #ifdef MSDOS16
@@ -74,8 +74,8 @@ char *p;                /* candidate sh expression */
 
 
 local int recmatch(p, s, cs)
-ZCONST uch *p;  /* sh pattern to match */
-ZCONST uch *s;  /* string to match it to */
+ZCONST char *p;  /* sh pattern to match */
+ZCONST char *s;  /* string to match it to */
 int cs;         /* flag: force case-sensitive matching */
 /* Recursively compare the sh pattern p with the string s and return 1 if
    they match, and 0 or 2 if they don't or if there is a syntax error in the
@@ -122,10 +122,99 @@ int cs;         /* flag: force case-sensitive matching */
     return (*p == '/' || (*p == '\\' && p[1] == '/'))
       ? recmatch(p, s, cs) : 2;
 #else /* !WILD_STOP_AT_DIR */
-    for (; *s; INCSTR(s))
-      if ((c = recmatch(p, s, cs)) != 0)
-        return (int)c;
-    return 2;           /* 2 means give up--shmatch will return false */
+#if !defined(_MBCS) || defined(TEST_FOR_MBCS_CLEAN)
+    /* FIXME: Check if this optimization code is MBCS-clean!!!
+     * CS, 2005-07-04: I suspect that you may construct a MBCS example
+     * where the last bytes from s match the trailing literals from p,
+     * but the first byte from the compared s part (s+rstart) is the
+     * trailing byte of a MBCS character.
+     * So, this optimization is currently disabled on MBCS-aware systems
+     * (e.g. WIN32) !!!
+     * EG, 2005-07-09: It probably doesn't matter.  For example,
+     * if the path being matched is (where 1 is the first byte of a
+     * multibyte character and 2 is a terminating second byte, i.e.
+     * assume double byte though the case should extrapolate to
+     * any length multibyte character)
+     *     abc12def
+     * and the pattern is *2def, then
+     * case 1:
+     *   if the path to match does not end in 2def it can't be a match
+     * case 2:
+     *   if the path does end in 2def it could be a match.
+     * The question is, in case 2, if an ending of 2def might not be
+     * a match.  For example, the pattern
+     *     ghi32def
+     * where 32 is a different multi-byte character.  Yes, this could
+     * give a "false match", but this case should never happen.  If the
+     * pattern is a properly formed multi-byte character pattern string,
+     * which should be the case if read in from the command line or from
+     * a file, then there should never be a split in the middle of
+     * a character in the pattern.  That leaves the question if
+     * 2 in 2def might be both a single-byte character and a later
+     * byte in a multibyte character.  This could be true for some
+     * large OEM character sets but I don't know.  So the strings
+     *     abc12def
+     * and
+     *     ab2def
+     * might both match, but this may not be what is intended.  Further,
+     *     ghi32def
+     * might also match, which may not be intuitive.  Yet the effect is
+     * still to match paths that end in the given string so probably
+     * no harm done with either of these.  Now, in the case where 2 can
+     * also introduce a multi-byte character this gets alot more
+     * complicated as the cases
+     *     ab32def
+     * and
+     *     ab2def
+     * can result in different strings, where the first might be
+     * characters a b 32 d e f and the second a b 2d e f, but
+     * introducers should not occur as trailers in any character set
+     * I am aware of.
+     * In the case where the pattern is from one character set and the
+     * path is from another (like from an existing entry) then it is
+     * possible that bad multi-byte characters may be in the string.
+     * This is a larger problem not handled at all though and should be
+     * looked at separately from this same character set argument. This
+     * may be a job for Unicode for instance.
+     *
+     * So it seems that even if a multi-byte character gets split, which
+     * should never happen with proper multi-byte character strings from
+     * the operating system, the result may be close enough.
+     *
+     * It's possible I didn't think this through enough and feel free to
+     * tear the above apart.
+     */
+    if (!isshexp((char *)p))
+    {
+      /* optimization for rest of pattern being a literal string */
+
+      /* optimization to handle patterns like *.txt */
+      /* if the first char in the pattern is '*' and there */
+      /* are no other shell expression chars, i.e. a literal string */
+      /* then just compare the literal string at the end */
+
+      int rstart;
+
+      rstart = strlen(s) - strlen(p);
+      if (rstart < 0)
+        /* remaining literal string from pattern is longer than rest of
+           test string, there can't be a match
+         */
+        return 0;
+      else
+        /* compare the remaining literal pattern string with the last bytes
+           of the test string to check for a match */
+        return ((cs ? strcmp(p, s+rstart) : namecmp(p, s+rstart)) == 0);
+    }
+    else
+#endif /* !_MBCS || TEST_FOR_MBCS_CLEAN */
+    {
+      /* pattern contains more wildcards, continue with recursion... */
+      for (; *s; INCSTR(s))
+        if ((c = recmatch(p, s, cs)) != 0)
+          return (int)c;
+      return 2;           /* 2 means give up--shmatch will return false */
+    }
 #endif /* ?WILD_STOP_AT_DIR */
   }
 
@@ -190,7 +279,7 @@ int cs;                 /* force case-sensitive match if TRUE */
 /* Compare the sh pattern p with the string s and return true if they match,
    false if they don't or if there is a syntax error in the pattern. */
 {
-  return recmatch((ZCONST uch *) p, (ZCONST uch *) s, cs) == 1;
+  return recmatch(p, s, cs) == 1;
 }
 
 
@@ -206,14 +295,21 @@ int cs;                 /* force case-sensitive match if TRUE */
   char *s1;             /* revised string to match */
   int r;                /* result */
 
-  if ((s1 = malloc(strlen(s) + 2)) == NULL)
-    /* will usually be OK */
-    return recmatch((ZCONST uch *) p, (ZCONST uch *) s, cs) == 1;
-  strcpy(s1, s);
-  if (strchr(p, '.') && !strchr(s1, '.'))
+  if (strchr(p, '.') && !strchr(s, '.') &&
+      ((s1 = malloc(strlen(s) + 2)) != NULL))
+  {
+    strcpy(s1, s);
     strcat(s1, ".");
-  r = recmatch((ZCONST uch *)p, (ZCONST uch *)s1, cs);
-  free((zvoid *)s1);
+  }
+  else
+  {
+    /* will usually be OK */
+    s1 = (char *)s;
+  }
+
+  r = recmatch(p, s1, cs) == 1;
+  if (s != s1)
+    free((zvoid *)s1);
   return r == 1;
 }
 
