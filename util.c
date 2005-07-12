@@ -82,7 +82,7 @@ int cs;         /* flag: force case-sensitive matching */
    pattern.  This routine recurses on itself no deeper than the number of
    characters in the pattern. */
 {
-  unsigned int c;       /* pattern char or start of range in [-] loop */
+  int c;       /* pattern char or start of range in [-] loop */
   /* Get first character, the pattern for new recmatch calls follows */
   c = *POSTINCSTR(p);
 
@@ -118,11 +118,11 @@ int cs;         /* flag: force case-sensitive matching */
 #ifdef WILD_STOP_AT_DIR
     for (; *s && *s != '/'; INCSTR(s))
       if ((c = recmatch(p, s, cs)) != 0)
-        return (int)c;
+        return c;
     return (*p == '/' || (*p == '\\' && p[1] == '/'))
       ? recmatch(p, s, cs) : 2;
 #else /* !WILD_STOP_AT_DIR */
-#if !defined(_MBCS) || defined(TEST_FOR_MBCS_CLEAN)
+/* #if !defined(_MBCS) || defined(TEST_FOR_MBCS_CLEAN) */
     /* FIXME: Check if this optimization code is MBCS-clean!!!
      * CS, 2005-07-04: I suspect that you may construct a MBCS example
      * where the last bytes from s match the trailing literals from p,
@@ -207,7 +207,7 @@ int cs;         /* flag: force case-sensitive matching */
         return ((cs ? strcmp(p, s+rstart) : namecmp(p, s+rstart)) == 0);
     }
     else
-#endif /* !_MBCS || TEST_FOR_MBCS_CLEAN */
+/* #endif */ /* !_MBCS || TEST_FOR_MBCS_CLEAN */
     {
       /* pattern contains more wildcards, continue with recursion... */
       for (; *s; INCSTR(s))
@@ -223,7 +223,7 @@ int cs;         /* flag: force case-sensitive matching */
   if (c == '[')
   {
     int e;              /* flag true if next char to be taken literally */
-    ZCONST uch *q;      /* pointer to end of [-] group */
+    ZCONST char *q;      /* pointer to end of [-] group */
     int r;              /* flag true to match anything but the range */
 
     if (*s == 0)                        /* need a character to match */
@@ -247,11 +247,12 @@ int cs;         /* flag: force case-sensitive matching */
         c = *(p-1);
       else
       {
-        uch cc = (cs ? *s : case_map(*s));
+        uch cc = (cs ? (uch)*s : case_map((uch)*s));
+        uch uc = (uch) c;
         if (*(p+1) != '-')
-          for (c = c ? c : (unsigned)*p; c <= (unsigned)*p; c++)
+          for (uc = uc ? uc : (uch)*p; uc <= (uch)*p; uc++)
             /* compare range */
-            if ((cs ? c : case_map(c)) == cc)
+            if ((cs ? uc : case_map(uc)) == cc)
               return r ? 0 : recmatch(q + CLEN(q), s + CLEN(s), cs);
         c = e = 0;                      /* clear range, escape flags */
       }
@@ -267,7 +268,7 @@ int cs;         /* flag: force case-sensitive matching */
       return 0;
 
   /* Just a character--compare it */
-  return (cs ? c == *s : case_map(c) == case_map(*s)) ?
+  return (cs ? c == *s : case_map((uch)c) == case_map((uch)*s)) ?
           recmatch(p, s + CLEN(s), cs) : 0;
 }
 
