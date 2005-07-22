@@ -7,6 +7,8 @@ all:
 	@echo '"make generic".  Choices: generic, generic_gcc,'
 	@echo 'att6300nodir, coherent, cray_v3, cygwin, lynx, minix,'
 	@echo 'os390, qnx, qnxnto, solaris, solaris_gcc'
+	@echo 'Try first "make -f unix/Makefile generic" as'
+	@echo 'it should autodetect and set the proper flags.'
 	@echo 'See the files INSTALL and zip.txt for more information.'
 	@echo ''
 
@@ -16,16 +18,15 @@ MAKE = make -f unix/Makefile
 SHELL = /bin/sh
 LN = ln -s
 
-# (to use the Gnu compiler, change cc to gcc in CC)
+# (to use the GNU compiler, change cc to gcc in CC)
 CC = cc
 BIND = $(CC)
 AS = $(CC) -c
 CPP = /lib/cpp
-EXE =
+E =
 
 # probably can change this to 'install' if you have it
-INSTALL = cp
-INSTALL_PROGRAM = $(INSTALL)
+INSTALL_PROGRAM = cp
 # probably can change this to 'install -d' if you have it
 # XXX NextStep 3.3 and Openstep 4.x don't know about -p !
 INSTALL_D = mkdir -p
@@ -38,16 +39,19 @@ prefix = /usr/local
 BINDIR = $(prefix)/bin
 manext=1
 MANDIR = $(prefix)/man/man$(manext)
-ZIPMANUAL = MANUAL
+ZIPMANUAL = zip.txt
+ZIPMANUALcloak = zipcloak.txt
+ZIPMANUALnote = zipnote.txt
+ZIPMANUALsplit = zipsplit.txt
+ZIPMANUALs = zip.txt zipcloak.txt zipnote.txt zipsplit.txt
 PKGDIR = IZzip
-VERSION = Version 2.32
+VERSION = Version 3.0
 
 # flags
 #   CFLAGS    flags for C compile
 #   LFLAGS1   flags after output file spec, before obj file list
 #   LFLAGS2   flags after obj file list (libraries, etc)
-CFLAGS_NOOPT = -I. -DUNIX $(LOCAL_ZIP)
-CFLAGS = -O2 $(CFLAGS_NOOPT)
+CFLAGS = -O2 -I. -DUNIX $(LOCAL_ZIP)
 LFLAGS1 =
 LFLAGS2 = -s
 
@@ -67,16 +71,15 @@ ZIP_H = zip.h ziperr.h tailor.h unix/osdep.h
 .SUFFIXES:
 .SUFFIXES: _.o .o .c .doc .1
 .c_.o:
-	rm -f $*_.c; $(LN) $< $*_.c
-	$(CC) -c $(CFLAGS) -DUTIL $*_.c
-	rm -f $*_.c
+	$(CC) -c $(CFLAGS) -DUTIL -o $@ $<
+
 .c.o:
 	$(CC) -c $(CFLAGS) $<
 
 .1.doc:
 	nroff -man $< | col -bx | uniq > $@
 
-# rules for zip, zipnote, zipcloak, zipsplit, and the Zip MANUAL.
+# rules for zip, zipnote, zipcloak, zipsplit, and the Zip MANUALs.
 $(OBJZ): $(ZIP_H)
 $(OBJI): $(ZIP_H)
 $(OBJN): $(ZIP_H)
@@ -103,26 +106,34 @@ unix.o: unix/unix.c
 	$(CC) -c $(CFLAGS) unix/unix.c
 
 unix_.o: unix/unix.c
-	rm -f unix_.c; $(LN) unix/unix.c unix_.c
-	$(CC) -c $(CFLAGS) -DUTIL unix_.c
-	rm -f unix_.c
+	$(CC) -c $(CFLAGS) -DUTIL -o $@ unix/unix.c
 
-ZIPS = zip$(EXE) zipnote$(EXE) zipsplit$(EXE) zipcloak$(EXE)
+ZIPS = zip$E zipnote$E zipsplit$E zipcloak$E
 
 zips: $(ZIPS)
-zipsman: $(ZIPS) $(ZIPMANUAL)
+zipsman: $(ZIPS) $(ZIPMANUALs)
 
-zip$(EXE): $(OBJZ) $(OBJI) $(OBJA)
-	$(BIND) -o zip$(EXE) $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) $(LFLAGS2)
-zipnote$(EXE): $(OBJN)
-	$(BIND) -o zipnote$(EXE) $(LFLAGS1) $(OBJN) $(LFLAGS2)
-zipcloak$(EXE): $(OBJC)
-	$(BIND) -o zipcloak$(EXE) $(LFLAGS1) $(OBJC) $(LFLAGS2)
-zipsplit$(EXE): $(OBJS)
-	$(BIND) -o zipsplit$(EXE) $(LFLAGS1) $(OBJS) $(LFLAGS2)
+zip$E: $(OBJZ) $(OBJI) $(OBJA)
+	$(BIND) -o zip$E $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) $(LFLAGS2)
+zipnote$E: $(OBJN)
+	$(BIND) -o zipnote$E $(LFLAGS1) $(OBJN) $(LFLAGS2)
+zipcloak$E: $(OBJC)
+	$(BIND) -o zipcloak$E $(LFLAGS1) $(OBJC) $(LFLAGS2)
+zipsplit$E: $(OBJS)
+	$(BIND) -o zipsplit$E $(LFLAGS1) $(OBJS) $(LFLAGS2)
 
 $(ZIPMANUAL): man/zip.1
 	nroff -man man/zip.1 | col -bx | uniq > $(ZIPMANUAL)
+
+$(ZIPMANUALcloak): man/zipcloak.1
+	nroff -man man/zipcloak.1 | col -bx | uniq > $(ZIPMANUALcloak)
+
+$(ZIPMANUALnote): man/zipnote.1
+	nroff -man man/zipnote.1 | col -bx | uniq > $(ZIPMANUALnote)
+
+$(ZIPMANUALsplit): man/zipsplit.1
+	nroff -man man/zipsplit.1 | col -bx | uniq > $(ZIPMANUALsplit)
+
 
 
 # install
@@ -131,7 +142,7 @@ install:        $(ZIPS)
 	$(INSTALL_PROGRAM) $(ZIPS) $(BINDIR)
 	-cd $(BINDIR); $(CHMOD) $(BINFLAGS) $(ZIPS)
 	-$(INSTALL_D) $(MANDIR)
-	$(INSTALL) man/zip.1 $(MANDIR)/zip.$(manext)
+	$(INSTALL_PROGRAM) man/zip.1 man/zipcloak.1 man/zipnote $(MANDIR)/zip.$(manext)
 	$(CHMOD) $(MANFLAGS) $(MANDIR)/zip.$(manext)
 
 uninstall:
@@ -139,7 +150,7 @@ uninstall:
 	-cd $(MANDIR); rm -f zip.$(manext)
 
 flags:  unix/configure
-	sh unix/configure "${CC}" "${CFLAGS_NOOPT}"
+	sh unix/configure "${CC}" "${CFLAGS}"
 
 # These symbols, when #defined using -D have these effects on compilation:
 # ZMEM                  - includes C language versions of memset(), memcpy(),
@@ -153,6 +164,8 @@ flags:  unix/configure
 # NO_RMDIR              - remove directories using a system("rmdir ...") call.
 # NO_PROTO              - cannot handle ANSI prototypes
 # NO_CONST              - cannot handle ANSI const
+# NO_LARGE_FILE_SUPPORT - do not enable Large File support even if available.
+# NO_ZIP64_SUPPORT      - do not enable Zip64 archive support even if available.
 
 #               Generic targets:
 
@@ -204,7 +217,7 @@ minix:
 #MAKE = gmake -f unix/Makefile
 os390:
 	${MAKE} zips CFLAGS="$(CF) -I. -DUNIX -DOS390 -DEBCDIC -DSYSV \
--DNO_PARAM_H" LFLAGS2=""
+-DSYSV -DNO_PARAM_H" LFLAGS2=""
 
 # QNX is "special" because out /bin/sh is ksh and it doesn't grok the
 # configure script properly, generating a bad flags file.  D'oh! [cjh]

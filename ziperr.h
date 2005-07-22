@@ -1,9 +1,11 @@
 /*
+  ziperr.h - Zip 3
+
   Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
@@ -31,8 +33,10 @@
 #define ZE_CREAT        15      /* couldn't open to write */
 #define ZE_PARMS        16      /* bad command line */
 #define ZE_OPEN         18      /* could not open a specified file to read */
+#define ZE_COMPERR      19      /* error in compilation options */
+#define ZE_ZIP64        20      /* Zip64 not supported */
 
-#define ZE_MAXERR       18      /* the highest error number */
+#define ZE_MAXERR       20      /* the highest error number */
 
 /* Macro to determine whether to call perror() or not */
 #define PERR(e) (e==ZE_READ||e==ZE_WRITE||e==ZE_CREAT||e==ZE_TEMP||e==ZE_OPEN)
@@ -57,7 +61,9 @@ char *ziperrors[ZE_MAXERR] = {
 /* 15 */  "Could not create output file",
 /* 16 */  "Invalid command arguments",
 /* 17 */  "",
-/* 18 */  "File not found or no read permission"
+/* 18 */  "File not found or no read permission",
+/* 19 */  "Not supported",
+/* 20 */  "Attempt to read unsupported Zip64 archive"
 #  ifdef AZTEC_C
           ,     /* extremely lame compiler bug workaround */
 #  endif

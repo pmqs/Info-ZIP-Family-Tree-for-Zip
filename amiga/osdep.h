@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 #ifndef __amiga_osdep_h
 #define __amiga_osdep_h
@@ -21,6 +21,12 @@
 
 #ifndef IZTZ_GETLOCALETZINFO
 #  define IZTZ_GETLOCALETZINFO GetPlatformLocalTimezone
+#endif
+
+/* AmigaDOS can't even support disk partitions over 4GB, let alone files */
+#define NO_LARGE_FILE_SUPPORT
+#ifdef LARGE_FILE_SUPPORT
+#  undef LARGE_FILE_SUPPORT
 #endif
 
 #define USE_CASE_MAP
@@ -77,7 +83,10 @@ void ClearIOErr_exit(int e);
 #    define WSIZE 0x4000        /* only half of maximum window size */
 #  endif                        /* possible with short-integers     */
 #endif /* __SASC */
-
+/*
+ With Aztec C, using short integers imposes no size limits and makes
+ the program run faster, even with 32 bit CPUs, so it's recommended.
+*/
 #ifdef AZTEC_C
 #  define NO_UNISTD_H
 #  define NO_RMDIR

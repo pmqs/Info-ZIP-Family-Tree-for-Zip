@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 1999-Oct-05 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, all these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
+  If, for some reason, both of these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
 
   This AtheOS - specific file is based on unix.c and beos.c;
   changes by Ruslan Nickolaev (nruslan@hotbox.ru)
@@ -458,7 +458,7 @@ int get_attr_dir( const char *name, char **attr_buff, off_t *total_size )
         strcpy( ptr, fa_ent->d_name );
         ptr += entname_size;
 
-        memcpy( ptr, &fa_info, sizeof( struct attr_info ) );
+  memcpy( ptr, &fa_info, sizeof( struct attr_info ) );
         ptr += sizeof( struct attr_info );
 
         if( fa_info.ai_size > 0 ) {
@@ -840,7 +840,7 @@ void setfiletype(const char *file, const char *type)
     else
     {
         nLen = strlen( type );
-        /* FIXME: write_attr() should return count of bytes written */
+        /* FIXME: write_attr() should return count of writed bytes */
         nError = write_attr( fd, "os::MimeType", O_TRUNC, ATTR_TYPE_STRING, type, 0, nLen );
         if (nError < 0) {
             zipwarn( "couldn't write complete file type", "" );

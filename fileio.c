@@ -1,4 +1,6 @@
 /*
+  fileio.c - Zip 3
+
   Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
@@ -33,6 +35,12 @@ time_t mktime OF((struct tm *));
 extern int errno;
 #endif
 
+/* -----------------------
+   For long option support
+   ----------------------- */
+#include <ctype.h>
+
+
 #if defined(VMS) || defined(TOPS20)
 #  define PAD 5
 #else
@@ -44,15 +52,19 @@ int rename OF((ZCONST char *, ZCONST char *));
 #endif
 
 
+/* Local functions */
+local int optionerr OF((char *, ZCONST char *, int, int));
+local unsigned long get_shortopt OF((char **, int, int *, int *, char **, int *, int));
+local unsigned long get_longopt OF((char **, int, int *, int *, char **, int *, int));
+
 #ifndef UTIL    /* the companion #endif is a bit of ways down ... */
 
-/* Local functions */
 local int fqcmp  OF((ZCONST zvoid *, ZCONST zvoid *));
 local int fqcmpz OF((ZCONST zvoid *, ZCONST zvoid *));
 
 /* Local module level variables. */
 char *label = NULL;                /* global, but only used in `system'.c */
-local struct stat zipstatb;
+local z_stat zipstatb;             /* now use z_stat globally - 7/24/04 EG */
 #if (!defined(MACOS) && !defined(WINDLL))
 local int zipstate = -1;
 #else
@@ -60,23 +72,31 @@ int zipstate;
 #endif
 /* -1 unknown, 0 old zip file exists, 1 new zip file */
 
+#if 0
 char *getnam(n, fp)
 char *n;                /* where to put name (must have >=FNMAX+1 bytes) */
-FILE *fp;
-/* Read a \n or \r delimited name from stdin into n, and return
-   n.  If EOF, then return NULL.  Also, if the name read is too big, return
-   NULL. */
+#endif
+
+/* converted to return string pointer from malloc to avoid
+   size limitation - 11/8/04 EG */
+#define GETNAM_MAX 9000 /* hopefully big enough for now */
+char *getnam(fp)
+  FILE *fp;
+  /* Read a \n or \r delimited name from stdin into n, and return
+     n.  If EOF, then return NULL.  Also, if problem return NULL. */
 {
+  char name[GETNAM_MAX + 1];
   int c;                /* last character read */
   char *p;              /* pointer into name area */
 
-  p = n;
+
+  p = name;
   while ((c = getc(fp)) == '\n' || c == '\r')
     ;
   if (c == EOF)
     return NULL;
   do {
-    if (p - n >= FNMAX)
+    if (p - name >= GETNAM_MAX)
       return NULL;
     *p++ = (char) c;
     c = getc(fp);
@@ -87,14 +107,19 @@ FILE *fp;
  * XXX what about a filename that only consists of spaces ?
  *     Answer: on WIN32, a filename must contain at least one non-space char
  */
-  while (p > n) {
+  while (p > name) {
     if ((c = p[-1]) != ' ' && c != '.')
       break;
     --p;
   }
 #endif
   *p = 0;
-  return n;
+  /* malloc a copy */
+  if ((p = malloc(strlen(name) + 1)) == NULL) {
+    return NULL;
+  }
+  strcpy(p, name);
+  return p;
 }
 
 struct flist far *fexpel(f)
@@ -452,13 +477,13 @@ int  casesensitive;     /* true for case-sensitive matching */
 /* Version of stat() for CMS/MVS isn't complete enough to see if       */
 /* files match.  Just let ZIP.C compare the filenames.  That's good    */
 /* enough for CMS anyway since there aren't paths to worry about.      */
-    struct stat statb;
+    z_stat statb;      /* now use structure z_stat and function zstat globally 7/24/04 EG */
 
     if (zipstate == -1)
        zipstate = strcmp(zipfile, "-") != 0 &&
-                   stat(zipfile, &zipstatb) == 0;
+                   zstat(zipfile, &zipstatb) == 0;
 
-    if (zipstate == 1 && (statb = zipstatb, stat(name, &statb) == 0
+    if (zipstate == 1 && (statb = zipstatb, zstat(name, &statb) == 0
       && zipstatb.st_mode  == statb.st_mode
 #ifdef VMS
       && memcmp(zipstatb.st_ino, statb.st_ino, sizeof(statb.st_ino)) == 0
@@ -638,7 +663,7 @@ char *d, *s;            /* destination and source file names */
    this will be done by setfileattr() later.
  */
 {
-  struct stat t;        /* results of stat() */
+  z_stat t;         /* results of stat() */
 #if defined(CMS_MVS)
   /* cmsmvs.h defines FOPW_TEMP as memory(hiperspace).  Since memory is
    * lost at end of run, always do copy instead of rename.
@@ -702,15 +727,20 @@ char *d, *s;            /* destination and source file names */
     if (SWI_OS_FSControl_26(s,d,0xA1)!=NULL) {
 #endif
 
-    if ((f = fopen(s, FOPR)) == NULL) {
+    /* Use zfopen for almost all opens where fopen is used.  For
+       most OS that support large files we use the 64-bit file
+       environment and zfopen maps to fopen, but this allows
+       tweeking ports that don't do that.  7/24/04 EG */
+    if ((f = zfopen(s, FOPR)) == NULL) {
       fprintf(stderr," replace: can't open %s\n", s);
       return ZE_TEMP;
     }
-    if ((g = fopen(d, FOPW)) == NULL)
+    if ((g = zfopen(d, FOPW)) == NULL)
     {
       fclose(f);
       return ZE_CREAT;
     }
+
     r = fcopy(f, g, (ulg)-1L);
     fclose(f);
     if (fclose(g) || r != ZE_OK)
@@ -737,7 +767,7 @@ char *f;                /* file path */
 
   return _dos_files(&buf, f, 0xff) < 0 ? 0x20 : buf.atr;
 #else
-  struct stat s;
+  z_stat s;
 
   return SSTAT(f, &s) == 0 ? (int) s.st_mode : 0;
 #endif
@@ -760,6 +790,9 @@ int a;                  /* attributes returned by getfileattr() */
 #endif
 }
 
+
+/* tempname */
+
 #ifndef VMS /* VMS-specific function is in VMS.C. */
 
 char *tempname(zip)
@@ -769,9 +802,10 @@ char *zip;              /* path name of zip file to generate temp name for */
 {
   char *t = zip;   /* malloc'ed space for name (use zip to avoid warning) */
 
-#ifdef CMS_MVS
+# ifdef CMS_MVS
   if ((t = malloc(strlen(tempath)+L_tmpnam+2)) == NULL)
     return NULL;
+
 #  ifdef VM_CMS
   tmpnam(t);
   /* Remove filemode and replace with tempath, if any. */
@@ -810,8 +844,10 @@ char *zip;              /* path name of zip file to generate temp name for */
   }
   return t;
 #  endif  /* !VM_CMS */
-#else /* !CMS_MVS */
-#ifdef TANDEM
+
+# else /* !CMS_MVS */
+
+#  ifdef TANDEM
   char cur_subvol [FILENAME_MAX];
   char temp_subvol [FILENAME_MAX];
   char *zptr;
@@ -851,12 +887,13 @@ char *zip;              /* path name of zip file to generate temp name for */
   do {
     attempts++;
     tmpnam(ptr);  /* Add filename */
-    tempf = fopen(ptr, FOPW_TMP);    /* Attempt to create file */
+    tempf = zfopen(ptr, FOPW_TMP);    /* Attempt to create file */
   } while (tempf == NULL && attempts < 100);
 
   if (attempts >= 100) {
     ziperr(ZE_TEMP, "Could not get unique temp file name");
   }
+
   fclose(tempf);
 
   if (zptr != NULL) {
@@ -865,7 +902,7 @@ char *zip;              /* path name of zip file to generate temp name for */
 
   return t;
 
-#else /* !CMS_MVS && !TANDEM */
+#  else /* !CMS_MVS && !TANDEM */
 /*
  * Do something with TMPDIR, TMP, TEMP ????
  */
@@ -874,36 +911,39 @@ char *zip;              /* path name of zip file to generate temp name for */
     if ((t = malloc(strlen(tempath)+12)) == NULL)
       return NULL;
     strcpy(t, tempath);
-#if (!defined(VMS) && !defined(TOPS20))
-#  ifdef MSDOS
+
+#   if (!defined(VMS) && !defined(TOPS20))
+#    ifdef MSDOS
     {
       char c = (char)lastchar(t);
       if (c != '/' && c != ':' && c != '\\')
         strcat(t, "/");
     }
-#  else
-#    ifdef AMIGA
+#    else
+
+#     ifdef AMIGA
     {
       char c = (char)lastchar(t);
       if (c != '/' && c != ':')
         strcat(t, "/");
     }
-#    else /* !AMIGA */
+#     else /* !AMIGA */
 #      ifdef RISCOS
     if (lastchar(t) != '.')
       strcat(t, ".");
 #      else /* !RISCOS */
-#        ifdef QDOS
+
+#       ifdef QDOS
     if (lastchar(t) != '_')
       strcat(t, "_");
-#        else
+#       else
     if (lastchar(t) != '/')
       strcat(t, "/");
-#        endif /* ?QDOS */
+#       endif /* ?QDOS */
 #      endif /* ?RISCOS */
-#    endif  /* ?AMIGA */
-#  endif /* ?MSDOS */
-#endif /* !VMS && !TOPS20 */
+#     endif  /* ?AMIGA */
+#    endif /* ?MSDOS */
+#   endif /* !VMS && !TOPS20 */
   }
   else
   {
@@ -911,38 +951,38 @@ char *zip;              /* path name of zip file to generate temp name for */
       return NULL;
     *t = 0;
   }
-#ifdef NO_MKTEMP
+#   ifdef NO_MKTEMP
   {
     char *p = t + strlen(t);
     sprintf(p, "%08lx", (ulg)time(NULL));
     return t;
   }
-#else
+#   else
   strcat(t, "ziXXXXXX"); /* must use lowercase for Linux dos file system */
   return mktemp(t);
-#endif /* NO_MKTEMP */
-#endif /* TANDEM */
-#endif /* CMS_MVS */
+#   endif /* NO_MKTEMP */
+#  endif /* TANDEM */
+# endif /* CMS_MVS */
 }
-
 #endif /* !VMS */
 
 int fcopy(f, g, n)
-FILE *f, *g;            /* source and destination files */
-ulg n;                  /* number of bytes to copy or -1 for all */
-/* Copy n bytes from file *f to file *g, or until EOF if (long)n == -1.
+  FILE *f, *g;            /* source and destination files */
+  /* now use uzoff_t for all file sizes 5/14/05 CS */
+  uzoff_t n;               /* number of bytes to copy or -1 for all */
+/* Copy n bytes from file *f to file *g, or until EOF if (zoff_t)n == -1.
    Return an error code in the ZE_ class. */
 {
   char *b;              /* malloc'ed buffer for copying */
   extent k;             /* result of fread() */
-  ulg m;                /* bytes copied so far */
+  uzoff_t m;            /* bytes copied so far */
 
   if ((b = malloc(CBSZ)) == NULL)
     return ZE_MEM;
   m = 0;
-  while (n == (ulg)(-1L) || m < n)
+  while (n == (uzoff_t)(-1L) || m < n)
   {
-    if ((k = fread(b, 1, n == (ulg)(-1) ?
+    if ((k = fread(b, 1, n == (uzoff_t)(-1) ?
                    CBSZ : (n - m < CBSZ ? (extent)(n - m) : CBSZ), f)) == 0)
     {
       if (ferror(f))
@@ -1043,3 +1083,1118 @@ register unsigned int len;
 }
 
 #endif  /* ZMEM */
+
+/*---------------------------------------------------------------
+ *  Long option support
+ *  8/23/2003
+ *
+ *  Defines function get_option() to get and process the command
+ *  line options and arguments from argv[].  The caller calls
+ *  get_option() in a loop to get either one option and possible
+ *  value or a non-option argument each loop.
+ *
+ *  This version does not include argument file support and can
+ *  work directly on argv.  The argument file code complicates things and
+ *  it seemed best to leave it out for now.  If argument file support (reading in
+ *  command line arguments stored in a file and inserting into
+ *  command line where @filename is found) is added later the arguments
+ *  can change and a freeable copy of argv will be needed and can be
+ *  created using copy_args in the left out code.
+ *
+ *  Supports short and long options as defined in the array options[]
+ *  in zip.c, multiple short options in an argument (like -jlv), long
+ *  option abbreviation (like --te for --temp-file if --te unique),
+ *  short and long option values (like -b filename or --temp-file filename
+ *  or --temp-file=filename), optional and required values, option negation
+ *  by trailing - (like -S- to not include hidden and system files in MSDOS),
+ *  value lists (like -x a b c), argument permuting (returning all options
+ *  and values before any non-option arguments), and argument files (where any
+ *  non-option non-value argument in form @path gets substituted with the
+ *  white space separated arguments in the text file at path).  In this
+ *  version argument file support has been removed to simplify development but
+ *  may be added later.
+ *
+ *  E. Gordon
+ */
+
+
+/* message output - char casts are needed to handle constants */
+#define oWARN(message) zipwarn((char *) message, "")
+#define oERR(err,message) ZIPERR(err, (char *) message)
+
+/* Although the below provides some support for multibyte characters
+   the proper thing to do may be to use wide characters and support
+   Unicode.  May get to it soon.  EG
+ */
+#ifdef _MBCS
+#  ifndef MULTIBYTE_GETOPTNS
+#    define MULTIBYTE_GETOPTNS
+#  endif
+#endif
+/* multibyte character set support
+   Multibyte characters use typically two or more sequential bytes
+   to represent additional characters than can fit in a single byte
+   character set.  The code used here is based on the ANSI mblen function. */
+#ifdef MULTIBYTE_GETOPTNS
+  local int mb_clen OF((ZCONST char *));  /* declare proto first */
+  local int mb_clen(ptr)
+    ZCONST char *ptr;
+  {
+    /* return the number of bytes that the char pointed to is.  Return 1 if
+       null character or error like not start of valid multibyte character. */
+    int cl;
+
+    cl = mblen(ptr, MB_CUR_MAX);
+    return (cl > 0) ? cl : 1;
+  }
+# define MB_CLEN(ptr) mb_clen(ptr)
+# define MB_NEXTCHAR(ptr) ((ptr) += MB_CLEN(ptr))
+#else
+# define MB_CLEN(ptr) (1)
+# define MB_NEXTCHAR(ptr) ((ptr)++)
+#endif
+
+
+/* constants */
+
+/* function get_args_from_arg_file() can return this in depth parameter */
+#define ARG_FILE_ERR -1
+
+/* internal settings for optchar */
+#define SKIP_VALUE_ARG   -1
+#define THIS_ARG_DONE    -2
+#define START_VALUE_LIST -3
+#define IN_VALUE_LIST    -4
+#define NON_OPTION_ARG   -5
+#define STOP_VALUE_LIST  -6
+/* 7/25/04 EG */
+#define READ_REST_ARGS_VERBATIM -7
+
+
+/* global veriables */
+
+int enable_permute = 1;                     /* yes - return options first */
+/* 7/25/04 EG */
+int doubledash_ends_options = 1;            /* when -- what follows are not options */
+
+/* buffer for error messages (this sizing is a guess but must hold 2 paths) */
+#define OPTIONERR_BUF_SIZE (FNMAX * 2 + 200)
+char optionerrbuf[OPTIONERR_BUF_SIZE + 1];
+
+/* error messages */
+static ZCONST char Far op_not_neg_err[] = "option %s not negatable";
+static ZCONST char Far op_req_val_err[] = "option %s requires a value";
+static ZCONST char Far op_no_allow_val_err[] = "option %s does not allow a value";
+static ZCONST char Far sh_op_not_sup_err[] = "short option '%c' not supported";
+static ZCONST char Far oco_req_val_err[] = "option %s requires one character value";
+static ZCONST char Far oco_no_mbc_err[] = "option %s does not support multibyte values";
+static ZCONST char Far num_req_val_err[] = "option %s requires number value";
+static ZCONST char Far long_op_ambig_err[] = "long option '%s' ambiguous";
+static ZCONST char Far long_op_not_sup_err[] = "long option '%s' not supported";
+
+static ZCONST char Far no_arg_files_err[] = "argument files not enabled\n";
+
+
+/* below removed as only used for processing argument files */
+
+/* copy_args */
+/* free_args */
+/* insert_arg */
+/* get_nextarg */
+/* get_args_from_string */
+/* insert_args */
+/* get_args_from_arg_file */
+
+
+/* copy error, option name, and option description if any to buf */
+local int optionerr(buf, err, optind, islong)
+  char *buf;
+  ZCONST char *err;
+  int optind;
+  int islong;
+{
+  char optname[50];
+
+  if (options[optind].name && options[optind].name[0] != '\0') {
+    if (islong)
+      sprintf(optname, "'%s' (%s)", options[optind].longopt, options[optind].name);
+    else
+      sprintf(optname, "'%s' (%s)", options[optind].shortopt, options[optind].name);
+  } else {
+    if (islong)
+      sprintf(optname, "'%s'", options[optind].longopt);
+    else
+      sprintf(optname, "'%s'", options[optind].shortopt);
+  }
+  sprintf(buf, err, optname);
+  return 0;
+}
+
+
+/* get_shortopt
+ *
+ * Get next short option from arg.  The state is stored in argnum, optchar, and
+ * option_num so no static storage is used.  Returns the option_ID.
+ *
+ * parameters:
+ *    args        - argv array of arguments
+ *    argnum      - index of current arg in args
+ *    optchar     - pointer to index of next char to process.  Can be 0 or
+ *                  const defined at top of this file like THIS_ARG_DONE
+ *    negated     - on return pointer to int set to 1 if option negated or 0 otherwise
+ *    value       - on return pointer to string set to value of option if any or NULL
+ *                  if none.  If value is returned then the caller should free()
+ *                  it when not needed anymore.
+ *    option_num  - pointer to index in options[] of returned option or
+ *                  o_NO_OPTION_MATCH if none.  Do not change as used by
+ *                  value lists.
+ *    depth       - recursion depth (0 at top level, 1 or more in arg files)
+ */
+local unsigned long get_shortopt(args, argnum, optchar, negated, value, option_num, depth)
+  char **args;
+  int argnum;
+  int *optchar;
+  int *negated;
+  char **value;
+  int *option_num;
+  int depth;
+{
+  char *shortopt;
+  int clen;
+  char *nextchar;
+  char *s;
+  char *start;
+  int op;
+  char *arg;
+  long match = -1;
+
+
+  /* get arg */
+  arg = args[argnum];
+  /* current char in arg */
+  nextchar = arg + (*optchar);
+  clen = MB_CLEN(nextchar);
+  /* next char in arg */
+  (*optchar) +=  clen;
+  /* get first char of short option */
+  shortopt = arg + (*optchar);
+  /* no value */
+  *value = NULL;
+
+  if (*shortopt == '\0') {
+    /* no more options in arg */
+    *optchar = 0;
+    *option_num = o_NO_OPTION_MATCH;
+    return 0;
+  }
+
+  /* look for match in options */
+  clen = MB_CLEN(shortopt);
+  for (op = 0; options[op].option_ID; op++) {
+    s = options[op].shortopt;
+    if (s && s[0] == shortopt[0]) {
+      if (s[1] == '\0' && clen == 1) {
+        /* single char match */
+        match = op;
+      } else {
+        /* 2 wide short opt.  Could support more chars but should use long opts instead */
+        if (s[1] == shortopt[1]) {
+          /* match 2 char short opt or 2 byte char */
+          match = op;
+          if (clen == 1) (*optchar)++;
+          break;
+        }
+      }
+    }
+  }
+
+  if (match > -1) {
+    /* match */
+    clen = MB_CLEN(shortopt);
+    nextchar = arg + (*optchar) + clen;
+    /* check for trailing dash negating option */
+    if (*nextchar == '-') {
+      /* negated */
+      if (options[match].negatable == o_NOT_NEGATABLE) {
+        if (options[match].value_type == o_NO_VALUE) {
+          optionerr(optionerrbuf, op_not_neg_err, match, 0);
+          if (depth > 0) {
+            /* unwind */
+            oWARN(optionerrbuf);
+            return o_ARG_FILE_ERR;
+          } else {
+            oERR(ZE_PARMS, optionerrbuf);
+          }
+        }
+      } else {
+        *negated = 1;
+        /* set up to skip negating dash */
+        (*optchar) += clen;
+        clen = 1;
+      }
+    }
+
+    /* value */
+    clen = MB_CLEN(arg + (*optchar));
+    /* optional value, one char value, and number value must follow option */
+    if (options[match].value_type == o_ONE_CHAR_VALUE) {
+      /* one char value */
+      if (arg[(*optchar) + clen]) {
+        /* has value */
+        if (MB_CLEN(arg + (*optchar) + clen) > 1) {
+          /* multibyte value not allowed for now */
+          optionerr(optionerrbuf, oco_no_mbc_err, match, 0);
+          if (depth > 0) {
+            /* unwind */
+            oWARN(optionerrbuf);
+            return o_ARG_FILE_ERR;
+          } else {
+            oERR(ZE_PARMS, optionerrbuf);
+          }
+        }
+        if ((*value = (char *) malloc(2)) == NULL) {
+          oERR(ZE_MEM, "gso");
+        }
+        (*value)[0] = *(arg + (*optchar) + clen);
+        (*value)[1] = '\0';
+        *optchar += clen;
+        clen = 1;
+      } else {
+        /* one char values require a value */
+        optionerr(optionerrbuf, oco_req_val_err, match, 0);
+        if (depth > 0) {
+          oWARN(optionerrbuf);
+          return o_ARG_FILE_ERR;
+        } else {
+          oERR(ZE_PARMS, optionerrbuf);
+        }
+      }
+    } else if (options[match].value_type == o_NUMBER_VALUE) {
+      /* read chars until end of number */
+      start = arg + (*optchar) + clen;
+      if (*start == '+' || *start == '-') {
+        start++;
+      }
+      s = start;
+      for (; isdigit(*s); MB_NEXTCHAR(s)) ;
+      if (s == start) {
+        /* no digits */
+        optionerr(optionerrbuf, num_req_val_err, match, 0);
+        if (depth > 0) {
+          oWARN(optionerrbuf);
+          return o_ARG_FILE_ERR;
+        } else {
+          oERR(ZE_PARMS, optionerrbuf);
+        }
+      }
+      start = arg + (*optchar) + clen;
+      if ((*value = (char *) malloc((int)(s - start) + 1)) == NULL) {
+        oERR(ZE_MEM, "gso");
+      }
+      *optchar += (int)(s - start);
+      strncpy(*value, start, (int)(s - start));
+      (*value)[(int)(s - start)] = '\0';
+      clen = MB_CLEN(s);
+    } else if (options[match].value_type == o_OPTIONAL_VALUE) {
+      /* optional value */
+      /* This was inconsistent so now if no value attached to argument look to next
+         argument if that argument is not an option for option value - 11/12/04 EG */
+      if (arg[(*optchar) + clen]) {
+        /* has value */
+        /* add support for optional = - 2/6/05 EG */
+        if (arg[(*optchar) + clen] == '=') {
+          /* skip = */
+          clen++;
+        }
+        if (arg[(*optchar) + clen]) {
+          if ((*value = (char *) malloc(strlen(arg + (*optchar) + clen) + 1)) == NULL) {
+            oERR(ZE_MEM, "gso");
+          }
+          strcpy(*value, arg + (*optchar) + clen);
+        }
+        *optchar = THIS_ARG_DONE;
+      } else if (args[argnum + 1] && args[argnum + 1][0] != '-') {
+        /* use next arg for value */
+        if ((*value = (char *) malloc(strlen(args[argnum + 1]) + 1)) == NULL) {
+          oERR(ZE_MEM, "gso");
+        }
+        /* using next arg as value */
+        strcpy(*value, args[argnum + 1]);
+        *optchar = SKIP_VALUE_ARG;
+      }
+    } else if (options[match].value_type == o_REQUIRED_VALUE ||
+               options[match].value_type == o_VALUE_LIST) {
+      /* see if follows option */
+      if (arg[(*optchar) + clen]) {
+        /* has value following option as -ovalue */
+        /* add support for optional = - 6/5/05 EG */
+        if (arg[(*optchar) + clen] == '=') {
+          /* skip = */
+          clen++;
+        }
+        if ((*value = (char *) malloc(strlen(arg + (*optchar) + clen) + 1)) == NULL) {
+          oERR(ZE_MEM, "gso");
+        }
+        strcpy(*value, arg + (*optchar) + clen);
+        *optchar = THIS_ARG_DONE;
+      } else {
+        /* use next arg for value */
+        if (args[argnum + 1]) {
+          if ((*value = (char *) malloc(strlen(args[argnum + 1]) + 1)) == NULL) {
+            oERR(ZE_MEM, "gso");
+          }
+          /* using next arg as value */
+          strcpy(*value, args[argnum + 1]);
+          if (options[match].value_type == o_VALUE_LIST) {
+            *optchar = START_VALUE_LIST;
+          } else {
+            *optchar = SKIP_VALUE_ARG;
+          }
+        } else {
+          /* no value found */
+          optionerr(optionerrbuf, op_req_val_err, match, 0);
+          if (depth > 0) {
+            oWARN(optionerrbuf);
+            return o_ARG_FILE_ERR;
+          } else {
+            oERR(ZE_PARMS, optionerrbuf);
+          }
+        }
+      }
+    }
+
+    *option_num = match;
+    return options[match].option_ID;
+  }
+  sprintf(optionerrbuf, sh_op_not_sup_err, *shortopt);
+  if (depth > 0) {
+    /* unwind */
+    oWARN(optionerrbuf);
+    return o_ARG_FILE_ERR;
+  } else {
+    oERR(ZE_PARMS, optionerrbuf);
+  }
+  return 0;
+}
+
+
+/* get_longopt
+ *
+ * Get the long option in args array at argnum.  Parameters same as for get_shortopt.
+ */
+
+local unsigned long get_longopt(args, argnum, optchar, negated, value, option_num, depth)
+  char **args;
+  int argnum;
+  int *optchar;
+  int *negated;
+  char **value;
+  int *option_num;
+  int depth;
+{
+  char *longopt;
+  char *lastchr;
+  char *valuestart;
+  int op;
+  char *arg;
+  int match = -1;
+  *value = NULL;
+
+  if (args == NULL) {
+    *option_num = o_NO_OPTION_MATCH;
+    return 0;
+  }
+  if (args[argnum] == NULL) {
+    *option_num = o_NO_OPTION_MATCH;
+    return 0;
+  }
+  /* copy arg so can chop end if value */
+  if ((arg = (char *) malloc(strlen(args[argnum]) + 1)) == NULL) {
+    oERR(ZE_MEM, "glo");
+  }
+  strcpy(arg, args[argnum]);
+
+  /* get option */
+  longopt = arg + 2;
+  /* no value */
+  *value = NULL;
+
+  /* find = */
+  for (lastchr = longopt, valuestart = longopt;
+       *valuestart && *valuestart != '=';
+       lastchr = valuestart, MB_NEXTCHAR(valuestart)) ;
+  if (*valuestart) {
+    /* found =value */
+    *valuestart = '\0';
+    valuestart++;
+  } else {
+    valuestart = NULL;
+  }
+
+  if (*lastchr == '-') {
+    /* option negated */
+    *negated = 1;
+    *lastchr = '\0';
+  } else {
+    *negated = 0;
+  }
+
+  /* look for long option match */
+  for (op = 0; options[op].option_ID; op++) {
+    if (options[op].longopt && strcmp(options[op].longopt, longopt) == 0) {
+      /* exact match */
+      match = op;
+      break;
+    }
+    if (options[op].longopt && strncmp(options[op].longopt, longopt, strlen(longopt)) == 0) {
+      if (match > -1) {
+        sprintf(optionerrbuf, long_op_ambig_err, longopt);
+        if (depth > 0) {
+          /* unwind */
+          oWARN(optionerrbuf);
+          return o_ARG_FILE_ERR;
+        } else {
+          oERR(ZE_PARMS, optionerrbuf);
+        }
+      }
+      match = op;
+    }
+  }
+
+  if (match == -1) {
+    sprintf(optionerrbuf, long_op_not_sup_err, longopt);
+    free(arg);
+    if (depth > 0) {
+      oWARN(optionerrbuf);
+      return o_ARG_FILE_ERR;
+    } else {
+      oERR(ZE_PARMS, optionerrbuf);
+    }
+  }
+
+  /* one long option an arg */
+  *optchar = THIS_ARG_DONE;
+
+  /* if negated then see if allowed */
+  if (*negated && options[match].negatable == o_NOT_NEGATABLE) {
+    optionerr(optionerrbuf, op_not_neg_err, match, 1);
+    free(arg);
+    if (depth > 0) {
+      /* unwind */
+      oWARN(optionerrbuf);
+      return o_ARG_FILE_ERR;
+    } else {
+      oERR(ZE_PARMS, optionerrbuf);
+    }
+  }
+  /* get value */
+  if (options[match].value_type == o_OPTIONAL_VALUE) {
+    /* optional value in form option=value */
+    if (valuestart) {
+      /* option=value */
+      if ((*value = (char *) malloc(strlen(valuestart) + 1)) == NULL) {
+        free(arg);
+        oERR(ZE_MEM, "glo");
+      }
+      strcpy(*value, valuestart);
+    }
+  } else if (options[match].value_type == o_REQUIRED_VALUE ||
+             options[match].value_type == o_NUMBER_VALUE ||
+             options[match].value_type == o_ONE_CHAR_VALUE ||
+             options[match].value_type == o_VALUE_LIST) {
+    /* handle long option one char and number value as required value */
+    if (valuestart) {
+      /* option=value */
+      if ((*value = (char *) malloc(strlen(valuestart) + 1)) == NULL) {
+        free(arg);
+        oERR(ZE_MEM, "glo");
+      }
+      strcpy(*value, valuestart);
+    } else {
+      /* use next arg */
+      if (args[argnum + 1]) {
+        if ((*value = (char *) malloc(strlen(args[argnum + 1]) + 1)) == NULL) {
+          free(arg);
+          oERR(ZE_MEM, "glo");
+        }
+        /* using next arg as value */
+        strcpy(*value, args[argnum + 1]);
+        if (options[match].value_type == o_VALUE_LIST) {
+          *optchar = START_VALUE_LIST;
+        } else {
+          *optchar = SKIP_VALUE_ARG;
+        }
+      } else {
+        /* no value found */
+        optionerr(optionerrbuf, op_req_val_err, match, 1);
+        free(arg);
+        if (depth > 0) {
+          /* unwind */
+          oWARN(optionerrbuf);
+          return o_ARG_FILE_ERR;
+        } else {
+          oERR(ZE_PARMS, optionerrbuf);
+        }
+      }
+    }
+  } else if (options[match].value_type == o_NO_VALUE) {
+    /* this option does not accept a value */
+    if (valuestart) {
+      /* --option=value */
+      optionerr(optionerrbuf, op_no_allow_val_err, match, 1);
+      if (depth > 0) {
+        oWARN(optionerrbuf);
+        return o_ARG_FILE_ERR;
+      } else {
+        oERR(ZE_PARMS, optionerrbuf);
+      }
+    }
+  }
+  free(arg);
+
+  *option_num = match;
+  return options[match].option_ID;
+}
+
+
+
+/* get_option
+ *
+ * Main interface for user.  Use this function to get options, values and
+ * non-option arguments from a command line provided in argv form.
+ *
+ * To use get_option() first define valid options by setting
+ * the global variable options[] to an array of option_struct.  Also
+ * either change defaults below or make variables global and set elsewhere.
+ * Zip uses below defaults.
+ *
+ * Call get_option() to get an option (like -b or --temp-file) and any
+ * value for that option (like filename for -b) or a non-option argument
+ * (like archive name) each call.  If *value* is not NULL after calling
+ * get_option() it is a returned value and the caller should either store
+ * the char pointer or free() it before calling get_option() again to avoid
+ * leaking memory.  If a non-option non-value argument is returned get_option()
+ * returns o_NON_OPTION_ARG and value is set to the entire argument.  When there
+ * are no more arguments get_option() returns 0.
+ *
+ * The parameters argnum (after set to 0 on initial call),
+ * optchar, first_nonopt_arg, option_num, and depth (after initial
+ * call) are set and maintained by get_option() and should not be
+ * changed.  The parameters argc, negated, and value are outputs and
+ * can be used by the calling program.  get_option() returns either the
+ * option_ID for the current option, a special value defined in
+ * zip.h, or 0 when no more arguments.
+ *
+ * The value returned by get_option() is the ID value in the options
+ * table.  This value can be duplicated in the table if different
+ * options are really the same option.  The index into the options[]
+ * table is given by option_num, though the ID should be used as
+ * option numbers change when the table is changed.  The ID must
+ * not be 0 for any option as this ends the table.  If get_option()
+ * finds an option not in the table it calls oERR to post an
+ * error and exit.  Errors also result if the option requires a
+ * value that is missing, a value is present but the option does
+ * not take one, and an option is negated but is not
+ * negatable.  Non-option arguments return o_NON_OPTION_ARG
+ * with the entire argument in value.
+ *
+ * For Zip, permuting is on and all options and their values are
+ * returned before any non-option arguments like archive name.
+ *
+ * The arguments "-" alone and "--" alone return as non-option arguments.
+ * Note that "-" should not be used as part of a short option
+ * entry in the table but can be used in the middle of long
+ * options such as in the long option "a-long-option".  This version
+ * does not handle "--" uniquely, such as stopping argument processing.
+ *
+ * Argument file support is removed from this version. It may be added later.
+ *
+ * After each call:
+ *   argc       is set to the current size of args[] but should not change
+ *                with argument file support removed,
+ *   argnum     is the index of the current arg,
+ *   value      is either the value of the returned option or non-option
+ *                argument or NULL if option with no value,
+ *   negated    is set if the option was negated by a trailing dash (-)
+ *   option_num is set to either the index in options[] for the option or
+ *                o_NO_OPTION_MATCH if no match.
+ * Negation is checked before the value is read if the option is negatable so that
+ * the - is not included in the value.  If the option is not negatable but takes
+ * a value then the - will start the value.  If permuting then argnum and
+ * first_nonopt_arg are unreliable and should not be used.
+ *
+ * Command line is read from left to right.  As get_option() finds non-option
+ * arguments (arguments not starting with - and that are not values to options) it
+ * moves later options and values in front of the non-option arguments.  This
+ * permuting is turned off by setting enable_permute to 0.  Then get_option() will
+ * return options and non-option arguments in the order found.  Currently
+ * permuting is only done after an argument is completely processed so
+ * that any value can be moved with options they go with.  All state information is
+ * stored in the parameters argnum, optchar, first_nonopt_arg and option_num.  You
+ * should not change these after the first call to get_option().  If you need to
+ * back up to a previous arg then set argnum to that arg (remembering that
+ * args may have been permuted) and set optchar = 0 and first_nonopt_arg to
+ * the first non-option argument if permuting.  After all arguments are returned
+ * the next call to get_option() returns 0.  The caller can then call
+ * free_args(args) if appropriate.
+ *
+ * get_option() accepts arguments in the following forms:
+ *  short options
+ *       of 1 and 2 characters, e.g. a, b, cc, d, and ba, after a single
+ *       leading -, as in -abccdba.  In this example if 'b' is followed by 'a'
+ *       it matches short option 'ba' else it is interpreted as short option
+ *       b followed by another option.  The character - is not legal as a
+ *       short option or as part of a 2 character short option.
+ *
+ *       If a short option has a value it immediately follows the option or
+ *       if that option is the end of the arg then the next arg is used as
+ *       the value.  So if short option e has a value, it can be given as
+ *             -evalue
+ *       or
+ *             -e value
+ *       and now
+ *             -e=value
+ *       but now that = is optional a leading = is stripped for the first.
+ *       This change allows optional short option values to be defaulted as
+ *             -e=
+ *       Either optional or required values can be specified.  Optional values
+ *       now use both forms as ignoring the later got confusing.  Any
+ *       non-value short options can preceed a valued short option as in
+ *             -abevalue
+ *       Some value types (one_char and number) allow options after the value
+ *       so if oc is an option that takes a character and n takes a number
+ *       then
+ *             -abocVccn42evalue
+ *       returns value V for oc and value 42 for n.  All values are strings
+ *       so programs may have to convert the "42" to a number.  See long
+ *       options below for how value lists are handled.
+ *
+ *       Any short option can be negated by following it with -.  Any - is
+ *       handled and skipped over before any value is read unless the option
+ *       is not negatable but takes a value and then - starts the value.
+ *
+ *       If the value for an optional value is just =, then treated as no
+ *       value.
+ *
+ *  long options
+ *       of arbitrary length are assumed if an arg starts with -- but is not
+ *       exactly --.  Long options are given one per arg and can be abbreviated
+ *       if the abbreviation uniquely matches one of the long options.
+ *       Exact matches always match before partial matches.  If ambiguous an
+ *       error is generated.
+ *
+ *       Values are specified either in the form
+ *             --longoption=value
+ *       or can be the following arg if the value is required as in
+ *             --longoption value
+ *       Optional values to long options must be in the first form.
+ *
+ *       Value lists are specified by o_VALUE_LIST and consist of an option
+ *       that takes a value followed by one or more value arguments.
+ *       The two forms are
+ *             --option=value
+ *       or
+ *             -ovalue
+ *       for a single value or
+ *             --option value1 value2 value3 ... --option2
+ *       or
+ *             -o value1 value2 value3 ...
+ *       for a list of values.  The list ends at the next option, the
+ *       end of the command line, or at a single "@" argument.
+ *       Each value is treated as if it was preceeded by the option, so
+ *             --option1 val1 val2
+ *       with option1 value_type set to o_VALUE_LIST is the same as
+ *             --option1=val1 --option1=val2
+ *
+ *       Long options can be negated by following the option with - as in
+ *             --longoption-
+ *       Long options with values can also be negated if this makes sense for
+ *       the caller as:
+ *             --longoption-=value
+ *       If = is not followed by anything it is treated as no value.
+ *
+ *  @path
+ *       Argument files support removed from this version.  It may be added
+ *       back later.
+ *
+ *  non-option argument
+ *       is any argument not given above.  If enable_permute is 1 then
+ *       these are returned after all options, otherwise all options and
+ *       args are returned in order.  Returns option ID o_NON_OPTION_ARG
+ *       and sets value to the argument.
+ *
+ *
+ * Arguments to get_option:
+ *  char ***pargs          - pointer to arg array in the argv form
+ *  int *argc              - returns the current argc for args including args[0]
+ *  int *argnum            - the index of the current argument (caller
+ *                            should set = 0 on first call and not change after that)
+ *  int *optchar           - index of next short opt in arg or special
+ *  int *first_nonopt_arg  - used by get_option to permute args
+ *  int *negated           - option was negated (had trailing -)
+ *  char *value            - value of option if any (free when done with it) or NULL
+ *  int *option_num        - the index in options of the last option returned
+ *                            (can be o_NO_OPTION_MATCH)
+ *  int recursion_depth    - current depth of recursion (always set to 0 by caller)
+ *                            (always 0 with argument files support removed)
+ *
+ *  Caller should only read the returned option ID and the value, negated,
+ *  and option_num (if required) parameters after each call.
+ *
+ *  Ed Gordon
+ *  8/24/2003 (last updated 2/5/2005 EG)
+ *
+ */
+unsigned long get_option(pargs, argc, argnum, optchar, value,
+                         negated, first_nonopt_arg, option_num, recursion_depth)
+  char ***pargs;
+  int *argc;
+  int *argnum;
+  int *optchar;
+  char **value;
+  int *negated;
+  int *first_nonopt_arg;
+  int *option_num;
+  int recursion_depth;
+{
+  char **args;
+  unsigned long option_ID;
+
+  int argcnt;
+  int first_nonoption_arg;
+  char *arg = NULL;
+  int h;
+  int optc;
+  int argn;
+  int j;
+  int v;
+  int read_rest_args_verbatim = 0;  /* 7/25/04 - ignore options and arg files for rest args */
+
+  /* value is outdated.  The caller should free value before
+     calling get_option again. */
+  *value = NULL;
+
+  /* if args NULL done */
+  if (pargs == NULL) {
+    *argc = 0;
+    return 0;
+  }
+  args = *pargs;
+  if (args == NULL) {
+    *argc = 0;
+    return 0;
+  }
+
+  /* count args */
+  for (argcnt = 0; args[argcnt]; argcnt++) ;
+
+  /* if no provided args nothing to do */
+  if (argcnt < 1 || (recursion_depth == 0 && argcnt < 2)) {
+    *argc = argcnt;
+    return 0;
+  }
+
+  *negated = 0;
+  first_nonoption_arg = *first_nonopt_arg;
+  argn = *argnum;
+  optc = *optchar;
+
+  if (optc == READ_REST_ARGS_VERBATIM) {
+    read_rest_args_verbatim = 1;
+  }
+
+  if (argn == -1 || (recursion_depth == 0 && argn == 0)) {
+    /* first call */
+    /* if depth = 0 then args[0] is argv[0] so skip */
+    *option_num = o_NO_OPTION_MATCH;
+    optc = THIS_ARG_DONE;
+    first_nonoption_arg = -1;
+  }
+
+  /* last option_ID is returned if continuing value list */
+  option_ID = 0;
+  if (*option_num != o_NO_OPTION_MATCH) {
+    option_ID = options[*option_num].option_ID;
+  }
+
+  /* get next option if any */
+  for (;;)  {
+    if (read_rest_args_verbatim) {
+      /* rest after -- are non-option args if doubledash_ends_options set */
+      argn++;
+      if (argn > argcnt || args[argn] == NULL) {
+        /* done */
+        option_ID = 0;
+        break;
+      }
+      arg = args[argn];
+      if ((*value = (char *) malloc(strlen(arg) + 1)) == NULL) {
+        oERR(ZE_MEM, "go");
+      }
+      strcpy(*value, arg);
+      *option_num = o_NO_OPTION_MATCH;
+      option_ID = o_NON_OPTION_ARG;
+      break;
+
+    /* permute non-option args after option args */
+    } else if (enable_permute) {
+      if (optc == SKIP_VALUE_ARG || optc == THIS_ARG_DONE ||
+          optc == START_VALUE_LIST || optc == IN_VALUE_LIST ||
+          optc == STOP_VALUE_LIST) {
+        /* moved to new arg */
+        if (first_nonoption_arg > -1 && args[first_nonoption_arg]) {
+          /* move non-options after this option */
+          /* if option and value separate args or starting list skip option */
+          if (optc == SKIP_VALUE_ARG || optc == START_VALUE_LIST) {
+            v = 1;
+          } else {
+            v = 0;
+          }
+          for (h = first_nonoption_arg; h < argn; h++) {
+            arg = args[first_nonoption_arg];
+            for (j = first_nonoption_arg; j < argn + v; j++) {
+              args[j] = args[j + 1];
+            }
+            args[j] = arg;
+          }
+          first_nonoption_arg += 1 + v;
+        }
+      }
+    } else if (optc == NON_OPTION_ARG) {
+      /* if not permuting then already returned arg */
+      optc = THIS_ARG_DONE;
+    }
+
+    /* value lists */
+    if (optc == STOP_VALUE_LIST) {
+      optc = THIS_ARG_DONE;
+    }
+
+    if (optc == START_VALUE_LIST || optc == IN_VALUE_LIST) {
+      if (optc == START_VALUE_LIST) {
+        /* already returned first value */
+        argn ++;
+        optc = IN_VALUE_LIST;
+      }
+      argn++;
+      arg = args[argn];
+      /* if end of args and still in list and non-option args then terminate list */
+      if (arg == NULL && (optc == START_VALUE_LIST || optc == IN_VALUE_LIST)
+          && first_nonoption_arg > -1) {
+        /* terminate value list with @ */
+        /* this is only needed for argument files */
+        /*
+        argcnt = insert_arg(&args, "@", first_nonoption_arg, 1);
+        argn++;
+        if (first_nonoption_arg > -1) {
+          first_nonoption_arg++;
+        }
+        */
+      }
+
+      arg = args[argn];
+      if (arg && arg[0] == '@' && arg[1] == '\0') {
+          /* inserted arguments terminator */
+          optc = STOP_VALUE_LIST;
+          continue;
+      } else if (arg && arg[0] != '-') {  /* not option */
+        /* - and -- are not allowed in value lists unless escaped */
+        /* another value in value list */
+        if ((*value = (char *) malloc(strlen(args[argn]) + 1)) == NULL) {
+          oERR(ZE_MEM, "go");
+        }
+        strcpy(*value, args[argn]);
+        break;
+
+      } else {
+        argn--;
+        optc = THIS_ARG_DONE;
+      }
+    }
+
+    /* move to next arg */
+    if (optc == SKIP_VALUE_ARG) {
+      argn += 2;
+      optc = 0;
+    } else if (optc == THIS_ARG_DONE) {
+      argn++;
+      optc = 0;
+    }
+    if (argn > argcnt) {
+      break;
+    }
+    if (args[argn] == NULL) {
+      /* done unless permuting and non-option args */
+      if (first_nonoption_arg > -1 && args[first_nonoption_arg]) {
+        /* return non-option arguments at end */
+        if (optc == NON_OPTION_ARG) {
+          first_nonoption_arg++;
+        }
+        /* after first pass args are permuted but skipped over non-option args */
+        /* swap so argn points to first non-option arg */
+        j = argn;
+        argn = first_nonoption_arg;
+        first_nonoption_arg = j;
+      }
+      if (argn > argcnt || args[argn] == NULL) {
+        /* done */
+        option_ID = 0;
+        break;
+      }
+    }
+
+    /* after swap first_nonoption_arg points to end which is NULL */
+    if (first_nonoption_arg > -1 && (args[first_nonoption_arg] == NULL)) {
+      /* only non-option args left */
+      if (optc == NON_OPTION_ARG) {
+        argn++;
+      }
+      if (argn > argcnt || args[argn] == NULL) {
+        /* done */
+        option_ID = 0;
+        break;
+      }
+      if ((*value = (char *) malloc(strlen(args[argn]) + 1)) == NULL) {
+        oERR(ZE_MEM, "go");
+      }
+      strcpy(*value, args[argn]);
+      optc = NON_OPTION_ARG;
+      option_ID = o_NON_OPTION_ARG;
+      break;
+    }
+
+    arg = args[argn];
+
+    /* is it an option */
+    if (arg[0] == '-') {
+      /* option */
+      if (arg[1] == '\0') {
+        /* arg = - */
+        /* treat like non-option arg */
+        *option_num = o_NO_OPTION_MATCH;
+        if (enable_permute) {
+          /* permute args to move all non-option args to end */
+          if (first_nonoption_arg < 0) {
+            first_nonoption_arg = argn;
+          }
+          argn++;
+        } else {
+          /* not permute args so return non-option args when found */
+          if ((*value = (char *) malloc(strlen(arg) + 1)) == NULL) {
+            oERR(ZE_MEM, "go");
+          }
+          strcpy(*value, arg);
+          optc = NON_OPTION_ARG;
+          option_ID = o_NON_OPTION_ARG;
+          break;
+        }
+
+      } else if (arg[1] == '-') {
+        /* long option */
+        if (arg[2] == '\0') {
+          /* arg = -- */
+          if (doubledash_ends_options) {
+            /* Now -- stops permuting and forces the rest of
+               the command line to be read verbetim - 7/25/04 EG */
+
+            /* never permute args after -- and return as non-option args */
+            if (first_nonoption_arg < 1) {
+              /* -- is first non-option argument - 8/7/04 EG */
+              argn--;
+            } else {
+              /* go back to start of non-option args - 8/7/04 EG */
+              argn = first_nonoption_arg - 1;
+            }
+
+            /* disable permuting and treat remaining arguments as not options */
+            read_rest_args_verbatim = 1;
+            optc = READ_REST_ARGS_VERBATIM;
+
+          } else {
+            /* treat like non-option arg */
+            *option_num = o_NO_OPTION_MATCH;
+            if (enable_permute) {
+              /* permute args to move all non-option args to end */
+              if (first_nonoption_arg < 0) {
+                first_nonoption_arg = argn;
+              }
+              argn++;
+            } else {
+              /* not permute args so return non-option args when found */
+              if ((*value = (char *) malloc(strlen(arg) + 1)) == NULL) {
+                oERR(ZE_MEM, "go");
+              }
+              strcpy(*value, arg);
+              optc = NON_OPTION_ARG;
+              option_ID = o_NON_OPTION_ARG;
+              break;
+            }
+          }
+
+        } else {
+          option_ID = get_longopt(args, argn, &optc, negated, value, option_num, recursion_depth);
+          if (option_ID == o_ARG_FILE_ERR) {
+            /* unwind as only get this if recursion_depth > 0 */
+            return option_ID;
+          }
+          break;
+        }
+
+      } else {
+        /* short option */
+        option_ID = get_shortopt(args, argn, &optc, negated, value, option_num, recursion_depth);
+
+        if (option_ID == o_ARG_FILE_ERR) {
+          /* unwind as only get this if recursion_depth > 0 */
+          return option_ID;
+        }
+
+        if (optc == 0) {
+          /* if optc = 0 then ran out of short opts this arg */
+          optc = THIS_ARG_DONE;
+        } else {
+          break;
+        }
+      }
+
+#if 0
+    /* argument file code left out
+       so for now let filenames start with @
+    */
+
+    } else if (allow_arg_files && arg[0] == '@') {
+      /* arg file */
+      oERR(ZE_PARMS, no_arg_files_err);
+#endif
+
+    } else {
+      /* non-option */
+      if (enable_permute) {
+        /* permute args to move all non-option args to end */
+        if (first_nonoption_arg < 0) {
+          first_nonoption_arg = argn;
+        }
+        argn++;
+      } else {
+        /* no permute args so return non-option args when found */
+        if ((*value = (char *) malloc(strlen(arg) + 1)) == NULL) {
+          oERR(ZE_MEM, "go");
+        }
+        strcpy(*value, arg);
+        *option_num = o_NO_OPTION_MATCH;
+        optc = NON_OPTION_ARG;
+        option_ID = o_NON_OPTION_ARG;
+        break;
+      }
+
+    }
+  }
+
+  *pargs = args;
+  *argc = argcnt;
+  *first_nonopt_arg = first_nonoption_arg;
+  *argnum = argn;
+  *optchar = optc;
+
+  return option_ID;
+}

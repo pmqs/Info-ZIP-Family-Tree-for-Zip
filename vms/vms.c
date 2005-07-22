@@ -15,7 +15,7 @@
  *      vms_stat() added - version of stat() that handles special
  *      case when end-of-file-block == 0
  *
- *  2.3.1       11-oct-2004     SMS
+ *  3.0         11-oct-2004     SMS
  *      It would be nice to know why vms_stat() is needed.  If EOF can't
  *      be trusted for a zero-length file, why trust it for any file?
  *      Anyway, I removed the (int) cast on ->st_size, which may now be
@@ -24,17 +24,14 @@
  *      after the long fight with RMS.)
  *      Moved the VMS_PK_EXTRA test(s) into VMS_IM.C and VMS_PK.C to
  *      allow more general automatic dependency generation.
- *
- *  2.3.2       02-aug-2005     SMS
- *      General update for commonality with Zip 3.
- *
  */
 
 #ifdef VMS                      /* For VMS only ! */
 
-#define NO_ZIPUP_H              /* prevent inclusion of vms/zipup.h */
+#define NO_ZIPUP_H              /* Prevent full inclusion of vms/zipup.h. */
 
 #include "zip.h"
+#include "zipup.h"              /* Only partial. */
 
 #include <stdio.h>
 #include <string.h>
@@ -68,7 +65,7 @@
 
 # include "vms.h"
 
-#else /* def UTIL */
+#else /* not UTIL */
 
 /* Include the `VMS attributes' preserving file-io code. We distinguish
    between two incompatible flavours of storing VMS attributes in the
@@ -88,7 +85,7 @@
 #include "vms_pk.c"
 #include "vms_im.c"
 
-#endif /* def UTIL */
+#endif /* not UTIL [else] */
 
 #ifndef ERR
 #define ERR(x) (((x)&1)==0)
@@ -299,9 +296,7 @@ void version_local()
 
 } /* end function version_local() */
 
-
 /* 2004-10-08 SMS.
- * 2005-07-02 SMS.  Updated from latest Zip 3.
  *
  *       tempname() for VMS.
  *
@@ -396,7 +391,7 @@ char *tempname( char *zip)
     temp_name = NULL;           /* Prepare for failure (unlikely). */
     sts = sys$parse( &fab, 0, 0);       /* Parse the name(s). */
 
-    if ((sts& STS$M_SEVERITY) == STS$K_SUCCESS)
+    if ((sts& STS$M_SEVERITY) == STS$M_SUCCESS)
     {
         /* Overlay any resulting file type (typically ".ZIP") with none. */
         strcpy( nam.NAM_L_TYPE, ".;");
@@ -416,7 +411,6 @@ char *tempname( char *zip)
 
 
 /* 2005-02-17 SMS.
- * 2005-07-02 SMS.  Moved into Zip 2 from Zip 3.
  *
  *       ziptyp() for VMS.
  *
@@ -435,17 +429,6 @@ char *tempname( char *zip)
  *    ziptyp() returns the original string, so a later open() fails, and
  *    a relatively informative message is provided.  (A VMS-specific
  *    message could also be provided here, if desired.)
- *
- *    2005-09-16 SMS.
- *    Changed name parsing in ziptyp() to solve a problem with a
- *    search-list logical name device-directory spec for the zipfile.
- *    Previously, when the zipfile did not exist (so sys$search()
- *    failed), the expanded name was used, but as it was
- *    post-sys$search(), it was based on the _last_ member of the search
- *    list instead of the first.  Now, the expanded name from the
- *    original sys$parse() (pre-sys$search()) is retained, and it is
- *    used if sys$search() fails.  This name is based on the first
- *    member of the search list, as a user might expect.
  */
 
 /* Default Zip archive file spec. */
@@ -454,7 +437,6 @@ char *tempname( char *zip)
 char *ziptyp( char *s)
 {
     int status;
-    int exp_len;
     struct FAB fab;
     struct NAM_STRUCT nam;
     char result[ NAM_MAXRSS+ 1];
@@ -496,13 +478,6 @@ char *ziptyp( char *s)
         return p;
     }
 
-    /* Save expanded name length from sys$parse(). */
-    exp_len = nam.NAM_ESL;
-
-    /* Leave expanded name as-is, in case of search failure. */
-    nam.NAM_ESA = NULL;                 /* Expanded name, */
-    nam.NAM_ESS = 0;                    /* storage size. */
-
     status = sys$search(&fab);
     if (status & 1)
     {   /* Zip file exists.  Use resultant (complete, exact) name. */
@@ -513,15 +488,16 @@ char *ziptyp( char *s)
         }
     }
     else
-    {   /* New Zip file.  Use pre-search expanded name. */
-        if ((p = malloc( exp_len+ 1)) != NULL )
+    {   /* New Zip file.  Use expanded name. */
+        if ((p = malloc( nam.NAM_ESL+ 1)) != NULL )
         {
-            exp[ exp_len] = '\0';
+            exp[ nam.NAM_ESL] = '\0';
             strcpy( p, exp);
         }
     }
     return p;
 } /* ziptyp() for VMS. */
+
 
 
 /* 2004-11-23 SMS.
@@ -611,7 +587,7 @@ int sts;
 /* Get process RMS_DEFAULT values. */
 
 sts = sys$getjpiw( 0, 0, 0, &jpi_itm_lst, 0, 0, 0);
-if ((sts& STS$M_SEVERITY) != STS$K_SUCCESS)
+if ((sts& STS$M_SEVERITY) != STS$M_SUCCESS)
     {
     /* Failed.  Don't try again. */
     rms_defaults_known = -1;
@@ -691,6 +667,8 @@ return sts;
 int fopm_id = FOPM_ID;          /* Callback id storage, modify. */
 int fopr_id = FOPR_ID;          /* Callback id storage, read. */
 int fopw_id = FOPW_ID;          /* Callback id storage, write. */
+
+int fhow_id = FHOW_ID;          /* Callback id storage, in read. */
 
 /* acc_cb() */
 
@@ -791,16 +769,12 @@ decc_feat_t decc_feat_array[] = {
    /* Preserve command-line case with SET PROCESS/PARSE_STYLE=EXTENDED */
  { "DECC$ARGV_PARSE_STYLE", 1 },
 
-#if 0  /* Possibly useful in the future. */
-
    /* Preserve case for file names on ODS5 disks. */
  { "DECC$EFS_CASE_PRESERVE", 1 },
 
    /* Enable multiple dots (and most characters) in ODS5 file names,
       while preserving VMS-ness of ";version". */
  { "DECC$EFS_CHARSET", 1 },
-
-#endif /* 0 */
 
    /* List terminator. */
  { (char *)NULL, 0 } };
@@ -881,11 +855,10 @@ void (*const x_decc_init)() = decc_init;
 
 #pragma extern_model save
 
-int LIB$INITIALIZE( void);
+int lib$initialize(void);
 
 #pragma extern_model strict_refdef
-
-int dmy_lib$initialize = (int) LIB$INITIALIZE;
+int dmy_lib$initialize = (int) lib$initialize;
 
 #pragma extern_model restore
 

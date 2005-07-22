@@ -1,4 +1,6 @@
 /*
+  ttyio.c - Zip 3
+
   Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later

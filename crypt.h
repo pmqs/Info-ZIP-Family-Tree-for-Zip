@@ -1,5 +1,7 @@
 /*
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  crypt.h
+
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in (un)zip.h) for terms of use.
@@ -61,15 +63,13 @@
 #endif
 
 #define CR_MAJORVER        2
-#define CR_MINORVER        91
+#define CR_MINORVER        10
 #ifdef CR_BETA
 #  define CR_BETA_VER      "a BETA"
-#  define CR_VERSION       "2.91a BETA"
-#  define CR_VERSION_DATE  "31 May 2006"       /* last real code change */
+#  define CR_VERSION_DATE  "02 Mar 2005"       /* last real code change */
 #else
 #  define CR_BETA_VER      ""
-#  define CR_VERSION       "2.91"
-#  define CR_VERSION_DATE  "31 May 2006"       /* last public release date */
+#  define CR_VERSION_DATE  "02 Mar 2005"       /* last public release date */
 #  define CR_RELEASE
 #endif
 

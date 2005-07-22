@@ -1,5 +1,7 @@
 /*
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  unix/unix.c - Zip 3
+
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -113,7 +115,7 @@ int caseflag;           /* true to force case-sensitive match */
   char *e;              /* pointer to name from readd() */
   int m;                /* matched flag */
   char *p;              /* path for recursion */
-  struct stat s;        /* result of stat() */
+  z_stat s;             /* result of stat() */
   struct zlist far *z;  /* steps through zfiles list */
 
   if (strcmp(n, "-") == 0)   /* if compressing stdin */
@@ -200,20 +202,6 @@ int caseflag;           /* true to force case-sensitive match */
     }
     free((zvoid *)p);
   } /* (s.st_mode & S_IFDIR) */
-#if defined(S_IFIFO) || defined(OS390)
-#ifdef OS390
-  else if (S_ISFIFO(s.st_mode))
-#else
-  else if ((s.st_mode & S_IFIFO) == S_IFIFO)
-#endif
-  {
-    /* FIFO (Named Pipe) - handle as normal file */
-    /* add or remove name of FIFO */
-    if (noisy) zipwarn("FIFO (Named Pipe): ", n);
-    if ((m = newname(n, 0, caseflag)) != ZE_OK)
-      return m;
-  }
-#endif /* S_IFIFO || OS390 */
   else
     zipwarn("ignoring special file: ", n);
   return ZE_OK;
@@ -319,10 +307,10 @@ ulg d;                  /* dos-style time to change it to */
 }
 
 ulg filetime(f, a, n, t)
-  char *f;              /* name of file to get info on */
-  ulg *a;               /* return value: file attributes */
-  long *n;              /* return value: file size */
-  iztimes *t;           /* return value: access, modific. and creation times */
+  char *f;                /* name of file to get info on */
+  ulg *a;                 /* return value: file attributes */
+  zoff_t *n;              /* return value: file size */
+  iztimes *t;             /* return value: access, modific. and creation times */
 /* If file *f does not exist, return 0.  Else, return the file's last
    modified date and time as an MSDOS date and time.  The date and
    time is returned in a long with the date most significant to allow
@@ -335,7 +323,7 @@ ulg filetime(f, a, n, t)
    If f is "-", use standard input as the file. If f is a device, return
    a file size of -1 */
 {
-  struct stat s;        /* results of stat() */
+  z_stat s;         /* results of stat() */
   /* converted to pointer from using FNMAX - 11/8/04 EG */
   char *name;
   int len = strlen(f);
@@ -357,7 +345,7 @@ ulg filetime(f, a, n, t)
     name[len - 1] = '\0';
   /* not all systems allow stat'ing a file with / appended */
   if (strcmp(f, "-") == 0) {
-    if (fstat(fileno(stdin), &s) != 0) {
+    if (zfstat(fileno(stdin), &s) != 0) {
       free(name);
       error("fstat(stdin)");
     }
@@ -423,7 +411,6 @@ ulg filetime(f, a, n, t)
     t->mtime = s.st_mtime;
     t->ctime = t->mtime;   /* best guess, (s.st_ctime: last status change!!) */
   }
-
   return unix2dostime(&s.st_mtime);
 }
 
@@ -436,25 +423,12 @@ int set_extra_field(z, z_utim)
   /* store full data in local header but just modification time stamp info
      in central header */
 {
-  struct stat s;
-  char *name;
-  int len = strlen(z->name);
+  z_stat s;
 
   /* For the full sized UT local field including the UID/GID fields, we
    * have to stat the file again. */
-
-  if ((name = malloc(len + 1)) == NULL) {
-    ZIPERR(ZE_MEM, "set_extra_field");
-  }
-  strcpy(name, z->name);
-  if (name[len - 1] == '/')
-    name[len - 1] = '\0';
-  /* not all systems allow stat'ing a file with / appended */
-  if (LSSTAT(name, &s)) {
-    free(name);
+  if (LSSTAT(z->name, &s))
     return ZE_OPEN;
-  }
-  free(name);
 
 #define EB_L_UT_SIZE    (EB_HEADSIZE + EB_UT_LEN(2))
 #define EB_C_UT_SIZE    (EB_HEADSIZE + EB_UT_LEN(1))
@@ -562,21 +536,8 @@ void version_local()
     char compiler_name[80];
 #  endif
 #else
-#  if (defined( __SUNPRO_C))
-    char compiler_name[33];
-#  else
-#    if (defined( __HP_cc))
-    char compiler_name[33];
-#    else
-#      if (defined( __DECC_VER))
-    char compiler_name[33];
-    int compiler_typ;
-#      else
-#        if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
+#  if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
     char compiler_name[40];
-#        endif
-#      endif
-#    endif
 #  endif
 #endif
 
@@ -606,43 +567,15 @@ void version_local()
 #    define COMPILER_NAME "gcc " __VERSION__
 #  endif
 #else /* !__GNUC__ */
-#  if defined(__SUNPRO_C)
-    sprintf( compiler_name, "Sun C version %x", __SUNPRO_C);
+#  if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
+    sprintf(compiler_name, "cc version %d", _RELEASE);
 #    define COMPILER_NAME compiler_name
 #  else
-#    if (defined( __HP_cc))
-    if ((__HP_cc% 100) == 0)
-    {
-      sprintf( compiler_name, "HP C version A.%02d.%02d",
-       (__HP_cc/ 10000), ((__HP_cc% 10000)/ 100));
-    }
-    else
-    {
-      sprintf( compiler_name, "HP C version A.%02d.%02d.%02d",
-       (__HP_cc/ 10000), ((__HP_cc% 10000)/ 100), (__HP_cc% 100));
-    }
-#      define COMPILER_NAME compiler_name
-#    else
-#      if (defined( __DECC_VER))
-    sprintf( compiler_name, "DEC C version %c%d.%d-%03d",
-     ((compiler_typ = (__DECC_VER / 10000) % 10) == 6 ? 'T' :
-     (compiler_typ == 8 ? 'S' : 'V')),
-     __DECC_VER / 10000000,
-     (__DECC_VER % 10000000) / 100000, __DECC_VER % 1000);
-#        define COMPILER_NAME compiler_name
-#      else
-#        if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
-    sprintf(compiler_name, "cc version %d", _RELEASE);
-#          define COMPILER_NAME compiler_name
-#        else
-#          ifdef __VERSION__
-#            define COMPILER_NAME "cc " __VERSION__
-#          else
-#            define COMPILER_NAME "cc"
-#          endif
-#        endif
-#      endif
-#    endif
+#  ifdef __VERSION__
+#    define COMPILER_NAME "cc " __VERSION__
+#  else
+#    define COMPILER_NAME "cc "
+#  endif
 #  endif
 #endif /* ?__GNUC__ */
 
@@ -654,9 +587,9 @@ void version_local()
 #ifdef sun
 #  ifdef sparc
 #    ifdef __SVR4
-#      define OS_NAME "Sun SPARC/Solaris"
+#      define OS_NAME "Sun Sparc/Solaris"
 #    else /* may or may not be SunOS */
-#      define OS_NAME "Sun SPARC"
+#      define OS_NAME "Sun Sparc"
 #    endif
 #  else
 #  if defined(sun386) || defined(i386)
@@ -671,7 +604,7 @@ void version_local()
 #  endif
 #else
 #ifdef __hpux
-#  define OS_NAME "HP-UX"
+#  define OS_NAME "HP/UX"
 #else
 #ifdef __osf__
 #  define OS_NAME "DEC OSF/1"
@@ -824,7 +757,7 @@ void version_local()
 #endif /* RT/AIX */
 #endif /* AIX */
 #endif /* OSF/1 */
-#endif /* HP-UX */
+#endif /* HP/UX */
 #endif /* Sun */
 #endif /* SGI */
 

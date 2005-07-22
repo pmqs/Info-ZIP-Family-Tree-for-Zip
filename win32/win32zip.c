@@ -1,5 +1,7 @@
 /*
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  win32/win32zip.c - Zip 3
+
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -39,8 +41,8 @@ typedef struct zdirscan {
   WIN32_FIND_DATA d_fd;
 } zDIRSCAN;
 
-#define INVALID_WIN32_FILE_ATTRIBS ((DWORD)~0)
-#define GetDirEntryAttribs(d)   ((d)->d_fd.dwFileAttributes)
+#define INVALID_WIN32_FILE_ATTRIBS ~0
+#define GetDirAttribs(d)   ((d)->d_fd.dwFileAttributes)
 
 #include "../win32/win32zip.h"
 #include "../win32/nt.h"
@@ -50,11 +52,11 @@ local zDIRSCAN        * OpenDirScan      OF((ZCONST char *n));
 local struct zdirscan * GetNextDirEntry  OF((zDIRSCAN *d));
 local void              CloseDirScan     OF((zDIRSCAN *d));
 
-local char            * readd        OF((zDIRSCAN *));
-local int               wild_recurse OF((char *, char *));
+local char           *readd        OF((zDIRSCAN *));
+local int             wild_recurse OF((char *, char *));
 #ifdef NTSD_EAS
-   local void GetSD OF((char *path, char **bufptr, size_t *size,
-                        char **cbufptr, size_t *csize));
+   local void GetSD OF((char *path, char **bufptr, ush *size,
+                        char **cbufptr, ush *csize));
 #endif
 #ifdef USE_EF_UT_TIME
    local int GetExtraTime OF((struct zlist far *z, iztimes *z_utim));
@@ -91,7 +93,9 @@ ZCONST char *n;          /* directory to open */
     *q++ = '/';
   strcpy(q, wild_match_all);
 
-#ifdef __RSXNT__        /* RSXNT/EMX C rtl uses OEM charset */
+#if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
+  OemToAnsi(p, p);
+#elif defined(WIN32_OEM)
   OemToAnsi(p, p);
 #endif
   d->d_hFindFile = FindFirstFile(p, &d->d_fd);
@@ -118,7 +122,9 @@ zDIRSCAN *d;            /* directory stream to read from */
     if (!FindNextFile(d->d_hFindFile, &d->d_fd))
         return NULL;
   }
-#ifdef __RSXNT__        /* RSXNT/EMX C rtl uses OEM charset */
+#if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
+  AnsiToOem(d->d_fd.cFileName, d->d_fd.cFileName);
+#elif defined(WIN32_OEM)
   AnsiToOem(d->d_fd.cFileName, d->d_fd.cFileName);
 #endif
   return (struct zdirscan *)d;
@@ -161,7 +167,9 @@ char *wildtail;
 
     if (!isshexp(wildtail)) {
         if (GetFileAttributes(whole) != 0xFFFFFFFF) {    /* file exists? */
-#ifdef __RSXNT__  /* RSXNT/EMX C rtl uses OEM charset */
+#if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
+            AnsiToOem(whole, whole);
+#elif defined(WIN32_OEM)
             AnsiToOem(whole, whole);
 #endif
             return procname(whole, 0);
@@ -219,7 +227,7 @@ char *wildtail;
                 strcpy(name, subwild);
                 e = wild_recurse(newwhole, name);
             } else
-                e = procname_win32(newwhole, 0, GetDirEntryAttribs(dir));
+                e = procname_win32(newwhole, 0, GetDirAttribs(dir));
             newwhole[newlen] = 0;
             if (e == ZE_OK)
                 amatch = 1;
@@ -300,7 +308,7 @@ DWORD attribs;
   char *e;              /* pointer to name from readd() */
   int m;                /* matched flag */
   char *p;              /* path for recursion */
-  struct stat s;        /* result of stat() */
+  z_stat s;             /* result of stat() */
   struct zlist far *z;  /* steps through zfiles list */
 
   if (strcmp(n, "-") == 0)   /* if compressing stdin */
@@ -381,7 +389,7 @@ DWORD attribs;
             return ZE_MEM;
           }
           strcat(strcpy(a, p), e);
-          if ((m = procname_win32(a, caseflag, GetDirEntryAttribs(d)))
+          if ((m = procname_win32(a, caseflag, GetDirAttribs(d)))
               != ZE_OK)         /* recurse on name */
           {
             if (m == ZE_MISS)
@@ -468,7 +476,9 @@ int *pdosflag;          /* output: force MSDOS file attributes? */
   /* Returned malloc'ed name */
   if (pdosflag)
     *pdosflag = dosflag;
-#ifdef __RSXNT__ /* RSXNT/EMX C rtl uses OEM charset */
+#if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
+  OemToAnsi(n, n);
+#elif defined(WIN32_OEM)
   OemToAnsi(n, n);
 #endif
   return n;
@@ -485,17 +495,44 @@ char *n;                /* internal file name */
   if ((x = malloc(strlen(n) + 1 + PAD)) == NULL)
     return NULL;
   strcpy(x, n);
-#ifdef __RSXNT__ /* RSXNT/EMX C rtl uses OEM charset */
+#if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
+  AnsiToOem(x, x);
+#elif defined(WIN32_OEM)
   AnsiToOem(x, x);
 #endif
   return x;
 }
 
 
+void stamp(f, d)
+char *f;                /* name of file to change */
+ulg d;                  /* dos-style time to change it to */
+/* Set last updated and accessed time of file f to the DOS time d. */
+{
+#if defined(__TURBOC__) && !defined(__BORLANDC__)
+  int h;                /* file handle */
+
+  if ((h = open(f, 0)) != -1)
+  {
+    setftime(h, (struct ftime *)&d);
+    close(h);
+  }
+#else /* !__TURBOC__ */
+
+  struct utimbuf u;     /* argument for utime() */
+
+  /* Convert DOS time to time_t format in u.actime and u.modtime */
+  u.actime = u.modtime = dos2unixtime(d);
+
+  /* Set updated and accessed times of f */
+  utime(f, &u);
+#endif /* ?__TURBOC__ */
+}
+
 ulg filetime(f, a, n, t)
 char *f;                /* name of file to get info on */
 ulg *a;                 /* return value: file attributes */
-long *n;                /* return value: file size */
+zoff_t *n;              /* return value: file size */
 iztimes *t;             /* return value: access, modific. and creation times */
 /* If file *f does not exist, return 0.  Else, return the file's last
    modified date and time as an MSDOS date and time.  The date and
@@ -509,7 +546,9 @@ iztimes *t;             /* return value: access, modific. and creation times */
    If f is "-", use standard input as the file. If f is a device, return
    a file size of -1 */
 {
-  struct stat s;        /* results of stat() */
+  z_stat s;             /* results of zstat() */
+
+  /* converted to malloc instead of using FNMAX - 11/8/04 EG */
   char *name;
   unsigned int len = strlen(f);
   int isstdin = !strcmp(f, "-");
@@ -523,7 +562,6 @@ iztimes *t;             /* return value: access, modific. and creation times */
       t->atime = t->mtime = t->ctime = label_utim;
     return label_time;
   }
-
   if ((name = malloc(len + 1)) == NULL) {
     ZIPERR(ZE_MEM, "filetime");
   }
@@ -532,8 +570,9 @@ iztimes *t;             /* return value: access, modific. and creation times */
     name[len - 1] = '\0';
   /* not all systems allow stat'ing a file with / appended */
 
+  /* zip64 support 08/31/2003 R.Nausedat */
   if (isstdin) {
-    if (fstat(fileno(stdin), &s) != 0) {
+    if (zfstat(fileno(stdin), &s) != 0) {
       free(name);
       error("fstat(stdin)");
     }
@@ -550,13 +589,13 @@ iztimes *t;             /* return value: access, modific. and creation times */
     *a = ((ulg)s.st_mode << 16) | (isstdin ? 0L : (ulg)GetFileMode(name));
   }
   if (n != NULL)
+    /* device return -1 */
     *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1L;
   if (t != NULL) {
     t->atime = s.st_atime;
     t->mtime = s.st_mtime;
     t->ctime = s.st_ctime;
   }
-
   free(name);
 
   return unix2dostime((time_t *)&s.st_mtime);
@@ -565,8 +604,9 @@ iztimes *t;             /* return value: access, modific. and creation times */
 
 #ifdef NTSD_EAS
 
-local void GetSD(char *path, char **bufptr, size_t *size,
-                        char **cbufptr, size_t *csize)
+/* changed size, csize from size_t to ush 3/10/2005 EG */
+local void GetSD(char *path, char **bufptr, ush *size,
+                        char **cbufptr, ush *csize)
 {
   unsigned char stackbuffer[NTSD_BUFFERSIZE];
   unsigned long bytes = NTSD_BUFFERSIZE;

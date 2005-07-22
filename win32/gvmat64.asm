@@ -8,7 +8,7 @@
 ; File written by Gilles Vollant, by converting to assembly the longest_match
 ;  from Jean-loup Gailly in deflate.c of zLib and infoZip zip.
 ;
-;  and by taking inspiration on asm686 with masm, optimised assembly code
+;  and by taking inspiration on asm686 with masm, optimised assembly code 
 ;        from Brian Raiter, written 1998
 ;
 ;         http://www.zlib.net
@@ -373,8 +373,8 @@ LookupLoopIsZero:
 
         prefetcht1 [rsi+rdx]
         prefetcht1 [rdi+rdx]
-
-
+        
+     
 ;;; Test the strings for equality, 8 bytes at a time. At the end,
 ;;; adjust rdx so that it is offset to the exact byte that mismatched.
 ;;;

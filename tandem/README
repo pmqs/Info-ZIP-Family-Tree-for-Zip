@@ -46,6 +46,7 @@ History:
                  Assume not DST if can't resolve time (no DST table available)
 27/09/99  2.3o   Fixed bug in -B0 option causing files to be stored rather than
                  deflated. Created TANZIPH
+29/04/02  2.4g   Fixed contention on temporary file when multiple ZIPs run
 
 A few notes about the files on this subvol
 

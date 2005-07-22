@@ -62,9 +62,10 @@ LINK32=link.exe
 # PROP Use_Debug_Libraries 1
 # PROP Output_Dir "zipnote___Win32_Debug"
 # PROP Intermediate_Dir "zipnote___Win32_Debug"
+# PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /FD /GZ /c
-# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "UTIL" /FR /FD /GZ /c
+# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "UTIL" /D "WIN32" /FD /GZ /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -98,6 +99,10 @@ SOURCE=..\..\util.c
 # Begin Source File
 
 SOURCE=..\win32.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\win32i64.c
 # End Source File
 # Begin Source File
 

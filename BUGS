@@ -1,6 +1,3 @@
-This file is likely out of date
-17 May 2006
-
 - zip sometimes crashes on some versions of NetBSD (0.8, 0.9 and early
   0.9-current), FreeBSD (<= 1.1) and BSDI (< 1.1) . This is due to a
   bug in stdio.

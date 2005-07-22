@@ -1,13 +1,22 @@
 /*
   Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
-#define module_name     VMSMUNCH
-#define module_version  "V1.3-4"
+
+/* 2004-12-13 SMS.
+ * Disabled the module name macro to accommodate old GNU C which didn't
+ * obey the directive, and thus confused MMS/MMK where the object
+ * library dependencies need to have the correct module name.
+ */
+#if 0
+# define module_name     VMSMUNCH
+# define module_version  "V1.3-4"
+#endif /* 0 */
+
 /*
  *  Modified by:
  *
@@ -97,16 +106,24 @@
   ---------------------------------------------------------------------------*/
 
 
-
-#if defined(__DECC) || defined(__GNUC__)
-#pragma module module_name module_version
-#else
-#module module_name module_version
-#endif
+/* 2004-12-13 SMS.
+ * Disabled the module name macro to accommodate old GNU C which didn't
+ * obey the directive, and thus confused MMS/MMK where the object
+ * library dependencies need to have the correct module name.
+ */
+#if 0
+# if defined(__DECC) || defined(__GNUC__)
+#  pragma module module_name module_version
+# else
+#  module module_name module_version
+# endif
+#endif /* 0 */
 
 /*****************************/
 /*  Includes, Defines, etc.  */
 /*****************************/
+
+#include "zip.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -136,6 +153,7 @@
 #  define FIB$L_ACCTL   fib$r_acctl_overlay.fib$l_acctl
 #endif
 
+#include "vms.h"
 #include "vmsmunch.h"  /* GET/SET_TIMES, RTYPE, etc. */
 #include "vmsdefs.h"   /* fatdef.h, etc. */
 
@@ -164,7 +182,6 @@ static void bintim(char *time, long int binval[2]);
 #endif /* def __VAX */
 
 
-
 /*************************/
 /*  Function VMSmunch()  */
 /*************************/
@@ -178,13 +195,13 @@ int VMSmunch(
     /* original file.c variables */
 
     static struct FAB Fab;
-    static struct NAM Nam;
+    static struct NAM_STRUCT Nam;
     static struct fibdef Fib; /* short fib */
 
     static struct dsc$descriptor FibDesc =
       {sizeof(Fib),DSC$K_DTYPE_Z,DSC$K_CLASS_S,(char *)&Fib};
     static struct dsc$descriptor_s DevDesc =
-      {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,&Nam.nam$t_dvi[1]};
+      {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,&Nam.NAM_DVI[1]};
     static struct fatdef Fat;
     static union {
       struct fchdef fch;
@@ -225,8 +242,8 @@ int VMSmunch(
       {0,0,0}
     } ;
 
-    static char EName[NAM$C_MAXRSS];
-    static char RName[NAM$C_MAXRSS];
+    static char EName[NAM_MAXRSS];
+    static char RName[NAM_MAXRSS];
     static struct dsc$descriptor_s FileName =
       {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,0};
     static struct dsc$descriptor_s string = {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,0};
@@ -248,16 +265,16 @@ int VMSmunch(
     get the file info.
   ---------------------------------------------------------------------------*/
 
-    /* initialize RMS structures, we need a NAM to retrieve the FID */
+    /* Initialize RMS structures.  We need a NAM[L] to retrieve the FID. */
     Fab = cc$rms_fab;
     Fab.fab$l_fna = filename;
     Fab.fab$b_fns = strlen(filename);
-    Fab.fab$l_nam = &Nam; /* FAB has an associated NAM */
-    Nam = cc$rms_nam;
-    Nam.nam$l_esa = EName; /* expanded filename */
-    Nam.nam$b_ess = sizeof(EName);
-    Nam.nam$l_rsa = RName; /* resultant filename */
-    Nam.nam$b_rss = sizeof(RName);
+    Fab.FAB_NAM = &Nam; /* FAB has an associated NAM[L]. */
+    Nam = CC_RMS_NAM;
+    Nam.NAM_ESA = EName; /* expanded filename */
+    Nam.NAM_ESS = sizeof(EName);
+    Nam.NAM_RSA = RName; /* resultant filename */
+    Nam.NAM_RSS = sizeof(RName);
 
     /* do $PARSE and $SEARCH here */
     status = sys$parse(&Fab);
@@ -268,20 +285,20 @@ int VMSmunch(
     if (!(status & 1)) return(status);
 
     while (status & 1) {
-        /* initialize Device name length, note that this points into the NAM
+        /* initialize Device name length, note that this points into the NAM[L]
            to get the device name filled in by the $PARSE, $SEARCH services */
-        DevDesc.dsc$w_length = Nam.nam$t_dvi[0];
+        DevDesc.dsc$w_length = Nam.NAM_DVI[0];
 
         status = sys$assign(&DevDesc,&DevChan,0,0);
         if (!(status & 1)) return(status);
 
-        FileName.dsc$a_pointer = Nam.nam$l_name;
-        FileName.dsc$w_length = Nam.nam$b_name+Nam.nam$b_type+Nam.nam$b_ver;
+        FileName.dsc$a_pointer = Nam.NAM_L_NAME;
+        FileName.dsc$w_length = Nam.NAM_B_NAME+Nam.NAM_B_TYPE+Nam.NAM_B_VER;
 
         /* Initialize the FIB */
         for (i=0;i<3;i++) {
-            Fib.FIB$W_FID[i]=Nam.nam$w_fid[i];
-            Fib.FIB$W_DID[i]=Nam.nam$w_did[i];
+            Fib.FIB$W_FID[i]=Nam.NAM_FID[i];
+            Fib.FIB$W_DID[i]=Nam.NAM_DID[i];
         }
 
         /* Use the IO$_ACCESS function to return info about the file */
@@ -346,8 +363,8 @@ int VMSmunch(
         /* note, part of the FIB was cleared by earlier QIOW, so reset it */
         Fib.FIB$L_ACCTL = FIB$M_NORECORD;
         for (i=0;i<3;i++) {
-            Fib.FIB$W_FID[i]=Nam.nam$w_fid[i];
-            Fib.FIB$W_DID[i]=Nam.nam$w_did[i];
+            Fib.FIB$W_FID[i]=Nam.NAM_FID[i];
+            Fib.FIB$W_DID[i]=Nam.NAM_DID[i];
         }
 
         /* Use the IO$_MODIFY function to change info about the file */

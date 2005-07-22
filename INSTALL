@@ -2,30 +2,31 @@ HOW TO INSTALL ZIP
 
      Zip is distributed as C source code that can be compiled on a
      wide range of systems: Unix, VMS, MSDOS, OS/2, NT, Amiga, Atari,
-     BeOS, VM/CMS, ...  You will need Unzip 5.0p1 (under any system) or
-     PKUNZIP 2.04g or later (under MSDOS) to unpack the distribution
-     file, zip232.zip. But since you read this, you have unpacked it
-     already, or you cheated and got a tar.Z file...
+     BeOS, VM/CMS, ...  You will need Unzip 5.0p1 or later (under any
+     system) or PKUNZIP 2.04g or later (under MSDOS) to unpack the
+     distribution file, for example zip30.zip. But since you read this,
+     you have unpacked it already, or you cheated and got a tar.Z file...
 
 Installation on Unix (see below for installation on other systems)
 
      Let's assume that you start from scratch and have not yet
      unpacked the sources. First, unpack the source as follows,
-     assuming that you have zip232.zip in the current directory.
+     assuming that you have zip30.zip in the current directory.
 
           mkdir zipsrc
           cd zipsrc
-          unzip ../zip232
+          unzip ../zip30
 
      This extracts all source files and documentation in the
-     directory called "zipsrc". This release now includes the standard
-     encryption code previously in the separate package zcrypt29.zip,
-     but you still can decide whether to activate the crypt code or not.
-     Crypt is enabled by default, but you may disable it by specifying
-     the option -DNO_CRYPT in the LOCAL_ZIP environment variable (or by
-     adding this option to the compilation options in the appropiate
-     makefile).
-     See Readme.cr for more on crypt.
+     directory called "zipsrc".
+
+     This release now includes the standard encryption code previously
+     in the separate package zcrypt29.zip, but you still can decide
+     whether to activate the crypt code or not.  Crypt is enabled by
+     default, but you may disable it by specifying the option -DNO_CRYPT
+     in the LOCAL_ZIP environment variable (or by adding this option
+     to the compilation options in the appropiate makefile).  See
+     Readme.cr for more on crypt.
 
      You then do:
 
@@ -34,7 +35,9 @@ Installation on Unix (see below for installation on other systems)
      where "system" is one of: generic, generic_gcc,
      att6300, coherent, cray_v3, minix, sco_x286, xenix, zilog.
 
-     Try "make -f unix/Makefile generic" first, this works on many systems.
+     For unix systems, try "make -f unix/Makefile generic" first, as this
+     should work on most systems and automatically selects compilation
+     options based on a set of tests, including detection of Zip64 support.
      If this fails, then use one of the special targets given above.
 
      Among other special systems are Cray Unicos, Zilog Zeus and MINIX.
@@ -50,8 +53,8 @@ Installation on Unix (see below for installation on other systems)
      If none of these compiles, links, and functions properly on
      your Unix system, see the file README for how to get help.
 
-     If the appropriate system was selected, then the executables zip,
-     zipcloak, zipnote and zipsplit will be created.  You can copy them
+     If the appropriate system was selected, then the executables
+     zip, zipnote and zipsplit will be created.  You can copy them
      to an appropriate directory in the search path using:
 
           make -f unix/Makefile install
@@ -76,7 +79,7 @@ Installation on Unix (see below for installation on other systems)
           rm -r zipsrc
 
      This will remove the directory zip and its contents created
-     by unzip.  You should keep the zip232.zip file around though,
+     by unzip.  You should keep the zip30.zip file around though,
      in case you need to build it again or want to give it to a
      colleague.
 
@@ -135,9 +138,6 @@ Installation on other systems
      The makefiles supplied in the win32/ subdirectory contain further
      information.
 
-     A Microsoft Visual C++ workspace is now included in win32/vc6
-     with zip, zipcloak, zipnote, and zipsplit projects.
-
 
   Windows DLL (WIN32):
 
@@ -169,39 +169,30 @@ Installation on other systems
 
   VMS (OpenVMS):
 
-     To build Zip, use the builder command procedure:
+     The most complete information on building and installation for VMS
+     is in [.VMS]INSTALL_VMS.TXT.  Optimists in a hurry may wish to try
+     commands like these:
 
-          @ [.vms]make_zip.com
-
-     or use DEC/Compaq/HP MMS (or the free alternative, MMK) if available:
-
-          mms /descr=[.vms]descrip.mms /macro=(__ALPHA__=1)   for Alpha
-          mms /descr=[.vms]descrip.mms /macro=(__IA64__=1)    for IA64
-          mms /descr=[.vms]descrip.mms /macro=(__DECC__=1)    for DEC C on VAX
-          mms /descr=[.vms]descrip.mms /macro=(__VAXC__=1)    for VAX C
-          mms /descr=[.vms]descrip.mms /macro=(__GNUC__=1)    for GNU C on VAX
-
-     Modern MMS and MMK versions should correctly determine the system type
-     without the "/macro=" qualifier, but on VAX the compiler should be
-     specified explicitly, and it should always be safe to specify the proper
-     system type.  (If you have installed both DEC C and VAX C on your VAX
-     and want to use VAX C, you should define the macro "__FORCE_VAXC__"
-     instead of "__VAXC__".)
+           @ [.VMS]BUILD_ZIP.COM
+     or:
+           MMS /DESCRIP = [.VMS]DESCRIP.MMS CLEAN        ! Or MMK ...
+           MMS /DESCRIP = [.VMS]DESCRIP.MMS              ! Or MMK ...
 
      When the executables have been created (or located), most users
      define foreign command symbols for the Zip executables, like this:
 
-          ZIP :== $ dev:[dir]ZIP.xxx_EXE        ! UNIX-like command line.
+          ZIP :== $ dev:[dir]ZIP.EXE            ! UNIX-like command line.
      or:
-          ZIP :== $ dev:[dir]ZIP_CLI.xxx_EXE    ! VMS-like command line.
+          ZIP :== $ dev:[dir]ZIP_CLI.EXE        ! VMS-like command line.
 
-     where "xxx_" depends on the system type and compiler.  Such symbol
-     definitions are often added to a user's SYS$LOGIN:LOGIN.COM
-     procedure, or to a common, site-specific procedure, like
-     SYS$MANAGER:SYLOGIN.COM.
+     Such symbol definitions are often added to a user's
+     SYS$LOGIN:LOGIN.COM procedure, or to a common, site-specific
+     procedure, like SYS$MANAGER:SYLOGIN.COM.
 
-     For further information please consult 00README.TXT in the [.VMS]
-     subdirectory.
+     Additional installation options are described in INSTALL_VMS.TXT.
+
+     The builders create help text files, ZIP.HLP and ZIP_CLI.HLP.  Also
+     see INSTALL_VMS.TXT for how to create the help libraries.
 
 For command help on any of the zip* utilities, simply enter
 the name with no arguments.

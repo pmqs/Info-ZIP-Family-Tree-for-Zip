@@ -1,5 +1,7 @@
 /*
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  revision.h - Zip 3
+
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -14,13 +16,13 @@
 #define __revision_h 1
 
 /* For api version checking */
-#define Z_MAJORVER   2
-#define Z_MINORVER   3
-#define Z_PATCHLEVEL 2
-#define Z_BETALEVEL ""
+#define Z_MAJORVER   3
+#define Z_MINORVER   0
+#define Z_PATCHLEVEL 0
+#define Z_BETALEVEL "e BETA"
 
-#define VERSION "2.32"
-#define REVDATE "June 19th 2006"
+#define VERSION "3.0e BETA"
+#define REVDATE "August 2nd 2005"
 
 #define DW_MAJORVER    Z_MAJORVER
 #define DW_MINORVER    Z_MINORVER
@@ -41,20 +43,24 @@ extern ZCONST char *cryptnote[7];
 #else /* DEFCPYRT */
 
 ZCONST char *copyright[] = {
-"Copyright (c) 1990-2006 Info-ZIP - Type '%s \"-L\"' for software license."
+"Copyright (c) 1990-2005 Info-ZIP - Type '%s \"-L\"' for software license."
+/* XXX still necessary ???? */
+#ifdef AZTEC_C
+,        /* extremely lame compiler bug workaround */
+#endif
 };
 
 ZCONST char *versinfolines[] = {
 "This is %s %s (%s), by Info-ZIP.",
-"Currently maintained by Onno van der Linden. Please send bug reports to",
-"the authors using http://www.info-zip.org/zip-bug.html; see README for details.",
+"Currently maintained by E. Gordon.  Please send bug reports to",
+"the authors using the web page at www.info-zip.org; see README for details.",
 "",
 "Latest sources and executables are at ftp://ftp.info-zip.org/pub/infozip,",
 "as of above date; see http://www.info-zip.org/ for other sites.",
 ""
 };
 
-/* new notice - 2/2/2005 EG */
+/* new notice - 2/27/2004 EG */
 ZCONST char *cryptnote[] = {
 "Encryption notice:",
 "\tThe encryption code of this program is not copyrighted and is",
@@ -66,7 +72,7 @@ ZCONST char *cryptnote[] = {
 };
 
 ZCONST char *swlicense[] = {
-"Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.",
+"Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.",
 "",
 "For the purposes of this copyright and license, \"Info-ZIP\" is defined as",
 "the following set of individuals:",

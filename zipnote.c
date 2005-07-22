@@ -1,4 +1,6 @@
 /*
+  zipnote.c - Zip 3
+
   Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
@@ -47,6 +49,14 @@ local void putclean OF((char *, extent));
 local char *zgetline OF((char *, extent));
 local int catalloc OF((char * far *, char *));
 int main OF((int, char **));
+
+/* keep compiler happy until implement long options - 11/4/2003 EG */
+struct option_struct options[] = {
+  /* short longopt        value_type        negatable        ID    name */
+    {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
+    /* the end of the list */
+    {NULL, NULL,          o_NO_VALUE,       o_NOT_NEGATABLE, 0,    NULL} /* end has option_ID = 0 */
+  };
 
 #ifdef MACOS
 #define ziperr(c, h)    zipnoteerr(c, h)
@@ -300,11 +310,11 @@ char **argv;            /* command line tokens */
 /* Write the comments in the zipfile to stdout, or read them from stdin. */
 {
   char a[WRBUFSIZ+1];   /* input line buffer */
-  ulg c;                /* start of central directory */
+  zoff_t c;             /* start of central directory */
   int k;                /* next argument type */
   char *q;              /* steps through option arguments */
   int r;                /* arg counter, temporary variable */
-  ulg s;                /* length of central directory */
+  zoff_t s;             /* length of central directory */
   int t;                /* attributes of zip file */
   int w;                /* true if updating zip file from stdin */
   FILE *x, *y;          /* input and output zip files */
@@ -491,15 +501,15 @@ char **argv;            /* command line tokens */
   fclose(x);
 
   /* Write central directory and end of central directory with new comments */
-  if ((c = ftell(y)) == (ulg)(-1L))    /* get start of central */
+  if ((c = zftello(y)) == (zoff_t)-1)    /* get start of central */
     ziperr(ZE_TEMP, tempzip);
   for (z = zfiles; z != NULL; z = z->nxt)
     if ((r = putcentral(z, y)) != ZE_OK)
       ziperr(r, tempzip);
-  if ((s = ftell(y)) == (ulg)-1L)    /* get end of central */
+  if ((s = zftello(y)) == (zoff_t)-1)    /* get end of central */
     ziperr(ZE_TEMP, tempzip);
   s -= c;                       /* compute length of central */
-  if ((r = putend((int)zcount, s, c, zcomlen, zcomment, y)) != ZE_OK)
+  if ((r = putend((zoff_t)zcount, s, c, zcomlen, zcomment, y)) != ZE_OK)
     ziperr(r, tempzip);
   tempzf = NULL;
   if (fclose(y))

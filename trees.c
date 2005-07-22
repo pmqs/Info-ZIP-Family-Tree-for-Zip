@@ -1,5 +1,7 @@
 /*
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  trees.h - Zip 3
+
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -79,7 +81,7 @@
  *      void ct_tally (int dist, int lc);
  *          Save the match info and tally the frequency counts.
  *
- *      ulg flush_block (char *buf, ulg stored_len, int eof)
+ *      uzoff_t flush_block (char *buf, ulg stored_len, int eof)
  *          Determine the best encoding for the current block: dynamic trees,
  *          static trees or store, and output the encoded block to the zip
  *          file. Returns the total compressed length for the file so far.
@@ -115,6 +117,10 @@
  */
 #define __TREES_C
 
+/* Put zip.h first as when using 64-bit file environment in unix ctype.h
+   defines off_t and then while other files are using an 8-byte off_t this
+   file gets a 4-byte off_t.  Once zip.h sets the large file defines can
+   then include ctype.h and get 8-byte off_t.  8/14/04 EG */
 #include "zip.h"
 #include <ctype.h>
 
@@ -327,11 +333,13 @@ local uch flag_bit;         /* current bit used in flags */
 local ulg opt_len;        /* bit length of current block with optimal trees */
 local ulg static_len;     /* bit length of current block with static trees */
 
-local ulg cmpr_bytelen;     /* total byte length of compressed file */
-local ulg cmpr_len_bits;    /* number of bits past 'cmpr_bytelen' */
+/* zip64 support 08/29/2003 R.Nausedat */
+/* now all file sizes and offsets are zoff_t 7/24/04 EG */
+local uzoff_t cmpr_bytelen;     /* total byte length of compressed file */
+local ulg cmpr_len_bits;        /* number of bits past 'cmpr_bytelen' */
 
 #ifdef DEBUG
-local ulg input_len;        /* total byte length of input file */
+local uzoff_t input_len;        /* total byte length of input file */
 /* input_len is for debugging only since we can get it by other means. */
 #endif
 
@@ -405,8 +413,8 @@ unsigned out_size;
 }
 
 #ifdef DEBUG
-local ulg bits_sent;   /* bit length of the compressed data */
-extern ulg isize;      /* byte length of input file */
+local uzoff_t bits_sent;   /* bit length of the compressed data */
+extern uzoff_t isize;      /* byte length of input file */
 #endif
 
 extern long block_start;       /* window offset of current block */
@@ -473,9 +481,10 @@ void ct_init(attr, method)
 
     file_type = attr;
     file_method = method;
-    cmpr_bytelen = cmpr_len_bits = 0L;
+    cmpr_len_bits = 0L;
+    cmpr_bytelen = (uzoff_t)0;
 #ifdef DEBUG
-    input_len = 0L;
+    input_len = (uzoff_t)0;
 #endif
 
     if (static_dtree[0].Len != 0) return; /* ct_init already called */
@@ -998,7 +1007,8 @@ local void send_all_trees(lcodes, dcodes, blcodes)
  * trees or store, and output the encoded block to the zip file. This function
  * returns the total compressed length (in bytes) for the file so far.
  */
-ulg flush_block(buf, stored_len, eof)
+/* zip64 support 08/29/2003 R.Nausedat */
+uzoff_t flush_block(buf, stored_len, eof)
     char *buf;        /* input block, or NULL if too old */
     ulg stored_len;   /* length of input block */
     int eof;          /* true if this is the last block for a file */
@@ -1045,10 +1055,12 @@ ulg flush_block(buf, stored_len, eof)
      */
 #ifdef FORCE_METHOD
     if (level == 1 && eof && file_method != NULL &&
-        cmpr_bytelen == 0L && cmpr_len_bits == 0L) { /* force stored file */
+        cmpr_bytelen == (uzoff_t)0 && cmpr_len_bits == 0L
+       ) { /* force stored file */
 #else
     if (stored_len <= opt_lenb && eof && file_method != NULL &&
-        cmpr_bytelen == 0L && cmpr_len_bits == 0L && seekable()) {
+        cmpr_bytelen == (uzoff_t)0 && cmpr_len_bits == 0L &&
+        seekable() && !use_descriptors) {
 #endif
         /* Since LIT_BUFSIZE <= 2*WSIZE, the input data must be there: */
         if (buf == NULL) error ("block vanished");
@@ -1295,7 +1307,7 @@ void bi_init (tgt_buf, tgt_size, flsh_allowed)
     bi_buf = 0;
     bi_valid = 0;
 #ifdef DEBUG
-    bits_sent = 0L;
+    bits_sent = (uzoff_t)0;
 #endif
 }
 
@@ -1311,7 +1323,7 @@ local void send_bits(value, length)
 #ifdef DEBUG
     Tracevv((stderr," l %2d v %4x ", length, value));
     Assert(length > 0 && length <= 15, "invalid length");
-    bits_sent += (ulg)length;
+    bits_sent += (uzoff_t)length;
 #endif
     /* If not enough room in bi_buf, use (bi_valid) bits from bi_buf and
      * (Buf_size - bi_valid) bits from value to flush the filled bi_buf,
@@ -1368,43 +1380,6 @@ local void bi_windup()
 /* ===========================================================================
  * Copy a stored block to the zip file, storing first the length and its
  * one's complement if requested.
- *
- * Buffer Overwrite fix
- *
- * A buffer flush has been added to fix a bug when encrypting deflated files
- * with embedded "copied blocks".  When encrypting, the flush_out() routine
- * modifies its data buffer because encryption is done "in-place" in
- * zfwrite(), whereas without encryption, the flush_out() data buffer is
- * left unaltered.  This can be a problem as noted below by the submitter.
- *
- * "But an exception comes when a block of stored data (data that could not
- * be compressed) is being encrypted. In this case, the data that is passed
- * to zfwrite (and is therefore encrypted-in-place) is actually a block of
- * data from within the sliding input window that is being managed by
- * deflate.c.
- *
- * "Since part of the sliding input window has now been overwritten by
- * encrypted (and essentially random) data, deflate.c's search for previous
- * text that matches the current text will usually fail but on rare
- * occasions will find a match with something in the encrypted data. This
- * incorrect match then causes incorrect information to be placed in the
- * ZIP file."
- *
- * The problem results in the zip file having bad data and so a bad CRC.
- * This does not happen often and to recreate the problem a large file
- * with non-compressable data is needed so that deflate chooses to store the
- * data.  A test file of 400 MB seems large enough to recreate the problem
- * using a command such as
- *     zip -1 -e crcerror.zip testfile.dat
- * maybe half the time.
- *
- * This problem has been fixed by copying the data into the deflate output
- * buffer before calling flush_outbuf(), when encryption is enabled.
- *
- * Thanks to the nice people at WinZip for identifying the problem and
- * passing it on.  Also see Changes.
- *
- * 2006-03-05 EG, CS
  */
 local void copy_block(block, len, header)
     char *block;  /* the input data */
@@ -1422,28 +1397,8 @@ local void copy_block(block, len, header)
     }
     if (flush_flg) {
         flush_outbuf(out_buf, &out_offset);
-        if (key != (char *)NULL) {  /* key is the global password pointer */
-            /* Encryption modifies the data in the output buffer. But the
-             * copied input data must remain intact for further deflate
-             * string matching lookups.  Therefore, the input data is
-             * copied into the compression output buffer for flushing
-             * to the compressed/encrypted output stream.
-             */
-            while(len > 0) {
-                out_offset = (len < out_size ? len : out_size);
-                memcpy(out_buf, block, out_offset);
-                block += out_offset;
-                len -= out_offset;
-                flush_outbuf(out_buf, &out_offset);
-            }
-        } else {
-            /* Without encryption, the output routines do not touch the
-             * written data, so there is no need for an additional copy
-             * operation.
-             */
-            out_offset = len;
-            flush_outbuf(block, &out_offset);
-        }
+        out_offset = len;
+        flush_outbuf(block, &out_offset);
     } else if (out_offset + len > out_size) {
         error("output buffer too small for in-memory compression");
     } else {

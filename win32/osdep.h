@@ -1,30 +1,19 @@
 /*
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  win32/osdep.h
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
-
 /* Automatic setting of the common Microsoft C idenfifier MSC.
  * NOTE: Watcom also defines M_I*86 !
  */
 #if defined(_MSC_VER) || (defined(M_I86) && !defined(__WATCOMC__))
 #  ifndef MSC
 #    define MSC                 /* This should work for older MSC, too!  */
-#  endif
-#endif
-
-/* Tell Microsoft Visual C++ 2005 to leave us alone and
- * let us use standard C functions the way we're supposed to.
- */
-#if defined(_MSC_VER) && (_MSC_VER >= 1400)
-#  ifndef _CRT_SECURE_NO_DEPRECATE
-#    define _CRT_SECURE_NO_DEPRECATE
-#  endif
-#  ifndef _CRT_NONSTDC_NO_DEPRECATE
-#    define _CRT_NONSTDC_NO_DEPRECATE
 #  endif
 #endif
 
@@ -63,6 +52,152 @@
 #ifndef __RSXNT__
 #  define HAVE_FSEEKABLE
 #endif
+
+
+/* Large File Support
+ *
+ *  If this is set it is assumed that the port
+ *  supports 64-bit file calls.  The types are
+ *  defined here.  Any local implementations are
+ *  in Win32.c and the protypes for the calls are
+ *  in tailor.h.  Note that a port must support
+ *  these calls fully or should not set
+ *  LARGE_FILE_SUPPORT.
+ */
+
+/* Note also that ZOFF_T_FORMAT_SIZE_PREFIX has to be defined here
+   or tailor.h will define defaults */
+
+/* If port has LARGE_FILE_SUPPORT then define here
+   to make large file support automatic unless overridden */
+
+
+#ifndef LARGE_FILE_SUPPORT
+# ifndef NO_LARGE_FILE_SUPPORT
+    /* MS C and VC */
+#   if defined(_MSC_VER) || defined(__MINGW32__) || defined(__CYGWIN__)
+#     define LARGE_FILE_SUPPORT
+#   endif
+#   if defined(__WATCOMC__)
+#     define LARGE_FILE_SUPPORT
+#   endif
+# endif
+#endif
+
+#ifdef LARGE_FILE_SUPPORT
+  /* 64-bit Large File Support */
+
+  /* Only types and the printf format stuff go here.  Functions
+     go in tailor.h until ANSI prototypes are required and OF define
+     can go. */
+
+# if (defined(__GNUC__) || defined(ULONG_LONG_MAX))
+    /* GNU C */
+
+    /* base types for file offsets and file sizes */
+    typedef long long           zoff_t;
+    typedef unsigned long long  uzoff_t;
+
+#  ifdef __CYGWIN__
+    /* Use Cygwin's own stat struct */
+     typedef struct stat z_stat;
+#  else
+    /* 64-bit stat struct */
+    typedef struct _stati64 z_stat;
+#  endif
+
+    /* printf format size prefix for zoff_t values */
+#   define ZOFF_T_FORMAT_SIZE_PREFIX "ll"
+
+# elif (defined(__WATCOMC__) && (__WATCOMC__ >= 1100))
+    /* WATCOM C */
+
+    /* base types for file offsets and file sizes */
+    typedef __int64             zoff_t;
+    typedef unsigned __int64    uzoff_t;
+
+    /* 64-bit stat struct */
+    typedef struct _stati64 z_stat;
+
+    /* printf format size prefix for zoff_t values */
+#   define ZOFF_T_FORMAT_SIZE_PREFIX "ll"
+
+# elif (defined(_MSC_VER) && (_MSC_VER >= 1100)) || defined(__MINGW32__)
+    /* MS C and VC */
+
+    /* base types for file offsets and file sizes */
+    typedef __int64             zoff_t;
+    typedef unsigned __int64    uzoff_t;
+
+    /* 64-bit stat struct */
+    typedef struct _stati64 z_stat;
+
+    /* printf format size prefix for zoff_t values */
+#   define ZOFF_T_FORMAT_SIZE_PREFIX "I64"
+
+# elif (defined(__IBMC__) && (__IBMC__ >= 350))
+    /* IBM C */
+
+    /* base types for file offsets and file sizes */
+    typedef __int64             zoff_t;
+    typedef unsigned __int64    uzoff_t;
+
+    /* 64-bit stat struct */
+
+    /* printf format size prefix for zoff_t values */
+#   define ZOFF_T_FORMAT_SIZE_PREFIX "I64"
+
+# else
+#   undef LARGE_FILE_SUPPORT
+# endif
+
+#endif
+
+#if 0
+# ifndef ZOFF_T_FORMAT_SIZE_PREFIX
+    /* unsupported WIN32 */
+
+    /* base types for file offsets and file sizes */
+    typedef long long           zoff_t;
+    typedef unsigned long long  uzoff_t;
+
+    /* 64-bit stat struct */
+    typedef struct stat z_stat;
+
+    /* printf format size prefix for zoff_t values */
+#   define ZOFF_T_FORMAT_SIZE_PREFIX "ll"
+# endif
+#endif
+
+
+/* Automatically set ZIP64_SUPPORT if supported */
+
+/* MS C and VC */
+#if defined(_MSC_VER) || defined(__MINGW32__) || defined(__WATCOMC__)
+# ifdef LARGE_FILE_SUPPORT
+#   ifndef NO_ZIP64_SUPPORT
+#     ifndef ZIP64_SUPPORT
+#       define ZIP64_SUPPORT
+#     endif
+#   endif
+# endif
+#endif
+
+
+#ifndef LARGE_FILE_SUPPORT
+  /* No Large File Support */
+
+  /* base type for file offsets and file sizes */
+  typedef long zoff_t;
+  typedef unsigned long uzoff_t;
+
+  /* stat struct */
+  typedef struct stat z_stat;
+
+  /* printf format size prefix for zoff_t values */
+# define ZOFF_T_FORMAT_SIZE_PREFIX "l"
+#endif
+
 
 /* File operations--use "b" for binary if allowed or fixed length 512 on VMS
  *                  use "S" for sequential access on NT to prevent the NT
@@ -120,6 +255,20 @@
 #  define NO_UNISTD_H
 #endif
 
+/* Microsoft C requires additional attributes attached to all RTL function
+ * declarations when linking against the CRTL dll.
+ */
+#ifdef MSC
+#  ifdef IZ_IMP
+#    undef IZ_IMP
+#  endif
+#  define IZ_IMP _CRTIMP
+#else
+# ifndef IZ_IMP
+#   define IZ_IMP
+# endif
+#endif
+
 /* the following definitions are considered as "obsolete" by Microsoft and
  * might be missing in some versions of <windows.h>
  */
@@ -145,15 +294,15 @@
 #  endif
 #  if (defined(__MINGW32__) && !defined(MB_CUR_MAX))
 #    ifdef __MSVCRT__
-       extern int *__p___mb_cur_max(void);
+       IZ_IMP extern int *__p___mb_cur_max(void);
 #      define MB_CUR_MAX (*__p___mb_cur_max())
 #    else
-       extern int *_imp____mb_cur_max_dll;
+       IZ_IMP extern int *_imp____mb_cur_max_dll;
 #      define MB_CUR_MAX (*_imp____mb_cur_max_dll)
 #    endif
 #  endif
 #  if (defined(__LCC__) && !defined(MB_CUR_MAX))
-     extern int *_imp____mb_cur_max;
+     IZ_IMP extern int *_imp____mb_cur_max;
 #    define MB_CUR_MAX (*_imp____mb_cur_max)
 #  endif
 #endif
@@ -168,7 +317,7 @@
 #  endif
 #endif
 #ifdef __MINGW32__
-   extern void _tzset(void);            /* this is missing in <time.h> */
+   IZ_IMP extern void _tzset(void);     /* this is missing in <time.h> */
 #  ifndef tzset
 #    define tzset _tzset
 #  endif
@@ -226,8 +375,7 @@
  * from the registry.
  */
 #ifdef USE_EF_UT_TIME
-# if (defined(__WATCOMC__) || defined(__CYGWIN__) || \
-      defined(W32_USE_IZ_TIMEZONE))
+# if (defined(__WATCOMC__) || defined(W32_USE_IZ_TIMEZONE))
 #   define iz_w32_prepareTZenv()
 # else
 #   define iz_w32_prepareTZenv()        putenv("TZ=")
@@ -245,7 +393,11 @@
 
 #if (defined(NT_TZBUG_WORKAROUND) || defined(W32_STATROOT_FIX))
 #  define W32_STAT_BANDAID
+#  ifdef LARGE_FILE_SUPPORT         /* E. Gordon 9/12/03 */
+   int zstat_zipwin32(const char *path, z_stat *buf);
+#  else
    int zstat_zipwin32(const char *path, struct stat *buf);
+#  endif
 #  ifdef SSTAT
 #    undef SSTAT
 #  endif
@@ -283,3 +435,4 @@ int getch_win32(void);
 #    endif /* ASM_CRC && !USE_ZLIB */
 #  endif /* __386__ */
 #endif /* __WATCOMC__ */
+

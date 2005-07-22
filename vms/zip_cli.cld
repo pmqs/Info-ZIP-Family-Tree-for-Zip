@@ -1,5 +1,5 @@
 	Module		ZIP_CLITABLE
-	Ident		"02-006"
+	Ident		"03-001"
 
 Define	Verb		ZIP
 	Parameter	P1, Label=ZIPFILE, Prompt="Zip file"
@@ -19,32 +19,43 @@ Define	Verb		ZIP
 	Qualifier	COMMENTS, NonNegatable,
 			VALUE(type=COMMENTS_KEYWORDS)
 	Qualifier	DIRNAMES, Negatable, Default
+	Qualifier	DISPLAY, NonNegatable,
+                         VALUE(type=DISPLAY_KEYWORDS, required, list)
+	Qualifier	DOT_VERSION, NonNegatable
 	Qualifier	ENCRYPT, Negatable, VALUE
 	Qualifier	EXTRA_FIELDS, Negatable, Default
-	Qualifier	FIX_ARCHIVE, NonNegatable, VALUE(type=FIX_OPTIONS)
+	Qualifier	FIX_ARCHIVE, NonNegatable, VALUE(type=FIX_OPTS)
 	Qualifier	FULL_PATH, Negatable, Default
-	Qualifier	HELP, NonNegatable
+	Qualifier	GROW, NonNegatable
+	Qualifier	HELP, NonNegatable, VALUE(type=HELP_OPTS)
 	Qualifier	JUNK, NonNegatable
 	Qualifier	KEEP_VERSION, Negatable
 	Qualifier	LATEST, NonNegatable
 	Qualifier	LEVEL, VALUE(type=$NUMBER,required)
 	Qualifier	LICENSE, NonNegatable
-	Qualifier	MUST_MATCH, NonNegatable
+	Qualifier	PAUSE, Negatable
 	Qualifier	PKZIP, Negatable
+	Qualifier	PRESERVE_CASE, Negatable,
+			 VALUE(type=PRES_CASE_OPTS, list)
 	Qualifier	QUIET, NonNegatable
 	Qualifier	RECURSE, Negatable, VALUE(type=RECURSE_OPTS)
+	Qualifier	SHOW, NonNegatable,
+                         VALUE(type=SHOW_KEYWORDS, required, list)
 	Qualifier	SINCE, NonNegatable, VALUE(type=$DATETIME)
+	Qualifier	SPLIT_SIZE, VALUE(type=$NUMBER,required)
 	Qualifier	STORE_TYPES, NonNegatable, VALUE(required,list)
 	Qualifier	TEMP_PATH, VALUE(required,type=$FILE)
 	Qualifier	TEST, NonNegatable
 	Qualifier	TRANSLATE_EOL, NonNegatable,
 			VALUE(type=EOL_KEYWORDS)
 	Qualifier	UNSFX, NonNegatable
-	Qualifier	VERBOSE, NonNegatable,
-			 VALUE(type=VERBOSE_OPTS, list)
+	Qualifier	VERBOSE, NonNegatable, VALUE(type=VERBOSE_OPTS)
 	Qualifier	VMS, NonNegatable, VALUE(type=VMS_OPTS)
+	Qualifier	WILDCARD, VALUE(type=WILDCARD_OPTS)
 	Qualifier	YYZ_ZIP, NonNegatable, Default
+	Qualifier	ZIP64, NonNegatable
 
+	Disallow	APPEND and GROW
 	Disallow	FIX_ARCHIVE.NORMAL and FIX_ARCHIVE.FULL
 	Disallow	TRANSLATE_EOL.LF and TRANSLATE_EOL.CRLF
 	Disallow	FULL_PATH and JUNK
@@ -54,24 +65,45 @@ Define	Type		COMMENTS_KEYWORDS
 	Keyword		ZIP_FILE, DEFAULT
 	Keyword		FILES
 
-Define	Type		FIX_OPTIONS
-	Keyword		NORMAL, DEFAULT
-	Keyword		FULL
+Define	Type		DISPLAY_KEYWORDS
+	Keyword		BYTES
+	Keyword		COUNTS
+	Keyword		DOTS, VALUE
 
 Define	Type		EOL_KEYWORDS
 	Keyword		LF, DEFAULT
 	Keyword		CRLF
 
+Define	Type		FIX_OPTS
+	Keyword		NORMAL, DEFAULT
+	Keyword		FULL
+
+Define	Type		HELP_OPTS
+	Keyword		NORMAL, DEFAULT
+	Keyword		EXTENDED
+
+Define	Type		PRES_CASE_OPTS
+	Keyword		NOODS2
+	Keyword		NOODS5
+	Keyword		ODS2
+	Keyword		ODS5
+
 Define	Type		RECURSE_OPTS
 	Keyword		PATH, DEFAULT
 	Keyword		FILENAMES
 
+Define	Type		SHOW_KEYWORDS
+	Keyword		COMMAND
+	Keyword		DEBUG
+	Keyword		OPTIONS
+
 Define	Type		VERBOSE_OPTS
-	Keyword		NORMAL, DEFAULT
 	Keyword		MORE
 	Keyword		DEBUG
-	Keyword		COMMAND
 
 Define	Type		VMS_OPTS
 	Keyword		ALL
+
+Define	Type		WILDCARD_OPTS
+	Keyword		NOSPAN
 

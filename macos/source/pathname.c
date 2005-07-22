@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2001 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2000-Apr-09 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.htmlhtml
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*---------------------------------------------------------------------------
 
@@ -45,6 +45,43 @@ const char  ResourceMark[] = "XtraStuf.mac:";  /* see also macos.c */
 /*****************************************************************************/
 
 
+/*
+ *----------------------------------------------------------------------
+ *
+ * FSpFindFolder --
+ *
+ *  This function is a version of the FindFolder function that
+ *  returns the result as a FSSpec rather than a vRefNum and dirID.
+ *
+ * Results:
+ *  Results will be simaler to that of the FindFolder function.
+ *
+ * Side effects:
+ *  None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+OSErr
+FSpFindFolder(
+    short vRefNum,      /* Volume reference number. */
+    OSType folderType,      /* Folder type taken by FindFolder. */
+    Boolean createFolder,   /* Should we create it if non-existant. */
+    FSSpec *spec)       /* Pointer to resulting directory. */
+{
+    short foundVRefNum;
+    long foundDirID;
+    OSErr err;
+
+    err = FindFolder(vRefNum, folderType, createFolder,
+        &foundVRefNum, &foundDirID);
+    if (err != noErr) {
+    return err;
+    }
+
+    err = FSMakeFSSpecCompat(foundVRefNum, foundDirID, "\p", spec);
+    return err;
+}
 
 
 /*
@@ -79,15 +116,19 @@ return (unsigned short) strlen(VolumeName);
 /* Function FindNewExtractFolder() */
 /***********************************/
 
-char *FindNewExtractFolder(char *ExtractPath)
+char *FindNewExtractFolder(char *ExtractPath, Boolean uniqueFolder)
 {
 char buffer[NAME_MAX], *tmpPtr, *namePtr;
+char *last_dotpos         = ExtractPath;
 short count = 0, folderCount = 0;
 OSErr err;
 FSSpec Spec;
 long theDirID;
 Boolean isDirectory;
 unsigned short namelen, pathlen = strlen(ExtractPath);
+unsigned long ext_length  = 0;
+unsigned long num_to_cut  = 0;
+long firstpart_length = pathlen;
 
 AssertStr(ExtractPath,"FindNewExtractFolder ExtractPath == NULL")
 
@@ -98,25 +139,48 @@ for (tmpPtr = ExtractPath; *tmpPtr; tmpPtr++)
         namePtr = tmpPtr;
         }
 
-if (folderCount > 1)
+if (folderCount > 1) {
     namelen = strlen(namePtr);
-else
+} else {
     namelen = strlen(ExtractPath);
+}
 
-for (count = 0; count < 99; count++)
-    {
-    memset(buffer,0,sizeof(buffer));
+if (uniqueFolder) {
+    for (count = 0; count < 99; count++)
+        {
+        memset(buffer,0,sizeof(buffer));
 
-    if (namelen >= 28)
-        ExtractPath[pathlen-2] = 0x0;
-    else
+        if (namelen >= 28)
+            ExtractPath[pathlen-2] = 0x0;
+        else
+            ExtractPath[pathlen-1] = 0x0;
+
+        sprintf(buffer,"%s%d",ExtractPath,count);
+        GetCompletePath(ExtractPath, buffer, &Spec,&err);
+        err = FSpGetDirectoryID(&Spec, &theDirID, &isDirectory);
+        if (err == -43) break;
+        }
+} else {
+    /* Look for the last extension pos */
+    for (tmpPtr = ExtractPath; *tmpPtr; tmpPtr++)
+        if (*tmpPtr == '.') last_dotpos = tmpPtr;
+
+    ext_length = strlen(last_dotpos);
+
+    if (ext_length < 6) {  /* up to 5 chars are treated as a */
+                           /* normal extension like ".html" or ".class"  */
+        int nameLength = last_dotpos - ExtractPath;
+        if (nameLength > 1) {
+            ExtractPath[nameLength] = 0x0;
+        } else {
+            ExtractPath[pathlen-1] = 0x0;
+        }
+    } else {
         ExtractPath[pathlen-1] = 0x0;
-
-    sprintf(buffer,"%s%d",ExtractPath,count);
-    GetCompletePath(ExtractPath, buffer, &Spec,&err);
-    err = FSpGetDirectoryID(&Spec, &theDirID, &isDirectory);
-    if (err == -43) break;
     }
+
+    GetCompletePath(ExtractPath, ExtractPath, &Spec,&err);
+}
 
 /* Foldernames must always end with a colon  */
 sstrcat(ExtractPath,":");
@@ -203,15 +267,14 @@ short   actVolCount, volIndex = 1, VolCount = 0;
 OSErr   err;
 short     i, foundVRefNum;
 FSSpec spec;
-UnsignedWide freeBytes;
-UnsignedWide totalBytes;
-UnsignedWide MaxFreeBytes;
+UInt64 freeBytes;
+UInt64 totalBytes;
+UInt64 MaxFreeBytes;
 
 err = OnLine(volumes, 50, &actVolCount, &volIndex);
 printerr("OnLine:", (err != -35) && (err != 0), err, __LINE__, __FILE__, "");
 
-MaxFreeBytes.hi = 0;
-MaxFreeBytes.lo = 0;
+MaxFreeBytes = 0;
 
 for (i=0; i < actVolCount; i++)
     {
@@ -221,15 +284,13 @@ for (i=0; i < actVolCount; i++)
               &freeBytes,
               &totalBytes);
 
-    if (MaxFreeBytes.hi < freeBytes.hi) {
-        MaxFreeBytes.hi = freeBytes.hi;
-        MaxFreeBytes.lo = freeBytes.lo;
+    if (MaxFreeBytes < freeBytes) {
+        MaxFreeBytes = freeBytes;
         foundVRefNum = volumes[i].vRefNum;
     }
 
-    if ((freeBytes.hi == 0) && (MaxFreeBytes.lo < freeBytes.lo)) {
-        MaxFreeBytes.hi = freeBytes.hi;
-        MaxFreeBytes.lo = freeBytes.lo;
+    if ((freeBytes == 0) && (MaxFreeBytes < freeBytes)) {
+        MaxFreeBytes = freeBytes;
         foundVRefNum = volumes[i].vRefNum;
     }
 

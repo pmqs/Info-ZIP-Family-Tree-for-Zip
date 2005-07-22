@@ -73,6 +73,7 @@ by temporarily compressing unused files or directories.
 ZIP zipfile [file[,...]] [/qualifiers]
 
 .!
+
 <TOPIC>
 Parameters
 
@@ -116,6 +117,7 @@ Adjust internal offsets of the Zip archive members after some data
 /APPEND
 
 /APPEND
+/GROW
 
 Try to work with the existing Zip archive. This option is ignored when
 any existing entry in the Zip archive gets updated or deleted.
@@ -170,6 +172,40 @@ Delete entries from zip file.
 
 Store directory entries in the archive.
 <QUALIFIER>
+/DISPLAY
+
+/DISPLAY=(KEYWORD[,KEYWORD[...]])
+
+Enable display of progress messages.
+<LITERAL>
+|  BYTES        Running count of bytes processed and bytes to go.
+|  COUNTS       Running count of entries done and entries to go.
+|  DOTS = size  Dots every <size> MB while processing files.
+|               (0: no dots.)
+<LARETIL>
+<QUALIFIER>
+/DIRNAMES
+
+/DIRNAMES (default)
+/NODIRNAMES
+
+Store directory entries in the archive.
+<QUALIFIER>
+/DOT_VERSION
+
+/DOT_VERSION
+
+Directs Zip to include the version number appendix in the stored file
+names, but as ".nnn" instead of ";nnn".  This allows to store multiple
+version of the same file in a single Zip archive without semi-colons.
+
+The normal behaviour of Zip without /DOT_VERSION or /KEEP_VERSION is to
+use only the most recent version of a specified file and strip of the
+version number from the stored file name. This behaviour ensures better
+compatibility when transfering a Zip archive to non-VMS systems.
+
+See also /KEEP_VERSION.
+<QUALIFIER>
 /ENCRYPT
 
 /ENCRYPT[="password"]
@@ -178,8 +214,8 @@ Encrypt added and updated archive entries.
 
 You may specify the password on the command line, although we do not
 recommend it since THIS IS INSECURE. Remember to enclose the password
-string with quotes, to prevent automatic conversion to upper case or
-misinterpretation of punctuation characters by DCL.
+string with quotation marks ("), to prevent automatic conversion to
+upper case or misinterpretation of punctuation characters by DCL.
 
 When the password was not specified, Zip prompts for it on SYS$COMMAND.
 For typing the password, terminal echo is suspended. For added user
@@ -236,6 +272,17 @@ files to be added to the archive.
 Directs Zip to store the directory part of the file names (relative to
 the current working directory) in the Zip archive.
 <QUALIFIER>
+/GROW
+
+/GROW
+/APPEND
+
+Try to work with the existing Zip archive. This option is ignored when
+any existing entry in the Zip archive gets updated or deleted.
+Without the /GROW qualifier, Zip always creates a backup copy when
+modifying the archive. This is slower, but prevents corruption of the
+old archive in case of a fatal problem (power failures, program crash...).
+<QUALIFIER>
 /HELP
 
 /HELP
@@ -280,10 +327,12 @@ Directs Zip to include the version number appendix in the stored file names.
 This allows to store multiple version of the same file in a single Zip
 archive.
 
-The normal behaviour of Zip without /KEEP_VERSION is to use only the most
-recent version of a specified file and strip of the version number from
-the stored file name. This behaviour ensures better compatibility when
-transfering a Zip archive to non VMS systems.
+The normal behaviour of Zip without /DOT_VERSION or /KEEP_VERSION is to
+use only the most recent version of a specified file and strip of the
+version number from the stored file name. This behaviour ensures better
+compatibility when transfering a Zip archive to non-VMS systems.
+
+See also /DOT_VERSION.
 <QUALIFIER>
 /LATEST
 
@@ -320,15 +369,12 @@ Move the specified files into the Zip archive.
 Entries which have been added (or freshened) to the zip file get removed from
 the file system. If a directory is empty afterwards, it is also removed.
 <QUALIFIER>
-/MUST_MATCH
+/PAUSE
 
-/MUST_MATCH
+/PAUSE
 
-Input files must exist (and wildcards must match existing files).  By
-default, missing files and unmatched wildcards generate a warning when
-Zip finishes work on the files which do exist.  With /MUST_MATCH, Zip
-exits immediately with an error status if an input file is not found, or
-if an input file wildcard is not matched.
+Requests Zip to pause for user input between segments of split Zip
+archive.  See /SPLIT_SIZE.
 <QUALIFIER>
 /PKZIP
 
@@ -341,6 +387,30 @@ MSDOS 8+3 file name syntax. Only the MSDOS compatible attributes are stored;
 the file owner's write permission is mapped to the "readonly" attribute.
 The archive entry is marked as being made under MSDOS regardless of the true
 host system of Zip.
+<QUALIFIER>
+/PRESERVE_CASE
+
+/NOPRESERVE_CASE
+/PRESERVE_CASE[=(keyword[, ...])]
+
+Diects Zip to preserve the case of, or convert to lower-case, file names
+in the archive.  Optional keywords are:
+<LITERAL>
+|  NOODS2        Down-case ODS2 file names (default).
+|  NOODS5        Down-case ODS5 file names.
+|  ODS2          Preserve case of ODS2 file names.
+|  ODS5          Preserve case of ODS5 file names (default).
+<LARETIL>
+By default, file names from an ODS2 file system are converted to lower
+case for storage in an archive, while the case of file names from an
+ODS5 file system is preserved.
+
+/NOPRESERVE_CASE is equivalent to /PRESERVE_CASE = (NOODS2, NOODS5),
+which causes all file names to be converted to lower-case.  This is
+equivalent to the behavior of Zip before version 3.0.
+
+/PRESERVE_CASE is equivalent to /PRESERVE_CASE = (ODS2, ODS5), which
+preserves the case of all file names.
 <QUALIFIER>
 /QUIET
 
@@ -367,12 +437,33 @@ On VMS, this behaviour can be alternatively archived by using
 the "subdirectory recursing wildcard" [...] in the "include files" parameter
 list.
 <QUALIFIER>
+/SHOW
+
+/SHOW=(KEYWORD[,KEYWORD[...]])
+
+Controls various diagnostic messages.
+
+The keywords recognized are:
+<LITERAL>
+|  COMMAND  Show command line arguments as processed and exit.
+|  DEBUG    Show Debug information.
+|  OPTIONS  Show all available options on this system
+<LARETIL>
+<QUALIFIER>
 /SINCE
 
 /SINCE=(VMS time specification)
 
 Only handle files that are newer than the specified date and time.
 The specified time is compared with the files' RMS creation time.
+<QUALIFIER>
+/SPLIT_SIZE
+
+/SPLIT_SIZE=size
+
+Enables split archives, and specifies the size of the pieces.
+
+See also /PAUSE.
 <QUALIFIER>
 /STORETYPES
 
@@ -433,12 +524,11 @@ Freshen existing archive entries; create new ones if needed.
 <QUALIFIER>
 /VERBOSE
 
-/VERBOSE[=NORMAL|MORE|DEBUG]
+/VERBOSE[=MORE|DEBUG]
 
 Switch on verbose messages. This includes diagnostics on discovered
 oddities in the zipfile's structure, and a progress indicator during
-compression operation.  /VERBOSE with no value is equivalent to /VERBOSE
-= NORMAL.  MORE adds more messages, and DEBUG adds still more messages.
+compression operation.
 
 When this qualifier is the only command line argument given, it has a special
 meaning. In this case a screen of diagnostic information about the program
@@ -464,12 +554,32 @@ End-of-File (EOF) marker.
 
 /VMS provides good fidelity for well-formed files (no data past EOF)
 when unpacked on a VMS system.  Also, some types of file (notably
-Stream_LF text files) will be unpacked as expected on a non-VMS system.
+Stream_LF text files and fixed-512 binary files) will be unpacked as
+expected on a non-VMS system.
 
 /VMS=ALL provides good fidelity, even for files with data past EOF, when
 unpacked on a VMS system.  However, the data from beyond the EOF marker
 will typically cause a file to appear corrupted when unpacked on a
 non-VMS system.
+<QUALIFIER>
+/WILDCARD
+
+<LITERAL>
+/NOWILDCARD
+/WILDCARD=NOSPAN
+<LARETIL>
+
+Controls wildcard processing.
+
+/NOWILDCARD  Wildcard processing is disabled.
+
+/WILDCARD=NOSPAN  Wildcards don't span directory boundaries in paths.
+<QUALIFIER>
+/ZIP64
+
+/ZIP64
+
+Forces use of Zip64 archive format, even for small files.
 <TOPIC>
 Authors
 
@@ -592,7 +702,9 @@ with the -h command-line option:
 |  -u   update: only changed or new files
 |  -v   verbose messages/print version info
 |  -V   save VMS file attributes
+|  -VV  save VMS file attributes, and all allocated blocks in files
 |  -w   append the VMS version number to name stored in zip file
+|  -ww  append the VMS version number to name stored in zip file as ".nnn"
 |  -x   exclude names matching the following patterns
 |  -x@  exclude names matching the patterns listed in "file"
 |  -X   suppress storing of any extra file attributes
@@ -603,8 +715,11 @@ with the -h command-line option:
 |  -@   read list of files to process from SYS$INPUT
 <LARETIL>
 
-Note that uppercase options such as -A, -D, -L, -T and -V must be specified
-in quotes.  For example:
+Note that with extended command-line parsing (SET PROC /PARSE = EXTENDED),
+Zip preserves command-line case.  Always on VAX, and with traditional
+command-line parsing on other systems (SET PROC /PARSE = TRADITIONAL),
+uppercase options such as -A, -D, -L, -T, and -V must be specified in
+quotation marks (").  For example:
 
 <LITERAL>
 |  $ zip "-VD" -a zipfile

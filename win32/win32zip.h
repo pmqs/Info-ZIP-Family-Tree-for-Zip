@@ -1,7 +1,9 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  win32/win32zip.h - Zip 3
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  Copyright (c) 1990-2004 Info-ZIP.  All rights reserved.
+
+  See the accompanying file LICENSE, version 2003-May-08 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -13,13 +15,11 @@
  * NT specific functions for ZIP.
  */
 
-int GetFileMode(const char *name);
-#if 0 /* never used */
-long GetTheFileTime(const char *name, iztimes *z_times);
-#endif
+int GetFileMode(char *name);
+long GetTheFileTime(char *name, iztimes *z_times);
 
-int IsFileNameValid(const char *name);
-int IsFileSystemOldFAT(const char *dir);
+int IsFileNameValid(char *name);
+int IsFileSystemOldFAT(char *dir);
 void ChangeNameForFAT(char *name);
 
 char *getVolumeLabel(int drive, ulg *vtime, ulg *vmode, time_t *vutim);
@@ -28,6 +28,6 @@ char *getVolumeLabel(int drive, ulg *vtime, ulg *vmode, time_t *vutim);
 char *StringLower(char *);
 #endif
 
-char *GetLongPathEA(const char *name);
+char *GetLongPathEA(char *name);
 
 #endif /* _WIN32ZIP_H */

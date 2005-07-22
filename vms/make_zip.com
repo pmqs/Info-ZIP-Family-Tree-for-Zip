@@ -112,28 +112,53 @@ $ !
 $ my_name = f$env("procedure")
 $ workdir = f$env("default")
 $ here = f$parse(workdir,,,"device") + f$parse(workdir,,,"directory")
-$!
-$ if (f$getsyi( "HW_MODEL") .lt. 1024)
+$ axp = f$getsyi("HW_MODEL").ge.1024
+$ if axp
 $ then
+$       ! Alpha AXP
+$       ARCH_NAME == "Alpha"
+$       ARCH_PREF = "AXP_"
+$       HAVE_DECC_VAX = 0
+$       USE_DECC_VAX = 0
+$       HAVE_DECC_AXP = (f$search("SYS$SYSTEM:DECC$COMPILER.EXE").nes."")
+$       MAY_HAVE_GNUC = (f$trnlnm("GNU_CC_VERSION").nes."")
+$       IF (.not.HAVE_DECC_AXP .and. MAY_HAVE_GNUC) .or. (MAY_USE_GNUC)
+$       THEN say "Up to now, the GNU C ports available on OpenVMS AXP"
+$            say "contain so many nasty bugs and lack support for a number of"
+$            say "required VMS specific features."
+$            say "These design flaws make it impossible to compile Zip
+$            say "using GCC, sorry."
+$            goto error
+$       ENDIF
+$       ! We use DECC:
+$       USE_DECC_AXP = 1
+$       ARCH_CC_P = ARCH_PREF
+$       cc = "cc/standard=relax/prefix=all/ansi"
+$       defs = "''local_zip'VMS"
+$       opts = ""
+$       say "Compiling on AXP using DEC C"
+$ else
 $       ! VAX
 $       ARCH_NAME == "VAX"
 $       ARCH_PREF = "VAX_"
-$       HAVE_DECC = (f$search("SYS$SYSTEM:DECC$COMPILER.EXE").nes."")
-$       HAVE_VAXC = (f$search("SYS$SYSTEM:VAXC.EXE").nes."")
+$       HAVE_DECC_VAX = (f$search("SYS$SYSTEM:DECC$COMPILER.EXE").nes."")
+$       HAVE_VAXC_VAX = (f$search("SYS$SYSTEM:VAXC.EXE").nes."")
 $       MAY_HAVE_GNUC = (f$trnlnm("GNU_CC").nes."")
-$       IF HAVE_DECC .AND. MAY_USE_DECC
+$       IF HAVE_DECC_VAX .AND. MAY_USE_DECC
 $       THEN
 $         ! We use DECC:
-$         cc = "cc/decc/standard=relax/prefix=all"
+$         USE_DECC_VAX = 1
+$         cc = "cc/decc/standard=vaxc/prefix=all"
 $         ARCH_CC_P = "''ARCH_PREF'DECC_"
 $         defs = "''local_zip'VMS"
 $         opts = ""
 $         say "Compiling on VAX using DEC C"
 $       ELSE
 $         ! We use VAXC (or GNU C):
+$         USE_DECC_VAX = 0
 $         defs = "''local_zip'VMS"
 $         opts = ",SYS$DISK:[.VMS]VAXCSHR.OPT/OPTIONS"
-$         if (.not.HAVE_VAXC .and. MAY_HAVE_GNUC) .or. (MAY_USE_GNUC)
+$         if (.not.HAVE_VAXC_VAX .and. MAY_HAVE_GNUC) .or. (MAY_USE_GNUC)
 $         then
 $               ARCH_CC_P = "''ARCH_PREF'GNUC_"
 $               cc = "gcc"
@@ -141,7 +166,7 @@ $               opts = ",GNU_CC:[000000]GCCLIB.OLB/LIB ''opts'"
 $               say "Compiling on VAX using GNU C"
 $         else
 $               ARCH_CC_P = "''ARCH_PREF'VAXC_"
-$               if HAVE_DECC
+$               if HAVE_DECC_VAX
 $               then
 $                   cc = "cc/vaxc"
 $               else
@@ -150,43 +175,6 @@ $               endif
 $               say "Compiling on VAX using VAX C"
 $         endif
 $       ENDIF
-$ else
-$       if (f$getsyi( "ARCH_TYPE") .eq. 2)
-$       then
-$           ! Alpha AXP
-$           ARCH_NAME == "Alpha"
-$           ARCH_PREF = "AXP_"
-$           HAVE_DECC = (f$search("SYS$SYSTEM:DECC$COMPILER.EXE").nes."")
-$           MAY_HAVE_GNUC = (f$trnlnm("GNU_CC_VERSION").nes."")
-$           IF (.not.HAVE_DECC .and. MAY_HAVE_GNUC) .or. (MAY_USE_GNUC)
-$           THEN
-$             say "GNC C is not supported on OpenVMS Alpha."
-$             goto error
-$           ENDIF
-$           ! We use DECC:
-$           ARCH_CC_P = ARCH_PREF
-$           cc = "cc/standard=relax/prefix=all/ansi"
-$           defs = "''local_zip'VMS"
-$           opts = ""
-$           say "Compiling on AXP using DEC C"
-$       else
-$           ! IA64
-$           ARCH_NAME == "IA64"
-$           ARCH_PREF = "I64_"
-$           HAVE_DECC = (f$search("SYS$SYSTEM:DECC$COMPILER.EXE").nes."")
-$           MAY_HAVE_GNUC = (f$trnlnm("GNU_CC_VERSION").nes."")
-$           IF (.not.HAVE_DECC .and. MAY_HAVE_GNUC) .or. (MAY_USE_GNUC)
-$           THEN
-$             say "GNC C is not supported on OpenVMS IA64."
-$             goto error
-$           ENDIF
-$           ! We use DECC:
-$           ARCH_CC_P = ARCH_PREF
-$           cc = "cc/standard=relax/prefix=all/ansi"
-$           defs = "''local_zip'VMS"
-$           opts = ""
-$           say "Compiling on IA64 using DEC C"
-$       endif
 $ endif
 $ DEF_UNX = "/def=(''DEFS')"
 $ DEF_CLI = "/def=(''DEFS',VMSCLI)"

@@ -1,9 +1,9 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2000-Apr-09 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*---------------------------------------------------------------------------
@@ -40,11 +40,11 @@
 #define EB_L_MAC3_SIZE    (EB_HEADSIZE + EB_MAC3_HLEN)
 #define EB_C_MAC3_SIZE    (EB_HEADSIZE + EB_MAC3_HLEN)
 
-#define MEMCOMPRESS_HEADER      6   /* ush compression type, ulg CRC */
-#define DEFLAT_WORSTCASE_ADD    5   /* byte blocktype, 2 * ush blocklength */
-#define MEMCOMPRESS_OVERHEAD    (MEMCOMPRESS_HEADER + DEFLAT_WORSTCASE_ADD)
-
-#define EXTRAFLD_MAX    (unsigned)0xFFFF
+/* maximum memcompress overhead is the sum of the compression header length */
+/* (6 = ush compression type, ulg CRC) and the worstcase deflate overhead   */
+/* when uncompressible data are kept in 2 "stored" blocks (5 per block =    */
+/* byte blocktype + 2 * ush blocklength) */
+#define MEMCOMPRESS_OVERHEAD    (EB_MEMCMPR_HSIZ + EB_DEFLAT_EXTRA)
 
 #define EB_M3_FL_COMPRESS   0x00
 #define EB_M3_FL_DATFRK     0x01    /* data is data-fork */
@@ -204,8 +204,8 @@ static int add_UT_ef(struct zlist far *z, iztimes *z_utim)
     }
 
     /* Check to make sure we've got enough room in the extra fields. */
-    if( z->ext + EB_L_UT_SIZE > EXTRAFLD_MAX ||
-        z->cext + EB_C_UT_SIZE > EXTRAFLD_MAX ) {
+    if( z->ext + EB_L_UT_SIZE > EF_SIZE_MAX ||
+        z->cext + EB_C_UT_SIZE > EF_SIZE_MAX ) {
         return ZE_MEM;
     }
 
@@ -275,8 +275,8 @@ static int add_JLEE_ef( struct zlist far *z )
     Assert_it(z, "add_JLEE_ef","")
 
     /* Check to make sure we've got enough room in the extra fields. */
-    if ( z->ext + EB_L_JLEE_SIZE > EXTRAFLD_MAX ||
-        z->cext + EB_C_JLEE_SIZE > EXTRAFLD_MAX ) {
+    if ( z->ext + EB_L_JLEE_SIZE > EF_SIZE_MAX ||
+         z->cext + EB_C_JLEE_SIZE > EF_SIZE_MAX ) {
         return ZE_MEM;
     }
 
@@ -509,8 +509,8 @@ static int add_MAC3_ef( struct zlist far *z )
     }
 
     /* Check to make sure we've got enough room in the extra fields. */
-    if( z->ext + (EB_L_MAC3_SIZE + compsize) > EXTRAFLD_MAX ||
-        z->cext + EB_C_MAC3_SIZE > EXTRAFLD_MAX ) {
+    if( z->ext + (EB_L_MAC3_SIZE + compsize) > EF_SIZE_MAX ||
+        z->cext + EB_C_MAC3_SIZE > EF_SIZE_MAX ) {
         if (compbuff != NULL) free(compbuff);
         return ZE_MEM;
     }

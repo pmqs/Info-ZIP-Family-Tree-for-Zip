@@ -1,5 +1,5 @@
 # WMAKE makefile for Windows 95 and Windows NT (Intel only)
-# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 07 Aug 2005.
+# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 15 May 05.
 # Makes Zip.exe, ZipNote.exe, ZipCloak.exe, and ZipSplit.exe.
 #
 # Invoke from Zip source dir with "WMAKE -F WIN32\MAKEFILE.WAT [targets]"
@@ -50,10 +50,10 @@ cvars = $+$(cvars)$- -DASMV -DASM_CRC
 OBJZ3 = $(O)zip.obj $(O)crypt.obj $(O)ttyio.obj $(O)trees.obj $(O)zipup.obj
 OBJZ2 = $(OBJZ3) $(O)util.obj $(O)zipfile.obj $(O)fileio.obj $(O)deflate.obj
 OBJZ1 = $(OBJZ2) $(O)globals.obj $(O)crctab.obj $(asmob)
-OBJZ  = $(OBJZ1) $(O)win32zip.obj $(O)win32.obj $(O)nt.obj
+OBJZ  = $(OBJZ1) $(O)win32zip.obj $(O)win32.obj $(O)win32i64.obj $(O)nt.obj
 
 OBJU1 = $(O)zipfile_.obj $(O)fileio_.obj $(O)util_.obj $(O)globals.obj
-OBJ_U = $(OBJU1) $(O)win32_.obj
+OBJ_U = $(OBJU1) $(O)win32_.obj $(O)win32i64_.obj
 
 OBJC  = $(O)zipcloak.obj $(O)crctab.obj $(O)crypt_.obj $(O)ttyio.obj $(OBJ_U)
 
@@ -75,7 +75,7 @@ cflags = -bt=NT -6r -zt -zq
 aflags = -bt=NT -mf -3 -zq
 lflags = sys NT
 cvars  = $+$(cvars)$- -DWIN32 $(variation)
-avars  = $+$(avars)$- -DWATCOM_DSEG $(variation)
+avars  = $+$(avars)$- $(variation)
 
 # Specify optimizations, or a nonoptimized debugging version:
 
@@ -136,6 +136,9 @@ $(O)zipsplit.obj: zipsplit.c $(ZIP_H) revision.h
 $(O)win32.obj:    win32\win32.c $(ZIP_H) win32\win32zip.h
 	$(cc) $(cdebug) $(cflags) $(cvars) win32\win32.c -fo=$@
 
+$(O)win32i64.obj: win32\win32i64.c $(ZIP_H)
+	$(cc) $(cdebug) $(cflags) $(cvars) win32\win32i64.c -fo=$@
+
 $(O)win32zip.obj: win32\win32zip.c $(ZIP_H) win32\win32zip.h win32\nt.h
 	$(cc) $(cdebug) $(cflags) $(cvars) win32\win32zip.c -fo=$@
 
@@ -164,6 +167,9 @@ $(O)crypt_.obj:   crypt.c $(ZIP_H) crypt.h ttyio.h
 
 $(O)win32_.obj:   win32\win32.c $(ZIP_H) win32\win32zip.h
 	$(cc) $(cdebug) $(cflags) $(cvars) -DUTIL win32\win32.c -fo=$@
+
+$(O)win32i64_.obj:   win32\win32i64.c $(ZIP_H)
+	$(cc) $(cdebug) $(cflags) $(cvars) -DUTIL win32\win32i64.c -fo=$@
 
 # Creation of subdirectory for intermediate files
 $(OBDIR):

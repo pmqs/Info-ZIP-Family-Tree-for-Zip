@@ -1,9 +1,9 @@
 /*
   Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 #ifndef VMS
@@ -33,8 +33,56 @@
 #define PROCNAME(n) (action == ADD || action == UPDATE ? wild(n) : \
                      procname(n, 1))
 
+/* 2004-11-09 SMS.
+   Large file support.
+*/
+#ifdef LARGE_FILE_SUPPORT
+
+#  define _LARGEFILE                   /* Define the pertinent macro. */
+
+/* LARGE_FILE_SUPPORT implies ZIP64_SUPPORT,
+   unless explicitly disabled by NO_ZIP64_SUPPORT.
+*/
+#  ifdef NO_ZIP64_SUPPORT
+#    ifdef ZIP64_SUPPORT
+#      undef ZIP64_SUPPORT
+#    endif /* def ZIP64_SUPPORT */
+#  else /* def NO_ZIP64_SUPPORT */
+#    ifndef ZIP64_SUPPORT
+#      define ZIP64_SUPPORT
+#    endif /* ndef ZIP64_SUPPORT */
+#  endif /* def NO_ZIP64_SUPPORT */
+
+#  define ZOFF_T_FORMAT_SIZE_PREFIX "ll"
+
+#else /* def LARGE_FILE_SUPPORT */
+
+#  define ZOFF_T_FORMAT_SIZE_PREFIX "l"
+
+#endif /* def LARGE_FILE_SUPPORT */
+
+/* Need _LARGEFILE for types.h. */
+
 #include <types.h>
+
+#ifdef __GNUC__
+#include <sys/types.h>
+#endif /* def __GNUC__ */
+
+/* Need types.h for off_t. */
+
+#ifdef LARGE_FILE_SUPPORT
+   typedef off_t zoff_t;
+   typedef unsigned long long uzoff_t;
+#else /* def LARGE_FILE_SUPPORT */
+   typedef long zoff_t;
+   typedef unsigned long uzoff_t;
+#endif /* def LARGE_FILE_SUPPORT */
+
 #include <stat.h>
+
+typedef struct stat z_stat;
+
 #include <unixio.h>
 
 #if defined(__GNUC__) && !defined(ZCRYPT_INTERNAL)
@@ -66,6 +114,7 @@
 #define SSTAT vms_stat
 #define EXIT(exit_code) vms_exit(exit_code)
 #define RETURN(exit_code) return (vms_exit(exit_code), 1)
+
 
 #ifdef __DECC
 

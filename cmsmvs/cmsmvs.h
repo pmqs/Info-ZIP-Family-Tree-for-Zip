@@ -61,18 +61,18 @@
 
 /* definition for ZIP */
 #define getch() getc(stdin)
-#define native(c)   ebcdic[(c)]
 #define MAXPATHLEN 128
 #define NO_RMDIR
 #define NO_MKTEMP
 #define USE_CASE_MAP
+#define isatty(t) 1
+
 #ifndef MVS  /* MVS has perfectly good definitions for the following */
 #  define fileno(x) (char *)(x)
 #  define fdopen fopen
 #  define unlink remove
 #  define link rename
 #  define utime(f,t)
-#  define isatty(t) 1
 #endif /*MVS */
 #ifdef ZCRYPT_INTERNAL
 #  define ZCR_SEED2     (unsigned)3141592654L   /* use PI as seed pattern */
@@ -92,17 +92,6 @@
 
 /* end defines for ZIP */
 
-
-
-/* definitions for UNZIP */
-#ifdef UNZIP
-#define INBUFSIZ 8192
-
-#define USE_STRM_INPUT
-#define USE_FWRITE
-
-#define PATH_MAX 128
-#endif /* UNZIP */
 
 
 #if 0  /*$RGH$*/

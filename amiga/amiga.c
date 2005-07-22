@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -61,12 +61,8 @@
 #  include <proto/dos.h>
 #endif
 #include <stdlib.h>
-
-#ifndef ZCONST
-#  define ZCONST const
-#endif
 #include "ziperr.h"
-void ziperr(int c, ZCONST char *h);
+void ziperr(int c, const char *h);
 
 #define ZIP
 #if !defined(UTIL)

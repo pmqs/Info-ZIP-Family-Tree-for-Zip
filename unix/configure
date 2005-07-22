@@ -1,5 +1,5 @@
 :
-#!/bin/sh
+#!/bin/sh -x
 # The above : is necessary on some buggy systems.
 
 # configure: Guess values for system-dependent variables
@@ -12,42 +12,9 @@
 trap "rm -f conftest* core a.out; exit 1" 1 2 3 15
 
 CC=${1-cc}
-CFLAGS=${2-"-I. -DUNIX"}
+CFLAGS=${2-"-O2 -I. -DUNIX"}
 LFLAGS1=""
 LN="ln -s"
-echo "Check C compiler type (optimization option)"
-cat > conftest.c << _EOF_
-int main()
-{
-#ifndef __SUNPRO_C
-   bad code
-#endif
-   return 0;
-}
-_EOF_
-$CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
-if test $? -eq 0; then
-  echo '  Sun C (-xO3)'
-  CFLAGS="${CFLAGS} -xO3"
-else
-  cat > conftest.c << _EOF_
-int main()
-{
-#ifndef __DECC
-   bad code
-#endif
-   return 0;
-}
-_EOF_
-  $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
-  if test $? -eq 0; then
-    echo '  DEC C (-O3)'
-    CFLAGS="${CFLAGS} -O3"
-  else
-    echo '  Other (gcc?) (-O2)'
-    CFLAGS="${CFLAGS} -O2"
-  fi
-fi
 
 echo Check for the C preprocessor
 # on SVR4, cc -E does not produce correct assembler files. Need /lib/cpp.
@@ -102,7 +69,7 @@ int main()
 _EOF_
 $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
 if [ $? -ne 0 ]; then
-  for OPT in "-Aa -D_HPUX_SOURCE" -Xa -qlanglvl=ansi -std1 -std
+  for OPT in -Ae -Xa -qlanglvl=ansi -std1 -std
   do
     $CC $CFLAGS $OPT -c conftest.c > /dev/null 2>/dev/null
     [ $? -eq 0 ] && CFLAGS="${CFLAGS} ${OPT}" && break
@@ -154,6 +121,68 @@ _EOF_
 $CC $CFLAGS -c conftest.c >/dev/null 2>/dev/null
 [ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_SIZE_T"
 
+echo Check for off_t
+cat > conftest.c << _EOF_
+#include <sys/types.h>
+int main()
+{
+  off_t s;
+  return 0;
+}
+_EOF_
+$CC $CFLAGS -c conftest.c >/dev/null 2>/dev/null
+[ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_OFF_T"
+
+# Added 11/4/2003 EG
+# Revised 8/12/04 EG
+# Now we set the 64-bit file environment and check the size of off_t
+echo Check for Large File Support
+cat > conftest.c << _EOF_
+# define _LARGEFILE_SOURCE       /* some OSes need this for fseeko */
+# define _LARGEFILE64_SOURCE
+# define _FILE_OFFSET_BITS 64       /* select default interface as 64 bit */
+# define _LARGE_FILES        /* some OSes need this for 64-bit off_t */
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <stdio.h>
+int main()
+{
+  off_t offset;
+  struct stat s;
+  /* see if have 64-bit off_t */
+  if (sizeof(offset) < 8)
+    return 1;
+  printf("  off_t is %d bytes\n", sizeof(off_t));
+  /* see if have 64-bit stat */
+  if (sizeof(s.st_size) < 8) {
+    printf("  s.st_size is %d bytes\n", sizeof(s.st_size));
+    return 2;
+  }
+  return 3;
+}
+_EOF_
+# compile it
+$CC -o conftest conftest.c >/dev/null 2>/dev/null
+if [ $? -ne 0 ]; then
+  echo -- no Large File Support
+else
+# run it
+  ./conftest
+  r=$?
+  if [ $r -eq 1 ]; then
+    echo -- no Large File Support - no 64-bit off_t
+  elif [ $r -eq 2 ]; then
+    echo -- no Large File Support - no 64-bit stat
+  elif [ $r -eq 3 ]; then
+    echo -- yes we have Large File Support!
+    CFLAGS="${CFLAGS} -DLARGE_FILE_SUPPORT"
+  else
+    echo -- no Large File Support - conftest returned $r
+  fi
+fi
+
+# from configure 2.4i (Onno) 12/5/04
 echo Check for gcc no-builtin flag
 # -fno-builtin since version 2
 cat > conftest.c << _EOF_
@@ -243,7 +272,7 @@ do
    [ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_`echo $inc | tr '[a-z]./' '[A-Z]__'`"
 done
 
-echo Check for terminal I/O include file
+echo Check for term I/O include file
 OPT=""
 for inc in termios.h termio.h sgtty.h
 do
@@ -263,23 +292,8 @@ main()
 #endif
 }
 _EOF_
-$CC ${CFLAGS} conftest.c > /dev/null 2>/dev/null
+$CC ${CFLAGS} -c conftest.c > /dev/null 2>/dev/null
 [ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_VALLOC"
-
-echo Check for 64bit fseek
-for func in fseeko fseek64
-do
-cat > conftest.c << _EOF_
-#include <stdio.h>
-main()
-{
-$func(stdin, 0, 0);
-}
-_EOF_
-$CC ${CFLAGS} conftest.c > /dev/null 2>/dev/null
-[ $? -eq 0 ] && OPT="-DHAVE_`echo $func | tr '[a-z]' '[A-Z]'`" && break
-done
-CFLAGS="${CFLAGS} ${OPT}"
 
 echo Check for /usr/local/bin and /usr/local/man
 BINDIR=$HOME/bin
@@ -320,6 +334,9 @@ else
         echo Check for +Onolimit option
         $CC ${CFLAGS} +Onolimit -o conftest conftest.c >/dev/null 2>/dev/null
         [ $? -eq 0 ] && CFLAGS="${CFLAGS} +Onolimit"
+        ;;
+     SunOS)
+        CFLAGS="${CFLAGS} -D_FILE_OFFSET_BITS=64"
         ;;
   esac
 fi

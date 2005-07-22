@@ -2,7 +2,7 @@
 #
 # Makefile for Info-ZIP's zip, zipcloak, zipnote, and zipsplit on AtheOS
 #
-# Copyright (C) 1999-2005 Info-ZIP
+# Copyright (C) 1999 Info-ZIP
 #                    Chris Herborth (chrish@pobox.com)
 #                    Ruslan Nickolaev (nruslan@hotbox.ru)
 #
@@ -28,7 +28,7 @@ manext = 1
 MANDIR = $(prefix)/man/man$(manext)
 ZIPMANUAL = MANUAL
 
-VERSION = Version 2.31 of __DATE__
+VERSION = Version 2.3 of __DATE__
 
 ######################################################################
 

@@ -2,7 +2,7 @@
 # native Win32-Intel binaries. Derived from makefile.w32.
 # Currently supported implementations: Cygwin and MinGW.
 # Authors: Cosmin Truta, Christian Spieler, and possibly others.
-# Last updated: 2005-Mar-25.
+# Last updated: 2005-Apr-12.
 #
 # To use, do "make -f win32/makefile.gcc".
 
@@ -52,11 +52,11 @@ endif
 OBJZ1 = zip.o crypt.o ttyio.o zipfile.o zipup.o fileio.o util.o \
 	crc32.o crctab.o globals.o
 OBJZ2 = deflate.o trees.o $(OBJA)
-OBJZS = win32.o win32zip.o nt.o
+OBJZS = win32.o win32zip.o win32i64.o nt.o
 OBJZ  = $(OBJZ1) $(OBJZ2) $(OBJZS)
 
 OBJU1 = zipfile_.o fileio_.o util_.o globals.o
-OBJUS = win32_.o
+OBJUS = win32_.o win32i64.o
 OBJU  = $(OBJU1) $(OBJUS)
 
 OBJN  = zipnote.o $(OBJU)
@@ -97,6 +97,9 @@ win32zip.o: win32/win32zip.c $(ZIP_H) win32/win32zip.h win32/nt.h
 
 win32.o: win32/win32.c $(ZIP_H) win32/win32zip.h
 	$(CC) -c $(CCFLAGS) -I. win32/win32.c
+
+win32i64.o: win32/win32i64.c $(ZIP_H)
+	$(CC) -c $(CCFLAGS) -I. win32/win32i64.c
 
 nt.o: win32/nt.c $(ZIP_H) win32/nt.h
 	$(CC) -c $(CCFLAGS) -I. win32/nt.c

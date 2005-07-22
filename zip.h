@@ -1,4 +1,10 @@
 /*
+  zip.h - Zip 3
+
+/---------------------------------------------------------------------/
+
+Info-ZIP Licence
+
 This is version 2005-Feb-10 of the Info-ZIP copyright and license.
 The definitive version of this document should be available at
 ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely.
@@ -54,6 +60,9 @@ freely, subject to the following restrictions:
     4. Info-ZIP retains the right to use the names "Info-ZIP," "Zip," "UnZip,"
        "UnZipSFX," "WiZ," "Pocket UnZip," "Pocket Zip," and "MacZip" for its
        own source and binary releases.
+
+/---------------------------------------------------------------------/
+
 */
 
 /*
@@ -126,11 +135,18 @@ typedef struct iztimes {
 /* Structures for in-memory file information */
 struct zlist {
   /* See central header in zipfile.c for what vem..off are */
+  /* Do not rearrange these as less than smart coding in zipfile.c
+     in scanzipf_reg() depends on u being set to ver and then stepping
+     through as a byte array.  Ack.  Should be fixed.  5/25/2005 EG */
   ush vem, ver, flg, how;
-  ulg tim, crc, siz, len;
-  extent nam, ext, cext, com;   /* offset of ext must be >= LOCHEAD */
-  ush dsk, att, lflg;           /* offset of lflg must be >= LOCHEAD */
-  ulg atx, off;
+  ulg tim, crc;
+  uzoff_t siz, len;             /* zip64 support 08/29/2003 R.Nausedat */
+  /* changed from extent to ush 3/10/2005 EG */
+  ush nam, ext, cext, com;      /* offset of ext must be >= LOCHEAD */
+  ulg dsk;                      /* disk number was ush but now ulg */
+  ush att, lflg;                /* offset of lflg must be >= LOCHEAD */
+  uzoff_t off;
+  ulg atx;
   char *name;                   /* File name in zip file */
   char *extra;                  /* Extra field (set only if ext != 0) */
   char *cextra;                 /* Extra in central (set only if cext != 0) */
@@ -147,6 +163,7 @@ struct flist {
   char *iname;                  /* Internal file name after cleanup */
   char *zname;                  /* External version of internal name */
   int dosflag;                  /* Set to force MSDOS file attributes */
+  uzoff_t usize;                /* usize from initial scan */
   struct flist far *far *lst;   /* Pointer to link pointing here */
   struct flist far *nxt;        /* Link to next name */
 };
@@ -243,12 +260,15 @@ extern uch lower[256];
 extern ZCONST uch ascii[256];   /* EBCDIC <--> ASCII translation tables */
 extern ZCONST uch ebcdic[256];
 #endif /* EBCDIC */
+
+/* Are these ever used?  6/12/05 EG */
 #ifdef IZ_ISO2OEM_ARRAY         /* ISO 8859-1 (Win CP 1252) --> OEM CP 850 */
 extern ZCONST uch Far iso2oem[128];
 #endif
 #ifdef IZ_OEM2ISO_ARRAY         /* OEM CP 850 --> ISO 8859-1 (Win CP 1252) */
 extern ZCONST uch Far oem2iso[128];
 #endif
+
 extern char errbuf[FNMAX+81];   /* Handy place to build error messages */
 extern int recurse;             /* Recurse into directories encountered */
 extern int dispose;             /* Remove files after put in zip file */
@@ -273,6 +293,8 @@ extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
 #ifdef VMS
    extern int vmsver;           /* Append VMS version number to file names */
    extern int vms_native;       /* Store in VMS format */
+   extern int vms_case_2;       /* ODS2 file name case in VMS. -1: down. */
+   extern int vms_case_5;       /* ODS5 file name case in VMS. +1: preserve. */
 #endif /* VMS */
 #if defined(OS2) || defined(WIN32)
    extern int use_longname_ea;   /* use the .LONGNAME EA as the file's name */
@@ -280,6 +302,29 @@ extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
 #if defined (QDOS) || defined(QLZIP)
 extern short qlflag;
 #endif
+/* 9/26/04 EG */
+extern int no_wild;             /* wildcards are disabled */
+extern int wild_stop_at_dir;    /* wildcards do not include / in matches */
+/* 10/20/04 EG */
+extern int dot_size;            /* if not 0 then display dots every size buffers */
+extern int dot_count;           /* if dot_size not 0 counts buffers */
+/* status 10/30/04 EG */
+extern int display_counts;      /* display running file count */
+extern int display_bytes;       /* display running bytes remaining */
+extern int display_usize;       /* display uncompressed bytes */
+extern ulg files_so_far;        /* files processed so far */
+extern ulg bad_files_so_far;    /* files skipped so far */
+extern ulg files_total;         /* files total to process */
+extern uzoff_t bytes_so_far;    /* bytes processed so far (from initial scan) */
+extern uzoff_t good_bytes_so_far;/* good bytes read so far */
+extern uzoff_t bad_bytes_so_far;/* bad bytes skipped so far */
+extern uzoff_t bytes_total;     /* total bytes to process (from initial scan) */
+/* logfile 6/5/05 EG */
+extern int logall;          /* 0 = warnings/errors, 1 = all */
+extern FILE *logfile;           /* pointer to open logfile or NULL */
+extern int logfile_append;      /* append to existing logfile */
+extern char *logfile_path;      /* pointer to path of logfile */
+
 extern int hidden_files;        /* process hidden and system files */
 extern int volume_label;        /* add volume label */
 extern int dirnames;            /* include directory names */
@@ -287,20 +332,63 @@ extern int linkput;             /* Store symbolic links as such */
 extern int noisy;               /* False for quiet operation */
 extern int extra_fields;        /* do not create extra fields */
 #ifdef NTSD_EAS
-    extern int use_privileges;  /* use security privilege overrides */
+ extern int use_privileges;     /* use security privilege overrides */
+#endif
+extern int use_descriptors;     /* use data descriptors (extended headings) */
+extern int zip_to_stdout;       /* output to stdout */
+extern int output_seekable;     /* 1 = output seekable 3/13/05 EG */
+#ifdef ZIP64_SUPPORT            /* zip64 globals 10/4/03 E. Gordon */
+ extern int force_zip64;        /* force use of zip64 when streaming from stdin */
+ extern int zip64_entry;        /* current entry needs Zip64 */
+ extern int zip64_archive;      /* at least 1 entry needs zip64 */
+#endif
+#ifdef SPLIT_SUPPORT
+ extern ulg    current_disk;    /* current disk number */
+ extern ulg    cd_start_disk;   /* central directory start disk */
+ extern zoff_t cd_start_offset; /* offset of start of cd on cd start disk */
+ extern uzoff_t cd_entries_this_disk; /* cd entries this disk */
+ extern uzoff_t total_cd_entries; /* total cd entries */
+  /* for split method 1 (keep split with local header open and update) */
+ extern FILE  *current_local_file; /* file pointer for current local header */
+ extern ulg    current_local_disk; /* disk with current local header */
+ extern zoff_t current_local_offset; /* offset to start of current local header */
+  /* global */
+ extern int read_split_archive; /* 1=scanzipf_reg detected spanning signature */
+ extern int split_method;       /* 0=no splits, 1=update LHs, 2=data descriptors */
+ extern uzoff_t split_size;     /* how big each split should be */
+ extern uzoff_t bytes_prev_splits; /* total bytes written to all splits before this */
+ extern uzoff_t bytes_this_split_entry; /* bytes written for this entry in this split */
 #endif
 extern char *key;               /* Scramble password or NULL */
 extern char *tempath;           /* Path for temporary files */
 extern FILE *mesg;              /* Where informational output goes */
 extern char *zipfile;           /* New or existing zip archive (zip file) */
-extern ulg zipbeg;              /* Starting offset of zip structures */
-extern ulg cenbeg;              /* Starting offset of central directory */
+
+/* splits 8/7/2004 EG */
+extern ulg disk_number;            /* current disk number */
+extern ulg cd_start_disk;          /* central directory start disk */
+extern uzoff_t cd_entries_this_disk;/* cd entries this disk */
+extern uzoff_t total_cd_entries;   /* total cd entries */
+extern uzoff_t cd_start_offset;    /* offset of start of cd on cd start disk */
+
+/* zip64 support 08/31/2003 R.Nausedat */
+extern uzoff_t zipbeg;          /* Starting offset of zip structures */
+extern uzoff_t cenbeg;          /* Starting offset of central directory */
+extern uzoff_t tempzn;          /* Count of bytes written to output zip file */
+/* splits 8/7/2004 EG */
+extern uzoff_t total_bytes_written; /* Bytes written to all files */
+
+/* NOTE: zcount and fcount cannot exceed "size_t" (resp. "extent") range.
+   This is an internal limitation built into Zip's action handling:
+   Zip keeps "{z|f}count * struct {z|f}list" arrays in (flat) memory,
+   for sorting, file matching, and building the central-dir structures.
+ */
+
 extern struct zlist far *zfiles;/* Pointer to list of files in zip file */
 extern extent zcount;           /* Number of files in zip file */
-extern extent zcomlen;          /* Length of zip file comment */
+extern ush zcomlen;             /* Length of zip file comment */
 extern char *zcomment;          /* Zip file comment (not zero-terminated) */
 extern struct zlist far **zsort;/* List of files sorted by name */
-extern ulg tempzn;              /* Count of bytes written to output zip file */
 extern struct flist far *found; /* List of names found */
 extern struct flist far *far *fnxt;     /* Where to put next in found list */
 extern extent fcount;           /* Count of names in found list */
@@ -382,7 +470,9 @@ void ziperr   OF((int, ZCONST char *));
 
         /* in zipup.c */
 #ifndef UTIL
-   int percent OF((ulg, ulg));
+  /* zip64 support 08/31/2003 R.Nausedat */
+   int percent OF((uzoff_t, uzoff_t));
+
    int zipup OF((struct zlist far *, FILE *));
 #  ifdef USE_ZLIB
      void zl_deflate_free OF((void));
@@ -409,12 +499,15 @@ int readzipfile OF((void));
 int putlocal OF((struct zlist far *, FILE *));
 int putextended OF((struct zlist far *, FILE *));
 int putcentral OF((struct zlist far *, FILE *));
-int putend OF((unsigned, ulg, ulg, extent, char *, FILE *));
+/* zip64 support 09/05/2003 R.Nausedat */
+int putend OF((uzoff_t, uzoff_t, uzoff_t, ush, char *, FILE *));
+/* moved seekable to separate function 3/14/05 EG */
+int is_seekable OF((FILE *));
 int zipcopy OF((struct zlist far *, FILE *, FILE *));
 
         /* in fileio.c */
 #ifndef UTIL
-   char *getnam OF((char *, FILE *));
+   char *getnam OF((FILE *));
    struct flist far *fexpel OF((struct flist far *));
    char *last OF((char *, int));
    char *msname OF((char *));
@@ -442,7 +535,8 @@ int replace OF((char *, char *));
 int getfileattr OF((char *));
 int setfileattr OF((char *, int));
 char *tempname OF((char *));
-int fcopy OF((FILE *, FILE *, ulg));
+
+int fcopy OF((FILE *, FILE *, uzoff_t));
 
 #ifdef ZMEM
    char *memset OF((char *, int, unsigned int));
@@ -459,7 +553,9 @@ int fcopy OF((FILE *, FILE *, ulg));
    char *ex2in OF((char *, int, int *));
    int procname OF((char *, int));
    void stamp OF((char *, ulg));
-   ulg filetime OF((char *, ulg *, long *, iztimes *));
+
+   ulg filetime OF((char *, ulg *, zoff_t *, iztimes *));
+
 #if !(defined(VMS) && defined(VMS_PK_EXTRA))
    int set_extra_field OF((struct zlist far *, iztimes *));
 #endif /* ?(VMS && VMS_PK_EXTRA) */
@@ -480,6 +576,16 @@ int   shmatch      OF((ZCONST char *, ZCONST char *, int));
    int dosmatch    OF((ZCONST char *, ZCONST char *, int));
 #endif /* DOS || WIN32 */
 #endif /* !UTIL */
+
+/* functions to convert zoff_t to a string */
+char *zip_fuzofft      OF((uzoff_t, char *, char*));
+char *zip_fzofft       OF((zoff_t, char *, char*));
+
+/* read and write number strings like 10M */
+int DisplayNumString OF ((FILE *file, uzoff_t i));
+int WriteNumString OF((uzoff_t num, char *outstring));
+uzoff_t ReadNumString OF((char *numstring));
+
 void init_upper    OF((void));
 int  namecmp       OF((ZCONST char *string1, ZCONST char *string2));
 
@@ -519,12 +625,13 @@ void free_crc_table OF((void));
         /* in deflate.c */
 void lm_init OF((int, ush *));
 void lm_free OF((void));
-ulg  deflate OF((void));
+
+uzoff_t deflate OF((void));
 
         /* in trees.c */
 void     ct_init      OF((ush *, int *));
 int      ct_tally     OF((int, int));
-ulg      flush_block  OF((char far *, ulg, int));
+uzoff_t  flush_block  OF((char far *, ulg, int));
 void     bi_init      OF((char *, unsigned int, int));
 #endif /* !USE_ZLIB */
 #endif /* !UTIL */
@@ -549,6 +656,11 @@ void     bi_init      OF((char *, unsigned int, int));
 #endif /* !UTIL */
 #endif /* VMS */
 
+/*
+#ifdef ZIP64_SUPPORT
+   update_local_Zip64_extra_field OF((struct zlist far *, FILE *));
+#endif
+*/
 
 /*---------------------------------------------------------------------------
     WIN32-only functions:
@@ -563,6 +675,60 @@ void     bi_init      OF((char *, unsigned int, int));
   ---------------------------------------------------------------------------*/
 #include "api.h"
 #endif /* WINDLL || DLL_ZIPAPI */
+
+/*--------------------------------------------------------------------
+    Long option support
+    23 August 2003
+    See fileio.c
+  --------------------------------------------------------------------*/
+
+/* The below is for use in the caller-provided options table */
+
+/* value_type - value is always returned as a string. */
+#define o_NO_VALUE        0   /* this option does not take a value */
+#define o_REQUIRED_VALUE  1   /* this option requires a value */
+#define o_OPTIONAL_VALUE  2   /* value is optional but must be part of same arg if present*/
+#define o_VALUE_LIST      3   /* this option takes a list of values */
+#define o_ONE_CHAR_VALUE  4   /* next char is value (does not end short opt string) */
+#define o_NUMBER_VALUE    5   /* value is integer (does not end short opt string) */
+
+
+/* negatable - a dash following the option (but before any value) sets negated. */
+#define o_NOT_NEGATABLE   0   /* trailing '-' to negate either starts value or generates error */
+#define o_NEGATABLE       1   /* trailing '-' sets negated to TRUE */
+
+
+/* option_num can be this when option not in options table */
+#define o_NO_OPTION_MATCH     -1
+
+/* special values returned by get_option - do not use these as option IDs */
+#define o_NON_OPTION_ARG      ((unsigned long) 0xFFFF)    /* returned for non-option
+                                                             args */
+#define o_ARG_FILE_ERR        ((unsigned long) 0xFFFE)    /* internal recursion
+                                                             return (user never sees) */
+
+/* options array is set in zip.c */
+struct option_struct {
+  char *shortopt;           /* char * to sequence of char that is short option */
+  char *longopt;            /* char * to long option string */
+  int  value_type;          /* from above */
+  int  negatable;           /* from above */
+  unsigned long option_ID;  /* value returned by get_option when this option is found */
+  char *name;               /* optional string for option returned on some errors */
+};
+extern struct option_struct options[];
+
+
+/* function prototypes */
+
+/* get the next option from args */
+unsigned long get_option OF((char ***pargs, int *argc, int *argnum, int *optchar,
+                             char **value, int *negated, int *first_nonopt_arg,
+                             int *option_num, int recursion_depth));
+
+/*--------------------------------------------------------------------
+    End of Long option support
+  --------------------------------------------------------------------*/
 
 #endif /* !__zip_h */
 /* end of zip.h */

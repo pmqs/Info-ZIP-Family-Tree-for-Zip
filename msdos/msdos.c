@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -579,8 +579,9 @@ iztimes *t;             /* return value: access, modific. and creation times */
    a file size of -1 */
 {
   struct stat s;        /* results of stat() */
+  /* convert FNMAX to malloc - 11/8/04 EG */
   char *name;
-  unsigned int len = strlen(f);
+  int len = strlen(f);
   int isstdin = !strcmp(f, "-");
 
   if (f == label) {
@@ -592,7 +593,6 @@ iztimes *t;             /* return value: access, modific. and creation times */
       t->atime = t->mtime = t->ctime = label_utim;
     return label_time;
   }
-
   if ((name = malloc(len + 1)) == NULL) {
     ZIPERR(ZE_MEM, "filetime");
   }
@@ -622,15 +622,14 @@ iztimes *t;             /* return value: access, modific. and creation times */
     if ((s.st_mode & S_IFMT) == S_IFREG) *a |= 0x80000000L;
 #endif
   }
+  free(name);
   if (n != NULL)
-    *n = (s.st_mode & S_IFREG) != 0 ? s.st_size : -1L;
+    *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1L;
   if (t != NULL) {
     t->atime = s.st_atime;
     t->mtime = s.st_mtime;
     t->ctime = s.st_ctime;
   }
-
-  free(name);
 
   return unix2dostime((time_t *)&s.st_mtime);
 }
@@ -779,14 +778,13 @@ void xit(void)
 }
 #endif
 
-#endif /* !UTIL */
-
 local int is_running_on_windows(void)
 {
     char * var = getenv("OS");
 
     /* if the OS env.var says 'Windows_NT' then */
     /* we're likely running on a variant of WinNT */
+
     if ((NULL != var) && (0 == strcmp("Windows_NT", var)))
     {
         return 1;
@@ -796,6 +794,7 @@ local int is_running_on_windows(void)
     /* we're likely running on a variant of Win9x */
     /* DOS mode of Win9x doesn't define windir, only winbootdir */
     /* NT's command.com can't see lowercase env. vars */
+
     var = getenv("windir");
     if ((NULL != var) && (0 != var[0]))
     {
@@ -805,11 +804,14 @@ local int is_running_on_windows(void)
     return 0;
 }
 
-void check_for_windows(const char *app)
+void check_for_windows(char *app)
 {
     /* Print a warning for users running under Windows */
     /* to reduce bug reports due to running DOS version */
     /* under Windows, when Windows version usually works correctly */
+
+    /* This is only called from the DOS version */
+
     if (is_running_on_windows())
     {
         printf("\nzip warning:  You are running MSDOS %s on Windows.\n"
@@ -817,6 +819,9 @@ void check_for_windows(const char *app)
                app);
     }
 }
+
+#endif /* !UTIL */
+
 
 #ifndef WINDLL
 /******************************/

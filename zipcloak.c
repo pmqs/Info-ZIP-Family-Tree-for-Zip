@@ -1,11 +1,19 @@
 /*
+  zipcloak.c - Zip 3
+
   Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
+/*
+   This code was originally written in Europe and can be freely distributed
+   from any country except the U.S.A. If this code is imported into the U.S.A,
+   it cannot be re-exported from the U.S.A to another country. (This
+   restriction might seem curious but this is what US law requires.)
+ */
 #define __ZIPCLOAK_C
 
 #ifndef UTIL
@@ -85,16 +93,31 @@ local void handler(sig)
 }
 
 
+static ZCONST char *public[] = {
+"The encryption code of this program is not copyrighted and is",
+"put in the public domain. It was originally written in Europe",
+"and can be freely distributed in both source and object forms",
+"from any country, including the USA under License Exception",
+"TSU of the U.S. Export Administration Regulations (section",
+"740.13(e)) of 6 June 2002.  (Prior to January 2000, re-export",
+"from the US was a violation of US law.)"
+};
+
 /***********************************************************************
  * Print license information to stdout.
  */
 local void license()
 {
-    extent i;
+    extent i;             /* counter for copyright array */
 
-    for (i = 0; i < sizeof(swlicense)/sizeof(char *); i++)
+    for (i = 0; i < sizeof(swlicense)/sizeof(char *); i++) {
         puts(swlicense[i]);
+    }
     putchar('\n');
+    printf("Export notice:\n");
+    for (i = 0; i < sizeof(public)/sizeof(char *); i++) {
+        puts(public[i]);
+    }
 }
 
 
@@ -107,14 +130,17 @@ static ZCONST char *help_info[] = {
 "Usage:  zipcloak [-dq] [-b path] zipfile",
 #endif
 "  the default action is to encrypt all unencrypted entries in the zip file",
-"  -d   decrypt--decrypt encrypted entries (copy if given wrong password)",
+"",
+"  -d  --decrypt    decrypt encrypted entries (copy if given wrong password)",
 #ifdef VM_CMS
-"  -b   use \"fm\" as the filemode for the temporary zip file",
+"  -b  --temp-mode  use \"fm\" as the filemode for the temporary zip file",
 #else
-"  -b   use \"path\" for the temporary zip file",
+"  -b  --temp-path  use \"path\" for the temporary zip file",
 #endif
-"  -q   quieter operation, suppress some informational messages",
-"  -h   show this help    -v   show version info    -L   show software license"
+"  -q  --quiet      quiet operation, suppress some informational messages",
+"  -h  --help       show this help",
+"  -v  --version    show version info",
+"  -L  --license    show software license"
   };
 
 /***********************************************************************
@@ -153,6 +179,7 @@ local void version_info()
     printf(copyright[i], "zipcloak");
     putchar('\n');
   }
+  putchar('\n');
 
   for (i = 0; i < sizeof(versinfolines)/sizeof(char *); i++)
   {
@@ -169,10 +196,24 @@ local void version_info()
   }
   printf("\t[encryption, version %d.%d%s of %s]\n",
             CR_MAJORVER, CR_MINORVER, CR_BETA_VER, CR_VERSION_DATE);
-
-  for (i = 0; i < sizeof(cryptnote)/sizeof(char *); i++)
-      puts(cryptnote[i]);
 }
+
+/* options for zipcloak - 3/5/2004 EG */
+struct option_struct options[] = {
+  /* short longopt        value_type        negatable        ID    name */
+#ifdef VM_CMS
+    {"b",  "temp-mode",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'b',  "temp file mode"},
+#else
+    {"b",  "temp-path",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'b',  "path for temp file"},
+#endif
+    {"d",  "decrypt",     o_NO_VALUE,       o_NOT_NEGATABLE, 'd',  "decrypt"},
+    {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
+    {"L",  "license",     o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
+    {"l",  "license",     o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
+    {"v",  "version",     o_NO_VALUE,       o_NOT_NEGATABLE, 'v',  "version"},
+    /* the end of the list */
+    {NULL, NULL,          o_NO_VALUE,       o_NOT_NEGATABLE, 0,    NULL} /* end has option_ID = 0 */
+  };
 
 
 /***********************************************************************
@@ -185,7 +226,7 @@ int main(argc, argv)
     char **argv;                /* command line tokens */
 {
     int attr;                   /* attributes of zip file */
-    ulg start_offset;           /* start of central directory */
+    zoff_t start_offset;        /* start of central directory */
     int decrypt;                /* decryption flag */
     int temp_path;              /* 1 if next argument is path for temp files */
     char passwd[IZ_PWLEN+1];    /* password for encryption or decryption */
@@ -193,7 +234,7 @@ int main(argc, argv)
     char *q;                    /* steps through option arguments */
     int r;                      /* arg counter */
     int res;                    /* result code */
-    ulg length;                 /* length of central directory */
+    zoff_t length;              /* length of central directory */
     FILE *inzip, *outzip;       /* input and output zip files */
     struct zlist far *z;        /* steps through zfiles linked list */
 
@@ -362,7 +403,7 @@ int main(argc, argv)
     /* Write central directory and end of central directory */
 
     /* get start of central */
-    if ((start_offset = (ulg)ftell(outzip)) == (ulg)-1L)
+    if ((start_offset = zftello(outzip)) == (zoff_t)-1)
         ziperr(ZE_TEMP, tempzip);
 
     for (z = zfiles; z != NULL; z = z->nxt) {
@@ -370,12 +411,12 @@ int main(argc, argv)
     }
 
     /* get end of central */
-    if ((length = (ulg)ftell(outzip)) == (ulg)-1L)
+    if ((length = zftello(outzip)) == (zoff_t)-1)
         ziperr(ZE_TEMP, tempzip);
 
     length -= start_offset;               /* compute length of central */
-    if ((res = putend((int)zcount, length, start_offset, zcomlen,
-                       zcomment, outzip)) != ZE_OK) {
+    if ((res = putend((zoff_t)zcount, length, start_offset, zcomlen,
+                      zcomment, outzip)) != ZE_OK) {
         ziperr(res, tempzip);
     }
     tempzf = NULL;
@@ -400,6 +441,18 @@ int main(argc, argv)
     RETURN(0);
 }
 #else /* !CRYPT */
+
+
+/* below is only used if crpyt is not enabled */
+
+/* keep compiler happy until implement long options - 11/4/2003 EG */
+struct option_struct options[] = {
+  /* short longopt        value_type        negatable        ID    name */
+    {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
+    /* the end of the list */
+    {NULL, NULL,          o_NO_VALUE,       o_NOT_NEGATABLE, 0,    NULL} /* end has option_ID = 0 */
+  };
+
 
 int main OF((void));
 

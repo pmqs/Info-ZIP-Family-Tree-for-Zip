@@ -1,0 +1,51 @@
+zipcloak(1)                                                        zipcloak(1)
+
+NAME
+       zipcloak - encrypt entries in a zipfile
+
+SYNOPSIS
+       zipcloak [-d] [-b path] [-h] [-v] [-L] zipfile
+
+ARGUMENTS
+       zipfile  Zipfile to encrypt entries in
+
+OPTIONS
+       -d     Decrypt encrypted entries (copy if given wrong password)
+
+       -b path
+              Use path for the temporary zip file.
+
+       -h     Show a short help.
+
+       -v     Show version information.
+
+       -L     Show software license.
+
+DESCRIPTION
+       zipcloak  encrypts all unencrypted entries in the zipfile.  This is the
+       default action.
+
+       The -d option is used to decrypt encrypted entries in the zipfile.
+
+       zipcloak uses original zip encryption which is considered weak.
+
+       Note:  The encryption code of this program is not  copyrighted  and  is
+              put  in  the  public domain. It was originally written in Europe
+              and can be freely distributed from any country except the U.S.A.
+              If  this  program  is  imported into the U.S.A, it cannot be re-
+              exported from the  U.S.A  to  another  country.   The  copyright
+              notice of the zip program applies to the rest of the code.
+
+EXAMPLES
+       To be added.
+
+BUGS
+       Large files (> 2 GB) and split archives not yet supported.
+
+SEE ALSO
+       zip(1), unzip(1)
+
+AUTHOR
+       Info-ZIP
+
+                           v3.0 of 12 November 2004                zipcloak(1)

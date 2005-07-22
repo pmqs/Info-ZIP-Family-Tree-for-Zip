@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 1999-Oct-05 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
+  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
 */
 #include "zip.h"
 
@@ -39,11 +39,15 @@ local char *readd(DIR* d)
 int wild(char* w)
 {
   struct _filbuf inf;
-  char name[FNMAX];
+  /* convert FNAMX to malloc - 11/08/04 EG */
+  char *name;
   char *p;
 
   if (strcmp(w, "-") == 0)   /* if compressing stdin */
     return newname(w, 0, 0);
+  if ((name = malloc(strlen(w) + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "wild");
+  }
   strcpy(name, w);
   _toslash(name);
 
@@ -51,16 +55,21 @@ int wild(char* w)
     p = name;
   else
     p++;
-  if (_dos_lfiles (&inf, w, 0xff) < 0)
+  if (_dos_lfiles (&inf, w, 0xff) < 0) {
+    free(name);
     return ZE_MISS;
+  }
   do {
     int r;
 
     strcpy(p, inf.name);
     r = procname(name, 0);
-    if (r != ZE_OK)
+    if (r != ZE_OK) {
+      free(name);
       return r;
+    }
   } while (_dos_nfiles(&inf) >= 0);
+  free(name);
 
   return ZE_OK;
 }
@@ -231,9 +240,10 @@ iztimes *t;             /* return value: access, modific. and creation times */
    a file size of -1 */
 {
   struct stat s;        /* results of stat() */
+  /* convert FNMAX to malloc - 11/8/04 EG */
   char *name;
-  unsigned int len = strlen(f);
-  int isstdin = !strcmp(f, "-");
+  int len = strlen(f);
+  isstdin = !strcmp(f, "-");
 
   if ((name = malloc(len + 1)) == NULL) {
     ZIPERR(ZE_MEM, "filetime");
@@ -263,6 +273,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
       atr = 0x20;
     *a = ((ulg)s.st_mode << 16) | (isstdin ? 0L : (ulg)atr);
   }
+  free(name);
   if (n != NULL)
     *n = S_ISVOL(s.st_mode) ? -2L : S_ISREG(s.st_mode) ? s.st_size : -1L;
   if (t != NULL) {
@@ -270,8 +281,6 @@ iztimes *t;             /* return value: access, modific. and creation times */
     t->mtime = s.st_mtime;
     t->ctime = s.st_ctime;
   }
-
-  free(name);
 
   return unix2dostime(&s.st_mtime);
 }

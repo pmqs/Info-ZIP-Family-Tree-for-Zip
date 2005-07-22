@@ -1,9 +1,9 @@
 /*
   Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
@@ -53,13 +53,18 @@
  *    version 2.2-4     26-Jan-2002, Chr. Spieler
  *                      Modified vms_read() to handle files larger than 2GByte
  *                      (up to size limit of "unsigned long", resp. 4GByte).
- *    version 2.3.1     20-Oct-2004, Steven Schweda.
+ *    version 3.0       20-Oct-2004, Steven Schweda.
  *                      Changed vms_read() to read all the allocated
  *                      blocks in a file, for sure.  Changed the default
  *                      chunk size from 16K to 32K.  Changed to use the
  *                      new typedef for the ioctx structure.  Moved the
  *                      VMS_PK_EXTRA test into here from VMS.C to allow
  *                      more general automatic dependency generation.
+ *                      08-Feb-2005, SMS.
+ *                      Changed to accomodate ODS5 extended file names:
+ *                      NAM structure -> NAM[L], and so on.  (VMS.H.)
+ *                      Added some should-never-appear error messages in
+ *                      vms_open().
  */
 
 #ifdef VMS                      /* For VMS only ! */
@@ -105,8 +110,8 @@ typedef struct
 {
     struct iosb         iosb;
     long                vbn;
-    unsigned int        size;
-    unsigned int        rest;
+    uzoff_t             size;
+    uzoff_t             rest;
     int                 status;
     ush                 chan;
     ush                 chan_pad;       /* alignment member */
@@ -118,8 +123,8 @@ typedef struct
 
 /* Forward declarations of public functions: */
 ioctx_t *vms_open(char *file);
-size_t  vms_read(register ioctx_t *ctx,
-                 register char *buf, register size_t size);
+unsigned int  vms_read(register ioctx_t *ctx,
+                       register char *buf, register unsigned int size);
 int  vms_error(ioctx_t *ctx);
 int  vms_rewind(ioctx_t *ctx);
 int  vms_get_attributes(ioctx_t *ctx, struct zlist far *z,
@@ -141,23 +146,22 @@ ioctx_t *vms_open(file)
 char *file;
 {
     static struct atrdef        Atr[VMS_MAX_ATRCNT+1];
-    static struct NAM           Nam;
+    static struct NAM_STRUCT    Nam;
     static struct fibdef        Fib;
     static struct dsc$descriptor FibDesc =
         {sizeof(Fib),DSC$K_DTYPE_Z,DSC$K_CLASS_S,(char *)&Fib};
     static struct dsc$descriptor_s DevDesc =
-        {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,&Nam.nam$t_dvi[1]};
-    static struct dsc$descriptor_s FileName =
-        {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,0};
-    static char EName[NAM$C_MAXRSS];
-    static char RName[NAM$C_MAXRSS];
+        {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,&Nam.NAM_DVI[1]};
+    static char EName[NAM_MAXRSS];
+    static char RName[NAM_MAXRSS];
 
-    struct FAB  Fab;
+    struct FAB Fab;
     register ioctx_t *ctx;
     register struct fatdef *fat;
     int status;
     int i;
-    ulg efblk, hiblk;
+    ulg efblk;
+    ulg hiblk;
 
     if ( (ctx=(ioctx_t *)malloc(sizeof(ioctx_t))) == NULL )
         return NULL;
@@ -187,50 +191,84 @@ char *file;
     Atr[13].atr$w_size = 0;
     Atr[13].atr$l_addr = GVTC NULL;
 
-    /* initialize RMS structures, we need a NAM to retrieve the FID */
+    /* Initialize RMS structures.  We need a NAM[L] to retrieve the FID. */
     Fab = cc$rms_fab;
-    Fab.fab$l_fna = file ; /* name of file */
-    Fab.fab$b_fns = strlen(file);
-    Fab.fab$l_nam = &Nam; /* FAB has an associated NAM */
-    Nam = cc$rms_nam;
-    Nam.nam$l_esa = EName; /* expanded filename */
-    Nam.nam$b_ess = sizeof(EName);
-    Nam.nam$l_rsa = RName; /* resultant filename */
-    Nam.nam$b_rss = sizeof(RName);
+    Nam = CC_RMS_NAM;
+    Fab.FAB_NAM = &Nam; /* FAB has an associated NAM[L]. */
 
-    /* do $PARSE and $SEARCH here */
+#ifdef NAML$C_MAXRSS
+
+    Fab.fab$l_dna =(char *) -1;         /* Using NAML for default name. */
+    Fab.fab$l_fna = (char *) -1;        /* Using NAML for file name. */
+
+#endif /* def NAML$C_MAXRSS */
+
+    FAB_OR_NAM( Fab, Nam).FAB_OR_NAM_FNA = file ; /* name of file */
+    FAB_OR_NAM( Fab, Nam).FAB_OR_NAM_FNS = strlen(file);
+    Nam.NAM_ESA = EName; /* expanded filename */
+    Nam.NAM_ESS = sizeof(EName);
+    Nam.NAM_RSA = RName; /* resultant filename */
+    Nam.NAM_RSS = sizeof(RName);
+
+    /* Do $PARSE and $SEARCH here. */
     status = sys$parse(&Fab);
-    if (!(status & 1)) return NULL;
 
-    /* search for the first file.. If none signal error */
+    if (!(status & 1))
+    {
+        fprintf( stderr,
+         " vms_open(): $parse sts = %%x%08x.\n", status);
+        return NULL;
+    }
+
+    /* Search for the first file.  If none, signal error. */
     status = sys$search(&Fab);
-    if (!(status & 1)) return NULL;
 
-    /* initialize Device name length, note that this points into the NAM
-         to get the device name filled in by the $PARSE, $SEARCH services */
-    DevDesc.dsc$w_length = Nam.nam$t_dvi[0];
+    if (!(status & 1))
+    {
+        fprintf( stderr,
+         " vms_open(): $search sts = %%x%08x.\n", status);
+        return NULL;
+    }
+
+    /* Initialize Device name length.  Note that this points into the
+       NAM[L] to get the device name filled in by the $PARSE, $SEARCH
+       services.
+    */
+    DevDesc.dsc$w_length = Nam.NAM_DVI[0];
 
     status = sys$assign(&DevDesc,&ctx->chan,0,0);
-    if (!(status & 1)) return NULL;
 
-    FileName.dsc$a_pointer = Nam.nam$l_name;
-    FileName.dsc$w_length = Nam.nam$b_name+Nam.nam$b_type+Nam.nam$b_ver;
+    if (!(status & 1))
+    {
+        fprintf( stderr,
+         " vms_open(): $assign sts = %%x%08x.\n", status);
+        return NULL;
+    }
 
-    /* Initialize the FIB */
+    /* Move the FID (and not the DID) into the FIB.
+       2005=02-08 SMS.
+       Note that only the FID is needed, not the DID, and not the file
+       name.  Setting these other items causes failures on ODS5.
+    */
     Fib.FIB$L_ACCTL = FIB$M_NOWRITE;
-    for (i=0;i<3;i++)
-        Fib.FIB$W_FID[i]=Nam.nam$w_fid[i];
-    for (i=0;i<3;i++)
-        Fib.FIB$W_DID[i]=Nam.nam$w_did[i];
 
-    /* Use the IO$_ACCESS function to return info about the file */
-    status = sys$qiow( 0, ctx->chan, (IO$_ACCESS| IO$M_ACCESS),
-                       &ctx->iosb, 0, 0, &FibDesc, &FileName, 0, 0,
-                       Atr, 0);
+    for (i = 0; i < 3; i++)
+    {
+        Fib.FIB$W_FID[ i] = Nam.NAM_FID[ i];
+        Fib.FIB$W_DID[ i] = 0;
+    }
+
+    /* Use the IO$_ACCESS function to return info about the file. */
+    status = sys$qiow( 0, ctx->chan,
+     (IO$_ACCESS| IO$M_ACCESS), &ctx->iosb, 0, 0,
+     &FibDesc, 0, 0, 0, Atr, 0);
 
     if (ERR(status) || ERR(status = ctx->iosb.status))
     {
         vms_close(ctx);
+        fprintf( stderr,
+         " vms_open(): $qiow (access) sts = %%x%08x, iosb sts = %%x%08x.\n",
+         status, ctx->iosb.status);
         return NULL;
     }
 
@@ -247,7 +285,7 @@ char *file;
            (This occurs with a zero-length file, for example.)
         */
         ctx -> size =
-        ctx -> rest = hiblk * BLOCK_BYTES;
+        ctx -> rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
     }
     else
     {
@@ -256,12 +294,12 @@ char *file;
            If multiple -V, store allocated-blocks size in ->rest.
         */
         ctx -> size =
-         ((efblk) - 1) * BLOCK_BYTES + fat -> fat$w_ffbyte;
+         (((uzoff_t) efblk)- 1)* BLOCK_BYTES+ fat -> fat$w_ffbyte;
 
         if (vms_native < 2)
             ctx -> rest = ctx -> size;
         else
-            ctx -> rest = hiblk * BLOCK_BYTES;
+            ctx -> rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
     }
 
     ctx -> status = SS$_NORMAL;
@@ -270,8 +308,8 @@ char *file;
 }
 
 
-#define KByte (2 * BLOCK_BYTES)
-#define MAX_READ_BYTES (32 * KByte)
+#define KByte (2* BLOCK_BYTES)
+#define MAX_READ_BYTES (32* KByte)
 
 /*----------------*
  |   vms_read()   |
@@ -288,9 +326,9 @@ char *buf;
 size_t size;
 {
     int act_cnt;
-    int rest_rndup;
+    uzoff_t rest_rndup;
     int status;
-    unsigned int bytes_read = 0;
+    size_t bytes_read = 0;
 
     /* If previous read hit EOF, fail early. */
     if (ctx -> status == SS$_ENDOFFILE)
@@ -447,10 +485,10 @@ iztimes *z_utim;
             return ZE_OK;       /* skip silently if no valid TZ info */
 #  endif
 
-        if ((xtra = (uch *) malloc( EB_HEADSIZE + EB_UT_LEN( 1))) == NULL)
+        if ((xtra = (uch *) malloc( EB_HEADSIZE+ EB_UT_LEN( 1))) == NULL)
             return ZE_MEM;
 
-        if ((cxtra = (uch *) malloc( EB_HEADSIZE + EB_UT_LEN( 1))) == NULL)
+        if ((cxtra = (uch *) malloc( EB_HEADSIZE+ EB_UT_LEN( 1))) == NULL)
             return ZE_MEM;
 
         /* Fill xtra[] with data. */
@@ -465,10 +503,10 @@ iztimes *z_utim;
         xtra[ 8] = (byte) (z_utim->mtime >> 24);
 
         /* Copy xtra[] data into cxtra[]. */
-        memcpy( cxtra, xtra, (EB_HEADSIZE + EB_UT_LEN( 1)));
+        memcpy( cxtra, xtra, (EB_HEADSIZE+ EB_UT_LEN( 1)));
 
         /* Set sizes and pointers. */
-        z->cext = z->ext = (EB_HEADSIZE + EB_UT_LEN( 1));
+        z->cext = z->ext = (EB_HEADSIZE+ EB_UT_LEN( 1));
         z->extra = (char*) xtra;
         z->cextra = (char*) cxtra;
 
@@ -485,10 +523,10 @@ iztimes *z_utim;
     if (ctx->acllen > 0)
         l += PK_FLDHDR_SIZE + ctx->acllen;
 
-    if ((xtra = (uch *) malloc(l)) == NULL)
+    if ((xtra = (uch *) malloc( l)) == NULL)
         return ZE_MEM;
 
-    if ((cxtra = (uch *) malloc(l)) == NULL)
+    if ((cxtra = (uch *) malloc( l)) == NULL)
         return ZE_MEM;
 
     /* Fill xtra[] with data. */

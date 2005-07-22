@@ -1,9 +1,9 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2000-Apr-09 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
@@ -11,6 +11,7 @@
  */
 
 #include "zip.h"
+#include "crypt.h"
 #include <tal.h>
 #include "$system.zsysdefs.zsysc" nolist
 #include <cextdecs> nolist
@@ -32,14 +33,10 @@ void version_local()
 #ifdef __GNUC__
       "gcc ", __VERSION__,
 #else
-#  if 0
-      "cc ", (sprintf(buf, " version %d", _RELEASE), buf),
-#  else
-      "unknown compiler", "",
-#  endif
+     "C ", "T9255D44 - (16OCT98)",
 #endif
 
-      "Tandem/NSK", "",
+     "NonStop ", "(Tandem/NSK)",
 
 #ifdef __DATE__
       " on ", __DATE__
@@ -49,6 +46,74 @@ void version_local()
       );
 
 } /* end function version_local() */
+
+
+/************************/
+/*  Function nskopen()  */
+/************************/
+
+#ifdef fopen
+#  undef fopen
+#endif
+
+FILE *nskopen(fname, opt)
+const char *fname;
+const char *opt;
+{
+  int fdesc;
+  short fnum, err, len;
+  int priext, secext;
+  short maxext, filecode, blocksize;
+
+  #define alist_items 1
+  #define vlist_bytes 2
+  short alist[alist_items]={42};
+  unsigned short vlist[alist_items];
+  short extra, *err_item=&extra;
+
+  char nsk_work[FILENAME_MAX + 1], *nsk_fname=&nsk_work[0];
+
+  /* See if we want to create a new file */
+  if ((strcmp(opt,FOPW) == 0) || (strcmp(opt,FOPWT) == 0)) {
+    blocksize = TANDEM_BLOCKSIZE;
+    priext = 100;
+    secext = 500;
+    maxext = 978;
+    filecode = NSK_ZIPFILECODE;
+
+    if ((fdesc = creat(fname,,priext,secext)) != -1){
+      fnum = fdtogfn ((short)fdesc);
+      err = (SETMODE (fnum, SET_FILE_BUFFERSIZE, blocksize) != CCE);
+      err = (SETMODE (fnum, SET_FILE_BUFFERED, 0, 0) != CCE);
+      err = (SETMODE (fnum, SET_FILE_BUFFERED, 0, 1) != CCE);
+      err = (SETMODE (fnum, SET_FILE_MAXEXTENTS, maxext) != CCE);
+      err = close(fdesc);
+
+      vlist[0] = filecode;
+
+      /* Note that FILE_ALTERLIST_ expects uppercase names */
+      /* Need to call strlen and upshift                   */
+      len = strlen(fname);
+      err = STRING_UPSHIFT_((char *)fname,
+                            len,
+                            nsk_fname,
+                            len);
+
+      err = FILE_ALTERLIST_(nsk_fname,
+                            len,
+                            alist,
+                            alist_items,
+                            vlist,
+                            vlist_bytes,
+                            ,
+                            err_item);
+    };
+  };
+
+  return fopen(fname,opt);
+}
+#define fopen nskopen
+
 
   int Bflag = 0;            /* Special formatting options for Tandem        */
                             /* Bit 0 = Add delimiter (0 = Yes, 1 = No)      */
@@ -67,7 +132,8 @@ void version_local()
   struct stat znsk_stat;
   nsk_stat_ov *znsk_ov = (nsk_stat_ov *)&znsk_stat.st_reserved[0];
   nsk_file_attrs *znsk_attr = (nsk_file_attrs *)
-                                ((char *) (&znsk_stat.st_reserved[0]) + 4);
+    ( (char *)(&znsk_stat.st_reserved[0]) +
+      offsetof (struct nsk_stat_overlay, nsk_ef_region) );
 
   /* Following items used by zread to avoid overwriting window */
   char zreadbuf[MAX_LARGE_READ];       /* Buffer as large as biggest read */
@@ -260,22 +326,16 @@ void version_local()
     return (err != 0);
   }
 
+/* modified to work with get_option which returns
+   a string with the number value without leading option */
 void nskformatopt(p)
-char **p;
+char *p;
 {
-char *q;
-
   /* set up formatting options for ZIP */
-
-  q = *p; /* make a note of where we are */
 
   Bflag = 0; /* default option */
 
-  Bflag = strtoul((*p + 1), p, 10);
-
-  /* need to go back one character if we've got a result */
-  if (q != *p)
-    (*p)--;
+  Bflag = strtoul(p, NULL, 10);
 
   if (Bflag & NSK_SPACE_FILL)
     nsk_space_fill = 1;
@@ -530,7 +590,7 @@ char *q;
   {
     struct stat s;
     nsk_stat_ov *nsk_ov = (nsk_stat_ov *)&s.st_reserved[0];
-    nsk_file_attrs *nsk_attr = (nsk_file_attrs *)&nsk_ov->ov.nsk_ef_start;
+    nsk_file_attrs *nsk_attr = (nsk_file_attrs *)&nsk_ov->ov.nsk_ef_region;
     char *ext, *cext;
     int lsize, csize;
 #ifdef USE_EF_UT_TIME
@@ -635,3 +695,29 @@ char *q;
 
     return ZE_OK;
   }
+
+#if CRYPT
+  /* getpid() only available on OSS so make up dummy version using NSK PID */
+  unsigned zgetpid (void)
+  {
+    short myphandle[ZSYS_VAL_PHANDLE_WLEN];
+    short err;
+    unsigned retval;
+
+    err = PROCESSHANDLE_NULLIT_(myphandle);
+
+    if (!err)
+      err = PROCESS_GETINFO_(myphandle);
+
+    if (!err)
+      retval = (unsigned) myphandle[ZSYS_VAL_PHANDLE_WLEN - 3];
+    else
+#ifndef __INT32
+      retval = (unsigned) 31415;
+#else
+      retval = (unsigned) 3141592654L;
+#endif /* __INT32 */
+
+    return retval;
+  }
+#endif  /* CRYPT */

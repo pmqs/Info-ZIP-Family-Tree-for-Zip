@@ -1,5 +1,7 @@
 /*
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  util.c
+
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -19,11 +21,41 @@
 #  include <dos.h>
 #endif
 
+#ifdef NO_MKTIME
+#  ifndef IZ_MKTIME_ONLY
+#    define IZ_MKTIME_ONLY      /* only mktime() related code is pulled in */
+#  endif
+#  include "timezone.c"
+#endif
+
 uch upper[256], lower[256];
 /* Country-dependent case map table */
 
 
 #ifndef UTIL /* UTIL picks out namecmp code (all utils) */
+
+/* RISC OS uses # as its single-character wildcard */
+#ifdef RISCOS
+#  define WILDCHR_SINGLE '#'
+#  define WILDCHR_MULTI  '*'
+#  define DIRSEP_CHR '.'
+#endif
+
+#ifdef VMS
+#  define WILDCHR_SINGLE '%'
+#  define WILDCHR_MULTI  '*'
+#  define DIRSEP_CHR '.'
+#endif
+
+#ifndef WILDCHR_SINGLE
+#  define WILDCHR_SINGLE '?'
+#endif
+#ifndef WILDCHR_MULTI
+#  define WILDCHR_MULTI '*'
+#endif
+#ifndef DIRSEP_CHR
+#  define DIRSEP_CHR '/'
+#endif
 
 /* Local functions */
 local int recmatch OF((ZCONST char *, ZCONST char *, int));
@@ -33,23 +65,23 @@ local int count_args OF((char *s));
   local unsigned ident OF((unsigned chr));
 #endif
 
-#ifdef NO_MKTIME
-#  ifndef IZ_MKTIME_ONLY
-#    define IZ_MKTIME_ONLY      /* only mktime() related code is pulled in */
-#  endif
-#  include "timezone.c"
-#endif
-
 #ifndef HAVE_FSEEKABLE
-int fseekable(fp)
+
+/* 2004-11-12 SMS.
+   Changed to use z*o() functions, and ftell() test from >= 0 to != -1.
+   This solves problems with negative 32-bit offsets, even on small-file
+   products.
+*/
+int fseekable( fp)
 FILE *fp;
 {
-    long x;
+    zoff_t x;
 
-    return (fp == NULL || (fseek(fp, -1L, SEEK_CUR) == 0 &&
-            (x = ftell(fp)) >= 0 &&
-            fseek(fp,  1L, SEEK_CUR) == 0 &&
-            ftell(fp) == x + 1));
+    return (fp == NULL ||
+     ((zfseeko( fp, ((zoff_t) -1), SEEK_CUR) == 0) &&   /* Seek ok. */
+     ((x = zftello( fp)) != ((zoff_t) -1)) &&           /* Tell ok. */
+     (zfseeko( fp, ((zoff_t) 1), SEEK_CUR) == 0) &&     /* Seek ok. */
+     (zftello( fp) == x+ 1)));                          /* Tells agree. */
 }
 #endif /* HAVE_FSEEKABLE */
 
@@ -62,14 +94,9 @@ char *p;                /* candidate sh expression */
     if (*p == '\\' && *(p+1))
       p++;
 #ifdef VMS
-    else if (*p == '%' || *p == '*')
+    else if (*p == WILDCHR_SINGLE || *p == WILDCHR_MULTI)
 #else /* !VMS */
-# ifdef RISCOS
-    /* RISC OS uses # as its single-character wildcard */
-    else if (*p == '#' || *p == '*' || *p == '[')
-# else /* !RISC OS */
-    else if (*p == '?' || *p == '*' || *p == '[')
-# endif
+    else if (*p == WILDCHR_SINGLE || *p == WILDCHR_MULTI || *p == '[')
 #endif /* ?VMS */
       return p;
   return NULL;
@@ -77,15 +104,15 @@ char *p;                /* candidate sh expression */
 
 
 local int recmatch(p, s, cs)
-ZCONST char *p;  /* sh pattern to match */
-ZCONST char *s;  /* string to match it to */
-int cs;          /* flag: force case-sensitive matching */
+ZCONST char *p;         /* sh pattern to match */
+ZCONST char *s;         /* string to match it to */
+int cs;                 /* flag: force case-sensitive matching */
 /* Recursively compare the sh pattern p with the string s and return 1 if
    they match, and 0 or 2 if they don't or if there is a syntax error in the
    pattern.  This routine recurses on itself no deeper than the number of
    characters in the pattern. */
 {
-  int c;        /* pattern char or start of range in [-] loop */
+  int c;                /* pattern char or start of range in [-] loop */
   /* Get first character, the pattern for new recmatch calls follows */
   c = *POSTINCSTR(p);
 
@@ -94,37 +121,48 @@ int cs;          /* flag: force case-sensitive matching */
     return *s == 0;
 
   /* '?' (or '%' or '#') matches any character (but not an empty string) */
-#ifdef VMS
-  if (c == '%')
-#else /* !VMS */
-# ifdef RISCOS
-  if (c == '#')
-# else /* !RISC OS */
-  if (c == '?')
-# endif
-#endif /* ?VMS */
-#ifdef WILD_STOP_AT_DIR
-    return (*s && *s != '/') ? recmatch(p, s + CLEN(s), cs) : 0;
-#else
-    return *s ? recmatch(p, s + CLEN(s), cs) : 0;
-#endif
+  if (c == WILDCHR_SINGLE) {
+    if (wild_stop_at_dir)
+      return (*s && *s != DIRSEP_CHR) ? recmatch(p, s + CLEN(s), cs) : 0;
+    else
+      return *s ? recmatch(p, s + CLEN(s), cs) : 0;
+  }
 
-  /* '*' matches any number of characters, including zero */
+  /* WILDCHR_MULTI ('*') matches any number of characters, including zero */
 #ifdef AMIGA
-  if (c == '#' && *p == '?')            /* "#?" is Amiga-ese for "*" */
-    c = '*', p++;
+  if (!no_wild && c == '#' && *p == '?')            /* "#?" is Amiga-ese for "*" */
+    c = WILDCHR_MULTI, p++;
 #endif /* AMIGA */
-  if (c == '*')
+  if (!no_wild && c == WILDCHR_MULTI)
   {
+    if (wild_stop_at_dir) {
+      /* Check for an immediately following WILDCHR_MULTI */
+# ifdef AMIGA
+      if ((c = p[0]) == '#' && p[1] == '?') /* "#?" is Amiga-ese for "*" */
+        c = WILDCHR_MULTI, p++;
+      if (c != WILDCHR_MULTI) {
+# else /* !AMIGA */
+      if (*p != WILDCHR_MULTI) {
+# endif /* ?AMIGA */
+        /* Single WILDCHR_MULTI ('*'): this doesn't match slashes */
+        for (; *s && *s != DIRSEP_CHR; INCSTR(s))
+          if ((c = recmatch(p, s, cs)) != 0)
+            return c;
+        /* end of pattern: matched if at end of string, else continue */
+        if (*p == 0)
+          return (*s == 0);
+        /* continue to match if at DIRSEP_CHR in pattern, else give up */
+        return (*p == DIRSEP_CHR || (*p == '\\' && p[1] == DIRSEP_CHR))
+               ? recmatch(p, s, cs) : 2;
+      }
+      /* Two consecutive WILDCHR_MULTI ("**"): this matches DIRSEP_CHR ('/') */
+      p++;        /* move p past the second WILDCHR_MULTI */
+      /* continue with the normal non-WILD_STOP_AT_DIR code */
+    } /* wild_stop_at_dir */
+
+    /* Not wild_stop_at_dir */
     if (*p == 0)
       return 1;
-#ifdef WILD_STOP_AT_DIR
-    for (; *s && *s != '/'; INCSTR(s))
-      if ((c = recmatch(p, s, cs)) != 0)
-        return c;
-    return (*p == '/' || (*p == '\\' && p[1] == '/'))
-      ? recmatch(p, s, cs) : 2;
-#else /* !WILD_STOP_AT_DIR */
     if (!isshexp((char *)p))
     {
       /* optimization for rest of pattern being a literal string */
@@ -174,15 +212,14 @@ int cs;          /* flag: force case-sensitive matching */
       /* pattern contains more wildcards, continue with recursion... */
       for (; *s; INCSTR(s))
         if ((c = recmatch(p, s, cs)) != 0)
-          return (int)c;
+          return c;
       return 2;           /* 2 means give up--shmatch will return false */
     }
-#endif /* ?WILD_STOP_AT_DIR */
   }
 
 #ifndef VMS             /* No bracket matching in VMS */
   /* Parse and process the list of characters and ranges in brackets */
-  if (c == '[')
+  if (!no_wild && c == '[')
   {
     int e;              /* flag true if next char to be taken literally */
     ZCONST char *q;     /* pointer to end of [-] group */
@@ -225,37 +262,9 @@ int cs;          /* flag: force case-sensitive matching */
 #endif /* !VMS */
 
   /* If escape ('\'), just compare next character */
-  if (c == '\\')
+  if (!no_wild && c == '\\')
     if ((c = *p++) == '\0')             /* if \ at end, then syntax error */
       return 0;
-
-#ifdef VMS
-  /* 2005-11-06 SMS.
-     Handle "..." wildcard in p with "." or "]" in s.
-  */
-  if ((c == '.') && (*p == '.') && (*(p+ CLEN( p)) == '.') &&
-   ((*s == '.') || (*s == ']')))
-  {
-    /* Match "...]" with "]".  Continue after "]" in both. */
-    if ((*(p+ 2* CLEN( p)) == ']') && (*s == ']'))
-      return recmatch( (p+ 3* CLEN( p)), (s+ CLEN( s)), cs);
-
-    /* Else, look for a reduced match in s, until "]" in or end of s. */
-    for (; *s && (*s != ']'); INCSTR(s))
-      if (*s == '.')
-        /* If reduced match, then continue after "..." in p, "." in s. */
-        if ((c = recmatch( (p+ CLEN( p)), s, cs)) != 0)
-          return (int)c;
-
-    /* Match "...]" with "]".  Continue after "]" in both. */
-    if ((*(p+ 2* CLEN( p)) == ']') && (*s == ']'))
-      return recmatch( (p+ 3* CLEN( p)), (s+ CLEN( s)), cs);
-
-    /* No reduced match.  Quit. */
-    return 2;
-  }
-
-#endif /* def VMS */
 
   /* Just a character--compare it */
   return (cs ? c == *s : case_map((uch)c) == case_map((uch)*s)) ?
@@ -512,7 +521,7 @@ unsigned char *zmbschr(str, c)
     unsigned int c;
 {
     while(*str != '\0'){
-        if (*str == c) {return (char*)str;}
+        if (*str == c) {return (unsigned char *)str;}
         INCSTR(str);
     }
     return NULL;
@@ -524,7 +533,7 @@ unsigned char *zmbsrchr(str, c)
 {
     unsigned char *match = NULL;
     while(*str != '\0'){
-        if (*str == c) {match = (char*)str;}
+        if (*str == c) {match = (unsigned char*)str;}
         INCSTR(str);
     }
     return match;
@@ -779,3 +788,289 @@ int printnames()
 }
 
 #endif /* DEBUGNAMES */
+
+
+/* Below is used to format zoff_t values, which can be either long or long long
+   depending on if LARGE FILES are supported.  Function provided by SMS.
+   10/17/04 EG */
+
+/* 2004-12-01 SMS.
+ * Brought in fancy fzofft() from UnZip.
+ */
+
+/* This implementation assumes that no more than FZOFF_NUM values will be
+   needed in any printf using it.  */
+
+/* zip_fzofft(): Format a zoff_t value in a cylindrical buffer set.
+   This version renamed from fzofft because of name conflict in unzip
+   when combined in WiZ. */
+
+/* 2004-12-19 SMS.
+ * I still claim than the smart move would have been to disable one or
+ * the other instance with #if for Wiz.  But fine.  We'll change the
+ * name.
+ */
+
+/* This is likely not thread safe.  Needs to be done without static storage.
+   12/29/04 EG */
+
+/* zip_fzofft(): Format a zoff_t value in a cylindrical buffer set. */
+
+#define FZOFFT_NUM 4            /* Number of chambers. */
+#define FZOFFT_LEN 24           /* Number of characters/chamber. */
+
+
+/* Format a zoff_t value in a cylindrical buffer set. */
+
+char *zip_fzofft( zoff_t val, char *pre, char *post)
+{
+    /* Storage cylinder. */
+    static char fzofft_buf[ FZOFFT_NUM][ FZOFFT_LEN];
+    static int fzofft_index = 0;
+
+    /* Temporary format string storage. */
+    static char fmt[ 16] = "%";
+
+    /* Assemble the format string. */
+    fmt[ 1] = '\0';             /* Start after initial "%". */
+    if (pre == FZOFFT_HEX_WID)  /* Special hex width. */
+    {
+        strcat( fmt, FZOFFT_HEX_WID_VALUE);
+    }
+    else if (pre == FZOFFT_HEX_DOT_WID) /* Special hex ".width". */
+    {
+        strcat( fmt, ".");
+        strcat( fmt, FZOFFT_HEX_WID_VALUE);
+    }
+    else if (pre != NULL)       /* Caller's prefix (width). */
+    {
+        strcat( fmt, pre);
+    }
+
+    strcat( fmt, FZOFFT_FMT);   /* Long or long-long or whatever. */
+
+    if (post == NULL)
+        strcat( fmt, "d");      /* Default radix = decimal. */
+    else
+        strcat( fmt, post);     /* Caller's radix. */
+
+    /* Advance the cylinder. */
+    fzofft_index = (fzofft_index+ 1)% FZOFFT_NUM;
+
+    /* Write into the current chamber. */
+    sprintf( fzofft_buf[ fzofft_index], fmt, val);
+
+    /* Return a pointer to this chamber. */
+    return fzofft_buf[ fzofft_index];
+}
+
+
+/* Format a uzoff_t value in a cylindrical buffer set. */
+/* Added to support uzoff_t type.  Also likely not thread safe.  12/29/04 EG */
+
+char *zip_fuzofft( uzoff_t val, char *pre, char *post)
+{
+    /* Storage cylinder. */
+    static char fuzofft_buf[ FZOFFT_NUM][ FZOFFT_LEN];
+    static int fuzofft_index = 0;
+
+    /* Temporary format string storage. */
+    static char fmt[ 16] = "%";
+
+    /* Assemble the format string. */
+    fmt[ 1] = '\0';             /* Start after initial "%". */
+    if (pre == FZOFFT_HEX_WID)  /* Special hex width. */
+    {
+        strcat( fmt, FZOFFT_HEX_WID_VALUE);
+    }
+    else if (pre == FZOFFT_HEX_DOT_WID) /* Special hex ".width". */
+    {
+        strcat( fmt, ".");
+        strcat( fmt, FZOFFT_HEX_WID_VALUE);
+    }
+    else if (pre != NULL)       /* Caller's prefix (width). */
+    {
+        strcat( fmt, pre);
+    }
+
+    strcat( fmt, FZOFFT_FMT);   /* Long or long-long or whatever. */
+
+    if (post == NULL)
+        strcat( fmt, "u");      /* Default radix = decimal. */
+    else
+        strcat( fmt, post);     /* Caller's radix. */
+
+    /* Advance the cylinder. */
+    fuzofft_index = (fuzofft_index+ 1)% FZOFFT_NUM;
+
+    /* Write into the current chamber. */
+    sprintf( fuzofft_buf[ fuzofft_index], fmt, val);
+
+    /* Return a pointer to this chamber. */
+    return fuzofft_buf[ fuzofft_index];
+}
+
+
+/* Display number to mesg stream
+   5/15/05 EG */
+
+int DisplayNumString(file, i)
+  FILE *file;
+  uzoff_t i;
+{
+  char tempstrg[100];
+  int j;
+  char *s = tempstrg;
+
+  WriteNumString(i, tempstrg);
+  /* skip spaces */
+  for (j = 0; j < 3; j++) {
+    if (*s != ' ') break;
+    s++;
+  }
+  fprintf(file, "%s", s);
+
+  return 0;
+}
+
+/* Read numbers with trailing size multiplier (like 10M) and return number.
+   10/30/04 EG */
+
+uzoff_t ReadNumString( numstring )
+  char *numstring;
+{
+  zoff_t num = 0;
+  char multchar = ' ';
+  int i;
+  uzoff_t mult = 1;
+
+  /* check if valid number (currently no negatives) */
+  if (numstring == NULL) {
+    zipwarn("Unable to read empty number in ReadNumString", "");
+    return (uzoff_t)-1;
+  }
+  if (numstring[0] < '0' || numstring[0] > '9') {
+    zipwarn("Unable to read number (must start with digit): ", numstring);
+    return (uzoff_t)-1;
+  }
+  if (strlen(numstring) > 8) {
+    zipwarn("Number too long to read (8 characters max): ", numstring);
+    return (uzoff_t)-1;
+  }
+
+  /* get the number part */
+  num = atoi(numstring);
+
+  /* find trailing multiplier */
+  for (i = 0; numstring[i] && isdigit(numstring[i]); i++) ;
+  
+  /* return if no multiplier */
+  if (numstring[i] == '\0') {
+    return (uzoff_t)num;
+  }
+
+  /* nothing follows multiplier */
+  if (numstring[i + 1]) {
+    return (uzoff_t)-1;
+  }
+
+  /* get multiplier */
+  multchar = toupper(numstring[i]);
+
+  if (multchar == 'K') {
+    mult <<= 10;
+  } else if (multchar == 'M') {
+    mult <<= 20;
+  } else if (multchar == 'G') {
+    mult <<= 30;
+#ifdef LARGE_FILE_SUPPORT
+  } else if (multchar == 'T') {
+    mult <<= 40;
+#endif
+  } else {
+    return (uzoff_t)-1;
+  }
+
+  return (uzoff_t)num * mult;
+}
+
+
+/* Write the number as a string with a multiplier (like 10M) to outstring.
+   Always writes no more than 3 digits followed maybe by a multiplier and
+   returns the characters written or -1 if error.
+   10/30/04 EG */
+
+int WriteNumString( num, outstring )
+  uzoff_t num;
+  char *outstring;
+{
+  int mult;
+  int written = 0;
+  int i;
+  int j;
+  char digits[4];
+  int dig;
+
+  *outstring = '\0';
+
+  /* shift number 1 K until less than 10000 */
+  for (mult = 0; num >= 10240; mult++) {
+    num >>= 10;
+  }
+
+  /* write digits as "    0" */
+  for (i = 1; i < 4; i++) {
+    digits[i] = ' ';
+  }
+  digits[0] = '0';
+
+  if (num >= 1000) {
+    i = 3;
+    num *= 10;
+    num >>= 10;
+    mult++;
+    digits[0] = (char) (num % 10) + '0';
+    digits[1] = '.';
+    digits[2] = (char) (num / 10) + '0';
+  } else {
+    for (i = 0; num; i++) {
+      dig = (int) (num % 10);
+      num /= 10;
+      digits[i] = dig + '0';
+    }
+  }
+  if (i == 0) i = 1;
+  for (j = i; j > 0; j--) {
+    *outstring = digits[j - 1];
+    outstring++;
+    written++;
+  }
+
+  /* output multiplier */
+  if (mult == 0) {
+  } else if (mult == 1) {
+    *outstring = 'K';
+    outstring++;
+    written++;
+  } else if (mult == 2) {
+    *outstring = 'M';
+    outstring++;
+    written++;
+  } else if (mult == 3) {
+    *outstring = 'G';
+    outstring++;
+    written++;
+  } else if (mult == 4) {
+    *outstring = 'T';
+    outstring++;
+    written++;
+  } else {
+    *outstring = '?';
+    outstring++;
+    written++;
+  }
+
+  *outstring = '\0';
+
+  return written;
+}

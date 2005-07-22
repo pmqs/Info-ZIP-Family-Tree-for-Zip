@@ -1,9 +1,11 @@
 /*
+  api.h - Zip 3
+
   Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /* Only the Windows DLL is currently supported */
@@ -60,6 +62,7 @@ typedef struct _ZpVer {
     char betalevel[10];     /* e.g., "g BETA" or "" */
     char date[20];          /* e.g., "4 Sep 95" (beta) or "4 September 1995" */
     char zlib_version[10];  /* e.g., "0.95" or NULL */
+    BOOL fEncryption;       /* TRUE if encryption enabled, FALSE otherwise */
     _zip_version_type zip;
     _zip_version_type os2dll;
     _zip_version_type windll;
@@ -73,8 +76,14 @@ typedef struct _ZpVer {
 #define DEFINED_ONCE
 typedef int (WINAPI DLLPRNT) (LPSTR, unsigned long);
 typedef int (WINAPI DLLPASSWORD) (LPSTR, int, LPCSTR, LPCSTR);
+#endif
+#ifdef ZIP64_SUPPORT
+typedef int (WINAPI DLLSERVICE) (LPCSTR, unsigned __int64);
+typedef int (WINAPI DLLSERVICE_NO_INT64) (LPCSTR, unsigned long, unsigned long);
+#else
 typedef int (WINAPI DLLSERVICE) (LPCSTR, unsigned long);
 #endif
+typedef int (WINAPI DLLSPLIT) (LPSTR);
 typedef int (WINAPI DLLCOMMENT)(LPSTR);
 
 /* Structures */
@@ -110,31 +119,54 @@ BOOL fOffsets;          /* Update archive offsets for SFX files */
 BOOL fPrivilege;        /* Use privileges (WIN32 only) */
 BOOL fEncryption;       /* TRUE if encryption supported, else FALSE.
                            this is a read only flag */
+LPSTR szSplitSize;      /* This string contains the size that you want to 
+                           split the archive into. i.e. 100 for 100 bytes,
+                           2K for 2 k bytes, where K is 1024, m for meg
+                           and g for gig. If this string is not NULL it
+                           will automatically be assumed that you wish to
+                           split an archive. */
+LPSTR szIncludeList;    /* Pointer to include file list string (for VB) */
+long IncludeListCount;  /* Count of file names in the include list array */
+char **IncludeList;     /* Pointer to include file list array. Note that the last
+                           entry in the array must be NULL */
+LPSTR szExcludeList;    /* Pointer to exclude file list (for VB) */
+long ExcludeListCount;  /* Count of file names in the include list array */
+char **ExcludeList;     /* Pointer to exclude file list array. Note that the last
+                           entry in the array must be NULL */
 int  fRecurse;          /* Recurse into subdirectories. 1 => -r, 2 => -R */
 int  fRepair;           /* Repair archive. 1 => -F, 2 => -FF */
 char fLevel;            /* Compression level (0 - 9) */
 } ZPOPT, _far *LPZPOPT;
 
 typedef struct {
-int  argc;              /* Count of files to zip */
-LPSTR lpszZipFN;        /* name of archive to create/update */
-char **FNV;             /* array of file names to zip up */
+  int  argc;            /* Count of files to zip */
+  LPSTR lpszZipFN;      /* name of archive to create/update */
+  char **FNV;           /* array of file names to zip up */
+  LPSTR lpszAltFNL;     /* pointer to a string containing a list of file
+                           names to zip up, separated by whitespace. Intended
+                           for use only by VB users, all others should set this
+                           to NULL. */
 } ZCL, _far *LPZCL;
 
 typedef struct {
-DLLPRNT *print;
-DLLCOMMENT *comment;
-DLLPASSWORD *password;
-DLLSERVICE *ServiceApplication;
+  DLLPRNT *print;
+  DLLCOMMENT *comment;
+  DLLPASSWORD *password;
+  DLLSPLIT *split;      /* This MUST be set to NULL unless you want to be queried
+                           for a destination for each split archive. */
+#ifdef ZIP64_SUPPORT
+  DLLSERVICE *ServiceApplication64;
+  DLLSERVICE_NO_INT64 *ServiceApplication64_No_Int64;
+#else
+  DLLSERVICE *ServiceApplication;
+#endif
 } ZIPUSERFUNCTIONS, far * LPZIPUSERFUNCTIONS;
 
 extern LPZIPUSERFUNCTIONS lpZipUserFunctions;
 
 void  EXPENTRY ZpVersion(ZpVer far *);
 int   EXPENTRY ZpInit(LPZIPUSERFUNCTIONS lpZipUserFunc);
-BOOL  EXPENTRY ZpSetOptions(LPZPOPT Opts);
-ZPOPT EXPENTRY ZpGetOptions(void);
-int   EXPENTRY ZpArchive(ZCL C);
+int   EXPENTRY ZpArchive(ZCL C, LPZPOPT Opts);
 
 #if defined(ZIPLIB) || defined(COM_OBJECT)
 #   define ydays zp_ydays

@@ -2,10 +2,7 @@ The code set out below is not intended to be compiled, but is only intended as
 a very simplistic pointer to how to load and call the dll. You will have to
 look in the files referenced below for actual, working code.
 
-There are two entry points that use the structure shown below:
-
-BOOL WINAPI ZpSetOptions(ZPOPT) and
-ZPOPT WINAPI ZpGetOptions(void)
+There is one entry point that uses the structure shown below:
 
 typedef struct {
 LPSTR Date;             /* Date to include after */
@@ -38,31 +35,35 @@ BOOL fOffsets;          /* Update archive offsets for SFX files */
 BOOL fPrivilege;        /* Use privileges (WIN32 only) */
 BOOL fEncryption;       /* TRUE if encryption supported, else FALSE.
                            this is a read-only flag */
+LPSTR szSplitSize;		/* This string contains the size that you want to 
+						   split the archive into. i.e. 100 for 100 bytes,
+						   2K for 2 k bytes, where K is 1024, m for meg
+						   and g for gig. If this string is not NULL it
+						   will automatically be assumed that you wish to
+						   split an archive. */
+LPSTR szIncludeList;    /* Pointer to include file list string (for VB) */
+long IncludeListCount;  /* Count of file names in the include list array */
+char **IncludeList;     /* Pointer to include file list array. Note that the last
+                           entry in the array must be NULL */
+LPSTR szExcludeList;    /* Pointer to exclude file list (for VB) */
+long ExcludeListCount;  /* Count of file names in the include list array */
+char **ExcludeList;     /* Pointer to exclude file list array. Note that the last
+                           entry in the array must be NULL */
 int  fRecurse;          /* Recurse into subdirectories. 1 => -r, 2 => -R */
 int  fRepair;           /* Repair archive. 1 => -F, 2 => -FF */
 char fLevel;            /* Compression level (0 - 9) */
 } ZPOPT, _far *LPZPOPT;
 
-BOOL WINAPI ZpSetOptions(ZPOPT);
-
-This call will simply set the options in the zip dll until such time as
-another call to this function is made. This must be made before the initial
-call to make or update an archive.
-
-ZPOPT WINAPI ZpGetOptions(void);
-
-The call will return the above structure from the dll, with the fEncryption
-flag set to the appropriate value based on whether encryption is supported
-in this dll or not. It is currently used in WiZ only to determine if
-encryption is actually supported.
-
-The main entry point is ZpArchive(ZCL) where the structure shown below
+The main entry point is ZpArchive(ZCL, *Opts) where the structure shown below
 is passed to the DLL when it is called.
 
 typedef struct {
 int  argc;              = Count of files to zip
 LPSTR lpszZipFN;        = Archive file name
 char **FNV;             = file names to zip up. Think of this an argv
+LPSTR lpszAltFNL;		/* pointer to a string containing a list of file names to zip up,
+						   separated by whitespace. Intended for use only by VB users, all
+						   others should set this to NULL. */
 } ZCL, _far *LPZCL;
 
 
@@ -80,7 +81,7 @@ example.c and example.h. Note that this example does not implement any
 command line switches at all, and is merely intended as a guide for those
 brave enough to enter a new world.
 
-There are four additional (at the moment) entry points:
+There are three additional (at the moment) entry points:
 
 ZpInit, defined as
 
@@ -100,33 +101,47 @@ typedef struct _ZpVer {
     char *betalevel;        /* e.g., "g BETA" or "" */
     char *date;             /* e.g., "4 Sep 95" (beta) or "4 September 1995" */
     char *zlib_version;     /* e.g., "0.95" or NULL */
+    BOOL fEncryption;       /* TRUE if encryption enabled, FALSE otherwise */
     _zip_version_type zip;
     _zip_version_type os2dll;
     _zip_version_type windll;
 } ZpVer;
 
 See api.c for exactly what ZpVersion does, but the short version of
-what it does is return the unzip and dll versions in the ZpVer structure.
-The structure typedef's are in api.h
+what it does is return the zip and dll versions in the ZpVer structure.
+The structure typedef's are in api.h. It will also tell you if encryption
+is enabled.
 
 The typedef's for the function pointers in the structure ZIPUSERFUNCTIONS
 are shown immediately below.
 
 typedef int (WINAPI DLLPRNT) (LPSTR, unsigned long);
 typedef int (WINAPI DLLPASSWORD) (LPSTR, int, LPCSTR, LPCSTR);
+typedef int (WINAPI DLLSPLIT) (LPSTR);
+#ifdef ZIP64_SUPPORT
+typedef int (WINAPI DLLSERVICE) (LPCSTR, __int64);
+typedef int (WINAPI DLLSERVICE_NO_INT64) (LPCSTR, unsigned long, unsigned long);
+#else
 typedef int (WINAPI DLLSERVICE) (LPCSTR, unsigned long);
-typedef int (WINAPI DLLCOMMENT) (LPSTR);
+#endif
+#endif
+typedef int (WINAPI DLLCOMMENT)(LPSTR);
+
 
 typedef struct {
-DLLPRNT *print;          = pointer to application's print function.
-DLLCOMMENT *comment;     = pointer to application's function for processing
-                           comments.
-DLLPASSWORD *password;   = pointer to application's function for processing
-                           passwords.
-DLLSERVICE *ServiceApplication; = Optional callback function for processing
-                                  messages, relaying information.
+DLLPRNT *print;
+DLLCOMMENT *comment;
+DLLPASSWORD *password;
+DLLSPLIT *split;		/* This MUST be set to NULL unless you want to be queried
+						   for a destination for each split archive. */
+#ifdef ZIP64_SUPPORT
+DLLSERVICE *ServiceApplication64;
+DLLSERVICE_NO_INT64 *ServiceApplication64_No_Int64;
+#else
+DLLSERVICE *ServiceApplication;
+#endif
 } ZIPUSERFUNCTIONS, far * LPZIPUSERFUNCTIONS;
 
-Last revised January 5, 1999.
+Last revised April 26, 2004.
 
 Mike White

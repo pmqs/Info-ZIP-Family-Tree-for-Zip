@@ -1,5 +1,7 @@
 /*
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  crypt.c
+
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in (un)zip.h) for terms of use.
@@ -220,14 +222,14 @@ int zipcloak(z, source, dest, passwd)
 {
     int c;                  /* input byte */
     int res;                /* result code */
-    ulg n;                  /* holds offset and counts size */
+    zoff_t n;               /* holds offset and counts size */
     ush flag;               /* previous flags */
     int t;                  /* temporary */
     int ztemp;              /* temporary storage for zencode value */
 
     /* Set encrypted bit, clear extended local header bit and write local
        header to output file */
-    if ((n = (ulg)ftell(dest)) == (ulg)-1L) return ZE_TEMP;
+    if ((n = (zoff_t)zftello(dest)) == (zoff_t)-1L) return ZE_TEMP;
     z->off = n;
     flag = z->flg;
     z->flg |= 1,  z->flg &= ~8;
@@ -239,8 +241,8 @@ int zipcloak(z, source, dest, passwd)
     crypthead(passwd, z->crc, dest);
 
     /* Skip local header in input file */
-    if (fseek(source, (long)((4 + LOCHEAD) + (ulg)z->nam + (ulg)z->ext),
-              SEEK_CUR)) {
+    if (zfseeko(source, (zoff_t)((4 + LOCHEAD) + (ulg)z->nam + (ulg)z->ext),
+                SEEK_CUR)) {
         return ferror(source) ? ZE_READ : ZE_EOF;
     }
 
@@ -253,7 +255,7 @@ int zipcloak(z, source, dest, passwd)
         putc(ztemp, dest);
     }
     /* Skip extended local header in input file if there is one */
-    if ((flag & 8) != 0 && fseek(source, 16L, SEEK_CUR)) {
+    if ((flag & 8) != 0 && zfseeko(source, 16L, SEEK_CUR)) {
         return ferror(source) ? ZE_READ : ZE_EOF;
     }
     if (fflush(dest) == EOF) return ZE_TEMP;
@@ -277,15 +279,16 @@ int zipbare(z, source, dest, passwd)
     int c0                /* byte preceding the last input byte */
 #endif
     int c1;               /* last input byte */
-    ulg offset;           /* used for file offsets */
-    ulg size;             /* size of input data */
+    /* all file offset and size now zoff_t - 8/28/04 EG */
+    zoff_t offset;        /* used for file offsets */
+    zoff_t size;          /* size of input data */
     int r;                /* size of encryption header */
     int res;              /* return code */
     ush flag;             /* previous flags */
 
     /* Save position and skip local header in input file */
-    if ((offset = (ulg)ftell(source)) == (ulg)-1L ||
-        fseek(source, (long)((4 + LOCHEAD) + (ulg)z->nam + (ulg)z->ext),
+    if ((offset = (zoff_t)zftello(source)) == (zoff_t)-1L ||
+        zfseeko(source, (zoff_t)((4 + LOCHEAD) + (ulg)z->nam + (ulg)z->ext),
               SEEK_CUR)) {
         return ferror(source) ? ZE_READ : ZE_EOF;
     }
@@ -317,7 +320,7 @@ int zipbare(z, source, dest, passwd)
 #else
     if ((ush)c1 != (z->flg & 8 ? (ush) z->tim >> 8 : (ush)(z->crc >> 24))) {
 #endif
-        if (fseek(source, offset, SEEK_SET)) {
+        if (zfseeko(source, offset, SEEK_SET)) {
             return ferror(source) ? ZE_READ : ZE_EOF;
         }
         if ((res = zipcopy(z, source, dest)) != ZE_OK) return res;
@@ -326,7 +329,7 @@ int zipbare(z, source, dest, passwd)
 
     /* Clear encrypted bit and local header bit, and write local header to
        output file */
-    if ((offset = (ulg)ftell(dest)) == (ulg)-1L) return ZE_TEMP;
+    if ((offset = (zoff_t)zftello(dest)) == (zoff_t)-1L) return ZE_TEMP;
     z->off = offset;
     flag = z->flg;
     z->flg &= ~9;
@@ -343,7 +346,7 @@ int zipbare(z, source, dest, passwd)
         putc(c1, dest);
     }
     /* Skip extended local header in input file if there is one */
-    if ((flag & 8) != 0 && fseek(source, 16L, SEEK_CUR)) {
+    if ((flag & 8) != 0 && zfseeko(source, 16L, SEEK_CUR)) {
         return ferror(source) ? ZE_READ : ZE_EOF;
     }
     if (fflush(dest) == EOF) return ZE_TEMP;
@@ -360,9 +363,6 @@ int zipbare(z, source, dest, passwd)
 /***********************************************************************
  * If requested, encrypt the data in buf, and in any case call fwrite()
  * with the arguments to zfwrite().  Return what fwrite() returns.
- *
- * A bug has been found when encrypting large files.  See trees.c
- * for details and the fix.
  */
 unsigned zfwrite(buf, item_size, nb, f)
     zvoid *buf;                 /* data buffer */
@@ -549,13 +549,15 @@ local int testkey(__G__ h, key)
         Trace((stdout, " %02x", hh[n]));
     }
 
+    /* use fzofft to format zoff_t as strings - 10/19/04 from SMS */
     Trace((stdout,
       "\n  lrec.crc= %08lx  crec.crc= %08lx  pInfo->ExtLocHdr= %s\n",
       GLOBAL(lrec.crc32), GLOBAL(pInfo->crc),
       GLOBAL(pInfo->ExtLocHdr) ? "true":"false"));
-    Trace((stdout, "  incnt = %d  unzip offset into zipfile = %ld\n",
+    Trace((stdout, "  incnt = %d  unzip offset into zipfile = %s\n",
       GLOBAL(incnt),
-      GLOBAL(cur_zipfile_bufstart)+(GLOBAL(inptr)-GLOBAL(inbuf))));
+      fzofft(GLOBAL(cur_zipfile_bufstart)+(GLOBAL(inptr)-GLOBAL(inbuf)),
+             NULL, NULL)));
 
     /* same test as in zipbare(): */
 
@@ -580,7 +582,7 @@ local int testkey(__G__ h, key)
         return -1;  /* bad */
 #endif
     /* password OK:  decrypt current buffer contents before leaving */
-    for (n = (long)GLOBAL(incnt) > GLOBAL(csize) ?
+    for (n = (zoff_t)GLOBAL(incnt) > GLOBAL(csize) ?
              (int)GLOBAL(csize) : GLOBAL(incnt),
          p = GLOBAL(inptr); n--; p++)
         zdecode(*p);

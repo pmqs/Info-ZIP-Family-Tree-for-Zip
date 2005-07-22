@@ -1,10 +1,12 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  windll/windll.c - Zip 3
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  Copyright (c) 1990-2004 Info-ZIP.  All rights reserved.
+
+  See the accompanying file LICENSE, version 2003-May-08 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
  *  windll.c by Mike White loosly based on Mark Adler's zip.c
@@ -168,7 +170,7 @@ return len;
 
 void __far __cdecl perror(const char *parm1)
 {
-printf(parm1);
+printf("%s", parm1);
 }
 
 

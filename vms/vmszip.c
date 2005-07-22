@@ -1,21 +1,26 @@
 /*
   Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 
-/* 2004-09-25 SMS.
-   Added case-insensitive file name comparisons, with the option of
-   preserving case in file names.  Defining VMS_PRESERVE_CASE will cause
-   incompatibility with Zip 2.3 and earlier.
+/* 2005-02-14 SMS.
+   Added some ODS5 support.
+      Use longer name structures in NAML, where available.
+      Locate special characters mindful of "^" escapes.
+      Replaced compile-time case preservation (VMS_PRESERVE_CASE macro)
+      with command-line-specified case preservation (vms_case_x
+      variables).
+   Prototyped all functions.
+   Removed "#ifndef UTIL", as no one should be compiling it that way.
 */
 
-/* #define VMS_PRESERVE_CASE */  /* Not for general use. */
-
 #include "zip.h"
+#include "vmsmunch.h"
+#include "vms.h"
 
 #include <ctype.h>
 #include <time.h>
@@ -37,21 +42,109 @@
 #endif /* def HAVE_STRCASECMP */
 
 #include <descrip.h>
+#include <dvidef.h>
+#include <lib$routines.h>
 #include <rms.h>
 #include <ssdef.h>
+#include <stsdef.h>
 #include <starlet.h>
 
-#define PATH_START '['
-#define PATH_END ']'
-#define PATH_START2 '<'
-#define PATH_END2 '>'
-#include "vms/vmsmunch.h"
+/* Directory file type with version, and its strlen(). */
+#define DIR_TYPE_VER ".DIR;1"
+#define DIR_TYPE_VER_LEN (sizeof( DIR_TYPE_VER)- 1)
 
-/* Extra malloc() space in names for cutpath() */
-#define PAD 5         /* may have to change .FOO] to ]FOO.DIR;1 */
+/* Extra malloc() space in names for cutpath().  (May have to change
+   ".FOO]" to "]FOO.DIR;1".)
+*/
+#define DIR_PAD (DIR_TYPE_VER_LEN- 1)
 
+/* Hex digit table. */
 
-#ifndef UTIL    /* the companion #endif is a bit of ways down ... */
+char hex_digit[ 16] = {
+ '0', '1', '2', '3', '4', '5', '6', '7',
+ '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
+};
+
+/* Character property table for (re-)escaping ODS5 extended file names.
+   Note that this table ignore Unicode, and does not identify invalid
+   characters.
+
+   ODS2 valid characters: 0-9 A-Z a-z $ - _
+
+   ODS5 Invalid characters:
+      C0 control codes (0x00 to 0x1F inclusive)
+      Asterisk (*)
+      Question mark (?)
+
+   ODS5 Invalid characters only in VMS V7.2 (which no one runs, right?):
+      Double quotation marks (")
+      Backslash (\)
+      Colon (:)
+      Left angle bracket (<)
+      Right angle bracket (>)
+      Slash (/)
+      Vertical bar (|)
+
+   Characters escaped by "^":
+      SP  !  #  %  &  '  (  )  +  ,  .  ;  =  @  [  ]  ^  `  {  }  ~
+
+   Either "^_" or "^ " is accepted as a space.  Period (.) is a special
+   case.  Note that un-escaped < and > can also confuse a directory
+   spec.
+
+   Characters put out as ^xx:
+      7F (DEL)
+      80-9F (C1 control characters)
+      A0 (nonbreaking space)
+      FF (Latin small letter y diaeresis)
+
+   Other cases:
+      Unicode: "^Uxxxx", where "xxxx" is four hex digits.
+
+    Property table values:
+      Normal escape:    1
+      Space:            2
+      Dot:              4
+      Hex-hex escape:   8
+      -------------------
+      Hex digit:       64
+*/
+
+unsigned char char_prop[ 256] = {
+
+/* NUL SOH STX ETX EOT ENQ ACK BEL   BS  HT  LF  VT  FF  CR  SO  SI */
+    0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  0,  0,  0,  0,  0,
+
+/* DLE DC1 DC2 DC3 DC4 NAK SYN ETB  CAN  EM SUB ESC  FS  GS  RS  US */
+    0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  0,  0,  0,  0,  0,
+
+/*  SP  !   "   #   $   %   &   '    (   )   *   +   ,   -   .   /  */
+    2,  1,  0,  1,  0,  1,  1,  1,   1,  1,  0,  1,  1,  0,  4,  0,
+
+/*  0   1   2   3   4   5   6   7    8   9   :   ;   <   =   >   ?  */
+   64, 64, 64, 64, 64, 64, 64, 64,  64, 64,  0,  1,  1,  1,  1,  1,
+
+/*  @   A   B   C   D   E   F   G    H   I   J   K   L   M   N   O  */
+    1, 64, 64, 64, 64, 64, 64,  0,   0,  0,  0,  0,  0,  0,  0,  0,
+
+/*  P   Q   R   S   T   U   V   W    X   Y   Z   [   \   ]   ^   _  */
+    0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  1,  0,  1,  1,  0,
+
+/*  `   a   b   c   d   e   f   g    h   i   j   k   l   m   n   o  */
+    1, 64, 64, 64, 64, 64, 64,  0,   0,  0,  0,  0,  0,  0,  0,  0,
+
+/*  p   q   r   s   t   u   v   w    x   y   z   {   |   }   ~  DEL */
+    0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  1,  0,  1,  1,  8,
+
+    8,  8,  8,  8,  8,  8,  8,  8,   8,  8,  8,  8,  8,  8,  8,  8,
+    8,  8,  8,  8,  8,  8,  8,  8,   8,  8,  8,  8,  8,  8,  8,  8,
+    8,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  0,  0,  0,  0,  8
+};
 
 /* The C RTL from OpenVMS 7.0 and newer supplies POSIX compatible versions of
  * opendir() et al. Thus, we have to use other names in our private code for
@@ -65,15 +158,17 @@
 typedef struct zdirent {
   int d_wild;                /* flag for wildcard vs. non-wild */
   struct FAB fab;
-  struct NAM nam;
-  char d_qualwildname[NAM$C_MAXRSS + 1];
-  char d_name[NAM$C_MAXRSS + 1];
+  struct NAM_STRUCT nam;
+  char d_qualwildname[ NAM_MAXRSS+ 1];
+  char d_name[ NAM_MAXRSS+ 1];
 } zDIR;
 
 extern char *label;
 local ulg label_time = 0;
 local ulg label_mode = 0;
 local time_t label_utim = 0;
+
+local int relative_dir_s = 0;   /* Relative directory spec. */
 
 /* Local functions */
 local void vms_wild OF((char *, zDIR *));
@@ -88,10 +183,7 @@ local char *strupper OF((char *));
 */
 #ifndef HAVE_STRCASECMP
 
-int strncasecmp( s1, s2, n)
-char *s1;
-char *s2;
-size_t n;
+int strncasecmp( char *s1, char *s2, size_t n)
 {
   /* Initialization prepares for n == 0. */
   char c1 = '\0';
@@ -113,7 +205,7 @@ size_t n;
     s1++;
     s2++;
   }
-return ((unsigned int)c1 - (unsigned int)c2);
+return ((unsigned int) c1- (unsigned int) c2);
 }
 
 #ifndef UINT_MAX
@@ -127,16 +219,20 @@ return ((unsigned int)c1 - (unsigned int)c2);
 
 /* 2004-09-27 SMS.
    eat_carets().
+
    Delete ODS5 extended file name escape characters ("^") in the
    original buffer.
-   Note that the current scheme handles only simple EFN cases, but it
+   Note that the current scheme does not handle all EFN cases, but it
    could be made more complicated.
 */
 
-local void eat_carets( str)
-char *str;      /* Source pointer. */
+local void eat_carets( char *str)
+/* char *str;      Source pointer. */
 {
   char *strd;   /* Destination pointer. */
+  char hdgt;
+  unsigned char uchr;
+  unsigned char prop;
 
   /* Skip ahead to the first "^", if any. */
   while ((*str != '\0') && (*str != '^'))
@@ -149,16 +245,50 @@ char *str;      /* Source pointer. */
     strd = str;
     while (*str != '\0')
     {
-      if (*str == '^')
+      uchr = *str;
+      if (uchr == '^')
       {
-        /* Found a caret.  Skip it, and take the next character. */
-        *strd = *(++str);
+        /* Found a caret.  Skip it, and check the next character. */
+        uchr = *(++str);
+        prop = char_prop[ uchr];
+        if (prop& 64)
+        {
+          /* Hex digit.  Get char code from this and next hex digit. */
+          if (uchr <= '9')
+          {
+            hdgt = uchr- '0';           /* '0' - '9' -> 0 - 9.
+          }
+          else
+          {
+            hdgt = ((uchr- 'A')& 7)+ 10;    /* [Aa] - [Ff] -> 10 - 15. */
+          }
+          hdgt <<= 4;                   /* X16. */
+          uchr = *(++str);              /* Next char must be hex digit. */
+          if (uchr <= '9')
+          {
+            uchr = hdgt+ uchr- '0';
+          }
+          else
+          {
+            uchr = hdgt+ ((uchr- 'A')& 15)+ 10;
+          }
+        }
+        else if (uchr == '_')
+        {
+          /* Convert escaped "_" to " ". */
+          uchr = ' ';
+        }
+        else if (uchr == '/')
+        {
+          /* Convert escaped "/" (invalid Zip) to "?" (invalid VMS). */
+          uchr = '?';
+        }
+        /* Else, not a hex digit.  Must be a simple escaped character
+           (or Unicode, which is not yet handled here).
+        */
       }
-      else
-      {
-        /* Found a non-caret.  Take it. */
-        *strd = *str;
-      }
+      /* Else, not a caret.  Use as-is. */
+      *strd = uchr;
 
       /* Advance destination and source pointers. */
       strd++;
@@ -169,6 +299,201 @@ char *str;      /* Source pointer. */
   }
 }
 
+
+/* 2005-02-04 SMS.
+   find_dir().
+
+   Find directory boundaries in an ODS2 or ODS5 file spec.
+   Returns length (zero if no directory, negative if error),
+   and sets "start" argument to first character (typically "[") location.
+
+   No one will care about the details, but the return values are:
+
+       0  No dir.
+      -2  [, no end.              -3  <, no end.
+      -4  [, multiple start.      -5  <, multiple start.
+      -8  ], no start.            -9  >, no start.
+     -16  ], wrong end.          -17  >, wrong end.
+     -32  ], multiple end.       -33  >, multiple end.
+
+   Note that the current scheme handles only simple EFN cases, but it
+   could be made more complicated.
+*/
+int find_dir( char *file_spec, char **start)
+{
+  char *cp;
+  char chr;
+
+  char *end_tmp = NULL;
+  char *start_tmp = NULL;
+  int lenth = 0;
+
+  for (cp = file_spec; cp < file_spec+ strlen( file_spec); cp++)
+  {
+    chr = *cp;
+    if (chr == '^')
+    {
+      /* Skip ODS5 extended name escaped characters. */
+      cp++;
+      /* If escaped char is a hex digit, skip the second hex digit, too. */
+      if (char_prop[ (unsigned char) *cp]& 64)
+        cp++;
+    }
+    else if (chr == '[')
+    {
+      /* Found start. */
+      if (start_tmp == NULL)
+      {
+        /* First time.  Record start location. */
+        start_tmp = cp;
+        /* Error if no end. */
+        lenth = -2;
+      }
+      else
+      {
+        /* Multiple start characters.  */
+        lenth = -4;
+        break;
+      }
+    }
+    else if (chr == '<')
+    {
+      /* Found start. */
+      if (start_tmp == NULL)
+      {
+        /* First time.  Record start location. */
+        start_tmp = cp;
+        /* Error if no end. */
+        lenth = -3;
+      }
+      else
+      {
+        /* Multiple start characters.  */
+        lenth = -5;
+        break;
+      }
+    }
+    else if (chr == ']')
+    {
+      /* Found end. */
+      if (end_tmp == NULL)
+      {
+        /* First time. */
+        if (lenth == 0)
+        {
+          /* End without start. */
+          lenth = -8;
+          break;
+        }
+        else if (lenth != -2)
+        {
+          /* Wrong kind of end. */
+          lenth = -16;
+          break;
+        }
+        /* End ok.  Record end location. */
+        end_tmp = cp;
+        lenth = end_tmp+ 1- start_tmp;
+        /* Could break here, ignoring excessive end characters. */
+      }
+      else
+      {
+        /* Multiple end characters. */
+        lenth = -32;
+        break;
+      }
+    }
+    else if (chr == '>')
+    {
+      /* Found end. */
+      if (end_tmp == NULL)
+      {
+        /* First time. */
+        if (lenth == 0)
+        {
+          /* End without start. */
+          lenth = -9;
+          break;
+        }
+        else if (lenth != -3)
+        {
+          /* Wrong kind of end. */
+          lenth = -17;
+          break;
+        }
+        /* End ok.  Record end location. */
+        end_tmp = cp;
+        lenth = end_tmp+ 1- start_tmp;
+        /* Could break here, ignoring excessive end characters. */
+      }
+      else
+      {
+        /* Multiple end characters. */
+        lenth = -33;
+        break;
+      }
+    }
+  }
+
+  /* If both start and end were found,
+     then set result pointer where safe.
+  */
+  if (lenth > 0)
+  {
+    if (start != NULL)
+    {
+      *start = start_tmp;
+    }
+  }
+  return lenth;
+}
+
+
+/* 2005-02-08 SMS.
+   file_sys_type().
+
+   Determine the file system type for the (VMS) path name argument.
+*/
+local int file_sys_type( char *path)
+{
+  int acp_code;
+
+#ifdef DVI$C_ACP_F11V5
+
+/* Should know about ODS5 file system.  Do actual check.
+   (This should be non-VAX with __CRTL_VER >= 70200000.)
+*/
+
+  int sts;
+
+  struct dsc$descriptor_s dev_descr =
+   { 0, DSC$K_DTYPE_T, DSC$K_CLASS_S, 0 };
+
+  /* Load path argument into device descriptor. */
+  dev_descr.dsc$a_pointer = path;
+  dev_descr.dsc$w_length = strlen( dev_descr.dsc$a_pointer);
+
+  /* Get filesystem type code.
+     (Text results for this item code have been unreliable.)
+  */
+  sts = lib$getdvi( &((int) DVI$_ACPTYPE), 0, &dev_descr, &acp_code, 0, 0);
+
+  if ((sts & STS$M_SUCCESS) != STS$K_SUCCESS)
+  {
+    acp_code = -1;
+  }
+
+#else /* def DVI$C_ACP_F11V5 */
+
+/* Too old for ODS5 file system.  Must be ODS2. */
+
+  acp_code = DVI$C_ACP_F11V2;
+
+#endif /* def DVI$C_ACP_F11V5 */
+
+  return acp_code;
+}
+
 /*---------------------------------------------------------------------------
 
     _vms_findfirst() and _vms_findnext(), based on public-domain DECUS C
@@ -177,32 +502,43 @@ char *str;      /* Source pointer. */
     Roelofs and are still in the public domain.  Routines approximate the
     behavior of MS-DOS (MSC and Turbo C) findfirst and findnext functions.
 
+    2005-01-04 SMS.
+    Changed to use NAML instead of NAM, where available.
+
   ---------------------------------------------------------------------------*/
 
 static char wild_version_part[10]="\0";
 
-local void vms_wild(p, d)
-char *p;
-zDIR *d;
+local void vms_wild( char *p, zDIR *d)
 {
   /*
-   * Do wildcard setup
+   * Do wildcard setup.
    */
-  /* set up the FAB and NAM blocks. */
-  d->fab = cc$rms_fab;             /* initialize fab */
-  d->nam = cc$rms_nam;             /* initialize nam */
+  /* Set up the FAB and NAM[L] blocks. */
+  d->fab = cc$rms_fab;                  /* Initialize FAB. */
+  d->nam = CC_RMS_NAM;                  /* Initialize NAM[L]. */
 
-  d->fab.fab$l_nam = &d->nam;           /* fab -> nam */
-  d->fab.fab$l_fna = p;                 /* argument wild name */
-  d->fab.fab$b_fns = strlen(p);         /* length */
+  d->fab.FAB_NAM = &d->nam;             /* FAB -> NAM[L] */
 
-  d->fab.fab$l_dna = "sys$disk:[]";     /* Default fspec */
-  d->fab.fab$b_dns = sizeof("sys$disk:[]")-1;
+#ifdef NAML$C_MAXRSS
 
-  d->nam.nam$l_esa = d->d_qualwildname; /* qualified wild name */
-  d->nam.nam$b_ess = NAM$C_MAXRSS;      /* max length */
-  d->nam.nam$l_rsa = d->d_name;         /* matching file name */
-  d->nam.nam$b_rss = NAM$C_MAXRSS;      /* max length */
+  d->fab.fab$l_dna =(char *) -1;        /* Using NAML for default name. */
+  d->fab.fab$l_fna = (char *) -1;       /* Using NAML for file name. */
+
+#endif /* def NAML$C_MAXRSS */
+
+  d->FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNA = p;          /* Arg wild name, */
+  d->FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNS = strlen(p);  /* length. */
+
+#define DEF_DEVDIR "SYS$DISK:[]"
+
+  d->FAB_OR_NAM( fab, nam).FAB_OR_NAM_DNA = DEF_DEVDIR; /* Default fspec */
+  d->FAB_OR_NAM( fab, nam).FAB_OR_NAM_DNS = sizeof( DEF_DEVDIR)- 1;
+
+  d->nam.NAM_ESA = d->d_qualwildname;   /* qualified wild name */
+  d->nam.NAM_ESS = NAM_MAXRSS;          /* max length */
+  d->nam.NAM_RSA = d->d_name;           /* matching file name */
+  d->nam.NAM_RSS = NAM_MAXRSS;          /* max length */
 
   /* parse the file name */
   if (sys$parse(&d->fab) != RMS$_NORMAL)
@@ -212,16 +548,16 @@ zDIR *d;
 
   /* have qualified wild name (i.e., disk:[dir.subdir]*.*); null-terminate
    * and set wild-flag */
-  d->d_qualwildname[d->nam.nam$b_esl] = '\0';
-  d->d_wild = (d->nam.nam$l_fnb & NAM$M_WILDCARD)? 1 : 0;   /* not used... */
+  d->d_qualwildname[d->nam.NAM_ESL] = '\0';
+  d->d_wild = (d->nam.NAM_FNB & NAM$M_WILDCARD)? 1 : 0;   /* not used... */
 #ifdef DEBUG
   fprintf(mesg, "  incoming wildname:  %s\n", p);
   fprintf(mesg, "  qualified wildname:  %s\n", d->d_qualwildname);
 #endif /* DEBUG */
 }
 
-local zDIR *zopendir(n)
-ZCONST char *n;         /* directory to open */
+local zDIR *zopendir( ZCONST char *n)
+/* ZCONST char *n;         directory to open */
 /* Start searching for files in the VMS directory n */
 {
   char *c;              /* scans VMS path */
@@ -235,20 +571,27 @@ ZCONST char *n;         /* directory to open */
     return NULL;
   }
   /* Directory may be in form "[DIR.SUB1.SUB2]" or "[DIR.SUB1]SUB2.DIR;1".
-     If latter, convert to former. */
-  if (m > 0  &&  *(c = strcpy(p,n)+m-1) != ']')
+     If latter, convert to former.
+     2005-01-31 SMS.  Changed to require ";1", as VMS does, which
+     simplified the code slightly, too.  Note that ODS5 allows ".DIR" in
+     any case (upper, lower, mixed).
+  */
+  if ((m > 0) && (*(c = strcpy(p,n)+m-1) != ']'))
   {
-    while (--c > p  &&  *c != ';')
-      ;
-    if ((c- p < 5)  ||  strncasecmp( (c- 4), ".DIR", 4))
+    if ((c- p < DIR_TYPE_VER_LEN) ||
+     strcasecmp((c+ 1- DIR_TYPE_VER_LEN), DIR_TYPE_VER))
     {
       free((zvoid *)d);  free((zvoid *)p);
       return NULL;
     }
-    c -= 3;
-    *c-- = '\0';        /* terminate at "DIR;#" */
+    c -= 4;             /* The "D". */
+    *c-- = '\0';        /* terminate at "DIR;1" */
     *c = ']';           /* "." --> "]" */
-    while (c > p  &&  *--c != ']')
+
+    /* Replace the formerly last "]" with ".".
+       For ODS5, ignore "^]".
+    */
+    while ((c > p) && ((*--c != ']') || (*(c- 1) == '^')))
       ;
     *c = '.';           /* "]" --> "." */
   }
@@ -259,8 +602,8 @@ ZCONST char *n;         /* directory to open */
   return d;
 }
 
-local char *readd(d)
-zDIR *d;                /* directory stream to read from */
+local char *readd( zDIR *d)
+/* zDIR *d;                directory stream to read from */
 /* Return a pointer to the next name in the directory stream d, or NULL if
    no more entries or an error occurs. */
 {
@@ -268,29 +611,55 @@ zDIR *d;                /* directory stream to read from */
 
   do {
     d->fab.fab$w_ifi = 0;       /* internal file index:  what does this do? */
+/*
+  2005-02-04 SMS.
 
+  From the docs:
+
+        Note that you must close the file before invoking the Search
+        service (FAB$W_IFI must be 0). 
+
+  The same is true for PARSE.  Most likely, it's cleared by setting
+  "fab = cc$rms_fab", and left that way, so clearing it here may very
+  well be pointless.  (I think it is, and I've never seen it explicitly
+  cleared elsewhere, but I haven't tested it everywhere either.)
+*/
     /* get next match to possible wildcard */
     if ((r = sys$search(&d->fab)) == RMS$_NORMAL)
     {
-        d->d_name[d->nam.nam$b_rsl] = '\0';   /* null terminate */
+        d->d_name[d->nam.NAM_RSL] = '\0';   /* null terminate */
         return (char *)d->d_name;   /* OK */
     }
   } while (r == RMS$_PRV);
   return NULL;
 }
 
-int wild(p)
-char *p;                /* path/pattern to match */
-/* Expand the pattern based on the contents of the file system.  Return an
-   error code in the ZE_ class. */
+
+int wild( char *p)
+/* char *p;                path/pattern to match */
+/* Expand the pattern based on the contents of the file system.
+   Return an error code in the ZE_ class.
+   Note that any command-line file argument may need wildcard expansion,
+   so all user-specified constituent file names pass through here.
+*/
 {
   zDIR *d;              /* stream for reading directory */
   char *e;              /* name found in directory */
   int f;                /* true if there was a match */
 
+  int dir_len;          /* Length of the directory part of the name. */
+  char *dir_start;      /* First character of the directory part. */
+
   /* special handling of stdin request */
   if (strcmp(p, "-") == 0)   /* if compressing stdin */
     return newname(p, 0, 0);
+
+  /* Determine whether this name has an absolute or relative directory
+     spec.  It's relative if there is no directory, or if the directory
+     has a leading dot ("[.").
+  */
+  dir_len = find_dir( p, &dir_start);
+  relative_dir_s = ((dir_len <= 0)? 1 : (dir_start[ 1] == '.'));
 
   /* Search given pattern for matching names */
   if ((d = (zDIR *)malloc(sizeof(zDIR))) == NULL)
@@ -301,8 +670,8 @@ char *p;                /* path/pattern to match */
    * Save version specified by user to use in recursive drops into
    * subdirectories.
    */
-  strncpy(wild_version_part,d->nam.nam$l_ver,d->nam.nam$b_ver);
-  wild_version_part[d->nam.nam$b_ver] = '\0';
+  strncpy(wild_version_part, d->nam.NAM_L_VER, d->nam.NAM_B_VER);
+  wild_version_part[d->nam.NAM_B_VER] = '\0';
 
   f = 0;
   while ((e = readd(d)) != NULL)        /* "dosmatch" is already built in */
@@ -314,9 +683,9 @@ char *p;                /* path/pattern to match */
   return f ? ZE_OK : ZE_MISS;
 }
 
-int procname(n, caseflag)
-char *n;                /* name to process */
-int caseflag;           /* true to force case-sensitive match */
+int procname( char *n, int caseflag)
+/* char *n;                name to process */
+/* int caseflag;           true to force case-sensitive match */
 /* Process a name or sh expression to operate on (or exclude).  Return
    an error code in the ZE_ class. */
 {
@@ -388,8 +757,7 @@ int caseflag;           /* true to force case-sensitive match */
    Cuter strlower() and strupper() functions.
 */
 
-local char *strlower( s)
-char *s;
+local char *strlower( char *s)
 /* Convert all uppercase letters to lowercase in string s */
 {
   for ( ; *s != '\0'; s++)
@@ -399,8 +767,7 @@ char *s;
   return s;
 }
 
-local char *strupper( s)
-char *s;
+local char *strupper( char *s)
 /* Convert all lowercase letters to uppercase in string s */
 {
   for ( ; *s != '\0'; s++)
@@ -410,54 +777,101 @@ char *s;
   return s;
 }
 
-char *ex2in(x, isdir, pdosflag)
-char *x;                /* external file name */
-int isdir;              /* input: x is a directory */
-int *pdosflag;          /* output: force MSDOS file attributes? */
-/* Convert the external file name to a zip file name, returning the malloc'ed
-   string or NULL if not enough memory. */
+char *ex2in( char *x, int isdir, int *pdosflag)
+/* char *x;                external file name */
+/* int isdir;              input: x is a directory */
+/* int *pdosflag;          output: force MSDOS file attributes? */
+
+/* Convert the external file name to a zip file name, returning the
+   malloc'ed string or NULL if not enough memory.
+
+   2005-02-09 SMS.
+   Added some ODS5 support.
+
+   Note that if we were really clever, we'd save the truncated original
+   file name for later use as "iname", instead of running the de-escaped
+   product back through in2ex() to recover it later.
+*/
 {
-  char *n;              /* internal file name (malloc'ed) */
-  char *t;              /* shortened name */
+  char *n;                      /* Internal file name (malloc'ed). */
+  char *nn;                     /* Temporary "n"-like pointer. */
+  char *ext_dir_and_name;       /* External dir]name (less "dev:["). */
+  char chr;                     /* Temporary character storage. */
   int dosflag;
+  int down_case;                /* Resultant down-case flag. */
+  int dir_len;                  /* Directory spec length. */
+  int ods_level;                /* File system type. */
 
   dosflag = dosify; /* default for non-DOS and non-OS/2 */
 
-  /* Find starting point in name before doing malloc */
-  t = x;
-  if ((n = strrchr(t, ':')) != NULL)
-    t = n + 1;
-  if ( (*t == PATH_START && (n = strrchr(t, PATH_END)) != NULL)
-      || (*t == PATH_START2 && (n = strrchr(t, PATH_END2)) != NULL) )
-    /* external name contains valid VMS path specification */
-    if (*(++t) == '.')
-      /* path is relative to current directory, skip leading '.' */
-      t++;
-
-  if (!pathput)
-    t = last(last(t, PATH_END), PATH_END2);
-
-  /* Malloc space for internal name and copy it */
-  if ((n = malloc(strlen(t) + 1)) == NULL)
-    return NULL;
-  strcpy(n, t);
-
-  if (((t = strrchr(n, PATH_END)) != NULL) ||
-       (t = strrchr(n, PATH_END2)) != NULL)
+  /* Locate the directory part of the external name. */
+  dir_len = find_dir( x, &ext_dir_and_name);
+  if (dir_len <= 0)
   {
-    *t = '/';
-    while (--t > n)
-      if (*t == '.')
-        *t = '/';
+    /* Directory not found.  Use whole external name. */
+    ext_dir_and_name = x;
+  }
+  else if (pathput)
+  {
+    /* Include directory. */
+    if (ext_dir_and_name[ 1] == '.')
+    {
+      /* Relative path.  Drop first "[." (or "<."). */
+      dir_len -= 2;
+      ext_dir_and_name += 2;
+    }
+    else
+    {
+      /* Absolute path.  Skip first "[" (or "<"). */
+      dir_len -= 1;
+      ext_dir_and_name += 1;
+    }
+  }
+  else
+  {
+    /* Junking paths.  Skip the whole directory spec. */
+    ext_dir_and_name += dir_len;
+    dir_len = 0;
   }
 
-  /* Fix from Greg Roelofs: */
-  /* Get current working directory and strip from n (t now = n) */
-  {
-    char cwd[256], *p, *q;
-    int c;
+  /* Malloc space for internal name and copy it. */
+  if ((n = malloc(strlen( ext_dir_and_name)+ 1)) == NULL)
+    return NULL;
+  strcpy( n, ext_dir_and_name);
 
-    q = getcwd( cwd, 256);
+  /* Convert VMS directory separators (".") to "/". */
+  if (dir_len > 0)
+  {
+    for (nn = n; nn < n+ dir_len; nn++)
+    {
+      chr = *nn;
+      if (chr == '^')
+      {
+        /* Skip ODS5 extended name escaped characters. */
+        nn++;
+        /* If escaped char is a hex digit, skip the second hex digit, too. */
+        if (char_prop[ (unsigned char) *nn]& 64)
+          nn++;
+      }
+      else if (chr == '.')
+      {
+        /* Convert VMS directory separator (".") to "/". */
+        *nn = '/';
+      }
+    }
+    /* Replace directory end character (typically "]") with "/". */
+    n[ dir_len- 1] = '/';
+  }
+
+  /* If relative path, then strip off the current directory. */
+  if (relative_dir_s)
+  {
+    char cwd[ NAM_MAXRSS+ 1];
+    char *cwd_dir_only;
+    char *q;
+    int cwd_dir_only_len;
+
+    q = getcwd( cwd, (sizeof( cwd)- 1));
 
     /* 2004-09-24 SMS.
        With SET PROCESSS /PARSE = EXTENDED, getcwd() can return a
@@ -466,63 +880,132 @@ int *pdosflag;          /* output: force MSDOS file attributes? */
        comparison around here.
     */
 
-#if 0 /* fix by Igor */
-    if ((q != NULL) && ((p = strchr(cwd, '.')) != NULL))
-#else
-    if ((q != NULL) && ((p = strchr(cwd, PATH_START)) != NULL ||
-                        (p = strchr(cwd, PATH_START2)) != NULL))
-#endif
+    /* Locate the directory part of the external name. */
+    dir_len = find_dir( q, &cwd_dir_only);
+    if (dir_len > 0)
     {
-      if (*(++p) == '.')
-        p++;
-      if ((q = strrchr(p, PATH_END)) != NULL ||
-          (q = strrchr(p, PATH_END2)) != NULL)
+      /* Skip first "[" (or "<"). */
+      cwd_dir_only++;
+      /* Convert VMS directory separators (".") to "/". */
+      for (q = cwd_dir_only; q < cwd_dir_only+ dir_len; q++)
       {
-        *q = '/';
-        while (--q > p)
-          if (*q == '.')
-            *q = '/';
-
-        /* strip bogus path parts from n */
-        if (strncasecmp( n, p, (c = strlen( p))) == 0)
+        chr = *q;
+        if (chr == '^')
         {
-          q = n + c;
-          while (*t++ = *q++)
-            ;
+          /* Skip ODS5 extended name escaped characters. */
+          q++;
+          /* If escaped char is a hex digit, skip the second hex digit, too. */
+          if (char_prop[ (unsigned char) *q]& 64)
+            q++;
+        }
+        else if (chr == '.')
+        {
+          /* Convert VMS directory separator (".") to "/". */
+          *q = '/';
         }
       }
+      /* Replace directory end character (typically "]") with "/". */
+      cwd_dir_only[ dir_len- 2] = '/';
+    }
+
+    /* If the slash-converted cwd matches the front of the internal
+       name, then shuffle the remainder of the internal name to the
+       beginning of the internal name storage.
+
+       Because we already know that the path is relative, this test may
+       always succeed.
+    */
+    cwd_dir_only_len = strlen( cwd_dir_only);
+    if (strncasecmp( n, cwd_dir_only, cwd_dir_only_len) == 0)
+    {
+       nn = n+ cwd_dir_only_len;
+       q = n;
+       while (*q++ = *nn++);
+    }
+  } /* (relative_dir_s) */
+
+/* If ODS5 is possible, do complicated down-case check.
+
+   Note that the test for ODS2/ODS5 is misleading and over-broad.  Here,
+   "ODS2" includes anything from DVI$C_ACP_F11V1 (=1, ODS1) up to (but
+   not including) DVI$C_ACP_F11V5 (= 11, DVI$C_ACP_F11V5), while "ODS5"
+   includes anything from DVI$C_ACP_F11V5 on up.  See DVIDEF.H.
+*/
+
+#if defined( DVI$C_ACP_F11V5) && defined( NAML$C_MAXRSS)
+
+  /* Check options and/or ODS level for down-case or preserve case. */
+  down_case = 0;        /* Assume preserve case. */
+  if ((vms_case_2 <= 0) && (vms_case_5 < 0))
+  {
+    /* Always down-case. */
+    down_case = 1;
+  }
+  else if ((vms_case_2 <= 0) || (vms_case_5 < 0))
+  {
+    /* Down-case depending on ODS level.  (Use (full) external name.) */
+    ods_level = file_sys_type( x);
+
+    if (((ods_level < DVI$C_ACP_F11V5) && (vms_case_2 <= 0)) ||
+     ((ods_level >= DVI$C_ACP_F11V5) && (vms_case_5 < 0)))
+    {
+      /* Down-case for this ODS level. */
+      down_case = 1;
     }
   }
 
-#ifndef VMS_PRESERVE_CASE
-  strlower( n);
-#endif /* ndef VMS_PRESERVE_CASE */
+#else /* defined( DVI$C_ACP_F11V5) && defined( NAML$C_MAXRSS) */
+
+/* No case-preserved names are possible (VAX).  Do simple down-case check. */
+
+  down_case = (vms_case_2 <= 0);
+
+#endif /* defined( DVI$C_ACP_F11V5) && defined( NAML$C_MAXRSS) [else] */
+
+  /* If not preserving case, convert to lower case. */
+  if (down_case != 0)
+  {
+    strlower( n);
+  }
 
   /* Remove simple ODS5 extended file name escape characters. */
   eat_carets( n);
 
   if (isdir)
   {
-    if (strcasecmp( (t = n + strlen( n) - 6), ".DIR;1"))
+    if (strcasecmp( (nn = n+ strlen( n)- DIR_TYPE_VER_LEN), DIR_TYPE_VER))
       error("directory not version 1");
     else
       if (pathput)
-        strcpy(t, "/");
+        strcpy( nn, "/");
       else
         *n = '\0';              /* directories are discarded with zip -rj */
   }
-  else if (!vmsver)
-    if ((t = strrchr(n, ';')) != NULL)
-      *t = '\0';
-
-  if ((t = strrchr(n, '.')) != NULL)
+  else if (vmsver == 0)
   {
-    if ( t[1] == '\0')          /* "filename." -> "filename" */
-      *t = '\0';
-    else if (t[1] == ';')       /* "filename.;vvv" -> "filename;vvv" */
+    /* If not keeping version numbers, truncate the name at the ";".
+       (No escaped characters are expected in the version.)
+    */
+    if ((ext_dir_and_name = strrchr( n, ';')) != NULL)
+      *ext_dir_and_name = '\0';
+  }
+  else if (vmsver > 1)
+  {
+    /* Keeping version numbers, but as ".nnn", not ";nnn". */
+    if ((ext_dir_and_name = strrchr( n, ';')) != NULL)
+      *ext_dir_and_name = '.';
+  }
+
+  /* Remove a type-less dot. */
+  /* (Note that currently "name..ver" is not altered.) */
+  if ((ext_dir_and_name = strrchr( n, '.')) != NULL)
+  {
+    if (ext_dir_and_name[ 1] == '\0')           /* "name." -> "name" */
+      *ext_dir_and_name = '\0';
+    else if (ext_dir_and_name[ 1] == ';')       /* "name.;ver" -> "name;ver" */
     {
-      char *f = t+1;
-      while (*t++ = *f++) ;
+      char *f = ext_dir_and_name+ 1;
+      while (*ext_dir_and_name++ = *f++);
     }
   }
 
@@ -532,47 +1015,219 @@ int *pdosflag;          /* output: force MSDOS file attributes? */
   /* Returned malloc'ed name */
   if (pdosflag)
     *pdosflag = dosflag;
+
   return n;
 }
 
 
-char *in2ex(n)
-char *n;                /* internal file name */
+char *in2ex( char *n)
+/* char *n;                internal file name */
 /* Convert the zip file name to an external file name, returning the malloc'ed
    string or NULL if not enough memory. */
 {
   char *x;              /* external file name */
   char *t;              /* scans name */
+  int i;
+  char chr;
+  char *endp;
+  char *last_slash;
+  char *versionp;
 
-  if ((t = strrchr(n, '/')) == NULL)
+#ifdef NAML$C_MAXRSS
+
+  char buf[ NAML$C_MAXRSS+ 1];
+  unsigned char prop;
+  unsigned char uchr;
+  char *last_dot;
+
+#endif /* def NAML$C_MAXRSS */
+
+  /* Locate the last slash. */
+  last_slash = strrchr( n, '/');
+
+/* If ODS5 is possible, replace escape carets in name. */
+
+#ifdef NAML$C_MAXRSS
+
+  endp = n+ strlen( n);
+
+  /* Locate the version delimiter, if one is expected. */
+  if (vmsver == 0)
+  { /* No version expected. */
+    versionp = endp;
+  }
+  else
   {
-    if ((x = malloc(strlen(n) + 1 + PAD)) == NULL)
+    if (vmsver > 1)
+    { /* Expect a dot-version, ".nnn".  Locate the version ".".
+         Temporarily terminate at this dot to allow the last-dot search
+         below to find the last non-version dot.
+      */
+      versionp = strrchr( n, '.');
+      if (versionp != NULL)     /* Can't miss. */
+      {
+        *versionp = '\0';
+      }
+    }
+    else
+    { /* Expect a semi-colon-version, ";nnn".  Locate the ";".  */
+      versionp = strrchr( n, ';');
+    }
+    if ((versionp == NULL) || (versionp < last_slash))
+    { /* If confused, and the version delimiter was not in the name,
+         then ignore it.
+      */
+      versionp = endp;
+    }
+  }
+
+  /* No escape needed for the last dot, if it's part of the file name.
+     All dots in a directory must be escaped.
+  */
+  last_dot = strrchr( n, '.');
+
+  if ((last_dot != NULL) && (last_slash != NULL) && (last_dot < last_slash))
+  {
+    last_dot = last_slash;
+  }
+
+  /* Replace the version dot if necessary. */
+  if ((vmsver > 1) && (versionp != NULL) && (versionp < endp))
+  {
+    *versionp = '.';
+  }
+
+  /* Add ODS5 escape sequences.  Leave "/" and "?" for later.
+     The name here looks (roughly) like: dir1/dir2/a.b
+  */
+  t = n;
+  x = buf;
+  while (uchr = *t++)
+  {
+    /* Characters in the version do not need escaping. */
+    if (t <= versionp)
+    {
+      prop = char_prop[ uchr]& 31;
+      if (prop)
+      {
+        if (prop& 4)
+        { /* Dot. */
+          if (t < last_dot)
+          {
+            /* Dot which must be escaped. */
+            *x++ = '^';
+          }
+        }
+        else if (prop& 8)
+        {
+          /* Character needing hex-hex escape. */
+          *x++ = '^';
+          *x++ = hex_digit[ uchr>> 4];
+          uchr = hex_digit[ uchr& 15];
+        }
+        else
+        {
+          /* Non-dot character which must be escaped (and simple works).
+             "?" gains the caret but remains "?" until later.
+             ("/" remains (unescaped) "/".)
+          */
+          *x++ = '^';
+          if (prop& 2)
+          {
+            /* Escaped space (represented as "^_"). */
+            uchr = '_';
+          }
+        }
+      }
+    }
+    *x++ = uchr;
+  }
+  *x = '\0';
+
+  /* Point "n" to altered name buffer, and re-find the last slash. */
+  n = buf;
+  last_slash = strrchr( n, '/');
+
+#endif /* def NAML$C_MAXRSS */
+
+  if ((t = last_slash) == NULL)
+  {
+    if ((x = malloc(strlen(n) + 1 + DIR_PAD)) == NULL)
       return NULL;
     strcpy(x, n);
   }
   else
   {
-    if ((x = malloc(strlen(n) + 3 + PAD)) == NULL)
+    if ((x = malloc(strlen(n) + 3 + DIR_PAD)) == NULL)
       return NULL;
-    x[0] = PATH_START;
-    x[1] = '.';
-    strcpy(x + 2, n);
-    *(t = x + 2 + (t - n)) = PATH_END;
+
+    /* Begin with "[". */
+    x[ 0] = '[';
+    i = 1;
+    if (*n != '/')
+    {
+      /* Relative path.  Add ".". */
+      x[ i++] = '.';
+    }
+    else
+    {
+      /* Absolute path.  Skip leading "/". */
+      n++;
+    }
+    strcpy( (x+ i), n);
+
+    /* Place the final ']'.  Remember where the name starts. */
+    *(t = x + i + (t - n)) = ']';
+    last_slash = t;
+
+    /* Replace "/" with ".", and "?" with (now escaped) "/", in the
+       directory part of the name.
+    */
     while (--t > x)
-      if (*t == '/')
+    {
+      chr = *t;
+      if (chr == '/')
+      {
         *t = '.';
+      }
+      else if (chr == '?')
+      {
+        *t = '/';
+      }
+    }
+
+    /* Replace "?" with (now escaped) "/", in the non-directory part of
+       the name.
+    */
+    while ((chr = *(++last_slash)) != '\0')
+    {
+      if (chr == '?')
+      {
+        *last_slash = '/';
+      }
+    }
   }
 
-#ifndef VMS_PRESERVE_CASE
-  strupper( x);
-#endif /* ndef VMS_PRESERVE_CASE */
+/* If case preservation is impossible (VAX, say), and down-casing, then
+   up-case.  If case preservation is possible and wasn't done, then
+   there's no way to ensure proper restoration of original case, so
+   don't try.  This may differ from pre-3.0 behavior.
+*/
+#ifndef NAML$C_MAXRSS
+
+  if (vms_case_2 <= 0)
+  {
+    strupper( x);
+  }
+
+#endif /* ndef NAML$C_MAXRSS */
 
   return x;
 }
 
-void stamp(f, d)
-char *f;                /* name of file to change */
-ulg d;                  /* dos-style time to change it to */
+void stamp( char *f, ulg d)
+/* char *f;                name of file to change */
+/* ulg d;                  dos-style time to change it to */
 /* Set last updated and accessed time of file f to the DOS time d. */
 {
   int tm_sec, tm_min, tm_hour, tm_mday, tm_mon, tm_year;
@@ -601,11 +1256,11 @@ ulg d;                  /* dos-style time to change it to */
     zipwarn("can't set zipfile time: ", f);
 }
 
-ulg filetime(f, a, n, t)
-char *f;                /* name of file to get info on */
-ulg *a;                 /* return value: file attributes */
-long *n;                /* return value: file size */
-iztimes *t;             /* return value: access, modific. and creation times */
+ulg filetime( char *f, ulg *a, zoff_t *n, iztimes *t)
+/* char *f;                name of file to get info on */
+/* ulg *a;                 return value: file attributes */
+/* zoff_t *n;              return value: file size */
+/* iztimes *t;             return value: access, modific. and creation times */
 /* If file *f does not exist, return 0.  Else, return the file's last
    modified date and time as an MSDOS date and time.  The date and
    time is returned in a long with the date most significant to allow
@@ -619,7 +1274,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
    a file size of -1 */
 {
   struct stat s;        /* results of stat() */
-  /* malloc name so not dependent on FNMAX - 11/8/04 EG */
+  /* convert to a malloc string dump FNMAX - 11/8/04 EG */
   char *name;
   int len = strlen(f);
 
@@ -679,8 +1334,9 @@ iztimes *t;             /* return value: access, modific. and creation times */
 #endif
 }
 
-int deletedir(d)
-char *d;                /* directory to delete */
+int deletedir( char *d)
+/* char *d;                directory to delete */
+
 /* Delete the directory *d if it is empty, do nothing otherwise.
    Return the result of rmdir(), delete(), or system().
    For VMS, d must be in format [x.y]z.dir;1  (not [x.y.z]).
@@ -699,5 +1355,3 @@ char *d;                /* directory to delete */
     free(s);
     return r;
 }
-
-#endif /* !UTIL */
