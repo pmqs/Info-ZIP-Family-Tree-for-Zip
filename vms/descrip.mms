@@ -1,4 +1,4 @@
-#                                               13 December 2004.  SMS.
+#                                               26 July 2005.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -21,7 +21,7 @@
 #    IM=1           Use the old "IM" scheme for storing VMS/RMS file
 #                   atributes, instead of the newer "PK" scheme.
 #
-#    LARGE=1        Enable large-file (>2GB) support.  Non-VAX-only.
+#    LARGE=1        Enable large-file (>2GB) support.  Non-VAX only.
 #
 #    LINKOPTS=xxx   Link with LINK options xxx.  For example:
 #                   LINKOPTS=/NOINFO   
@@ -73,9 +73,9 @@
 # To delete the architecture-specific generated files for this system
 # type:
 #
-#    MMS /DESCRIP = [.VMS] /MACRO = (LARGE=1)   ! Large-file product.
+#    MMS /DESCRIP = [.VMS] /MACRO = (LARGE=1) CLEAN     ! Large-file.
 # or
-#    MMS /DESCRIP = [.VMS]                      ! Small-file product.
+#    MMS /DESCRIP = [.VMS] CLEAN                        ! Small-file.
 #
 # To build a complete small-file product for debug with compiler
 # listings and link maps:
@@ -113,11 +113,11 @@ ALL : $(ZIP) $(ZIP_CLI) $(ZIPUTILS) $(ZIP_HELP)
 
 CLEAN :
 	if (f$search( "[.$(DEST)]*.*") .nes. "") then -
-	 delete [.$(DEST)]*.*;*
+	 delete /noconfirm [.$(DEST)]*.*;*
 	if (f$search( "$(DEST).dir") .nes. "") then -
 	 set protection = w:d $(DEST).dir;*
 	if (f$search( "$(DEST).dir") .nes. "") then -
-	 delete $(DEST).dir;*
+	 delete /noconfirm $(DEST).dir;*
 
 # CLEAN_ALL target.  Delete:
 #    The [.$(DEST)] directories and everything in them.
@@ -128,33 +128,33 @@ CLEAN :
 
 CLEAN_ALL :
 	if (f$search( "[.ALPHA*]*.*") .nes. "") then -
-	 delete [.ALPHA*]*.*;*
-	if (f$search( "ALPHA.dir") .nes. "") then -
-	 set protection = w:d ALPHA.dir;*
-	if (f$search( "ALPHA.dir") .nes. "") then -
-	 delete ALPHA.dir;*
-	if (f$search( "[.IA64]*.*") .nes. "") then -
-	 delete [.IA64*]*.*;*
-	if (f$search( "IA64.dir") .nes. "") then -
-	 set protection = w:d IA64.dir;*
-	if (f$search( "IA64.dir") .nes. "") then -
-	 delete IA64.dir;*
+	 delete /noconfirm [.ALPHA*]*.*;*
+	if (f$search( "ALPHA*.dir") .nes. "") then -
+	 set protection = w:d ALPHA*.dir;*
+	if (f$search( "ALPHA*.dir") .nes. "") then -
+	 delete /noconfirm ALPHA*.dir;*
+	if (f$search( "[.IA64*]*.*") .nes. "") then -
+	 delete /noconfirm [.IA64*]*.*;*
+	if (f$search( "IA64*.dir") .nes. "") then -
+	 set protection = w:d IA64*.dir;*
+	if (f$search( "IA64*.dir") .nes. "") then -
+	 delete /noconfirm IA64*.dir;*
 	if (f$search( "[.VAX*]*.*") .nes. "") then -
-	 delete [.VAX*]*.*;*
-	if (f$search( "VAX.dir") .nes. "") then -
-	 set protection = w:d VAX.dir;*
-	if (f$search( "VAX.dir") .nes. "") then -
-	 delete VAX.dir;*
+	 delete /noconfirm [.VAX*]*.*;*
+	if (f$search( "VAX*.dir") .nes. "") then -
+	 set protection = w:d VAX*.dir;*
+	if (f$search( "VAX*.dir") .nes. "") then -
+	 delete /noconfirm VAX*.dir;*
 	if (f$search( "[.vms]ZIP_CLI.RNH") .nes. "") then -
-	 delete [.vms]ZIP_CLI.RNH;*
+	 delete /noconfirm [.vms]ZIP_CLI.RNH;*
 	if (f$search( "ZIP_CLI.HLP") .nes. "") then -
-	 delete ZIP_CLI.HLP;*
+	 delete /noconfirm ZIP_CLI.HLP;*
 	if (f$search( "ZIP.HLP") .nes. "") then -
-	 delete ZIP.HLP;*
+	 delete /noconfirm ZIP.HLP;*
 	if (f$search( "*.MMSD") .nes. "") then -
-	 delete *.MMSD;*
+	 delete /noconfirm *.MMSD;*
 	if (f$search( "[.vms]*.MMSD") .nes. "") then -
-	 delete [.vms]*.MMSD;*
+	 delete /noconfirm [.vms]*.MMSD;*
 	@ write sys$output ""
 	@ write sys$output "Note:  This procedure will not"
 	@ write sys$output "   DELETE [.VMS]DESCRIP_DEPS.MMS;*"
@@ -165,14 +165,14 @@ CLEAN_ALL :
 	@ write sys$output -
  "distribution kit.)  See [.VMS]DESCRIP_MKDEPS.MMS for instructions on"
 	@ write sys$output -
- "generating the [.VMS]DESCRIP_DEPS.MMS."
+ "generating [.VMS]DESCRIP_DEPS.MMS."
 	@ write sys$output ""
 
 # CLEAN_EXE target.  Delete the executables in [.$(DEST)].
 
 CLEAN_EXE :
 	if (f$search( "[.$(DEST)]*.exe") .nes. "") then -
-	 delete [.$(DEST)]*.exe;*
+	 delete /noconfirm [.$(DEST)]*.exe;*
 
 
 # Object library module dependencies.
@@ -299,9 +299,11 @@ zip.hlp : [.vms]vms_zip.rnh
 	runoff /output = $(MMS$TARGET) $(MMS$SOURCE)
 
 zip_cli.hlp : [.vms]zip_cli.help [.vms]cvthelp.tpu
+	edit := edit
 	edit /tpu /nosection /nodisplay /command = [.vms]cvthelp.tpu -
 	 $(MMS$SOURCE)
-	rename zip_cli.rnh [.vms]
+	rename /noconfirm zip_cli.rnh; [.vms];
+	purge /noconfirm /nolog /keep = 1 [.vms]zip_cli.rnh
 	runoff /output = $(MMS$TARGET) [.vms]zip_cli.rnh
 
 # Include generated source dependencies.
