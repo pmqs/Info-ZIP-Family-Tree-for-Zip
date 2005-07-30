@@ -4,30 +4,7 @@
    This document describes some VMS-specific behavior and implementation
 details of the Info-ZIP Zip and Unzip programs.
 
-   Last modified: 2004-12-13.
-
-
-   Building UnZip
-   --------------
-
-   Some of the standard code in UnZip 6 will misbehave when the off_t
-type (declared in DECC$TYPES.H or STAT.H) is unsigned.  This seems to be
-true on VAX using GNU C, VAX C, or older versions of DEC C.  UnZip
-senses this condition at run time, and complains:
-
-      NEXTBYTE macro failed.  Try compiling with ALT_NEXTBYTE defined?
-
-   If this happens, the current work-around is to re-build UnZip,
-defining the C macro ALT_NEXTBYTE.  This may be done using the MMK/MMS
-macro LOCAL_UNZIP, or the LOCAL_UNZIP symbol with BUILD_UNZIP.COM.  For
-example:
-
-      $ mms /des = [.vms] /MACRO = (MMS$ARCH_NAME=VAX, VAXC=1) clean
-      $ mms /des = [.vms] /MACRO = -
-       (MMS$ARCH_NAME=VAX, VAXC=1, "LOCAL_UNZIP=ALT_NEXTBYTE")
-or:
-      $ LOCAL_UNZIP == "ALT_NEXTBYTE"
-      $ @ [.vms]BUILD_UNZIP.COM VAXC
+   Last modified: 2005-07-29.
 
 
    Building with the LIST option using MMK or MMS
@@ -127,6 +104,35 @@ pre-allocation, and used the default extension quantity.  This could
 slow file creation significantly for large files.  Now, space for
 extracted files is pre-allocated, and the same "sequential access only
 "flag is set, as with a -V archive.
+
+
+   Changes to the "-V" (/VMS) Option
+   ---------------------------------
+
+   The intent of the "-V" (/VMS) option was to store VMS RMS file
+attributes in a Zip archive, allowing UnZip to extract an exact copy of
+a file on a VMS system, including all its RMS attributes.
+
+   In ZIp before version 2.31, using the "-V" (/VMS) option created an
+archive which usually contained data from beyond the EOF (End-of-File)
+marker in a data file, but generally not all the disk blocks allocated
+for the file.  When extracted on a VMS system, the result was usually
+acceptable (because the data from beyond the EOF marker were usually
+ignored).  However, when extracted on a non-VMS system, the resulting
+file was usually corrupted by being NUL-padded to the next larger 16KB
+multiple in size.
+
+   Now (Zip 2.31 and later), with "-V" (/VMS), Zip truncates a data file
+at EOF, and portable-format files (Stream_LF, fixed-512) should be
+extracted properly on a non-VMS system.  On a VMS system,
+well-formed files (that is, those with no valid data beyond EOF) should
+also be restored correctly.
+
+   With the new "-VV" (/VMS = ALL) option, the archive includes all
+allocated blocks for the file (including those beyond EOF).  When
+extracted on a VMS system, the original file should be reproduced with
+as much fidelity as possible, but on a non-VMS system, most files will
+be seen as corrupt because of the data from beyond EOF.
 
 
    GNU C
