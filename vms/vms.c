@@ -435,6 +435,17 @@ char *tempname( char *zip)
  *    ziptyp() returns the original string, so a later open() fails, and
  *    a relatively informative message is provided.  (A VMS-specific
  *    message could also be provided here, if desired.)
+ *
+ *    2005-09-16 SMS.
+ *    Changed name parsing in ziptyp() to solve a problem with a
+ *    search-list logical name device-directory spec for the zipfile.
+ *    Previously, when the zipfile did not exist (so sys$search()
+ *    failed), the expanded name was used, but as it was
+ *    post-sys$search(), it was based on the _last_ member of the search
+ *    list instead of the first.  Now, the expanded name from the
+ *    original sys$parse() (pre-sys$search()) is retained, and it is
+ *    used if sys$search() fails.  This name is based on the first
+ *    member of the search list, as a user might expect.
  */
 
 /* Default Zip archive file spec. */
@@ -443,6 +454,7 @@ char *tempname( char *zip)
 char *ziptyp( char *s)
 {
     int status;
+    int exp_len;
     struct FAB fab;
     struct NAM_STRUCT nam;
     char result[ NAM_MAXRSS+ 1];
@@ -484,6 +496,13 @@ char *ziptyp( char *s)
         return p;
     }
 
+    /* Save expanded name length from sys$parse(). */
+    exp_len = nam.NAM_ESL;
+
+    /* Leave expanded name as-is, in case of search failure. */
+    nam.NAM_ESA = NULL;                 /* Expanded name, */
+    nam.NAM_ESS = 0;                    /* storage size. */
+
     status = sys$search(&fab);
     if (status & 1)
     {   /* Zip file exists.  Use resultant (complete, exact) name. */
@@ -494,10 +513,10 @@ char *ziptyp( char *s)
         }
     }
     else
-    {   /* New Zip file.  Use expanded name. */
-        if ((p = malloc( nam.NAM_ESL+ 1)) != NULL )
+    {   /* New Zip file.  Use pre-search expanded name. */
+        if ((p = malloc( exp_len+ 1)) != NULL )
         {
-            exp[ nam.NAM_ESL] = '\0';
+            exp[ exp_len] = '\0';
             strcpy( p, exp);
         }
     }

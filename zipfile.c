@@ -16,7 +16,6 @@
 
 #ifdef VMS
 #  include <rms.h>
-#  include <starlet.h>
 #  include "vms/vmsmunch.h"
 #  include "vms/vmsdefs.h"
 #endif
@@ -167,7 +166,7 @@ ZCONST char *n;         /* name to find */
 
 #endif /* !UTIL */
 
-#ifndef VMS     /* See [.VMS]VMS.C for VMS-specific ziptyp(). */
+#ifndef VMS     /* See vms/vms.c for VMS-specific ziptyp(). */
 #  ifndef PATHCUT
 #    define PATHCUT '/'
 #  endif
@@ -260,7 +259,7 @@ char *s;                /* file name to force to zip */
 #endif /* !RISCOS */
   return t;
 }
-#endif  /* ndef VMS */
+#endif /* !VMS */
 
 #ifndef UTIL
 
