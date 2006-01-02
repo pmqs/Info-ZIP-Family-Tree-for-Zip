@@ -47,7 +47,7 @@ int translate_eol = 0;  /* Translate end-of-line LF -> CR LF */
 #if defined(OS2) || defined(WIN32)
    int use_longname_ea = 0;   /* 1=use the .LONGNAME EA as the file's name */
 #endif
-/* 9/26/04 EG */
+/* 9/26/04 */
 int no_wild = 0;              /* 1 = wildcards are disabled */
 #ifdef WILD_STOP_AT_DIR
    int wild_stop_at_dir = 1;  /* default wildcards do not include / in matches */
@@ -55,12 +55,13 @@ int no_wild = 0;              /* 1 = wildcards are disabled */
    int wild_stop_at_dir = 0;  /* default wildcards do include / in matches */
 #endif
 
-/* dots 10/20/04 EG */
-int dot_size = 0;             /* buffers in deflate per dot, 0 = no dots */
-int dot_count = 0;            /* buffers seen, recyles at dot_size */
-/* status 10/30/04 EG */
+/* dots 10/20/04 */
+zoff_t dot_size = 0;          /* buffers processed in deflate per dot, 0 = no dots */
+zoff_t dot_count = 0;         /* buffers seen, recyles at dot_size */
+/* status 10/30/04 */
 int display_counts = 0;       /* display running file count */
 int display_bytes = 0;        /* display running bytes remaining */
+int display_globaldots = 0;   /* display dots for archive instead of each file */
 int display_usize = 0;        /* display uncompressed bytes */
 ulg files_so_far = 0;         /* files processed so far */
 ulg bad_files_so_far = 0;     /* bad files skipped so far */
@@ -69,7 +70,8 @@ uzoff_t bytes_so_far = 0;     /* bytes processed so far (from initial scan) */
 uzoff_t good_bytes_so_far = 0;/* good bytes read so far */
 uzoff_t bad_bytes_so_far = 0; /* bad bytes skipped so far */
 uzoff_t bytes_total = 0;      /* total bytes to process (from initial scan) */
-/* logfile 6/5/05 EG */
+
+/* logfile 6/5/05 */
 int logall = 0;               /* 0 = warnings/errors, 1 = all */
 FILE *logfile = NULL;         /* pointer to open logfile or NULL */
 int logfile_append = 0;       /* append to existing logfile */
@@ -81,12 +83,13 @@ int dirnames = 1;             /* include directory entries by default */
 int linkput = 0;              /* 1=store symbolic links as such */
 int noisy = 1;                /* 0=quiet operation */
 int extra_fields = 1;         /* 0=do not create extra fields */
-int use_descriptors = 0;      /* 1=use data descriptors 12/29/04 EG */
-int zip_to_stdout = 0;        /* output zipfile to stdout 12/30/04 EG */
+int use_descriptors = 0;      /* 1=use data descriptors 12/29/04 */
+int zip_to_stdout = 0;        /* output zipfile to stdout 12/30/04 */
+int allow_empty_archive = 0;  /* if no files, create empty archive anyway 12/28/05 */
 
 int output_seekable = 1;      /* 1 = output seekable 3/13/05 EG */
 
-#ifdef ZIP64_SUPPORT          /* zip64 support 10/4/03 E. Gordon */
+#ifdef ZIP64_SUPPORT          /* zip64 support 10/4/03 */
   int force_zip64 = 0;        /* if 1 force entries to be zip64 */
                               /* mainly for streaming from stdin */
   zoff_t Z64_EFPos = 0;       /* file position of Zip64 Extra Field */
@@ -111,35 +114,53 @@ char *special = "_Z:_zip:_zoo:_arc:_lzh:_arj"; /* List of special suffixes */
 char *special = "DDC:D96:68E";
 #endif /* ?RISCOS */
 char *key = NULL;       /* Scramble password if scrambling */
-int key_needed = 0;     /* Need scramble password. */
 char *tempath = NULL;   /* Path for temporary files */
 FILE *mesg;             /* stdout by default, stderr for piping */
+
+ulg before = 0;         /* 0=ignore, else exclude files before this time */
+ulg after = 0;          /* 0=ignore, else exclude files newer than this time */
 
 /* Zip file globals */
 char *zipfile;          /* New or existing zip archive (zip file) */
 
 /* zip64 support 08/31/2003 R.Nausedat */
+/* all are across splits - subtract bytes_prev_splits to get offsets for current disk */
 uzoff_t zipbeg;               /* Starting offset of zip structures */
-uzoff_t cenbeg;               /* Starting offset of central directory */
-uzoff_t tempzn;               /* Count of bytes written to output zip file */
+uzoff_t cenbeg;               /* Starting offset of central dir */
+uzoff_t tempzn;               /* Count of bytes written to output zip files */
+
+/* 10/28/05 */
+char *tempzip = NULL;         /* name of temp file */
+FILE *y = NULL;               /* output file now global so can change in splits */
+char *out_path = NULL;        /* name of output file, usually same as zipfile */
+int zip_attributes = 0;
+
+ulg    current_local_disk = 0;    /* disk with current local header */
 
 #ifdef SPLIT_SUPPORT          /* splits 8/7/04 EG */
-  ulg    current_disk = 0;          /* current disk number */
-  ulg    cd_start_disk = 0;         /* central directory start disk */
+  ulg     current_disk = 0;          /* current disk number */
+  int     cd_start_disk = -1;        /* central directory start disk */
   uzoff_t cd_start_offset = 0;      /* offset of start of cd on cd start disk */
   uzoff_t cd_entries_this_disk = 0; /* cd entries this disk */
   uzoff_t total_cd_entries = 0;     /* total cd entries */
+  ulg     zip64_eocd_disk = 0;      /* disk with Zip64 End Of Central Directory Record */
+  uzoff_t zip64_eocd_offset = 0;    /* offset for Zip64 EOCD Record */
+
   /* for split method 1 (keep split with local header open and update) */
+  char *current_local_tempname = NULL; /* name of temp file */
   FILE  *current_local_file = NULL; /* file pointer for current local header */
-  ulg    current_local_disk = 0;    /* disk with current local header */
   uzoff_t current_local_offset = 0; /* offset to start of current local header */
+
   /* global */
+  uzoff_t bytes_this_split = 0;     /* bytes written to the current split */
   int read_split_archive = 0;       /* 1=scanzipf_reg detected spanning signature */
   int split_method = 0;             /* 0=no splits, 1=update LHs, 2=data descriptors */
   uzoff_t split_size = 0;           /* how big each split should be */
   uzoff_t bytes_prev_splits = 0;    /* total bytes written to all splits before this */
-  uzoff_t bytes_this_split_entry = 0;/* bytes written for this entry in this split */
+  uzoff_t bytes_this_entry = 0;     /* bytes written for this entry across all splits */
+  int noisy_splits = 0;             /* note when splits are being created */
 #endif
+  int adding_msg_pos = 0;           /* "adding:" message position/state. */
 
 #ifdef UNICODE_SUPPORT
   int use_wide_to_mb_default = 0;

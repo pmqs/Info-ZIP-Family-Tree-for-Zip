@@ -518,6 +518,61 @@ char *ziptyp( char *s)
 } /* ziptyp() for VMS. */
 
 
+/* 2005-12-30 SMS.
+ *
+ *       vms_file_version().
+ *
+ *    Return the ";version" part of a VMS file specification.
+ */
+
+char *vms_file_version( char *s)
+{
+    int status;
+    struct FAB fab;
+    struct NAM_STRUCT nam;
+    char *p;
+
+    static char exp[ NAM_MAXRSS+ 1];    /* Expanded name storage. */
+
+
+    fab = cc$rms_fab;                   /* Initialize FAB. */
+    nam = CC_RMS_NAM;                   /* Initialize NAM[L]. */
+    fab.FAB_NAM = &nam;                 /* FAB -> NAM[L] */
+
+#ifdef NAML$C_MAXRSS
+
+    fab.fab$l_dna =(char *) -1;         /* Using NAML for default name. */
+    fab.fab$l_fna = (char *) -1;        /* Using NAML for file name. */
+
+#endif /* def NAML$C_MAXRSS */
+
+    FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNA = s;           /* Arg file name, */
+    FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNS = strlen( s);  /* length. */
+
+    nam.NAM_ESA = exp;                 /* Expanded name, */
+    nam.NAM_ESS = NAM_MAXRSS;          /* storage size. */
+
+    nam.NAM_NOP = NAM_M_SYNCHK;        /* Syntax-only analysis. */
+
+    status = sys$parse(&fab);
+
+    if ((status & 1) == 0)
+    {
+        /* Invalid file name.  Return "". */
+        exp[ 0] = '\0';
+        p = exp;
+    }
+    else
+    {
+        /* Success.  NUL-terminate, and return a pointer to the ";" in
+           the expanded name storage buffer.
+        */
+        p = nam.NAM_L_VER;
+        p[ nam.NAM_B_VER] = '\0';
+    }
+    return p;
+} /* vms_file_version(). */
+
 
 /* 2004-11-23 SMS.
  *

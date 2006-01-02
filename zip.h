@@ -315,11 +315,12 @@ extern short qlflag;
 extern int no_wild;             /* wildcards are disabled */
 extern int wild_stop_at_dir;    /* wildcards do not include / in matches */
 /* 10/20/04 EG */
-extern int dot_size;            /* if not 0 then display dots every size buffers */
-extern int dot_count;           /* if dot_size not 0 counts buffers */
+extern zoff_t dot_size;         /* if not 0 then display dots every size buffers */
+extern zoff_t dot_count;        /* if dot_size not 0 counts buffers */
 /* status 10/30/04 EG */
 extern int display_counts;      /* display running file count */
 extern int display_bytes;       /* display running bytes remaining */
+extern int display_globaldots;  /* display dots for archive instead of for each file */
 extern int display_usize;       /* display uncompressed bytes */
 extern ulg files_so_far;        /* files processed so far */
 extern ulg bad_files_so_far;    /* files skipped so far */
@@ -348,6 +349,7 @@ extern int extra_fields;        /* do not create extra fields */
  extern int use_privileges;     /* use security privilege overrides */
 #endif
 extern int use_descriptors;     /* use data descriptors (extended headings) */
+extern int allow_empty_archive; /* if no files, create empty archive anyway */
 extern int zip_to_stdout;       /* output to stdout */
 extern int output_seekable;     /* 1 = output seekable 3/13/05 EG */
 #ifdef ZIP64_SUPPORT            /* zip64 globals 10/4/03 E. Gordon */
@@ -355,42 +357,49 @@ extern int output_seekable;     /* 1 = output seekable 3/13/05 EG */
  extern int zip64_entry;        /* current entry needs Zip64 */
  extern int zip64_archive;      /* at least 1 entry needs zip64 */
 #endif
+ 
+extern char *tempzip;           /* temp file name */
+extern FILE *y;                 /* output file now global for splits */
+
+extern ulg before;              /* 0=ignore, else exclude files before this time */
+extern ulg after;               /* 0=ignore, else exclude files newer than this time */
+
+extern ulg    current_local_disk; /* disk with current local header */
+
 #ifdef SPLIT_SUPPORT
- extern ulg    current_disk;    /* current disk number */
- extern ulg    cd_start_disk;   /* central directory start disk */
- extern zoff_t cd_start_offset; /* offset of start of cd on cd start disk */
+ extern ulg     current_disk;     /* current disk number */
+ extern int     cd_start_disk;    /* central directory start disk */
+ extern uzoff_t cd_start_offset;  /* offset of start of cd on cd start disk */
  extern uzoff_t cd_entries_this_disk; /* cd entries this disk */
  extern uzoff_t total_cd_entries; /* total cd entries */
+ extern ulg     zip64_eocd_disk;  /* disk with Zip64 EOCD Record */
+ extern uzoff_t zip64_eocd_offset; /* offset of Zip64 EOCD Record */
   /* for split method 1 (keep split with local header open and update) */
+ extern char *current_local_tempname; /* name of temp file */
  extern FILE  *current_local_file; /* file pointer for current local header */
- extern ulg    current_local_disk; /* disk with current local header */
- extern zoff_t current_local_offset; /* offset to start of current local header */
+ extern uzoff_t current_local_offset; /* offset to start of current local header */
   /* global */
+ extern uzoff_t bytes_this_split; /* bytes written to current split */
  extern int read_split_archive; /* 1=scanzipf_reg detected spanning signature */
  extern int split_method;       /* 0=no splits, 1=update LHs, 2=data descriptors */
  extern uzoff_t split_size;     /* how big each split should be */
  extern uzoff_t bytes_prev_splits; /* total bytes written to all splits before this */
- extern uzoff_t bytes_this_split_entry; /* bytes written for this entry in this split */
+ extern uzoff_t bytes_this_entry; /* bytes written for this entry across all splits */
+ extern int noisy_splits;       /* note when splits are being created */
 #endif
+extern int adding_msg_pos;      /* "adding:" message position/state. */
+
 extern char *key;               /* Scramble password or NULL */
-extern int key_needed;          /* Need scramble password. */
 extern char *tempath;           /* Path for temporary files */
 extern FILE *mesg;              /* Where informational output goes */
 extern char *zipfile;           /* New or existing zip archive (zip file) */
-
-/* splits 8/7/2004 EG */
-extern ulg disk_number;            /* current disk number */
-extern ulg cd_start_disk;          /* central directory start disk */
-extern uzoff_t cd_entries_this_disk;/* cd entries this disk */
-extern uzoff_t total_cd_entries;   /* total cd entries */
-extern uzoff_t cd_start_offset;    /* offset of start of cd on cd start disk */
+extern char *out_path;          /* Name of output file, usually same as zipfile */
+extern int zip_attributes;
 
 /* zip64 support 08/31/2003 R.Nausedat */
 extern uzoff_t zipbeg;          /* Starting offset of zip structures */
 extern uzoff_t cenbeg;          /* Starting offset of central directory */
 extern uzoff_t tempzn;          /* Count of bytes written to output zip file */
-/* splits 8/7/2004 EG */
-extern uzoff_t total_bytes_written; /* Bytes written to all files */
 
 /* NOTE: zcount and fcount cannot exceed "size_t" (resp. "extent") range.
    This is an internal limitation built into Zip's action handling:
@@ -470,6 +479,7 @@ extern int aflag;
 #ifdef CMS_MVS
 extern int bflag;
 #endif /* CMS_MVS */
+void zipmessage OF((ZCONST char *, ZCONST char *));
 void zipwarn OF((ZCONST char *, ZCONST char *));
 void ziperr OF((int, ZCONST char *));
 #ifdef UTIL
@@ -487,7 +497,7 @@ void ziperr OF((int, ZCONST char *));
   /* zip64 support 08/31/2003 R.Nausedat */
    int percent OF((uzoff_t, uzoff_t));
 
-   int zipup OF((struct zlist far *, FILE *));
+   int zipup OF((struct zlist far *));
 #  ifdef USE_ZLIB
      void zl_deflate_free OF((void));
 #  else
@@ -510,14 +520,14 @@ void ziperr OF((int, ZCONST char *));
 #endif /* !UTIL */
 char *ziptyp OF((char *));
 int readzipfile OF((void));
-int putlocal OF((struct zlist far *, FILE *));
-int putextended OF((struct zlist far *, FILE *));
-int putcentral OF((struct zlist far *, FILE *));
+int putlocal OF((struct zlist far *, int));
+int putextended OF((struct zlist far *));
+int putcentral OF((struct zlist far *));
 /* zip64 support 09/05/2003 R.Nausedat */
-int putend OF((uzoff_t, uzoff_t, uzoff_t, ush, char *, FILE *));
+int putend OF((uzoff_t, uzoff_t, uzoff_t, ush, char *));
 /* moved seekable to separate function 3/14/05 EG */
 int is_seekable OF((FILE *));
-int zipcopy OF((struct zlist far *, FILE *, FILE *));
+int zipcopy OF((struct zlist far *, FILE *));
 
         /* in fileio.c */
 #ifndef UTIL
@@ -549,6 +559,14 @@ int replace OF((char *, char *));
 int getfileattr OF((char *));
 int setfileattr OF((char *, int));
 char *tempname OF((char *));
+
+/* for splits */
+int close_split OF((int, FILE *, char *));
+char *get_split_path OF((int));
+int rename_split OF((char *, char *));
+int set_filetype OF(());
+
+int bfcopy OF((FILE *, uzoff_t));
 
 int fcopy OF((FILE *, FILE *, uzoff_t));
 
@@ -620,6 +638,8 @@ zvoid far **search OF((ZCONST zvoid *, ZCONST zvoid far **, extent,
                        int (*)(ZCONST zvoid *, ZCONST zvoid far *)));
 void envargs       OF((int *, char ***, char *, char *));
 void expand_args   OF((int *, char ***));
+
+int  is_text_buf   OF((ZCONST char *buf_ptr, unsigned buf_size));
 
 #ifndef USE_ZLIB
 #ifndef UTIL
@@ -707,7 +727,9 @@ void     bi_init      OF((char *, unsigned int, int));
   /* wide character type */
   typedef unsigned long zwchar;
 
-
+  /* check if string is all ASCII */
+  int is_ascii_string OF((char *));
+  
   /* convert UTF-8 string to multi-byte string */
   char *utf8_to_local_string OF((char *));
 
@@ -741,6 +763,25 @@ void     bi_init      OF((char *, unsigned int, int));
   char *wide_to_utf8_string OF((zwchar *));
 
 #endif /* UNICODE_SUPPORT */
+
+
+/*---------------------------------------------------
+ * Split archives
+ *
+ * 10/20/05 EG
+ */
+  
+#define BFWRITE_DATA 0
+#define BFWRITE_LOCALHEADER 1
+#define BFWRITE_CENTRALHEADER 2
+#define BFWRITE_HEADER 3
+
+size_t bfwrite OF((ZCONST void *buffer, size_t size, size_t count,
+                   int));
+
+/* for putlocal() */
+#define PUTLOCAL_WRITE 0
+#define PUTLOCAL_REWRITE 1
 
 
 /*--------------------------------------------------------------------
