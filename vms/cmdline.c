@@ -163,7 +163,7 @@ $DESCRIPTOR(zip_command,        "zip ");
 
 static int show_VMSCLI_help;
 
-#if (defined(__GNUC__) && !defined(zip_clitable))
+#if !defined(zip_clitable)
 #  define zip_clitable ZIP_CLITABLE
 #endif
 #if defined(__DECC) || defined(__GNUC__)
@@ -967,27 +967,29 @@ void VMSCLI_help(void)  /* VMSCLI version */
 
   /* help array */
   static char *text[] = {
-"Zip %s (%s). Usage: zip==\"$disk:[dir]zip.exe\"",
+"Zip %s (%s). Usage: (zip :== $ dev:[dir]zip_cli.exe)",
 "zip zipfile[.zip] [list] [/EXCL=(xlist)] /options /modifiers",
 "  The default action is to add or replace zipfile entries from list, except",
-"  those in xlist. The include file list may contain the special name - to",
+"  those in xlist. The include file list may contain the special name \"-\" to",
 "  compress standard input.  If both zipfile and list are omitted, zip",
 "  compresses stdin to stdout.",
-"  Type zip -h for Unix style flags.",
+"  Type zip -h for Unix-style flags.",
 "  Major options include:",
-"    /FRESHEN, /UPDATE, /DELETE, /[NO]MOVE, /COMMENTS[={ZIP_FILE|FILES}],",
-"    /LATEST, /TEST, /ADJUST_OFFSETS, /FIX_ARCHIVE[=FULL], /UNSFX",
+"    /DELETE, /FRESHEN, /MOVE, /UPDATE, /TEST, /COMMENTS[={ZIP_FILE|FILES}],",
+"    /LATEST, /ADJUST_OFFSETS, /FIX_ARCHIVE[={NORMAL|FULL}], /UNSFX,",
 "  Modifiers include:",
-"    /EXCLUDE=(file list), /INCLUDE=(file list), /SINCE=\"creation time\",",
+"    /EXCLUDE=(file_list), /EXLIST=file, /INCLUDE=(file_list), /INLIST=file,",
+"    /BATCH[=list_file], /BEFORE=\"creation_time\", /SINCE=\"creation_time\",",
+"    /NORECURSE|/RECURSE[={PATH|FILENAMES}], /STORE_TYPES=(type_list),",
 #if CRYPT
 "\
-    /QUIET,/VERBOSE[=MORE],/[NO]RECURSE,/[NO]DIRNAMES,/JUNK,/ENCRYPT[=\"pwd\"],\
+    /QUIET, /VERBOSE[={MORE|DEBUG}], /[NO]DIRNAMES, /JUNK, /ENCRYPT[=\"pwd\"],\
 ",
 #else /* !CRYPT */
-"    /QUIET, /VERBOSE[=MORE], /[NO]RECURSE, /[NO]DIRNAMES, /JUNK,",
+"    /QUIET, /VERBOSE[={MORE|DEBUG}], /[NO]DIRNAMES, /JUNK,",
 #endif /* ?CRYPT */
-"    /[NO]KEEP_VERSION, /[NO]VMS, /[NO]PKZIP, /TRANSLATE_EOL[={LF|CRLF}],",
-"    /[NO]EXTRA_FIELDS /LEVEL=[0-9], /TEMP_PATH=directory, /BATCH[=list file]"
+"    /LEVEL=[0-9], /[NO]EXTRA_FIELDS, /[NO]KEEP_VERSION, /[NO]PKZIP,",
+"    /NOVMS|/VMS[=ALL], /TEMP_PATH=directory, /TRANSLATE_EOL[={LF|CRLF}]"
   };
 
   if (!show_VMSCLI_help) {

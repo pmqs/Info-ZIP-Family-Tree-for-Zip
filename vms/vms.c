@@ -1,9 +1,9 @@
 /*
   Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
@@ -881,11 +881,11 @@ void (*const x_decc_init)() = decc_init;
 
 #pragma extern_model save
 
-int lib$initialize(void);
+int LIB$INITIALIZE( void);
 
 #pragma extern_model strict_refdef
 
-int dmy_lib$initialize = (int) lib$initialize;
+int dmy_lib$initialize = (int) LIB$INITIALIZE;
 
 #pragma extern_model restore
 

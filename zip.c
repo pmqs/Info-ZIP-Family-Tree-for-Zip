@@ -434,7 +434,7 @@ local void help()
 " \"-F\"  fix zipfile(\"-FF\" try harder) \"-D\"  do not add directory entries",
 " \"-A\"  adjust self-extracting exe  \"-J\"  junk zipfile prefix (unzipsfx)",
 " \"-T\"  test zipfile integrity      \"-X\"  eXclude eXtra file attributes",
-" \"-V\"  save VMS file attributes     -w   append version number to stored name",
+" \"-V\"  save VMS file attributes (\"-VV\" also save allocated blocks past EOF)",
 #else /* !VMS */
 "  -F   fix zipfile (-FF try harder) -D   do not add directory entries",
 "  -A   adjust self-extracting exe   -J   junk zipfile prefix (unzipsfx)",
@@ -449,7 +449,11 @@ local void help()
 #ifdef S_IFLNK
 "  -y   store symbolic links as the link instead of the referenced file",
 #endif /* !S_IFLNK */
+#ifdef VMS
+"  -R   PKZIP recursion (see manual) -w   append version number to stored name",
+#else /* !VMS */
 "  -R   PKZIP recursion (see manual)",
+#endif /* ?VMS */
 #if defined(MSDOS) || defined(OS2)
 "  -$   include volume label         -S   include system and hidden files",
 #endif
