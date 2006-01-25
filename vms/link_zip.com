@@ -94,59 +94,33 @@ $ !
 $ my_name = f$env("procedure")
 $ workdir = f$env("default")
 $ here = f$parse(workdir,,,"device") + f$parse(workdir,,,"directory")
-$ axp = f$getsyi("HW_MODEL").ge.1024
-$ if axp
+$!
+$ if (f$getsyi("HW_MODEL") .lt. 1024)
 $ then
-$       ! Alpha AXP
-$       ARCH_NAME == "Alpha"
-$       ARCH_PREF = "AXP_"
-$       HAVE_DECC_VAX = 0
-$       USE_DECC_VAX = 0
-$       IF (f$search("SYS$DISK:[]ZIP.''ARCH_PREF'OLB").eqs."")
-$       THEN
-$         say "Cannot find any AXP object library for Zip."
-$         say "  You must keep all binary files of the object distribution"
-$         say "  in the current directory !"
-$         goto error
-$       ENDIF
-$       if MAY_USE_GNUC
-$       then say "Up to now, the GNU C ports available on OpenVMS AXP"
-$            say "contain so many nasty bugs and lack support for a number of"
-$            say "required VMS specific features."
-$            say "These design flaws make it impossible to compile Zip
-$            say "using GCC, sorry."
-$            goto error
-$       endif
-$       ARCH_CC_P = ARCH_PREF
-$       opts = ""
-$       say "Linking on AXP using DEC C"
-$ else
 $       ! VAX
 $       ARCH_NAME == "VAX"
 $       ARCH_PREF = "VAX_"
 $       ! check which object libraries are present:
-$       HAVE_DECC_VAX =(f$search("SYS$DISK:[]ZIP.''ARCH_PREF'DECC_OLB").nes."")
-$       HAVE_VAXC_VAX =(f$search("SYS$DISK:[]ZIP.''ARCH_PREF'VAXC_OLB").nes."")
-$       HAVE_GNUC_VAX =(f$search("SYS$DISK:[]ZIP.''ARCH_PREF'GNUC_OLB").nes."")
-$       IF .not.HAVE_DECC_VAX .and. .not.HAVE_VAXC_VAX .and. .not.HAVE_GNUC_VAX
+$       HAVE_DECC =(f$search("SYS$DISK:[]ZIP.''ARCH_PREF'DECC_OLB").nes."")
+$       HAVE_VAXC =(f$search("SYS$DISK:[]ZIP.''ARCH_PREF'VAXC_OLB").nes."")
+$       HAVE_GNUC =(f$search("SYS$DISK:[]ZIP.''ARCH_PREF'GNUC_OLB").nes."")
+$       IF .not.HAVE_DECC .and. .not.HAVE_VAXC .and. .not.HAVE_GNUC
 $       THEN
 $         say "Cannot find any VAX object library for Zip."
 $         say "  You must keep all binary files of the object distribution"
 $         say "  in the current directory !"
 $         goto error
 $       ENDIF
-$       IF HAVE_DECC_VAX .AND. MAY_USE_DECC
+$       IF HAVE_DECC .AND. MAY_USE_DECC
 $       THEN
 $         ! We use DECC:
-$         USE_DECC_VAX = 1
 $         ARCH_CC_P = "''ARCH_PREF'DECC_"
 $         opts = ""
 $         say "Linking on VAX using DEC C"
 $       ELSE
 $         ! We use VAXC (or GNU C):
-$         USE_DECC_VAX = 0
 $         opts = ",SYS$DISK:[.VMS]VAXCSHR.OPT/OPTIONS"
-$         if HAVE_GNUC_VAX .and. (.not.HAVE_VAXC_VAX .or. MAY_USE_GNUC)
+$         if HAVE_GNUC .and. (.not.HAVE_VAXC .or. MAY_USE_GNUC)
 $         then
 $               ARCH_CC_P = "''ARCH_PREF'GNUC_"
 $               opts = ",GNU_CC:[000000]GCCLIB.OLB/LIB ''opts'"
@@ -156,6 +130,47 @@ $               ARCH_CC_P = "''ARCH_PREF'VAXC_"
 $               say "Linking on VAX using VAX C"
 $         endif
 $       ENDIF
+$ else
+$       if (f$getsyi( "ARCH_TYPE") .eq. 2)
+$       then
+$           ! Alpha AXP
+$           ARCH_NAME == "Alpha"
+$           ARCH_PREF = "AXP_"
+$           IF (f$search("SYS$DISK:[]ZIP.''ARCH_PREF'OLB").eqs."")
+$           THEN
+$             say "Cannot find any AXP object library for Zip."
+$             say "  You must keep all binary files of the object distribution"
+$             say "  in the current directory !"
+$             goto error
+$           ENDIF
+$           if MAY_USE_GNUC
+$           then
+$             say "GNC C is not supported on OpenVMS Alpha."
+$             goto error
+$           endif
+$           ARCH_CC_P = ARCH_PREF
+$           opts = ""
+$           say "Linking on AXP using DEC C"
+$       else
+$           ! IA64
+$           ARCH_NAME == "IA64"
+$           ARCH_PREF = "I64_"
+$           IF (f$search("SYS$DISK:[]ZIP.''ARCH_PREF'OLB").eqs."")
+$           THEN
+$             say "Cannot find any I64 object library for Zip."
+$             say "  You must keep all binary files of the object distribution"
+$             say "  in the current directory !"
+$             goto error
+$           ENDIF
+$           if MAY_USE_GNUC
+$           then
+$             say "GNC C is not supported on OpenVMS IA64."
+$             goto error
+$           endif
+$           ARCH_CC_P = ARCH_PREF
+$           opts = ""
+$           say "Linking on IA64 using DEC C"
+$       endif
 $ endif
 $ LFLAGS = "/notrace"
 $ if (opts .nes. "") .and. -

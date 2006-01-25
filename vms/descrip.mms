@@ -10,53 +10,87 @@
 #  Modified (split crypt -> crypt, ttyio) by C. Spieler, 16-JAN-1996
 #  Modified (modified VMSCLI compilation) by C. Spieler, 25-JUL-1997
 #  Modified (comment concerning online help) by C. Spieler, 14-OCT-1997
-#  Last modified (removed bits.c source file) by C. Spieler, 25-JUN-1998
+#  Modified (removed bits.c source file) by C. Spieler, 25-JUN-1998
+#  Last modified (Alpha, IA64 sensing) by Steven Schweda, 24-JAN-2006
 #
-#  To build Zip and the Ziputils, use one of the following commands,
-#  depending on your system:
+#  To build Zip and the Ziputils, copy this file (DESCRIP.MMS) into the
+#  main directory, then use one of the following commands, depending on
+#  your system.  A plain MMS (or MMK) command works on most modern
+#  systems.  With older MMS (or MMK) programs, or on VAX with a C
+#  compiler other than DEC C, an appropriate macro must be specified.
+#
+#	$ MMS
 #
 #	$ MMS/MACRO=(__ALPHA__=1)		! Alpha AXP, (DEC C)
+#	$ MMS/MACRO=(__IA64__=1)		! IA64, (DEC C)
 #	$ MMS/MACRO=(__DECC__=1)		! VAX, using DEC C
+#
 #	$ MMS/MACRO=(__FORCE_VAXC__=1)		! VAX, prefering VAXC over DECC
 #	$ MMS/MACRO=(__VAXC__=1)		! VAX, where VAXC is default
 #	$ MMS/MACRO=(__GNUC__=1)		! VAX, using GNU C
 #
-#  Other MMS macros intended for use on the MMS' command line are:
+#  Other MMS macros intended for use on the MMS command line are:
 #	__DEBUG__=1				! compile for debugging
 #  For some discussion on the compiler switches used, see documentation
 #  in 00readme.vms.
 #
-.IFDEF __ALPHA__
+
+# Define MMK architecture macros when using MMS.
+
+.IFDEF __MMK__                  # __MMK__
+.ELSE                           # __MMK__
+ALPHA_X_ALPHA = 1
+IA64_X_IA64 = 1
+VAX_X_VAX = 1
+.IFDEF $(MMS$ARCH_NAME)_X_ALPHA     # $(MMS$ARCH_NAME)_X_ALPHA
+__ALPHA__ = 1
+.ENDIF                              # $(MMS$ARCH_NAME)_X_ALPHA
+.IFDEF $(MMS$ARCH_NAME)_X_IA64      # $(MMS$ARCH_NAME)_X_IA64
+__IA64__ = 1
+.ENDIF                              # $(MMS$ARCH_NAME)_X_IA64
+.IFDEF $(MMS$ARCH_NAME)_X_VAX       # $(MMS$ARCH_NAME)_X_VAX
+__VAX__ = 1
+.ENDIF                              # $(MMS$ARCH_NAME)_X_VAX
+.ENDIF                          # __MMK__
+
+.IFDEF __ALPHA__                # __ALPHA__
 E = .AXP_EXE
 O = .AXP_OBJ
 A = .AXP_OLB
-.ELSE
-.IFDEF __DECC__
+.ELSE                           # __ALPHA__
+.IFDEF __IA64__                     # __IA64__
+E = .I64_EXE
+O = .I64_OBJ
+A = .I64_OLB
+.ELSE                               # __IA64__
+.IFDEF __DECC__                         # __DECC__
 E = .VAX_DECC_EXE
 O = .VAX_DECC_OBJ
 A = .VAX_DECC_OLB
-.ENDIF
-.IFDEF __FORCE_VAXC__
+.ENDIF                                  # __DECC__
+.IFDEF __FORCE_VAXC__                   # __FORCE_VAXC__
 __VAXC__ = 1
-.ENDIF
-.IFDEF __VAXC__
+.ENDIF                                  # __FORCE_VAXC__
+.IFDEF __VAXC__                         # __VAXC__
 E = .VAX_VAXC_EXE
 O = .VAX_VAXC_OBJ
 A = .VAX_VAXC_OLB
-.ENDIF
-.IFDEF __GNUC__
+.ENDIF                                  # __VAXC__
+.IFDEF __GNUC__                         # __GNUC__
 E = .VAX_GNUC_EXE
 O = .VAX_GNUC_OBJ
 A = .VAX_GNUC_OLB
-.ENDIF
-.ENDIF
-.IFDEF O
-.ELSE
+.ENDIF                                  # __GNUC__
+.ENDIF                              # __IA64__
+.ENDIF                          # __ALPHA__
+
+.IFDEF O                        # O
+.ELSE                           # O
 !If EXE and OBJ extensions aren't defined, define them
 E = .EXE
 O = .OBJ
 A = .OLB
-.ENDIF
+.ENDIF                          # O
 
 !The following preprocessor macros are set to enable the VMS CLI$ interface:
 CLI_DEFS = VMSCLI,
@@ -82,25 +116,31 @@ CFLAGS = /NOLIST/INCL=(SYS$DISK:[])
 
 OPTFILE = sys$disk:[.vms]vaxcshr.opt
 
-.IFDEF __ALPHA__		!Under OpenVMS AXP, we must use /PREFIX=ALL
+.IFDEF __ALPHA__                # __ALPHA__
 CFLG_ARCH = /STANDARD=RELAX/PREFIX=ALL/ANSI_ALIAS
 OPTFILE_LIST =
 OPTIONS = $(LIBS)
-.ELSE
-.IFDEF __DECC__			!Under DECC VAX, we must use /PREFIX=ALL
-CFLG_ARCH = /DECC/STANDARD=VAXC/PREFIX=ALL
+.ELSE                           # __ALPHA__
+.IFDEF __IA64__                     # __IA64__
+CFLG_ARCH = /STANDARD=RELAX/PREFIX=ALL/ANSI_ALIAS
 OPTFILE_LIST =
 OPTIONS = $(LIBS)
-.ELSE				!VAXC, or GNU C on VAX
-.IFDEF __FORCE_VAXC__		!Select VAXC on systems where DEC C exists
+.ELSE                               # __IA64__
+.IFDEF __DECC__                         # __DECC__
+CFLG_ARCH = /DECC/STANDARD=RELAX/PREFIX=ALL
+OPTFILE_LIST =
+OPTIONS = $(LIBS)
+.ELSE				        # __DECC__
+.IFDEF __FORCE_VAXC__                       # __FORCE_VAXC__
 CFLG_ARCH = /VAXC
-.ELSE				!No flag allowed/needed on a pure VAXC system
+.ELSE                                       # __FORCE_VAXC__
 CFLG_ARCH =
-.ENDIF
+.ENDIF                                      # __FORCE_VAXC__
 OPTFILE_LIST = ,$(OPTFILE)
 OPTIONS = $(LIBS),$(OPTFILE)/OPT
-.ENDIF
-.ENDIF
+.ENDIF                                  # __DECC__
+.ENDIF                              # __IA64__
+.ENDIF                          # __ALPHA__
 
 .IFDEF __DEBUG__
 CDEB = /DEBUG/NOOPTIMIZE
