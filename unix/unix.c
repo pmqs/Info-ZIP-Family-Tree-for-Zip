@@ -1,7 +1,7 @@
 /*
   Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -216,7 +216,7 @@ int *pdosflag;          /* output: force MSDOS file attributes? */
   char *t = NULL;       /* shortened name */
   int dosflag;
 
-  dosflag = dosify;  /* default for non-DOS and non-OS/2 */
+  dosflag = dosify;     /* default for non-DOS and non-OS/2 */
 
   /* Find starting point in name before doing malloc */
   /* Strip "//host/share/" part of a UNC name */
@@ -247,18 +247,18 @@ int *pdosflag;          /* output: force MSDOS file attributes? */
     return NULL;
   strcpy(n, t);
 
-  if (isdir == 42) return n;    /* avoid warning on unused variable */
-
   if (dosify)
     msname(n);
 
 #ifdef EBCDIC
-  strtoasc(n, n);               /* here because msname() needs native coding */
+  strtoasc(n, n);       /* here because msname() needs native coding */
 #endif
 
   /* Returned malloc'ed name */
   if (pdosflag)
     *pdosflag = dosflag;
+
+  if (isdir) return n;  /* avoid warning on unused variable */
   return n;
 }
 
@@ -305,10 +305,10 @@ ulg d;                  /* dos-style time to change it to */
 }
 
 ulg filetime(f, a, n, t)
-  char *f;                /* name of file to get info on */
-  ulg *a;                 /* return value: file attributes */
+  char *f;              /* name of file to get info on */
+  ulg *a;               /* return value: file attributes */
   long *n;              /* return value: file size */
-  iztimes *t;             /* return value: access, modific. and creation times */
+  iztimes *t;           /* return value: access, modific. and creation times */
 /* If file *f does not exist, return 0.  Else, return the file's last
    modified date and time as an MSDOS date and time.  The date and
    time is returned in a long with the date most significant to allow
@@ -548,8 +548,21 @@ void version_local()
     char compiler_name[80];
 #  endif
 #else
-#  if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
+#  if (defined( __SUNPRO_C))
+    char compiler_name[33];
+#  else
+#    if (defined( __HP_cc))
+    char compiler_name[33];
+#    else
+#      if (defined( __DECC_VER))
+    char compiler_name[33];
+    int compiler_typ;
+#      else
+#        if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
     char compiler_name[40];
+#        endif
+#      endif
+#    endif
 #  endif
 #endif
 
@@ -579,15 +592,43 @@ void version_local()
 #    define COMPILER_NAME "gcc " __VERSION__
 #  endif
 #else /* !__GNUC__ */
-#  if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
-    sprintf(compiler_name, "cc version %d", _RELEASE);
+#  if defined(__SUNPRO_C)
+    sprintf( compiler_name, "Sun C version %x", __SUNPRO_C);
 #    define COMPILER_NAME compiler_name
 #  else
-#  ifdef __VERSION__
-#    define COMPILER_NAME "cc " __VERSION__
-#  else
-#    define COMPILER_NAME "cc "
-#  endif
+#    if (defined( __HP_cc))
+    if ((__HP_cc% 100) == 0)
+    {
+      sprintf( compiler_name, "HP C version A.%02d.%02d",
+       (__HP_cc/ 10000), ((__HP_cc% 10000)/ 100));
+    }
+    else
+    {
+      sprintf( compiler_name, "HP C version A.%02d.%02d.%02d",
+       (__HP_cc/ 10000), ((__HP_cc% 10000)/ 100), (__HP_cc% 100));
+    }
+#      define COMPILER_NAME compiler_name
+#    else
+#      if (defined( __DECC_VER))
+    sprintf( compiler_name, "DEC C version %c%d.%d-%03d",
+     ((compiler_typ = (__DECC_VER / 10000) % 10) == 6 ? 'T' :
+     (compiler_typ == 8 ? 'S' : 'V')),
+     __DECC_VER / 10000000,
+     (__DECC_VER % 10000000) / 100000, __DECC_VER % 1000);
+#        define COMPILER_NAME compiler_name
+#      else
+#        if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
+    sprintf(compiler_name, "cc version %d", _RELEASE);
+#          define COMPILER_NAME compiler_name
+#        else
+#          ifdef __VERSION__
+#            define COMPILER_NAME "cc " __VERSION__
+#          else
+#            define COMPILER_NAME "cc "
+#          endif
+#        endif
+#      endif
+#    endif
 #  endif
 #endif /* ?__GNUC__ */
 
@@ -599,9 +640,9 @@ void version_local()
 #ifdef sun
 #  ifdef sparc
 #    ifdef __SVR4
-#      define OS_NAME "Sun Sparc/Solaris"
+#      define OS_NAME "Sun SPARC/Solaris"
 #    else /* may or may not be SunOS */
-#      define OS_NAME "Sun Sparc"
+#      define OS_NAME "Sun SPARC"
 #    endif
 #  else
 #  if defined(sun386) || defined(i386)
@@ -616,7 +657,7 @@ void version_local()
 #  endif
 #else
 #ifdef __hpux
-#  define OS_NAME "HP/UX"
+#  define OS_NAME "HP-UX"
 #else
 #ifdef __osf__
 #  define OS_NAME "DEC OSF/1"
@@ -769,7 +810,7 @@ void version_local()
 #endif /* RT/AIX */
 #endif /* AIX */
 #endif /* OSF/1 */
-#endif /* HP/UX */
+#endif /* HP-UX */
 #endif /* Sun */
 #endif /* SGI */
 

@@ -12,9 +12,42 @@
 trap "rm -f conftest* core a.out; exit 1" 1 2 3 15
 
 CC=${1-cc}
-CFLAGS=${2-"-O2 -I. -DUNIX"}
+CFLAGS=${2-"-I. -DUNIX"}
 LFLAGS1=""
 LN="ln -s"
+echo "Check C compiler type (optimization option)"
+cat > conftest.c << _EOF_
+int main()
+{
+#ifndef __SUNPRO_C
+   bad code
+#endif
+   return 0;
+}
+_EOF_
+$CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
+if test $? -eq 0; then
+  echo '  Sun C (-xO3)'
+  CFLAGS="${CFLAGS} -xO3"
+else
+  cat > conftest.c << _EOF_
+int main()
+{
+#ifndef __DECC
+   bad code
+#endif
+   return 0;
+}
+_EOF_
+  $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
+  if test $? -eq 0; then
+    echo '  DEC C (-O3)'
+    CFLAGS="${CFLAGS} -O3"
+  else
+    echo '  Other (gcc?) (-O2)'
+    CFLAGS="${CFLAGS} -O2"
+  fi
+fi
 
 echo Check for the C preprocessor
 # on SVR4, cc -E does not produce correct assembler files. Need /lib/cpp.
