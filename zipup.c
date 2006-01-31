@@ -1,7 +1,7 @@
 /*
   zipup.c - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -221,8 +221,8 @@ int is_seekable(y)
 
 
 int percent(n, m)
-  uzoff_t n;
-  uzoff_t m;              /* n is the original size, m is the new size */
+  zoff_t n;
+  zoff_t m;             /* n is the original size, m is the new size */
 /* Return the percentage compression from n to m using only integer
    operations */
 {
@@ -253,7 +253,7 @@ int percent(n, m)
 #define PC_MAX_SAFE 0x007fffffUL    /* 9 clear bits at high end. */
 #define PC_MAX_RND  0xffffff00UL    /* 8 clear bits at low end. */
 
-  if (sizeof(uzoff_t) < 8)          /* Don't fiddle with big zoff_t. */
+  if (sizeof(zoff_t) < 8)           /* Don't fiddle with big zoff_t. */
   {
     if ((ulg)n > PC_MAX_SAFE)       /* Reduce large values.  (n > m) */
     {
@@ -417,6 +417,7 @@ struct zlist far *z;    /* zip entry to compress */
     DisplayNumString( mesg, uq );
     fprintf(mesg, ")");
     fflush(mesg);
+    mesg_line_started = 1;
   }
   if (logall && display_usize) {
     fprintf(logfile, " (");
@@ -764,7 +765,7 @@ struct zlist far *z;    /* zip entry to compress */
             /* initial space */
             if (noisy && dot_count == -1) {
   #ifndef WINDLL
-              putc(' ', stderr);
+              putc(' ', mesg);
   #else
               fprintf(stdout,"%c",' ');
   #endif
@@ -775,10 +776,11 @@ struct zlist far *z;    /* zip entry to compress */
           }
           if ((verbose || noisy) && dot_size && !dot_count) {
   #ifndef WINDLL
-            putc('.', stderr);
+            putc('.', mesg);
   #else
             fprintf(stdout,"%c",'.');
   #endif
+            mesg_line_started = 1;
           }
         }
       }
@@ -926,9 +928,6 @@ struct zlist far *z;    /* zip entry to compress */
   /* Display statistics */
   if (noisy)
   {
-    if (adding_msg_pos < 0) {
-      fprintf( mesg, "\n%*s", (-adding_msg_pos), " ");
-    }
     if (verbose) {
       fprintf( mesg, "\t(in=%s) (out=%s)",
                zip_fzofft(isize, NULL, "u"), zip_fzofft(s, NULL, "u"));
@@ -941,15 +940,11 @@ struct zlist far *z;    /* zip entry to compress */
   }
   if (logall)
   {
-    if (adding_msg_pos < 0) {
-      fprintf( logfile, "\n%*s", (-adding_msg_pos), " ");
-    }
     if (m == DEFLATE)
       fprintf(logfile, " (deflated %d%%)\n", percent(isize, s));
     else
       fprintf(logfile, " (stored 0%%)\n");
   }
-  adding_msg_pos = 0;
 
 #ifdef WINDLL
 # ifdef ZIP64_SUPPORT
@@ -1144,7 +1139,7 @@ local int zl_deflate_init(pack_level)
               ZLIB_VERSION, zlib_version);
         zp_err = ZE_LOGIC;
     } else if (strcmp(zlib_version, ZLIB_VERSION) != 0) {
-        fprintf(stderr,
+        fprintf(mesg,
                 "\twarning:  different zlib version (expected %s, using %s)\n",
                 ZLIB_VERSION, zlib_version);
     }
@@ -1343,7 +1338,7 @@ local zoff_t filecompress(z_entry, cmpr_method)
                         /* initial space */
                         if (noisy && dot_count == -1) {
 #ifndef WINDLL
-                          putc(' ', stderr);
+                          putc(' ', mesg);
 #else
                           fprintf(stdout,"%c",' ');
 #endif
@@ -1354,10 +1349,11 @@ local zoff_t filecompress(z_entry, cmpr_method)
                       }
                       if (noisy && dot_size && !dot_count) {
 #ifndef WINDLL
-                        putc('.', stderr);
+                        putc('.', mesg);
 #else
                         fprintf(stdout,"%c",'.');
 #endif
+                        mesg_line_started = 1;
                       }
                     }
                 }

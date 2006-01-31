@@ -539,12 +539,16 @@ void version_local()
 #  if (defined( __SUNPRO_C))
     char compiler_name[33];
 #  else
-#    if (defined( __DECC_VER))
+#    if (defined( __HP_cc))
+    char compiler_name[33];
+#    else
+#      if (defined( __DECC_VER))
     char compiler_name[33];
     int compiler_typ;
-#    else
-#      if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
+#      else
+#        if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
     char compiler_name[40];
+#        endif
 #      endif
 #    endif
 #  endif
@@ -570,32 +574,46 @@ void version_local()
 #ifdef __GNUC__
 #  ifdef NX_CURRENT_COMPILER_RELEASE
     sprintf(compiler_name, "NeXT DevKit %d.%02d (gcc " __VERSION__ ")",
-        NX_CURRENT_COMPILER_RELEASE/100, NX_CURRENT_COMPILER_RELEASE%100);
+     NX_CURRENT_COMPILER_RELEASE/100, NX_CURRENT_COMPILER_RELEASE%100);
 #    define COMPILER_NAME compiler_name
 #  else
 #    define COMPILER_NAME "gcc " __VERSION__
 #  endif
 #else /* !__GNUC__ */
 #  if defined(__SUNPRO_C)
-      sprintf( compiler_name, "Sun C version %x", __SUNPRO_C);
+    sprintf( compiler_name, "Sun C version %x", __SUNPRO_C);
 #    define COMPILER_NAME compiler_name
 #  else
-#    if (defined( __DECC_VER))
-      sprintf( compiler_name, "DEC C version %c%d.%d-%03d",
-               ((compiler_typ = (__DECC_VER / 10000) % 10) == 6 ? 'T' :
-                (compiler_typ == 8 ? 'S' : 'V')),
-               __DECC_VER / 10000000,
-               (__DECC_VER % 10000000) / 100000, __DECC_VER % 1000);
+#    if (defined( __HP_cc))
+    if ((__HP_cc% 100) == 0)
+    {
+      sprintf( compiler_name, "HP C version A.%02d.%02d",
+       (__HP_cc/ 10000), ((__HP_cc% 10000)/ 100));
+    }
+    else
+    {
+      sprintf( compiler_name, "HP C version A.%02d.%02d.%02d",
+       (__HP_cc/ 10000), ((__HP_cc% 10000)/ 100), (__HP_cc% 100));
+    }
 #      define COMPILER_NAME compiler_name
-#    else 
-#      if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
-    sprintf(compiler_name, "cc version %d", _RELEASE);
+#    else
+#      if (defined( __DECC_VER))
+    sprintf( compiler_name, "DEC C version %c%d.%d-%03d",
+     ((compiler_typ = (__DECC_VER / 10000) % 10) == 6 ? 'T' :
+     (compiler_typ == 8 ? 'S' : 'V')),
+     __DECC_VER / 10000000,
+     (__DECC_VER % 10000000) / 100000, __DECC_VER % 1000);
 #        define COMPILER_NAME compiler_name
 #      else
-#        ifdef __VERSION__
-#          define COMPILER_NAME "cc " __VERSION__
+#        if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
+    sprintf(compiler_name, "cc version %d", _RELEASE);
+#          define COMPILER_NAME compiler_name
 #        else
-#          define COMPILER_NAME "cc "
+#          ifdef __VERSION__
+#            define COMPILER_NAME "cc " __VERSION__
+#          else
+#            define COMPILER_NAME "cc "
+#          endif
 #        endif
 #      endif
 #    endif
@@ -627,7 +645,7 @@ void version_local()
 #  endif
 #else
 #ifdef __hpux
-#  define OS_NAME "HP/UX"
+#  define OS_NAME "HP-UX"
 #else
 #ifdef __osf__
 #  define OS_NAME "DEC OSF/1"
@@ -780,7 +798,7 @@ void version_local()
 #endif /* RT/AIX */
 #endif /* AIX */
 #endif /* OSF/1 */
-#endif /* HP/UX */
+#endif /* HP-UX */
 #endif /* Sun */
 #endif /* SGI */
 

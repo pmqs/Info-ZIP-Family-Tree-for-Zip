@@ -10,7 +10,7 @@ The definitive version of this document should be available at
 ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely.
 
 
-Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -387,12 +387,12 @@ extern ulg    current_local_disk; /* disk with current local header */
  extern uzoff_t bytes_this_entry; /* bytes written for this entry across all splits */
  extern int noisy_splits;       /* note when splits are being created */
 #endif
-extern int adding_msg_pos;      /* "adding:" message position/state. */
-
+extern int mesg_line_started;   /* 1=started writing a line to mesg */
 extern char *key;               /* Scramble password or NULL */
 extern char *tempath;           /* Path for temporary files */
 extern FILE *mesg;              /* Where informational output goes */
 extern char *zipfile;           /* New or existing zip archive (zip file) */
+extern char *in_path;           /* Name of input archive, used to track reading splits */
 extern char *out_path;          /* Name of output file, usually same as zipfile */
 extern int zip_attributes;
 
@@ -495,7 +495,7 @@ void ziperr OF((int, ZCONST char *));
         /* in zipup.c */
 #ifndef UTIL
   /* zip64 support 08/31/2003 R.Nausedat */
-   int percent OF((uzoff_t, uzoff_t));
+   int percent OF((zoff_t, zoff_t));
 
    int zipup OF((struct zlist far *));
 #  ifdef USE_ZLIB
@@ -562,7 +562,9 @@ char *tempname OF((char *));
 
 /* for splits */
 int close_split OF((int, FILE *, char *));
-char *get_split_path OF((int));
+int ask_for_split_read_path OF((int));
+int ask_for_split_write_path OF((int));
+char *get_split_path OF((char *, int));
 int rename_split OF((char *, char *));
 int set_filetype OF(());
 
@@ -578,9 +580,9 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
 
         /* in system dependent fileio code (<system>.c) */
 #ifndef UTIL
-#  ifdef PROCNAME
-     int wild OF((char *));
-#  endif
+# ifdef PROCNAME
+   int wild OF((char *));
+# endif
    char *in2ex OF((char *));
    char *ex2in OF((char *, int, int *));
    int procname OF((char *, int));
@@ -588,14 +590,14 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
 
    ulg filetime OF((char *, ulg *, zoff_t *, iztimes *));
 
-#if !(defined(VMS) && defined(VMS_PK_EXTRA))
+# if !(defined(VMS) && defined(VMS_PK_EXTRA))
    int set_extra_field OF((struct zlist far *, iztimes *));
-#endif /* ?(VMS && VMS_PK_EXTRA) */
+# endif /* ?(VMS && VMS_PK_EXTRA) */
    int deletedir OF((char *));
-#ifdef MY_ZCALLOC
+# ifdef MY_ZCALLOC
      zvoid far *zcalloc OF((unsigned int, unsigned int));
      zvoid zcfree       OF((zvoid far *));
-#endif /* MY_ZCALLOC */
+# endif /* MY_ZCALLOC */
 #endif /* !UTIL */
 void version_local OF((void));
 
@@ -604,9 +606,9 @@ void version_local OF((void));
 int   fseekable    OF((FILE *));
 char *isshexp      OF((char *));
 int   shmatch      OF((ZCONST char *, ZCONST char *, int));
-#if defined(DOS) || defined(WIN32)
+# if defined(DOS) || defined(WIN32)
    int dosmatch    OF((ZCONST char *, ZCONST char *, int));
-#endif /* DOS || WIN32 */
+# endif /* DOS || WIN32 */
 #endif /* !UTIL */
 
 /* functions to convert zoff_t to a string */
@@ -622,16 +624,16 @@ void init_upper    OF((void));
 int  namecmp       OF((ZCONST char *string1, ZCONST char *string2));
 
 #ifdef EBCDIC
-char *strtoasc     OF((char *str1, ZCONST char *str2));
-char *strtoebc     OF((char *str1, ZCONST char *str2));
-char *memtoasc     OF((char *mem1, ZCONST char *mem2, unsigned len));
-char *memtoebc     OF((char *mem1, ZCONST char *mem2, unsigned len));
+  char *strtoasc     OF((char *str1, ZCONST char *str2));
+  char *strtoebc     OF((char *str1, ZCONST char *str2));
+  char *memtoasc     OF((char *mem1, ZCONST char *mem2, unsigned len));
+  char *memtoebc     OF((char *mem1, ZCONST char *mem2, unsigned len));
 #endif /* EBCDIC */
 #ifdef IZ_ISO2OEM_ARRAY
-char *str_iso_to_oem    OF((char *dst, ZCONST char *src));
+  char *str_iso_to_oem    OF((char *dst, ZCONST char *src));
 #endif
 #ifdef IZ_OEM2ISO_ARRAY
-char *str_oem_to_iso    OF((char *dst, ZCONST char *src));
+  char *str_oem_to_iso    OF((char *dst, ZCONST char *src));
 #endif
 
 zvoid far **search OF((ZCONST zvoid *, ZCONST zvoid far **, extent,
@@ -647,11 +649,15 @@ int  is_text_buf   OF((ZCONST char *buf_ptr, unsigned buf_size));
 ulg  crc32         OF((ulg, ZCONST uch *, extent));
 #endif /* !UTIL */
 
+/* in fileio.h */
+ush  crc16f        OF((ZCONST uch *, extent));
+ulg  crc32f        OF((ulg, ZCONST uch *, extent));
+
         /* in crctab.c */
 ZCONST ulg near *get_crc_table OF((void));
-#ifdef DYNALLOC_CRCTAB
-void free_crc_table OF((void));
-#endif
+# ifdef DYNALLOC_CRCTAB
+   void free_crc_table OF((void));
+# endif
 #endif /* !USE_ZLIB */
 
 #ifndef UTIL

@@ -1,7 +1,7 @@
 /*
   fileio.c - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -748,9 +748,9 @@ char *d, *s;            /* destination and source file names */
     /* Use zfopen for almost all opens where fopen is used.  For
        most OS that support large files we use the 64-bit file
        environment and zfopen maps to fopen, but this allows
-       tweeking ports that don't do that.  7/24/04 EG */
+       tweeking ports that don't do that.  7/24/04 */
     if ((f = zfopen(s, FOPR)) == NULL) {
-      fprintf(stderr," replace: can't open %s\n", s);
+      fprintf(mesg," replace: can't open %s\n", s);
       return ZE_TEMP;
     }
     if ((g = zfopen(d, FOPW)) == NULL)
@@ -1014,7 +1014,7 @@ int fcopy(f, g, n)
     if (fwrite(b, 1, k, g) != k)
     {
       free((zvoid *)b);
-      fprintf(stderr," fcopy: write error\n");
+      fprintf(mesg," fcopy: write error\n");
       return ZE_TEMP;
     }
     m += k;
@@ -1054,7 +1054,7 @@ int bfcopy(f, n)
     if (bfwrite(b, 1, k, BFWRITE_DATA) != k)
     {
       free((zvoid *)b);
-      fprintf(stderr," fcopy: write error\n");
+      fprintf(mesg," fcopy: write error\n");
       return ZE_TEMP;
     }
     m += k;
@@ -1150,15 +1150,336 @@ register unsigned int len;
  * 10/20/05 EG
  */
 
+
+/* ask_for_split_read_path
+ *
+ * If the next split file is not in the current directory, ask
+ * the user where it is.
+ *
+ * in_path is the base path for reading splits and is usually
+ * the same as zipfile.  The path in in_path must be the archive
+ * file ending in .zip as this is assumed by get_split_path().
+ *
+ * Updates in_path if changed.  Returns 1 if OK or 0 if user cancels
+ * reading archive.
+ */
+
+int ask_for_split_read_path(current_disk)
+  int current_disk;
+{
+  FILE *f;
+  int is_readable = 0;
+  int num = current_disk + 1;
+  int i;
+  char *split_dir = NULL;
+  char *split_name = NULL;
+  char *new_base_path = NULL;
+  char *split_path = NULL;
+  char buf[FNMAX + 40];
+
+  /* get split path */
+  split_path = get_split_path(in_path, current_disk);
+
+  /* get the directory */
+  if ((split_dir = malloc(strlen(in_path) + 40)) == NULL) {
+    ZIPERR(ZE_MEM, "split path");
+  }
+  strcpy(split_dir, in_path);
+
+  /* remove any name at end */
+  for (i = strlen(split_dir); i >= 0; i--) {
+    if (split_dir[i] == '/' || split_dir[i] == '\\'
+          || split_dir[i] == ':') {
+      split_dir[i + 1] = '\0';
+      break;
+    }
+  }
+
+  /* get the name of the split */
+  if ((split_name = malloc(strlen(split_path) + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "split path");
+  }
+  if (strlen(in_path) == strlen(split_dir)) {
+    split_name[0] = '\0';
+  } else {
+    strcpy(split_name, in_path + strlen(split_dir));
+  }
+  if (i < 0) {
+    strcpy(split_dir, "(current directory)");
+  }
+
+  fprintf(mesg, "\n\nCould not find:\n");
+  fprintf(mesg, "  %s\n", split_path);
+  fprintf(mesg, "Please enter the path directory (. for cur dir) where\n");
+  fprintf(mesg, "  %s\n", split_name);
+  fprintf(mesg, "is located\n");
+  for (;;) {
+    if (is_readable)
+      fprintf(mesg, "\nPath (Hit ENTER to continue): ");
+    else
+      fprintf(mesg, "\nPath: ");
+    fflush(mesg);
+    fgets(buf, FNMAX, stdin);
+    is_readable = 0;
+    /* remove any newline */
+    for (i = 0; buf[i]; i++) {
+      if (buf[i] == '\n') {
+        buf[i] = '\0';
+        break;
+      }
+    }
+    if (strlen(buf) > 0) {
+      /* changing path */
+
+      /* check if user wants current directory */
+      if (buf[0] == '.' && buf[1] == '\0') {
+        buf[0] = '\0';
+      }
+      /* remove any name at end */
+      for (i = strlen(buf); i >= 0; i--) {
+        if (buf[i] == '/' || buf[i] == '\\'
+             || buf[i] == ':') {
+          buf[i + 1] = '\0';
+          break;
+        }
+      }
+      /* update base_path to newdir/split_name */
+      free(in_path);
+      if (i < 0) {
+        /* just name so current directory */
+        strcpy(buf, "(current directory)");
+        if (split_name == NULL) {
+          i = 0;
+        } else {
+          i = strlen(split_name);
+        }
+        if ((in_path = malloc(strlen(split_name) + 40)) == NULL) {
+          ZIPERR(ZE_MEM, "split path");
+        }
+        strcpy(in_path, split_name);
+      } else {
+        /* not the current directory */
+        /* remove any name at end */
+        for (i = strlen(buf); i >= 0; i--) {
+          if (buf[i] == '/') {
+            buf[i + 1] = '\0';
+            break;
+          }
+        }
+        if (i < 0) {
+          buf[0] = '\0';
+        }
+        if ((in_path = malloc(strlen(buf) + strlen(split_name) + 40)) == NULL) {
+          ZIPERR(ZE_MEM, "split path");
+        }
+        strcpy(in_path, buf);
+        strcat(in_path, split_name);
+      }
+
+      free(split_path);
+
+      /* get split path */
+      split_path = get_split_path(in_path, current_disk);
+
+      free(split_name);
+      free(split_dir);
+      if ((split_dir = malloc(strlen(in_path) + 40)) == NULL) {
+        ZIPERR(ZE_MEM, "split path");
+      }
+      strcpy(split_dir, in_path);
+      /* remove any name at end */
+      for (i = strlen(split_dir); i >= 0; i--) {
+        if (split_dir[i] == '/') {
+          split_dir[i + 1] = '\0';
+          break;
+        }
+      }
+      if ((split_name = malloc(strlen(in_path) + 1)) == NULL) {
+        ZIPERR(ZE_MEM, "split path");
+      }
+      strcpy(split_name, in_path + strlen(split_dir));
+
+      /* try to open it */
+      if ((f = fopen(split_path, "r")) == NULL) {
+        fprintf(mesg, "\n\nCould not find or open\n");
+        fprintf(mesg, "  %s\n", split_path);
+        fprintf(mesg, "Please enter the path (. for cur dir) where\n");
+        fprintf(mesg, "  %s\n", split_name);
+        fprintf(mesg, "is located\n");
+        continue;
+      }
+      fclose(f);
+      is_readable = 1;
+    } else {
+      if (!is_readable) {
+        fprintf(mesg, "\nQuit? [n/y] ");
+        fflush(mesg);
+        fgets(buf, FNMAX, stdin);
+        if (buf[0] == 'y' || buf[0] == 'Y') {
+          ZIPERR(ZE_ABORT, "split file not found");
+        } else{
+          continue;
+        }
+      }
+      break;
+    }
+  }
+  free(split_dir);
+  free(split_name);
+
+  /* for now there is no way out except Ctrl C */
+  return 1;
+}
+
+
+/* ask_for_split_write_path
+ *
+ * Verify the directory for the next split.  Called
+ * when -sp is used to pause between writing splits.
+ *
+ * Updates out_path and return 1 if OK or 0 if cancel
+ */
+
+int ask_for_split_write_path(current_disk)
+  int current_disk;
+{
+  int num = current_disk + 1;
+  int i;
+  char *split_dir = NULL;
+  char *split_name = NULL;
+  char buf[FNMAX + 40];
+
+  /* get the directory */
+  if ((split_dir = malloc(strlen(out_path) + 40)) == NULL) {
+    ZIPERR(ZE_MEM, "split path");
+  }
+  strcpy(split_dir, out_path);
+
+  /* remove any name at end */
+  for (i = strlen(split_dir); i >= 0; i--) {
+    if (split_dir[i] == '/' || split_dir[i] == '\\'
+          || split_dir[i] == ':') {
+      split_dir[i + 1] = '\0';
+      break;
+    }
+  }
+
+  /* get the name of the split */
+  if ((split_name = malloc(strlen(out_path) + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "split path");
+  }
+  if (strlen(out_path) == strlen(split_dir)) {
+    split_name[0] = '\0';
+  } else {
+    strcpy(split_name, out_path + strlen(split_dir));
+  }
+  if (i < 0) {
+    strcpy(split_dir, "(current directory)");
+  }
+  if (mesg_line_started)
+    fprintf(mesg, "\n");
+  fprintf(mesg, "\nOpening disk %d\n", num);
+  fprintf(mesg, "Hit ENTER to write to default path of\n");
+  fprintf(mesg, "  %s\n", split_dir);
+  fprintf(mesg, "or enter a new directory path (. for cur dir) and hit ENTER\n");
+  for (;;) {
+    fprintf(mesg, "\nPath (Hit ENTER to continue): ");
+    fflush(mesg);
+    fgets(buf, FNMAX, stdin);
+    /* remove any newline */
+    for (i = 0; buf[i]; i++) {
+      if (buf[i] == '\n') {
+        buf[i] = '\0';
+        break;
+      }
+    }
+    if (strlen(buf) > 0) {
+      /* changing path */
+
+      /* current directory */
+      if (buf[0] == '.' && buf[1] == '\0') {
+        buf[0] = '\0';
+      }
+      /* remove any name at end */
+      for (i = strlen(buf); i >= 0; i--) {
+        if (buf[i] == '/' || buf[i] == '\\'
+             || buf[i] == ':') {
+          buf[i + 1] = '\0';
+          break;
+        }
+      }
+      /* update out_path to newdir/split_name */
+      free(out_path);
+      if (i < 0) {
+        /* just name so current directory */
+        strcpy(buf, "(current directory)");
+        if (split_name == NULL) {
+          i = 0;
+        } else {
+          i = strlen(split_name);
+        }
+        if ((out_path = malloc(strlen(split_name) + 40)) == NULL) {
+          ZIPERR(ZE_MEM, "split path");
+        }
+        strcpy(out_path, split_name);
+      } else {
+        /* not the current directory */
+        /* remove any name at end */
+        for (i = strlen(buf); i >= 0; i--) {
+          if (buf[i] == '/') {
+            buf[i + 1] = '\0';
+            break;
+          }
+        }
+        if (i < 0) {
+          buf[0] = '\0';
+        }
+        if ((out_path = malloc(strlen(buf) + strlen(split_name) + 40)) == NULL) {
+          ZIPERR(ZE_MEM, "split path");
+        }
+        strcpy(out_path, buf);
+        strcat(out_path, split_name);
+      }
+      fprintf(mesg, "Writing to:\n  %s\n", buf);
+      free(split_name);
+      free(split_dir);
+      if ((split_dir = malloc(strlen(out_path) + 40)) == NULL) {
+        ZIPERR(ZE_MEM, "split path");
+      }
+      strcpy(split_dir, out_path);
+      /* remove any name at end */
+      for (i = strlen(split_dir); i >= 0; i--) {
+        if (split_dir[i] == '/') {
+          split_dir[i + 1] = '\0';
+          break;
+        }
+      }
+      if ((split_name = malloc(strlen(out_path) + 1)) == NULL) {
+        ZIPERR(ZE_MEM, "split path");
+      }
+      strcpy(split_name, out_path + strlen(split_dir));
+   } else {
+      break;
+    }
+  }
+  free(split_dir);
+  free(split_name);
+
+  /* for now no way out except Ctrl C */
+  return 1;
+}
+
+
 /* split_name
  *
  * get name of split
  */
-char *get_split_path(disk_number)
+char *get_split_path(base_path, disk_number)
+  char *base_path;
   int disk_number;
 {
   char *split_path = NULL;
-  int out_len = 0;
+  int base_len = 0;
   int path_len = 0;
   int num = disk_number + 1;
   char ext[6];
@@ -1177,24 +1498,24 @@ char *get_split_path(disk_number)
     ext[0] = 'z';
 
   /* create path for this split - zip.c checked for .zip extension */
-  out_len = strlen(out_path) - 3;
-  path_len = out_len + strlen(ext);
+  base_len = strlen(base_path) - 3;
+  path_len = base_len + strlen(ext);
 
 #ifdef VMS
-  /* On VMS, locate the file version, and adjust out_len accordingly.
+  /* On VMS, locate the file version, and adjust base_len accordingly.
      Note that path_len is correct, as-is.
   */
   vers_ptr = vms_file_version( out_path);
   vers_len = strlen( vers_ptr);
-  out_len -= vers_len;
+  base_len -= vers_len;
 #endif /* def VMS */
 
   if ((split_path = malloc(path_len + 1)) == NULL) {
-    ZIPERR(ZE_MEM, "Creating split");
+    ZIPERR(ZE_MEM, "split path");
   }
   /* copy out_path except for end zip */
-  strcpy(split_path, out_path);
-  split_path[out_len] = '\0';
+  strcpy(split_path, base_path);
+  split_path[base_len] = '\0';
   /* add extension */
   strcat(split_path, ext);
 
@@ -1218,11 +1539,10 @@ int close_split(disk_number, tempfile, tempname)
 {
   char *split_path = NULL;
 
-  split_path = get_split_path(disk_number);
+  split_path = get_split_path(out_path, disk_number);
 
   if (noisy_splits) {
-    fprintf( mesg, "\n\tClosing split %s", split_path);
-    adding_msg_pos = -(abs( adding_msg_pos));
+    zipmessage("\tClosing split ", split_path);
   }
 
   fclose(tempfile);
@@ -1326,132 +1646,12 @@ size_t bfwrite(buffer, size, count, mode)
     current_disk++;
 
     for (;;) {
-      /* ----------------------------------------------------- */
       /* if method 2 pause and allow changing path */
       if (split_method == 2) {
-        int num = current_disk + 1;
-        int i;
-        char *split_dir = NULL;
-        char *split_name = NULL;
-        char *new_path = NULL;
-        char buf[FNMAX + 40];
-
-        if ((split_dir = malloc(strlen(out_path) + 40)) == NULL) {
-          ZIPERR(ZE_MEM, "split path");
+        if (ask_for_split_write_path(current_disk) == 0) {
+          ZIPERR(ZE_ABORT, "could not write split");
         }
-        strcpy(split_dir, out_path);
-        /* remove any name at end */
-        for (i = strlen(split_dir); i >= 0; i--) {
-          if (split_dir[i] == '/' || split_dir[i] == '\\'
-                || split_dir[i] == ':') {
-            split_dir[i + 1] = '\0';
-            break;
-          }
-        }
-        if ((split_name = malloc(strlen(out_path) + 1)) == NULL) {
-          ZIPERR(ZE_MEM, "split path");
-        }
-        if (strlen(out_path) == strlen(split_dir)) {
-          split_name[0] = '\0';
-        } else {
-          strcpy(split_name, out_path + strlen(split_dir));
-        }
-        fprintf(mesg, "split_name '%s'\n", split_name);
-        if (i < 0) {
-          strcpy(split_dir, "(current directory)");
-        }
-        fprintf(mesg, "\n\nOpening disk %d\n", num);
-        fprintf(mesg, "Hit ENTER to write to default path of\n");
-        fprintf(mesg, "  %s\n", split_dir);
-        fprintf(mesg, "or enter a new directory path (. for cur dir) and hit ENTER\n");
-        for (;;) {
-          fprintf(mesg, "\nHit ENTER to continue: ");
-          fflush(mesg);
-          fgets(buf, FNMAX, stdin);
-          /* remove any newline */
-          for (i = 0; buf[i]; i++) {
-            if (buf[i] == '\n') {
-              buf[i] = '\0';
-              break;
-            }
-          }
-          if (strlen(buf) > 0) {
-            /* current directory */
-            if (buf[0] == '.' && buf[1] == '\0') {
-              buf[0] = '\0';
-            }
-            /* remove any name at end */
-            for (i = strlen(buf); i >= 0; i--) {
-              if (buf[i] == '/' || buf[i] == '\\'
-                   || buf[i] == ':') {
-                buf[i + 1] = '\0';
-                break;
-              }
-            }
-            /* update out_path to newdir/split_name */
-            if (i < 0) {
-              /* just name so current directory */
-              strcpy(buf, "(current directory)");
-              if (split_name == NULL) {
-                i = 0;
-              } else {
-                i = strlen(split_name);
-              }
-              if ((new_path = malloc(strlen(split_name) + 40)) == NULL) {
-                ZIPERR(ZE_MEM, "split path");
-              }
-              strcpy(new_path, split_name);
-            } else {
-              /* not the current directory */
-              /* remove any name at end */
-              for (i = strlen(buf); i >= 0; i--) {
-                if (buf[i] == '/') {
-                  buf[i + 1] = '\0';
-                  break;
-                }
-              }
-              if (i < 0) {
-                buf[0] = '\0';
-              }
-              if ((new_path = malloc(strlen(buf) + strlen(split_name) + 40)) == NULL) {
-                ZIPERR(ZE_MEM, "split path");
-              }
-              strcpy(new_path, buf);
-              strcat(new_path, split_name);
-            }
-            free(out_path);
-            if ((out_path = malloc(strlen(new_path) + 40)) == NULL) {
-              ZIPERR(ZE_MEM, "split path");
-            }
-            strcpy(out_path, new_path);
-            fprintf(mesg, "Writing to:\n  %s\n", buf);
-            free(new_path);
-            free(split_name);
-            free(split_dir);
-            if ((split_dir = malloc(strlen(out_path) + 40)) == NULL) {
-              ZIPERR(ZE_MEM, "split path");
-            }
-            strcpy(split_dir, out_path);
-            /* remove any name at end */
-            for (i = strlen(split_dir); i >= 0; i--) {
-              if (split_dir[i] == '/') {
-                split_dir[i + 1] = '\0';
-                break;
-              }
-            }
-            if ((split_name = malloc(strlen(out_path) + 1)) == NULL) {
-              ZIPERR(ZE_MEM, "split path");
-            }
-            strcpy(split_name, out_path + strlen(split_dir));
-        fprintf(mesg, "split_name '%s'\n", split_name);
-         } else {
-            break;
-          }
-        }
-        free(split_dir);
-        free(split_name);
       }
-      /* ----------------------------------------------------- */
 
       /* open next split */
       if ((tempzip = tempname(zipfile)) == NULL) {
@@ -1494,7 +1694,7 @@ size_t bfwrite(buffer, size, count, mode)
       /* initial space */
       if (dot_count == -1) {
 #ifndef WINDLL
-        putc(' ', stderr);
+        putc(' ', mesg);
 #else
         fprintf(stdout,"%c",' ');
 #endif
@@ -1505,15 +1705,72 @@ size_t bfwrite(buffer, size, count, mode)
     }
     if (dot_size && !dot_count) {
 #ifndef WINDLL
-      putc('.', stderr);
+      putc('.', mesg);
 #else
       fprintf(stdout,"%c",'.');
 #endif
+      mesg_line_started = 1;
     }
   }
 
 
   return bytes_written;
+}
+
+
+/* crc16f -- compute the CRC-32 of a data stream and fold into 16-bit short
+ *
+ * Stolen from crc32() but this version is for Unicode and used also
+ * by the utilities.
+ *
+ * 1/1/06
+*/
+
+#  define CRC32f(c, b) (crc_table[((int)(c) ^ (b)) & 0xff] ^ ((c) >> 8))
+#  define DO1f(buf)  crc = CRC32f(crc, *buf++)
+#  define DO2f(buf)  DO1f(buf); DO1f(buf)
+#  define DO4f(buf)  DO2f(buf); DO2f(buf)
+#  define DO8f(buf)  DO4f(buf); DO4f(buf)
+
+/* ========================================================================= */
+
+ush crc16f(buf, len)
+    ZCONST uch *buf;   /* pointer to bytes to pump through */
+    extent len;                 /* number of bytes in buf[] */
+{
+  ulg crc = CRCVAL_INITIAL;
+    
+  crc = crc32f(crc, (uch *)(buf), len);
+
+  return (ush) ((crc & 0xFFFF) & (crc >> 16));
+}
+
+
+ulg crc32f(crc, buf, len)
+    register ulg crc;           /* crc shift register */
+    register ZCONST uch *buf;   /* pointer to bytes to pump through */
+    extent len;                 /* number of bytes in buf[] */
+/* Run a set of bytes through the crc shift register.  If buf is a NULL
+   pointer, then initialize the crc shift register contents instead.
+   Return the current crc in either case. */
+{
+  register ZCONST ulg near *crc_table;
+
+  if (buf == NULL) return 0L;
+
+  crc_table = get_crc_table();
+
+  crc = crc ^ 0xffffffffL;
+#  ifndef NO_UNROLLED_LOOPS
+  while (len >= 8) {
+    DO8f(buf);
+    len -= 8;
+  }
+#  endif
+  if (len) do {
+    DO1f(buf);
+  } while (--len);
+  return crc ^ 0xffffffffL;     /* (instead of ~c for 64-bit machines) */
 }
 
 
