@@ -256,7 +256,7 @@ local void eat_carets( char *str)
           /* Hex digit.  Get char code from this and next hex digit. */
           if (uchr <= '9')
           {
-            hdgt = uchr- '0';           /* '0' - '9' -> 0 - 9.
+            hdgt = uchr- '0';           /* '0' - '9' -> 0 - 9. */
           }
           else
           {

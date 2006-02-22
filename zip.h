@@ -254,8 +254,10 @@ struct plist {
 
 #if 0            /* Optimization: use the (const) result of crc32(0L,NULL,0) */
 #  define CRCVAL_INITIAL  crc32(0L, (uch *)NULL, 0)
+#  define ADLERVAL_INITIAL adler16(0U, (uch *)NULL, 0)
 #else
 #  define CRCVAL_INITIAL  0L
+#  define ADLERVAL_INITIAL 1U
 #endif
 
 #define DOSTIME_MINIMUM         ((ulg)0x00210000L)
@@ -301,9 +303,12 @@ extern int level;               /* Compression level */
 extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
 #ifdef VMS
    extern int vmsver;           /* Append VMS version number to file names */
-   extern int vms_native;       /* Store in VMS format */
    extern int vms_case_2;       /* ODS2 file name case in VMS. -1: down. */
    extern int vms_case_5;       /* ODS5 file name case in VMS. +1: preserve. */
+# ifdef VMS_PK_EXTRA
+   extern int vms_ign_int;      /* Ignore interlock. */
+# endif /* def VMS_PK_EXTRA */
+   extern int vms_native;       /* Store in VMS format */
 #endif /* VMS */
 #if defined(OS2) || defined(WIN32)
    extern int use_longname_ea;   /* use the .LONGNAME EA as the file's name */
@@ -350,6 +355,7 @@ extern int extra_fields;        /* do not create extra fields */
 #endif
 extern int use_descriptors;     /* use data descriptors (extended headings) */
 extern int allow_empty_archive; /* if no files, create empty archive anyway */
+extern int copy_only;           /* 1 = copy archive with no changes */
 extern int zip_to_stdout;       /* output to stdout */
 extern int output_seekable;     /* 1 = output seekable 3/13/05 EG */
 #ifdef ZIP64_SUPPORT            /* zip64 globals 10/4/03 E. Gordon */
@@ -363,6 +369,16 @@ extern FILE *y;                 /* output file now global for splits */
 
 extern ulg before;              /* 0=ignore, else exclude files before this time */
 extern ulg after;               /* 0=ignore, else exclude files newer than this time */
+
+/* in split globals */
+
+extern ulg total_disks;
+
+extern ulg current_in_disk;
+extern uzoff_t current_in_offset;
+
+
+/* out split globals */
 
 extern ulg    current_local_disk; /* disk with current local header */
 
@@ -392,7 +408,9 @@ extern char *key;               /* Scramble password or NULL */
 extern char *tempath;           /* Path for temporary files */
 extern FILE *mesg;              /* Where informational output goes */
 extern char *zipfile;           /* New or existing zip archive (zip file) */
+extern FILE *in_file;           /* Current input file for spits */
 extern char *in_path;           /* Name of input archive, used to track reading splits */
+extern char *in_split_path;     /* in split path */
 extern char *out_path;          /* Name of output file, usually same as zipfile */
 extern int zip_attributes;
 
@@ -411,6 +429,7 @@ extern struct zlist far *zfiles;/* Pointer to list of files in zip file */
 extern extent zcount;           /* Number of files in zip file */
 extern ush zcomlen;             /* Length of zip file comment */
 extern char *zcomment;          /* Zip file comment (not zero-terminated) */
+extern struct flist far **fsort;/* List of files sorted by name */
 extern struct zlist far **zsort;/* List of files sorted by name */
 extern struct flist far *found; /* List of names found */
 extern struct flist far *far *fnxt;     /* Where to put next in found list */
@@ -495,7 +514,7 @@ void ziperr OF((int, ZCONST char *));
         /* in zipup.c */
 #ifndef UTIL
   /* zip64 support 08/31/2003 R.Nausedat */
-   int percent OF((zoff_t, zoff_t));
+   int percent OF((uzoff_t, uzoff_t));
 
    int zipup OF((struct zlist far *));
 #  ifdef USE_ZLIB
@@ -527,7 +546,11 @@ int putcentral OF((struct zlist far *));
 int putend OF((uzoff_t, uzoff_t, uzoff_t, ush, char *));
 /* moved seekable to separate function 3/14/05 EG */
 int is_seekable OF((FILE *));
+#ifdef SPLIT_SUPPORT /* USE_NEW_READ */
+int zipcopy OF((struct zlist far *));
+#else
 int zipcopy OF((struct zlist far *, FILE *));
+#endif
 
         /* in fileio.c */
 #ifndef UTIL
@@ -568,7 +591,11 @@ char *get_split_path OF((char *, int));
 int rename_split OF((char *, char *));
 int set_filetype OF(());
 
+#ifdef SPLIT_SUPPORT /* USE_NEW_READ */
+int bfcopy OF((uzoff_t));
+#else
 int bfcopy OF((FILE *, uzoff_t));
+#endif
 
 int fcopy OF((FILE *, FILE *, uzoff_t));
 
@@ -642,6 +669,7 @@ void envargs       OF((int *, char ***, char *, char *));
 void expand_args   OF((int *, char ***));
 
 int  is_text_buf   OF((ZCONST char *buf_ptr, unsigned buf_size));
+unsigned int adler16 OF((unsigned int, ZCONST uch *, extent));
 
 #ifndef USE_ZLIB
 #ifndef UTIL

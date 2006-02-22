@@ -1,7 +1,7 @@
 /*
   globals.c - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -40,9 +40,12 @@ int level = 6;          /* 0=fastest compression, 9=best compression */
 int translate_eol = 0;  /* Translate end-of-line LF -> CR LF */
 #ifdef VMS
    int vmsver = 0;      /* 1=append VMS version number to file names */
-   int vms_native = 0;  /* 1=store in VMS format */
    int vms_case_2 = 0;  /* ODS2 file name case in VMS.  -1: down. */
    int vms_case_5 = 0;  /* ODS5 file name case in VMS.  +1: preserve. */
+# ifdef VMS_PK_EXTRA
+   int vms_ign_int = 0; /* 1=ignore interlock. */
+# endif /* def VMS_PK_EXTRA */
+   int vms_native = 0;  /* 1=store in VMS format */
 #endif /* VMS */
 #if defined(OS2) || defined(WIN32)
    int use_longname_ea = 0;   /* 1=use the .LONGNAME EA as the file's name */
@@ -86,13 +89,13 @@ int extra_fields = 1;         /* 0=do not create extra fields */
 int use_descriptors = 0;      /* 1=use data descriptors 12/29/04 */
 int zip_to_stdout = 0;        /* output zipfile to stdout 12/30/04 */
 int allow_empty_archive = 0;  /* if no files, create empty archive anyway 12/28/05 */
+int copy_only = 0;            /* 1=copying archive with no changes */
 
 int output_seekable = 1;      /* 1 = output seekable 3/13/05 EG */
 
 #ifdef ZIP64_SUPPORT          /* zip64 support 10/4/03 */
   int force_zip64 = 0;        /* if 1 force entries to be zip64 */
                               /* mainly for streaming from stdin */
-  zoff_t Z64_EFPos = 0;       /* file position of Zip64 Extra Field */
   int zip64_entry = 0;        /* current entry needs Zip64 */
   int zip64_archive = 0;      /* if 1 then at least 1 entry needs zip64 */
 #endif
@@ -132,8 +135,20 @@ uzoff_t tempzn;               /* Count of bytes written to output zip files */
 /* 10/28/05 */
 char *tempzip = NULL;         /* name of temp file */
 FILE *y = NULL;               /* output file now global so can change in splits */
-char *out_path = NULL;        /* name of output file, usually same as zipfile */
+FILE *in_file = NULL;         /* current input file for splits */
+char *in_path = NULL;         /* base name of input archive file */
+char *in_split_path = NULL;   /* in split path */
+char *out_path = NULL;        /* base name of output file, usually same as zipfile */
 int zip_attributes = 0;
+
+/* in split globals */
+
+ulg     total_disks = 0;        /* total disks in archive */
+ulg     current_in_disk = 0;    /* current read split disk */
+uzoff_t current_in_offset = 0;  /* current offset in current read disk */
+
+
+/* out split globals */
 
 ulg    current_local_disk = 0;    /* disk with current local header */
 
@@ -160,7 +175,7 @@ ulg    current_local_disk = 0;    /* disk with current local header */
   uzoff_t bytes_this_entry = 0;     /* bytes written for this entry across all splits */
   int noisy_splits = 0;             /* note when splits are being created */
 #endif
-  int adding_msg_pos = 0;           /* "adding:" message position/state. */
+int mesg_line_started = 0;          /* 1=started writing a line to mesg */
 
 #ifdef UNICODE_SUPPORT
   int use_wide_to_mb_default = 0;

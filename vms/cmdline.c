@@ -50,6 +50,8 @@
 **
 **  Modified by:
 **
+**      02-007          Steven Schweda          15-FEB-2006
+**              Added /IGNORE.
 **      02-007          Steven Schweda          09-FEB-2005
 **              Added /PRESERVE_CASE.
 **      02-006          Onno van der Linden,
@@ -174,6 +176,7 @@ $DESCRIPTOR(cli_grow,           "GROW");                /* -g */
 $DESCRIPTOR(cli_help,           "HELP");                /* -h */
 $DESCRIPTOR(cli_help_normal,    "HELP.NORMAL");         /* -h */
 $DESCRIPTOR(cli_help_extended,  "HELP.EXTENDED");       /* -h2 */
+$DESCRIPTOR(cli_ign_inter,      "IGNORE.INTERLOCK");    /* -Vi */
 $DESCRIPTOR(cli_junk,           "JUNK");                /* -j */
 $DESCRIPTOR(cli_keep_version,   "KEEP_VERSION");        /* -w */
 $DESCRIPTOR(cli_latest,         "LATEST");              /* -o */
@@ -438,12 +441,14 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     */
     status = cli$present(&cli_comments);
     if (status & 1) {
-/*        while ((status = cli$get_value(&cli_comments, &work_str)) & 1) {
+#if 0
+        while ((status = cli$get_value(&cli_comments, &work_str)) & 1) {
             if (strncmp(work_str.dsc$a_pointer,"ZIP",3) == 0)
                 *ptr++ = 'z';
             if (strncmp(work_str.dsc$a_pointer,"FIL",3) == 0)
                 *ptr++ = 'c';
-        } */
+        }
+#endif /* 0 */
         if ((status = cli$present(&cli_comment_zipfile)) & 1)
             /* /COMMENTS = ZIP_FILE */
             *ptr++ = 'z';
@@ -886,7 +891,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
-    **  Handle "-sp".
+    **  Handle "-sv".
     */
 #define OPT_SV "-sv"
 
@@ -959,6 +964,27 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_SO);
         }
+    }
+
+    /*
+    **  Handle "-Vi".
+    */
+#define OPT_VI "-Vi"
+
+    status = cli$present( &cli_ign_inter);
+    if (status & 1)
+    {
+        /* /IGNORE = INTERLOCK */
+#ifdef VMS_PK_EXTRA
+        x = cmdl_len;
+        cmdl_len += strlen( OPT_VI)+ 1;
+        CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+        strcpy( &the_cmd_line[ x], OPT_VI);
+#else /* def VMS_PK_EXTRA */
+        sprintf( errbuf,
+ "/IGNORE=INTERLOCK is invalid with \"IM\" attribute storage scheme.");
+        ziperr( ZE_PARMS, errbuf);
+# endif /* def VMS_PK_EXTRA [else] */
     }
 
     /*
@@ -1413,9 +1439,9 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /QUIET, /VERBOSE[={MORE|DEBUG}], /[NO]DIRNAMES, /JUNK,",
 #endif /* ?CRYPT */
 "    /LEVEL=[0-9], /ZIP64, /[NO]EXTRA_FIELDS, /[NO]KEEP_VERSION, /DOT_VERSION,",
-"    /NOVMS|/VMS[=ALL], /TEMP_PATH=directory, /TRANSLATE_EOL[={LF|CRLF}],",
+"    /NOVMS|/VMS[=ALL] [/IGNORE=INTERLOCK], /TRANSLATE_EOL[={LF|CRLF}],",
 "    /[NO]PRESERVE_CASE[=([NO]ODS{2|5}[,...])], /[NO]PKZIP,",
-"    /DISPLAY={BYTES|COUNTS|DOTS=mb_per_dot},",
+"    /DISPLAY={BYTES|COUNTS|DOTS=mb_per_dot}, /TEMP_PATH=directory,",
 "    /SPLIT_SIZE=ssize, /SVERBOSE /PAUSE,"
   };
 

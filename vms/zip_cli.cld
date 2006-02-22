@@ -28,6 +28,7 @@ Define	Verb		ZIP
 	Qualifier	FULL_PATH, Negatable, Default
 	Qualifier	GROW, NonNegatable
 	Qualifier	HELP, NonNegatable, VALUE(type=HELP_OPTS)
+	Qualifier	IGNORE, NonNegatable, VALUE(type=IGNORE_OPTS, required)
 	Qualifier	JUNK, NonNegatable
 	Qualifier	KEEP_VERSION, Negatable
 	Qualifier	LATEST, NonNegatable
@@ -61,6 +62,7 @@ Define	Verb		ZIP
 	Disallow	TRANSLATE_EOL.LF and TRANSLATE_EOL.CRLF
 	Disallow	FULL_PATH and JUNK
 	Disallow	RECURSE.PATH and RECURSE.FILENAMES
+	Disallow	IGNORE.INTERLOCK and not (VMS or VMS.ALL)
 
 Define	Type		COMMENTS_KEYWORDS
 	Keyword		ZIP_FILE, DEFAULT
@@ -82,6 +84,9 @@ Define	Type		FIX_OPTS
 Define	Type		HELP_OPTS
 	Keyword		NORMAL, DEFAULT
 	Keyword		EXTENDED
+
+Define	Type		IGNORE_OPTS
+	Keyword		INTERLOCK
 
 Define	Type		PRES_CASE_OPTS
 	Keyword		NOODS2
