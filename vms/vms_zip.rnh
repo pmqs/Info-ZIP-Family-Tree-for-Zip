@@ -107,13 +107,14 @@ without any command-line parameters:
   -i   include only names matching the following patterns
   -i@  include only names matching the patterns in "file"
   -j   junk (don't record) directory names
-  -J   junk (remove) prepended (SFX) stub
+  -J   junk (remove) zipfile preamble (unzipsfx)
   -k   simulate PKZIP made zipfile
   -l   translate end-of-lines (LF -> CRLF)
   -ll  translate end-of-lines (CRLF -> LF)
   -L   show software license
   -m   move into zipfile (delete files)
   -n   don't compress theses suffixes
+  -MM  input file spec must exist (wildcards must match existing files)
   -o   make zipfile as old as latest entry
   -P   encrypt with supplied "password" string
   -q   quiet operation
@@ -124,7 +125,7 @@ without any command-line parameters:
   -T   test zip file integrity (calls unzip)
   -u   update: only changed or new files
   -v   verbose messages/print version info
-  -V   save VMS file attributes
+  -V   save VMS file attributes (-VV also save allocated blocks past EOF)
   -w   append the VMS version number to name stored in zip file
   -x   exclude all names matching the following patterns
   -x@  exclude all names matching the patterns in "file"
@@ -133,7 +134,7 @@ without any command-line parameters:
   -0   store only
   -1   compress faster
   -9   compress better
-  -@   read list of input files from SYS$INPUT
+  -@   read list of input files from stdin (SYS$INPUT)
 .end literal
 .!------------------------------------------------------------------------------
 .indent -4

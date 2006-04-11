@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -371,7 +371,7 @@ local void help()
   /* help array */
   static ZCONST char *text[] = {
 #ifdef VMS
-"Zip %s (%s). Usage: zip==\"$disk:[dir]zip.exe\"",
+"Zip %s (%s). Usage: zip == \"$ disk:[dir]zip.exe\"",
 #else
 "Zip %s (%s). Usage:",
 #endif
@@ -450,7 +450,7 @@ local void help()
 "  -y   store symbolic links as the link instead of the referenced file",
 #endif /* !S_IFLNK */
 #ifdef VMS
-"  -R   PKZIP recursion (see manual) -w   append version number to stored name",
+" \"-R\"  PKZIP recursion (see manual) -w   append version number to stored name",
 #else /* !VMS */
 "  -R   PKZIP recursion (see manual)",
 #endif /* ?VMS */
@@ -911,6 +911,7 @@ char **argv;            /* command line tokens */
   struct zlist far * far *w;    /* pointer to last link in zfiles list */
   FILE *x, *y;          /* input and output zip files */
   struct zlist far *z;  /* steps through zfiles linked list */
+  int bad_open_is_error = 0; /* if open read fails, 0=warning, 1=error */
 #ifdef WINDLL
   int retcode;          /* return code for dll */
 #endif
@@ -1002,6 +1003,7 @@ char **argv;            /* command line tokens */
   pcount = 0;          /* number of patterns */
   icount = 0;          /* number of include only patterns */
   Rcount = 0;          /* number of -R include patterns */
+  bad_open_is_error = 0; /* if read fails, 0=warning, 1=error */
 
 #ifndef MACOS
   retcode = setjmp(zipdll_error_return);
@@ -1267,6 +1269,8 @@ char **argv;            /* command line tokens */
 #endif
             case 'm':   /* Delete files added or updated in zip file */
               dispose = 1;  break;
+            case 'M':   /* Read failures (misses) are errors instead of warnings */
+              bad_open_is_error = 1; break;
             case 'n':   /* Don't compress files with a special suffix */
               special = NULL; /* will be set at next argument */
               break;
@@ -1385,7 +1389,12 @@ char **argv;            /* command line tokens */
                   if ((r = PROCNAME(pp)) != ZE_OK)
                   {
                     if (r == ZE_MISS)
-                      zipwarn("name not matched: ", pp);
+                      if (bad_open_is_error) {
+                        zipwarn("name not matched: ", pp);
+                        ZIPERR(ZE_OPEN, pp);
+                      } else {
+                        zipwarn("name not matched: ", pp);
+                      }
                     else {
                       ZIPERR(r, pp);
                     }
@@ -1433,7 +1442,12 @@ char **argv;            /* command line tokens */
           comment_stream = NULL;
           if ((r = PROCNAME(argv[i])) != ZE_OK) {
             if (r == ZE_MISS)
-              zipwarn("name not matched: ", argv[i]);
+              if (bad_open_is_error) {
+                zipwarn("name not matched: ", argv[i]);
+                ZIPERR(ZE_OPEN, argv[i]);
+              } else {
+                zipwarn("name not matched: ", argv[i]);
+              }
             else {
               ZIPERR(r, argv[i]);
             }
@@ -1457,7 +1471,12 @@ char **argv;            /* command line tokens */
         if ((r = PROCNAME(".")) != ZE_OK) {
 #endif
           if (r == ZE_MISS)
-            zipwarn("name not matched: ", argv[i]);
+            if (bad_open_is_error) {
+              zipwarn("name not matched: ", argv[i]);
+              ZIPERR(ZE_OPEN, argv[i]);
+            } else {
+              zipwarn("name not matched: ", argv[i]);
+            }
           else {
             ZIPERR(r, argv[i]);
           }
@@ -1503,7 +1522,12 @@ char **argv;            /* command line tokens */
         case 3:  case 4:
           if ((r = PROCNAME(argv[i])) != ZE_OK) {
             if (r == ZE_MISS)
-              zipwarn("name not matched: ", argv[i]);
+              if (bad_open_is_error) {
+                zipwarn("name not matched: ", argv[i]);
+                ZIPERR(ZE_OPEN, argv[i]);
+              } else {
+                zipwarn("name not matched: ", argv[i]);
+              }
             else {
               ZIPERR(r, argv[i]);
             }
@@ -1529,7 +1553,12 @@ char **argv;            /* command line tokens */
         k = 4;
         if ((r = PROCNAME(pp)) != ZE_OK) {
           if (r == ZE_MISS)
-            zipwarn("name not matched: ", pp);
+            if (bad_open_is_error) {
+              zipwarn("name not matched: ", pp);
+              ZIPERR(ZE_OPEN, pp);
+            } else {
+              zipwarn("name not matched: ", pp);
+            }
           else {
             ZIPERR(r, pp);
           }
@@ -1562,7 +1591,12 @@ nextarg: ;
     comment_stream = NULL;
     if ((r = procname("-", 0)) != ZE_OK) {
       if (r == ZE_MISS)
-        zipwarn("name not matched: ", "-");
+        if (bad_open_is_error) {
+          zipwarn("name not matched: ", "-");
+          ZIPERR(ZE_OPEN, "-");
+        } else {
+          zipwarn("name not matched: ", "-");
+        }
       else {
         ZIPERR(r, "-");
       }
@@ -1700,7 +1734,7 @@ nextarg: ;
 #endif /* VM_CMS */
 
 #if (defined(IZ_CHECK_TZ) && defined(USE_EF_UT_TIME))
-  if (!zp_tz_is_valid && action != DELETE) {
+  if (!zp_tz_is_valid) {
     zipwarn("TZ environment variable not found, cannot use UTC times!!","");
   }
 #endif /* IZ_CHECK_TZ && USE_EF_UT_TIME */
@@ -1717,10 +1751,26 @@ nextarg: ;
     if (z->mark) {
 #ifdef USE_EF_UT_TIME
       iztimes f_utim, z_utim;
+      ulg z_tim;
 #endif /* USE_EF_UT_TIME */
       Trace((stderr, "zip diagnostics: marked file=%s\n", z->zname));
 
-      if (action != DELETE &&
+      if (action == DELETE) {
+        /* only delete files in date range */
+#ifdef USE_EF_UT_TIME
+        z_tim = (get_ef_ut_ztime(z, &z_utim) & EB_UT_FL_MTIME) ?
+                unix2dostime(&z_utim.mtime) : z->tim;
+#else /* !USE_EF_UT_TIME */
+#       define z_tim  z->tim
+#endif /* ?USE_EF_UT_TIME */
+        if (z_tim < before || (after && z_tim >= after)) {
+          /* include in archive */
+          z->mark = 0;
+        } else {
+          /* delete file */
+          k++;
+        }
+      } else if (
 #ifdef USE_EF_UT_TIME
           ((t = filetime(z->name, (ulg *)NULL, (long *)NULL, &f_utim))
 #else /* !USE_EF_UT_TIME */
@@ -1981,8 +2031,13 @@ nextarg: ;
 #endif
           }
           if (r == ZE_OPEN) {
-            perror(z->zname);
-            zipwarn("could not open for reading: ", z->zname);
+            if (bad_open_is_error) {
+              sprintf(errbuf, "was zipping %s", z->name);
+              ZIPERR(r, errbuf);
+            } else {
+              perror(z->zname);
+              zipwarn("could not open for reading: ", z->zname);
+            }
           } else {
             zipwarn("file and directory with the same name: ", z->zname);
           }
@@ -2089,8 +2144,13 @@ nextarg: ;
 #endif
       }
       if (r == ZE_OPEN) {
-        perror("zip warning");
-        zipwarn("could not open for reading: ", z->zname);
+        if (bad_open_is_error) {
+          sprintf(errbuf, "was zipping %s", z->name);
+          ZIPERR(r, errbuf);
+        } else {
+          perror("zip warning");
+          zipwarn("could not open for reading: ", z->zname);
+        }
       } else {
         zipwarn("file and directory with the same name: ", z->zname);
       }

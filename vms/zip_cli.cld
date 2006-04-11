@@ -29,6 +29,7 @@ Define	Verb		ZIP
 	Qualifier	LATEST, NonNegatable
 	Qualifier	LEVEL, VALUE(type=$NUMBER,required)
 	Qualifier	LICENSE, NonNegatable
+	Qualifier	MUST_MATCH, NonNegatable
 	Qualifier	PKZIP, Negatable
 	Qualifier	QUIET, NonNegatable
 	Qualifier	RECURSE, Negatable, VALUE(type=RECURSE_OPTS)
@@ -67,6 +68,7 @@ Define	Type		RECURSE_OPTS
 Define	Type		VERBOSE_OPTS
 	Keyword		MORE
 	Keyword		DEBUG
+	Keyword		COMMAND
 
 Define	Type		VMS_OPTS
 	Keyword		ALL
