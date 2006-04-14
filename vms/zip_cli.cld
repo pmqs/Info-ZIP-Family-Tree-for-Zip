@@ -40,7 +40,8 @@ Define	Verb		ZIP
 	Qualifier	TRANSLATE_EOL, NonNegatable,
 			VALUE(type=EOL_KEYWORDS)
 	Qualifier	UNSFX, NonNegatable
-	Qualifier	VERBOSE, NonNegatable, VALUE(type=VERBOSE_OPTS)
+	Qualifier	VERBOSE, NonNegatable,
+			 VALUE(type=VERBOSE_OPTS, list)
 	Qualifier	VMS, NonNegatable, VALUE(type=VMS_OPTS)
 	Qualifier	YYZ_ZIP, NonNegatable, Default
 
@@ -66,6 +67,7 @@ Define	Type		RECURSE_OPTS
 	Keyword		FILENAMES
 
 Define	Type		VERBOSE_OPTS
+	Keyword		NORMAL, DEFAULT
 	Keyword		MORE
 	Keyword		DEBUG
 	Keyword		COMMAND

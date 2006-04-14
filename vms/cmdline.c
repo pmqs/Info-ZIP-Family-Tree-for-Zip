@@ -150,7 +150,8 @@ $DESCRIPTOR(cli_translate_eol,  "TRANSLATE_EOL");       /* -l[l] */
 $DESCRIPTOR(cli_transl_eol_lf,  "TRANSLATE_EOL.LF");    /* -l */
 $DESCRIPTOR(cli_transl_eol_crlf,"TRANSLATE_EOL.CRLF");  /* -ll */
 $DESCRIPTOR(cli_unsfx,          "UNSFX");               /* -J */
-$DESCRIPTOR(cli_verbose,        "VERBOSE");             /* -v */
+$DESCRIPTOR(cli_verbose,        "VERBOSE");             /* -v (?) */
+$DESCRIPTOR(cli_verbose_normal, "VERBOSE.NORMAL");      /* -v */
 $DESCRIPTOR(cli_verbose_more,   "VERBOSE.MORE");        /* -vv */
 $DESCRIPTOR(cli_verbose_debug,  "VERBOSE.DEBUG");       /* -vvv */
 $DESCRIPTOR(cli_verbose_command,"VERBOSE.COMMAND");     /* (none) */
@@ -497,15 +498,31 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     */
     status = cli$present(&cli_verbose);
     if (status & 1) {
-        *ptr++ = 'v';
-        if ((status = cli$present(&cli_verbose_more)) & 1)
-            *ptr++ = 'v';
-        if ((status = cli$present(&cli_verbose_debug)) & 1) {
-            *ptr++ = 'v';
-            *ptr++ = 'v';
-        }
+        int i;
+        int verbo = 0;
+
+        /* /VERBOSE */
         if ((status = cli$present(&cli_verbose_command)) & 1)
+        {
+            /* /VERBOSE = COMMAND */
             verbose_command = 1;
+        }
+
+        /* Note that any or all of the following options may be
+           specified, and the maximum one is used.
+        */
+        if ((status = cli$present(&cli_verbose_normal)) & 1)
+            /* /VERBOSE [ = NORMAL ] */
+            verbo = 1;
+        if ((status = cli$present(&cli_verbose_more)) & 1)
+            /* /VERBOSE = MORE */
+            verbo = 2;
+        if ((status = cli$present(&cli_verbose_debug)) & 1) {
+            /* /VERBOSE = DEBUG */
+            verbo = 3;
+        }
+        for (i = 0; i < verbo; i++)
+            *ptr++ = 'v';
     }
 
     /*

@@ -433,11 +433,12 @@ Freshen existing archive entries; create new ones if needed.
 <QUALIFIER>
 /VERBOSE
 
-/VERBOSE[=MORE|DEBUG]
+/VERBOSE[=NORMAL|MORE|DEBUG]
 
 Switch on verbose messages. This includes diagnostics on discovered
 oddities in the zipfile's structure, and a progress indicator during
-compression operation.
+compression operation.  /VERBOSE with no value is equivalent to /VERBOSE
+= NORMAL.  MORE adds more messages, and DEBUG adds still more messages.
 
 When this qualifier is the only command line argument given, it has a special
 meaning. In this case a screen of diagnostic information about the program
