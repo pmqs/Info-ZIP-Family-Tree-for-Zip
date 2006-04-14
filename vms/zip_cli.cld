@@ -20,7 +20,7 @@ Define	Verb		ZIP
 			VALUE(type=COMMENTS_KEYWORDS)
 	Qualifier	DIRNAMES, Negatable, Default
 	Qualifier	DISPLAY, NonNegatable,
-                         VALUE(type=DISPLAY_KEYWORDS, required, list)
+			 VALUE(type=DISPLAY_KEYWORDS, required, list)
 	Qualifier	DOT_VERSION, NonNegatable
 	Qualifier	ENCRYPT, Negatable, VALUE
 	Qualifier	EXTRA_FIELDS, Negatable, Default
@@ -28,12 +28,12 @@ Define	Verb		ZIP
 	Qualifier	FULL_PATH, Negatable, Default
 	Qualifier	GROW, NonNegatable
 	Qualifier	HELP, NonNegatable, VALUE(type=HELP_OPTS)
-	Qualifier	IGNORE, NonNegatable, VALUE(type=IGNORE_OPTS, required)
 	Qualifier	JUNK, NonNegatable
 	Qualifier	KEEP_VERSION, Negatable
 	Qualifier	LATEST, NonNegatable
 	Qualifier	LEVEL, VALUE(type=$NUMBER,required)
 	Qualifier	LICENSE, NonNegatable
+	Qualifier	MUST_MATCH, NonNegatable
 	Qualifier	PAUSE, Negatable
 	Qualifier	PKZIP, Negatable
 	Qualifier	PRESERVE_CASE, Negatable,
@@ -41,7 +41,7 @@ Define	Verb		ZIP
 	Qualifier	QUIET, NonNegatable
 	Qualifier	RECURSE, Negatable, VALUE(type=RECURSE_OPTS)
 	Qualifier	SHOW, NonNegatable,
-                         VALUE(type=SHOW_KEYWORDS, required, list)
+			 VALUE(type=SHOW_KEYWORDS, required, list)
 	Qualifier	SINCE, NonNegatable, VALUE(type=$DATETIME)
 	Qualifier	SPLIT_SIZE, VALUE(type=$NUMBER,required)
 	Qualifier	STORE_TYPES, NonNegatable, VALUE(required,list)
@@ -51,7 +51,8 @@ Define	Verb		ZIP
 	Qualifier	TRANSLATE_EOL, NonNegatable,
 			VALUE(type=EOL_KEYWORDS)
 	Qualifier	UNSFX, NonNegatable
-	Qualifier	VERBOSE, NonNegatable, VALUE(type=VERBOSE_OPTS)
+	Qualifier	VERBOSE, NonNegatable,
+			 VALUE(type=VERBOSE_OPTS, list)
 	Qualifier	VMS, NonNegatable, VALUE(type=VMS_OPTS)
 	Qualifier	WILDCARD, VALUE(type=WILDCARD_OPTS)
 	Qualifier	YYZ_ZIP, NonNegatable, Default
@@ -62,7 +63,6 @@ Define	Verb		ZIP
 	Disallow	TRANSLATE_EOL.LF and TRANSLATE_EOL.CRLF
 	Disallow	FULL_PATH and JUNK
 	Disallow	RECURSE.PATH and RECURSE.FILENAMES
-	Disallow	IGNORE.INTERLOCK and not (VMS or VMS.ALL)
 
 Define	Type		COMMENTS_KEYWORDS
 	Keyword		ZIP_FILE, DEFAULT
@@ -85,9 +85,6 @@ Define	Type		HELP_OPTS
 	Keyword		NORMAL, DEFAULT
 	Keyword		EXTENDED
 
-Define	Type		IGNORE_OPTS
-	Keyword		INTERLOCK
-
 Define	Type		PRES_CASE_OPTS
 	Keyword		NOODS2
 	Keyword		NOODS5
@@ -104,8 +101,10 @@ Define	Type		SHOW_KEYWORDS
 	Keyword		OPTIONS
 
 Define	Type		VERBOSE_OPTS
+	Keyword		NORMAL, DEFAULT
 	Keyword		MORE
 	Keyword		DEBUG
+	Keyword		COMMAND
 
 Define	Type		VMS_OPTS
 	Keyword		ALL

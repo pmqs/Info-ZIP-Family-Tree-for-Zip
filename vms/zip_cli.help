@@ -369,6 +369,16 @@ the file system. If a directory is empty afterwards, it is also removed.
 Requests Zip to pause for user input between segments of split Zip
 archive.  See /SPLIT_SIZE.
 <QUALIFIER>
+/MUST_MATCH
+
+/MUST_MATCH
+
+Input files must exist (and wildcards must match existing files).  By
+default, missing files and unmatched wildcards generate a warning when
+Zip finishes work on the files which do exist.  With /MUST_MATCH, Zip
+exits immediately with an error status if an input file is not found, or
+if an input file wildcard is not matched.
+<QUALIFIER>
 /PKZIP
 
 /PKZIP
@@ -517,11 +527,12 @@ Freshen existing archive entries; create new ones if needed.
 <QUALIFIER>
 /VERBOSE
 
-/VERBOSE[=MORE|DEBUG]
+/VERBOSE[=NORMAL|MORE|DEBUG]
 
 Switch on verbose messages. This includes diagnostics on discovered
 oddities in the zipfile's structure, and a progress indicator during
-compression operation.
+compression operation.  /VERBOSE with no value is equivalent to /VERBOSE
+= NORMAL.  MORE adds more messages, and DEBUG adds still more messages.
 
 When this qualifier is the only command line argument given, it has a special
 meaning. In this case a screen of diagnostic information about the program

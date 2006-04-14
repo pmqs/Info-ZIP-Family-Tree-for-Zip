@@ -71,6 +71,10 @@ freely, subject to the following restrictions:
 #ifndef __zip_h
 #define __zip_h 1
 
+#ifndef NO_SPLIT_SUPPORT
+# define SPLIT_SUPPORT
+#endif
+
 #define ZIP   /* for crypt.c:  include zip password functions, not unzip */
 
 /* Set up portability */
@@ -257,7 +261,7 @@ struct plist {
 #  define ADLERVAL_INITIAL adler16(0U, (uch *)NULL, 0)
 #else
 #  define CRCVAL_INITIAL  0L
-#  define ADLERVAL_INITIAL 1U
+#  define ADLERVAL_INITIAL 1
 #endif
 
 #define DOSTIME_MINIMUM         ((ulg)0x00210000L)
@@ -303,12 +307,9 @@ extern int level;               /* Compression level */
 extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
 #ifdef VMS
    extern int vmsver;           /* Append VMS version number to file names */
+   extern int vms_native;       /* Store in VMS format */
    extern int vms_case_2;       /* ODS2 file name case in VMS. -1: down. */
    extern int vms_case_5;       /* ODS5 file name case in VMS. +1: preserve. */
-# ifdef VMS_PK_EXTRA
-   extern int vms_ign_int;      /* Ignore interlock. */
-# endif /* def VMS_PK_EXTRA */
-   extern int vms_native;       /* Store in VMS format */
 #endif /* VMS */
 #if defined(OS2) || defined(WIN32)
    extern int use_longname_ea;   /* use the .LONGNAME EA as the file's name */
@@ -548,6 +549,7 @@ int putend OF((uzoff_t, uzoff_t, uzoff_t, ush, char *));
 int is_seekable OF((FILE *));
 #ifdef SPLIT_SUPPORT /* USE_NEW_READ */
 int zipcopy OF((struct zlist far *));
+int readlocal OF((struct zlist far **, struct zlist far *));
 #else
 int zipcopy OF((struct zlist far *, FILE *));
 #endif
@@ -587,7 +589,8 @@ char *tempname OF((char *));
 int close_split OF((int, FILE *, char *));
 int ask_for_split_read_path OF((int));
 int ask_for_split_write_path OF((int));
-char *get_split_path OF((char *, int));
+char *get_in_split_path OF((char *, int));
+char *get_out_split_path OF((char *, int));
 int rename_split OF((char *, char *));
 int set_filetype OF(());
 
@@ -678,8 +681,7 @@ ulg  crc32         OF((ulg, ZCONST uch *, extent));
 #endif /* !UTIL */
 
 /* in fileio.h */
-ush  crc16f        OF((ZCONST uch *, extent));
-ulg  crc32f        OF((ulg, ZCONST uch *, extent));
+ulg  crc32u        OF((ulg, ZCONST uch *, extent));
 
         /* in crctab.c */
 ZCONST ulg near *get_crc_table OF((void));

@@ -814,3 +814,72 @@ void version_local()
            COMPILER_NAME, OS_NAME, COMPILE_DATE);
 
 } /* end function version_local() */
+
+
+/* 2006-03-23 SMS.
+ * Emergency replacement for strerror().  (Useful on SunOS 4.*.)
+ * Enable by specifying "LOCAL_UNZIP=-DNEED_STRERROR=1" on the "make"
+ * command line.
+ */
+
+#ifdef NEED_STRERROR
+
+char *strerror( err)
+  int err;
+{
+    extern char *sys_errlist[];
+    extern int sys_nerr;
+
+    static char no_msg[ 64];
+
+    if ((err >= 0) && (err < sys_nerr))
+    {
+        return sys_errlist[ err];
+    }
+    else
+    {
+        sprintf( no_msg, "(no message, code = %d.)", err);
+        return no_msg;
+    }
+}
+
+#endif /* def NEED_STRERROR */
+
+
+/* 2006-03-23 SMS.
+ * Emergency replacement for memmove().  (Useful on SunOS 4.*.)
+ * Enable by specifying "LOCAL_UNZIP=-DNEED_MEMMOVE=1" on the "make"
+ * command line.
+ */
+
+#ifdef NEED_MEMMOVE
+
+/* memmove.c -- copy memory.
+   Copy LENGTH bytes from SOURCE to DEST.  Does not null-terminate.
+   In the public domain.
+   By David MacKenzie <djm@gnu.ai.mit.edu>.
+   Adjusted by SMS.
+*/
+
+void *memmove( dest0, source0, length)
+  void *dest0;
+  void const *source0;
+  size_t length;
+{
+    char *dest = dest0;
+    char const *source = source0;
+    if (source < dest)
+        /* Moving from low mem to hi mem; start at end.  */
+        for (source += length, dest += length; length; --length)
+            *--dest = *--source;
+    else if (source != dest)
+    {
+        /* Moving from hi mem to low mem; start at beginning.  */
+        for (; length; --length)
+            *dest++ = *source++;
+    }
+    return dest0;
+}
+
+#endif /* def NEED_MEMMOVE */
+

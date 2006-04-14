@@ -1,7 +1,7 @@
 /*
   util.c
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -789,7 +789,39 @@ void expand_args(argcp, argvp)
 #endif /* ?DOS */
 }
 
+
+/* Fast routine for detection of plain text
+ * (ASCII or an ASCII-compatible extension such as ISO-8859, UTF-8, etc.)
+ * Author: Cosmin Truta.
+ * See "proginfo/txtvsbin.txt" for more information.
+ *
+ * This function returns the same result as set_file_type() in "trees.c".
+ * Unlike in set_file_type(), however, the speed depends on the buffer size,
+ * so the optimal implementation is different.
+ */
+int is_text_buf(buf_ptr, buf_size)
+    ZCONST char *buf_ptr;
+    unsigned buf_size;
+{
+    int result = 0;
+    unsigned i;
+    unsigned char c;
+
+    for (i = 0; i < buf_size; ++i)
+    {
+        c = (unsigned char)buf_ptr[i];
+        if (c >= 32)    /* speed up the loop by checking this first */
+            result = 1; /* white-listed character found; keep looping */
+        else            /* speed up the loop by inlining the following check */
+        if ((c <= 6) || (c >= 14 && c <= 25) || (c >= 28 && c <= 31))
+            return 0;   /* black-listed character found; stop */
+    }
+
+    return result;
+}
+
 #endif /* UTIL */
+
 
 #ifdef DEBUGNAMES
 #undef free
@@ -807,7 +839,7 @@ int printnames()
      struct zlist far *z;
 
      for (z = zfiles; z != NULL; z = z->nxt)
-           fprintf(stderr, "%s %s %s %p %p %p %08x %08x %08x\n",
+           fprintf(mesg, "%s %s %s %p %p %p %08x %08x %08x\n",
                             z->name, z->zname, z->iname,
                             z->name, z->zname, z->iname,
                             *((int *) z->name), *((int *) z->zname),
@@ -850,7 +882,10 @@ int printnames()
 
 /* Format a zoff_t value in a cylindrical buffer set. */
 
-char *zip_fzofft( zoff_t val, char *pre, char *post)
+char *zip_fzofft( val, pre, post)
+  zoff_t val;
+  char *pre;
+  char *post;
 {
     /* Storage cylinder. */
     static char fzofft_buf[ FZOFFT_NUM][ FZOFFT_LEN];
@@ -894,9 +929,12 @@ char *zip_fzofft( zoff_t val, char *pre, char *post)
 
 
 /* Format a uzoff_t value in a cylindrical buffer set. */
-/* Added to support uzoff_t type.  Also likely not thread safe.  12/29/04 EG */
+/* Added to support uzoff_t type.  12/29/04 */
 
-char *zip_fuzofft( uzoff_t val, char *pre, char *post)
+char *zip_fuzofft( val, pre, post)
+  uzoff_t val;
+  char *pre;
+  char *post;
 {
     /* Storage cylinder. */
     static char fuzofft_buf[ FZOFFT_NUM][ FZOFFT_LEN];
@@ -991,7 +1029,7 @@ uzoff_t ReadNumString( numstring )
 
   /* find trailing multiplier */
   for (i = 0; numstring[i] && isdigit(numstring[i]); i++) ;
-  
+
   /* return if no multiplier */
   if (numstring[i] == '\0') {
     return (uzoff_t)num;
@@ -1101,4 +1139,49 @@ int WriteNumString( num, outstring )
   *outstring = '\0';
 
   return written;
+}
+
+
+/* Apply the Adler-16 checksum to a set of bytes.
+ * Use this function as you would use crc32():
+ * - First call this function by passing a NULL pointer instead of buf
+ *   OR initialize the checksum register with ADLERVAL_INITIAL.
+ * - Iteratively call this function for each buffer fragment.
+ * This function returns the updated checksum.
+ *
+ * IN assertion: chksum is a valid Adler-16 checksum:
+ *    (chksum & 0xffU) < ADLER16_BASE && ((chksum >> 8) & 0xffU) < ADLER16_BASE
+ *
+ * Author: Cosmin Truta.
+ * See "proginfo/adler16.txt" for more information.
+ */
+
+#define ADLER16_BASE 251        /* The largest prime smaller than 256 */
+
+unsigned int adler16(chksum, buf, len)
+    unsigned int chksum;
+    ZCONST uch *buf;
+    extent len;
+{
+    unsigned int sum1 = chksum & 0xff;
+    unsigned int sum2 = (chksum >> 8) & 0xff;
+    extent i;
+
+    Assert((sum1 < ADLER16_BASE) && (sum2 < ADLER16_BASE),
+           "adler16: invalid checksum");
+
+    if (buf == NULL)
+        return 1;
+
+    for (i = 0; i < len; ++i)
+    {
+        sum1 += buf[i];
+        if (sum1 >= ADLER16_BASE) /* this is faster than modulo ADLER16_BASE */
+            sum1 -= ADLER16_BASE;
+        sum2 += sum1;
+        if (sum2 >= ADLER16_BASE) /* ditto */
+            sum2 -= ADLER16_BASE;
+    }
+
+    return (sum2 << 8) | sum1;
 }

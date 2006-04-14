@@ -50,8 +50,6 @@
 **
 **  Modified by:
 **
-**      02-007          Steven Schweda          15-FEB-2006
-**              Added /IGNORE.
 **      02-007          Steven Schweda          09-FEB-2005
 **              Added /PRESERVE_CASE.
 **      02-006          Onno van der Linden,
@@ -176,13 +174,13 @@ $DESCRIPTOR(cli_grow,           "GROW");                /* -g */
 $DESCRIPTOR(cli_help,           "HELP");                /* -h */
 $DESCRIPTOR(cli_help_normal,    "HELP.NORMAL");         /* -h */
 $DESCRIPTOR(cli_help_extended,  "HELP.EXTENDED");       /* -h2 */
-$DESCRIPTOR(cli_ign_inter,      "IGNORE.INTERLOCK");    /* -Vi */
 $DESCRIPTOR(cli_junk,           "JUNK");                /* -j */
 $DESCRIPTOR(cli_keep_version,   "KEEP_VERSION");        /* -w */
 $DESCRIPTOR(cli_latest,         "LATEST");              /* -o */
 $DESCRIPTOR(cli_level,          "LEVEL");               /* -[0-9] */
 $DESCRIPTOR(cli_license,        "LICENSE");             /* -L */
 $DESCRIPTOR(cli_pause,          "PAUSE");               /* -sp */
+$DESCRIPTOR(cli_must_match,     "MUST_MATCH");          /* -MM */
 $DESCRIPTOR(cli_pkzip,          "PKZIP");               /* -k */
 $DESCRIPTOR(cli_pres_case,      "PRESERVE_CASE");       /* -C */
 $DESCRIPTOR(cli_pres_case_no2,  "PRESERVE_CASE.NOODS2");/* -C2- */
@@ -207,9 +205,11 @@ $DESCRIPTOR(cli_translate_eol,  "TRANSLATE_EOL");       /* -l[l] */
 $DESCRIPTOR(cli_transl_eol_lf,  "TRANSLATE_EOL.LF");    /* -l */
 $DESCRIPTOR(cli_transl_eol_crlf,"TRANSLATE_EOL.CRLF");  /* -ll */
 $DESCRIPTOR(cli_unsfx,          "UNSFX");               /* -J */
-$DESCRIPTOR(cli_verbose,        "VERBOSE");             /* -v */
+$DESCRIPTOR(cli_verbose,        "VERBOSE");             /* -v (?) */
+$DESCRIPTOR(cli_verbose_normal, "VERBOSE.NORMAL");      /* -v */
 $DESCRIPTOR(cli_verbose_more,   "VERBOSE.MORE");        /* -vv */
 $DESCRIPTOR(cli_verbose_debug,  "VERBOSE.DEBUG");       /* -vvv */
+$DESCRIPTOR(cli_verbose_command,"VERBOSE.COMMAND");     /* (none) */
 $DESCRIPTOR(cli_vms,            "VMS");                 /* -V */
 $DESCRIPTOR(cli_vms_all,        "VMS.ALL");             /* -VV */
 $DESCRIPTOR(cli_wildcard,       "WILDCARD");            /* -nw */
@@ -264,6 +264,7 @@ static unsigned long get_list (struct dsc$descriptor_s *,
                                char **, unsigned long *, unsigned long *);
 static unsigned long get_time (struct dsc$descriptor_s *qual, char *timearg);
 static unsigned long check_cli (struct dsc$descriptor_s *);
+static int verbose_command = 0;
 
 
 #ifdef TEST
@@ -441,14 +442,12 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     */
     status = cli$present(&cli_comments);
     if (status & 1) {
-#if 0
-        while ((status = cli$get_value(&cli_comments, &work_str)) & 1) {
+/*        while ((status = cli$get_value(&cli_comments, &work_str)) & 1) {
             if (strncmp(work_str.dsc$a_pointer,"ZIP",3) == 0)
                 *ptr++ = 'z';
             if (strncmp(work_str.dsc$a_pointer,"FIL",3) == 0)
                 *ptr++ = 'c';
-        }
-#endif /* 0 */
+        } */
         if ((status = cli$present(&cli_comment_zipfile)) & 1)
             /* /COMMENTS = ZIP_FILE */
             *ptr++ = 'z';
@@ -719,16 +718,31 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     */
     status = cli$present(&cli_verbose);
     if (status & 1) {
+        int i;
+        int verbo = 0;
+
         /* /VERBOSE */
-        *ptr++ = 'v';
+        if ((status = cli$present(&cli_verbose_command)) & 1)
+        {
+            /* /VERBOSE = COMMAND */
+            verbose_command = 1;
+        }
+
+        /* Note that any or all of the following options may be
+           specified, and the maximum one is used.
+        */
+        if ((status = cli$present(&cli_verbose_normal)) & 1)
+            /* /VERBOSE [ = NORMAL ] */
+            verbo = 1;
         if ((status = cli$present(&cli_verbose_more)) & 1)
             /* /VERBOSE = MORE */
-            *ptr++ = 'v';
+            verbo = 2;
         if ((status = cli$present(&cli_verbose_debug)) & 1) {
             /* /VERBOSE = DEBUG */
-            *ptr++ = 'v';
-            *ptr++ = 'v';
+            verbo = 3;
         }
+        for (i = 0; i < verbo; i++)
+            *ptr++ = 'v';
     }
 
     /*
@@ -891,7 +905,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
-    **  Handle "-sv".
+    **  Handle "-sp".
     */
 #define OPT_SV "-sv"
 
@@ -967,27 +981,6 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
-    **  Handle "-Vi".
-    */
-#define OPT_VI "-Vi"
-
-    status = cli$present( &cli_ign_inter);
-    if (status & 1)
-    {
-        /* /IGNORE = INTERLOCK */
-#ifdef VMS_PK_EXTRA
-        x = cmdl_len;
-        cmdl_len += strlen( OPT_VI)+ 1;
-        CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
-        strcpy( &the_cmd_line[ x], OPT_VI);
-#else /* def VMS_PK_EXTRA */
-        sprintf( errbuf,
- "/IGNORE=INTERLOCK is invalid with \"IM\" attribute storage scheme.");
-        ziperr( ZE_PARMS, errbuf);
-# endif /* def VMS_PK_EXTRA [else] */
-    }
-
-    /*
     **  Handle "--force_zip64".
     */
 #define OPT_ZIP64 "--force_zip64"
@@ -1009,7 +1002,6 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 #define OPT_W "-W"
 
     status = cli$present( &cli_wildcard);
-
     if (status & 1)
     {
         if ((status = cli$present( &cli_wildcard_nospan)) & 1)
@@ -1028,6 +1020,21 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         cmdl_len += strlen( OPT_NW)+ 1;
         CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
         strcpy( &the_cmd_line[ x], OPT_NW);
+    }
+
+    /*
+    **  Handle "-MM".
+    */
+#define OPT_MM  "-MM"
+
+    status = cli$present( &cli_must_match);
+    if (status & 1)
+    {
+        /* /MUST_MATCH */
+        x = cmdl_len;
+        cmdl_len += strlen( OPT_MM)+ 1;
+        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        strcpy( &the_cmd_line[ x], OPT_MM);
     }
 
     /*
@@ -1218,6 +1225,15 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     for (x = 0; x < new_argc; x++)
         printf("new_argv[%d] = %s\n", x, new_argv[x]);
 #endif /* TEST || DEBUG */
+
+    /* Show the complete UNIX command line, if requested. */
+    if (verbose_command != 0)
+    {
+        printf( "   UNIX command line args (argc = %d):\n", new_argc);
+        for (x = 0; x < new_argc; x++)
+            printf( "%s\n", new_argv[ x]);
+        printf( "\n");
+    }
 
     /*
     **  All finished.  Return the new argc and argv[] addresses to Zip.
@@ -1439,9 +1455,9 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /QUIET, /VERBOSE[={MORE|DEBUG}], /[NO]DIRNAMES, /JUNK,",
 #endif /* ?CRYPT */
 "    /LEVEL=[0-9], /ZIP64, /[NO]EXTRA_FIELDS, /[NO]KEEP_VERSION, /DOT_VERSION,",
-"    /NOVMS|/VMS[=ALL] [/IGNORE=INTERLOCK], /TRANSLATE_EOL[={LF|CRLF}],",
-"    /[NO]PRESERVE_CASE[=([NO]ODS{2|5}[,...])], /[NO]PKZIP,",
-"    /DISPLAY={BYTES|COUNTS|DOTS=mb_per_dot}, /TEMP_PATH=directory,",
+"    /NOVMS|/VMS[=ALL], /TEMP_PATH=directory, /TRANSLATE_EOL[={LF|CRLF}],",
+"    /[NO]PRESERVE_CASE[=([NO]ODS{2|5}[,...])], /MUST_MATCH, /[NO]PKZIP,",
+"    /DISPLAY={BYTES|COUNTS|DOTS=mb_per_dot},",
 "    /SPLIT_SIZE=ssize, /SVERBOSE /PAUSE,"
   };
 

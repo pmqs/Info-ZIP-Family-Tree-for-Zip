@@ -221,8 +221,8 @@ int is_seekable(y)
 
 
 int percent(n, m)
-  zoff_t n;
-  zoff_t m;             /* n is the original size, m is the new size */
+  uzoff_t n;
+  uzoff_t m;              /* n is the original size, m is the new size */
 /* Return the percentage compression from n to m using only integer
    operations */
 {
@@ -250,20 +250,20 @@ int percent(n, m)
 /* Handle n = 0 case and account for int maybe being 16-bit.  12/28/2004 EG
  */
 
-#define PC_MAX_SAFE 0x007fffffUL    /* 9 clear bits at high end. */
-#define PC_MAX_RND  0xffffff00UL    /* 8 clear bits at low end. */
+#define PC_MAX_SAFE 0x007fffffL     /* 9 clear bits at high end. */
+#define PC_MAX_RND  0xffffff00L     /* 8 clear bits at low end. */
 
-  if (sizeof(zoff_t) < 8)           /* Don't fiddle with big zoff_t. */
+  if (sizeof(uzoff_t) < 8)          /* Don't fiddle with big zoff_t. */
   {
     if ((ulg)n > PC_MAX_SAFE)       /* Reduce large values.  (n > m) */
     {
       if ((ulg)n < PC_MAX_RND)      /* Divide n by 512 with rounding, */
-        n = ((ulg)n + 0x100UL) >> 9;/* if boost won't overflow. */
+        n = ((ulg)n + 0x100) >> 9;  /* if boost won't overflow. */
       else                          /* Otherwise, use max value. */
         n = PC_MAX_SAFE;
 
       if ((ulg)m < PC_MAX_RND)      /* Divide m by 512 with rounding, */
-        m = ((ulg)m + 0x100UL) >> 9;/* if boost won't overflow. */
+        m = ((ulg)m + 0x100) >> 9;  /* if boost won't overflow. */
       else                          /* Otherwise, use max value. */
         m = PC_MAX_SAFE;
     }
@@ -647,6 +647,7 @@ struct zlist far *z;    /* zip entry to compress */
      * is the modification time:
      */
     z->crc = z->tim << 16;
+    /* More than pretend.  File is encrypted using crypt header with that. */
   }
 #endif /* CRYPT */
   z->lflg = z->flg;
@@ -764,22 +765,22 @@ struct zlist far *z;    /* zip entry to compress */
           if (dot_size > 0) {
             /* initial space */
             if (noisy && dot_count == -1) {
-  #ifndef WINDLL
+#ifndef WINDLL
               putc(' ', mesg);
-  #else
+#else
               fprintf(stdout,"%c",' ');
-  #endif
+#endif
               dot_count++;
             }
             dot_count++;
             if (dot_size <= dot_count) dot_count = 0;
           }
           if ((verbose || noisy) && dot_size && !dot_count) {
-  #ifndef WINDLL
+#ifndef WINDLL
             putc('.', mesg);
-  #else
+#else
             fprintf(stdout,"%c",'.');
-  #endif
+#endif
             mesg_line_started = 1;
           }
         }
@@ -877,12 +878,21 @@ struct zlist far *z;    /* zip entry to compress */
      * There seems no reason to have a data descriptor just for standard
      * encryption.  But getting rid of it causes encryption to fail.
      * Still working on it.  For now keep this.
+     *
+     * OK, the encryption header needs the crc, but we don't have it
+     * for a new file.  The file time is used instead and the encryption
+     * header then used to encrypt the data.  The AppNote standard only
+     * can be applied to a file that the crc is known, so that means
+     * either an existing entry in an archive or get the crc before
+     * creating the encryption header and then encrypt the data.
      */
-    if ((z->flg & 1) == 0)
-      z->flg &= ~8; /* clear the extended local header flag */
-    z->lflg = z->flg;
+    if ((z->flg & 1) == 0) {
+      /* not encrypting so don't need extended local header */
+      z->flg &= ~8;
+      z->lflg &= ~8;
+    }
 
-    /* if not using descriptors back up and rewrite local header 3/13/05 EG */
+    /* if not using descriptors back up and rewrite local header */
     /* rewrite the local header: */
 #ifdef SPLIT_SUPPORT
     if (split_method == 1 && current_local_file != y) {
@@ -890,9 +900,11 @@ struct zlist far *z;    /* zip entry to compress */
         return ZE_READ;
     }
 #endif
+
     /* if local header in another split, putlocal will close it */
     if ((r = putlocal(z, PUTLOCAL_REWRITE)) != ZE_OK)
       return r;
+
 
 #ifdef SPLIT_SUPPORT
     if (zfseeko(y, bytes_this_split, SEEK_SET))

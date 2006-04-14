@@ -19,8 +19,10 @@
 /* for realloc 2/6/2005 EG */
 #include <stdlib.h>
 
-#include <ctype.h>
 #include <errno.h>
+
+/* for toupper() */
+#include <ctype.h>
 
 #ifdef VMS
 #  include "vms/vms.h"
@@ -178,6 +180,10 @@ local void append_string_to_mem OF((char *, int, char**, ulg *, ulg *));
 
 /* Local functions */
 
+#ifdef SPLIT_SUPPORT
+  int at_signature OF((FILE *, char *));
+#endif
+
 local int zqcmp OF((ZCONST zvoid *, ZCONST zvoid *));
 local int scanzipf_reg OF((FILE *f));
 local int scanzipf_regnew();
@@ -265,56 +271,56 @@ char *ziptyp(s)
 {
   char *q;              /* temporary pointer */
   char *t;              /* pointer to malloc'ed string */
-#ifdef THEOS
+#  ifdef THEOS
   char *r;              /* temporary pointer */
   char *disk;
-#endif
+#  endif
 
   if ((t = malloc(strlen(s) + 5)) == NULL)
     return NULL;
   strcpy(t, s);
-#ifdef __human68k__
+#  ifdef __human68k__
   _toslash(t);
-#endif
-#ifdef MSDOS
+#  endif
+#  ifdef MSDOS
   for (q = t; *q; INCSTR(q))
     if (*q == '\\')
       *q = '/';
-#endif /* MSDOS */
-#ifdef __RSXNT__   /* RSXNT/EMX C rtl uses OEM charset */
+#  endif /* MSDOS */
+#  ifdef __RSXNT__   /* RSXNT/EMX C rtl uses OEM charset */
   AnsiToOem(t, t);
-#else
-#ifdef WIN32_OEM
+#  else
+#    ifdef WIN32_OEM
   AnsiToOem(t, t);
-#endif
-#endif
+#    endif
+#  endif
   if (adjust) return t;
-#ifndef RISCOS
-# ifndef QDOS
-#  ifdef AMIGA
+#  ifndef RISCOS
+#    ifndef QDOS
+#      ifdef AMIGA
   if ((q = MBSRCHR(t, '/')) == NULL)
     q = MBSRCHR(t, ':');
   if (MBSRCHR((q ? q + 1 : t), '.') == NULL)
-#  else /* !AMIGA */
-#    ifdef THEOS
+#      else /* !AMIGA */
+#        ifdef THEOS
   /* the argument expansion add a dot to the end of file names when
    * there is no extension and at least one of a argument has wild cards.
    * So check for at least one character in the extension if there is a dot
    * in file name */
   if ((q = MBSRCHR((q = MBSRCHR(t, PATHCUT)) == NULL ? t : q + 1, '.')) == NULL
     || q[1] == '\0') {
-#    else /* !THEOS */
-#      ifdef TANDEM
+#        else /* !THEOS */
+#          ifdef TANDEM
   if (MBSRCHR((q = MBSRCHR(t, '.')) == NULL ? t : q + 1, ' ') == NULL)
-#      else /* !TANDEM */
+#          else /* !TANDEM */
   if (MBSRCHR((q = MBSRCHR(t, PATHCUT)) == NULL ? t : q + 1, '.') == NULL)
-#      endif /* ?TANDEM */
-#    endif /* ?THEOS */
-#  endif /* ?AMIGA */
-#  ifdef CMS_MVS
+#          endif /* ?TANDEM */
+#        endif /* ?THEOS */
+#      endif /* ?AMIGA */
+#      ifdef CMS_MVS
     if (strncmp(t,"dd:",3) != 0 && strncmp(t,"DD:",3) != 0)
-#  endif /* CMS_MVS */
-#  ifdef THEOS
+#      endif /* CMS_MVS */
+#      ifdef THEOS
     /* insert .zip extension before disk name */
     if ((r = MBSRCHR(t, ':')) != NULL) {
         /* save disk name */
@@ -330,21 +336,21 @@ char *ziptyp(s)
           strcat(t, ".zip");
     }
   }
-#  else /* !THEOS */
-#    ifdef TANDEM     /*  Tandem can't cope with extensions */
+#      else /* !THEOS */
+#        ifdef TANDEM     /*  Tandem can't cope with extensions */
     strcat(t, " ZIP");
-#    else /* !TANDEM */
+#        else /* !TANDEM */
     strcat(t, ".zip");
-#    endif /* ?TANDEM */
-#  endif /* ?THEOS */
-# else /* QDOS */
+#        endif /* ?TANDEM */
+#      endif /* ?THEOS */
+#    else /* QDOS */
   q = LastDir(t);
   if(MBSRCHR(q, '_') == NULL && MBSRCHR(q, '.') == NULL)
   {
       strcat(t, "_zip");
   }
-# endif /* QDOS */
-#endif /* !RISCOS */
+#    endif /* QDOS */
+#  endif /* !RISCOS */
   return t;
 }
 #endif  /* ndef VMS */
@@ -742,7 +748,7 @@ local void read_Unicode_Path_local_entry(pZipListEntry)
 
 #endif
 
-# ifdef ZIP64_SUPPORT           /* zip64 support 08/31/2003 R.Nausedat */
+#ifdef ZIP64_SUPPORT           /* zip64 support 08/31/2003 R.Nausedat */
 
 /* searches the cextra member of zlist for a zip64 extra field. if it finds one it  */
 /* updates the len, siz and off members of zlist with the corresponding values of   */
@@ -1484,7 +1490,7 @@ struct zlist far *z;
     /* This test is just annoying, as Zip itself does not write the same
        extra fields to both the local and central headers.  It's much more
        complicated than this test implies.  3/17/05 */
-#if 0
+# if 0
     if (z->ext || z->cext)
     {
         if (z->ext && z->cext && z->extra != z->cextra)
@@ -1494,22 +1500,22 @@ struct zlist far *z;
                   (ulg)z->ext, (ulg)z->cext);
           if (noisy) fprintf(mesg, "\tzip info: %s%s\n", errbuf, z->oname);
         }
-# if (!defined(RISCOS) && !defined(CMS_MVS))
+#   if (!defined(RISCOS) && !defined(CMS_MVS))
         /* in noisy mode, extra field sizes are always reported */
         else if (noisy)
-# else /* RISCOS || CMS_MVS */
+#   else /* RISCOS || CMS_MVS */
 /* avoid warnings for zipfiles created on the same type of OS system! */
 /* or, was this warning really intended (eg. OS/2)? */
         /* Only give info if extra bytes were added by another system */
         else if (noisy && ((z->vem >> 8) != (OS_CODE >> 8)))
-# endif /* ?(RISCOS || CMS_MVS) */
+#   endif /* ?(RISCOS || CMS_MVS) */
         {
             fprintf(mesg, "zip info: %s has %ld bytes of %sextra data\n",
                     z->oname, z->ext ? (ulg)z->ext : (ulg)z->cext,
                     z->ext ? (z->cext ? "" : "local ") : "central ");
         }
     }
-#endif /* 0 */
+# endif /* 0 */
 }
 
 
@@ -1797,6 +1803,127 @@ local int scanzipf_fix(f)
 }
 
 #endif /* !UTIL */
+
+#ifdef SPLIT_SUPPORT
+/*
+ * read_local
+ *
+ * Read the local header assumed at in_file file pointer.
+ * localz is the returned local header, z is the central directory entry.
+ *
+ * This is used by crypt.c.
+ *
+ * Return ZE code
+ */
+int readlocal(localz, z)
+  struct zlist far **localz;
+  struct zlist far *z;
+{
+  char buf[LOCHEAD + 1];
+  struct zlist far *locz;
+  int zip64_entry = 0;
+
+  /* Assume archive is on one disk for now */
+
+  if (zfseeko(in_file, z->off, SEEK_SET) != 0) {
+    fclose(in_file);
+    in_file = NULL;
+    zipwarn("reading archive fseek: ", strerror(errno));
+    return ZE_READ;
+  }
+  if (!at_signature(in_file, "PK\03\04")) {
+    fclose(in_file);
+    in_file = NULL;
+    zipwarn("Did not find entry for ", z->iname);
+    return ZE_FORM;
+  }
+
+  /* read local header */
+  if (fread(buf, LOCHEAD, 1, in_file) != 1) {
+    int f = ferror(in_file);
+    zipwarn("reading local entry: ", strerror(errno));
+    fclose(in_file);
+    return f ? ZE_READ : ZE_EOF;
+  }
+
+  /* Local Header
+       local file header signature     4 bytes  (0x04034b50)
+       version needed to extract       2 bytes
+       general purpose bit flag        2 bytes
+       compression method              2 bytes
+       last mod file time              2 bytes
+       last mod file date              2 bytes
+       crc-32                          4 bytes
+       compressed size                 4 bytes
+       uncompressed size               4 bytes
+       file name length                2 bytes
+       extra field length              2 bytes
+
+       file name (variable size)
+       extra field (variable size)
+   */
+
+  if ((locz = (struct zlist far *)farmalloc(sizeof(struct zlist))) == NULL) {
+    zipwarn("reading entry", "");
+    fclose(in_file);
+    return ZE_MEM;
+  }
+
+  locz->ver = SH(LOCVER + buf);
+  locz->lflg = SH(LOCFLG + buf);
+  locz->how = SH(LOCHOW + buf);
+  locz->tim = LG(LOCTIM + buf);          /* time and date into one long */
+  locz->crc = LG(LOCCRC + buf);
+  locz->nam = SH(LOCNAM + buf);
+  locz->ext = SH(LOCEXT + buf);
+  
+  /* Initialize all fields pointing to malloced data to NULL */
+  locz->zname = locz->name = locz->iname = locz->extra = NULL;
+  locz->oname = NULL;
+#ifdef UNICODE_SUPPORT
+  locz->uname = NULL;
+#endif
+
+  /* Read file name, extra field and comment field */
+  if ((locz->iname = malloc(locz->nam+1)) ==  NULL ||
+      (locz->ext && (locz->extra = malloc(locz->ext)) == NULL))
+    return ZE_MEM;
+  if (fread(locz->iname, locz->nam, 1, in_file) != 1 ||
+      (locz->ext && fread(locz->extra, locz->ext, 1, in_file) != 1))
+    return ferror(in_file) ? ZE_READ : ZE_EOF;
+  locz->iname[z->nam] = '\0';                  /* terminate name */
+  if ((locz->name = malloc(locz->nam+1)) ==  NULL)
+    return ZE_MEM;
+  strcpy(locz->name, locz->iname);
+
+#ifdef ZIP64_SUPPORT
+  zip64_entry = adjust_zip_local_entry(locz);
+#endif
+
+#ifdef UNICODE_SUPPORT
+  read_Unicode_Path_local_entry(locz);
+#endif
+
+  /* Compare localz to z */
+  if (locz->ver != z->ver) {
+    zipwarn("Local Entry Version Needed To Extract does not match CD: ", z->iname);
+  }
+  if (locz->lflg != z->flg) {
+    zipwarn("Local Entry Flag does not match CD: ", z->iname);
+  }
+  if (locz->crc != z->crc) {
+    zipwarn("Local Entry CRC does not match CD: ", z->iname);
+  }
+
+  /* as copying get uncompressed and compressed sizes from central directory */
+  locz->len = z->len;
+  locz->siz = z->siz;
+
+  *localz = locz;
+
+  return ZE_OK;
+}
+#endif
 
 /*
  * scanzipf_reg starts searching for the End Signature at the end of the file
@@ -2656,10 +2783,12 @@ local int scanzipf_regnew()
   uzoff_t last_offset = 0;
   ulg     eocdr_disk;
   uzoff_t eocdr_offset;
+# ifdef ZIP64_SUPPORT
   ulg     z64eocdr_disk;
   uzoff_t z64eocdr_offset;
   uzoff_t z64eocdr_size;
   ush     version_made;
+# endif
   ush     version_needed = 0;
   ulg     cd_start_disk;
   uzoff_t cd_total_entries;
@@ -2838,15 +2967,18 @@ local int scanzipf_regnew()
     zipwarn("reading archive fseek: ", strerror(errno));
     return ZE_FORM;
   }
-  if (at_signature(in_file, "PK\06\07")) {
+  if (at_signature(in_file, "PK\06\07"))
 #ifndef ZIP64_SUPPORT
+  {
     fclose(in_file);
     in_file = NULL;
     zipwarn("found Zip64 signature - this may be a Zip64 archive", "");
     zipwarn("Need PKZIP 4.5 or later compatible zip", "");
     zipwarn("Set ZIP64_SUPPORT in Zip 3", "");
     return ZE_ZIP64;
+  }
 #else
+  {
     /* read Z64 EOCDL */
     if (fread(buf, 16, 1, in_file) != 1) {
       fclose(in_file);
@@ -2882,7 +3014,7 @@ local int scanzipf_regnew()
       in_file = NULL;
 
       /* get the path for the Zip64 EOCDR split */
-      split_path = get_split_path(in_path, z64eocdr_disk);
+      split_path = get_in_split_path(in_path, z64eocdr_disk);
 
       while ((in_file = zfopen(split_path, FOPR)) == NULL) {
         /* could not open split */
@@ -2892,7 +3024,7 @@ local int scanzipf_regnew()
           return ZE_ABORT;
         }
         free(split_path);
-        split_path = get_split_path(in_path, z64eocdr_disk);
+        split_path = get_in_split_path(in_path, z64eocdr_disk);
       }
       free(split_path);
     }
@@ -2986,7 +3118,7 @@ local int scanzipf_regnew()
       strcpy(split_path, in_path);
     } else {
       /* other disks are archive.z01, archive.z02, ... */
-      split_path = get_split_path(in_path, current_in_disk);
+      split_path = get_in_split_path(in_path, current_in_disk);
     }
 
     if (in_file == NULL) {
@@ -3009,7 +3141,7 @@ local int scanzipf_regnew()
           strcpy(split_path, in_path);
         } else {
           /* other disks are archive.z01, archive.z02, ... */
-          split_path = get_split_path(zipfile, current_in_disk);
+          split_path = get_in_split_path(zipfile, current_in_disk);
         }
       }
     }
@@ -3049,8 +3181,8 @@ local int scanzipf_regnew()
         /* Not Central Directory Record */
 
         /* spanning or data descriptor signature */
-        sprintf(errbuf, "unexpected signature at %d / %I64d\n",
-                current_in_disk, current_in_offset - 4);
+        sprintf(errbuf, "unexpected signature at %d / %s\n",
+                current_in_disk, zip_fzofft(current_in_offset - 4, NULL, "u"));
         zipwarn(errbuf, "");
         zipwarn("archive not in correct format: ", split_path);
         fclose(in_file);
@@ -3254,7 +3386,9 @@ local int scanzipf_regnew()
   } /* for each disk */
 
   if (zcount != cd_total_entries) {
-    sprintf(errbuf, "expected %Ld entries but found %Ld", cd_total_entries, zcount);
+    sprintf(errbuf, "expected %s entries but found %s",
+     zip_fzofft( cd_total_entries, NULL, "u"),
+     zip_fzofft( zcount, NULL, "u"));
     zipwarn(errbuf, "");
     return ZE_FORM;
   }
@@ -3558,10 +3692,10 @@ int putlocal(z, rewrite)
     append_ulong_to_mem((ulg)z->len, &block, &offset, &blocksize);/* uncompressed size */
   }
 #else
-  append_ulong_to_mem(z->siz, &block, &offset, &blocksize);		/* compressed size */
-  append_ulong_to_mem(z->len, &block, &offset, &blocksize);		/* uncompressed size */
+  append_ulong_to_mem((ulg)z->siz, &block, &offset, &blocksize);		/* compressed size */
+  append_ulong_to_mem((ulg)z->len, &block, &offset, &blocksize);		/* uncompressed size */
 #endif
-  append_ushort_to_mem(z->nam, &block, &offset, &blocksize);	/* file name length */
+  append_ushort_to_mem((ush)z->nam, &block, &offset, &blocksize);	/* file name length */
 #ifdef UNICODE_SUPPORT
   if (z->uname && !is_ascii_string(z->iname))
     add_Unicode_Path_local_extra_field( z );
@@ -3699,8 +3833,8 @@ int putextended(z)
     append_ulong_to_mem((ulg)z->len, &block, &offset, &blocksize);		/* uncompressed size */
   }
 #else
-  append_ulong_to_mem(z->siz, &block, &offset, &blocksize);		/* compressed size */
-  append_ulong_to_mem(z->len, &block, &offset, &blocksize);		/* uncompressed size */
+  append_ulong_to_mem((ulg)z->siz, &block, &offset, &blocksize);		/* compressed size */
+  append_ulong_to_mem((ulg)z->len, &block, &offset, &blocksize);		/* uncompressed size */
 #endif
   /* write the header */
   if (bfwrite(block, 1, offset, BFWRITE_HEADER) != offset) {
@@ -3814,15 +3948,15 @@ int putcentral(z)
   append_ushort_to_mem(z->how, &block, &offset, &blocksize);	/* compression method */
   append_ulong_to_mem(z->tim, &block, &offset, &blocksize);		/* last mod file date time */
   append_ulong_to_mem(z->crc, &block, &offset, &blocksize);		/* crc-32 */
-  append_ulong_to_mem(z->siz, &block, &offset, &blocksize);		/* compressed size */
-  append_ulong_to_mem(z->len, &block, &offset, &blocksize);		/* uncompressed size */
+  append_ulong_to_mem((ulg)z->siz, &block, &offset, &blocksize);		/* compressed size */
+  append_ulong_to_mem((ulg)z->len, &block, &offset, &blocksize);		/* uncompressed size */
   append_ushort_to_mem(z->nam, &block, &offset, &blocksize);	/* file name length */
   append_ushort_to_mem(z->cext, &block, &offset, &blocksize);	/* extra field length */
   append_ushort_to_mem(z->com, &block, &offset, &blocksize);	/* file comment length */
   append_ushort_to_mem((ush)z->dsk, &block, &offset, &blocksize);	/* disk number start */
   append_ushort_to_mem(z->att, &block, &offset, &blocksize);	/* internal file attributes */
   append_ulong_to_mem(z->atx, &block, &offset, &blocksize);		/* external file attributes */
-  append_ulong_to_mem(off, &block, &offset, &blocksize);		/* relative offset of local header */
+  append_ulong_to_mem((ulg)off, &block, &offset, &blocksize);		/* relative offset of local header */
 
 #endif /* ZIP64_SUPPORT */
 
@@ -4089,17 +4223,17 @@ int putend( OFT( uzoff_t) n,
   append_ulong_to_mem(c, &block, &offset, &blocksize);
 #else
   /* 2 bytes    number of this disk */
-  append_ushort_to_mem(current_disk, &block, &offset, &blocksize);
+  append_ushort_to_mem((ush)current_disk, &block, &offset, &blocksize);
   /* 2 bytes    number of the disk with the start of the central directory */
-  append_ushort_to_mem(cd_start_disk, &block, &offset, &blocksize);
+  append_ushort_to_mem((ush)cd_start_disk, &block, &offset, &blocksize);
   /* 2 bytes    total number of entries in the central directory on this disk */
   append_ushort_to_mem((ush)cd_entries_this_disk, &block, &offset, &blocksize);
   /* 2 bytes    total number of entries in the central directory */
   append_ushort_to_mem((ush)n, &block, &offset, &blocksize);
   /* 4 bytes    size of the central directory */
-  append_ulong_to_mem(s, &block, &offset, &blocksize);
+  append_ulong_to_mem((ulg)s, &block, &offset, &blocksize);
   /* 4 bytes    offset of start of central directory with respect to the starting disk number */
-  append_ulong_to_mem(cd_start_offset, &block, &offset, &blocksize);
+  append_ulong_to_mem((ulg)cd_start_offset, &block, &offset, &blocksize);
 #endif
   /* size of comment */
   append_ushort_to_mem(m, &block, &offset, &blocksize);
@@ -4181,17 +4315,8 @@ int zipcopy(z)
 
   current_in_disk = start_disk;
 
-  if (current_in_disk == total_disks - 1) {
-    /* last disk is archive.zip */
-    if ((split_path = malloc(strlen(in_path) + 1)) == NULL) {
-      zipwarn("reading archive: ", in_path);
-      return ZE_MEM;
-    }
-    strcpy(split_path, in_path);
-  } else {
-    /* other disks are archive.z01, archive.z02, ... */
-    split_path = get_split_path(in_path, current_in_disk);
-  }
+  /* disks are archive.z01, archive.z02, ..., archive.zip */
+  split_path = get_in_split_path(in_path, current_in_disk);
 
   if (in_file == NULL) {
     while ((in_file = zfopen(split_path, FOPR)) == NULL) {
@@ -4202,7 +4327,7 @@ int zipcopy(z)
         return ZE_ABORT;
       }
       free(split_path);
-      split_path = get_split_path(in_path, start_disk);
+      split_path = get_in_split_path(in_path, start_disk);
     }
   }
 
@@ -4277,8 +4402,9 @@ int zipcopy(z)
     return ZE_MEM;
   strcpy(localz->name, localz->iname);
 
-
+#ifdef ZIP64_SUPPORT
   zip64_entry = adjust_zip_local_entry(localz);
+#endif
 
 #ifdef UNICODE_SUPPORT
   read_Unicode_Path_local_entry(localz);
@@ -4294,7 +4420,7 @@ int zipcopy(z)
   if (localz->crc != z->crc) {
     zipwarn("Local Entry CRC does not match CD: ", z->iname);
   }
-  if (strcmp(localz->iname, z->iname) != 0) {
+  if (fix != 3 && strcmp(localz->iname, z->iname) != 0) {
     zipwarn("Local Entry name does not match CD: ", z->iname);
   }
 
@@ -4330,6 +4456,20 @@ int zipcopy(z)
   }
 #endif
 
+  /* from zipnote */
+  if (fix == 3) {
+    /* Update length of entry's name, it may have been changed.  This is
+       needed to support the ZipNote ability to rename archive entries. */
+    localz->nam = z->nam = strlen(z->iname);
+    /* update local name */
+    free(localz->iname);
+    if ((localz->iname = malloc(strlen(z->iname) + 1)) == NULL) {
+      zipwarn("out of memory in zipcopy", "");
+      return ZE_MEM;
+    }
+    strcpy(localz->iname, z->iname);
+  }
+  
   /* update disk and offset */
   z->dsk = current_disk;
   z->off = bytes_this_split;
@@ -4339,14 +4479,14 @@ int zipcopy(z)
   /* copy the compressed data.  We recreate the local header as the local
      header can't be split and putlocal ensures it won't.  Also since we
      use siz and len from the central directory we don't need the extended
-     local header if there is one, unless encrypting. */
-  if (putlocal(localz, PUTLOCAL_WRITE) != ZE_OK)
-      return ZE_TEMP;
-
-  n = (uzoff_t)((LOCHEAD) + (ulg)(localz->nam) + (ulg)(localz->ext));
-
+     local header if there is one, unless the file is encrypted and are
+     copying as extended header marks use of time in crypt head. */
   
-  n += z->siz;
+  if (!(z->flg & 1)) {
+    /* Not encrypted */
+    localz->flg = z->flg &= ~8;
+    z->lflg = localz->lflg &= ~8;
+  }
 
   e = 0;
   if (z->lflg & 8) {
@@ -4355,9 +4495,14 @@ int zipcopy(z)
     else
       e = 16;
   }
-  n += e;
+  n = (uzoff_t)((LOCHEAD) + (ulg)(localz->nam) + (ulg)(localz->ext));
+
+  n += e + z->siz;
   tempzn += n;
 
+  if (putlocal(localz, PUTLOCAL_WRITE) != ZE_OK)
+      return ZE_TEMP;
+  
   /*
   if (zfseeko(in_file, start_offset, SEEK_SET) != 0) {
     fclose(in_file);
@@ -4368,10 +4513,14 @@ int zipcopy(z)
   */
 
   /* copy the data */
-  r = bfcopy(e + (localz->siz));
+  r = bfcopy(localz->siz);
 
+  if (z->flg & 8) {
+    putextended(localz);
+  }
+  
   /* now can close the split if local header on previous split */
-  if (current_local_disk != current_disk) {
+  if (split_method == 1 && current_local_disk != current_disk) {
     close_split(current_local_disk, current_local_file, current_local_tempname);
     current_local_file = NULL;
     free(current_local_tempname);

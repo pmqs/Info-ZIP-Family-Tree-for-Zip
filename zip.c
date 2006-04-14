@@ -481,7 +481,7 @@ local void help()
   /* help array */
   static ZCONST char *text[] = {
 #ifdef VMS
-"Zip %s (%s). Usage: zip==\"$disk:[dir]zip.exe\"",
+"Zip %s (%s). Usage: zip == \"$ disk:[dir]zip.exe\"",
 #else
 "Zip %s (%s). Usage:",
 #endif
@@ -548,9 +548,6 @@ local void help()
 "  -C2  preserve case of ODS2 names  -C2- down-case ODS2 file names* (*=default)",
 "  -C5  preserve case of ODS5 names* -C5- down-case ODS5 file names",
 "  -V   save VMS file attributes (-VV also save allocated blocks past EOF)",
-# ifdef VMS_PK_EXTRA
-"  -Vi  like BACKUP/IGNORE=INTERLOCK (requires -V[V], too)",
-# endif /* def VMS_PK_EXTRA */
 "  -w   store file version numbers\
    -ww  store file version numbers as \".nnn\"",
 #endif /* def VMS */
@@ -621,12 +618,13 @@ local void help_extended()
 "",
 "Extended Help for Zip",
 "",
+"See the Zip Manual for more detailed help",
+"",
 "The most commonly used command line syntax is:",
 "  zip destination_zip_file source_path_1 source_path_2 ...",
 "Some examples:",
 "  Add file.txt to z.zip (create z if needed):  zip z file.txt",
 "  Zip all files in current dir:                zip z *",
-"  Zip all files in current dir on Windows:     zip z *.*",
 "  Zip files in current dir and subdirs also:   zip -r z .",
 "  Pipe output from another program to zip:     program | zip z -",
 "  Stream output of zip to another program:     zip - file1 file2 | program",
@@ -684,9 +682,10 @@ local void help_extended()
 "Deletion:",
 "  -d list   delete files",
 "    Path list is a list of relative paths in the archive",
-"    Can use -t and -tt to select files, but NOT -x or -i",
+"    Can use -t and -tt to select files in archive, but NOT -x or -i",
 "  zip archive.zip -d * -t 2005-12-27",
 "    Delete all files from archive.zip with date of 27 Dec 2005 and later",
+"    Note * (use '*' to escape on Unix) to select files in archive to check",
 "",
 "Encryption:",
 "  -e        use standard (weak) PKZip 2.0 encryption, prompt for password",
@@ -1384,9 +1383,8 @@ int set_filetype(out_path)
 #define o_sv            0x123
 #define o_tt            0x124
 #define o_VV            0x125
-#define o_Vi            0x126
-#define o_ww            0x127
-#define o_z64           0x128
+#define o_ww            0x126
+#define o_z64           0x127
 
 /* the below is mainly from the old main command line
    switch with a few changes */
@@ -1501,7 +1499,6 @@ struct option_struct options[] = {
 #ifdef VMS
     {"V",  "VMS-portable", o_NO_VALUE,      o_NOT_NEGATABLE, 'V',  "Store VMS attributes, portable file format"},
     {"VV", "VMS-specific", o_NO_VALUE,      o_NOT_NEGATABLE, o_VV, "Store VMS attributes, VMS specific format"},
-    {"Vi", "VMS-ign-inter", o_NO_VALUE,     o_NOT_NEGATABLE, o_Vi, "Ignore file access conflicts"},
     {"w",  "VMS-versions", o_NO_VALUE,      o_NOT_NEGATABLE, 'w',  "store VMS versions"},
     {"ww", "VMS-dot-versions", o_NO_VALUE,  o_NOT_NEGATABLE, o_ww, "store VMS versions as \".nnn\""},
 #endif /* VMS */
@@ -2336,14 +2333,6 @@ char **argv;            /* command line tokens */
           /* vms_native++; break; */
         case o_VV:  /* Store in VMS specific format */
           vms_native = 2; break;
-        case o_Vi:  /* Ignore interlock. */
-# ifdef VMS_PK_EXTRA
-          vms_ign_int = 1;
-# else /* def VMS_PK_EXTRA */
-          ZIPERR( ZE_PARMS,
- "\"-Vi\" is invalid with the \"IM\" RMS attribute storage scheme.");
-# endif /* def VMS_PK_EXTRA [else] */
-          break;
         case 'w':   /* Append the VMS version number */
           vmsver |= 1;  break;
         case o_ww:   /* Append the VMS version number as ".nnn". */
@@ -2557,15 +2546,6 @@ char **argv;            /* command line tokens */
 
 
   /* do processing of command line and one-time tasks */
-
-#ifdef VMS
-#ifdef VMS_PK_EXTRA
-  if ((vms_ign_int != 0) && (vms_native == 0))
-  {
-    ZIPERR( ZE_PARMS, "\"-Vi\" is invalid without \"-V[V]\".");
-  }
-# endif /* def VMS_PK_EXTRA */
-#endif /* def VMS */
 
   /* Key not yet specified.  If needed, get/verify it now. */
   if (key_needed) {
@@ -3011,7 +2991,7 @@ char **argv;            /* command line tokens */
 #endif /* VM_CMS */
 
 #if (defined(IZ_CHECK_TZ) && defined(USE_EF_UT_TIME))
-  if (!zp_tz_is_valid && action != DELETE) {
+  if (!zp_tz_is_valid) {
     zipwarn("TZ environment variable not found, cannot use UTC times!!","");
   }
 #endif /* IZ_CHECK_TZ && USE_EF_UT_TIME */
@@ -3032,14 +3012,20 @@ char **argv;            /* command line tokens */
     if (z->mark) {
 #ifdef USE_EF_UT_TIME
       iztimes f_utim, z_utim;
+      ulg z_tim;
 #endif /* USE_EF_UT_TIME */
       Trace((stderr, "zip diagnostics: marked file=%s\n", z->oname));
 
       usize = z->len;
       if (action == DELETE) {
         /* only delete files in date range */
-        /* 12/27/05 */
-        if (z->tim < before || (after && z->tim >= after)) {
+#ifdef USE_EF_UT_TIME
+        z_tim = (get_ef_ut_ztime(z, &z_utim) & EB_UT_FL_MTIME) ?
+                unix2dostime(&z_utim.mtime) : z->tim;
+#else /* !USE_EF_UT_TIME */
+#       define z_tim  z->tim
+#endif /* ?USE_EF_UT_TIME */
+        if (z_tim < before || (after && z_tim >= after)) {
           /* include in archive */
           z->mark = 0;
         } else {
@@ -3163,6 +3149,16 @@ char **argv;            /* command line tokens */
     }
 #endif /* !WINDLL */
   }
+  if (copy_only && zfiles) {
+    /* get stats for copy mode */
+    files_total = 0;
+    bytes_total = 0;
+    for (z = zfiles; z != NULL; z = z->nxt) {
+      files_total++;
+      bytes_total += z->len;
+    }
+  }
+
   d = (d && k == 0 && (zipbeg || zfiles != NULL)); /* d true if appending */
 
 #if CRYPT
@@ -3271,7 +3267,7 @@ char **argv;            /* command line tokens */
        as needed. */
 #ifdef SPLIT_SUPPORT /* USE_NEW_READ */
     if (zipbeg) {
-      in_split_path = get_split_path(in_path, 1);
+      in_split_path = get_in_split_path(in_path, 1);
 
       while ((in_file = zfopen(in_split_path, FOPR_EX)) == NULL) {
         /* could not open split */
@@ -3281,7 +3277,7 @@ char **argv;            /* command line tokens */
           ZIPERR(ZE_ABORT, "could not open archive to read");
         }
         free(in_split_path);
-        in_split_path = get_split_path(in_path, 1);
+        in_split_path = get_in_split_path(in_path, 1);
       }
     }
 #else
@@ -3541,6 +3537,7 @@ char **argv;            /* command line tokens */
     {
       /* copy the original entry verbatim */
       if (copy_only) {
+        DisplayRunningStats();
         if (noisy)
         {
           fprintf(mesg, "copying: %s", z->oname);
@@ -3551,6 +3548,12 @@ char **argv;            /* command line tokens */
         {
           fprintf(logfile, "copying: %s", z->oname);
         }
+        if (display_usize) {
+          fprintf(mesg, " (");
+          DisplayNumString(mesg, z->len );
+          fprintf(mesg, ")");
+        }
+        fflush(mesg);
       }
 
 #ifdef SPLIT_SUPPORT /* USE_NEW_READ */
@@ -3563,14 +3566,16 @@ char **argv;            /* command line tokens */
         ZIPERR(r, errbuf);
       }
       if (copy_only) {
+        files_so_far++;
+        bytes_so_far += z->len;
         if (noisy)
         {
-  #if (!defined(MACOS) && !defined(WINDLL))
+#if (!defined(MACOS) && !defined(WINDLL))
           putc('\n', mesg);
           fflush(mesg);
-  #else
+#else
           fprintf(stdout, "\n");
-  #endif
+#endif
           mesg_line_started = 0;
           if (logall)
             fprintf(logfile, "\n");

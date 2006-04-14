@@ -1,9 +1,9 @@
 /*
   zipsplit.c - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -121,22 +121,16 @@ int set_filetype(out_path)
 /* rename a split
  * A split has a tempfile name until it is closed, then
  * here rename it as out_path the final name for the split.
- *
- * This is not used in zipsplit but is referenced by the generic split
- * writing code.  If zipsplit is made split aware (so can write splits of
- * splits, if that makes sense) then this would get used.  But if that
- * happens these utility versions should be dropped and the main ones
- * used.
  */
-int rename_split(temp_name, out_path)
-  char *temp_name;
+int rename_split(tempname, out_path)
+  char *tempname;
   char *out_path;
 {
   int r;
   /* Replace old zip file with new zip file, leaving only the new one */
-  if ((r = replace(out_path, temp_name)) != ZE_OK)
+  if ((r = replace(out_path, tempname)) != ZE_OK)
   {
-    zipwarn("new zip file left as: ", temp_name);
+    zipwarn("new zip file left as: ", tempname);
     free((zvoid *)tempzip);
     tempzip = NULL;
     ZIPERR(r, "was replacing split file");
@@ -145,29 +139,6 @@ int rename_split(temp_name, out_path)
     setfileattr(out_path, zip_attributes);
   }
   return ZE_OK;
-}
-
-void zipmessage_nl(a, nl)
-ZCONST char *a;     /* message string to output */
-int nl;             /* 1 = add nl to end */
-/* Print a message to mesg without new line and return. */
-{
-  mesg_line_started = 1;
-  if (noisy) {
-    fprintf(mesg, "%s", a);
-    if (nl) {
-      fprintf(mesg, "\n");
-      mesg_line_started = 0;
-    }
-  }
-  if (logfile) {
-    fprintf(logfile, "%s", a);
-    if (nl) {
-      fprintf(logfile, "\n");
-      mesg_line_started = 0;
-    }
-  }
-  fflush(mesg);
 }
 
 void zipmessage(a, b)
@@ -233,7 +204,7 @@ ZCONST char *h;         /* message about how it happened */
 {
   if (PERR(c))
     perror("zipsplit error");
-  fprintf(mesg, "zipsplit error: %s (%s)\n", ZIPERRORS(c), h);
+  fprintf(mesg, "zipsplit error: %s (%s)\n", ziperrors[c-1], h);
   if (indexmade)
   {
     strcpy(name, INDEX);
@@ -486,7 +457,7 @@ uzoff_t d;          /* amount to deduct from first bin */
 }
 
 /* keep compiler happy until implement long options - 11/4/2003 EG */
-struct option_struct far options[] = {
+struct option_struct options[] = {
   /* short longopt        value_type        negatable        ID    name */
     {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     /* the end of the list */
@@ -839,11 +810,13 @@ char **argv;            /* command line tokens */
   for (j = 0; j < s; j++)
   {
     /* jump here on a disk retry */
-  redobin:
+   redobin:
 
-    current_disk = 0;
-    cd_start_disk = 0;
-    cd_entries_this_disk = 0;
+#ifdef SPLIT_SUPPORT
+  current_disk = 0;
+  cd_start_disk = 0;
+  cd_entries_this_disk = 0;
+#endif
 
     /* prompt if requested */
     if (u)
@@ -887,7 +860,9 @@ char **argv;            /* command line tokens */
       if (u && retry()) goto redobin;
       ziperr(ZE_CREAT, path);
     }
+#ifdef SPLIT_SUPPORT
     bytes_this_split = 0;
+#endif
     tempzn = 0;
 
     /* write local headers and copy compressed data */
@@ -895,8 +870,12 @@ char **argv;            /* command line tokens */
     {
       if (zfseeko(e, w[g]->off, SEEK_SET))
         ziperr(ferror(e) ? ZE_READ : ZE_EOF, zipfile);
+#ifdef SPLIT_SUPPORT
       in_file = e;
       if ((r = zipcopy(w[g])) != ZE_OK)
+#else
+      if ((r = zipcopy(w[g], e)) != ZE_OK)
+#endif
       {
         if (r == ZE_TEMP)
         {
@@ -922,8 +901,10 @@ char **argv;            /* command line tokens */
       }
 
     /* write end-of-central header */
+#ifdef SPLIT_SUPPORT
     cd_start_offset = c;
     total_cd_entries = k;
+#endif
     if ((t = zftello(f)) == (zoff_t)-1 ||
         (r = putend((zoff_t)k, t - c, c, (extent)0, (char *)NULL)) !=
         ZE_OK ||

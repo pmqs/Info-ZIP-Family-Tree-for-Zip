@@ -44,7 +44,7 @@
 .!              Added -P, -R, -i@, -x@ and -tt options, modified for Zip 2.2.
 .!      Christian Spieler       14 Oct 97
 .!              unified spelling of "Info-ZIP", final cleanups for 2.2.
-.!      Steven Schweda          15 Feb 2006
+.!      Steven Schweda          24 Mar 2005
 .!              General update for version 3.0.
 .!
 .noflags
@@ -123,12 +123,13 @@ when Zip is run without any command-line parameters:
   -i   include only names matching the following patterns
   -i@  include only names matching the patterns in "file"
   -j   junk (don't record) directory names
-  -J   junk (remove) prepended (SFX) stub
+  -J   junk (remove) zipfile preamble (unzipsfx)
   -k   simulate PKZIP made zipfile (DOS names)
   -l   translate end-of-lines (LF -> CRLF)
   -ll  translate end-of-lines (CRLF -> LF)
   -L   show software license
   -m   move into zipfile (delete files)
+  -MM  input file spec must exist (wildcards must match existing files)
   -n   don't compress these suffixes
   -nw  no wildcards
   -o   make zipfile as old as latest entry
@@ -148,7 +149,6 @@ when Zip is run without any command-line parameters:
   -v   verbose messages/print version info
   -V   save VMS file attributes
   -VV  save VMS file attributes and all allocated blocks
-  -Vi  ignore file locks, like BACKUP/IGNORE=INTERLOCK  (Requires -V[V].)
   -w   save VMS version numbers in zipfile
   -ww  save VMS version numbers in zipfile as ".nnn" instead of ";nnn"
   -x   exclude all names matching the following patterns

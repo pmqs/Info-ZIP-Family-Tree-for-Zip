@@ -1,9 +1,9 @@
 /*
   zipnote.c - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -50,7 +50,7 @@ local int catalloc OF((char * far *, char *));
 int main OF((int, char **));
 
 /* keep compiler happy until implement long options - 11/4/2003 EG */
-struct option_struct far options[] = {
+struct option_struct options[] = {
   /* short longopt        value_type        negatable        ID    name */
     {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     /* the end of the list */
@@ -98,15 +98,15 @@ int set_filetype(out_path)
  * A split has a tempfile name until it is closed, then
  * here rename it as out_path the final name for the split.
  */
-int rename_split(temp_name, out_path)
-  char *temp_name;
+int rename_split(tempname, out_path)
+  char *tempname;
   char *out_path;
 {
   int r;
   /* Replace old zip file with new zip file, leaving only the new one */
-  if ((r = replace(out_path, temp_name)) != ZE_OK)
+  if ((r = replace(out_path, tempname)) != ZE_OK)
   {
-    zipwarn("new zip file left as: ", temp_name);
+    zipwarn("new zip file left as: ", tempname);
     free((zvoid *)tempzip);
     tempzip = NULL;
     ZIPERR(r, "was replacing split file");
@@ -115,29 +115,6 @@ int rename_split(temp_name, out_path)
     setfileattr(out_path, zip_attributes);
   }
   return ZE_OK;
-}
-
-void zipmessage_nl(a, nl)
-ZCONST char *a;     /* message string to output */
-int nl;             /* 1 = add nl to end */
-/* Print a message to mesg without new line and return. */
-{
-  mesg_line_started = 1;
-  if (noisy) {
-    fprintf(mesg, "%s", a);
-    if (nl) {
-      fprintf(mesg, "\n");
-      mesg_line_started = 0;
-    }
-  }
-  if (logfile) {
-    fprintf(logfile, "%s", a);
-    if (nl) {
-      fprintf(logfile, "\n");
-      mesg_line_started = 0;
-    }
-  }
-  fflush(mesg);
 }
 
 void zipmessage(a, b)
@@ -161,7 +138,7 @@ ZCONST char *h;         /* message about how it happened */
 {
   if (PERR(c))
     perror("zipnote error");
-  fprintf(mesg, "zipnote error: %s (%s)\n", ZIPERRORS(c), h);
+  fprintf(mesg, "zipnote error: %s (%s)\n", ziperrors[c-1], h);
   if (tempzf != NULL)
     fclose(tempzf);
   if (tempzip != NULL)
@@ -571,40 +548,28 @@ char **argv;            /* command line tokens */
   }
 
   /* Open output zip file for writing */
-#if defined(UNIX) && !defined(NO_MKSTEMP)
-  {
-    int yd;
-
-    /* use mkstemp to avoid race condition and compiler warning */
-    strcpy(errbuf, "ziXXXXXX");
-    if ((yd = mkstemp(errbuf)) == EOF) {
-      ZIPERR(ZE_TEMP, errbuf);
-    }
-    if ((tempzip = malloc(strlen(errbuf) + 1)) == NULL) {
-      ZIPERR(ZE_MEM, "allocating temp filename");
-    }
-    strcpy(tempzip, errbuf);
-    if ((tempzf = y = fdopen(yd, FOPW)) == NULL) {
-      ZIPERR(ZE_TEMP, tempzip);
-    }
-  }
-#else
   if ((tempzf = y = fopen(tempzip = tempname(zipfile), FOPW)) == NULL)
     ziperr(ZE_TEMP, tempzip);
-#endif
 
   /* Open input zip file again, copy preamble if any */
   if ((in_file = fopen(zipfile, FOPR)) == NULL)
     ziperr(ZE_NAME, zipfile);
-
+#ifdef SPLIT_SUPPORT
   if (zipbeg && (r = bfcopy(zipbeg)) != ZE_OK)
+#else
+  if (zipbeg && (r = fcopy(in_file, y, zipbeg)) != ZE_OK)
+#endif
     ziperr(r, r == ZE_TEMP ? tempzip : zipfile);
   tempzn = zipbeg;
 
   /* Go through local entries, copying them over as is */
   fix = 3; /* needed for zipcopy if name changed */
   for (z = zfiles; z != NULL; z = z->nxt) {
+#ifdef SPLIT_SUPPORT
     if ((r = zipcopy(z)) != ZE_OK)
+#else
+    if ((r = zipcopy(z, in_file)) != ZE_OK)
+#endif
       ziperr(r, "was copying an entry");
   }
   fclose(x);
