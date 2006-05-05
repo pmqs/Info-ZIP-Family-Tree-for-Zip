@@ -180,9 +180,7 @@ local void append_string_to_mem OF((char *, int, char**, ulg *, ulg *));
 
 /* Local functions */
 
-#ifdef SPLIT_SUPPORT
   int at_signature OF((FILE *, char *));
-#endif
 
 local int zqcmp OF((ZCONST zvoid *, ZCONST zvoid *));
 local int scanzipf_reg OF((FILE *f));
@@ -1804,7 +1802,6 @@ local int scanzipf_fix(f)
 
 #endif /* !UTIL */
 
-#ifdef SPLIT_SUPPORT
 /*
  * read_local
  *
@@ -1923,7 +1920,6 @@ int readlocal(localz, z)
 
   return ZE_OK;
 }
-#endif
 
 /*
  * scanzipf_reg starts searching for the End Signature at the end of the file
@@ -1979,11 +1975,9 @@ local int scanzipf_reg(f)
     amiga_sfx_offset = (fread(buf, 1, 4, f) == 4 && LG(buf) == 0xF3030000);
     /* == 1 if this file is an Amiga executable (presumably UnZipSFX) */
 #endif
-#ifdef SPLIT_SUPPORT
     /* detect spanning signature */
     zfseeko(f, 0, SEEK_SET);
     read_split_archive = (fread(buf, 1, 4, f) == 4 && LG(buf) == 0x08074b50L);
-#endif
     found = 0;
     t = &buf[4096];
     t[1] = '\0';
@@ -2531,7 +2525,6 @@ should be valid. comments are welcome
 }
 
 
-#ifdef SPLIT_SUPPORT /* USE_NEW_READ */
 
 
 
@@ -2920,7 +2913,7 @@ local int scanzipf_regnew()
     char *in_path_ext;
 
 #ifdef VMS
-    /* On VMS, adjust plen (and out_path_ext) to avoid the file version. */
+    /* On VMS, adjust plen (and in_path_ext) to avoid the file version. */
     plen -= strlen(vms_file_version(in_path));
 #endif /* def VMS */
     in_path_ext = zipfile + plen - 4;
@@ -2941,7 +2934,7 @@ local int scanzipf_regnew()
   if ((total_disks != 1 || split_method) && strcmp(in_path, out_path) == 0) {
     fclose(in_file);
     in_file = NULL;
-    zipwarn("cannot update a split archive (use -O option)", "");
+    zipwarn("cannot update a split archive (use --out option)", "");
     return ZE_PARMS;
   }
 
@@ -3387,8 +3380,8 @@ local int scanzipf_regnew()
 
   if (zcount != cd_total_entries) {
     sprintf(errbuf, "expected %s entries but found %s",
-     zip_fzofft( cd_total_entries, NULL, "u"),
-     zip_fzofft( zcount, NULL, "u"));
+      zip_fzofft(cd_total_entries, NULL, "u"),
+      zip_fzofft(zcount, NULL, "u"));
     zipwarn(errbuf, "");
     return ZE_FORM;
   }
@@ -3402,7 +3395,6 @@ local int scanzipf_regnew()
 
 
 
-#endif
 
 
 /* ---------------------- */
@@ -3513,7 +3505,6 @@ int readzipfile()
   }
 #endif /* MVS */
 
-#ifdef SPLIT_SUPPORT /* USE_NEW_READ */
   /* ------------------------ */
   /* new file read */
 
@@ -3549,40 +3540,6 @@ int readzipfile()
   }
 
   /* ------------------------ */
-#else
-  /* original read */
-
-  if (readable)
-  {
-# ifndef UTIL
-    retval = (fix && !adjust) ? scanzipf_fix(f) : scanzipf_reg(f);
-# else
-    retval = scanzipf_reg(f);
-# endif
-    /* Done with zip file for now */
-    fclose(f);
-  }
-
-  if (readable)
-  {
-    /* If one or more files, sort by name */
-    if (zcount)
-    {
-      struct zlist far * far *x;    /* pointer into zsort array */
-      struct zlist far *z;          /* pointer into zfiles linked list */
-      extent zl_size = zcount * sizeof(struct zlist far *);
-
-      if (zl_size / sizeof(struct zlist far *) != zcount ||
-          (x = zsort = (struct zlist far **)malloc(zl_size)) == NULL)
-        return ZE_MEM;
-      for (z = zfiles; z != NULL; z = z->nxt)
-        *x++ = z;
-      qsort((char *)zsort, zcount, sizeof(struct zlist far *), zqcmp);
-    }
-  }
-  /* ------------------------ */
-
-#endif
 
   return retval;
 }
@@ -3636,6 +3593,7 @@ int putlocal(z, rewrite)
       /* assume Zip64 */
       zip64_entry = 1;        /* header of this entry has a field needing Zip64 */
       z->ver = ZIP64_MIN_VER;
+      was_zip64 = 1;
     }
   } else {
     /* rewrite */
@@ -3645,6 +3603,7 @@ int putlocal(z, rewrite)
     {
       /* Zip64 entry still */
       zip64_archive = 1;      /* this archive needs Zip64 (version 4.5 unzipper) */
+      z->ver = ZIP64_MIN_VER;
     } else {
       /* it turns out we do not need Zip64 */
       zip64_entry = 0;
@@ -3711,7 +3670,6 @@ int putlocal(z, rewrite)
   if (rewrite == PUTLOCAL_REWRITE) {
     /* use fwrite as seeked back and not extending the archive */
     /* also if split_method 1 write to file with local header */
-#ifdef SPLIT_SUPPORT
     if (split_method == 1) {
       if (fwrite(block, 1, offset, current_local_file) != offset) {
         free(block);
@@ -3724,15 +3682,12 @@ int putlocal(z, rewrite)
         free(current_local_tempname);
       }
     } else {
-#endif
       /* not doing splits */
       if (fwrite(block, 1, offset, y) != offset) {
         free(block);
         return ZE_TEMP;
       }
-#ifdef SPLIT_SUPPORT
     }
-#endif
   } else {
     /* do same if archive not split or split_method 2 with descriptors */
     /* use bfwrite which counts bytes for splits */
@@ -4021,6 +3976,9 @@ int putend( OFT( uzoff_t) n,
 
   /* check zip64_archive instead of force_zip64 3/19/05 */
 
+  zip64_eocd_disk = current_disk;
+  zip64_eocd_offset = bytes_this_split;
+
   if( n > ZIP_UWORD16_MAX || s > ZIP_UWORD32_MAX || c > ZIP_UWORD32_MAX ||
       zip64_archive )
   {
@@ -4044,7 +4002,6 @@ int putend( OFT( uzoff_t) n,
     /* 2 bytes   version needed to extract */
     append_ushort_to_mem(ZIP64_MIN_VER, &block, &offset, &blocksize);
 
-#ifdef SPLIT_SUPPORT
     /* 4 bytes   number of this disk */
     append_ulong_to_mem(current_disk, &block, &offset, &blocksize);
     /* 4 bytes   number of the disk with the start of the central directory */
@@ -4057,27 +4014,12 @@ int putend( OFT( uzoff_t) n,
     append_int64_to_mem(s, &block, &offset, &blocksize);
     /* 8 bytes   offset of start of central directory with respect to the starting disk number */
     append_int64_to_mem(cd_start_offset, &block, &offset, &blocksize);
-#else
-    /* 4 bytes   number of this disk */
-    append_ulong_to_mem(0, &block, &offset, &blocksize);
-    /* 4 bytes   number of the disk with the start of the central directory */
-    append_ulong_to_mem(0, &block, &offset, &blocksize);
-    /* 8 bytes   total number of entries in the central directory on this disk */
-    append_int64_to_mem(n, &block, &offset, &blocksize);
-    /* 8 bytes   total number of entries in the central directory */
-    append_int64_to_mem(n, &block, &offset, &blocksize);
-    /* 8 bytes   size of the central directory */
-    append_int64_to_mem(s, &block, &offset, &blocksize);
-    /* 8 bytes   offset of start of central directory with respect to the starting disk number */
-    append_int64_to_mem(c, &block, &offset, &blocksize);
-#endif
     /* zip64 extensible data sector    (variable size), we don't use it... */
 
     /* write zip64 end of central directory locator:  */
     /*                                                    */
     /* 4 bytes   zip64 end of central dir locator  signature (0x07064b50) */
     append_ulong_to_mem(ZIP64_CENTRAL_DIR_TAIL_END_SIG, &block, &offset, &blocksize);
-#ifdef SPLIT_SUPPORT
     /* 4 bytes   number of the disk with the start of the zip64 end of central directory */
     append_ulong_to_mem(zip64_eocd_disk, &block, &offset, &blocksize);
     /* 8 bytes   relative offset of the zip64 end of central directory record, that is */
@@ -4085,24 +4027,13 @@ int putend( OFT( uzoff_t) n,
     append_int64_to_mem(zip64_eocd_offset, &block, &offset, &blocksize);
     /* PUTLLG(l64Temp, f); */
     /* 4 bytes   total number of disks */
-    append_ulong_to_mem(current_disk, &block, &offset, &blocksize);
-#else
-    /* 4 bytes   number of the disk with the start of the zip64 end of central directory */
-    append_ulong_to_mem(0, &block, &offset, &blocksize);
-    /* 8 bytes   relative offset of the zip64 end of central directory record, that is */
-    /* offset of CD + CD size */
-    append_int64_to_mem(0, &block, &offset, &blocksize);
-    /* PUTLLG(l64Temp, f); */
-    /* 4 bytes   total number of disks */
-    append_ulong_to_mem(0, &block, &offset, &blocksize);
-#endif
+    append_ulong_to_mem(current_disk + 1, &block, &offset, &blocksize);
   }
 
   /* end of central dir signature */
   append_ulong_to_mem(ENDSIG, &block, &offset, &blocksize);
     /* mv archives to come :)         */
     /* for now use n for all          */
-#ifdef SPLIT_SUPPORT
     /* 2 bytes    number of this disk */
     if (current_disk < 0xFFFF)
       append_ushort_to_mem((ush)current_disk, &block, &offset, &blocksize);
@@ -4125,43 +4056,18 @@ int putend( OFT( uzoff_t) n,
       append_ushort_to_mem((ush)total_cd_entries, &block, &offset, &blocksize);
     else
       append_ushort_to_mem((ush)0xFFFF, &block, &offset, &blocksize);
-#else
-    /* 2 bytes    number of this disk */
-    append_ushort_to_mem((ush)0, &block, &offset, &blocksize);
-    /* 2 bytes    number of the disk with the start of the central directory */
-    append_ushort_to_mem((ush)0, &block, &offset, &blocksize);
-    /* 2 bytes    total number of entries in the central directory on this disk */
-    if (n < 0xFFFF)
-      append_ushort_to_mem((ush)n, &block, &offset, &blocksize);
-    else
-      append_ushort_to_mem((ush)0xFFFF, &block, &offset, &blocksize);
-    /* 2 bytes    total number of entries in the central directory */
-    if (n < 0xFFFF)
-      append_ushort_to_mem((ush)n, &block, &offset, &blocksize);
-    else
-      append_ushort_to_mem((ush)0xFFFF, &block, &offset, &blocksize);
-#endif
     if( s > ZIP_UWORD32_MAX )
       /* instead of s */
       append_ulong_to_mem(ZIP_UWORD32_MAX, &block, &offset, &blocksize);
     else
       /* 4 bytes    size of the central directory */
       append_ulong_to_mem((ulg)s, &block, &offset, &blocksize);
-#ifdef SPLIT_SUPPORT
-    if( cd_start_offset > ZIP_UWORD32_MAX)
+    if(force_zip64 || cd_start_offset > ZIP_UWORD32_MAX)
       /* instead of cd_start_offset */
       append_ulong_to_mem(ZIP_UWORD32_MAX, &block, &offset, &blocksize);
     else
       /* 4 bytes    offset of start of central directory with respect to the starting disk number */
       append_ulong_to_mem((ulg)cd_start_offset, &block, &offset, &blocksize);
-#else
-    if(c > ZIP_UWORD32_MAX)
-      /* instead of cd_start_offset */
-      append_ulong_to_mem(ZIP_UWORD32_MAX, &block, &offset, &blocksize);
-    else
-      /* 4 bytes    offset of start of central directory with respect to the starting disk number */
-      append_ulong_to_mem((ulg)c, &block, &offset, &blocksize);
-#endif
     /* size of comment */
     append_ushort_to_mem(m, &block, &offset, &blocksize);
 
@@ -4208,20 +4114,6 @@ int putend( OFT( uzoff_t) n,
 
   /* end of central dir signature */
   append_ulong_to_mem(ENDSIG, &block, &offset, &blocksize);
-#ifndef SPLIT_SUPPORT
-  /* 2 bytes    number of this disk */
-  append_ushort_to_mem(0, &block, &offset, &blocksize);
-  /* 2 bytes    number of the disk with the start of the central directory */
-  append_ushort_to_mem(0, &block, &offset, &blocksize);
-  /* 2 bytes    total number of entries in the central directory on this disk */
-  append_ushort_to_mem((ush)n, &block, &offset, &blocksize);
-  /* 2 bytes    total number of entries in the central directory */
-  append_ushort_to_mem((ush)n, &block, &offset, &blocksize);
-  /* 4 bytes    size of the central directory */
-  append_ulong_to_mem(s, &block, &offset, &blocksize);
-  /* 4 bytes    offset of start of central directory with respect to the starting disk number */
-  append_ulong_to_mem(c, &block, &offset, &blocksize);
-#else
   /* 2 bytes    number of this disk */
   append_ushort_to_mem((ush)current_disk, &block, &offset, &blocksize);
   /* 2 bytes    number of the disk with the start of the central directory */
@@ -4234,7 +4126,6 @@ int putend( OFT( uzoff_t) n,
   append_ulong_to_mem((ulg)s, &block, &offset, &blocksize);
   /* 4 bytes    offset of start of central directory with respect to the starting disk number */
   append_ulong_to_mem((ulg)cd_start_offset, &block, &offset, &blocksize);
-#endif
   /* size of comment */
   append_ushort_to_mem(m, &block, &offset, &blocksize);
   /* Write the comment, if any */
@@ -4272,7 +4163,6 @@ int putend( OFT( uzoff_t) n,
 #endif /* ZIP64_SUPPORT */
 
 
-#ifdef SPLIT_SUPPORT /* USE_NEW_READ */
 
 /* Note: a zip "entry" includes a local header (which includes the file
    name), an encryption header if encrypting, the compressed data
@@ -4296,7 +4186,8 @@ int zipcopy(z)
   struct zlist far *localz;
   int r;
   int zip64_entry = 0;
-
+  uzoff_t size = 0;
+  
 
   
   Trace((stderr, "zipcopy %s\n", z->zname));
@@ -4330,6 +4221,23 @@ int zipcopy(z)
       split_path = get_in_split_path(in_path, start_disk);
     }
   }
+
+#ifndef UTIL
+  if (split_method == 0 && total_disks > 1) {
+    /* if input archive is multi-disk and splitting has not been
+       enabled or disabled (split_method == -1), then automatically
+       set split size to same as first in split */
+    if (filetime(split_path, NULL, (zoff_t*)&size, NULL) == 0) {
+      zipwarn("Could not get info for input split: ", split_path);
+      return ZE_OPEN;
+    }
+    split_method = 1;
+    split_size = size;
+
+    if (noisy_splits)
+      zipmessage("splitsize = ", zip_fuzofft(split_size, NULL, NULL));
+  }
+#endif
 
   if (zfseeko(in_file, start_offset, SEEK_SET) != 0) {
     fclose(in_file);
@@ -4543,57 +4451,6 @@ int zipcopy(z)
   return r;
 }
 
-#else
-
-/* Note: a zip "entry" includes a local header (which includes the file
-   name), an encryption header if encrypting, the compressed data
-   and possibly an extended local header. */
-
-int zipcopy(z, x)
-struct zlist far *z;    /* zip entry to copy */
-FILE *x;                /* source file */
-/* Copy the zip entry described by *z from file *x to file *y.  Return an
-   error code in the ZE_ class.  Also update tempzn by the number of bytes
-   copied. */
-/* Now copies to global output file y */
-{
-  uzoff_t n;           /* holds local header offset */
-
-  Trace((stderr, "zipcopy %s\n", z->zname));
-  n = (uzoff_t)((4 + LOCHEAD) + (ulg)z->nam + (ulg)z->ext);
-
-  if (fix > 1) {
-    if (zfseeko(x, z->off + n, SEEK_SET)) /* seek to compressed data */
-      return ferror(x) ? ZE_READ : ZE_EOF;
-
-    if (fix > 2) {
-      /* Update length of entry's name, it may have been changed.  This is
-         needed to support the ZipNote ability to rename archive entries. */
-      z->nam = strlen(z->iname);
-      n = (uzoff_t)((4 + LOCHEAD) + (ulg)z->nam + (ulg)z->ext);
-    }
-
-    /* do not trust the old compressed size */
-    if (putlocal(z, PUTLOCAL_WRITE) != ZE_OK)
-      return ZE_TEMP;
-
-    z->off = tempzn;
-    tempzn += n;
-    n = z->siz;
-  } else {
-    if (zfseeko(x, z->off, SEEK_SET))     /* seek to local header */
-      return ferror(x) ? ZE_READ : ZE_EOF;
-
-    z->off = tempzn;
-    n += z->siz;
-  }
-  /* copy the compressed data and the extended local header if there is one */
-  if (z->lflg & 8) n += 16;
-  tempzn += n;
-  return bfcopy(x, n);
-}
-
-#endif
 
 
 #ifndef UTIL
