@@ -165,7 +165,9 @@ $DESCRIPTOR(cli_display_counts, "DISPLAY.COUNTS");      /* -dc */
 $DESCRIPTOR(cli_display_dots,   "DISPLAY.DOTS");        /* -dd,-ds */
 $DESCRIPTOR(cli_dot_version,    "DOT_VERSION");         /* -ww */
 $DESCRIPTOR(cli_encrypt,        "ENCRYPT");             /* -e,-P */
-$DESCRIPTOR(cli_extra_fields,   "EXTRA_FIELDS");        /* -X */
+$DESCRIPTOR(cli_extra_fields,   "EXTRA_FIELDS");        /* -X [/NO] */
+$DESCRIPTOR(cli_extra_fields_normal, "EXTRA_FIELDS.NORMAL"); /* no -X */
+$DESCRIPTOR(cli_extra_fields_keep, "EXTRA_FIELDS.KEEP_EXISTING"); /* -X- */
 $DESCRIPTOR(cli_fix_archive,    "FIX_ARCHIVE");         /* -F[F] */
 $DESCRIPTOR(cli_fix_normal,     "FIX_ARCHIVE.NORMAL");  /* -F */
 $DESCRIPTOR(cli_fix_full,       "FIX_ARCHIVE.FULL");    /* -FF */
@@ -756,14 +758,6 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         *ptr++ = 'q';
 
     /*
-    **  Suppress creation of any extra field.
-    */
-    status = cli$present(&cli_extra_fields);
-    if (!(status & 1))
-        /* /EXTRA_FIELDS */
-        *ptr++ = 'X';
-
-    /*
     **  Save the VMS file attributes (and all allocated blocks?).
     */
     status = cli$present(&cli_vms);
@@ -1093,6 +1087,31 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         status = get_list(&cli_store_types, &foreign_cmdline, ':',
                           &the_cmd_line, &cmdl_size, &cmdl_len);
         if (!(status & 1)) return (status);
+    }
+
+    /*
+    **  Handle "-X", keep or strip extra fields.
+    */
+#define OPT_X  "-X"
+#define OPT_XN  "-X-"
+
+    status = cli$present(&cli_extra_fields);
+    if (status & 1) {
+        /* /EXTRA_FIELDS */
+        if ((status = cli$present( &cli_extra_fields_keep)) & 1) {
+            /* /EXTRA_FIELDS = KEEP_EXISTING */
+            x = cmdl_len;
+            cmdl_len += strlen( OPT_XN)+ 1;
+            CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+            strcpy( &the_cmd_line[ x], OPT_XN);
+        }
+    }
+    else if (status == CLI$_NEGATED) {
+        /* /NOEXTRA_FIELDS */
+        x = cmdl_len;
+        cmdl_len += strlen( OPT_X)+ 1;
+        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        strcpy( &the_cmd_line[ x], OPT_X);
     }
 
     /*
