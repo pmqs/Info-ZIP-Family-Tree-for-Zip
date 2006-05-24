@@ -158,6 +158,10 @@ $DESCRIPTOR(cli_before,         "BEFORE");              /* -tt */
 $DESCRIPTOR(cli_comments,       "COMMENTS");            /* -c,-z */
 $DESCRIPTOR(cli_comment_zipfile,"COMMENTS.ZIP_FILE");   /* -z */
 $DESCRIPTOR(cli_comment_files,  "COMMENTS.FILES");      /* -c */
+$DESCRIPTOR(cli_compression,    "COMPRESSION");         /* -Z */
+$DESCRIPTOR(cli_compression_b,  "COMPRESSION.BZIP2");   /* -Zb */
+$DESCRIPTOR(cli_compression_d,  "COMPRESSION.DEFLATE"); /* -Zd */
+$DESCRIPTOR(cli_compression_s,  "COMPRESSION.STORE");   /* -Zs */
 $DESCRIPTOR(cli_dirnames,       "DIRNAMES");            /* -D */
 $DESCRIPTOR(cli_display,        "DISPLAY");             /* -d? */
 $DESCRIPTOR(cli_display_bytes,  "DISPLAY.BYTES");       /* -db */
@@ -814,8 +818,8 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     /*
     **
     **  OK.  We've done all the regular options, so check for -b (temporary
-    **  file path), -t (exclude before time), -n (special suffixes), zipfile,
-    **  files to zip, and exclude list.
+    **  file path), -t (exclude before time), -n (special suffixes), -Z
+    **  (compression method), zipfile, files to zip, and exclude list.
     **
     */
     status = cli$present(&cli_temp_path);
@@ -1029,6 +1033,44 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         cmdl_len += strlen( OPT_MM)+ 1;
         CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
         strcpy( &the_cmd_line[ x], OPT_MM);
+    }
+
+    /*
+    **  Handle "-Z".
+    */
+#define OPT_ZB "-Zb"
+#define OPT_ZD "-Zd"
+#define OPT_ZS "-Zs"
+
+    status = cli$present( &cli_compression);
+    if (status & 1)
+    {
+        if ((status = cli$present( &cli_compression_b)) & 1)
+        {
+            /* /COMPRESSION = BZIP2 */
+            x = cmdl_len;
+            cmdl_len += strlen( OPT_ZB)+ 1;
+            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            strcpy( &the_cmd_line[ x], OPT_ZB);
+        }
+
+        if ((status = cli$present( &cli_compression_d)) & 1)
+        {
+            /* /COMPRESSION = DEFLATE */
+            x = cmdl_len;
+            cmdl_len += strlen( OPT_ZD)+ 1;
+            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            strcpy( &the_cmd_line[ x], OPT_ZD);
+        }
+
+        if ((status = cli$present( &cli_compression_s)) & 1)
+        {
+            /* /COMPRESSION = STORE */
+            x = cmdl_len;
+            cmdl_len += strlen( OPT_ZS)+ 1;
+            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            strcpy( &the_cmd_line[ x], OPT_ZS);
+        }
     }
 
     /*
@@ -1473,11 +1515,11 @@ void VMSCLI_help(void)  /* VMSCLI version */
 #else /* !CRYPT */
 "    /QUIET, /VERBOSE[={MORE|DEBUG}], /[NO]DIRNAMES, /JUNK,",
 #endif /* ?CRYPT */
-"    /LEVEL=[0-9], /ZIP64, /[NO]EXTRA_FIELDS, /[NO]KEEP_VERSION, /DOT_VERSION,",
-"    /NOVMS|/VMS[=ALL], /TEMP_PATH=directory, /TRANSLATE_EOL[={LF|CRLF}],",
-"    /[NO]PRESERVE_CASE[=([NO]ODS{2|5}[,...])], /MUST_MATCH, /[NO]PKZIP,",
-"    /DISPLAY={BYTES|COUNTS|DOTS=mb_per_dot},",
-"    /SPLIT_SIZE=ssize, /SVERBOSE /PAUSE,"
+"    /COMPRESSION = {BZIP2|DEFLATE|STORE}, /LEVEL=[0-9], /ZIP64, /[NO]PKZIP,",
+"    /[NO]EXTRA_FIELDS, /[NO]KEEP_VERSION, /DOT_VERSION, /NOVMS|/VMS[=ALL],",
+"    /[NO]PRESERVE_CASE[=([NO]ODS{2|5}[,...])], /TEMP_PATH=directory,",
+"    /DISPLAY={BYTES|COUNTS|DOTS=mb_per_dot}, /TRANSLATE_EOL[={LF|CRLF}],",
+"    /MUST_MATCH, /SPLIT_SIZE=ssize, /SVERBOSE /PAUSE,"
   };
 
   if (!show_VMSCLI_help) {

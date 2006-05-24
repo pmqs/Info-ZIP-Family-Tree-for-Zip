@@ -13,8 +13,22 @@ trap "rm -f conftest* core a.out; exit 1" 1 2 3 15
 
 CC=${1-cc}
 CFLAGS=${2-"-I. -DUNIX"}
-LFLAGS1=""
+LFLAGS1=''
+LFLAGS2=''
 LN="ln -s"
+
+BZIP2_CC=''
+BZIP2_LD=''
+if test -n "${IZ_BZIP2}"; then
+  echo "Check for bzip2 files in ${IZ_BZIP2}"
+  if test -f "${IZ_BZIP2}/bzlib.h" -a -f "${IZ_BZIP2}/libbz2.a"; then
+    CFLAGS="${CFLAGS} -I${IZ_BZIP2} -DUSE_BZIP2"
+    LFLAGS2="${LFLAGS2} -L${IZ_BZIP2} -lbz2"
+    echo '  yes'
+  else
+    echo '  bzlib.h and/or libbz2.a not found.'
+  fi
+fi
 
 echo "Check C compiler type (optimization option)"
 cat > conftest.c << _EOF_
@@ -429,3 +443,4 @@ rm -f a.out conftest.c conftest.o conftest null
 echo CC=\"${CC}\" CFLAGS=\"${CFLAGS}\"  CPP=\"${CPP}\" OBJA=\"${OBJA}\" \
        BINDIR=${BINDIR} MANDIR=${MANDIR} LFLAGS1=\"${LFLAGS1}\" \
        LFLAGS2=\"${LFLAGS2}\" LN=\"${LN}\" > flags
+

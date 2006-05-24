@@ -1,4 +1,4 @@
-#                                               16 February 2006.  SMS.
+#                                               22 May 2006.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -19,7 +19,15 @@
 #                   (Default is /NOTRACEBACK.)
 #
 #    IM=1           Use the old "IM" scheme for storing VMS/RMS file
-#                   attributes, instead of the newer "PK" scheme.
+#                   atributes, instead of the newer "PK" scheme.
+#
+#    IZ_BZIP2=dev:[dir]  Add optional BZIP2 support.  The valus of the
+#                        MMS macro IZ_BZIP2 ("dev:[dir]", or a suitable
+#                   logical name) tells where to find "bzlib.h".  The
+#                   BZIP2 object library (LIBBZ2.OLB) is expected to be
+#                   in a "[.dest]" directory under that one
+#                   ("dev:[dir.ALPHAL]", for example), or in that
+#                   directory itself.
 #
 #    LARGE=1        Enable large-file (>2GB) support.  Non-VAX only.
 #
@@ -254,6 +262,7 @@ $(OPT_FILE) :
 $(ZIP) : [.$(DEST)]zip.obj $(LIB_ZIP) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIP) /include = (GLOBALS) /library,  -
+	 $(LIB_BZIP2_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
@@ -264,6 +273,7 @@ $(ZIP_CLI) : [.$(DEST)]zipcli.obj \
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPCLI) /library, -
 	 $(LIB_ZIP) /include = (GLOBALS) /library, -
+	 $(LIB_BZIP2_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
@@ -274,6 +284,7 @@ $(ZIP_CLI) : [.$(DEST)]zipcli.obj \
                          $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
+	 $(LIB_BZIP2_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
@@ -282,6 +293,7 @@ $(ZIP_CLI) : [.$(DEST)]zipcli.obj \
                          $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
+	 $(LIB_BZIP2_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
@@ -290,6 +302,7 @@ $(ZIP_CLI) : [.$(DEST)]zipcli.obj \
                          $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
+	 $(LIB_BZIP2_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 

@@ -1,0 +1,207 @@
+HOW TO INSTALL ZIP
+
+     Zip is distributed as C source code that can be compiled on a
+     wide range of systems: Unix, VMS, MSDOS, OS/2, NT, Amiga, Atari,
+     BeOS, VM/CMS, ...  You will need Unzip 5.0p1 or later (under any
+     system) or PKUNZIP 2.04g or later (under MSDOS) to unpack the
+     distribution file, for example zip30.zip. But since you read this,
+     you have unpacked it already, or you cheated and got a tar.Z file...
+
+Installation on Unix (see below for installation on other systems)
+
+     Let's assume that you start from scratch and have not yet
+     unpacked the sources. First, unpack the source as follows,
+     assuming that you have zip30.zip in the current directory.
+
+          mkdir zipsrc
+          cd zipsrc
+          unzip ../zip30
+
+     This extracts all source files and documentation in the
+     directory called "zipsrc".
+
+     This release now includes the standard encryption code previously
+     in the separate package zcrypt29.zip, but you still can decide
+     whether to activate the crypt code or not.  Crypt is enabled by
+     default, but you may disable it by specifying the option -DNO_CRYPT
+     in the LOCAL_ZIP environment variable (or by adding this option
+     to the compilation options in the appropiate makefile).  See
+     Readme.cr for more on crypt.
+
+     You then do:
+
+          make -f unix/Makefile system
+
+     where "system" is one of: generic, generic_gcc,
+     att6300, coherent, cray_v3, minix, sco_x286, xenix, zilog.
+
+     For unix systems, try "make -f unix/Makefile generic" first, as this
+     should work on most systems and automatically selects compilation
+     options based on a set of tests, including detection of Zip64 support.
+     If this fails, then use one of the special targets given above.
+
+     Among other special systems are Cray Unicos, Zilog Zeus and MINIX.
+
+     By default, Zip uses the "deflate" compression method.  To add
+     support for the optional "bzip2" compression method, first obtain
+     and build the bzip2 software (http://www.bzip.org/).  Then, define
+     the macro IZ_BZIP2 on the "make" command line to specify the
+     directory where the bzip2 files may be found.  For example:
+
+          make -f unix/Makefile system \
+           IZ_BZIP2=/usr/local/src/bzip2/bzip2-1_0_3
+
+     If you get error messages "constant expected" in deflate.c, add
+     -DDYN_ALLOC to CFLAGS in your makefile entry.
+
+     If you have lots of memory, try compiling with -DBIG_MEM. If your
+     system supports mmap(), try compiling with -DMMAP. This generally
+     gives faster compression but uses more memory. See the unix/Makefile
+     entry mmap_gcc for an example.
+
+     If none of these compiles, links, and functions properly on
+     your Unix system, see the file README for how to get help.
+
+     If the appropriate system was selected, then the executables
+     zip, zipnote and zipsplit will be created.  You can copy them
+     to an appropriate directory in the search path using:
+
+          make -f unix/Makefile install
+
+     The defaults are /usr/local/bin for the executables and
+     /usr/local/man/man1 for the manual page. Change the macros
+     BINDIR and MANDIR in makefile if appropriate.
+
+     You can use the command "set" to see the current search
+     path.  If you are using the C-Shell (csh), enter the com-
+     mand:
+
+          rehash
+
+     so csh can find the new command in the path.  You are now
+     ready to use Zip.
+
+     You can get rid of the now unnecessary source and object
+     files with:
+
+          cd ..
+          rm -r zipsrc
+
+     This will remove the directory zip and its contents created
+     by unzip.  You should keep the zip30.zip file around though,
+     in case you need to build it again or want to give it to a
+     colleague.
+
+     You can add the following lines to the file /etc/magic for
+     usage by the 'file' command:
+
+0       string          PK              Zip archive
+>4      byte            011             (at least v0.9 to extract)
+>4      byte            012             (at least v1.0 to extract)
+>4      byte            013             (at least v1.1 to extract)
+>4      byte            024             (at least v2.0 to extract)
+>4      byte            025             (at least v2.1 to extract)
+
+
+Installation on other systems
+
+     The steps for installation under VMS, MSDOS, OS/2, NT, Amiga and
+     Atari are similar to the above: first unzip the distribution
+     files into their own directory.  The system dependant files are
+     stored in special subdirectories.
+
+     For all the non-unix ports which support the creation of "UT" extra
+     fields (these ports contain USE_EF_UT_TIME in the list of optional
+     features displayed with "zip -v"), the timezone environment variable TZ
+     should be set according to the local timezone in order for the -f,
+     -u and -o options to work correctly.  This is not needed for the WIN32
+     and WinDLL ports, since they get the timezone information from the OS by
+     other means.
+
+  MSDOS:
+
+     Do one of:
+
+          make msdos\makefile.msc               (Microsoft C 5.1)
+          nmake -f msdos\makefile.msc           (Microsoft C 6.0 and newer)
+          make -fmsdos\makefile.bor -DCC_REV=1  (Borland Turbo C++ 1.0)
+          make -fmsdos\makefile.bor             (Borland C++ 2.0 and newer)
+          make -fmsdos\makefile.tc              (Borland Turbo C 2.0x)
+          make -f msdos/makefile.dj1            (DJGPP v1.12m4)
+          make -f msdos/makefile.dj2            (DJGPP v2.01 and newer)
+          make -f msdos/makefile.emx            (gcc/emx 0.9b and newer)
+          make -f os2/makefile.os2 gccdos       (gcc/emx 0.9b and newer)
+          wmake -f msdos\makefile.wat           (Watcom C 11.x 16-bit)
+          wmake -f msdos\makefile.wat PM=1      (Watcom C 11.x 32-bit, PMODE/W)
+
+
+     for Microsoft, Borland C++ and Turbo C, Watcom C/C++ and the various
+     free GNU C implementations, respectively. More detailed instructions
+     can be found in the respective makefiles.
+
+
+  WIN32 (Windows NT/2K/XP/2K3 and Windows 95/98/ME):
+
+     Supported compilers are Microsoft Visual C++, Borland C++, Watcom C/C++,
+     and miscellaneous free GNU C implementations (gcc/mingw, CygWin, ...).
+     The makefiles supplied in the win32/ subdirectory contain further
+     information.
+
+
+  Windows DLL (WIN32):
+
+     Supported environments are Visual C++ (32-bit only, 5.x and newer).
+     For instructions how to build the DLLs and where find the makefiles,
+     look into windll/contents.
+
+
+  OS/2:
+
+     Type
+
+          {make} -f os2/makefile.os2
+
+     to get a list of supported targets/compiling environments.
+     (replace "{make}" with the name of your OS/2 make utility.)
+
+     To initiate the actual compiling process, you have to specify
+     a system target:
+
+          {make} -f os2/makefile.os2 {system}
+
+     An example: type
+
+          nmake -f os2/makefile.os2 msc
+
+     for Microsoft C 6.00.
+
+
+  VMS (OpenVMS):
+
+     The most complete information on building and installation for VMS
+     is in [.VMS]INSTALL_VMS.TXT.  Optimists in a hurry may wish to try
+     commands like these:
+
+           @ [.VMS]BUILD_ZIP.COM
+     or:
+           MMS /DESCRIP = [.VMS]DESCRIP.MMS CLEAN        ! Or MMK ...
+           MMS /DESCRIP = [.VMS]DESCRIP.MMS              ! Or MMK ...
+
+     When the executables have been created (or located), most users
+     define foreign command symbols for the Zip executables, like this:
+
+          ZIP :== $ dev:[dir]ZIP.EXE            ! UNIX-like command line.
+     or:
+          ZIP :== $ dev:[dir]ZIP_CLI.EXE        ! VMS-like command line.
+
+     Such symbol definitions are often added to a user's
+     SYS$LOGIN:LOGIN.COM procedure, or to a common, site-specific
+     procedure, like SYS$MANAGER:SYLOGIN.COM.
+
+     Additional installation options are described in INSTALL_VMS.TXT.
+
+     The builders create help text files, ZIP.HLP and ZIP_CLI.HLP.  Also
+     see INSTALL_VMS.TXT for how to create the help libraries.
+
+For command help on any of the zip* utilities, simply enter
+the name with no arguments.

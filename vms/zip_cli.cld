@@ -18,6 +18,7 @@ Define	Verb		ZIP
 	Qualifier	BEFORE, NonNegatable, VALUE(type=$DATETIME)
 	Qualifier	COMMENTS, NonNegatable,
 			VALUE(type=COMMENTS_KEYWORDS)
+	Qualifier	COMPRESSION, NonNegatable, VALUE(type=COMPRESS_OPTS)
 	Qualifier	DIRNAMES, Negatable, Default
 	Qualifier	DISPLAY, NonNegatable,
 			 VALUE(type=DISPLAY_KEYWORDS, required, list)
@@ -69,6 +70,11 @@ Define	Verb		ZIP
 Define	Type		COMMENTS_KEYWORDS
 	Keyword		ZIP_FILE, DEFAULT
 	Keyword		FILES
+
+Define	Type		COMPRESS_OPTS
+	Keyword		BZIP2
+	Keyword		DEFLATE, DEFAULT
+	Keyword		STORE
 
 Define	Type		DISPLAY_KEYWORDS
 	Keyword		BYTES
