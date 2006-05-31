@@ -11,28 +11,32 @@
 #  Modified (modified VMSCLI compilation) by C. Spieler, 25-JUL-1997
 #  Modified (comment concerning online help) by C. Spieler, 14-OCT-1997
 #  Modified (removed bits.c source file) by C. Spieler, 25-JUN-1998
-#  Last modified (Alpha, IA64 sensing) by Steven Schweda, 24-JAN-2006
+#  Last modified (Alpha, IA64 sensing) by Steven Schweda, 30-MAY-2006
 #
 #  To build Zip and the Ziputils, copy this file (DESCRIP.MMS) into the
 #  main directory, then use one of the following commands, depending on
-#  your system.  A plain MMS (or MMK) command works on most modern
-#  systems.  With older MMS (or MMK) programs, or on VAX with a C
-#  compiler other than DEC C, an appropriate macro must be specified.
+#  your system.  Modern MMS and MMK versions should correctly determine
+#  the system type without the "/MACRO=" qualifier, but on VAX the
+#  compiler should be specified explicitly, and it should always be safe
+#  to specify the proper system type.  (If you have installed both DEC C
+#  and VAX C on your VAX and want to use VAX C, you should define the
+#  macro "__FORCE_VAXC__" instead of "__VAXC__".)
 #
-#	$ MMS
+#	$ MMS                                   ! Should work on non-VAX.
 #
-#	$ MMS/MACRO=(__ALPHA__=1)		! Alpha AXP, (DEC C)
-#	$ MMS/MACRO=(__IA64__=1)		! IA64, (DEC C)
-#	$ MMS/MACRO=(__DECC__=1)		! VAX, using DEC C
+#	$ MMS/MACRO=(__ALPHA__=1)		! Alpha AXP, (DEC C).
+#	$ MMS/MACRO=(__IA64__=1)		! IA64, (DEC C).
+#	$ MMS/MACRO=(__DECC__=1)		! VAX, using DEC C.
 #
-#	$ MMS/MACRO=(__FORCE_VAXC__=1)		! VAX, prefering VAXC over DECC
-#	$ MMS/MACRO=(__VAXC__=1)		! VAX, where VAXC is default
-#	$ MMS/MACRO=(__GNUC__=1)		! VAX, using GNU C
+#	$ MMS/MACRO=(__FORCE_VAXC__=1)		! VAX, using VAX C, not DEC C.
+#	$ MMS/MACRO=(__VAXC__=1)		! VAX, where VAX C is default.
+#	$ MMS/MACRO=(__GNUC__=1)		! VAX, using GNU C.
 #
 #  Other MMS macros intended for use on the MMS command line are:
-#	__DEBUG__=1				! compile for debugging
-#  For some discussion on the compiler switches used, see documentation
-#  in 00readme.vms.
+#	__DEBUG__=1				! Compile for debugging.
+#
+#  For some discussion on the compiler options used, see documentation
+#  in [.VMS]00README.VMS.
 #
 
 # Define MMK architecture macros when using MMS.

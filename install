@@ -200,7 +200,7 @@ Installation on other systems
      procedure, or to a common, site-specific procedure, like
      SYS$MANAGER:SYLOGIN.COM.
 
-     For further information please consult 00readme.txt in the vms/
+     For further information please consult 00README.TXT in the [.VMS]
      subdirectory.
 
 For command help on any of the zip* utilities, simply enter
