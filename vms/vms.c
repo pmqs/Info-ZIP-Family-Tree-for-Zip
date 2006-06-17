@@ -396,7 +396,7 @@ char *tempname( char *zip)
     temp_name = NULL;           /* Prepare for failure (unlikely). */
     sts = sys$parse( &fab, 0, 0);       /* Parse the name(s). */
 
-    if ((sts& STS$M_SEVERITY) == STS$M_SUCCESS)
+    if ((sts& STS$M_SEVERITY) == STS$K_SUCCESS)
     {
         /* Overlay any resulting file type (typically ".ZIP") with none. */
         strcpy( nam.NAM_L_TYPE, ".;");
@@ -611,7 +611,7 @@ int sts;
 /* Get process RMS_DEFAULT values. */
 
 sts = sys$getjpiw( 0, 0, 0, &jpi_itm_lst, 0, 0, 0);
-if ((sts& STS$M_SEVERITY) != STS$M_SUCCESS)
+if ((sts& STS$M_SEVERITY) != STS$K_SUCCESS)
     {
     /* Failed.  Don't try again. */
     rms_defaults_known = -1;

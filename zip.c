@@ -340,7 +340,10 @@ void zipwarn(a, b)
 ZCONST char *a, *b;     /* message strings juxtaposed in output */
 /* Print a warning message to stderr and return. */
 {
-  if (noisy) fprintf(stderr, "\tzip warning: %s%s\n", a, b);
+  if (noisy) {
+    fprintf(stderr, "\tzip warning: %s%s\n", a, b);
+    fflush(stderr);
+  }
 }
 
 #ifndef WINDLL
@@ -371,7 +374,7 @@ local void help()
   /* help array */
   static ZCONST char *text[] = {
 #ifdef VMS
-"Zip %s (%s). Usage: zip == \"$ disk:[dir]zip.exe\"",
+"Zip %s (%s). Usage: zip==\"$disk:[dir]zip.exe\"",
 #else
 "Zip %s (%s). Usage:",
 #endif
@@ -731,7 +734,7 @@ local void check_zipfile(zipname, zippath)
    result = system(cmd);
 # ifdef VMS
    /* Convert success severity to 0, others to non-zero. */
-   result = ((result & STS$M_SEVERITY) != STS$M_SUCCESS);
+   result = ((result & STS$M_SEVERITY) != STS$K_SUCCESS);
 # endif /* def VMS */
    if (result) {
 #endif /* ?((MSDOS && !__GO32__) || __human68k__) */
@@ -1268,9 +1271,13 @@ char **argv;            /* command line tokens */
               RETURN(finish(ZE_OK));
 #endif
             case 'm':   /* Delete files added or updated in zip file */
-              dispose = 1;  break;
+              dispose++;
+              if (dispose == 2)
+                ZIPERR(ZE_PARMS, "mm not supported");
+              break;
             case 'M':   /* Read failures (misses) are errors instead of warnings */
-              bad_open_is_error = 1; break;
+              bad_open_is_error++;
+              break;
             case 'n':   /* Don't compress files with a special suffix */
               special = NULL; /* will be set at next argument */
               break;
@@ -1693,6 +1700,10 @@ nextarg: ;
   if (zcount == 0 && (action != ADD || d)) {
     zipwarn(zipfile, " not found or empty");
   }
+  if (bad_open_is_error == 1)
+    ZIPERR(ZE_PARMS, "-M not supported, use -MM for Must Match");
+  else if (bad_open_is_error > 1)
+    bad_open_is_error = 1;
 
 /*
  * XXX make some kind of mktemppath() function for each OS.
