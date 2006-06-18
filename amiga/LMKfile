@@ -43,9 +43,10 @@ HFILES = zip.h ziperr.h tailor.h revision.h crypt.h ttyio.h amiga/amiga.h \
          amiga/zipup.h amiga/osdep.h
 
 OBJA = zipfile.o zipup.o fileio.o util.o globals.o crc32.o crctab.o crypt.o \
-       ttyio.o amiga.o amigazip.o time_lib.o
+       timezone.o ttyio.o amiga.o amigazip.o filedate.o
 OBJI = deflate.o trees.o
-OBJU = zipfile.oo fileio.oo util.oo globals.o amiga.o amigazip.oo time_lib.o
+OBJU = zipfile.oo fileio.oo util.oo globals.o timezone.o \
+       amiga.o amigazip.oo filedate.o
 
 OBJZ = zip.o $(OBJA) $(OBJI)
 
@@ -104,6 +105,7 @@ zipfile.o:  zipfile.c  $(HFILES)
 zipup.o:    zipup.c    $(HFILES)
 fileio.o:   fileio.c   $(HFILES)
 util.o:     util.c     $(HFILES)
+timezone.o: timezone.c $(HFILES) timezone.h
 crc32.o:    crc32.c    $(HFILES)
 crctab.o:   crctab.c   $(HFILES)
 globals.o:  globals.c  $(HFILES)
@@ -111,6 +113,5 @@ globals.o:  globals.c  $(HFILES)
 # Amiga specific objects
 amiga.o: amiga/amiga.c $(HFILES)
 amigazip.o: amiga/amigazip.c $(HFILES)
-time_lib.o: amiga/time_lib.c
 
 # end of Makefile

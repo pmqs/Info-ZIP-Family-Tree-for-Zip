@@ -308,6 +308,7 @@ extern extent fcount;           /* Count of names in found list */
 extern struct plist *patterns;  /* List of patterns to be matched */
 extern unsigned pcount;         /* number of patterns */
 extern unsigned icount;         /* number of include only patterns */
+extern unsigned Rcount;         /* number of -R include patterns */
 
 #ifdef IZ_CHECK_TZ
 extern int zp_tz_is_valid;      /* signals "timezone info is available" */
@@ -408,7 +409,7 @@ int readzipfile OF((void));
 int putlocal OF((struct zlist far *, FILE *));
 int putextended OF((struct zlist far *, FILE *));
 int putcentral OF((struct zlist far *, FILE *));
-int putend OF((int, ulg, ulg, extent, char *, FILE *));
+int putend OF((unsigned, ulg, ulg, extent, char *, FILE *));
 int zipcopy OF((struct zlist far *, FILE *, FILE *));
 
         /* in fileio.c */

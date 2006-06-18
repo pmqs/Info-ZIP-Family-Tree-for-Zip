@@ -1,9 +1,9 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2000 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2000-Apr-09 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /* Here we have a handmade stat() function because Aztec's c.lib stat() */
@@ -114,7 +114,7 @@ struct stat *buf;
                 (86400 * 8 * 365 )                              +
                 (86400 * 2 );  /* two leap years */
 
-        tzset();
+        /* tzset(); */  /* this should be handled by mktime(), instead */
         /* ftime += timezone; */
         local_tm = *gmtime(&ftime);
         local_tm.tm_isdst = -1;

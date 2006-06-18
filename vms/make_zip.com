@@ -133,7 +133,7 @@ $       ELSE
 $         ! We use VAXC (or GNU C):
 $         defs = "''local_zip'VMS"
 $         opts = ",SYS$DISK:[.VMS]VAXCSHR.OPT/OPTIONS"
-$         if (.not.HAVE_VAXC_VAX .and. MAY_HAVE_GNUC) .or. (MAY_USE_GNUC)
+$         if (.not.HAVE_VAXC .and. MAY_HAVE_GNUC) .or. (MAY_USE_GNUC)
 $         then
 $               ARCH_CC_P = "''ARCH_PREF'GNUC_"
 $               cc = "gcc"

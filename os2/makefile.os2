@@ -201,7 +201,7 @@ watcom:
 	$(MAKE) -f os2/makefile.os2 zips \
 	CC="wcl386 -bt=os2v2 -zq -Ox -s" \
 	CFLAGS="-Zp1 -DOS2 -DNO_ASM" \
-	AS="wasm -bt=os2v2 -3p" \
+	AS="wasm -zq -bt=os2v2 -3p" \
 	ASFLAGS="" \
 	LDFLAGS="-k0x50000 -x -l=os2v2 -Fe=" \
 	LDFLAGS2="" \
@@ -216,7 +216,7 @@ watcom16:
 	$(MAKE) -f os2/makefile.os2 zips \
 	CC="wcl -bt=os2 -zq -ml -Ox -s" \
 	CFLAGS="-Zp1 -DOS2 -DNO_ASM" \
-	AS="wasm -bt=os2 -2p -ml" \
+	AS="wasm -zq -bt=os2 -2p -ml" \
 	ASFLAGS="" \
 	LDFLAGS="/\"option newfiles\" -k0x3000 -x -l=os2 -Fe=" \
 	LDFLAGS2="" \
@@ -230,14 +230,15 @@ watcom16:
 watcomdos:
 	$(MAKE) -f os2/makefile.os2 zips \
 	CC="wcl386 -bt=dos4g -zq -Ox -s" \
-	CFLAGS="-Zp1 -DDOS -DMSDOS -DNO_ASM" \
-	AS="wasm -bt=dos4g -3p" \
-	ASFLAGS="" \
+	CFLAGS="-Zp1 -DDOS -DMSDOS -DASM_CRC" \
+	AS="wasm -zq -bt=dos4g -3p" \
+	ASFLAGS="-DWATCOM_DSEG" \
 	LDFLAGS="-k0x50000 -x -l=dos4g -Fe=" \
 	LDFLAGS2="" \
 	OUT="-Fo" \
 	OBJ=".obj" \
-	OBJA="" \
+	CRC32="crc_i386" \
+	OBJA="match32.obj" \
 	OBJ2="msdos.obj" \
 	OBJU2="msdos_.obj" \
 	OSDEP_H="msdos/osdep.h" \
@@ -250,8 +251,8 @@ pmodew:
 	$(MAKE) -f os2/makefile.os2 zips \
 	CC="wcl386 -bt=dos4g -zq -Ox -s" \
 	CFLAGS="-Zp1 -DDOS -DMSDOS -DASM_CRC" \
-	AS="wasm -bt=dos4g -3p" \
-	ASFLAGS="" \
+	AS="wasm -zq -bt=dos4g -3p" \
+	ASFLAGS="-DWATCOM_DSEG" \
 	LDFLAGS="-k0x50000 -x -l=pmodew -Fe=" \
 	LDFLAGS2="" \
 	OUT="-Fo" \
@@ -270,7 +271,7 @@ watcom16dos:
 	$(MAKE) -f os2/makefile.os2 zips \
 	CC="wcl -bt=dos -zq -ml -Ox -s" \
 	CFLAGS="-Zp1 -DDOS -DMSDOS -DDYN_ALLOC -DNO_ASM" \
-	AS="wasm -bt=dos -2p -ml" \
+	AS="wasm -zq -bt=dos -2 -ml" \
 	ASFLAGS="-DDYN_ALLOC" \
 	LDFLAGS="-k0x2000 -x -l=dos -Fe=" \
 	LDFLAGS2="" \

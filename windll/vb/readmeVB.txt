@@ -1,4 +1,4 @@
-On Windows open this file in WordPad.
+On Windows open this file in WordPad or use unzip -a to restore line ends.
 
 Contents of the "windll/vb" sub-archive
 
@@ -8,7 +8,7 @@ project example and includes some bug fixes and many additional notes
 but is still compatible with zip32.dll.  See the comments in the form
 and project files for details.  It has been tested on VB 5 and VB6.
 
-Zip 2.31 itself has bug fixes as well, including some related to the
+Zip 2.31 and later have bug fixes as well, including some related to the
 dll, and you should now use a version of zip32.dll from that.  This
 dll includes a fix for the VB dll bug where Date, szRootDir, and
 szTempDir were not passed in correctly and setting these to anything
@@ -24,7 +24,7 @@ with zip32.dll.  You will need the new dll zip32z64.dll to use that
 VB project, which can be compiled from the Zip 3.0 source.  See
 windll/VBz64 in that release for details.
 
-Note that the files may saved in unix format with carriage returns
+Note that the files may be saved in unix format with carriage returns
 stripped.  These must be restored before the project can be successfully
 used.  This can be done by using the -a option to unzip.  Another way to
 do this is to open each file in WordPad, select and cut a line, paste
@@ -32,4 +32,4 @@ the line back, and save the file.  This will force WordPad to format
 the entire file.
 
 Ed Gordon
-3/1/2005
+March 1st 2005, updated March 20th 2006

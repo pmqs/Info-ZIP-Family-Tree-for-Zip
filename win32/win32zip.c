@@ -1,9 +1,9 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 #ifndef UTIL    /* this file contains nothing used by UTIL */
@@ -33,25 +33,25 @@
 #define HIDD_SYS_BITS (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)
 
 
-typedef struct zdirent {
-  ush    d_date, d_time;
-  ulg    d_size;
-  char   d_attr;
-  char   d_name[MAX_PATH];
-  int    d_first;
+typedef struct zdirscan {
   HANDLE d_hFindFile;
-} zDIR;
+  int    d_first;
+  WIN32_FIND_DATA d_fd;
+} zDIRSCAN;
+
+#define INVALID_WIN32_FILE_ATTRIBS ((DWORD)~0)
+#define GetDirEntryAttribs(d)   ((d)->d_fd.dwFileAttributes)
 
 #include "../win32/win32zip.h"
 #include "../win32/nt.h"
 
 /* Local functions */
-local zDIR           *Opendir      OF((ZCONST char *n));
-local struct zdirent *Readdir      OF((zDIR *d));
-local void            Closedir     OF((zDIR *d));
+local zDIRSCAN        * OpenDirScan      OF((ZCONST char *n));
+local struct zdirscan * GetNextDirEntry  OF((zDIRSCAN *d));
+local void              CloseDirScan     OF((zDIRSCAN *d));
 
-local char           *readd        OF((zDIR *));
-local int             wild_recurse OF((char *, char *));
+local char            * readd        OF((zDIRSCAN *));
+local int               wild_recurse OF((char *, char *));
 #ifdef NTSD_EAS
    local void GetSD OF((char *path, char **bufptr, size_t *size,
                         char **cbufptr, size_t *csize));
@@ -59,6 +59,7 @@ local int             wild_recurse OF((char *, char *));
 #ifdef USE_EF_UT_TIME
    local int GetExtraTime OF((struct zlist far *z, iztimes *z_utim));
 #endif
+local int procname_win32 OF((char *n, int caseflag, DWORD attribs));
 
 /* Module level variables */
 extern char *label /* = NULL */ ;       /* defined in fileio.c */
@@ -69,16 +70,15 @@ local time_t label_utim = 0;
 /* Module level constants */
 local ZCONST char wild_match_all[] = "*.*";
 
-local zDIR *Opendir(n)
+local zDIRSCAN *OpenDirScan(n)
 ZCONST char *n;          /* directory to open */
 /* Start searching for files in the MSDOS directory n */
 {
-  zDIR *d;              /* malloc'd return value */
+  zDIRSCAN *d;          /* malloc'd return value */
   char *p;              /* malloc'd temporary string */
   char *q;
-  WIN32_FIND_DATA fd;
 
-  if ((d = (zDIR *)malloc(sizeof(zDIR))) == NULL ||
+  if ((d = (zDIRSCAN *)malloc(sizeof(zDIRSCAN))) == NULL ||
       (p = malloc(strlen(n) + (2 + sizeof(wild_match_all)))) == NULL) {
     if (d != NULL) free((zvoid *)d);
     return NULL;
@@ -94,7 +94,7 @@ ZCONST char *n;          /* directory to open */
 #ifdef __RSXNT__        /* RSXNT/EMX C rtl uses OEM charset */
   OemToAnsi(p, p);
 #endif
-  d->d_hFindFile = FindFirstFile(p, &fd);
+  d->d_hFindFile = FindFirstFile(p, &d->d_fd);
   free((zvoid *)p);
 
   if (d->d_hFindFile == INVALID_HANDLE_VALUE)
@@ -103,35 +103,29 @@ ZCONST char *n;          /* directory to open */
     return NULL;
   }
 
-  strcpy(d->d_name, fd.cFileName);
-  d->d_attr = (unsigned char) fd.dwFileAttributes;
   d->d_first = 1;
   return d;
 }
 
-local struct zdirent *Readdir(d)
-zDIR *d;                /* directory stream to read from */
+local struct zdirscan *GetNextDirEntry(d)
+zDIRSCAN *d;            /* directory stream to read from */
 /* Return pointer to first or next directory entry, or NULL if end. */
 {
   if (d->d_first)
     d->d_first = 0;
   else
   {
-    WIN32_FIND_DATA fd;
-
-    if (!FindNextFile(d->d_hFindFile, &fd))
+    if (!FindNextFile(d->d_hFindFile, &d->d_fd))
         return NULL;
-    strcpy(d->d_name, fd.cFileName);
-    d->d_attr = (unsigned char) fd.dwFileAttributes;
   }
 #ifdef __RSXNT__        /* RSXNT/EMX C rtl uses OEM charset */
-  AnsiToOem(d->d_name, d->d_name);
+  AnsiToOem(d->d_fd.cFileName, d->d_fd.cFileName);
 #endif
-  return (struct zdirent *)d;
+  return (struct zdirscan *)d;
 }
 
-local void Closedir(d)
-zDIR *d;                /* directory stream to close */
+local void CloseDirScan(d)
+zDIRSCAN *d;            /* directory stream to close */
 {
   FindClose(d->d_hFindFile);
   free((zvoid *)d);
@@ -139,18 +133,17 @@ zDIR *d;                /* directory stream to close */
 
 
 local char *readd(d)
-zDIR *d;                /* directory stream to read from */
+zDIRSCAN *d;            /* directory stream to read from */
 /* Return a pointer to the next name in the directory stream d, or NULL if
    no more entries or an error occurs. */
 {
-  struct zdirent *e;
+  struct zdirscan *e;
 
   do
-    e = Readdir(d);
-  while (!hidden_files && e && e->d_attr & HIDD_SYS_BITS);
-  return e == NULL ? (char *) NULL : e->d_name;
+    e = GetNextDirEntry(d);
+  while (!hidden_files && e && e->d_fd.dwFileAttributes & HIDD_SYS_BITS);
+  return e == NULL ? (char *) NULL : e->d_fd.cFileName;
 }
-
 
 #define ONENAMELEN 255
 
@@ -161,7 +154,7 @@ local int wild_recurse(whole, wildtail)
 char *whole;
 char *wildtail;
 {
-    zDIR *dir;
+    zDIRSCAN *dir;
     char *subwild, *name, *newwhole = NULL, *glue = NULL, plug = 0, plug2;
     extent newlen;
     int amatch = 0, e = ZE_MISS;
@@ -191,7 +184,7 @@ char *wildtail;
             *glue = plug;
         glue = subwild;
         plug = plug2;
-        dir = Opendir(whole);
+        dir = OpenDirScan(whole);
     } while (!dir && subwild > wildtail);
     wildtail = subwild;                 /* skip past non-wild components */
 
@@ -226,7 +219,7 @@ char *wildtail;
                 strcpy(name, subwild);
                 e = wild_recurse(newwhole, name);
             } else
-                e = procname(newwhole, 0);
+                e = procname_win32(newwhole, 0, GetDirEntryAttribs(dir));
             newwhole[newlen] = 0;
             if (e == ZE_OK)
                 amatch = 1;
@@ -236,7 +229,7 @@ char *wildtail;
     }
 
   ohforgetit:
-    if (dir) Closedir(dir);
+    if (dir) CloseDirScan(dir);
     if (subwild) *--subwild = PATH_END;
     if (newwhole) free(newwhole);
     if (e == ZE_MISS && amatch)
@@ -295,14 +288,15 @@ char *w;                /* path/pattern to match */
     return e;
 }
 
-int procname(n, caseflag)
+local int procname_win32(n, caseflag, attribs)
 char *n;                /* name to process */
 int caseflag;           /* true to force case-sensitive match */
+DWORD attribs;
 /* Process a name or sh expression to operate on (or exclude).  Return
    an error code in the ZE_ class. */
 {
   char *a;              /* path and name for recursion */
-  zDIR *d;              /* directory stream from opendir() */
+  zDIRSCAN *d;          /* directory stream from OpenDirScan() */
   char *e;              /* pointer to name from readd() */
   int m;                /* matched flag */
   char *p;              /* path for recursion */
@@ -311,6 +305,18 @@ int caseflag;           /* true to force case-sensitive match */
 
   if (strcmp(n, "-") == 0)   /* if compressing stdin */
     return newname(n, 0, caseflag);
+  else if (attribs != INVALID_WIN32_FILE_ATTRIBS)
+  {
+    /* Avoid calling stat() for performance reasons when it is already known
+       (from a previous directory scan) that the passed name corresponds to
+       a "real existing" file.  The only information needed further down in
+       this function is the distinction between directory entries and other
+       (typically normal file) entries.  This distinction can be derived from
+       the file's attributes that the directory lookup has already provided
+       "for free".
+     */
+    s.st_mode = ((attribs & FILE_ATTRIBUTE_DIRECTORY) ? S_IFDIR : S_IFREG);
+  }
   else if (LSSTAT(n, &s)
 #ifdef __TURBOC__
            /* For this compiler, stat() succeeds on wild card names! */
@@ -363,19 +369,20 @@ int caseflag;           /* true to force case-sensitive match */
       }
     }
     /* recurse into directory */
-    if (recurse && (d = Opendir(n)) != NULL)
+    if (recurse && (d = OpenDirScan(n)) != NULL)
     {
       while ((e = readd(d)) != NULL) {
         if (strcmp(e, ".") && strcmp(e, ".."))
         {
           if ((a = malloc(strlen(p) + strlen(e) + 1)) == NULL)
           {
-            Closedir(d);
+            CloseDirScan(d);
             free((zvoid *)p);
             return ZE_MEM;
           }
           strcat(strcpy(a, p), e);
-          if ((m = procname(a, caseflag)) != ZE_OK)   /* recurse on name */
+          if ((m = procname_win32(a, caseflag, GetDirEntryAttribs(d)))
+              != ZE_OK)         /* recurse on name */
           {
             if (m == ZE_MISS)
               zipwarn("name not matched: ", a);
@@ -385,11 +392,18 @@ int caseflag;           /* true to force case-sensitive match */
           free((zvoid *)a);
         }
       }
-      Closedir(d);
+      CloseDirScan(d);
     }
     free((zvoid *)p);
   } /* (s.st_mode & S_IFDIR) == 0) */
   return ZE_OK;
+}
+
+int procname(n, caseflag)
+char *n;                /* name to process */
+int caseflag;           /* true to force case-sensitive match */
+{
+    return procname_win32(n, caseflag, INVALID_WIN32_FILE_ATTRIBS);
 }
 
 char *ex2in(x, isdir, pdosflag)
@@ -475,32 +489,6 @@ char *n;                /* internal file name */
   AnsiToOem(x, x);
 #endif
   return x;
-}
-
-
-void stamp(f, d)
-char *f;                /* name of file to change */
-ulg d;                  /* dos-style time to change it to */
-/* Set last updated and accessed time of file f to the DOS time d. */
-{
-#if defined(__TURBOC__) && !defined(__BORLANDC__)
-  int h;                /* file handle */
-
-  if ((h = open(f, 0)) != -1)
-  {
-    setftime(h, (struct ftime *)&d);
-    close(h);
-  }
-#else /* !__TURBOC__ */
-
-  struct utimbuf u;     /* argument for utime() */
-
-  /* Convert DOS time to time_t format in u.actime and u.modtime */
-  u.actime = u.modtime = dos2unixtime(d);
-
-  /* Set updated and accessed times of f */
-  utime(f, &u);
-#endif /* ?__TURBOC__ */
 }
 
 

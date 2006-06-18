@@ -203,3 +203,5 @@ int setmode(int, int);
 #    define NO_MKTIME           /* TC 2.01 and earlier do not supply mktime() */
 #  endif
 #endif
+
+void check_for_windows(const char *app);

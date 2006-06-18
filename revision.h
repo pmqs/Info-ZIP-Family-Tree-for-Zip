@@ -1,9 +1,9 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
@@ -16,11 +16,11 @@
 /* For api version checking */
 #define Z_MAJORVER   2
 #define Z_MINORVER   3
-#define Z_PATCHLEVEL 1
+#define Z_PATCHLEVEL 2
 #define Z_BETALEVEL ""
 
-#define VERSION "2.31"
-#define REVDATE "March 8th 2005"
+#define VERSION "2.32"
+#define REVDATE "June 19th 2006"
 
 #define DW_MAJORVER    Z_MAJORVER
 #define DW_MINORVER    Z_MINORVER
@@ -33,7 +33,7 @@
  */
 
 #ifndef DEFCPYRT                     /* copyright[] gets defined only once ! */
-extern ZCONST char *copyright[2];    /* keep array sizes in sync with number */
+extern ZCONST char *copyright[1];    /* keep array sizes in sync with number */
 extern ZCONST char *swlicense[50];   /*  of text line in definition below !! */
 extern ZCONST char *versinfolines[7];
 extern ZCONST char *cryptnote[7];
@@ -41,8 +41,7 @@ extern ZCONST char *cryptnote[7];
 #else /* DEFCPYRT */
 
 ZCONST char *copyright[] = {
-"Copyright (C) 1990-2005 Info-ZIP",
-"Type '%s \"-L\"' for software license."
+"Copyright (c) 1990-2006 Info-ZIP - Type '%s \"-L\"' for software license."
 };
 
 ZCONST char *versinfolines[] = {
@@ -50,8 +49,8 @@ ZCONST char *versinfolines[] = {
 "Currently maintained by Onno van der Linden. Please send bug reports to",
 "the authors using http://www.info-zip.org/zip-bug.html; see README for details.",
 "",
-"Latest sources and executables are at ftp://ftp.info-zip.org/pub/infozip, as of",
-"above date; see http://www.info-zip.org for other sites.",
+"Latest sources and executables are at ftp://ftp.info-zip.org/pub/infozip,",
+"as of above date; see http://www.info-zip.org/ for other sites.",
 ""
 };
 
@@ -67,7 +66,7 @@ ZCONST char *cryptnote[] = {
 };
 
 ZCONST char *swlicense[] = {
-"Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.",
+"Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.",
 "",
 "For the purposes of this copyright and license, \"Info-ZIP\" is defined as",
 "the following set of individuals:",

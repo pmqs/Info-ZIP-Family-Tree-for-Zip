@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 1999-Oct-05 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -19,6 +19,10 @@
 #  define IZ_CHECK_TZ
 #endif
 
+#ifndef IZTZ_GETLOCALETZINFO
+#  define IZTZ_GETLOCALETZINFO GetPlatformLocalTimezone
+#endif
+
 #define USE_CASE_MAP
 #define USE_EF_UT_TIME
 #define HANDLE_AMIGA_SFX
@@ -28,9 +32,6 @@
 void ClearIOErr_exit(int e);
 
 #include "amiga/z-stat.h"
-#ifndef USE_TIME_LIB
-#  define NO_MKTIME
-#endif
 
 #ifdef __SASC
 #  include <sys/types.h>
@@ -53,9 +54,10 @@ void ClearIOErr_exit(int e);
 #  ifdef DEBUG
 #    include <sprof.h>      /* profiler header file */
 #  endif
-   /* define USE_TIME_LIB if replacement functions of time_lib are available */
-   /* replaced are: tzset(), time(), localtime() and gmtime()                */
-#  define USE_TIME_LIB
+#  ifndef IZTZ_SETLOCALTZINFO
+     /*  XXX !!  We have really got to find a way to operate without these. */
+#    define IZTZ_SETLOCALTZINFO
+#  endif
 
 /*
  A word on short-integers and SAS/C (a bug of [mc]alloc?)
@@ -80,15 +82,14 @@ void ClearIOErr_exit(int e);
 #  define NO_UNISTD_H
 #  define NO_RMDIR
 #  define BROKEN_FSEEK
-#  define USE_TIME_LIB
+#  ifndef IZTZ_DEFINESTDGLOBALS
+#    define IZTZ_DEFINESTDGLOBALS
+#  endif
 #endif
 
-#ifdef USE_TIME_LIB
 extern int real_timezone_is_set;
-#  define VALID_TIMEZONE(tempvar) (tzset(), real_timezone_is_set)
-#else
-#  define VALID_TIMEZONE(tempvar) ((tempvar = getenv("TZ")) && tempvar[0])
-#endif
+void tzset(void);
+#define VALID_TIMEZONE(tempvar) (tzset(), real_timezone_is_set)
 
 #ifdef ZCRYPT_INTERNAL
 #  ifndef CLIB_EXEC_PROTOS_H

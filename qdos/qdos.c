@@ -185,7 +185,7 @@ void QDOSexit(void)
             }
         }
     }
-    exit(0);
+    exit(ZE_OK);
 }
 
 /* Access seems to be *always* broken in c68 */

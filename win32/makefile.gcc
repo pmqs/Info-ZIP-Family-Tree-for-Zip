@@ -2,7 +2,7 @@
 # native Win32-Intel binaries. Derived from makefile.w32.
 # Currently supported implementations: Cygwin and MinGW.
 # Authors: Cosmin Truta, Christian Spieler, and possibly others.
-# Last updated: 2005-Jan-24.
+# Last updated: 2005-Mar-25.
 #
 # To use, do "make -f win32/makefile.gcc".
 
@@ -13,12 +13,12 @@ LOC = $(LOCAL_ZIP)
 
 # ------------ GNU C ------------
 CC=gcc
+CFLAGS=-O2 -Wall -DWIN32 -DFORCE_WIN32_OVER_UNIX
 ifndef USEZLIB
-CFLAGS=-O2 -Wall -DWIN32
-else
-CFLAGS=-O2 -Wall -DWIN32 -DUSE_ZLIB
-endif
 CCFLAGS=$(CFLAGS) $(LOC)
+else
+CCFLAGS=$(CFLAGS) -DUSE_ZLIB $(LOC)
+endif
 UTILFLAGS=$(CCFLAGS) -DUTIL -o$@
 
 #AS=as

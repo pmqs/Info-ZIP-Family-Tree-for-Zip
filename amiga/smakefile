@@ -359,15 +359,15 @@ ASMOPTSL = $(AFLAGS) $(ALOWMEM)                 # Zip low-mem version asm flags
 
 # Zip objects
 OBJZ1 = zip$(O) zipfile$(O) zipup$(O) fileio$(O) util$(O) globals$(O)
-OBJZ2 = crc32$(O) crctab$(O) crypt$(O) ttyio$(O)
+OBJZ2 = crc32$(O) crctab$(O) crypt$(O) timezone$(O) ttyio$(O)
 OBJZI = deflate$(O) trees$(O)
-OBJZA = amiga$(O) amigazip$(O) time_lib$(O) stat$(O) filedate$(O)
+OBJZA = amiga$(O) amigazip$(O) stat$(O) filedate$(O)
 OBJZ  = $(OBJZ1) $(OBJZ2) $(OBJZI) $(OBJZA)
 
 # Shared utility objects for ZipNote, ZipCloak and ZipSplit
 OBJU1 = globals$(O)
-OBJUU = zipfile$(OU) fileio$(OU) util$(OU)
-OBJUA = amigazip$(OU) amiga$(O) time_lib$(O) stat$(O) filedate$(O)
+OBJUU = zipfile$(OU) fileio$(OU) timezone$(O) util$(OU)
+OBJUA = amigazip$(OU) amiga$(O) stat$(O) filedate$(O)
 OBJU  = $(OBJU1) $(OBJUU) $(OBJUA)
 
 # ZipNote objects
@@ -386,14 +386,14 @@ OBJS  = $(OBJS1) $(OBJU)
 
 # ZipLM objects
 OBJL1 = zip$(OL) zipfile$(OL) zipup$(OL) fileio$(OL) util$(OL) globals$(OL)
-OBJL2 = crc32$(OL) crctab$(OL) crypt$(OL) ttyio$(OL)
+OBJL2 = crc32$(OL) crctab$(OL) crypt$(OL) timezone$(OL) ttyio$(OL)
 OBJLI = deflate$(OL) trees$(OL)
-OBJLA = amiga$(OL) amigazip$(OL) time_lib$(O) stat$(O) filedate$(O)
+OBJLA = amiga$(OL) amigazip$(OL) stat$(OL) filedate$(OL)
 OBJL  = $(OBJL1) $(OBJL2) $(OBJLI) $(OBJLA)
 
 # Common header files
 ZIP_H1 = zip.h ziperr.h tailor.h
-ZIP_HA = amiga/osdep.h amiga/z-stat.h amiga/z-time.h
+ZIP_HA = amiga/osdep.h amiga/z-stat.h
 ZIP_H  = $(ZIP_H1) $(ZIP_HA)
 
 # Output targets
@@ -428,14 +428,6 @@ all: request flush $(ZIPS)
 .c$(OU):
       $(CC) WITH=$(CFILE) $(CUSEMEM) DEF=UTIL LISTFILE=$>$(LISTEXTU) OBJNAME=$@ $*.c
 
-
-########################
-# Special target rules #
-########################
-
-# Special rule to build time_lib.o for Zip (requires NO_MKTIME define)
-time_lib$(O):
-      $(CC) WITH=$(CFILE) $(CUSEMEM) DEF=ZIP LISTFILE=$>$(LISTEXTZ) OBJNAME=$@ $*.c
 
 #########################
 # Final output targets. #
@@ -519,14 +511,14 @@ ttyio$(O):      ttyio.c    $(ZIP_H) crypt.h ttyio.h
 deflate$(O):    deflate.c  $(ZIP_H)                          #C-src
 trees$(O):      trees.c    $(ZIP_H)
 fileio$(O):     fileio.c   $(ZIP_H)
-util$(O):       util.c     $(ZIP_H) mktime.c
+util$(O):       util.c     $(ZIP_H)
 crc32$(O):      crc32.c    $(ZIP_H)
 crctab$(O):     crctab.c   $(ZIP_H)
 globals$(O):    globals.c  $(ZIP_H)
+timezone$(O):   timezone.c $(ZIP_H) timezone.h
 # Amiga specific objects
-stat$(O):       amiga/stat.c     amiga/z-stat.h amiga/z-time.h
-filedate$(O):   amiga/filedate.c amiga/z-time.h crypt.h
-time_lib$(O):   amiga/time_lib.c amiga/z-time.h
+stat$(O):       amiga/stat.c     amiga/z-stat.h
+filedate$(O):   amiga/filedate.c crypt.h timezone.h
 amiga$(O):      amiga/amiga.c    ziperr.h
 amigazip$(O):   amiga/amigazip.c $(ZIP_H) amiga/amiga.h env:Workbench
 # Substitute assembly version of deflate.c:
@@ -541,7 +533,7 @@ zipcloak$(O):   zipcloak.c $(ZIP_H) revision.h crypt.h ttyio.h
 zipsplit$(O):   zipsplit.c $(ZIP_H) revision.h
 zipfile$(OU):   zipfile.c  $(ZIP_H) revision.h
 fileio$(OU):    fileio.c   $(ZIP_H)
-util$(OU):      util.c     $(ZIP_H) mktime.c
+util$(OU):      util.c     $(ZIP_H)
 crypt$(OU):     crypt.c    $(ZIP_H) crypt.h ttyio.h
 # Amiga specific objects
 amigazip$(OU):   amiga/amigazip.c $(ZIP_H) amiga/amiga.h env:Workbench
@@ -556,14 +548,14 @@ ttyio$(OL):     ttyio.c    $(ZIP_H) crypt.h ttyio.h
 deflate$(OL):   deflate.c  $(ZIP_H)
 trees$(OL):     trees.c    $(ZIP_H)
 fileio$(OL):    fileio.c   $(ZIP_H)
-util$(OL):      util.c     $(ZIP_H) mktime.c
+util$(OL):      util.c     $(ZIP_H)
 crc32$(OL):     crc32.c    $(ZIP_H)
 crctab$(OL):    crctab.c   $(ZIP_H)
 globals$(OL):   globals.c  $(ZIP_H)
+timezone$(OL):  timezone.c $(ZIP_H) timezone.h
 # Amiga specific objects
-stat$(OL):      amiga/stat.c     amiga/z-stat.h amiga/z-time.h
-filedate$(OL):  amiga/filedate.c amiga/z-time.h crypt.h
-time_lib$(OL):  amiga/time_lib.c amiga/z-time.h
+stat$(OL):      amiga/stat.c     amiga/z-stat.h
+filedate$(OL):  amiga/filedate.c crypt.h timezone.h
 amiga$(OL):     amiga/amiga.c    ziperr.h
 # Substitute assembly version of deflate.c:
 #deflate$(OL): amiga/deflate.a

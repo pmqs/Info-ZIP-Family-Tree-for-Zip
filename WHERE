@@ -1,6 +1,6 @@
 __________________________________________________________________________
 
-   This is the Info-ZIP file ``WHERE,'' last updated on 1 March 2005.
+   This is the Info-ZIP file ``WHERE,'' last updated on 31 May 2006.
 __________________________________________________________________________
 
    The latest version of this file can be found online at:
@@ -44,8 +44,8 @@ The related zlib package by Info-ZIP's Jean-loup Gailly and Mark Adler is at:
 Source-code archives for Info-ZIP's portable Zip, UnZip, and related
 utilities:
 
-   zip231.zip        Zip 2.31 (deflation; includes zipnote/zipsplit/zipcloak)
-   zip231.tar.Z      ditto, compress'd tar format
+   zip232.zip        Zip 2.32 (deflation; includes zipnote/zipsplit/zipcloak)
+   zip232.tar.Z      ditto, compress'd tar format
 
    zip11.zip         Zip 1.1 (shrinking, implosion; compatible w. PKUNZIP 1.1)
    zip11.tar.Z       ditto, compress'd tar format
@@ -56,12 +56,12 @@ utilities:
 
    unred552.zip      UnZip 5.52 add-on, contains copyrighted unreduce support
 
-   zcrypt29.zip      encryption support for Zip 2.3[**]
+   zcrypt291.zip     encryption support for Zip 2.3[**]
    zcrypt10.zip      encryption support for Zip 1.1
 
    MacZip106src.zip  contains all the GUI stuff and the project files to build
                      the MacZip main-app.  To build MacZip successfully, both
-                     the Zip 2.31 and UnZip 5.52 sources are required, too.
+                     the Zip 2.32 and UnZip 5.52 sources are required, too.
 
    wiz502.zip        WiZ 5.02, Windows 9x/NT GUI front-end for Info-ZIP DLLs
    wiz502+dlls.zip   WiZ 5.02, Windows 9x/NT GUI front-end plus DLL sources
@@ -74,9 +74,9 @@ utilities:
 [**] As of January 2000, US export regulations were amended to allow export
      of free encryption source code from the US.  As of June 2002, these
      regulations were further relaxed to allow export of encryption binaries
-     associated with free encryption source code.  The Zip 2.31, UnZip 5.52
+     associated with free encryption source code.  The Zip 2.32, UnZip 5.52
      and Wiz 5.02 archives now include full crypto source code.  As of the
-     Zip 2.31 release, all official binaries include encryption support; the
+     Zip 2.32 release, all official binaries include encryption support; the
      former "zcr" archives ceased to exist.
      (Note that restrictions may still exist in other countries, of course.)
 
@@ -84,35 +84,35 @@ Executables archives (and related files) for Info-ZIP's software; not all
 of these will be immediately available due to lack of access to appropriate
 systems on the part of Info-ZIP members.
 
-   zip231x.zip       MSDOS executables and docs
-   zip231x1.zip      OS/2 1.x (16-bit) executables and docs
-   zip231x2.zip      OS/2 2/3/4.x (32-bit) executables and docs
-   zip231xA.zip      Amiga executables and docs
-   zip231xB.zip      BeOS executables and docs
-   zip231xC.zip      VM/CMS executable and docs
-   zip231xK.zip      Tandem NSK executables and docs
-   zip231xM.xmit     MVS classic executable
-   zip231xM-docs.zip MVS classic port, docs only
-   zip231dN.zip      WinNT/Win9x (Intel) DLL, header files, docs
-   zip231xN.zip      WinNT/Win9x (Intel) executables and docs
-   zip231xN-axp.zip  WinNT (Alpha AXP) executables and docs
-   zip231xN-mip.zip  WinNT (MIPS R4000) executables and docs
-   zip231xN-ppc.zip  WinNT (PowerPC) executables and docs
-   zip231xO.zip      IBM OS/390 Open Edition binaries and docs
-   zip231xQ.zip      SMS/QDOS executables and docs
-   zip231xR.zip      Acorn RISC OS executables and docs
-   zip231xT.zip      Atari TOS executables and docs
-   zip231-vms-axp-obj.zip
+   zip232x.zip       MSDOS executables and docs
+   zip232x1.zip      OS/2 1.x (16-bit) executables and docs
+   zip232x2.zip      OS/2 2/3/4.x (32-bit) executables and docs
+   zip232xA.zip      Amiga executables and docs
+   zip232xB.zip      BeOS executables and docs
+   zip232xC.zip      VM/CMS executable and docs
+   zip232xK.zip      Tandem NSK executables and docs
+   zip232xM.xmit     MVS classic executable
+   zip232xM-docs.zip MVS classic port, docs only
+   zip232dN.zip      WinNT/Win9x (Intel) DLL, header files, docs
+   zip232xN.zip      WinNT/Win9x (Intel) executables and docs
+   zip232xN-axp.zip  WinNT (Alpha AXP) executables and docs
+   zip232xN-mip.zip  WinNT (MIPS R4000) executables and docs
+   zip232xN-ppc.zip  WinNT (PowerPC) executables and docs
+   zip232xO.zip      IBM OS/390 Open Edition binaries and docs
+   zip232xQ.zip      SMS/QDOS executables and docs
+   zip232xR.zip      Acorn RISC OS executables and docs
+   zip232xT.zip      Atari TOS executables and docs
+   zip232-vms-axp-obj.zip
                      VMS (Alpha AXP) object libs, link procedure and docs
-   zip231-vms-axp-exe.zip
+   zip232-vms-axp-exe.zip
                      VMS (Alpha AXP) executables for VMS 6.1 or later and docs
-   zip231-vms-vax-decc-obj.zip
+   zip232-vms-vax-decc-obj.zip
                      VMS (VAX) object libs (new DEC C), link procedure and docs
-   zip231-vms-vax-decc-exe.zip
+   zip232-vms-vax-decc-exe.zip
                      VMS (VAX) executables (DEC C) for VMS 6.1 or later; docs
-   zip231-vms-vax-vaxc-obj.zip
+   zip232-vms-vax-vaxc-obj.zip
                      VMS (VAX) object libs (old VAX C), link procedure and docs
-   zip231x.hqx       Macintosh BinHex'd executables and docs
+   zip232x.hqx       Macintosh BinHex'd executables and docs
 
    unz552x.exe       MSDOS self-extracting executable (16-bit unzip, ..., docs)
    unz552x3.exe      MSDOS self-extracting executable (16-, 32-bit unzip, docs)
@@ -177,7 +177,7 @@ ftp/web sites for the US-exportable sources and executables:
 
    NOTE:  Look for the Info-ZIP file names given above (not PKWARE or third-
    party stuff) in the following locations.  Some sites like to use slightly
-   different names, such as zip-2.31.tar.gz instead of zip231.tar.Z.
+   different names, such as zip-2.32.tar.gz instead of zip232.tar.Z.
 
    ftp://ftp.info-zip.org/pub/infozip/                 [THE INFO-ZIP HOME SITE]
    ftp://sunsite.doc.ic.ac.uk/packages/zip/    [MIRRORS THE INFO-ZIP HOME SITE]
@@ -242,7 +242,7 @@ Mail servers:
    To get the encryption sources by e-mail, send the following commands
    to ftp-mailer@informatik.tu-muenchen.de:
 
-      get /pub/comp/os/os2/archiver/zcrypt29.zip
+      get /pub/comp/os/os2/archiver/zcrypt291.zip
       quit
 
    To get the VMS Zip/UnZip package by e-mail, send the following

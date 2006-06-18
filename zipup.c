@@ -1,9 +1,9 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
@@ -11,8 +11,8 @@
  */
 #define __ZIPUP_C
 
-#include <ctype.h>
 #include "zip.h"
+#include <ctype.h>
 
 #ifndef UTIL            /* This module contains no code for Zip Utilities */
 
@@ -296,12 +296,13 @@ FILE *y;                /* output file */
   extent k = 0;         /* result of zread */
   int l = 0;            /* true if this file is a symbolic link */
   int m;                /* method for this entry */
-  ulg o, p;             /* offsets in zip file */
+  ulg o = 0, p;         /* offsets in zip file */
   long q = -3L;         /* size returned by filetime */
   int r;                /* temporary variable */
   ulg s = 0L;           /* size of compressed data */
   int isdir;            /* set for a directory name */
   int set_type = 0;     /* set if file type (ascii/binary) unknown */
+  ulg last_o;           /* used to check if we wrapped beyond what fseek can handle */
 
   z->nam = strlen(z->iname);
   isdir = z->iname[z->nam-1] == (char)0x2f; /* ascii[(unsigned)('/')] */
@@ -540,9 +541,15 @@ FILE *y;                /* output file */
     ZIPERR(ZE_WRITE, "unexpected error on zip file");
   }
 
+  last_o = o;
   o = ftell(y); /* for debugging only, ftell can fail on pipes */
   if (ferror(y))
     clearerr(y);
+
+  if (last_o > o) {
+    /* could be wrap around */
+    ZIPERR(ZE_BIG, "seek wrap - zip file too big to write");
+  }
 
   /* Write stored or deflated file to zip file */
   isize = 0L;
@@ -592,6 +599,7 @@ FILE *y;                /* output file */
         }
 #ifndef WINDLL
         if (verbose) putc('.', stderr);
+        fflush(stderr);
 #else
         if (verbose) fprintf(stdout,"%c",'.');
 #endif
@@ -1038,6 +1046,7 @@ local ulg filecompress(z_entry, zipfile, cmpr_method)
                     mrk_cnt++;
 #ifndef WINDLL
                     putc('.', stderr);
+                    fflush(stderr);
 #else
                     fprintf(stdout,"%c",'.');
 #endif

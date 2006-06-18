@@ -24,7 +24,8 @@ CPP = /lib/cpp
 EXE =
 
 # probably can change this to 'install' if you have it
-INSTALL_PROGRAM = cp
+INSTALL = cp
+INSTALL_PROGRAM = $(INSTALL)
 # probably can change this to 'install -d' if you have it
 # XXX NextStep 3.3 and Openstep 4.x don't know about -p !
 INSTALL_D = mkdir -p
@@ -39,13 +40,14 @@ manext=1
 MANDIR = $(prefix)/man/man$(manext)
 ZIPMANUAL = MANUAL
 PKGDIR = IZzip
-VERSION = Version 2.31
+VERSION = Version 2.32
 
 # flags
 #   CFLAGS    flags for C compile
 #   LFLAGS1   flags after output file spec, before obj file list
 #   LFLAGS2   flags after obj file list (libraries, etc)
-CFLAGS = -O2 -I. -DUNIX $(LOCAL_ZIP)
+CFLAGS_NOOPT = -I. -DUNIX $(LOCAL_ZIP)
+CFLAGS = -O2 $(CFLAGS_NOOPT)
 LFLAGS1 =
 LFLAGS2 = -s
 
@@ -137,7 +139,7 @@ uninstall:
 	-cd $(MANDIR); rm -f zip.$(manext)
 
 flags:  unix/configure
-	sh unix/configure "${CC}" "${CFLAGS}"
+	sh unix/configure "${CC}" "${CFLAGS_NOOPT}"
 
 # These symbols, when #defined using -D have these effects on compilation:
 # ZMEM                  - includes C language versions of memset(), memcpy(),
@@ -202,7 +204,7 @@ minix:
 #MAKE = gmake -f unix/Makefile
 os390:
 	${MAKE} zips CFLAGS="$(CF) -I. -DUNIX -DOS390 -DEBCDIC -DSYSV \
--DSYSV -DNO_PARAM_H" LFLAGS2=""
+-DNO_PARAM_H" LFLAGS2=""
 
 # QNX is "special" because out /bin/sh is ksh and it doesn't grok the
 # configure script properly, generating a bad flags file.  D'oh! [cjh]

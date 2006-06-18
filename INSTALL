@@ -4,23 +4,23 @@ HOW TO INSTALL ZIP
      wide range of systems: Unix, VMS, MSDOS, OS/2, NT, Amiga, Atari,
      BeOS, VM/CMS, ...  You will need Unzip 5.0p1 (under any system) or
      PKUNZIP 2.04g or later (under MSDOS) to unpack the distribution
-     file, zip231.zip. But since you read this, you have unpacked it
+     file, zip232.zip. But since you read this, you have unpacked it
      already, or you cheated and got a tar.Z file...
 
-Installation on Unix
+Installation on Unix (see below for installation on other systems)
 
      Let's assume that you start from scratch and have not yet
      unpacked the sources. First, unpack the source as follows,
-     assuming that you have zip231.zip in the current directory.
+     assuming that you have zip232.zip in the current directory.
 
           mkdir zipsrc
           cd zipsrc
-          unzip ../zip231
+          unzip ../zip232
 
      This extracts all source files and documentation in the
      directory called "zipsrc". This release now includes the standard
      encryption code previously in the separate package zcrypt29.zip,
-     but you still can decide wether to activate the crypt code or not.
+     but you still can decide whether to activate the crypt code or not.
      Crypt is enabled by default, but you may disable it by specifying
      the option -DNO_CRYPT in the LOCAL_ZIP environment variable (or by
      adding this option to the compilation options in the appropiate
@@ -50,8 +50,8 @@ Installation on Unix
      If none of these compiles, links, and functions properly on
      your Unix system, see the file README for how to get help.
 
-     If the appropriate system was selected, then the executables
-     zip, zipnote and zipsplit will be created.  You can copy them
+     If the appropriate system was selected, then the executables zip,
+     zipcloak, zipnote and zipsplit will be created.  You can copy them
      to an appropriate directory in the search path using:
 
           make -f unix/Makefile install
@@ -76,7 +76,7 @@ Installation on Unix
           rm -r zipsrc
 
      This will remove the directory zip and its contents created
-     by unzip.  You should keep the zip231.zip file around though,
+     by unzip.  You should keep the zip232.zip file around though,
      in case you need to build it again or want to give it to a
      colleague.
 
@@ -135,6 +135,9 @@ Installation on other systems
      The makefiles supplied in the win32/ subdirectory contain further
      information.
 
+     A Microsoft Visual C++ workspace is now included in win32/vc6
+     with zip, zipcloak, zipnote, and zipsplit projects.
+
 
   Windows DLL (WIN32):
 
@@ -166,22 +169,38 @@ Installation on other systems
 
   VMS (OpenVMS):
 
-     Apply
+     To build Zip, use the builder command procedure:
 
-          @[.vms]make_zip
+          @ [.vms]make_zip.com
 
-     or use DEC's MMS make utility (or the MMK clone) if available:
+     or use DEC/Compaq/HP MMS (or the free alternative, MMK) if available:
 
-          mms /descr=[.vms]descrip.mms /macro=(__ALPHA__=1)   for Alpha AXP
+          mms /descr=[.vms]descrip.mms /macro=(__ALPHA__=1)   for Alpha
+          mms /descr=[.vms]descrip.mms /macro=(__IA64__=1)    for IA64
           mms /descr=[.vms]descrip.mms /macro=(__DECC__=1)    for DEC C on VAX
           mms /descr=[.vms]descrip.mms /macro=(__VAXC__=1)    for VAX C
           mms /descr=[.vms]descrip.mms /macro=(__GNUC__=1)    for GNU C on VAX
 
-     (If you have installed both DEC C and VAX C on your VAX and want to use
-      the latter compiler, you should define the macro "__FORCE_VAXC__"
-      instead of "__VAXC__".)
+     Modern MMS and MMK versions should correctly determine the system type
+     without the "/macro=" qualifier, but on VAX the compiler should be
+     specified explicitly, and it should always be safe to specify the proper
+     system type.  (If you have installed both DEC C and VAX C on your VAX
+     and want to use VAX C, you should define the macro "__FORCE_VAXC__"
+     instead of "__VAXC__".)
 
-     For further information please consult 00readme.txt in the vms/
+     When the executables have been created (or located), most users
+     define foreign command symbols for the Zip executables, like this:
+
+          ZIP :== $ dev:[dir]ZIP.xxx_EXE        ! UNIX-like command line.
+     or:
+          ZIP :== $ dev:[dir]ZIP_CLI.xxx_EXE    ! VMS-like command line.
+
+     where "xxx_" depends on the system type and compiler.  Such symbol
+     definitions are often added to a user's SYS$LOGIN:LOGIN.COM
+     procedure, or to a common, site-specific procedure, like
+     SYS$MANAGER:SYLOGIN.COM.
+
+     For further information please consult 00README.TXT in the [.VMS]
      subdirectory.
 
 For command help on any of the zip* utilities, simply enter

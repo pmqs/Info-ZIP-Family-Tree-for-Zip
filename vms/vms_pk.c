@@ -452,7 +452,7 @@ iztimes *z_utim;
 
         if ((cxtra = (uch *) malloc( EB_HEADSIZE + EB_UT_LEN( 1))) == NULL)
             return ZE_MEM;
- 
+
         /* Fill xtra[] with data. */
         xtra[ 0] = 'U';
         xtra[ 1] = 'T';

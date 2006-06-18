@@ -1,9 +1,9 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 #include "zip.h"
@@ -90,6 +90,11 @@ int GetFileMode OF((char *name));
 local int  initDirSearch OF((char *name, ff_dir *ff_context_p));
 local char *getVolumeLabel OF((int, ulg *, ulg *, time_t *));
 local int  wild_recurse OF((char *, char *));
+local int procname_dos OF((char *n, int caseflag, unsigned attribs));
+local int is_running_on_windows OF((void));
+
+#define MSDOS_INVALID_ATTR      0xFF
+#define getDirEntryAttr(d)      ((d)->ff_attrib)
 
 /* Module level variables */
 extern char *label;
@@ -247,7 +252,7 @@ char *wildtail;
                 strcpy(name, subwild);
                 e = wild_recurse(newwhole, name);
             } else
-                e = procname(newwhole, 0);
+                e = procname_dos(newwhole, 0, getDirEntryAttr(&dir));
             newwhole[newlen] = 0;
             if (e == ZE_OK)
                 amatch = 1;
@@ -316,9 +321,10 @@ char *w;                /* path/pattern to match */
     return e;
 }
 
-int procname(n, caseflag)
+local int procname_dos(n, caseflag, attribs)
 char *n;                /* name to process */
 int caseflag;           /* true to force case-sensitive match */
+unsigned attribs;       /* file attributes, if available */
 /* Process a name or sh expression to operate on (or exclude).  Return
    an error code in the ZE_ class. */
 {
@@ -337,6 +343,18 @@ int caseflag;           /* true to force case-sensitive match */
   if (strcmp(n, "-") == 0)   /* if compressing stdin */
     return newname(n, 0, caseflag);
   else if (*n == '\0') return ZE_MISS;
+  else if (attribs != MSDOS_INVALID_ATTR)
+  {
+    /* Avoid calling stat() for performance reasons when it is already known
+       (from a previous directory scan) that the passed name corresponds to
+       a "real existing" file.  The only information needed further down in
+       this function is the distinction between directory entries and other
+       (typically normal file) entries.  This distinction can be derived from
+       the file's attributes that the directory lookup has already provided
+       "for free".
+     */
+    s.st_mode = ((attribs & MSDOS_DIR_ATTR) ? S_IFDIR : S_IFREG);
+  }
   else if (LSSTAT(n, &s)
 #ifdef __TURBOC__
            /* For this compiler, stat() succeeds on wild card names! */
@@ -416,7 +434,8 @@ int caseflag;           /* true to force case-sensitive match */
             return ZE_MEM;
           }
           strcat(strcpy(a, p), e);
-          if ((m = procname(a, caseflag)) != ZE_OK)   /* recurse on name */
+          if ((m = procname_dos(a, caseflag, getDirEntryAttr(d)))
+              != ZE_OK)         /* recurse on name */
           {
             if (m == ZE_MISS)
               zipwarn("name not matched: ", a);
@@ -431,6 +450,13 @@ int caseflag;           /* true to force case-sensitive match */
     free((zvoid *)p);
   } /* (s.st_mode & S_IFDIR) == 0) */
   return ZE_OK;
+}
+
+int procname(n, caseflag)
+char *n;                /* name to process */
+int caseflag;           /* true to force case-sensitive match */
+{
+  return procname_dos(n, caseflag, MSDOS_INVALID_ATTR);
 }
 
 char *ex2in(x, isdir, pdosflag)
@@ -755,6 +781,42 @@ void xit(void)
 
 #endif /* !UTIL */
 
+local int is_running_on_windows(void)
+{
+    char * var = getenv("OS");
+
+    /* if the OS env.var says 'Windows_NT' then */
+    /* we're likely running on a variant of WinNT */
+    if ((NULL != var) && (0 == strcmp("Windows_NT", var)))
+    {
+        return 1;
+    }
+
+    /* if the windir env.var is non-null then */
+    /* we're likely running on a variant of Win9x */
+    /* DOS mode of Win9x doesn't define windir, only winbootdir */
+    /* NT's command.com can't see lowercase env. vars */
+    var = getenv("windir");
+    if ((NULL != var) && (0 != var[0]))
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+void check_for_windows(const char *app)
+{
+    /* Print a warning for users running under Windows */
+    /* to reduce bug reports due to running DOS version */
+    /* under Windows, when Windows version usually works correctly */
+    if (is_running_on_windows())
+    {
+        printf("\nzip warning:  You are running MSDOS %s on Windows.\n"
+               "Try the Windows version before reporting any problems.\n",
+               app);
+    }
+}
 
 #ifndef WINDLL
 /******************************/

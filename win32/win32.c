@@ -1,9 +1,9 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
@@ -38,19 +38,27 @@
 
 #define EAID     0x0009
 
+#if (defined(__MINGW32__) && !defined(USE_MINGW_GLOBBING))
+   int _CRT_glob = 0;   /* suppress command line globbing by C RTL */
+#endif
 
 #ifndef UTIL
 
 extern int noisy;
 
-#ifdef NT_TZBUG_WORKAROUND
+#ifndef NO_W32TIMES_IZFIX
+#if defined(NT_TZBUG_WORKAROUND)
 local int FSusesLocalTime(const char *path);
 #endif
-#if (defined(USE_EF_UT_TIME) || \
-     (defined(NT_TZBUG_WORKAROUND) && !defined(NO_W32TIMES_IZFIX)))
+#if defined(USE_EF_UT_TIME) || defined(NT_TZBUG_WORKAROUND)
 local int NtfsFileTime2utime(const FILETIME *pft, time_t *ut);
 #endif
-#if (defined(NT_TZBUG_WORKAROUND) && defined(W32_STAT_BANDAID))
+#if defined(NT_TZBUG_WORKAROUND) && !defined(NO_W32TIMES_IZFIX)
+local void utime2NtfsFileTime(time_t ut, FILETIME *pft);
+#endif
+#endif /* !NO_W32TIMES_IZFIX */
+
+#if defined(NT_TZBUG_WORKAROUND) && defined(W32_STAT_BANDAID)
 local int VFatFileTime2utime(const FILETIME *pft, time_t *ut);
 #endif
 
@@ -59,14 +67,11 @@ local int VFatFileTime2utime(const FILETIME *pft, time_t *ut);
 
 int IsFileSystemOldFAT(const char *dir)
 {
+  static char lastDrive = '\0';    /* cached drive of last GetVolumeInformation call */
+  static int lastDriveOldFAT = 0;  /* cached OldFAT value of last GetVolumeInformation call */
   char root[4];
-  char vname[128];
-  DWORD vnamesize = sizeof(vname);
-  DWORD vserial;
   DWORD vfnsize;
   DWORD vfsflags;
-  char vfsname[128];
-  DWORD vfsnamesize = sizeof(vfsname);
 
     /*
      * We separate FAT and HPFS+other file systems here.
@@ -84,15 +89,21 @@ int IsFileSystemOldFAT(const char *dir)
       root[0] = '\\';
       root[1] = 0;
     }
+    if (lastDrive == root[0]) {
+      return lastDriveOldFAT;
+    }
 
-    if ( !GetVolumeInformation(root, vname, vnamesize,
-                         &vserial, &vfnsize, &vfsflags,
-                         vfsname, vfsnamesize)) {
+    if ( !GetVolumeInformation(root, NULL, 0,
+                               NULL, &vfnsize, &vfsflags,
+                               NULL, 0)) {
         fprintf(mesg, "zip diagnostic: GetVolumeInformation failed\n");
         return(FALSE);
     }
 
-    return vfnsize <= 12;
+    lastDrive = root[0];
+    lastDriveOldFAT = vfnsize <= 12;
+
+    return lastDriveOldFAT;
 }
 
 
@@ -122,7 +133,7 @@ DWORD dwAttr;
 }
 
 
-#ifdef NT_TZBUG_WORKAROUND
+#if defined(NT_TZBUG_WORKAROUND) && !defined(NO_W32TIMES_IZFIX)
 local int FSusesLocalTime(const char *path)
 {
     char  *tmp0;
@@ -158,11 +169,10 @@ local int FSusesLocalTime(const char *path)
            !strncmp(tmp2, "HPFS", 4);
 
 } /* end function FSusesLocalTime() */
-#endif /* NT_TZBUG_WORKAROUND */
+#endif /* NT_TZBUG_WORKAROUND && !NO_W32TIMES_IZFIX */
 
 
-#if (defined(USE_EF_UT_TIME) || \
-     (defined(NT_TZBUG_WORKAROUND) && !defined(NO_W32TIMES_IZFIX)))
+#if defined(USE_EF_UT_TIME) || defined(NT_TZBUG_WORKAROUND)
 
 #if (defined(__GNUC__) || defined(ULONG_LONG_MAX))
    typedef long long            LLONG64;
@@ -194,6 +204,7 @@ local int FSusesLocalTime(const char *path)
 #  define UNIX_TIME_SMAX_HI  0x01E9FD1EUL
 #  define UNIX_TIME_SMAX_LO  0xD4A5E980UL
 
+#ifndef NO_W32TIMES_IZFIX
 local int NtfsFileTime2utime(const FILETIME *pft, time_t *ut)
 {
 #ifndef NO_INT64
@@ -296,10 +307,11 @@ local int NtfsFileTime2utime(const FILETIME *pft, time_t *ut)
     return TRUE;
 #endif /* ?NO_INT64 */
 } /* end function NtfsFileTime2utime() */
-#endif /* USE_EF_UT_TIME || (NT_TZBUG_WORKAROUND && !NO_W32TIMES_IZFIX) */
+#endif /* !NO_W32TIMES_IZFIX */
+#endif /* USE_EF_UT_TIME || NT_TZBUG_WORKAROUND */
 
 
-#if (defined(NT_TZBUG_WORKAROUND) && defined(W32_STAT_BANDAID))
+#if defined(NT_TZBUG_WORKAROUND) && defined(W32_STAT_BANDAID)
 
 local int VFatFileTime2utime(const FILETIME *pft, time_t *ut)
 {
@@ -368,6 +380,49 @@ local int VFatFileTime2utime(const FILETIME *pft, time_t *ut)
 } /* end function VFatFileTime2utime() */
 #endif /* NT_TZBUG_WORKAROUND && W32_STAT_BANDAID */
 
+#if defined(NT_TZBUG_WORKAROUND) && !defined(NO_W32TIMES_IZFIX)
+
+local void utime2NtfsFileTime(time_t ut, FILETIME *pft)
+{
+#ifndef NO_INT64
+    ULLNG64 NTtime;
+
+    /* NT_QUANTA_PER_UNIX is small enough so that "ut * NT_QUANTA_PER_UNIX"
+     * cannot overflow in 64-bit signed calculation, regardless whether "ut"
+     * is signed or unsigned.  */
+    NTtime = ((LLONG64)ut * NT_QUANTA_PER_UNIX) +
+             ((ULLNG64)UNIX_TIME_ZERO_LO + ((ULLNG64)UNIX_TIME_ZERO_HI << 32));
+    pft->dwLowDateTime = (DWORD)NTtime;
+    pft->dwHighDateTime = (DWORD)(NTtime >> 32);
+
+#else /* NO_INT64 (64-bit integer arithmetics may not be supported) */
+    unsigned int b1, b2, carry = 0;
+    unsigned long r0, r1, r2, r3;
+    long r4;            /* signed, to catch environments with signed time_t */
+
+    b1 = ut & 0xFFFF;
+    b2 = (ut >> 16) & 0xFFFF;       /* if ut is over 32 bits, too bad */
+    r1 = b1 * (NT_QUANTA_PER_UNIX & 0xFFFF);
+    r2 = b1 * (NT_QUANTA_PER_UNIX >> 16);
+    r3 = b2 * (NT_QUANTA_PER_UNIX & 0xFFFF);
+    r4 = b2 * (NT_QUANTA_PER_UNIX >> 16);
+    r0 = (r1 + (r2 << 16)) & 0xFFFFFFFFL;
+    if (r0 < r1)
+        carry++;
+    r1 = r0;
+    r0 = (r0 + (r3 << 16)) & 0xFFFFFFFFL;
+    if (r0 < r1)
+        carry++;
+    pft->dwLowDateTime = r0 + UNIX_TIME_ZERO_LO;
+    if (pft->dwLowDateTime < r0)
+        carry++;
+    pft->dwHighDateTime = r4 + (r2 >> 16) + (r3 >> 16)
+                            + UNIX_TIME_ZERO_HI + carry;
+#endif /* ?NO_INT64 */
+
+} /* end function utime2NtfsFileTime() */
+#endif /* NT_TZBUG_WORKAROUND && !NO_W32TIMES_IZFIX */
+
 
 #if 0           /* Currently, this is not used at all */
 
@@ -383,8 +438,8 @@ long GetTheFileTime(const char *name, iztimes *z_ut)
   name = ansi_name;
 #endif
 
-  h = CreateFile(name, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                 OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  h = CreateFile(name, FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                 NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
   if ( h != INVALID_HANDLE_VALUE ) {
     BOOL ftOK = GetFileTime(h, &Creft, &Accft, &Modft);
     CloseHandle(h);
@@ -534,6 +589,64 @@ char *getVolumeLabel(drive, vtime, vmode, vutim)
     return NULL;
 }
 
+
+
+void stamp(f, d)
+char *f;                /* name of file to change */
+ulg d;                  /* dos-style time to change it to */
+/* Set last updated and accessed time of file f to the DOS time d. */
+{
+#ifdef NT_TZBUG_WORKAROUND
+
+    FILETIME Modft;     /* File time type of Win32 API, `last modified' time */
+    HANDLE hFile;       /* File handle defined in Win32 API    */
+# ifdef __RSXNT__        /* RSXNT/EMX C rtl uses OEM charset */
+    char *ansi_name = (char *)alloca(strlen(f) + 1);
+
+    OemToAnsi(f, ansi_name);
+#   define Ansi_Fname  ansi_name
+# else
+#   define Ansi_Fname  f
+# endif
+
+    /* open a handle to the file to prepare setting the mod-time stamp */
+    hFile = CreateFile(Ansi_Fname, GENERIC_WRITE, FILE_SHARE_WRITE, NULL,
+         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if ( hFile != INVALID_HANDLE_VALUE ) {
+        /* convert time_t modtime into WIN32 native 64bit format */
+# ifndef NO_W32TIMES_IZFIX
+        if (!FSusesLocalTime(f)) {
+            time_t ux_modtime = dos2unixtime(d);
+            utime2NtfsFileTime(ux_modtime, &Modft);
+        } else
+# endif /* !NO_W32TIMES_IZFIX */
+        {
+            FILETIME lft;
+
+            DosDateTimeToFileTime((WORD)(d >> 16),
+                                  (WORD)(d & 0xFFFFL),
+                                  &lft);
+            LocalFileTimeToFileTime(&lft, &Modft);
+        }
+
+        /* set Access and Modification times of the file to modtime */
+        SetFileTime(hFile, NULL, &Modft, &Modft);
+        CloseHandle(hFile);
+    }
+
+#else /* !NT_TZBUG_WORKAROUND */
+
+    struct utimbuf u;   /* argument for utime() */
+
+    /* Convert DOS time to time_t format in u.actime and u.modtime */
+    u.actime = u.modtime = dos2unixtime(d);
+
+    /* Set updated and accessed times of f */
+    utime(f, &u);
+
+#endif /* ?NT_TZBUG_WORKAROUND */
+}
+
 #endif /* !UTIL */
 
 
@@ -651,9 +764,8 @@ int zstat_zipwin32(const char *path, struct stat *buf)
 #endif
 
         Trace((stdout, "stat(%s) finds modtime %08lx\n", path, buf->st_mtime));
-        h = CreateFile(Ansi_Path, GENERIC_READ,
-                       FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        h = CreateFile(Ansi_Path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                       NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
         if (h != INVALID_HANDLE_VALUE) {
             BOOL ftOK = GetFileTime(h, &Creft, &Accft, &Modft);
             CloseHandle(h);
@@ -981,7 +1093,7 @@ void version_local()
 #endif
 
     printf(CompiledWith, COMPILER_NAME1, COMPILER_NAME2,
-           "\nWindows 9x / Windows NT/2K/XP/2K3", " (32-bit)", COMPILE_DATE);
+           "\nWindows 9x / Windows NT/2000/XP/etc.", " (32-bit)", COMPILE_DATE);
 
     return;
 

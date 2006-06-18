@@ -1,5 +1,5 @@
 # WMAKE makefile for 16 bit MSDOS or 32 bit DOS extender (PMODE/W or DOS/4GW)
-# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 17 Feb 2005.
+# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 07 Aug 2005.
 # Makes Zip.exe, ZipNote.exe, ZipCloak.exe, and ZipSplit.exe.
 #
 # Invoke from Zip source dir with "WMAKE -F MSDOS\MAKEFILE.WAT [targets]"
@@ -97,7 +97,7 @@ cc     = wcc386
 cflags = -bt=DOS -mf -6r -zt -zq
 aflags = -bt=DOS -mf -3 -zq
 cvars  = $+$(cvars)$- -DDOS $(variation)
-avars  = $+$(avars)$- $(variation)
+avars  = $+$(avars)$- -DWATCOM_DSEG $(variation)
 
 !  ifdef GW
 lflags = sys DOS4G

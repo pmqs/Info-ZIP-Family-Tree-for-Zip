@@ -1,10 +1,10 @@
 _____________________________________________________________________________
 
-  This is Info-ZIP's README.CR for zcrypt29.zip, last updated 28 February 2005.
+  This is Info-ZIP's README.CR for zcrypt291.zip, last updated 31 May 2006.
 _____________________________________________________________________________
 
 
-The files described below contain the encryption/decryption code for Zip 2.31,
+The files described below contain the encryption/decryption code for Zip 2.32,
 UnZip 5.52, and WiZ 5.02 (and later).  These files are included in the main
 source for all of these.  This file both describes the history of this package
 and notes the current conditions for use.  Check the comments at the top
@@ -93,9 +93,9 @@ To update previous versions using the zcrypt sources:
 
   (2) Overwrite the dummy crypt.c and crypt.h from the main sources with 
       the versions from this package.  If you want to overwrite directly
-      out of the zcrypt29 archive, do not use UnZip's freshen/updating
+      out of the zcrypt291 archive, do not use UnZip's freshen/updating
       option; the dummy files may be newer than the real sources in
-      zcrypt29.  ("unzip -o zcrypt29 -d /your/working/dir" will do the
+      zcrypt291.  ("unzip -o zcrypt291 -d /your/working/dir" will do the
       Right Thing in most cases, although it may overwrite a newer WHERE
       file under some circumstances.)
 

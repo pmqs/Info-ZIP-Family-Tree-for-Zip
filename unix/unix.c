@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -200,6 +200,20 @@ int caseflag;           /* true to force case-sensitive match */
     }
     free((zvoid *)p);
   } /* (s.st_mode & S_IFDIR) */
+#if defined(S_IFIFO) || defined(OS390)
+#ifdef OS390
+  else if (S_ISFIFO(s.st_mode))
+#else
+  else if ((s.st_mode & S_IFIFO) == S_IFIFO)
+#endif
+  {
+    /* FIFO (Named Pipe) - handle as normal file */
+    /* add or remove name of FIFO */
+    if (noisy) zipwarn("FIFO (Named Pipe): ", n);
+    if ((m = newname(n, 0, caseflag)) != ZE_OK)
+      return m;
+  }
+#endif /* S_IFIFO || OS390 */
   else
     zipwarn("ignoring special file: ", n);
   return ZE_OK;
@@ -624,7 +638,7 @@ void version_local()
 #          ifdef __VERSION__
 #            define COMPILER_NAME "cc " __VERSION__
 #          else
-#            define COMPILER_NAME "cc "
+#            define COMPILER_NAME "cc"
 #          endif
 #        endif
 #      endif

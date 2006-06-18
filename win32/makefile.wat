@@ -1,5 +1,5 @@
 # WMAKE makefile for Windows 95 and Windows NT (Intel only)
-# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 22 Feb 05.
+# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 07 Aug 2005.
 # Makes Zip.exe, ZipNote.exe, ZipCloak.exe, and ZipSplit.exe.
 #
 # Invoke from Zip source dir with "WMAKE -F WIN32\MAKEFILE.WAT [targets]"
@@ -75,7 +75,7 @@ cflags = -bt=NT -6r -zt -zq
 aflags = -bt=NT -mf -3 -zq
 lflags = sys NT
 cvars  = $+$(cvars)$- -DWIN32 $(variation)
-avars  = $+$(avars)$- $(variation)
+avars  = $+$(avars)$- -DWATCOM_DSEG $(variation)
 
 # Specify optimizations, or a nonoptimized debugging version:
 

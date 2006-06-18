@@ -1,9 +1,9 @@
 ;===========================================================================
 ; Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 ;
-; See the accompanying file LICENSE, version 2004-May-22 or later
+; See the accompanying file LICENSE, version 2005-Feb-10 or later
 ; (the contents of which are also included in zip.h) for terms of use.
-; If, for some reason, both of these files are missing, the Info-ZIP license
+; If, for some reason, all these files are missing, the Info-ZIP license
 ; also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 ;===========================================================================
 ;
@@ -21,6 +21,10 @@
 ; * works with Microsoft MASM 6.1X and Microsoft Visual C++ / 32-bit edition
 ;
 ; Adapted to work with Borland Turbo Assembler 5.0 by Cosmin Truta, 1997
+;
+; Adapted to work with OpenWatcom WASM by Chr. Spieler, 2005
+; (Define the symbol WATCOM_DSEG to activate the specific Watcom C
+; data segment naming convention.)
 ;
 ;==============================================================================
 ;
@@ -51,12 +55,16 @@ _BSS    segment public use32 'DATA'
         extrn   _prev         : word
         extrn   _window       : byte
 _BSS    ends
+ 
+    ifdef WATCOM_DSEG
+DGROUP  group   _BSS
+    endif
 
-   ifdef ASM_NEW
+    ifdef ASM_NEW
 _TEXT   segment public use32
-   else
+    else
 _TEXT   segment para public use32 'CODE'
-   endif
+    endif
         assume CS: _TEXT
         assume DS: _BSS, ES: _BSS, FS: _BSS
         public  _match_init

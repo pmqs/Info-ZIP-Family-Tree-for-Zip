@@ -2,7 +2,7 @@
 echo " "
 echo "REPORT ALL BUGS, PROBLEMS, AND ACCOLADES TO:"
 echo " "
-echo "         Zip-Bugs@lists.wku.edu"
+echo "         Zip-Bugs at www.info-zip.org"
 echo " "
 echo "Checking architecture platform for .ARCH. ..."
 arch=`uname -p`

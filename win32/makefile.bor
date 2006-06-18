@@ -1,6 +1,7 @@
 # Makefile for Zip, ZipCloak, ZipNote and ZipSplit for
-# Borland C++ for Windows 9x/NT
-# By E-Yen Tan. Last updated on 24 Jan 2005.
+# Borland C++ for Win32.
+# By E-Yen Tan.
+# Last updated on 18 Dec 2005 by Cosmin Truta.
 
 # To use, do "make -fwin32\makefile.bor"
 
@@ -16,7 +17,7 @@ LOC = $(LOCAL_ZIP)
 LOC = -DNO_ASM $(LOCAL_ZIP)
 !ENDIF
 
-# Type for CPU required: 0: 8086, 1: 80186, 2: 80286, 3: 80386, etc.
+# CPU type: 3 (i386), 4 (i486), 5 (Pentium), etc.
 CPU_TYP = 6
 
 # Uncomment the following macro to use the optimized assembler
@@ -97,13 +98,13 @@ ttyio.obj:      ttyio.c $(ZIP_H) crypt.h ttyio.h
 	$(CC) -c $(CFLAGS) $*.c
 
 win32zip.obj:   win32/win32zip.c $(ZIP_H) win32/win32zip.h win32/nt.h
-    $(CC) -c $(CFLAGS) win32/$*.c
+	$(CC) -c $(CFLAGS) win32/$*.c
 
 win32.obj:      win32/win32.c $(ZIP_H) win32/win32zip.h
-    $(CC) -c $(CFLAGS) win32/$*.c
+	$(CC) -c $(CFLAGS) win32/$*.c
 
 nt.obj:         win32/nt.c $(ZIP_H) win32/nt.h
-    $(CC) -c $(CFLAGS) win32/$*.c
+	$(CC) -c $(CFLAGS) win32/$*.c
 
 zipcloak.obj:   zipcloak.c $(ZIP_H) revision.h crypt.h ttyio.h
 	$(CC) -c $(CFLAGS) $*.c
@@ -147,10 +148,10 @@ match32.obj:    win32/match32.asm
 	masm -ml win32/match32.asm,$@;
 !else
 match32.obj:    win32/match32.asm
-    $(AS) $(ASFLAGS) win32\match32.asm, $@ ;
+	$(AS) $(ASFLAGS) win32\match32.asm, $@ ;
 !endif
 
-# we must cut the command line to fit in the MS/DOS 128 byte limit:
+# Cut the command line to fit in the MS-DOS 128 byte limit:
 zip.exe: $(OBJZ)
 	echo $(OBJZ1) > zip.rsp
 	echo $(OBJZ2) >> zip.rsp
@@ -174,6 +175,6 @@ zipsplit.exe: $(OBJS)
 	del zips.rsp
 
 clean:
-	del *.obj
-	del *.exe
-	del *.tds
+	-del *.obj
+	-del *.exe
+	-del *.tds

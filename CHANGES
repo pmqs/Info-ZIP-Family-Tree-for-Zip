@@ -131,7 +131,7 @@
  7. Fixes for unused variables (Chris)
  8. Added very simplistic example how to load and call the windll (Mike)
  9. Updated windll documentation to note this example (Mike)
-10. Removed an unused memeber of a structure in windll (Mike)
+10. Removed an unused member of a structure in windll (Mike)
 11. Add BUGS instead of infozip.who and algorith.doc with the packaging
     tools (John Bush)
 12. tailor.h: increment NUM_HOSTS to keep in sync with UnZip (Christian)
@@ -1011,3 +1011,298 @@ See Zip 3.0 for the latest additional features.
  1. Update gvmat64.asm (Gilles)
  2. Update version.  revision.h (Ed)
  3. Update WhatsNew (Ed)
+------------------------ March 20th 2005 version 2.32a ------------------
+ 1. Change (INSTALL) to (INSTALL_PROGRAM).  unix/Makefile (?, Ed)
+ 2. Update crypt comments.  crypt.c, crypt.h (Christian)
+ 3. Add parentheses to fseek and put ZIP10 variable in ifdefs.
+    crypt.c (Christian)
+ 4. Update release date and change crypt version from 2.9 to 2.10.
+    crypt.h (Christian)
+ 5. Update license header.  crypt.c, crypt.h, deflate.c, fileio.c,
+    zip.c (Christian)
+ 6. Force flush when FORCE_METHOD.  Move FLUSH_BLOCK().  deflate.c (Christian)
+ 7. Update filter to use global pcount, icount, and Rcount, collapse i and R
+    loops into one loop using switch, add comments, fix rough edges in
+    filter matching.  fileio.c (Christian)
+ 8. Update tempname() to avoid name contention if two zips are running.
+    fileio.c (Christian)
+ 9. Add attempts count on seeking a name in tempname().  fileio.c (Ed)
+10. Update version.  revision.h (Christian, Ed)
+11. Add INSTALL and update INSTALL_PROGRAM defines and remove duplicate
+    SYSV.  unix/Makefile (Christian)
+12. Formatting changes.  unix/unix.c (Christian)
+13. Add counts for R filters in get_filter().  Format change for k.
+    Format changes.  Add Rcount to zip.h.  zip.c, zip.h (Christian)
+------------------------ April 16th 2005 version 2.32b ------------------
+ 1. Initialized mesg in zipcloak.c, zipnote.c, zipsplit.c to fix access
+    violation crashes.  (Christian)
+ 2. Added -q (Quiet mode) option to zipcloak, zipnote, zipsplit.  (Christian)
+ 3. Changed exit(0) to exit(ZE_OK).  qdos/qdos (Christian)
+ 4. Change INSTALL_PROGRAM to INSTALL [probably not needed as now both are
+    defined - Ed].  unix/Makefile (Christian)
+ 5. Increment IDENT and change formatting.  vms/cvthelp.tpu (Christian)
+ 6. Update copyright.  vms/cvthelp.tpu (Christian, Ed)
+ 7. Change DIAG_FLAG from verbose to (verbose >= 2).  vms/vms.c (Christian)
+ 8. Change EXIT(0) to EXIT(ZE_LOGIC) for ziperr recursion, change EXIT(0) to
+    EXIT(ZE_OK) for successful returns.  zip.c (Christian)
+ 9. Add support for SIGABRT, SIGBREAK, SIGBUS, SIGILL, and SIGSEGV [indented
+    these - Ed].  zip.c (Christian)
+10. Change EXIT(0) to EXIT(ZE_OK).  zipcloak.c, zipnote.c, zipsplit.c (Christian)
+11. Change getline to zgetline.  zipnote.c (Christian)
+12. Add ifndef VMS for adding / to end of path.  zipsplit.c (Christian)
+13. Control the POSIX emulation provided by some Unix-on-Windows compiler
+    distributions, such as Cygwin, via the FORCE_WIN32_OVER_UNIX macro.
+    tailor.h, win32/Makefile.gcc (Cosmin)
+14. Synchronize ttyio.c and ttyio.h with the unzip-5.52 source, including
+    changes on how VMS does io and many other changes and combining and
+    add support for screen columns (Cosmin)
+15. Remove #undef WIN32, leaving both defined.  See tailor.h.  unix/osdep.h
+    (Cosmin)
+16. Enable binary file operations for DJGPP, besides Cygwin;
+    define FOPW as "wb" instead of "wbS".  unix/osdep.h (Cosmin)
+17. Stylistic fix inside ex2in().  unix/unix.c (Cosmin)
+18. Use correct dependence in target crc_i386.obj.  win32/Makefile.w32 (Cosmin)
+19. Cosmetic fix.  win32/makefile.bor (Cosmin)
+20. Fix win32/vc6/zip.dsp by moving End Custom Build (Cosmin)
+------------------------ June 17th 2005 version 2.32c ------------------
+ 1. Spelling fix in manual.  man/zip.1 (Debian)
+ 2. Add check_for_windows() to DOS version.  zip.c, msdos/msdos.c,
+    msdos/osdep.h (Johnny)
+ 3. Add support for signals SIGABRT, SIGBREAK, SIGBUS, SIGILL, and SIGSEGV
+    to utilities.  zipcloak.c, zipnote.c, zipsplit.c (Christian)
+ 4. Compacted Copyright note into a single line (Christian)
+ 5. Change putend() to use unsigned.  zip.h, zipfile.c (Christian)
+ 6. Add the CSharp projects from Adrian Maull.  Add new readmeCS.txt file.
+    windll/csharp (Adrian Maull, Ed)
+ 7. Moved check_for_windows() DOS checks to help and version screens but still
+    on error message and reduced to one line.  msdos/msdos.c, zip.c (Ed)
+------------------------ June 26th 2005 version 2.32d ------------------
+ 1. Add directory search improvements to Win32 (within recursion, reuse attribs
+    from directory lookup to avoid calling stat()).  win32/win32zip.c  (Johnny)
+ 2. Cache result of IsFileSystemOldFAT() to avoid repetitive system calls
+    for identical information.  win32/win32.c  (Johnny)
+ 3. Add optimization to dosmatch(): apply alternate shortcut code when the
+    pattern to match consists of one multichar wildcard ('*') followed
+    by a fixed string.  util.c (Johnny)
+------------------------ July 11th 2005 version 2.32e ------------------
+ 1. Add directory search improvements to MSDOS.  msdos/msdos.c (Johnny)
+ 2. Additional changes to directory search improvements, including
+    a) MSDOS port fixes for Turbo C++ compiler
+    b) In both Win32 and MSDOS, change getDirEntryAttr() into macro,
+       saving one function call overhead
+    c) Add explaining comment to optimized procname_{local} code
+    d) In util.c, move "*literal" pattern-matching optimization from
+       dosmatch() to recmatch(). Advantages:
+       - optimization used for all systems
+       - optimization applied to all occurences where a "*" is last wildcard
+         in pattern
+       - "dosmatch()" only preconditoning wrapper for matching workhorse
+         "recmatch()", it should not implement matching algorithms itself
+       - optimization not applied for WILD_STOP_AT_DIR option
+    e) >>>disabled<<< "*literal" optimization for all MBCS-aware environments,
+       because suspect that supplied optimization code is not MBCS-clean
+       (for details see the comment within the patch), so IS NOT USED for
+       win32 port!  Can force activation of match optimization by specifying
+       conditional compilation symbol TEST_FOR_MBCS_CLEAN.
+    (Christian)
+ 3. Add and move comments for directory search improvements.  util.c (Ed)
+ 4. In win32/win32.c, IsFileSystemOldFAT(), add declarations of static
+    caching variables where missing to fix win32 compilation bug (Christian)
+ 5. Correct changed arguments in the RSXNT-only character set conversion
+    call. win32/win32zip.c (Christian)
+ 6. Debian Bug #312090 fix.  Reworded man page to give multiple examples of
+    recursion, not just zip -r foo foo.  man/zip.1 (Ed)
+------------------------ July 11th 2005 version 2.32f ------------------
+ 1. Fix unsigned char to char in recmatch(), add casts for compares.  util.c
+    (Ed)
+------------------------ July 13th 2005 version 2.32g ------------------
+ 1. Change shmatch() from uch to char and change parameters to recmatch().
+    Change dosmatch().  util.c (SMS, Rodney, Ed)
+------------------------ July 16th 2005 version 2.32h ------------------
+ 1. Delete unused getDirEntryAttribs().  msdos/msdos.c (Christian)
+ 2. Change warning when running msdos version on Windows.  msdos/msdos.c (Ed)
+ 3. Change to recmatch() for MBCS matching.  util.c (Christian)
+ 4. Remove unzip C# example which should go in unzip.  windll/csharp/unzip
+    (Christian, Ed)
+ 5. Update readmeCS.  windll/csharp/readmeCS.txt (Ed)
+ 6. Update Readme (Ed)
+ 7. Update WhatsNew (Ed)
+------------------------ August 4th 2005 version 2.32i ------------------
+ 1. Clean up old code.  unix/osdep.h (Cosmin)
+ 2. Add stsdef.h include for VMS and convert unzip test return to VMS
+    result for VMS.  zip.c (SMS)
+ 3. Format Windows warning message.  msdos/msdos.c (Christian)
+ 4. Format changes.  util.c (Christian)
+ 5. Move ziptyp() for VMS.  zipfile.c, vms/vms.c (SMS)
+ 6. VMS tempname() from Zip 3 including error messages.  vms/vms.c (SMS)
+ 7. Move NAM[L] macros from vms.c.  vms/vms.c, vms/vms.h (SMS)
+ 8. Update vms_stat().  vms/vms.c (SMS)
+------------------------ August 12th 2005 version 2.32j ------------------
+ 1. Change DOS to WATCOM_DSEG to use correct data segment and fix compiler
+    error.  msdos/makefile.wat  (Christian)
+ 2. Add zq for Watcom.  os2/makefile.os2 (Christian)
+ 3. Add ASM_CRC to enable assembler.  Add WATCOM_DSEG to use correct
+    data segment.  os2/makefile.os2 (Christian)
+ 4. Fix header.  os2/match32.asm (Christian)
+ 5. Fix header.  win32/crc_lcc.asm (Christian)
+ 6. Add WATCOM_DSEG.  win32/makefile.wat (Christian)
+ 7. Fix header.  Add DGROUP.  win32/match32.asm (Christian)
+ 8. Some VMS comment changes.  zipfile.c (Christian)
+ 9. Update INSTALL (Ed)
+10. Update README (Ed)
+------------------------ October 20th 2005 version 2.32k ------------------
+ 1. Remove "#include <starlet.h>" from zipfile.c for VMS.  zipfile.c (SMS)
+ 2. Save parse name before search and use that on failure.  Change name
+    parsing in ziptyp() to solve a problem with search-list logical name
+    device directory specs.  vms/vms.c (SMS)
+------------------------ January 23th 2006 version 2.32l ------------------
+ 1. Handle VMS ... case.  util.c (SMS)
+ 2. Include VMS option -VV in help.  zip.c (SMS)
+ 3. Remove __GNUC__ check.  Update VMS CLI help.  vms/cmdline.c (SMS)
+ 4. Change lib$initialize to LIB$INITIALIZE.  vms/vms.c (SMS)
+ 5. Update copyright to 2006.  revision.h (Ed)
+ 6. Update WhatsNew (Ed)
+ 7. Update README (Ed)
+------------------------ January 28th 2006 version 2.32m ------------------
+ 1. Remove debugging code.  crypt.c (Christian)
+ 2. Add const to check_for_windows().  msdos/msdos.c (Christian)
+ 3. Remove debugging case from example.  windll/vb/vbzipfrm.frm (Christian)
+ 4. Put quotes around -R in help for VMS.  zip.c (Christian)
+ 5. Update VMS link and make.  vms/descrip.mms, vms/link_zip.com,
+    make_zip.com (SMS)
+------------------------ February 16th 2006 version 2.32n ------------------
+ 1. Remove trailing space from the default COMPILER_NAME.  unix/unix.c
+    (Cosmin)
+ 2. Use FILE_FLAG_BACKUP_SEMANTICS and a less demanding access mode
+    in CreateFile() when retrieving file attributes.  Fixes a problem
+    when adding a directory entry from an NTFS or a CDFS partition
+    (i.e. one that stores timestamps using universal time), and the
+    directory timestamp is not the same daylight savings time setting.
+    The effect is an offset in the timestamp by one hour, if zip is
+    built using NT_TZBUG_WORKAROUND. The problem is not exposed, however,
+    if NO_W32TIMES_IZFIX is defined and Zip is neither linked against
+    cygwin C runtime or old MS crtdll.dll. (In the latter cases, the problem
+    appeared not on NTFS/CDFS, but on (V)FAT).  win32/win32.c (Cosmin)
+ 3. Update WhatsNew to note NTFS time fix.  WhatsNew (Ed)
+------------------------ February 18th 2006 version 2.32o ------------------
+ 1. Use correct dependency in target crc_i386.obj.  win32/Makefile.w32
+    (Cosmin)
+ 2. Prepend '-' to commands from target clean.  win32/Makefile.w32,
+    win32/Makefile.bor (Cosmin)
+ 3. Must not call putenv() in iz_w32_prepareTZenv() under Cygwin.
+    win32/osdep.h (Cosmin)
+ 4. Enable browse info in Debug modes in the Visual C++ 6 project.
+    win32/vc6/zip.dsp, win32/vc6/zipcloak.dsp, win32/vc6/zipsplit.dsp,
+    win32/vc6/zipnote.dsp (Cosmin)
+ 5. Remove win32/vc6/zip.mak (Cosmin)
+------------------------ February 20th 2006 version 2.32p ------------------
+ 1. Do not use -O2 for flags.  unix/makefile (SMS)
+ 2. Check for compiler type and set -O2 or -O3.  unix/configure (SMS)
+ 3. Note SUNPRO, HP, and DECC compiler types.  unix/unix.c (SMS)
+ 4. Add missing "NT_TZBUG_WORKAROUND" fix to win32 stamp() function (used
+    with "-o" option).  win32/win32.c, win32/win32zip.c (Christian)
+ 5. Change HAVE_VAXC_VAX to HAVE_VAXC.  vms/make_zip.com (Christian)
+ 6. Fix encryption problem where a large file with uncompressable data
+    can cause deflate to store bad data.  See crypt.c for details.
+    Thanks to the nice people at WinZip for finding and providing the
+    details of this problem.  crypt.c (Ed)
+------------------------ March 5th 2006 version 2.32q ------------------
+ 1. Update delete selection code using update from Zip 3.0.  This fixes
+    delete selection date problem.  zip.c (Ed)
+ 2. Update WhatsNew.  WhatsNew (Ed)
+ 3. Update Readme.  Readme (Ed)
+------------------------ March 7th 2006 version 2.32r ------------------
+ 1. Move encryption fix from crypt.c to trees.c so can use existing
+    buffer instead of allocating a new buffer in zfwrite().  crypt.c,
+    trees.c (Christian)
+ 2. Remove copyrighted Amiga time fix and replace with Info-ZIP code
+    from UnZip.  mktime.c (removed), timezone.c, timezone.h, util.c,
+    amiga/amiga.c, amiga/filedate.c, amiga/lmkfile, amiga/makefile.azt,
+    amiga/osdep.h, amiga/smakefile, amiga/stat.c, amiga/time_lib.c
+    (removed), amiga/z-stat.h, amiga/z-time.h (removed) (Christian)
+ 3. Move timezone doc to proginfo.  amiga/timezone.doc,
+    proginfo/timezone.txt (Christian)
+ 4. Add UT extra field support to delete select fix.  zip.c (Christian)
+ 5. Disable command line globbing for MINGW32 if USE_MINGW_GLOBBING is
+    not defined.  win32/win32.c (Christian)
+------------------------ April 3rd 2006 version 2.32s ------------------
+ 1. Small change to encryption buffer fix description.  trees.c (Ed)
+ 2. Update description.  file_id.diz (Ed)
+ 3. Update contents.  windll/contents (Ed)
+ 4. Update readme.  windll/vb/readmeVB.txt (Ed)
+ 5. Update docs.  INSTALL, WhatsNew, zip232.ann (Ed)
+ 6. Add -M option that tells Zip it must read all files and any read
+    failure on an input file is an error.  Normally Zip would finish
+    and create the archive but return error code 18 (ZE_OPEN) but
+    -M forces an immediate exit with no archive created.  Note that
+    not being able to match an input pattern is not the same and
+    does not result in an error with or without -M.  zip.c (Ed)
+ 7. Update manual.  man/zip.1, MANUAL (Ed)
+ 8. Update WhatsNew.  whatsnew (Ed)
+ 9. Change -M to also be error whenever the "name not matched" warning
+    would be issued.  zip.c (Ed)
+------------------------ April 14th 2006 version 2.32t ------------------
+ 1. Change -M to -MM and make -mm an error to avoid accidental use of
+    -m for -M which could delete files.  zip.c (Ed)
+ 2. Update manual.  man/zip.1, MANUAL (Ed)
+ 3. Update announcement.  zip232.ann (Ed)
+ 4. Update WhatsNew.  whatsnew (Ed)
+ 5. Update ReadMe.  README (Ed)
+ 6. Update VMS installation.  INSTALL (SMS)
+ 7. Add VMS CLI support for /MUST_MATCH (-MM) and /VERBOSE=COMMAND
+    (show Unix command line).  vms/cmdline.c, vms/vms_zip.rnh (SMS)
+ 8. Update VMS option help.  vms/zip_cli.cld, vms/zip_cli.help (SMS)
+------------------------ April 22th 2006 version 2.32u ------------------
+ 1. Minor changes to VMS command line and help, including adding VERBOSE
+    NORMAL mode.  vms/cmdline.c, vms/zip_cli.cld, vms/zip_cli.help (SMS)
+ 2. Add last_o to zipup() to check for ftell() wrap around indicating
+    that the valid range for seeks was exceeded.  zipup.c (Ed)
+ 3. Update Zip version.  unix/makefile (SMS)
+ 4. Update mailing address.  unix/packaging/preinstall.in (SMS, Ed)
+ 5. Update DLL version.  windll/windll.rc, windll/zipver.h (SMS, Ed)
+ 6. Update WhatsNew.  whatsnew (Ed)
+ 7. Add fflush() to where dots are output.  zipup.c (Ed)
+ 8. Add fflush() to zipwarn().  zip.c (Ed)
+------------------------ May 17th 2006 version 2.32v ------------------
+ 1. Add support for Unix FIFO (named pipe).  unix/unix.c (Ed)
+ 2. Update announcement.  zip232.ann (Ed)
+ 3. Add note.  Bugs (Ed)
+ 4. Update WhatsNew.  WhatsNew (Ed)
+------------------------ May 26th 2006 version 2.32w ------------------
+ 1. Update date.  zipup.c (Ed)
+------------------------ June 4th 2006 version 2.32x ------------------
+ 1. Update VMS install information.  INSTALL, vms/descrip.mms (SMS)
+ 2. Introduce the CR_VERSION symbol, and change zcrypt version from
+    2.10 to 2.91 as the next version after 2.9.  crypt.h, zip.c,
+    README.CR, file_id.diz (Cosmin, Ed)
+ 3. Update WHERE to zip 2.32 and zcrypt 2.91.  WHERE (Cosmin)
+ 4. Update binary detection information.  proginfo/txtvsbin.txt
+    (Cosmin)
+ 5. Shut up annoying Visual C++ 2005 warnings about standard C
+    deprecation.  Move zip.h include before ctype.h include.
+    win32/osdep.h, trees.c, zipup.c (Cosmin)
+ 6. Allow the Unix port to compile if S_IFIFO is missing.  unix/unix.c
+    (Cosmin)
+ 7. Fix the positioning of some #ifdef NO_W32TIMES_IZFIX guards.
+    win32/win32.c (Cosmin)
+ 8. Stop enumerating every single Win32 flavor in version_local().
+    win32/win32.c (Cosmin)
+------------------------ June 15th 2006 version 2.32y ------------------
+ 1. Update comments.  vms/descrip.mms (SMS)
+ 2. Update License copyright.  License (Cosmin)
+ 3. Update WhatsNew.  WhatsNew (Ed)
+------------------------ June 19th 2006 version 2.32z ------------------
+ 1. Change vms/ to [.VMS] in VMS section as that's more like what a VMS
+    user would expect.  INSTALL (SMS)
+ 2. Change top line in license to not refer to copyright as license date
+    and copyright date are separate.  License (Cosmin)
+ 3. Update version to release.  revision.h (Ed)
+ 4. Change STS$M_SUCCESS to STS$K_SUCCESS.  zip.c, vms/vms.c (SMS)
+ 5. Change Windows version from the informal "2K" to "2000" in local
+    compiler information.  win32/win32.c (Cosmin)
+ 6. Delete useless binary file.  windll/windll.aps (Cosmin)
+ 7. Replace VAX/VMS with VMS.  man/zip.1, MANUAL (SMS)
+------------------------ June 19th 2006 version 2.32 ------------------
+ 1. Update WhatsNew (Ed)
+ 2. Update announcement.  zip232.ann (Ed)
+ 3. Update release date.  man/zip.1, MANUAL (Cosmin)

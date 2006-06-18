@@ -1,17 +1,30 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2004-May-22 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, both of these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
+
 /* Automatic setting of the common Microsoft C idenfifier MSC.
  * NOTE: Watcom also defines M_I*86 !
  */
 #if defined(_MSC_VER) || (defined(M_I86) && !defined(__WATCOMC__))
 #  ifndef MSC
 #    define MSC                 /* This should work for older MSC, too!  */
+#  endif
+#endif
+
+/* Tell Microsoft Visual C++ 2005 to leave us alone and
+ * let us use standard C functions the way we're supposed to.
+ */
+#if defined(_MSC_VER) && (_MSC_VER >= 1400)
+#  ifndef _CRT_SECURE_NO_DEPRECATE
+#    define _CRT_SECURE_NO_DEPRECATE
+#  endif
+#  ifndef _CRT_NONSTDC_NO_DEPRECATE
+#    define _CRT_NONSTDC_NO_DEPRECATE
 #  endif
 #endif
 
@@ -213,7 +226,8 @@
  * from the registry.
  */
 #ifdef USE_EF_UT_TIME
-# if (defined(__WATCOMC__) || defined(W32_USE_IZ_TIMEZONE))
+# if (defined(__WATCOMC__) || defined(__CYGWIN__) || \
+      defined(W32_USE_IZ_TIMEZONE))
 #   define iz_w32_prepareTZenv()
 # else
 #   define iz_w32_prepareTZenv()        putenv("TZ=")

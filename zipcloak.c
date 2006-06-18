@@ -102,9 +102,9 @@ static ZCONST char *help_info[] = {
 "",
 "ZipCloak %s (%s)",
 #ifdef VM_CMS
-"Usage:  zipcloak [-d] [-b fm] zipfile",
+"Usage:  zipcloak [-dq] [-b fm] zipfile",
 #else
-"Usage:  zipcloak [-d] [-b path] zipfile",
+"Usage:  zipcloak [-dq] [-b path] zipfile",
 #endif
 "  the default action is to encrypt all unencrypted entries in the zip file",
 "  -d   decrypt--decrypt encrypted entries (copy if given wrong password)",
@@ -113,6 +113,7 @@ static ZCONST char *help_info[] = {
 #else
 "  -b   use \"path\" for the temporary zip file",
 #endif
+"  -q   quieter operation, suppress some informational messages",
 "  -h   show this help    -v   show version info    -L   show software license"
   };
 
@@ -203,8 +204,11 @@ int main(argc, argv)
     /* If no args, show help */
     if (argc == 1) {
         help();
-        EXIT(0);
+        EXIT(ZE_OK);
     }
+
+    /* Informational messages are written to stdout. */
+    mesg = stdout;
 
     init_upper();               /* build case map table */
 
@@ -219,6 +223,21 @@ int main(argc, argv)
 #endif
 #ifdef SIGTERM                  /* Some don't have SIGTERM */
     signal(SIGTERM, handler);
+#endif
+#ifdef SIGABRT
+    signal(SIGABRT, handler);
+#endif
+#ifdef SIGBREAK
+    signal(SIGBREAK, handler);
+#endif
+#ifdef SIGBUS
+    signal(SIGBUS, handler);
+#endif
+#ifdef SIGILL
+    signal(SIGILL, handler);
+#endif
+#ifdef SIGSEGV
+    signal(SIGSEGV, handler);
 #endif
     temp_path = decrypt = 0;
     for (r = 1; r < argc; r++) {
@@ -236,13 +255,15 @@ int main(argc, argv)
                     decrypt = 1;  break;
                 case 'h':   /* Show help */
                     help();
-                    EXIT(0);
+                    EXIT(ZE_OK);
                 case 'l': case 'L':  /* Show copyright and disclaimer */
                     license();
-                    EXIT(0);
+                    EXIT(ZE_OK);
+                case 'q':   /* Quiet operation, suppress info messages */
+                    noisy = 0;  break;
                 case 'v':   /* Show version info */
                     version_info();
-                    EXIT(0);
+                    EXIT(ZE_OK);
                 default:
                     ziperr(ZE_PARMS, "unknown option");
                 } /* switch */

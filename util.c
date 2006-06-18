@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -34,7 +34,10 @@ local int count_args OF((char *s));
 #endif
 
 #ifdef NO_MKTIME
-#include "mktime.c"
+#  ifndef IZ_MKTIME_ONLY
+#    define IZ_MKTIME_ONLY      /* only mktime() related code is pulled in */
+#  endif
+#  include "timezone.c"
 #endif
 
 #ifndef HAVE_FSEEKABLE

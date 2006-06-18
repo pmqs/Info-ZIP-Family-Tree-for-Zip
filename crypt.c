@@ -1,18 +1,25 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2004-May-22 or later
-  (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  (the contents of which are also included in (un)zip.h) for terms of use.
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
   crypt.c (full version) by Info-ZIP.      Last revised:  [see crypt.h]
 
-  The encryption/decryption parts of this source code (as opposed to the
-  non-echoing password parts) were originally written in Europe.  The
-  whole source package can be freely distributed, including from the USA.
-  (Prior to January 2000, re-export from the US was a violation of US law.)
+  The main encryption/decryption source code for Info-Zip software was
+  originally written in Europe.  To the best of our knowledge, it can
+  be freely distributed in both source and object forms from any country,
+  including the USA under License Exception TSU of the U.S. Export
+  Administration Regulations (section 740.13(e)) of 6 June 2002.
+
+  NOTE on copyright history:
+  Previous versions of this source package (up to version 2.8) were
+  not copyrighted and put in the public domain.  If you cannot comply
+  with the Info-Zip LICENSE, you may want to look for one of those
+  public domain versions.
  */
 
 /*
@@ -232,7 +239,7 @@ int zipcloak(z, source, dest, passwd)
     crypthead(passwd, z->crc, dest);
 
     /* Skip local header in input file */
-    if (fseek(source, (long)(4 + LOCHEAD + (ulg)z->nam + (ulg)z->ext),
+    if (fseek(source, (long)((4 + LOCHEAD) + (ulg)z->nam + (ulg)z->ext),
               SEEK_CUR)) {
         return ferror(source) ? ZE_READ : ZE_EOF;
     }
@@ -266,7 +273,10 @@ int zipbare(z, source, dest, passwd)
     FILE *source, *dest;  /* source and destination files */
     ZCONST char *passwd;  /* password string */
 {
-    int c0, c1;           /* last two input bytes */
+#ifdef ZIP10
+    int c0                /* byte preceding the last input byte */
+#endif
+    int c1;               /* last input byte */
     ulg offset;           /* used for file offsets */
     ulg size;             /* size of input data */
     int r;                /* size of encryption header */
@@ -275,7 +285,7 @@ int zipbare(z, source, dest, passwd)
 
     /* Save position and skip local header in input file */
     if ((offset = (ulg)ftell(source)) == (ulg)-1L ||
-        fseek(source, (long)(4 + LOCHEAD + (ulg)z->nam + (ulg)z->ext),
+        fseek(source, (long)((4 + LOCHEAD) + (ulg)z->nam + (ulg)z->ext),
               SEEK_CUR)) {
         return ferror(source) ? ZE_READ : ZE_EOF;
     }
@@ -285,7 +295,9 @@ int zipbare(z, source, dest, passwd)
     /* Decrypt encryption header, save last two bytes */
     c1 = 0;
     for (r = RAND_HEAD_LEN; r; r--) {
+#ifdef ZIP10
         c0 = c1;
+#endif
         if ((c1 = getc(source)) == EOF) {
             return ferror(source) ? ZE_READ : ZE_EOF;
         }
@@ -303,7 +315,6 @@ int zipbare(z, source, dest, passwd)
     if ((ush)(c0 | (c1<<8)) !=
         (z->flg & 8 ? (ush) z->tim & 0xffff : (ush)(z->crc >> 16))) {
 #else
-    c0++; /* avoid warning on unused variable */
     if ((ush)c1 != (z->flg & 8 ? (ush) z->tim >> 8 : (ush)(z->crc >> 24))) {
 #endif
         if (fseek(source, offset, SEEK_SET)) {
@@ -349,6 +360,9 @@ int zipbare(z, source, dest, passwd)
 /***********************************************************************
  * If requested, encrypt the data in buf, and in any case call fwrite()
  * with the arguments to zfwrite().  Return what fwrite() returns.
+ *
+ * A bug has been found when encrypting large files.  See trees.c
+ * for details and the fix.
  */
 unsigned zfwrite(buf, item_size, nb, f)
     zvoid *buf;                 /* data buffer */

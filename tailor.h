@@ -6,6 +6,25 @@
   If, for some reason, both of these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
+
+/* Some compiler distributions for Win32/i386 systems try to emulate
+ * a Unix (POSIX-compatible) environment.
+ */
+#if (defined(WIN32) && defined(UNIX))
+   /* Zip does not support merging both ports in a single executable. */
+#  if (defined(FORCE_WIN32_OVER_UNIX) && defined(FORCE_UNIX_OVER_WIN32))
+     /* conflicting choice requests -> we prefer the Win32 environment */
+#    undef FORCE_UNIX_OVER_WIN32
+#  endif
+#  ifdef FORCE_WIN32_OVER_UNIX
+     /* native Win32 support was explicitely requested... */
+#    undef UNIX
+#  else
+     /* use the POSIX (Unix) emulation features by default... */
+#    undef WIN32
+#  endif
+#endif
+
 #ifdef AMIGA
 #include "amiga/osdep.h"
 #endif

@@ -3,7 +3,7 @@
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
@@ -44,7 +44,7 @@ local void help OF((void));
 local void version_info OF((void));
 local void putclean OF((char *, extent));
 /* getline name conflicts with GNU getline() function */
-local char *_getline OF((char *, extent));
+local char *zgetline OF((char *, extent));
 local int catalloc OF((char * far *, char *));
 int main OF((int, char **));
 
@@ -121,9 +121,9 @@ local void help()
 "",
 "ZipNote %s (%s)",
 #ifdef VM_CMS
-"Usage:  zipnote [-w] [-b fm] zipfile",
+"Usage:  zipnote [-w] [-q] [-b fm] zipfile",
 #else
-"Usage:  zipnote [-w] [-b path] zipfile",
+"Usage:  zipnote [-w] [-q] [-b path] zipfile",
 #endif
 "  the default action is to write the comments in zipfile to stdout",
 "  -w   write the zipfile comments from stdin",
@@ -132,6 +132,7 @@ local void help()
 #else
 "  -b   use \"path\" for the temporary zip file",
 #endif
+"  -q   quieter operation, suppress some informational messages",
 "  -h   show this help    -v   show version info    -L   show software license",
 "",
 "Example:",
@@ -244,7 +245,7 @@ extent n;               /* length of string */
 }
 
 
-local char *_getline(buf, size)
+local char *zgetline(buf, size)
 char *buf;
 extent size;
 /* Read a line of text from stdin into string buffer 'buf' of size 'size'.
@@ -317,8 +318,11 @@ char **argv;            /* command line tokens */
   if (argc == 1)
   {
     help();
-    EXIT(0);
+    EXIT(ZE_OK);
   }
+
+  /* Direct info messages to stderr; stdout is used for data output. */
+  mesg = stderr;
 
   init_upper();           /* build case map table */
 
@@ -328,6 +332,21 @@ char **argv;            /* command line tokens */
   signal(SIGINT, handler);
 #ifdef SIGTERM              /* AMIGA has no SIGTERM */
   signal(SIGTERM, handler);
+#endif
+#ifdef SIGABRT
+  signal(SIGABRT, handler);
+#endif
+#ifdef SIGBREAK
+  signal(SIGBREAK, handler);
+#endif
+#ifdef SIGBUS
+  signal(SIGBUS, handler);
+#endif
+#ifdef SIGILL
+  signal(SIGILL, handler);
+#endif
+#ifdef SIGSEGV
+  signal(SIGSEGV, handler);
 #endif
   k = w = 0;
   for (r = 1; r < argc; r++)
@@ -343,11 +362,13 @@ char **argv;            /* command line tokens */
                 k = 1;          /* Next non-option is path */
               break;
             case 'h':   /* Show help */
-              help();  EXIT(0);
+              help();  EXIT(ZE_OK);
             case 'l':  case 'L':  /* Show copyright and disclaimer */
-              license();  EXIT(0);
+              license();  EXIT(ZE_OK);
+            case 'q':   /* Quiet operation, suppress info messages */
+              noisy = 0;  break;
             case 'v':   /* Show version info */
-              version_info();  EXIT(0);
+              version_info();  EXIT(ZE_OK);
             case 'w':
               w = 1;  break;
             default:
@@ -402,7 +423,7 @@ char **argv;            /* command line tokens */
 
   /* Process stdin, replacing comments */
   z = zfiles;
-  while (_getline(a, WRBUFSIZ+1) != NULL &&
+  while (zgetline(a, WRBUFSIZ+1) != NULL &&
          (a[0] != MARK || strcmp(a + 1, MARKZ)))
   {                                     /* while input and not file comment */
     if (a[0] != MARK || a[1] != ' ')    /* better be "@ name" */
@@ -411,7 +432,7 @@ char **argv;            /* command line tokens */
       z = z->nxt;                       /* allow missing entries in order */
     if (z == NULL)
       ziperr(ZE_NOTE, "unknown entry name");
-    if (_getline(a, WRBUFSIZ+1) != NULL && a[0] == MARK && a[1] == '=')
+    if (zgetline(a, WRBUFSIZ+1) != NULL && a[0] == MARK && a[1] == '=')
     {
       if (z->name != z->iname)
         free((zvoid *)z->iname);
@@ -427,7 +448,7 @@ char **argv;            /* command line tokens */
  * Don't update z->nam here, we need the old value a little later.....
  * The update is handled in zipcopy().
  */
-      _getline(a, WRBUFSIZ+1);
+      zgetline(a, WRBUFSIZ+1);
     }
     if (z->com)                         /* change zip entry comment */
       free((zvoid *)z->comment);
@@ -436,7 +457,7 @@ char **argv;            /* command line tokens */
     {
       if ((r = catalloc(&(z->comment), a)) != ZE_OK)
         ziperr(r, "was building new comments");
-      _getline(a, WRBUFSIZ+1);
+      zgetline(a, WRBUFSIZ+1);
     }
     z->com = strlen(z->comment);
     z = z->nxt;                         /* point to next entry */
@@ -444,7 +465,7 @@ char **argv;            /* command line tokens */
   if (a != NULL)                        /* change zip file comment */
   {
     zcomment = malloc(1);  *zcomment = 0;
-    while (_getline(a, WRBUFSIZ+1) != NULL)
+    while (zgetline(a, WRBUFSIZ+1) != NULL)
       if ((r = catalloc(&zcomment, a)) != ZE_OK)
         ziperr(r, "was building new comments");
     zcomlen = strlen(zcomment);
