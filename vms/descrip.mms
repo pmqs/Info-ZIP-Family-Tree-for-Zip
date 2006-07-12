@@ -1,4 +1,4 @@
-#                                               22 May 2006.  SMS.
+#                                               12 July 2006.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -196,7 +196,7 @@ $(LIB_ZIPUTILS) : $(LIB_ZIPUTILS)($(MODS_OBJS_LIB_ZIPUTILS))
 
 # Module ID options file.
 
-OPT_ID = [.vms]zip.opt
+OPT_ID = SYS$DISK:[.vms]zip.opt
 
 # Default C compile rule.
 

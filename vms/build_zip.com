@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     last revised:  2006-05-22  SMS.
+$!     last revised:  2006-07-12  SMS.
 $!
 $!     Command arguments:
 $!     - suppress help file processing: "NOHELP"
@@ -318,7 +318,7 @@ $ lib_bzip2_opts = ""
 $ if (IZ_BZIP2 .nes. "")
 $ then
 $     define incl_bzip2 'IZ_BZIP2'
-$     defs = "''defs', USE_BZIP2"
+$     defs = "''defs', BZIP2_SUPPORT"
 $     @ [.vms]find_bzip2_lib.com 'IZ_BZIP2' 'arch' lib_bzip2
 $     if (f$trnlnm( "lib_bzip2") .eqs. "")
 $     then
@@ -477,7 +477,7 @@ $ link /executable = [.'dest']'zipx_unx'.exe -
    [.'dest']zip.olb /include = (GLOBALS) /library, -
    'lib_bzip2_opts' -
    'opts' -
-   [.VMS]zip.opt /options
+   SYS$DISK:[.VMS]zip.opt /options
 $!
 $!------------------------ Zip (CLI interface) section -----------------------
 $!
@@ -525,7 +525,7 @@ $ link /executable = [.'dest']'zipx_cli'.exe -
    [.'dest']zip.olb /include = (GLOBALS) /library, -
    'lib_bzip2_opts' -
    'opts' -
-   [.VMS]zip.opt /options
+   SYS$DISK:[.VMS]zip.opt /options
 $!
 $!--------------------------- Zip utilities section --------------------------
 $!
@@ -571,21 +571,21 @@ $ link /executable = [.'dest']zipcloak.exe -
    [.'dest']ziputils.olb /include = (GLOBALS) /library, -
    'lib_bzip2_opts' -
    'opts' -
-   [.VMS]zip.opt /options
+   SYS$DISK:[.VMS]zip.opt /options
 $!
 $ link /executable = [.'dest']zipnote.exe -
    [.'dest']zipnote.obj, -
    [.'dest']ziputils.olb /include = (GLOBALS) /library, -
    'lib_bzip2_opts' -
    'opts' -
-   [.VMS]zip.opt /options
+   SYS$DISK:[.VMS]zip.opt /options
 $!
 $ link /executable = [.'dest']zipsplit.exe -
    [.'dest']zipsplit.obj, -
    [.'dest']ziputils.olb /include = (GLOBALS) /library, -
    'lib_bzip2_opts' -
    'opts' -
-   [.VMS]zip.opt /options
+   SYS$DISK:[.VMS]zip.opt /options
 $!
 $!----------------------- Logical name removal section -----------------------
 $!

@@ -1,4 +1,4 @@
-#                                               22 May 2006.  SMS.
+#                                               12 July 2006.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Source Description File.
 #
@@ -159,7 +159,7 @@ NON_VAX_CMPL = 1
 	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
 .ELSE                                       # LARGE_VAX
 .IFDEF IZ_BZIP2                                 # IZ_BZIP2
-CDEFS_BZ = , USE_BZIP2
+CDEFS_BZ = , BZIP2_SUPPORT
 CFLAGS_INCL = /INCLUDE = ([], [.VMS])
 LIB_BZIP2_OPTS = lib_bzip2:libbz2.olb /library,
 .FIRST
