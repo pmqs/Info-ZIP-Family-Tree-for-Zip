@@ -317,6 +317,7 @@ MODS_OBJS_LIB_ZIP = $(MODS_OBJS_LIB_ZIP_N) $(MODS_OBJS_LIB_ZIP_V)
 #    Utility object library, normal, [].
 
 MODS_OBJS_LIB_ZIPUTILS_N = \
+ crc32=[.$(DEST)]crc32.obj \
  crctab=[.$(DEST)]crctab.obj \
  globals=[.$(DEST)]globals.obj \
  ttyio=[.$(DEST)]ttyio.obj
