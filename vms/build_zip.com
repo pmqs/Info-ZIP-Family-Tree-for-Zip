@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     last revised:  2006-07-12  SMS.
+$!     last revised:  2006-12-01  SMS.
 $!
 $!     Command arguments:
 $!     - suppress help file processing: "NOHELP"
@@ -68,28 +68,28 @@ $!##################### Read settings from environment ########################
 $!
 $ if (f$type( LOCAL_ZIP) .eqs. "")
 $ then
-$     local_zip = ""
+$     LOCAL_ZIP = ""
 $ else  ! Trim blanks and append comma if missing
-$     local_zip = f$edit( local_zip, "TRIM")
-$     if (f$extract( f$length( local_zip)- 1, 1, local_zip) .nes. ",")
+$     LOCAL_ZIP = f$edit( LOCAL_ZIP, "TRIM")
+$     if (f$extract( f$length( LOCAL_ZIP)- 1, 1, LOCAL_ZIP) .nes. ",")
 $     then
-$         local_zip = local_zip + ","
+$         LOCAL_ZIP = LOCAL_ZIP + ","
 $     endif
 $ endif
 $!
-$! Check for the presence of "VMSCLI" in local_zip.  If yes, we will
+$! Check for the presence of "VMSCLI" in LOCAL_ZIP.  If yes, we will
 $! define the foreign command for "zip" to use the executable
 $! containing the CLI interface.
 $!
-$ pos_cli = f$locate( "VMSCLI", local_zip)
-$ len_local_zip = f$length( local_zip)
+$ pos_cli = f$locate( "VMSCLI", LOCAL_ZIP)
+$ len_local_zip = f$length( LOCAL_ZIP)
 $ if (pos_cli .ne. len_local_zip)
 $ then
 $     CLI_IS_DEFAULT = 1
-$     ! Remove "VMSCLI" macro from local_zip. The Zip executable
+$     ! Remove "VMSCLI" macro from LOCAL_ZIP. The Zip executable
 $     ! including the CLI interface is now created unconditionally.
-$     local_zip = f$extract( 0, pos_cli, local_zip)+ -
-       f$extract( pos_cli+7, len_local_zip- (pos_cli+ 7), local_zip)
+$     LOCAL_ZIP = f$extract( 0, pos_cli, LOCAL_ZIP)+ -
+       f$extract( pos_cli+7, len_local_zip- (pos_cli+ 7), LOCAL_ZIP)
 $ else
 $     CLI_IS_DEFAULT = 0
 $ endif
@@ -98,8 +98,8 @@ $ delete /symbol /local len_local_zip
 $!
 $!##################### Customizing section #############################
 $!
-$ zipx_unx = "zip"
-$ zipx_cli = "zip_cli"
+$ zipx_unx = "ZIP"
+$ zipx_cli = "ZIP_CLI"
 $!
 $ CCOPTS = ""
 $ IZ_BZIP2 = ""
@@ -266,7 +266,7 @@ $         goto error
 $     endif
 $!
 $     cc = "cc /standard = relax /prefix = all /ansi"
-$     defs = "''local_zip' VMS"
+$     defs = "''LOCAL_ZIP' VMS"
 $     if (LARGE_FILE .ne. 0)
 $     then
 $         defs = "LARGE_FILE_SUPPORT, ''defs'"
@@ -285,11 +285,11 @@ $     then
 $         ! We use DECC:
 $         USE_DECC_VAX = 1
 $         cc = "cc /decc /prefix = all"
-$         defs = "''local_zip' VMS"
+$         defs = "''LOCAL_ZIP' VMS"
 $     else
 $         ! We use VAXC (or GNU C):
 $         USE_DECC_VAX = 0
-$         defs = "''local_zip' VMS"
+$         defs = "''LOCAL_ZIP' VMS"
 $         if ((.not. HAVE_VAXC_VAX .and. MAY_HAVE_GNUC) .or. MAY_USE_GNUC)
 $         then
 $             cc = "gcc"
@@ -319,7 +319,7 @@ $ if (IZ_BZIP2 .nes. "")
 $ then
 $     define incl_bzip2 'IZ_BZIP2'
 $     defs = "''defs', BZIP2_SUPPORT"
-$     @ [.vms]find_bzip2_lib.com 'IZ_BZIP2' 'arch' lib_bzip2
+$     @ [.VMS]FIND_BZIP2_LIB.COM 'IZ_BZIP2' 'arch' lib_bzip2
 $     if (f$trnlnm( "lib_bzip2") .eqs. "")
 $     then
 $         say "Can't find BZIP2 object library.  Can't link."
@@ -353,7 +353,7 @@ $ endif
 $!
 $! If [.'dest'] does not exist, either complain (link-only) or make it.
 $!
-$ if (f$search( "''dest'.dir;1") .eqs. "")
+$ if (f$search( "''dest'.DIR;1") .eqs. "")
 $ then
 $     if (LINK_ONLY)
 $     then
@@ -367,7 +367,7 @@ $!
 $ if (.not. LINK_ONLY)
 $ then
 $!
-$! Arrange to get arch-specific list file placement, if listing, and if
+$! Arrange to get arch-specific list file placement, if LISTING, and if
 $! the user didn't specify a particular "/LIST =" destination.
 $!
 $     L = f$edit( LISTING, "COLLAPSE")
@@ -391,9 +391,9 @@ $! Make a VAXCRTL options file for GNU C or VAC C, if needed.
 $!
 $ if ((opts .nes. "") .and. -
    (f$locate( "VAXCSHR", f$edit( opts, "UPCASE")) .lt. f$length( opts)) .and. -
-   (f$search( "[.''dest']vaxcshr.opt") .eqs. ""))
+   (f$search( "[.''dest']VAXCSHR.OPT") .eqs. ""))
 $ then
-$     open /write opt_file_ln [.'dest']vaxcshr.opt
+$     open /write opt_file_ln [.'dest']VAXCSHR.OPT
 $     write opt_file_ln "SYS$SHARE:VAXCRTL.EXE /SHARE"
 $     close opt_file_ln
 $ endif
@@ -423,61 +423,61 @@ $! Process the help file, if desired.
 $!
 $     if (MAKE_HELP)
 $     then
-$         runoff /out = zip.hlp [.vms]vms_zip.rnh
+$         runoff /out = ZIP.HLP [.VMS]VMS_ZIP.RNH
 $     endif
 $!
 $! Compile the sources.
 $!
-$     cc 'DEF_UNX' /object = [.'dest']zip.obj zip.c
-$     cc 'DEF_UNX' /object = [.'dest']crc32.obj crc32.c
-$     cc 'DEF_UNX' /object = [.'dest']crctab.obj crctab.c
-$     cc 'DEF_UNX' /object = [.'dest']crypt.obj crypt.c
-$     cc 'DEF_UNX' /object = [.'dest']deflate.obj deflate.c
-$     cc 'DEF_UNX' /object = [.'dest']fileio.obj fileio.c
-$     cc 'DEF_UNX' /object = [.'dest']globals.obj globals.c
-$     cc 'DEF_UNX' /object = [.'dest']trees.obj trees.c
-$     cc 'DEF_UNX' /object = [.'dest']ttyio.obj ttyio.c
-$     cc 'DEF_UNX' /object = [.'dest']util.obj util.c
-$     cc 'DEF_UNX' /object = [.'dest']zipfile.obj zipfile.c
-$     cc 'DEF_UNX' /object = [.'dest']zipup.obj zipup.c
-$     cc /include = [] 'DEF_UNX' /object = [.'dest']vms.obj -
-       [.vms]vms.c
-$     cc /include = [] 'DEF_UNX' /object = [.'dest']vmsmunch.obj -
-       [.vms]vmsmunch.c
-$     cc /include = [] 'DEF_UNX' /object = [.'dest']vmszip.obj -
-       [.vms]vmszip.c
+$     cc 'DEF_UNX' /object = [.'dest']ZIP.OBJ ZIP.C
+$     cc 'DEF_UNX' /object = [.'dest']CRC32.OBJ CRC32.C
+$     cc 'DEF_UNX' /object = [.'dest']CRCTAB.OBJ CRCTAB.C
+$     cc 'DEF_UNX' /object = [.'dest']CRYPT.OBJ CRYPT.C
+$     cc 'DEF_UNX' /object = [.'dest']DEFLATE.OBJ DEFLATE.C
+$     cc 'DEF_UNX' /object = [.'dest']FILEIO.OBJ FILEIO.C
+$     cc 'DEF_UNX' /object = [.'dest']GLOBALS.OBJ GLOBALS.C
+$     cc 'DEF_UNX' /object = [.'dest']TREES.OBJ TREES.C
+$     cc 'DEF_UNX' /object = [.'dest']TTYIO.OBJ TTYIO.C
+$     cc 'DEF_UNX' /object = [.'dest']UTIL.OBJ UTIL.C
+$     cc 'DEF_UNX' /object = [.'dest']ZIPFILE.OBJ ZIPFILE.C
+$     cc 'DEF_UNX' /object = [.'dest']ZIPUP.OBJ ZIPUP.C
+$     cc /include = [] 'DEF_UNX' /object = [.'dest']VMS.OBJ -
+       [.VMS]VMS.C
+$     cc /include = [] 'DEF_UNX' /object = [.'dest']VMSMUNCH.OBJ -
+       [.VMS]VMSMUNCH.C
+$     cc /include = [] 'DEF_UNX' /object = [.'dest']VMSZIP.OBJ -
+       [.VMS]VMSZIP.C
 $!
 $! Create the object library.
 $!
-$     if (f$search( "[.''dest']zip.olb") .eqs. "") then -
-       libr /object /create [.'dest']zip.olb
+$     if (f$search( "[.''dest']ZIP.OLB") .eqs. "") then -
+       libr /object /create [.'dest']ZIP.OLB
 $!
-$     libr /object /replace [.'dest']zip.olb -
-       [.'dest']crc32.obj, -
-       [.'dest']crctab.obj, -
-       [.'dest']crypt.obj, -
-       [.'dest']deflate.obj, -
-       [.'dest']fileio.obj, -
-       [.'dest']globals.obj, -
-       [.'dest']trees.obj, -
-       [.'dest']ttyio.obj, -
-       [.'dest']util.obj, -
-       [.'dest']zipfile.obj, -
-       [.'dest']zipup.obj, -
-       [.'dest']vms.obj, -
-       [.'dest']vmsmunch.obj, -
-       [.'dest']vmszip.obj
+$     libr /object /replace [.'dest']ZIP.OLB -
+       [.'dest']CRC32.OBJ, -
+       [.'dest']CRCTAB.OBJ, -
+       [.'dest']CRYPT.OBJ, -
+       [.'dest']DEFLATE.OBJ, -
+       [.'dest']FILEIO.OBJ, -
+       [.'dest']GLOBALS.OBJ, -
+       [.'dest']TREES.OBJ, -
+       [.'dest']TTYIO.OBJ, -
+       [.'dest']UTIL.OBJ, -
+       [.'dest']ZIPFILE.OBJ, -
+       [.'dest']ZIPUP.OBJ, -
+       [.'dest']VMS.OBJ, -
+       [.'dest']VMSMUNCH.OBJ, -
+       [.'dest']VMSZIP.OBJ
 $!
 $ endif
 $!
 $! Link the executable.
 $!
-$ link /executable = [.'dest']'zipx_unx'.exe -
-   [.'dest']zip.obj, -
-   [.'dest']zip.olb /include = (GLOBALS) /library, -
+$ link /executable = [.'dest']'ZIPX_UNX'.EXE -
+   [.'dest']ZIP.OBJ, -
+   [.'dest']ZIP.OLB /include = (GLOBALS) /library, -
    'lib_bzip2_opts' -
    'opts' -
-   SYS$DISK:[.VMS]zip.opt /options
+   SYS$DISK:[.VMS]ZIP.OPT /options
 $!
 $!------------------------ Zip (CLI interface) section -----------------------
 $!
@@ -488,44 +488,44 @@ $! Process the CLI help file, if desired.
 $!
 $     if (MAKE_HELP)
 $     then
-$         set default [.vms]
+$         set default [.VMS]
 $         edit /tpu /nosection /nodisplay /command = cvthelp.tpu -
            zip_cli.help
 $         set default [-]
-$         runoff /output = zip_cli.hlp [.vms]zip_cli.rnh
+$         runoff /output = ZIP_CLI.HLP [.VMS]ZIP_CLI.RNH
 $     endif
 $!
 $! Compile the CLI sources.
 $!
-$     cc 'DEF_CLI' /object = [.'dest']zipcli.obj zip.c
-$     cc /include = [] 'DEF_CLI' /object = [.'dest']cmdline.obj -
-       [.vms]cmdline.c
+$     cc 'DEF_CLI' /object = [.'dest']ZIPCLI.OBJ ZIP.C
+$     cc /include = [] 'DEF_CLI' /object = [.'dest']CMDLINE.OBJ -
+       [.VMS]CMDLINE.C
 $!
 $! Create the command definition object file.
 $!
-$     set command /object = [.'dest']zip_cli.obj [.vms]zip_cli.cld
+$     set command /object = [.'dest']ZIP_CLI.OBJ [.VMS]ZIP_CLI.CLD
 $!
 $! Create the CLI object library.
 $!
-$     if (f$search( "[.''dest']zipcli.olb") .eqs. "") then -
-       libr /object /create [.'dest']zipcli.olb
+$     if (f$search( "[.''dest']ZIPCLI.OLB") .eqs. "") then -
+       libr /object /create [.'dest']ZIPCLI.OLB
 $!
-$     libr /object /replace [.'dest']zipcli.olb -
-       [.'dest']zipcli.obj, -
-       [.'dest']cmdline.obj, -
-       [.'dest']zip_cli.obj
+$     libr /object /replace [.'dest']ZIPCLI.OLB -
+       [.'dest']ZIPCLI.OBJ, -
+       [.'dest']CMDLINE.OBJ, -
+       [.'dest']ZIP_CLI.OBJ
 $!
 $ endif
 $!
 $! Link the CLI executable.
 $!
-$ link /executable = [.'dest']'zipx_cli'.exe -
-   [.'dest']zipcli.obj, -
-   [.'dest']zipcli.olb /library, -
-   [.'dest']zip.olb /include = (GLOBALS) /library, -
+$ link /executable = [.'dest']'ZIPX_CLI'.EXE -
+   [.'dest']ZIPCLI.OBJ, -
+   [.'dest']ZIPCLI.OLB /library, -
+   [.'dest']ZIP.OLB /include = (GLOBALS) /library, -
    'lib_bzip2_opts' -
    'opts' -
-   SYS$DISK:[.VMS]zip.opt /options
+   SYS$DISK:[.VMS]ZIP.OPT /options
 $!
 $!--------------------------- Zip utilities section --------------------------
 $!
@@ -534,58 +534,58 @@ $ then
 $!
 $! Compile the variant Zip utilities library sources.
 $!
-$     cc 'DEF_UTIL' /object = [.'dest']crypt_.obj crypt.c
-$     cc 'DEF_UTIL' /object = [.'dest']fileio_.obj fileio.c
-$     cc 'DEF_UTIL' /object = [.'dest']util_.obj util.c
-$     cc 'DEF_UTIL' /object = [.'dest']zipfile_.obj zipfile.c
-$     cc 'DEF_UTIL' /include = [] /object = [.'dest']vms_.obj [.vms]vms.c
+$     cc 'DEF_UTIL' /object = [.'dest']CRYPT_.OBJ CRYPT.C
+$     cc 'DEF_UTIL' /object = [.'dest']FILEIO_.OBJ FILEIO.C
+$     cc 'DEF_UTIL' /object = [.'dest']UTIL_.OBJ UTIL.C
+$     cc 'DEF_UTIL' /object = [.'dest']ZIPFILE_.OBJ ZIPFILE.C
+$     cc 'DEF_UTIL' /include = [] /object = [.'dest']VMS_.OBJ [.VMS]VMS.C
 $!
 $! Create the Zip utilities object library.
 $!
-$     if f$search( "[.''dest']ziputils.olb") .eqs. "" then -
-       libr /object /create [.'dest']ziputils.olb
+$     if f$search( "[.''dest']ZIPUTILS.OLB") .eqs. "" then -
+       libr /object /create [.'dest']ZIPUTILS.OLB
 $!
-$     libr /object /replace [.'dest']ziputils.olb -
-       [.'dest']crctab.obj, -
-       [.'dest']crypt_.obj, -
-       [.'dest']fileio_.obj, -
-       [.'dest']globals.obj, -
-       [.'dest']ttyio.obj, -
-       [.'dest']util_.obj, -
-       [.'dest']zipfile_.obj, -
-       [.'dest']vms_.obj, -
-       [.'dest']vmsmunch.obj
+$     libr /object /replace [.'dest']ZIPUTILS.OLB -
+       [.'dest']CRCTAB.OBJ, -
+       [.'dest']CRYPT_.OBJ, -
+       [.'dest']FILEIO_.OBJ, -
+       [.'dest']GLOBALS.OBJ, -
+       [.'dest']TTYIO.OBJ, -
+       [.'dest']UTIL_.OBJ, -
+       [.'dest']ZIPFILE_.OBJ, -
+       [.'dest']VMS_.OBJ, -
+       [.'dest']VMSMUNCH.OBJ
 $!
 $! Compile the Zip utilities main program sources.
 $!
-$     cc 'DEF_UTIL' /object = [.'dest']zipcloak.obj zipcloak.c
-$     cc 'DEF_UTIL' /object = [.'dest']zipnote.obj zipnote.c
-$     cc 'DEF_UTIL' /object = [.'dest']zipsplit.obj zipsplit.c
+$     cc 'DEF_UTIL' /object = [.'dest']ZIPCLOAK.OBJ ZIPCLOAK.C
+$     cc 'DEF_UTIL' /object = [.'dest']ZIPNOTE.OBJ ZIPNOTE.C
+$     cc 'DEF_UTIL' /object = [.'dest']ZIPSPLIT.OBJ ZIPSPLIT.C
 $!
 $ endif
 $!
 $! Link the Zip utilities executables.
 $!
-$ link /executable = [.'dest']zipcloak.exe -
-   [.'dest']zipcloak.obj, -
-   [.'dest']ziputils.olb /include = (GLOBALS) /library, -
+$ link /executable = [.'dest']ZIPCLOAK.EXE -
+   [.'dest']ZIPCLOAK.OBJ, -
+   [.'dest']ZIPUTILS.OLB /include = (GLOBALS) /library, -
    'lib_bzip2_opts' -
    'opts' -
-   SYS$DISK:[.VMS]zip.opt /options
+   SYS$DISK:[.VMS]ZIP.OPT /options
 $!
-$ link /executable = [.'dest']zipnote.exe -
-   [.'dest']zipnote.obj, -
-   [.'dest']ziputils.olb /include = (GLOBALS) /library, -
+$ link /executable = [.'dest']ZIPNOTE.EXE -
+   [.'dest']ZIPNOTE.OBJ, -
+   [.'dest']ZIPUTILS.OLB /include = (GLOBALS) /library, -
    'lib_bzip2_opts' -
    'opts' -
-   SYS$DISK:[.VMS]zip.opt /options
+   SYS$DISK:[.VMS]ZIP.OPT /OPTIONS
 $!
-$ link /executable = [.'dest']zipsplit.exe -
-   [.'dest']zipsplit.obj, -
-   [.'dest']ziputils.olb /include = (GLOBALS) /library, -
-   'lib_bzip2_opts' -
-   'opts' -
-   SYS$DISK:[.VMS]zip.opt /options
+$ LINK /EXECUTABLE = [.'DEST']ZIPSPLIT.EXE -
+   [.'DEST']ZIPSPLIT.OBJ, -
+   [.'DEST']ZIPUTILS.OLB /INCLUDE = (globals) /LIBRARY, -
+   'LIB_BZIP2_OPTS' -
+   'OPTS' -
+   sys$disk:[.VMS]ZIP.OPT /options
 $!
 $!----------------------- Logical name removal section -----------------------
 $!

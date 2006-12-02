@@ -1,4 +1,4 @@
-$!                                              17 November 2005.  SMS.
+$!                                              1 December 2006.  SMS.
 $!
 $! Info-ZIP VMS accessory procedure.
 $!
@@ -11,7 +11,7 @@ $! P4 and P5 may be used for qualifiers on the DEFINE command.
 $!
 $ bz_orig = p1
 $ dest = p2
-$ libbz2 = "libbz2.olb"
+$ libbz2 = "LIBBZ2.OLB"
 $!
 $! Remove any trailing colon, to allow logical name translation.
 $!

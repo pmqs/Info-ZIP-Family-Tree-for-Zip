@@ -1,4 +1,4 @@
-#                                               12 July 2006.  SMS.
+#                                               1 December 2006.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Source Description File.
 #
@@ -164,7 +164,7 @@ CFLAGS_INCL = /INCLUDE = ([], [.VMS])
 LIB_BZIP2_OPTS = lib_bzip2:libbz2.olb /library,
 .FIRST
 	@ define incl_bzip2 $(IZ_BZIP2)
-	@ @[.vms]find_bzip2_lib.com $(IZ_BZIP2) $(DEST) lib_bzip2
+	@ @[.VMS]FIND_BZIP2_LIB.COM $(IZ_BZIP2) $(DEST) lib_bzip2
 	@ write sys$output ""
 	@ if (f$trnlnm( "lib_bzip2") .nes. "") then -
 	   write sys$output "   BZIP2 dir: ''f$trnlnm( "lib_bzip2")'"
@@ -251,11 +251,11 @@ CFLAGS_ARCH =
 .ENDIF                                  # DECC
 
 .IFDEF VAXC_OR_FORCE_VAXC               # VAXC_OR_FORCE_VAXC
-OPT_FILE = [.$(DEST)]vaxcshr.opt
+OPT_FILE = [.$(DEST)]VAXCSHR.OPT
 LFLAGS_ARCH = $(OPT_FILE) /options, 
 .ELSE                                   # VAXC_OR_FORCE_VAXC
 .IFDEF GNUC                                 # GNUC
-OPT_FILE = [.$(DEST)]vaxcshr.opt
+OPT_FILE = [.$(DEST)]VAXCSHR.OPT
 LFLAGS_GNU = GNU_CC:[000000]GCCLIB.OLB /LIBRARY
 LFLAGS_ARCH = $(LFLAGS_GNU), SYS$DISK:$(OPT_FILE) /options, 
 .ELSE                                       # GNUC
@@ -293,65 +293,64 @@ LINKFLAGS = \
 #    Primary object library, [].
 
 MODS_OBJS_LIB_ZIP_N = \
- crc32=[.$(DEST)]crc32.obj \
- crctab=[.$(DEST)]crctab.obj \
- crypt=[.$(DEST)]crypt.obj \
- deflate=[.$(DEST)]deflate.obj \
- fileio=[.$(DEST)]fileio.obj \
- globals=[.$(DEST)]globals.obj \
- trees=[.$(DEST)]trees.obj \
- ttyio=[.$(DEST)]ttyio.obj \
- util=[.$(DEST)]util.obj \
- zipfile=[.$(DEST)]zipfile.obj \
- zipup=[.$(DEST)]zipup.obj
+ CRC32=[.$(DEST)]CRC32.OBJ \
+ CRCTAB=[.$(DEST)]CRCTAB.OBJ \
+ CRYPT=[.$(DEST)]CRYPT.OBJ \
+ DEFLATE=[.$(DEST)]DEFLATE.OBJ \
+ FILEIO=[.$(DEST)]FILEIO.OBJ \
+ GLOBALS=[.$(DEST)]GLOBALS.OBJ \
+ TREES=[.$(DEST)]TREES.OBJ \
+ TTYIO=[.$(DEST)]TTYIO.OBJ \
+ UTIL=[.$(DEST)]UTIL.OBJ \
+ ZIPFILE=[.$(DEST)]ZIPFILE.OBJ \
+ ZIPUP=[.$(DEST)]ZIPUP.OBJ
 
-#    Primary object library, [.vms].
+#    Primary object library, [.VMS].
                     
 MODS_OBJS_LIB_ZIP_V = \
- vms=[.$(DEST)]vms.obj \
- vmsmunch=[.$(DEST)]vmsmunch.obj \
- vmszip=[.$(DEST)]vmszip.obj
+ VMS=[.$(DEST)]VMS.OBJ \
+ VMSMUNCH=[.$(DEST)]VMSMUNCH.OBJ \
+ VMSZIP=[.$(DEST)]VMSZIP.OBJ
 
 MODS_OBJS_LIB_ZIP = $(MODS_OBJS_LIB_ZIP_N) $(MODS_OBJS_LIB_ZIP_V)
 
 #    Utility object library, normal, [].
 
 MODS_OBJS_LIB_ZIPUTILS_N = \
- crc32=[.$(DEST)]crc32.obj \
- crctab=[.$(DEST)]crctab.obj \
- globals=[.$(DEST)]globals.obj \
- ttyio=[.$(DEST)]ttyio.obj
+ CRCTAB=[.$(DEST)]CRCTAB.OBJ \
+ GLOBALS=[.$(DEST)]GLOBALS.OBJ \
+ TTYIO=[.$(DEST)]TTYIO.OBJ
 
 #    Utility object library, variant, [].
 
 MODS_OBJS_LIB_ZIPUTILS_U = \
- crypt$(GCC_)=[.$(DEST)]crypt_.obj \
- fileio$(GCC_)=[.$(DEST)]fileio_.obj \
- util$(GCC_)=[.$(DEST)]util_.obj \
- zipfile$(GCC_)=[.$(DEST)]zipfile_.obj
+ CRYPT$(GCC_)=[.$(DEST)]CRYPT_.OBJ \
+ FILEIO$(GCC_)=[.$(DEST)]FILEIO_.OBJ \
+ UTIL$(GCC_)=[.$(DEST)]UTIL_.OBJ \
+ ZIPFILE$(GCC_)=[.$(DEST)]ZIPFILE_.OBJ
 
-#    Utility object library, normal, [.vms].
+#    Utility object library, normal, [.VMS].
 
 MODS_OBJS_LIB_ZIPUTILS_N_V = \
- vmsmunch=[.$(DEST)]vmsmunch.obj
+ VMSMUNCH=[.$(DEST)]VMSMUNCH.OBJ
 
-#    Utility object library, variant, [.vms].
+#    Utility object library, variant, [.VMS].
 
 MODS_OBJS_LIB_ZIPUTILS_U_V = \
- vms$(GCC_)=[.$(DEST)]vms_.obj
+ VMS$(GCC_)=[.$(DEST)]VMS_.OBJ
 
 MODS_OBJS_LIB_ZIPUTILS = $(MODS_OBJS_LIB_ZIPUTILS_N) \
  $(MODS_OBJS_LIB_ZIPUTILS_U) \
  $(MODS_OBJS_LIB_ZIPUTILS_N_V) \
  $(MODS_OBJS_LIB_ZIPUTILS_U_V) \
 
-#    CLI object library, [.vms].
+#    CLI object library, [.VMS].
 
 MODS_OBJS_LIB_ZIPCLI_C_V = \
- cmdline=[.$(DEST)]cmdline.obj
+ CMDLINE=[.$(DEST)]CMDLINE.OBJ
 
 MODS_OBJS_LIB_ZIPCLI_CLD_V = \
- ZIP_CLITABLE=[.$(DEST)]zip_cli.obj
+ ZIP_CLITABLE=[.$(DEST)]ZIP_CLI.OBJ
 
 MODS_OBJS_LIB_ZIPCLI = \
  $(MODS_OBJS_LIB_ZIPCLI_C_V) \
@@ -359,12 +358,12 @@ MODS_OBJS_LIB_ZIPCLI = \
 
 # Executables.
 
-ZIP = [.$(DEST)]zip.exe
+ZIP = [.$(DEST)]ZIP.EXE
 
-ZIP_CLI = [.$(DEST)]zip_cli.exe
+ZIP_CLI = [.$(DEST)]ZIP_CLI.EXE
 
 ZIPUTILS = \
- [.$(DEST)]zipcloak.exe \
- [.$(DEST)]zipnote.exe \
- [.$(DEST)]zipsplit.exe
+ [.$(DEST)]ZIPCLOAK.EXE \
+ [.$(DEST)]ZIPNOTE.EXE \
+ [.$(DEST)]ZIPSPLIT.EXE
 

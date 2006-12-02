@@ -1,4 +1,4 @@
-#                                               12 July 2006.  SMS.
+#                                               1 December 2006.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -96,17 +96,17 @@
 # Include primary product description file.
 
 INCL_DESCRIP_SRC = 1
-.INCLUDE [.vms]descrip_src.mms
+.INCLUDE [.VMS]DESCRIP_SRC.MMS
 
 # Object library names.
 
-LIB_ZIP = [.$(DEST)]zip.olb
-LIB_ZIPCLI = [.$(DEST)]zipcli.olb
-LIB_ZIPUTILS = [.$(DEST)]ziputils.olb
+LIB_ZIP = [.$(DEST)]ZIP.OLB
+LIB_ZIPCLI = [.$(DEST)]ZIPCLI.OLB
+LIB_ZIPUTILS = [.$(DEST)]ZIPUTILS.OLB
 
 # Help file names.
 
-ZIP_HELP = zip.hlp zip_cli.hlp
+ZIP_HELP = ZIP.HLP ZIP_CLI.HLP
 
 
 # TARGETS.
@@ -122,10 +122,10 @@ ALL : $(ZIP) $(ZIP_CLI) $(ZIPUTILS) $(ZIP_HELP)
 CLEAN :
 	if (f$search( "[.$(DEST)]*.*") .nes. "") then -
 	 delete /noconfirm [.$(DEST)]*.*;*
-	if (f$search( "$(DEST).dir") .nes. "") then -
-	 set protection = w:d $(DEST).dir;*
-	if (f$search( "$(DEST).dir") .nes. "") then -
-	 delete /noconfirm $(DEST).dir;*
+	if (f$search( "$(DEST).DIR") .nes. "") then -
+	 set protection = w:d $(DEST).DIR;*
+	if (f$search( "$(DEST).DIR") .nes. "") then -
+	 delete /noconfirm $(DEST).DIR;*
 
 # CLEAN_ALL target.  Delete:
 #    The [.$(DEST)] directories and everything in them.
@@ -137,22 +137,22 @@ CLEAN :
 CLEAN_ALL :
 	if (f$search( "[.ALPHA*]*.*") .nes. "") then -
 	 delete /noconfirm [.ALPHA*]*.*;*
-	if (f$search( "ALPHA*.dir", 1) .nes. "") then -
-	 set protection = w:d ALPHA*.dir;*
-	if (f$search( "ALPHA*.dir", 2) .nes. "") then -
-	 delete /noconfirm ALPHA*.dir;*
+	if (f$search( "ALPHA*.DIR", 1) .nes. "") then -
+	 set protection = w:d ALPHA*.DIR;*
+	if (f$search( "ALPHA*.DIR", 2) .nes. "") then -
+	 delete /noconfirm ALPHA*.DIR;*
 	if (f$search( "[.IA64*]*.*") .nes. "") then -
 	 delete /noconfirm [.IA64*]*.*;*
-	if (f$search( "IA64*.dir", 1) .nes. "") then -
-	 set protection = w:d IA64*.dir;*
-	if (f$search( "IA64*.dir", 2) .nes. "") then -
-	 delete /noconfirm IA64*.dir;*
+	if (f$search( "IA64*.DIR", 1) .nes. "") then -
+	 set protection = w:d IA64*.DIR;*
+	if (f$search( "IA64*.DIR", 2) .nes. "") then -
+	 delete /noconfirm IA64*.DIR;*
 	if (f$search( "[.VAX*]*.*") .nes. "") then -
 	 delete /noconfirm [.VAX*]*.*;*
-	if (f$search( "VAX*.dir", 1) .nes. "") then -
-	 set protection = w:d VAX*.dir;*
-	if (f$search( "VAX*.dir", 2) .nes. "") then -
-	 delete /noconfirm VAX*.dir;*
+	if (f$search( "VAX*.DIR", 1) .nes. "") then -
+	 set protection = w:d VAX*.DIR;*
+	if (f$search( "VAX*.DIR", 2) .nes. "") then -
+	 delete /noconfirm VAX*.DIR;*
 	if (f$search( "[.vms]ZIP_CLI.RNH") .nes. "") then -
 	 delete /noconfirm [.vms]ZIP_CLI.RNH;*
 	if (f$search( "ZIP_CLI.HLP") .nes. "") then -
@@ -179,8 +179,8 @@ CLEAN_ALL :
 # CLEAN_EXE target.  Delete the executables in [.$(DEST)].
 
 CLEAN_EXE :
-	if (f$search( "[.$(DEST)]*.exe") .nes. "") then -
-	 delete /noconfirm [.$(DEST)]*.exe;*
+	if (f$search( "[.$(DEST)]*.EXE") .nes. "") then -
+	 delete /noconfirm [.$(DEST)]*.EXE;*
 
 
 # Object library module dependencies.
@@ -196,7 +196,7 @@ $(LIB_ZIPUTILS) : $(LIB_ZIPUTILS)($(MODS_OBJS_LIB_ZIPUTILS))
 
 # Module ID options file.
 
-OPT_ID = SYS$DISK:[.vms]zip.opt
+OPT_ID = SYS$DISK:[.VMS]ZIP.OPT
 
 # Default C compile rule.
 
@@ -206,46 +206,46 @@ OPT_ID = SYS$DISK:[.vms]zip.opt
 
 # Normal sources in [.VMS].
 
-[.$(DEST)]vms.obj : [.vms]vms.c
-[.$(DEST)]vmsmunch.obj : [.vms]vmsmunch.c
-[.$(DEST)]vmszip.obj : [.vms]vmszip.c
+[.$(DEST)]VMS.OBJ : [.VMS]VMS.C
+[.$(DEST)]VMSMUNCH.OBJ : [.VMS]VMSMUNCH.C
+[.$(DEST)]VMSZIP.OBJ : [.VMS]VMSZIP.C
 
 # Command-line interface files.
 
-[.$(DEST)]cmdline.obj : [.vms]cmdline.c
+[.$(DEST)]CMDLINE.OBJ : [.VMS]CMDLINE.C
 	$(CC) $(CFLAGS) $(CDEFS_CLI) $(MMS$SOURCE)
 
-[.$(DEST)]zipcli.obj : zip.c
+[.$(DEST)]ZIPCLI.OBJ : ZIP.C
 	$(CC) $(CFLAGS) $(CDEFS_CLI) $(MMS$SOURCE)
 
-[.$(DEST)]zip_cli.obj : [.vms]zip_cli.cld
+[.$(DEST)]ZIP_CLI.OBJ : [.VMS]ZIP_CLI.CLD
 
 # Utility variant sources.
 
-[.$(DEST)]crypt_.obj : crypt.c
+[.$(DEST)]CRYPT_.OBJ : CRYPT.C
 	$(CC) $(CFLAGS) $(CDEFS_UTIL) $(MMS$SOURCE)
 
-[.$(DEST)]fileio_.obj : fileio.c
+[.$(DEST)]FILEIO_.OBJ : FILEIO.C
 	$(CC) $(CFLAGS) $(CDEFS_UTIL) $(MMS$SOURCE)
 
-[.$(DEST)]util_.obj : util.c
+[.$(DEST)]UTIL_.OBJ : UTIL.C
 	$(CC) $(CFLAGS) $(CDEFS_UTIL) $(MMS$SOURCE)
 
-[.$(DEST)]zipfile_.obj : zipfile.c
+[.$(DEST)]ZIPFILE_.OBJ : ZIPFILE.C
 	$(CC) $(CFLAGS) $(CDEFS_UTIL) $(MMS$SOURCE)
 
-[.$(DEST)]vms_.obj : [.vms]vms.c
+[.$(DEST)]VMS_.OBJ : [.VMS]VMS.C
 	$(CC) $(CFLAGS) $(CDEFS_UTIL) $(MMS$SOURCE)
 
 # Utility main sources.
 
-[.$(DEST)]zipcloak.obj : zipcloak.c
+[.$(DEST)]ZIPCLOAK.OBJ : ZIPCLOAK.C
 	$(CC) $(CFLAGS) $(CDEFS_UTIL) $(MMS$SOURCE)
 
-[.$(DEST)]zipnote.obj : zipnote.c
+[.$(DEST)]ZIPNOTE.OBJ : ZIPNOTE.C
 	$(CC) $(CFLAGS) $(CDEFS_UTIL) $(MMS$SOURCE)
 
-[.$(DEST)]zipsplit.obj : zipsplit.c
+[.$(DEST)]ZIPSPLIT.OBJ : ZIPSPLIT.C
 	$(CC) $(CFLAGS) $(CDEFS_UTIL) $(MMS$SOURCE)
 
 # VAX C LINK options file.
@@ -259,7 +259,7 @@ $(OPT_FILE) :
 
 # Normal Zip executable.
 
-$(ZIP) : [.$(DEST)]zip.obj $(LIB_ZIP) $(OPT_FILE)
+$(ZIP) : [.$(DEST)]ZIP.OBJ $(LIB_ZIP) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIP) /include = (GLOBALS) /library,  -
 	 $(LIB_BZIP2_OPTS) -
@@ -268,7 +268,7 @@ $(ZIP) : [.$(DEST)]zip.obj $(LIB_ZIP) $(OPT_FILE)
 
 # CLI Zip executable.
 
-$(ZIP_CLI) : [.$(DEST)]zipcli.obj \
+$(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
              $(LIB_ZIPCLI) $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPCLI) /library, -
@@ -279,7 +279,7 @@ $(ZIP_CLI) : [.$(DEST)]zipcli.obj \
 
 # Utility executables.
 
-[.$(DEST)]zipcloak.exe : [.$(DEST)]zipcloak.obj \
+[.$(DEST)]ZIPCLOAK.EXE : [.$(DEST)]ZIPCLOAK.OBJ \
                          $(LIB_ZIPUTILS) $(LIB_ZIP) \
                          $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
@@ -288,16 +288,16 @@ $(ZIP_CLI) : [.$(DEST)]zipcli.obj \
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
-[.$(DEST)]zipnote.exe : [.$(DEST)]zipnote.obj \
-                         $(LIB_ZIPUTILS) $(LIB_ZIP) \
-                         $(OPT_ID) $(OPT_FILE)
+[.$(DEST)]ZIPNOTE.EXE : [.$(DEST)]ZIPNOTE.OBJ \
+                        $(LIB_ZIPUTILS) $(LIB_ZIP) \
+                        $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
 	 $(LIB_BZIP2_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
-[.$(DEST)]zipsplit.exe : [.$(DEST)]zipsplit.obj \
+[.$(DEST)]ZIPSPLIT.EXE : [.$(DEST)]ZIPSPLIT.OBJ \
                          $(LIB_ZIPUTILS) $(LIB_ZIP) \
                          $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
@@ -308,19 +308,19 @@ $(ZIP_CLI) : [.$(DEST)]zipcli.obj \
 
 # Help files.
 
-zip.hlp : [.vms]vms_zip.rnh
+ZIP.HLP : [.VMS]VMS_ZIP.RNH
 	runoff /output = $(MMS$TARGET) $(MMS$SOURCE)
 
-zip_cli.hlp : [.vms]zip_cli.help [.vms]cvthelp.tpu
+ZIP_CLI.HLP : [.VMS]ZIP_CLI.HELP [.VMS]CVTHELP.TPU
 	edit := edit
-	edit /tpu /nosection /nodisplay /command = [.vms]cvthelp.tpu -
+	edit /tpu /nosection /nodisplay /command = [.VMS]CVTHELP.TPU -
 	 $(MMS$SOURCE)
-	rename /noconfirm zip_cli.rnh; [.vms];
-	purge /noconfirm /nolog /keep = 1 [.vms]zip_cli.rnh
-	runoff /output = $(MMS$TARGET) [.vms]zip_cli.rnh
+	rename /noconfirm ZIP_CLI.RNH; [.VMS];
+	purge /noconfirm /nolog /keep = 1 [.VMS]ZIP_CLI.RNH
+	runoff /output = $(MMS$TARGET) [.VMS]ZIP_CLI.RNH
 
 # Include generated source dependencies.
 
 INCL_DESCRIP_DEPS = 1
-.INCLUDE [.vms]descrip_deps.mms
+.INCLUDE [.VMS]DESCRIP_DEPS.MMS
 
