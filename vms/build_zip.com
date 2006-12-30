@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     last revised:  2006-12-01  SMS.
+$!     last revised:  2006-12-30  SMS.
 $!
 $!     Command arguments:
 $!     - suppress help file processing: "NOHELP"
@@ -81,8 +81,9 @@ $! Check for the presence of "VMSCLI" in LOCAL_ZIP.  If yes, we will
 $! define the foreign command for "zip" to use the executable
 $! containing the CLI interface.
 $!
-$ pos_cli = f$locate( "VMSCLI", LOCAL_ZIP)
 $ len_local_zip = f$length( LOCAL_ZIP)
+$!
+$ pos_cli = f$locate( "VMSCLI", LOCAL_ZIP)
 $ if (pos_cli .ne. len_local_zip)
 $ then
 $     CLI_IS_DEFAULT = 1
@@ -94,6 +95,17 @@ $ else
 $     CLI_IS_DEFAULT = 0
 $ endif
 $ delete /symbol /local pos_cli
+$!
+$! Check for the presence of "VMS_IM_EXTRA" in LOCAL_ZIP.  If yes, we
+$! will (later) add "I" to the destination directory name.
+$!
+$ desti = ""
+$ pos_im = f$locate( "VMS_IM_EXTRA", LOCAL_ZIP)
+$ if (pos_im .ne. len_local_zip)
+$ then
+$    desti = "I"
+$ endif
+$!
 $ delete /symbol /local len_local_zip
 $!
 $!##################### Customizing section #############################
@@ -310,6 +322,17 @@ $         opts = "''opts' SYS$DISK:[.''dest']VAXCSHR.OPT /OPTIONS,"
 $     endif
 $ endif
 $!
+$! Change the destination directory, according to the VMS_IM_EXTRA and
+$! large-file options.  Set the bzip2 directory.
+$!
+$ dest = dest+ desti
+$ seek_bz = arch
+$ if (LARGE_FILE .ne. 0)
+$ then
+$     dest = dest+ "L"
+$     seek_bz = seek_bz+ "L"
+$ endif
+$!
 $! If BZIP2 support was selected, find the object library.
 $! Complain if things fail.
 $!
@@ -319,14 +342,14 @@ $ if (IZ_BZIP2 .nes. "")
 $ then
 $     define incl_bzip2 'IZ_BZIP2'
 $     defs = "''defs', BZIP2_SUPPORT"
-$     @ [.VMS]FIND_BZIP2_LIB.COM 'IZ_BZIP2' 'arch' lib_bzip2
+$     @ [.VMS]FIND_BZIP2_LIB.COM 'IZ_BZIP2' 'seek_bz' LIBBZ2.OLB lib_bzip2
 $     if (f$trnlnm( "lib_bzip2") .eqs. "")
 $     then
 $         say "Can't find BZIP2 object library.  Can't link."
 $         goto error
 $     else
 $         say "BZIP2 dir = ''f$trnlnm( "lib_bzip2")'"
-$         lib_bzip2_opts = "lib_bzip2:libbz2.olb /library, "
+$         lib_bzip2_opts = "LIB_BZIP2:LIBBZ2.OLB /library, "
 $         cc_incl = cc_incl+ ", [.VMS]"
 $     endif
 $ endif
@@ -342,13 +365,6 @@ $!
 $     DEF_UNX = "/define = (''defs')"
 $     DEF_CLI = "/define = (''defs', VMSCLI)"
 $     DEF_UTIL = "/define = (''defs', UTIL)"
-$ endif
-$!
-$! Change the destination directory, if the large-file option is enabled.
-$!
-$ if (LARGE_FILE .ne. 0)
-$ then
-$     dest = "''dest'L"
 $ endif
 $!
 $! If [.'dest'] does not exist, either complain (link-only) or make it.

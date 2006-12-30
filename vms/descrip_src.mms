@@ -1,4 +1,4 @@
-#                                               1 December 2006.  SMS.
+#                                               30 December 2006.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Source Description File.
 #
@@ -86,6 +86,7 @@ DESTL =
 .ENDIF                          # LARGE
 
 DEST = $(DESTM)$(DESTI)$(DESTL)
+SEEK_BZ = $(DESTM)$(DESTL)
 
 # Library module name suffix for XXX_.OBJ with GNU C.
 
@@ -161,10 +162,10 @@ NON_VAX_CMPL = 1
 .IFDEF IZ_BZIP2                                 # IZ_BZIP2
 CDEFS_BZ = , BZIP2_SUPPORT
 CFLAGS_INCL = /INCLUDE = ([], [.VMS])
-LIB_BZIP2_OPTS = lib_bzip2:libbz2.olb /library,
+LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2.OLB /library,
 .FIRST
 	@ define incl_bzip2 $(IZ_BZIP2)
-	@ @[.VMS]FIND_BZIP2_LIB.COM $(IZ_BZIP2) $(DEST) lib_bzip2
+	@ @[.VMS]FIND_BZIP2_LIB.COM $(IZ_BZIP2) $(SEEK_BZ) LIBBZ2.OLB lib_bzip2
 	@ write sys$output ""
 	@ if (f$trnlnm( "lib_bzip2") .nes. "") then -
 	   write sys$output "   BZIP2 dir: ''f$trnlnm( "lib_bzip2")'"
