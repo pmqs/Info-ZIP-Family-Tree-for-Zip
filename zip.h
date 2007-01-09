@@ -71,17 +71,24 @@ freely, subject to the following restrictions:
 #ifndef __zip_h
 #define __zip_h 1
 
-#ifndef NO_SPLIT_SUPPORT
-# define SPLIT_SUPPORT
-#endif
-
 #define ZIP   /* for crypt.c:  include zip password functions, not unzip */
+
+/* Types centralized here for easy modification */
+#define local static            /* More meaningful outside functions */
+typedef unsigned char uch;      /* unsigned 8-bit value */
+typedef unsigned short ush;     /* unsigned 16-bit value */
+typedef unsigned long ulg;      /* unsigned 32-bit value */
 
 /* Set up portability */
 #include "tailor.h"
 
 #ifdef USE_ZLIB
 #  include "zlib.h"
+#endif
+
+/* In the utilities, the crc32() function is only used for UNICODE_SUPPORT. */
+#if defined(UTIL) && !defined(UNICODE_SUPPORT)
+#  define CRC_TABLE_ONLY
 #endif
 
 #define MIN_MATCH  3
@@ -117,13 +124,6 @@ freely, subject to the following restrictions:
 #  define MATCH shmatch         /* Default for pattern matching: UNIX style */
 #endif
 
-/* Types centralized here for easy modification */
-#define local static            /* More meaningful outside functions */
-typedef unsigned char uch;      /* unsigned 8-bit value */
-typedef unsigned short ush;     /* unsigned 16-bit value */
-typedef unsigned long ulg;      /* unsigned 32-bit value */
-
-
 /* Structure carrying extended timestamp information */
 typedef struct iztimes {
    time_t atime;                /* new access time */
@@ -135,6 +135,8 @@ typedef struct iztimes {
 #define LOCHEAD 26
 #define CENHEAD 42
 #define ENDHEAD 18
+#define EC64LOC 16
+#define EC64REC 52
 
 /* Structures for in-memory file information */
 struct zlist {
@@ -159,12 +161,21 @@ struct zlist {
   char *zname;                  /* External version of internal name */
   char *oname;                  /* Display version of name used in messages */
 #ifdef UNICODE_SUPPORT
-  /* Unicode support - 10/11/05 EG */
+  /* Unicode support */
   char *uname;                  /* UTF-8 version of iname */
+  /* if uname has chars not in local char set, zuname can be different than zname */
+  char *zuname;                 /* Escaped Unicode zname from uname */
+  char *ouname;                 /* Display version of zuname */
+# ifdef WIN32
+  char *wuname;                 /* Converted back ouname for Win32 */
+# endif
 #endif
   int mark;                     /* Marker for files to operate on */
   int trash;                    /* Marker for files to delete */
   int dosflag;                  /* Set to force MSDOS file attributes */
+#ifdef WIN32
+  int used_short_name;          /* used Windows short name instead of long name */
+#endif
   struct zlist far *nxt;        /* Pointer to next header in list */
 };
 struct flist {
@@ -174,6 +185,10 @@ struct flist {
   char *oname;                  /* Display version of internal name */
 #ifdef UNICODE_SUPPORT
   char *uname;                  /* UTF-8 name */
+#endif
+#ifdef WIN32
+  int nonlocal_name;            /* Name needs UTF-8 */
+  int nonlocal_path;            /* Path needs UTF-8 */
 #endif
   int dosflag;                  /* Set to force MSDOS file attributes */
   uzoff_t usize;                /* usize from initial scan */
@@ -275,6 +290,11 @@ extern uch lower[256];
 extern ZCONST uch ascii[256];   /* EBCDIC <--> ASCII translation tables */
 extern ZCONST uch ebcdic[256];
 #endif /* EBCDIC */
+#if (!defined(USE_ZLIB) || defined(USE_OWN_CRCTAB))
+  extern ZCONST ulg near *crc_32_tab;
+#else
+  extern ZCONST ulg Far *crc_32_tab;
+#endif
 
 /* Are these ever used?  6/12/05 EG */
 #ifdef IZ_ISO2OEM_ARRAY         /* ISO 8859-1 (Win CP 1252) --> OEM CP 850 */
@@ -284,7 +304,7 @@ extern ZCONST uch Far iso2oem[128];
 extern ZCONST uch Far oem2iso[128];
 #endif
 
-extern char errbuf[FNMAX+81];   /* Handy place to build error messages */
+extern char errbuf[FNMAX+4081]; /* Handy place to build error messages */
 extern int recurse;             /* Recurse into directories encountered */
 extern int dispose;             /* Remove files after put in zip file */
 extern int pathput;             /* Store path with name */
@@ -296,12 +316,25 @@ extern int scanimage;           /* Scan through image files */
 #define BEST -1                 /* Use best method (deflation or store) */
 #define STORE 0                 /* Store method */
 #define DEFLATE 8               /* Deflation method*/
+#define BZIP2 12                /* BZIP2 method */
+#ifdef BZIP2_SUPPORT
+#define LAST_KNOWN_COMPMETHOD   BZIP2
+#else
+#define LAST_KNOWN_COMPMETHOD   DEFLATE
+#endif
+
 extern int method;              /* Restriction on compression method */
 
+extern ulg skip_this_disk;
+extern int des_good;            /* Good data descriptor found */
+extern ulg des_crc;             /* Data descriptor CRC */
+extern uzoff_t des_csize;       /* Data descriptor csize */
+extern uzoff_t des_usize;       /* Data descriptor usize */
 extern int dosify;              /* Make new entries look like MSDOS */
 extern char *special;           /* Don't compress special suffixes */
 extern int verbose;             /* Report oddities in zip file structure */
 extern int fix;                 /* Fix the zip file */
+extern int filesync;            /* 1=file sync, delete entries not on file system */
 extern int adjust;              /* Adjust the unzipsfx'd zip file */
 extern int level;               /* Compression level */
 extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
@@ -327,6 +360,7 @@ extern zoff_t dot_count;        /* if dot_size not 0 counts buffers */
 extern int display_counts;      /* display running file count */
 extern int display_bytes;       /* display running bytes remaining */
 extern int display_globaldots;  /* display dots for archive instead of for each file */
+extern int display_volume;      /* display current input and output volume (disk) numbers */
 extern int display_usize;       /* display uncompressed bytes */
 extern ulg files_so_far;        /* files processed so far */
 extern ulg bad_files_so_far;    /* files skipped so far */
@@ -340,6 +374,10 @@ extern int logall;          /* 0 = warnings/errors, 1 = all */
 extern FILE *logfile;           /* pointer to open logfile or NULL */
 extern int logfile_append;      /* append to existing logfile */
 extern char *logfile_path;      /* pointer to path of logfile */
+#ifdef WIN32
+extern int nonlocal_name;       /* Name has non-local characters */
+extern int nonlocal_path;       /* Path has non-local characters */
+#endif
 #ifdef UNICODE_SUPPORT
 /* Unicode 10/12/05 EG */
 extern int use_wide_to_mb_default;/* use the default MB char instead of escape */
@@ -348,9 +386,14 @@ extern int use_wide_to_mb_default;/* use the default MB char instead of escape *
 extern int hidden_files;        /* process hidden and system files */
 extern int volume_label;        /* add volume label */
 extern int dirnames;            /* include directory names */
+extern int diff_mode;           /* 1=require --out and only store changed and add */
+#if defined(WIN32)
+extern int only_archive_set;    /* only include if DOS archive bit set */
+extern int clear_archive_bits;   /* clear DOS archive bit of included files */
+#endif
 extern int linkput;             /* Store symbolic links as such */
 extern int noisy;               /* False for quiet operation */
-extern int extra_fields;        /* do not create extra fields */
+extern int extra_fields;        /* 0=create minimum, 1=don't copy old, 2=keep old */
 #ifdef NTSD_EAS
  extern int use_privileges;     /* use security privilege overrides */
 #endif
@@ -364,9 +407,20 @@ extern int output_seekable;     /* 1 = output seekable 3/13/05 EG */
  extern int zip64_entry;        /* current entry needs Zip64 */
  extern int zip64_archive;      /* at least 1 entry needs zip64 */
 #endif
- 
+
 extern char *tempzip;           /* temp file name */
 extern FILE *y;                 /* output file now global for splits */
+
+extern int unicode_force;       /* 1=store UTF-8 as standard per AppNote bit 11 */
+extern int unicode_escape_all;  /* 1=escape all non-ASCII characters in paths */
+extern int unicode_mismatch;    /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
+
+extern time_t scan_delay;       /* seconds before display Scanning files message */
+extern time_t scan_dot_time;    /* time in seconds between Scanning files dots */
+extern time_t scan_start;       /* start of file scan */
+extern time_t scan_last;        /* time of last message */
+extern int scan_started;        /* scan has started */
+extern uzoff_t scan_count;      /* Used for "Scanning files..." message */
 
 extern ulg before;              /* 0=ignore, else exclude files before this time */
 extern ulg after;               /* 0=ignore, else exclude files newer than this time */
@@ -377,33 +431,33 @@ extern ulg total_disks;
 
 extern ulg current_in_disk;
 extern uzoff_t current_in_offset;
+extern ulg skip_current_disk;
 
 
 /* out split globals */
 
 extern ulg    current_local_disk; /* disk with current local header */
 
-#ifdef SPLIT_SUPPORT
- extern ulg     current_disk;     /* current disk number */
- extern int     cd_start_disk;    /* central directory start disk */
- extern uzoff_t cd_start_offset;  /* offset of start of cd on cd start disk */
- extern uzoff_t cd_entries_this_disk; /* cd entries this disk */
- extern uzoff_t total_cd_entries; /* total cd entries */
- extern ulg     zip64_eocd_disk;  /* disk with Zip64 EOCD Record */
- extern uzoff_t zip64_eocd_offset; /* offset of Zip64 EOCD Record */
-  /* for split method 1 (keep split with local header open and update) */
- extern char *current_local_tempname; /* name of temp file */
- extern FILE  *current_local_file; /* file pointer for current local header */
- extern uzoff_t current_local_offset; /* offset to start of current local header */
-  /* global */
- extern uzoff_t bytes_this_split; /* bytes written to current split */
- extern int read_split_archive; /* 1=scanzipf_reg detected spanning signature */
- extern int split_method;       /* 0=no splits, 1=update LHs, 2=data descriptors */
- extern uzoff_t split_size;     /* how big each split should be */
- extern uzoff_t bytes_prev_splits; /* total bytes written to all splits before this */
- extern uzoff_t bytes_this_entry; /* bytes written for this entry across all splits */
- extern int noisy_splits;       /* note when splits are being created */
-#endif
+extern ulg     current_disk;     /* current disk number */
+extern int     cd_start_disk;    /* central directory start disk */
+extern uzoff_t cd_start_offset;  /* offset of start of cd on cd start disk */
+extern uzoff_t cd_entries_this_disk; /* cd entries this disk */
+extern uzoff_t total_cd_entries; /* total cd entries */
+extern ulg     zip64_eocd_disk;  /* disk with Zip64 EOCD Record */
+extern uzoff_t zip64_eocd_offset; /* offset of Zip64 EOCD Record */
+/* for split method 1 (keep split with local header open and update) */
+extern char *current_local_tempname; /* name of temp file */
+extern FILE  *current_local_file; /* file pointer for current local header */
+extern uzoff_t current_local_offset; /* offset to start of current local header */
+/* global */
+extern uzoff_t bytes_this_split; /* bytes written to current split */
+extern int read_split_archive;   /* 1=scanzipf_reg detected spanning signature */
+extern int split_method;         /* 0=no splits, 1=seekable, 2=data descs, -1=no */
+extern uzoff_t split_size;       /* how big each split should be */
+extern int split_bell;           /* when pause for next split ring bell */
+extern uzoff_t bytes_prev_splits; /* total bytes written to all splits before this */
+extern uzoff_t bytes_this_entry; /* bytes written for this entry across all splits */
+extern int noisy_splits;       /* note when splits are being created */
 extern int mesg_line_started;   /* 1=started writing a line to mesg */
 extern char *key;               /* Scramble password or NULL */
 extern char *tempath;           /* Path for temporary files */
@@ -432,6 +486,9 @@ extern ush zcomlen;             /* Length of zip file comment */
 extern char *zcomment;          /* Zip file comment (not zero-terminated) */
 extern struct flist far **fsort;/* List of files sorted by name */
 extern struct zlist far **zsort;/* List of files sorted by name */
+#ifdef UNICODE_SUPPORT
+extern struct zlist far **zusort;/* List of files sorted by zuname */
+#endif
 extern struct flist far *found; /* List of names found */
 extern struct flist far *far *fnxt;     /* Where to put next in found list */
 extern extent fcount;           /* Count of names in found list */
@@ -499,6 +556,7 @@ extern int aflag;
 #ifdef CMS_MVS
 extern int bflag;
 #endif /* CMS_MVS */
+void zipmessage_nl OF((ZCONST char *, int));
 void zipmessage OF((ZCONST char *, ZCONST char *));
 void zipwarn OF((ZCONST char *, ZCONST char *));
 void ziperr OF((int, ZCONST char *));
@@ -528,6 +586,9 @@ void ziperr OF((int, ZCONST char *));
 #  ifdef ZP_NEED_MEMCOMPR
      ulg memcompress OF((char *, ulg, char *, ulg));
 #  endif
+#  ifdef BZIP2_SUPPORT
+   void bz_compress_free OF((void));
+#  endif
 #endif /* !UTIL */
 
         /* in zipfile.c */
@@ -547,12 +608,11 @@ int putcentral OF((struct zlist far *));
 int putend OF((uzoff_t, uzoff_t, uzoff_t, ush, char *));
 /* moved seekable to separate function 3/14/05 EG */
 int is_seekable OF((FILE *));
-#ifdef SPLIT_SUPPORT /* USE_NEW_READ */
 int zipcopy OF((struct zlist far *));
 int readlocal OF((struct zlist far **, struct zlist far *));
-#else
-int zipcopy OF((struct zlist far *, FILE *));
-#endif
+/* made global for handling extra fields */
+char *get_extra_field OF((ush, char *, unsigned));
+char *copy_nondup_extra_fields OF((char *, unsigned, char *, unsigned, unsigned *));
 
         /* in fileio.c */
 #ifndef UTIL
@@ -563,6 +623,8 @@ int zipcopy OF((struct zlist far *, FILE *));
    int check_dup OF((void));
    int filter OF((char *, int));
    int newname OF((char *, int, int));
+   /* used by copy mode */
+   int proc_archive_name OF((char *, int));
 #endif /* !UTIL */
 #if (!defined(UTIL) || defined(W32_STATROOT_FIX))
    time_t dos2unixtime OF((ulg));
@@ -590,15 +652,12 @@ int close_split OF((int, FILE *, char *));
 int ask_for_split_read_path OF((int));
 int ask_for_split_write_path OF((int));
 char *get_in_split_path OF((char *, int));
+char *find_in_split_path OF((char *, int));
 char *get_out_split_path OF((char *, int));
 int rename_split OF((char *, char *));
 int set_filetype OF(());
 
-#ifdef SPLIT_SUPPORT /* USE_NEW_READ */
 int bfcopy OF((uzoff_t));
-#else
-int bfcopy OF((FILE *, uzoff_t));
-#endif
 
 int fcopy OF((FILE *, FILE *, uzoff_t));
 
@@ -619,6 +678,12 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
    void stamp OF((char *, ulg));
 
    ulg filetime OF((char *, ulg *, zoff_t *, iztimes *));
+   /* Windows Unicode */
+# ifdef UNICODE_SUPPORT
+# ifdef WIN32
+   char *get_win32_utf8path OF((char *));
+# endif
+# endif
 
 # if !(defined(VMS) && defined(VMS_PK_EXTRA))
    int set_extra_field OF((struct zlist far *, iztimes *));
@@ -650,6 +715,9 @@ int DisplayNumString OF ((FILE *file, uzoff_t i));
 int WriteNumString OF((uzoff_t num, char *outstring));
 uzoff_t ReadNumString OF((char *numstring));
 
+/* returns true if abbrev is abbreviation for string */
+int abbrevmatch OF((char *, char *, int, int));
+
 void init_upper    OF((void));
 int  namecmp       OF((ZCONST char *string1, ZCONST char *string2));
 
@@ -672,23 +740,10 @@ void envargs       OF((int *, char ***, char *, char *));
 void expand_args   OF((int *, char ***));
 
 int  is_text_buf   OF((ZCONST char *buf_ptr, unsigned buf_size));
+/* this is no longer used ...
 unsigned int adler16 OF((unsigned int, ZCONST uch *, extent));
-
-#ifndef USE_ZLIB
-#ifndef UTIL
-        /* in crc32.c */
-ulg  crc32         OF((ulg, ZCONST uch *, extent));
-#endif /* !UTIL */
-
-/* in fileio.h */
-ulg  crc32u        OF((ulg, ZCONST uch *, extent));
-
-        /* in crctab.c */
-ZCONST ulg near *get_crc_table OF((void));
-# ifdef DYNALLOC_CRCTAB
-   void free_crc_table OF((void));
-# endif
-#endif /* !USE_ZLIB */
+*/
+        /*  crc functions are now declared in crc32.h */
 
 #ifndef UTIL
 #ifndef USE_ZLIB
@@ -736,7 +791,8 @@ void     bi_init      OF((char *, unsigned int, int));
     WIN32-only functions:
   ---------------------------------------------------------------------------*/
 #ifdef WIN32
-   int    ZipIsWinNT         OF((void));                         /* win32.c */
+   int ZipIsWinNT         OF((void));                         /* win32.c */
+   int ClearArchiveBit    OF((char *));                       /* win32.c */
 #endif /* WIN32 */
 
 #if (defined(WINDLL) || defined(DLL_ZIPAPI))
@@ -745,6 +801,22 @@ void     bi_init      OF((char *, unsigned int, int));
   ---------------------------------------------------------------------------*/
 #include "api.h"
 #endif /* WINDLL || DLL_ZIPAPI */
+
+
+   /* WIN32_OEM */
+#ifdef WIN32
+# if defined(UNICODE_SUPPORT) || defined(WIN32_OEM)
+  /* convert oem to ansi string */
+  char *oem_to_local_string OF((char *, char *));
+# endif
+#endif
+
+#ifdef WIN32
+# if defined(UNICODE_SUPPORT) || defined(WIN32_OEM)
+  /* convert local string to oem string */
+  char *local_to_oem_string OF((char *, char *));
+# endif
+#endif
 
 
 
@@ -765,7 +837,7 @@ void     bi_init      OF((char *, unsigned int, int));
 
   /* check if string is all ASCII */
   int is_ascii_string OF((char *));
-  
+
   /* convert UTF-8 string to multi-byte string */
   char *utf8_to_local_string OF((char *));
 
@@ -777,11 +849,6 @@ void     bi_init      OF((char *, unsigned int, int));
 
   /* convert local string to multi-byte display string */
   char *local_to_display_string OF((char *));
-
-#ifdef WIN32
-  /* convert local string to oem string */
-  char *local_to_oem_string OF((char *, char *));
-#endif
 
   /* convert wide character to escape string */
   char *wide_to_escape_string OF((unsigned long));
@@ -806,11 +873,11 @@ void     bi_init      OF((char *, unsigned int, int));
  *
  * 10/20/05 EG
  */
-  
+
 #define BFWRITE_DATA 0
 #define BFWRITE_LOCALHEADER 1
 #define BFWRITE_CENTRALHEADER 2
-#define BFWRITE_HEADER 3
+#define BFWRITE_HEADER 3 /* data descriptor or end records */
 
 size_t bfwrite OF((ZCONST void *buffer, size_t size, size_t count,
                    int));

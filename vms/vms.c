@@ -41,7 +41,6 @@
 #include <fab.h>                /* Needed only in old environments. */
 #include <nam.h>                /* Needed only in old environments. */
 #include <starlet.h>
-#include <ssdef.h>
 #include <stsdef.h>
 
 /* On VAX, define Goofy VAX Type-Cast to obviate /standard = vaxc.
@@ -163,68 +162,31 @@ int vms_stat( char *file, stat_t *s)
         return status;
 }
 
-
-/*
- * 2007-01-17 SMS.
- *
- *  VMS Status Code Summary  (See STSDEF.H for details.)
- *
- *      Bits:   31:28    27:16     15:3     2:0
- *      Field:  Control  Facility  Message  Severity
- *
- *  In the Control field, bits 31:29 are reserved.  Bit 28 inhibits
- *  printing the message.  In the Facility field, bit 27 means
- *  customer-defined (like us).  In the Message field, bit 15 means
- *  facility-specific (which our messages are).  The Severity codes are
- *  0 = Warning, 1 = Success, 2 = Error, 3 = Info, 4 = Severe (fatal).
- *
- *  Previous versions of Info-ZIP programs used a generic ("chosen (by
- *  experimentation)") Control+Facility code of 0x7FFF, which included
- *  some reserved control bits, the inhibit-printing bit, and the
- *  customer-defined bit.
- *
- *  HP has now assigned official Facility names and corresponding
- *  Facility codes for the Info-ZIP products:
- *
- *      Facility Name    Facility Code
- *      IZ_UNZIP         1954 = 0x7A2
- *      IZ_ZIP           1955 = 0x7A3
- *
- *  Now, unless the CTL_FAC_IZ_ZIP macro is defined at build-time, we
- *  will use the official Facility code.
- *
- */
-
-/* Official HP-assigned Info-ZIP Zip Facility code. */
-#define FAC_IZ_ZIP 1955   /* 0x7A3 */
-
-#ifndef CTL_FAC_IZ_ZIP
-   /* Default is inhibit-printing with the official Facility code. */
-#  define CTL_FAC_IZ_ZIP ((0x1 << 12)| FAC_IZ_ZIP)
-#  define MSG_SHFT 3
-#else /* ndef CTL_FAC_IZ_ZIP */
-   /* Use the user-supplied Control+Facility code for err or warn. */
-#  define OLD_STATUS
-#  ifndef MSG_FAC_SPEC
-#    define MSG_FAC_SPEC 0x0    /* Facility-specific code.  Or 0x8000. */
-#  endif /* ndef MSG_FAC_SPEC */
-#  ifndef MSG_SHFT
-#    define MSG_SHFT 4          /* Message code shift count (old). */
-#  endif /* ndef MSG_SHFT */
-#endif /* ndef CTL_FAC_IZ_ZIP [else] */
-
-
-/* Return an intelligent status/severity code. */
-
 void vms_exit(e)
    int e;
 {
+/*---------------------------------------------------------------------------
+    Return an intelligent status/severity level if RETURN_SEVERITY defined:
+
+    $STATUS          $SEVERITY = $STATUS & 7
+    31 .. 16 15 .. 3   2 1 0
+                       -----
+    VMS                0 0 0  0    Warning
+    FACILITY           0 0 1  1    Success
+    Number             0 1 0  2    Error
+             MESSAGE   0 1 1  3    Information
+             Number    1 0 0  4    Severe (fatal) error
+
+    0x7FFF0000 was chosen (by experimentation) to be outside the range of
+    VMS FACILITYs that have dedicated message numbers.  Hopefully this will
+    always result in silent exits--it does on VMS 5.4.  Note that the C li-
+    brary translates exit arguments of zero to a $STATUS value of 1 (i.e.,
+    exit is both silent and has a $SEVERITY of "success").
+  ---------------------------------------------------------------------------*/
   {
     int severity;
 
     switch (e) {                        /* $SEVERITY: */
-      case ZE_OK:
-          severity = 1; break;          /*   success  */
       case ZE_NONE:
           severity = 0; break;          /*   warning  */
       case ZE_FORM:
@@ -239,43 +201,10 @@ void vms_exit(e)
           severity = 4; break;          /*   fatal    */
     }
 
-#ifndef OLD_STATUS
-
-    /*
-     * Exit with code comprising Control, Facility, (facility-specific)
-     * Message, and Severity.
-     */
-    exit( (CTL_FAC_IZ_ZIP << 16) | 0x8000 | (e << MSG_SHFT) | severity);
-
-#else /* ndef OLD_STATUS */
-
-    /* 2007-01-17 SMS.
-     * Defining OLD_STATUS provides the same behavior as in Zip versions
-     * before an official VMS Facility code had been assigned, which
-     * means that Success (ZE_OK) gives a status value of 1 (SS$_NORMAL)
-     * with no Facility code, while any error or warning gives a status
-     * value which includes a Facility code.  (Curiously, under the old
-     * scheme, message codes were left-shifted by 4 instead of 3,
-     * resulting in all-even message codes.)  I don't like this, but I
-     * was afraid to remove it, as someone, somewhere may be depending
-     * on it.  Define CTL_FAC_IZ_ZIP as 0x7FFF to get the old behavior.
-     * Define only OLD_STATUS to get the old behavior for Success
-     * (ZE_OK), but using the official HP-assigned Facility code for an
-     * error or warning.  Define MSG_FAC_SPEC and/or MSG_SHFT to get the
-     * desired behavior (such as message codes compatible with the
-     * message file).
-     *
-     * Exit with simple SS$_NORMAL for ZE_OK.  Otherwise, exit with code
-     * comprising Control, Facility, Message, and Severity.
-     */
     exit(                                       /* $SEVERITY:              */
-         (e == ZE_OK) ? SS$_NORMAL :            /*   Success               */
-         ((CTL_FAC_IZ_ZIP << 16) |
-          MSG_FAC_SPEC |
-          (e << MSG_SHFT) | severity)           /*   Warning, Error, Fatal */
+         (e == ZE_OK) ? 1 :                     /*   success               */
+         (0x7FFF0000 | (e << 4) | severity)     /*   warning, error, fatal */
         );
-
-#endif /* ndef OLD_STATUS */
    }
 }
 

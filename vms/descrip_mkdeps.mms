@@ -1,4 +1,4 @@
-#                                               1 December 2006.  SMS.
+#                                               8 January 2007.  SMS.
 #
 #    Zip 3.0 for VMS - MMS Dependency Description File.
 #
@@ -152,6 +152,12 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
 #
 # The extra dependency on the normal dependency file obviates including
 # the /SKIP warning code in each rule here.
+
+CRC32_.MMSD : CRC32.C CRC32.MMSD
+	$(CC) $(CFLAGS_INCL) $(CFLAGS_CLI) $(MMS$SOURCE) -
+         /NOLIST /NOOBJECT /MMS_DEPENDENCIES = -
+         (FILE = $(MMS$TARGET), NOSYSTEM_INCLUDE_FILES)
+	@[.VMS]MOD_DEP.COM $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
 
 CRYPT_.MMSD : CRYPT.C CRYPT.MMSD
 	$(CC) $(CFLAGS_INCL) $(CFLAGS_CLI) $(MMS$SOURCE) -

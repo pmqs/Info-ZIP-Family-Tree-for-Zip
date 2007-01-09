@@ -1,4 +1,4 @@
-#                                               30 December 2006.  SMS.
+#                                               8 January 2007.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Source Description File.
 #
@@ -295,7 +295,6 @@ LINKFLAGS = \
 
 MODS_OBJS_LIB_ZIP_N = \
  CRC32=[.$(DEST)]CRC32.OBJ \
- CRCTAB=[.$(DEST)]CRCTAB.OBJ \
  CRYPT=[.$(DEST)]CRYPT.OBJ \
  DEFLATE=[.$(DEST)]DEFLATE.OBJ \
  FILEIO=[.$(DEST)]FILEIO.OBJ \
@@ -318,13 +317,13 @@ MODS_OBJS_LIB_ZIP = $(MODS_OBJS_LIB_ZIP_N) $(MODS_OBJS_LIB_ZIP_V)
 #    Utility object library, normal, [].
 
 MODS_OBJS_LIB_ZIPUTILS_N = \
- CRCTAB=[.$(DEST)]CRCTAB.OBJ \
  GLOBALS=[.$(DEST)]GLOBALS.OBJ \
  TTYIO=[.$(DEST)]TTYIO.OBJ
 
 #    Utility object library, variant, [].
 
 MODS_OBJS_LIB_ZIPUTILS_U = \
+ CRC32$(GCC_)=[.$(DEST)]CRC32_.OBJ \
  CRYPT$(GCC_)=[.$(DEST)]CRYPT_.OBJ \
  FILEIO$(GCC_)=[.$(DEST)]FILEIO_.OBJ \
  UTIL$(GCC_)=[.$(DEST)]UTIL_.OBJ \

@@ -1,4 +1,4 @@
-#                                               20 January 2007.  SMS.
+#                                               8 January 2007.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -108,19 +108,13 @@ LIB_ZIPUTILS = [.$(DEST)]ZIPUTILS.OLB
 
 ZIP_HELP = ZIP.HLP ZIP_CLI.HLP
 
-# Message file names.
-
-ZIP_MSG_MSG = [.VMS]ZIP_MSG.MSG
-ZIP_MSG_EXE = [.$(DEST)]ZIP_MSG.EXE
-ZIP_MSG_OBJ = [.$(DEST)]ZIP_MSG.OBJ
-
 
 # TARGETS.
 
 # Default target, ALL.  Build All Zip executables, utility executables,
 # and help files.
 
-ALL : $(ZIP) $(ZIP_CLI) $(ZIPUTILS) $(ZIP_HELP) $(ZIP_MSG_EXE)
+ALL : $(ZIP) $(ZIP_CLI) $(ZIPUTILS) $(ZIP_HELP)
 	@ write sys$output "Done."
 
 # CLEAN target.  Delete the [.$(DEST)] directory and everything in it.
@@ -327,14 +321,6 @@ ZIP_CLI.HLP : [.VMS]ZIP_CLI.HELP [.VMS]CVTHELP.TPU
 	rename /noconfirm ZIP_CLI.RNH; [.VMS];
 	purge /noconfirm /nolog /keep = 1 [.VMS]ZIP_CLI.RNH
 	runoff /output = $(MMS$TARGET) [.VMS]ZIP_CLI.RNH
-
-# Message file.
-
-$(ZIP_MSG_EXE) : $(ZIP_MSG_OBJ)
-	link /shareable = $(MMS$TARGET) $(ZIP_MSG_OBJ)
-
-$(ZIP_MSG_OBJ) : $(ZIP_MSG_MSG)
-	message /object = $(MMS$TARGET) /nosymbols $(ZIP_MSG_MSG)
 
 # Include generated source dependencies.
 
