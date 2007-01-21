@@ -1,7 +1,7 @@
 /*
   zipup.c - Zip 3
 
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -25,12 +25,17 @@
 #ifndef UTIL            /* This module contains no code for Zip Utilities */
 
 #include "revision.h"
+#include "crc32.h"
 #include "crypt.h"
 #ifdef USE_ZLIB
 #  include "zlib.h"
 #endif
-#ifdef USE_BZIP2
-#  include "bzlib.h"
+#ifdef BZIP2_SUPPORT
+#  ifdef BZIP2_USEBZIP2DIR
+#    include "bzip2/bzlib.h"
+#  else
+#    include "bzlib.h"
+#  endif
 #endif
 
 #ifdef OS2
@@ -146,7 +151,7 @@ local unsigned file_read OF((char *buf, unsigned size));
 /* zip64 support 08/29/2003 R.Nausedat */
 local zoff_t filecompress OF((struct zlist far *z_entry, int *cmpr_method));
 
-#ifdef USE_BZIP2
+#ifdef BZIP2_SUPPORT
 local int bz_deflate_init OF((int pack_level));
 local ulg bzfilecompress OF((struct zlist far *z_entry, int *cmpr_method));
 #endif
@@ -169,8 +174,8 @@ local ulg bzfilecompress OF((struct zlist far *z_entry, int *cmpr_method));
 
 
 /* Local data */
-local ulg crc;          /* crc on uncompressed file data */
-local ftype ifile;      /* file to compress */
+local ulg crc;                  /* crc on uncompressed file data */
+local ftype ifile;              /* file to compress */
 #if defined(MMAP) || defined(BIG_MEM)
   local ulg remain;
   /* window bytes not yet processed.
@@ -193,24 +198,23 @@ local ftype ifile;      /* file to compress */
     /* Current offset in input buffer. in_offset is used only for in-memory
      * compression. On 16 bit machines, the buffer is limited to 64K.
      */
-    local unsigned in_size;
-    /* size of current input buffer */
+    local unsigned in_size;     /* size of current input buffer */
 # endif /* ZP_NEED_MEMCOMPR */
 #endif /* ?USE_ZLIB */
 
-#ifdef USE_BZIP2
-local int bzipInit;            /* flag: bzip2lib is initialized */
-local bz_stream bstrm;         /* zlib's data interface structure */
-#if !defined(USE_ZLIB)
-local char *f_ibuf = NULL;
-local char *f_obuf = NULL;
-#endif /* !USE_ZLIB */
-#endif /* USE_BZIP2 */
+#ifdef BZIP2_SUPPORT
+    local int bzipInit;         /* flag: bzip2lib is initialized */
+    local bz_stream bstrm;      /* zlib's data interface structure */
+# if !defined(USE_ZLIB)
+    local char *f_ibuf = NULL;
+    local char *f_obuf = NULL;
+# endif /* !USE_ZLIB */
+#endif /* BZIP2_SUPPORT */
 
 #ifdef DEBUG
-    zoff_t isize;       /* input file size. global only for debugging */
+    zoff_t isize;               /* input file size. global only for debugging */
 #else /* !DEBUG */
-    local zoff_t isize; /* input file size. global only for debugging */
+    local zoff_t isize;         /* input file size. global only for debugging */
 #endif /* ?DEBUG */
   /* If file_read detects binary it sets this flag - 12/16/04 EG */
   local int file_binary = 0;
@@ -239,7 +243,7 @@ int is_seekable(y)
 
 int percent(n, m)
   uzoff_t n;
-  uzoff_t m;              /* n is the original size, m is the new size */
+  uzoff_t m;                    /* n is the original size, m is the new size */
 /* Return the percentage compression from n to m using only integer
    operations */
 {
@@ -298,13 +302,13 @@ int percent(n, m)
 #ifndef RISCOS
 
 local int suffixes(a, s)
-  char *a;                /* name to check suffix of */
-  char *s;                /* list of suffixes separated by : or ; */
+  char *a;                      /* name to check suffix of */
+  char *s;                      /* list of suffixes separated by : or ; */
 /* Return true if a ends in any of the suffixes in the list s. */
 {
-  int m;                /* true if suffix matches so far */
-  char *p;              /* pointer into special */
-  char *q;              /* pointer into name a */
+  int m;                        /* true if suffix matches so far */
+  char *p;                      /* pointer into special */
+  char *q;                      /* pointer into name a */
 
 #ifdef QDOS
   short dlen = devlen(a);
@@ -349,12 +353,12 @@ local int suffixes(a, s)
 #else /* RISCOS */
 
 local int filetypes(a, s)
-char *a;                /* extra field of file to check filetype of */
-char *s;                /* list of filetypes separated by : or ; */
+char *a;                        /* extra field of file to check filetype of */
+char *s;                        /* list of filetypes separated by : or ; */
 /* Return true if a is any of the filetypes in the list s. */
 {
- char *p;              /* pointer into special */
- char typestr[4];     /* filetype hex string taken from a */
+ char *p;                       /* pointer into special */
+ char typestr[4];               /* filetype hex string taken from a */
 
  if ((((unsigned*)a)[2] & 0xFFF00000) != 0xFFF00000) {
  /* The file is not filestamped, always try to compress it */
@@ -367,7 +371,9 @@ char *s;                /* list of filetypes separated by : or ; */
    while (*p==':' || *p==';')
      p++;
 
-   if (typestr[0]==toupper(p[0]) && typestr[1]==toupper(p[1]) && typestr[2]==toupper(p[2]))
+   if (typestr[0] == toupper(p[0]) &&
+       typestr[1] == toupper(p[1]) &&
+       typestr[2] == toupper(p[2]))
      return 1;
  }
  return 0;
@@ -397,7 +403,7 @@ struct zlist far *z;    /* zip entry to compress */
 
   zoff_t o = 0, p;      /* offsets in zip file */
   zoff_t q = (zoff_t) -3; /* size returned by filetime */
-  uzoff_t uq;           /* unsigned q */ 
+  uzoff_t uq;           /* unsigned q */
   zoff_t s = 0;         /* size of compressed data */
 
   int r;                /* temporary variable */
@@ -506,11 +512,14 @@ struct zlist far *z;    /* zip entry to compress */
   /* For now force deflate if using descriptors.  Instead zip and unzip
      could check bytes read against compressed size in each data descriptor
      found and skip over any that don't match.  This is how at least one
-     other zipper (WinZip) does it.  To be added later.  Until then it
+     other zipper does it.  To be added later.  Until then it
      probably doesn't hurt to force deflation when streaming.  12/30/04 EG
   */
 
   /* Now is a good time.  For now allow storing for testing.  12/16/05 EG */
+  /* By release need to force deflation based on reports some inflate
+     streamed data to find the end of the data */
+  /* Need to handle bzip2 */
 #if 0
   if (use_descriptors && m == STORE)
   {
@@ -659,7 +668,7 @@ struct zlist far *z;    /* zip entry to compress */
     free(z->cextra);
     z->cext = len;
     z->cextra = p;
-  
+
     if (tempext)
       free(tempextra);
     if (tempcext)
@@ -685,6 +694,10 @@ struct zlist far *z;    /* zip entry to compress */
    * If this is the right signature then the compressed size should match
    * the size of the compressed data to that point.  If not look for the
    * next signature.  We should do this.  12/31/04 EG
+   *
+   * For reading and testing we should do this, but should not write
+   * stored streamed data unless for testing as finding the end of
+   * streamed deflated data can be done by inflating.  6/26/06 EG
    */
 
   /* Fill in header information and write local header to zip file.
@@ -709,15 +722,19 @@ struct zlist far *z;    /* zip entry to compress */
 #endif /* ?(OS2 || WIN32) */
 
   z->ver = (ush)(m == STORE ? 10 : 20); /* Need PKUNZIP 2.0 except for store */
-#ifdef USE_BZIP2
+#ifdef BZIP2_SUPPORT
   if (method == BZIP2)
       z->ver = 46;
 #endif
   z->crc = 0;  /* to be updated later */
   /* Assume first that we will need an extended local header: */
-  z->flg = 8;  /* to be updated later */
+  if (isdir)
+    /* If dir then q = 0 and extended header not needed */
+    z->flg = 0;
+  else
+    z->flg = 8;  /* to be updated later */
 #if CRYPT
-  if (key != NULL) {
+  if (!isdir && key != NULL) {
     z->flg |= 1;
     /* Since we do not yet know the crc here, we pretend that the crc
      * is the modification time:
@@ -757,7 +774,7 @@ struct zlist far *z;    /* zip entry to compress */
 
 
 #if CRYPT
-  if (key != NULL) {
+  if (!isdir && key != NULL) {
     crypthead(key, z->crc);
     z->siz += RAND_HEAD_LEN;  /* to be updated later */
     tempzn += RAND_HEAD_LEN;
@@ -774,7 +791,9 @@ struct zlist far *z;    /* zip entry to compress */
   if (ferror(y))
     clearerr(y);
 
-  if (last_o > o) {
+  if (o != -1 && last_o > o) {
+    fprintf(mesg, "last %s o %s\n", zip_fzofft(last_o, NULL, NULL),
+                                    zip_fzofft(o, NULL, NULL));
     ZIPERR(ZE_BIG, "seek wrap - zip file too big to write");
   }
 
@@ -782,7 +801,11 @@ struct zlist far *z;    /* zip entry to compress */
   isize = 0L;
   crc = CRCVAL_INITIAL;
 
-#ifdef USE_BZIP2
+  if (isdir) {
+    /* nothing to write */
+  }
+  else
+#ifdef BZIP2_SUPPORT
   if (m == BZIP2) {
     if (set_type) z->att = (ush)UNKNOWN; /* is finally set in bzfilecompress() */
     s = bzfilecompress(z, &m);
@@ -801,7 +824,7 @@ struct zlist far *z;    /* zip entry to compress */
     }
 #endif
   } else
-#endif /* USE_BZIP2 */
+#endif /* BZIP2_SUPPORT */
   if (m == DEFLATE) {
     if (set_type) z->att = (ush)UNKNOWN; /* is finally set in filecompress() */
     s = filecompress(z, &m);
@@ -916,114 +939,124 @@ struct zlist far *z;    /* zip entry to compress */
 #endif /* !VMS && !CMS_MVS && !__mpexl */
 #endif /* (!MSDOS || OS2) */
 
-  /* Try to rewrite the local header with correct information */
-  z->crc = crc;
-  z->siz = s;
-#if CRYPT
-  if (key != NULL)
-    z->siz += RAND_HEAD_LEN;
-#endif /* CRYPT */
-  z->len = isize;
-  /* if can seek back to local header */
-#ifdef BROKEN_FSEEK
-  if (use_descriptors || !fseekable(y) || zfseeko(y, z->off, SEEK_SET))
-#else
-  if (use_descriptors || zfseeko(y, z->off, SEEK_SET))
-#endif
+  if (isdir)
   {
-    if (z->how != (ush) m)
-       error("can't rewrite method");
-    if (m == STORE && q < 0)
-       ZIPERR(ZE_PARMS, "zip -0 not supported for I/O on pipes or devices");
-    if ((r = putextended(z)) != ZE_OK)
-      return r;
-    /* if Zip64 and not seekable then Zip64 data descriptor */
-#ifdef ZIP64_SUPPORT
-    if (zip64_entry)
-      tempzn += 24L;
-    else
-      tempzn += 16L;
-#else
-    tempzn += 16L;
-#endif
-    z->flg = z->lflg; /* if flg modified by inflate */
-  } else {
-    /* ftell() not as useful across splits */
-    if (bytes_this_entry != (uzoff_t)(key ? s + 12 : s)) {
-      fprintf(mesg, " s=%s, actual=%s ",
-              zip_fzofft(s, NULL, NULL), zip_fzofft(bytes_this_entry, NULL, NULL));
-      error("incorrect compressed size");
-    }
-#if 0
-     /* seek ok, ftell() should work, check compressed size */
-# if !defined(VMS) && !defined(CMS_MVS)
-    if (p - o != s) {
-      fprintf(mesg, " s=%s, actual=%s ",
-              zip_fzofft(s, NULL, NULL), zip_fzofft(p-o, NULL, NULL));
-      error("incorrect compressed size");
-    }
-# endif /* !VMS && !CMS_MVS */
-#endif
-    z->how = (ush)m;
-    switch (m)
+    /* A directory */
+    z->siz = 0;
+    z->len = 0;
+    z->how = STORE;
+    z->ver = 10;
+    /* never encrypt directory so don't need extended local header */
+    z->flg &= ~8;
+    z->lflg &= ~8;
+  }
+  else
+  {
+    /* Try to rewrite the local header with correct information */
+    z->crc = crc;
+    z->siz = s;
+#  if CRYPT
+    if (!isdir && key != NULL)
+      z->siz += RAND_HEAD_LEN;
+#  endif /* CRYPT */
+    z->len = isize;
+    /* if can seek back to local header */
+#  ifdef BROKEN_FSEEK
+    if (use_descriptors || !fseekable(y) || zfseeko(y, z->off, SEEK_SET))
+#  else
+    if (use_descriptors || zfseeko(y, z->off, SEEK_SET))
+#  endif
     {
-    case STORE:
-      z->ver = 10; break;
-    /* Need PKUNZIP 2.0 for DEFLATE */
-    case DEFLATE:
-      z->ver = 20; break;
-#ifdef USE_BZIP2
-    case BZIP2:
-      z->ver = 46; break;
-#endif
-    }
-    /*
-     * There seems no reason to have a data descriptor just for standard
-     * encryption.  But getting rid of it causes encryption to fail.
-     * Still working on it.  For now keep this.
-     *
-     * OK, the encryption header needs the crc, but we don't have it
-     * for a new file.  The file time is used instead and the encryption
-     * header then used to encrypt the data.  The AppNote standard only
-     * can be applied to a file that the crc is known, so that means
-     * either an existing entry in an archive or get the crc before
-     * creating the encryption header and then encrypt the data.
-     */
-    if ((z->flg & 1) == 0) {
-      /* not encrypting so don't need extended local header */
-      z->flg &= ~8;
-      z->lflg &= ~8;
-    }
-
-    /* if not using descriptors back up and rewrite local header */
-    /* rewrite the local header: */
-    if (split_method == 1 && current_local_file != y) {
-      if (zfseeko(current_local_file, z->off, SEEK_SET))
-        return ZE_READ;
-    }
-
-    /* if local header in another split, putlocal will close it */
-    if ((r = putlocal(z, PUTLOCAL_REWRITE)) != ZE_OK)
-      return r;
-
-
-    if (zfseeko(y, bytes_this_split, SEEK_SET))
-      return ZE_READ;
-
-    if ((z->flg & 1) != 0) {
-      /* encrypted file, extended header still required */
+      if (z->how != (ush) m)
+         error("can't rewrite method");
+      if (m == STORE && q < 0)
+         ZIPERR(ZE_PARMS, "zip -0 not supported for I/O on pipes or devices");
       if ((r = putextended(z)) != ZE_OK)
         return r;
-#ifdef ZIP64_SUPPORT
-      if (zip64_entry)
-        tempzn += 24L;
-      else
-        tempzn += 16L;
-#else
+      /* if Zip64 and not seekable then Zip64 data descriptor */
+#  ifdef ZIP64_SUPPORT
+      tempzn += (zip64_entry ? 24L : 16L);
+#  else
       tempzn += 16L;
-#endif
+#  endif
+      z->flg = z->lflg; /* if z->flg modified by deflate */
+    } else {
+      /* ftell() not as useful across splits */
+      if (bytes_this_entry != (uzoff_t)(key ? s + 12 : s)) {
+        fprintf(mesg, " s=%s, actual=%s ",
+                zip_fzofft(s, NULL, NULL), zip_fzofft(bytes_this_entry, NULL, NULL));
+        error("incorrect compressed size");
+      }
+#  if 0
+       /* seek ok, ftell() should work, check compressed size */
+#   if !defined(VMS) && !defined(CMS_MVS)
+      if (p - o != s) {
+        fprintf(mesg, " s=%s, actual=%s ",
+                zip_fzofft(s, NULL, NULL), zip_fzofft(p-o, NULL, NULL));
+        error("incorrect compressed size");
+      }
+#   endif /* !VMS && !CMS_MVS */
+#  endif /* 0 */
+      z->how = (ush)m;
+      switch (m)
+      {
+      case STORE:
+        z->ver = 10; break;
+      /* Need PKUNZIP 2.0 for DEFLATE */
+      case DEFLATE:
+        z->ver = 20; break;
+#  ifdef BZIP2_SUPPORT
+      case BZIP2:
+        z->ver = 46; break;
+#  endif
+      }
+      /*
+       * The encryption header needs the crc, but we don't have it
+       * for a new file.  The file time is used instead and the encryption
+       * header then used to encrypt the data.  The AppNote standard only
+       * can be applied to a file that the crc is known, so that means
+       * either an existing entry in an archive or get the crc before
+       * creating the encryption header and then encrypt the data.
+       */
+      if ((z->flg & 1) == 0) {
+        /* not encrypting so don't need extended local header */
+        z->flg &= ~8;
+      }
+      /* deflate may have set compression level bit markers in z->flg,
+         and we can't think of any reason central and local flags should
+         be different. */
+      z->lflg = z->flg;
+
+      /* if not using descriptors back up and rewrite local header */
+      /* rewrite the local header: */
+      if (split_method == 1 && current_local_file != y) {
+        if (zfseeko(current_local_file, z->off, SEEK_SET))
+          return ZE_READ;
+      }
+
+      /* if local header in another split, putlocal will close it */
+      if ((r = putlocal(z, PUTLOCAL_REWRITE)) != ZE_OK)
+        return r;
+
+
+      if (zfseeko(y, bytes_this_split, SEEK_SET))
+        return ZE_READ;
+
+      if ((z->flg & 1) != 0) {
+        /* encrypted file, extended header still required */
+        if ((r = putextended(z)) != ZE_OK)
+          return r;
+#  ifdef ZIP64_SUPPORT
+        if (zip64_entry)
+          tempzn += 24L;
+        else
+          tempzn += 16L;
+#  else
+        tempzn += 16L;
+#  endif
+      }
     }
-  }
+  } /* isdir */
   /* Free the local extra field which is no longer needed */
   if (z->ext) {
     if (z->extra != z->cextra) {
@@ -1040,7 +1073,7 @@ struct zlist far *z;    /* zip entry to compress */
       fprintf( mesg, "\t(in=%s) (out=%s)",
                zip_fzofft(isize, NULL, "u"), zip_fzofft(s, NULL, "u"));
     }
-#ifdef USE_BZIP2
+#ifdef BZIP2_SUPPORT
     if (m == BZIP2)
       fprintf(mesg, " (bzipped %d%%)\n", percent(isize, s));
     else
@@ -1444,7 +1477,7 @@ local zoff_t filecompress(z_entry, cmpr_method)
             zstrm.avail_out = OBUF_SZ;
         }
         if (zstrm.avail_in == 0) {
-            if (verbose)
+            if (verbose || noisy)
                 while((unsigned)(zstrm.total_in / (uLong)WSIZE) > mrk_cnt) {
                     mrk_cnt++;
                     if (!display_globaldots) {
@@ -1618,9 +1651,8 @@ ulg memcompress(tgt, tgtsize, src, srcsize)
     return (ulg)out_total;
 }
 #endif /* ZP_NEED_MEMCOMPR */
-#endif /* !UTIL */
 
-#ifdef USE_BZIP2
+#ifdef BZIP2_SUPPORT
 
 local int bz_compress_init(pack_level)
 int pack_level;
@@ -1755,7 +1787,7 @@ int *cmpr_method;
         }
         /* $TODO what about high 32-bits of total-in??? */
         if (bstrm.avail_in == 0) {
-            if (verbose)
+            if (verbose || noisy)
                 while((unsigned)(bstrm.total_in_lo32 / (ulg)WSIZE) > mrk_cnt) {
                     mrk_cnt++;
                     if (!display_globaldots) {
@@ -1837,4 +1869,5 @@ int *cmpr_method;
     return cmpr_size;
 }
 
-#endif /* USE_BZIP2 */
+#endif /* BZIP2_SUPPORT */
+#endif /* !UTIL */

@@ -2,10 +2,11 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     last revised:  2006-12-30  SMS.
+$!     last revised:  2007-01-21  SMS.
 $!
 $!     Command arguments:
 $!     - suppress help file processing: "NOHELP"
+$!     - suppress message file processing: "NOMSG"
 $!     - select link-only: "LINK"
 $!     - select compiler environment: "VAXC", "DECC", "GNUC"
 $!     - select large-file support: "LARGE"
@@ -120,6 +121,7 @@ $ LINK_ONLY = 0
 $ LISTING = " /nolist"
 $ LARGE_FILE = 0
 $ MAKE_HELP = 1
+$ MAKE_MSG = 1
 $ MAY_USE_DECC = 1
 $ MAY_USE_GNUC = 0
 $!
@@ -178,6 +180,12 @@ $!
 $     if (curr_arg .eqs. "NOHELP")
 $     then
 $         MAKE_HELP = 0
+$         goto argloop_end
+$     endif
+$!
+$     if (curr_arg .eqs. "NOMSG")
+$     then
+$         MAKE_MSG = 0
 $         goto argloop_end
 $     endif
 $!
@@ -427,6 +435,11 @@ $ then
 $     say "   Not making new help files."
 $ endif
 $ say ""
+$ if (.not. MAKE_MSG)
+$ then
+$     say "   Not making new message files."
+$ endif
+$ say ""
 $!
 $ tmp = f$verify( 1)    ! Turn echo on to see what's happening.
 $!
@@ -440,6 +453,15 @@ $!
 $     if (MAKE_HELP)
 $     then
 $         runoff /out = ZIP.HLP [.VMS]VMS_ZIP.RNH
+$     endif
+$!
+$! Process the message file, if desired.
+$!
+$     if (MAKE_MSG)
+$     then
+$         message /object = [.'dest']ZIP_MSG.OBJ /nosymbols -
+           [.VMS]ZIP_MSG.MSG
+$         link /shareable = [.'dest']ZIP_MSG.EXE [.'dest']ZIP_MSG.OBJ
 $     endif
 $!
 $! Compile the sources.
@@ -470,7 +492,6 @@ $     if (f$search( "[.''dest']ZIP.OLB") .eqs. "") then -
 $!
 $     libr /object /replace [.'dest']ZIP.OLB -
        [.'dest']CRC32.OBJ, -
-       [.'dest']CRCTAB.OBJ, -
        [.'dest']CRYPT.OBJ, -
        [.'dest']DEFLATE.OBJ, -
        [.'dest']FILEIO.OBJ, -
@@ -550,6 +571,7 @@ $ then
 $!
 $! Compile the variant Zip utilities library sources.
 $!
+$     cc 'DEF_UTIL' /object = [.'dest']CRC32_.OBJ CRC32.C
 $     cc 'DEF_UTIL' /object = [.'dest']CRYPT_.OBJ CRYPT.C
 $     cc 'DEF_UTIL' /object = [.'dest']FILEIO_.OBJ FILEIO.C
 $     cc 'DEF_UTIL' /object = [.'dest']UTIL_.OBJ UTIL.C
@@ -562,7 +584,7 @@ $     if f$search( "[.''dest']ZIPUTILS.OLB") .eqs. "" then -
        libr /object /create [.'dest']ZIPUTILS.OLB
 $!
 $     libr /object /replace [.'dest']ZIPUTILS.OLB -
-       [.'dest']CRCTAB.OBJ, -
+       [.'dest']CRC32_.OBJ, -
        [.'dest']CRYPT_.OBJ, -
        [.'dest']FILEIO_.OBJ, -
        [.'dest']GLOBALS.OBJ, -

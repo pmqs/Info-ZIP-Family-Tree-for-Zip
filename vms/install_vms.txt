@@ -64,10 +64,10 @@
      For example:
 
           @ [.VMS]BUILD_ZIP LARGE -
-           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3B_VMS]
+           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3C_VMS]
        or:
           MMS /DESC = [.VMS] /MACRO = (LARGE=1, -
-           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3B_VMS])
+           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3C_VMS])
 
      System-architecture-specific files (like objects and executables)
      are placed in separate directories, such as [.ALPHA], [.IA64], or
