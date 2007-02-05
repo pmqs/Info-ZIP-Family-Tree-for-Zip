@@ -41,8 +41,10 @@
 #include <strings.h>    /* str[n]casecmp() */
 #endif /* def HAVE_STRCASECMP */
 
+#include <descrip.h>
 #include <dvidef.h>
 #include <lib$routines.h>
+#include <rms.h>
 #include <ssdef.h>
 #include <stsdef.h>
 #include <starlet.h>
@@ -525,13 +527,15 @@ local void vms_wild( char *p, zDIR *d)
 
 #endif /* def NAML$C_MAXRSS */
 
-  d->FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNA = p;          /* Arg wild name, */
-  d->FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNS = strlen(p);  /* length. */
+  /* Argument file name and length. */
+  d->FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = p;
+  d->FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen(p);
 
 #define DEF_DEVDIR "SYS$DISK:[]"
 
-  d->FAB_OR_NAM( fab, nam).FAB_OR_NAM_DNA = DEF_DEVDIR; /* Default fspec */
-  d->FAB_OR_NAM( fab, nam).FAB_OR_NAM_DNS = sizeof( DEF_DEVDIR)- 1;
+  /* Default file spec and length. */
+  d->FAB_OR_NAML( fab, nam).FAB_OR_NAML_DNA = DEF_DEVDIR;
+  d->FAB_OR_NAML( fab, nam).FAB_OR_NAML_DNS = sizeof( DEF_DEVDIR)- 1;
 
   d->nam.NAM_ESA = d->d_qualwildname;   /* qualified wild name */
   d->nam.NAM_ESS = NAM_MAXRSS;          /* max length */

@@ -1,4 +1,4 @@
-#                                               8 January 2007.  SMS.
+#                                               22 January 2007.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -108,13 +108,19 @@ LIB_ZIPUTILS = [.$(DEST)]ZIPUTILS.OLB
 
 ZIP_HELP = ZIP.HLP ZIP_CLI.HLP
 
+# Message file names.
+
+ZIP_MSG_MSG = [.VMS]ZIP_MSG.MSG
+ZIP_MSG_EXE = [.$(DEST)]ZIP_MSG.EXE
+ZIP_MSG_OBJ = [.$(DEST)]ZIP_MSG.OBJ
+
 
 # TARGETS.
 
 # Default target, ALL.  Build All Zip executables, utility executables,
 # and help files.
 
-ALL : $(ZIP) $(ZIP_CLI) $(ZIPUTILS) $(ZIP_HELP)
+ALL : $(ZIP) $(ZIP_CLI) $(ZIPUTILS) $(ZIP_HELP) $(ZIP_MSG_EXE)
 	@ write sys$output "Done."
 
 # CLEAN target.  Delete the [.$(DEST)] directory and everything in it.
@@ -174,6 +180,12 @@ CLEAN_ALL :
  "distribution kit.)  See [.VMS]DESCRIP_MKDEPS.MMS for instructions on"
 	@ write sys$output -
  "generating [.VMS]DESCRIP_DEPS.MMS."
+	@ write sys$output ""
+	@ write sys$output -
+ "It also does not delete the error message source file:"
+	@ write sys$output "   DELETE [.VMS]ZIP_MSG.MSG;*"
+	@ write sys$output -
+ "but it can regenerate it if needed."
 	@ write sys$output ""
 
 # CLEAN_EXE target.  Delete the executables in [.$(DEST)].
@@ -321,6 +333,25 @@ ZIP_CLI.HLP : [.VMS]ZIP_CLI.HELP [.VMS]CVTHELP.TPU
 	rename /noconfirm ZIP_CLI.RNH; [.VMS];
 	purge /noconfirm /nolog /keep = 1 [.VMS]ZIP_CLI.RNH
 	runoff /output = $(MMS$TARGET) [.VMS]ZIP_CLI.RNH
+
+# Message file.
+
+$(ZIP_MSG_EXE) : $(ZIP_MSG_OBJ)
+	link /shareable = $(MMS$TARGET) $(ZIP_MSG_OBJ)
+
+$(ZIP_MSG_OBJ) : $(ZIP_MSG_MSG)
+	message /object = $(MMS$TARGET) /nosymbols $(ZIP_MSG_MSG)
+
+$(ZIP_MSG_MSG) : ZIPERR.H [.VMS]STREAM_LF.FDL [.VMS]VMS_MSG_GEN.C
+	$(CC) /include = [] /object = [.$(DEST)]VMS_MSG_GEN.OBJ -
+	 [.VMS]VMS_MSG_GEN.C 
+	$(LINK) /executable = [.$(DEST)]VMS_MSG_GEN.EXE -
+	 [.$(DEST)]VMS_MSG_GEN.OBJ
+	create /fdl = [.VMS]STREAM_LF.FDL $(MMS$TARGET)
+	define /user_mode sys$output $(MMS$TARGET)
+	run [.$(DEST)]VMS_MSG_GEN.EXE
+	purge $(MMS$TARGET)
+	delete [.$(DEST)]VMS_MSG_GEN.EXE;*, [.$(DEST)]VMS_MSG_GEN.OBJ;*
 
 # Include generated source dependencies.
 

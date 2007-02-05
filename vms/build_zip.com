@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     last revised:  2007-01-21  SMS.
+$!     last revised:  2007-01-22  SMS.
 $!
 $!     Command arguments:
 $!     - suppress help file processing: "NOHELP"
@@ -459,6 +459,23 @@ $! Process the message file, if desired.
 $!
 $     if (MAKE_MSG)
 $     then
+$!
+$! Create the message source file first, if it's not found.
+$!
+$         if (f$search( "[.VMS]ZIP_MSG.MSG") .eqs. "")
+$         then
+$             cc /include = [] /object = [.'dest']VMS_MSG_GEN.OBJ -
+               [.VMS]VMS_MSG_GEN.C
+$             link /executable = [.'dest']VMS_MSG_GEN.EXE -
+               [.'dest']VMS_MSG_GEN.OBJ
+$             create /fdl = [.VMS]STREAM_LF.FDL [.VMS]ZIP_MSG.MSG
+$             define /user_mode sys$output [.VMS]ZIP_MSG.MSG
+$             run [.'dest']VMS_MSG_GEN.EXE
+$             purge [.VMS]ZIP_MSG.MSG
+$             delete [.'dest']VMS_MSG_GEN.EXE;*, -
+               [.'dest']VMS_MSG_GEN.OBJ;*
+$         endif
+$!
 $         message /object = [.'dest']ZIP_MSG.OBJ /nosymbols -
            [.VMS]ZIP_MSG.MSG
 $         link /shareable = [.'dest']ZIP_MSG.EXE [.'dest']ZIP_MSG.OBJ

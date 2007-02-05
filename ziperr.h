@@ -3,7 +3,7 @@
 
   Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -12,28 +12,7 @@
  *  ziperr.h by Mark Adler
  */
 
-
-/*
- * VMS message file ident string.  (The "-xxx" suffix should be
- * incremented when messages are changed for a particular program
- * version.)  Used only when generating the VMS message source file, but
- * that can be done on a non-VMS system.
- */
-#define VMS_MSG_IDENT "V3.0-000"
-
-/* VMS-compatible "severity" values (bits 2:0): */
-#define ZE_S_WARNING 0x00
-#define ZE_S_SUCCESS 0x01
-#define ZE_S_ERROR   0x02
-#define ZE_S_INFO    0x03
-#define ZE_S_SEVERE  0x04
-#define ZE_S_UNUSED  0x07
-
-/* Flags: */
-#define ZE_S_PERR    0x10
-
-
- /* Error return values.  The values 0..4 and 12..18 follow the conventions
+/* Error return values.  The values 0..4 and 12..18 follow the conventions
    of PKZIP.   The values 4..10 are all assigned to "insufficient memory"
    by PKZIP, so the codes 5..10 are used here for other purposes. */
 #define ZE_MISS         -1      /* used by procname(), zipbare() */
@@ -59,6 +38,24 @@
 
 #define ZE_MAXERR       20      /* the highest error number */
 
+/*
+ * VMS message file ident string.  (The "-xxx" suffix should be
+ * incremented when messages are changed for a particular program
+ * version.)  Used only when generating the VMS message source file, but
+ * that can be done on a non-VMS system.
+ */
+#define VMS_MSG_IDENT "V3.0-000"
+
+/* VMS-compatible "severity" values (bits 2:0): */
+#define ZE_SEV_WARNING 0x00
+#define ZE_SEV_SUCCESS 0x01
+#define ZE_SEV_ERROR   0x02
+#define ZE_SEV_INFO    0x03
+#define ZE_SEV_SEVERE  0x04
+#define ZE_SEV_UNUSED  0x07
+
+/* Flags: */
+#define ZE_SEV_PERR    0x10
 
 /* Error messages for the ziperr() function in the zip programs. */
 
@@ -67,33 +64,50 @@ struct
 {
     char *name;
     char *string;
-    int severity;
-} ziperrors[ZE_MAXERR + 1] = {
-/*  0 */ { "OK",      "Normal successful completion", ZE_S_SUCCESS },
-/*  1 */ { "",        "",                             ZE_S_UNUSED },
-/*  2 */ { "EOF",     "Unexpected end of zip file",   ZE_S_SEVERE },
-/*  3 */ { "FORM",    "Zip file structure invalid",   ZE_S_ERROR },
-/*  4 */ { "MEM",     "Out of memory",                ZE_S_SEVERE },
-/*  5 */ { "LOGIC",   "Internal logic error",         ZE_S_SEVERE },
+    char severity;
+} ziperrors[ ZE_MAXERR+ 1] = {
+/*  0 */ { "OK",      "Normal successful completion",
+           ZE_SEV_SUCCESS },
+/*  1 */ { "",        "",
+           ZE_SEV_UNUSED },
+/*  2 */ { "EOF",     "Unexpected end of zip file",
+           ZE_SEV_SEVERE },
+/*  3 */ { "FORM",    "Zip file structure invalid",
+           ZE_SEV_ERROR },
+/*  4 */ { "MEM",     "Out of memory",
+           ZE_SEV_SEVERE },
+/*  5 */ { "LOGIC",   "Internal logic error",
+           ZE_SEV_SEVERE },
 /*  6 */ { "BIG",     "Entry too big to split, read, or write",
-                                                      ZE_S_ERROR },
-/*  7 */ { "NOTE",    "Invalid comment format",       ZE_S_ERROR },
+           ZE_SEV_ERROR },
+/*  7 */ { "NOTE",    "Invalid comment format",
+           ZE_SEV_ERROR },
 /*  8 */ { "TEST",    "Zip file invalid, could not spawn unzip, or wrong unzip",
-                                                      ZE_S_SEVERE },
-/*  9 */ { "ABORT",   "Interrupted",                  ZE_S_ERROR },
-/* 10 */ { "TEMP",    "Temporary file failure",       ZE_S_SEVERE | ZE_S_PERR },
-/* 11 */ { "READ",    "Input file read failure",      ZE_S_SEVERE | ZE_S_PERR },
-/* 12 */ { "NONE",    "Nothing to do!",               ZE_S_WARNING },
-/* 13 */ { "NAME",    "Missing or empty zip file",    ZE_S_ERROR },
-/* 14 */ { "WRITE",   "Output file write failure",    ZE_S_SEVERE | ZE_S_PERR },
-/* 15 */ { "CREAT",   "Could not create output file", ZE_S_SEVERE | ZE_S_PERR },
-/* 16 */ { "PARMS",   "Invalid command arguments",    ZE_S_ERROR },
-/* 17 */ { "",        "",                             ZE_S_UNUSED },
+           ZE_SEV_SEVERE },
+/*  9 */ { "ABORT",   "Interrupted",
+           ZE_SEV_ERROR },
+/* 10 */ { "TEMP",    "Temporary file failure",
+           ZE_SEV_SEVERE | ZE_SEV_PERR },
+/* 11 */ { "READ",    "Input file read failure",
+           ZE_SEV_SEVERE | ZE_SEV_PERR },
+/* 12 */ { "NONE",    "Nothing to do!",
+           ZE_SEV_WARNING },
+/* 13 */ { "NAME",    "Missing or empty zip file",
+           ZE_SEV_ERROR },
+/* 14 */ { "WRITE",   "Output file write failure",
+           ZE_SEV_SEVERE | ZE_SEV_PERR },
+/* 15 */ { "CREAT",   "Could not create output file",
+           ZE_SEV_SEVERE | ZE_SEV_PERR },
+/* 16 */ { "PARMS",   "Invalid command arguments",
+           ZE_SEV_ERROR },
+/* 17 */ { "", "",
+           ZE_SEV_UNUSED },
 /* 18 */ { "OPEN",    "File not found or no read permission",
-                                                      ZE_S_ERROR | ZE_S_PERR },
-/* 19 */ { "COMPERR", "Not supported",                ZE_S_SEVERE },
+           ZE_SEV_ERROR | ZE_SEV_PERR },
+/* 19 */ { "COMPERR", "Not supported",
+           ZE_SEV_SEVERE },
 /* 20 */ { "ZIP64",   "Attempt to read unsupported Zip64 archive",
-                                                      ZE_S_SEVERE }
+           ZE_SEV_SEVERE }
 #  ifdef AZTEC_C
           ,     /* extremely lame compiler bug workaround */
 #  endif
@@ -104,12 +118,13 @@ extern struct
 {
     char *name;
     char *string;
-    int severity;
-} ziperrors[ZE_MAXERR + 1];
+    char severity;
+} ziperrors[];
 #endif /* ?GLOBALS */
 
 /* Macro to determine whether to call perror() or not. */
-#define PERR(e) (ziperrors[e].severity & ZE_S_PERR)
+#define PERR(e) (ziperrors[ e].severity & ZE_SEV_PERR)
 
 /* Macro for easy access to the message string. */
-#define ZIPERRORS(e) ziperrors[e].string
+#define ZIPERRORS( e) ziperrors[ e].string
+

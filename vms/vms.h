@@ -77,18 +77,14 @@
 
 #  define NAM_STRUCT NAML
 
-#  define FAB_OR_NAM( fab, nam) nam
-#  define FAB_OR_NAM_DNA naml$l_long_defname
-#  define FAB_OR_NAM_DNS naml$l_long_defname_size
-#  define FAB_OR_NAM_FNA naml$l_long_filename
-#  define FAB_OR_NAM_FNS naml$l_long_filename_size
+#  define FAB_OR_NAML( fab, nam) nam
+#  define FAB_OR_NAML_DNA naml$l_long_defname
+#  define FAB_OR_NAML_DNS naml$l_long_defname_size
+#  define FAB_OR_NAML_FNA naml$l_long_filename
+#  define FAB_OR_NAML_FNS naml$l_long_filename_size
 
 #  define CC_RMS_NAM cc$rms_naml
 #  define FAB_NAM fab$l_naml
-#  define NAME_DNA naml$l_long_defname
-#  define NAME_DNS naml$l_long_defname_size
-#  define NAME_FNA naml$l_long_filename
-#  define NAME_FNS naml$l_long_filename_size
 #  define NAM_DID naml$w_did
 #  define NAM_DVI naml$t_dvi
 #  define NAM_ESA naml$l_long_expand
@@ -117,18 +113,14 @@
 
 #  define NAM_STRUCT NAM
 
-#  define FAB_OR_NAM( fab, nam) fab
-#  define FAB_OR_NAM_DNA fab$l_dna
-#  define FAB_OR_NAM_DNS fab$b_dns
-#  define FAB_OR_NAM_FNA fab$l_fna
-#  define FAB_OR_NAM_FNS fab$b_fns
+#  define FAB_OR_NAML( fab, nam) fab
+#  define FAB_OR_NAML_DNA fab$l_dna
+#  define FAB_OR_NAML_DNS fab$b_dns
+#  define FAB_OR_NAML_FNA fab$l_fna
+#  define FAB_OR_NAML_FNS fab$b_fns
 
 #  define CC_RMS_NAM cc$rms_nam
 #  define FAB_NAM fab$l_nam
-#  define NAME_DNA fab$l_dna
-#  define NAME_DNS fab$b_dns
-#  define NAME_FNA fab$l_fna
-#  define NAME_FNS fab$b_fns
 #  define NAM_DID nam$w_did
 #  define NAM_DVI nam$t_dvi
 #  define NAM_ESA nam$l_esa

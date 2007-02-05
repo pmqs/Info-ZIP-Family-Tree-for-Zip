@@ -22,6 +22,7 @@
 #include "zip.h"
 #define DEFCPYRT        /* main module: enable copyright string defines! */
 #include "revision.h"
+#include "crc32.h"
 #include "crypt.h"
 #include "ttyio.h"
 #include <signal.h>
@@ -77,15 +78,15 @@ int set_filetype(out_path)
  * A split has a tempfile name until it is closed, then
  * here rename it as out_path the final name for the split.
  */
-int rename_split(tempname, out_path)
-  char *tempname;
+int rename_split(temp_name, out_path)
+  char *temp_name;
   char *out_path;
 {
   int r;
   /* Replace old zip file with new zip file, leaving only the new one */
-  if ((r = replace(out_path, tempname)) != ZE_OK)
+  if ((r = replace(out_path, temp_name)) != ZE_OK)
   {
-    zipwarn("new zip file left as: ", tempname);
+    zipwarn("new zip file left as: ", temp_name);
     free((zvoid *)tempzip);
     tempzip = NULL;
     ZIPERR(r, "was replacing split file");
@@ -94,6 +95,29 @@ int rename_split(tempname, out_path)
     setfileattr(out_path, zip_attributes);
   }
   return ZE_OK;
+}
+
+void zipmessage_nl(a, nl)
+ZCONST char *a;     /* message string to output */
+int nl;             /* 1 = add nl to end */
+/* Print a message to mesg without new line and return. */
+{
+  mesg_line_started = 1;
+  if (noisy) {
+    fprintf(mesg, "%s", a);
+    if (nl) {
+      fprintf(mesg, "\n");
+      mesg_line_started = 0;
+    }
+  }
+  if (logfile) {
+    fprintf(logfile, "%s", a);
+    if (nl) {
+      fprintf(logfile, "\n");
+      mesg_line_started = 0;
+    }
+  }
+  fflush(mesg);
 }
 
 void zipmessage(a, b)
@@ -118,7 +142,7 @@ void ziperr(code, msg)
     ZCONST char *msg;       /* message about how it happened */
 {
     if (PERR(code)) perror("zipcloak error");
-    fprintf(mesg, "zipcloak error: %s (%s)\n", ziperrors[code-1], msg);
+    fprintf(mesg, "zipcloak error: %s (%s)\n", ZIPERRORS(code), msg);
     if (tempzf != NULL) fclose(tempzf);
     if (tempzip != NULL) {
         destroy(tempzip);
@@ -260,7 +284,7 @@ local void version_info()
 }
 
 /* options for zipcloak - 3/5/2004 EG */
-struct option_struct options[] = {
+struct option_struct far options[] = {
   /* short longopt        value_type        negatable        ID    name */
 #ifdef VM_CMS
     {"b",  "temp-mode",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'b',  "temp file mode"},
@@ -466,7 +490,7 @@ int main(argc, argv)
           } else if (zipfile != NULL) {
             ziperr(ZE_PARMS, "can only specify one zip file");
           }
-          
+
           if ((zipfile = ziptyp(value)) == NULL) {
             ziperr(ZE_MEM, "was processing arguments");
           }
@@ -508,9 +532,28 @@ int main(argc, argv)
     attr = getfileattr(zipfile);
 
     /* Open output zip file for writing */
+#if defined(UNIX) && defined(NO_MKSTEMP)
+    {
+      int yd;
+
+      /* use mkstemp to avoid race condition and compiler warning */
+      strcpy(errbuf, "ziXXXXXX");
+      if ((yd = mkstemp(errbuf)) == EOF) {
+        ZIPERR(ZE_TEMP, errbuf);
+      }
+      if ((tempzip = malloc(strlen(errbuf) + 1)) == NULL) {
+        ZIPERR(ZE_MEM, "allocating temp filename");
+      }
+      strcpy(tempzip, errbuf);
+      if ((y = tempzf = outzip = fdopen(yd, FOPW_TMP)) == NULL) {
+        ZIPERR(ZE_TEMP, tempzip);
+      }
+    }
+#else
     if ((y = tempzf = outzip = fopen(tempzip = tempname(zipfile), FOPW)) == NULL) {
         ziperr(ZE_TEMP, tempzip);
     }
+#endif
 
     /* Get password */
     if (getp("Enter password: ", passwd, IZ_PWLEN+1) == NULL)
@@ -532,11 +575,7 @@ int main(argc, argv)
     /* Open input zip file again, copy preamble if any */
     if ((in_file = fopen(zipfile, FOPR)) == NULL) ziperr(ZE_NAME, zipfile);
 
-#ifdef SPLIT_SUPPORT
     if (zipbeg && (res = bfcopy(zipbeg)) != ZE_OK)
-#else
-    if (zipbeg && (res = fcopy(in_file, y, zipbeg)) != ZE_OK)
-#endif
     {
         ziperr(res, res == ZE_TEMP ? tempzip : zipfile);
     }
@@ -547,11 +586,7 @@ int main(argc, argv)
         if (decrypt && (z->flg & 1)) {
             printf("decrypting: %s", z->zname);
             fflush(stdout);
-#ifdef SPLIT_SUPPORT
             if ((res = zipbare(z, passwd)) != ZE_OK)
-#else
-            if ((res = zipbare(z, in_file, outzip, passwd)) != ZE_OK)
-#endif
             {
                 if (res != ZE_MISS) ziperr(res, "was decrypting an entry");
                 printf(" (wrong password--just copying)");
@@ -562,22 +597,14 @@ int main(argc, argv)
         } else if ((!decrypt) && !(z->flg & 1)) {
             printf("encrypting: %s\n", z->zname);
             fflush(stdout);
-#ifdef SPLIT_SUPPORT
             if ((res = zipcloak(z, passwd)) != ZE_OK)
-#else
-            if ((res = zipcloak(z, in_file, outzip, passwd)) != ZE_OK)
-#endif
             {
                 ziperr(res, "was encrypting an entry");
             }
         } else {
             printf("   copying: %s\n", z->zname);
             fflush(stdout);
-#ifdef SPLIT_SUPPORT
             if ((res = zipcopy(z)) != ZE_OK)
-#else
-            if ((res = zipcopy(z, in_file)) != ZE_OK)
-#endif
             {
                 ziperr(res, "was copying an entry");
             }
@@ -630,7 +657,7 @@ int main(argc, argv)
 
 /* below is only used if crypt is not enabled */
 
-struct option_struct options[] = {
+struct option_struct far options[] = {
   /* short longopt        value_type        negatable        ID    name */
     {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     /* the end of the list */

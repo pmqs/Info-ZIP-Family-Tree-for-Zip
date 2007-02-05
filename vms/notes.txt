@@ -4,7 +4,7 @@
    This document describes some VMS-specific behavior and implementation
 details of the Info-ZIP Zip and uNZip programs.
 
-   Last modified: 2007-01-13.
+   Last modified: 2007-02-05.
 
 
    Building with the LIST option using MMK or MMS
@@ -29,8 +29,8 @@ options like "-V" or "-Z".  This works on non-VAX systems with a
 sufficiently recent C RTL, and SET PROCESS /PARSE_STYLE = EXTENDED.
 (Sufficiently recent here means __CRTL_VER >= 70301000, which includes
 VMS V7.3-1 with a C Run Time Library ECO, or V7.3-2 or newer.)   This
-code uses the decc$feature_set_value() function to enable the DEC
-C$ARGV_PARSE_STYLE feature.  There is a small range of C RTL versions
+code uses the decc$feature_set_value() function to enable the
+DECC$ARGV_PARSE_STYLE feature.  There is a small range of C RTL versions
 where this function is unavailable, but where manually setting the
 logical name DECC$ARGV_PARSE_STYLE to "ENABLE" will work.   HELP CRTL
 leads to some additional information on these features.
@@ -44,7 +44,7 @@ UnZip file I/O code now includes open callback functions which are used
 to try to set some RMS parameters to non-default values, with the
 intention of improving file I/O speed.  This affects reading an archive
 file in UnZip and writing one in Zip.  (Reading and writing the
-individual data files is handled in more exotic ways, making these
+individual data files are handled in more exotic ways, making these
 parameters less important for them.)
 
    Currently, the built-in default parameters enable read-ahead and
@@ -143,20 +143,20 @@ from their internal OS-independent status values.  In previous program
 versions, this was done by converting the internal success code (0) into
 %x00000001 (SS$_NORMAL), and converting the other internal warning and
 error codes using an artificial control/facility code, 0x7FFF (which
-includes some reserved bits), and a severity value which is determined
+includes some reserved bits), and a severity value which was determined
 according to rules specified in the VMS-specific exit function. 
 Curiously, the internal status codes were left-shifted by 4 bits instead
-of 3, so all the VMS message codes (bits 13:3) were even.
+of 3, so all the resulting VMS message codes (bits 13:3) were even.
 
    UnZip and Zip now have facility names and codes assigned by HP
 (UnZip: IZ_UNZIP, 1954; Zip: IZ_ZIP, 1955).  Now, by default, the
 programs exit with standard 32-bit VMS status values which differ from
-the old ones in several ways: The official facility code is used, the
-facility-specific bit is set, and the internal status codes are
-left-shifted by 3 bits.  The builders also create non-executable message
-files (UNZIP_MSG,EXE and ZIP_MSG,EXE) so that, after a suitable SET
-MESSAGE command, the program messages will be available from DCL.  For
-example:
+the old ones in several ways: The official facility code is used, and
+the facility-specific bit is set.  (For compatibility with older
+versions, the internal status codes are still left-shifted by 4 bits.)  
+The builders also create non-executable message files (UNZIP_MSG.EXE and
+ZIP_MSG.EXE) so that, after a suitable SET MESSAGE command, the program
+messages will be available from DCL.  For example:
 
       $ SET MESSAGE dev:[dir]ZIP_MSG.EXE
       $ ZIP FRED.ZIP no_such_file
@@ -169,19 +169,23 @@ example:
       %IZ_ZIP-W-NONE, Nothing to do
 
 The message files may be copied into SYS$MESSAGE to make them generally
-available.  Each different destination directory will get its own
-ZIP_MSG.EXE ([.ALPHA], [.ALPHAL], [.VAX], and so on), but all of the
-same-architecture files are equivalent to each other.  That is, on an
-Alpha system, any of the [.ALPHA*]ZIP_MSG.EXE files could be used; on an
-IA64 system, any of the [.IA64*]ZIP_MSG.EXE files could be used; and on
-a VAX system, any of the [.VAX*]ZIP_MSG.EXE files could be used.
+available, although this could cause some confusion if multiple versions
+of the programs are used on the system, and their error message source
+files differ.  Each different destination directory will get its own
+UNZIP_MSG.EXE or ZIP_MSG.EXE ([.ALPHA], [.ALPHAL], [.VAX], and so on),
+but all of the same-architecture files are equivalent to each other. 
+That is, on an Alpha system, any of the [.ALPHA*]ZIP_MSG.EXE files could
+be used; on an IA64 system, any of the [.IA64*]ZIP_MSG.EXE files could
+be used; and on a VAX system, any of the [.VAX*]ZIP_MSG.EXE files could
+be used.  (Similar for UNZIP_MSG.EXE, of course.)
 
    If desired, the programs may be built to use the old exit status values
 by defining a C macro with the old facility value:
-"CTL_FAC_IZ_ZIP=0x7FFF".  (See comments in the builder regarding
-LOCAL_UNZIP or LOCAL_ZIP, as appropriate.)  This will maintain
-compatibility with older program versions, but will make the programs
-incompatible with the new error message files.
+"CTL_FAC_IZ_UNZIP=0x7FFF" (UnZip) or "CTL_FAC_IZ_ZIP=0x7FFF" (Zip). 
+(See comments in the builder regarding LOCAL_UNZIP or LOCAL_ZIP, as
+appropriate.)  This will maintain compatibility with older program
+versions, but will make the programs incompatible with the new error
+message files.
 
 
    GNU C

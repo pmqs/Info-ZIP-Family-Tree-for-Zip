@@ -125,6 +125,17 @@
      determine the next available HLP$LIBRARY logical name, and could be
      adapted to define a HLP$LIBRARY logical name for a Zip help library.
 
+     The builders also create VMS message files, ZIP_MSG.EXE, in the
+     destination directory with the program executables.  A user may
+     gain DCL access to the Zip error messages using a command like:
+
+           $ SET MESSAGE device:[directory]ZIP_MSG.EXE
+
+     For system-wide access, the system manager may move or copy this
+     file to SYS$MESSAGE, although this could cause some confusion if
+     multiple versions of Zip are used on the system, and their error
+     message source files differ.
+
      Some further information may be found in the files
      [.VMS]00README.TXT and [.VMS]00BINARY.VMS, though much of what's
      there is now obsolete.
