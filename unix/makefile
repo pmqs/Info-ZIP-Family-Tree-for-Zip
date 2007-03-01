@@ -4,11 +4,13 @@
 all:
 	@echo ''
 	@echo 'Make what?  You must say what system to make Zip for--e.g.'
-	@echo '"make generic".  Choices: generic, generic_gcc,'
-	@echo 'att6300nodir, coherent, cray_v3, cygwin, lynx, minix,'
-	@echo 'os390, qnx, qnxnto, solaris, solaris_gcc'
+	@echo '"make generic".'
+	@echo 'Choices: generic, generic_gcc, att6300nodir,'
+	@echo 'coherent, cray_v3, cygwin, lynx, minix, os390,'
+	@echo 'qnx, qnxnto, solaris, solaris_gcc'
 	@echo 'Try first "make -f unix/Makefile generic" as'
 	@echo 'it should autodetect and set the proper flags.'
+	@echo 'To make the manuals use "make zipsman"'
 	@echo 'See the files INSTALL and zip.txt for more information.'
 	@echo ''
 
@@ -58,12 +60,14 @@ LFLAGS2 = -s
 
 # object file lists
 OBJZ = zip.o zipfile.o zipup.o fileio.o util.o globals.o crypt.o ttyio.o \
-       unix.o crc32.o crctab.o
+       unix.o crc32.o zbz2err.o
 OBJI = deflate.o trees.o
 OBJA =
-OBJU = zipfile_.o fileio_.o util_.o globals.o unix_.o
+OCRCU8 =
+OCRCTB = crc32_.o
+OBJU = zipfile_.o fileio_.o util_.o globals.o unix_.o $(OCRCU8)
 OBJN = zipnote.o  $(OBJU)
-OBJC = zipcloak.o $(OBJU) crctab.o crypt_.o ttyio.o
+OBJC = zipcloak.o $(OBJU) $(OCRTB) crypt_.o ttyio.o
 OBJS = zipsplit.o $(OBJU)
 
 ZIP_H = zip.h ziperr.h tailor.h unix/osdep.h
@@ -86,6 +90,8 @@ $(OBJI): $(ZIP_H)
 $(OBJN): $(ZIP_H)
 $(OBJS): $(ZIP_H)
 $(OBJC): $(ZIP_H)
+zip.o zipup.o zipfile.o fileio.o crc32.o crypt.o: crc32.h
+zipcloak.o zipfile_.o fileio_.o crc32_.o crypt_.o: crc32.h
 zip.o zipup.o crypt.o ttyio.o zipcloak.o crypt_.o: crypt.h
 zip.o zipup.o zipnote.o zipcloak.o zipsplit.o: revision.h
 zip.o crypt.o ttyio.o zipcloak.o crypt_.o: ttyio.h

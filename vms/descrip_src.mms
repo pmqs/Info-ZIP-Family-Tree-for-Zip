@@ -1,4 +1,4 @@
-#                                               8 January 2007.  SMS.
+#                                               23 February 2007.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Source Description File.
 #
@@ -162,10 +162,12 @@ NON_VAX_CMPL = 1
 .IFDEF IZ_BZIP2                                 # IZ_BZIP2
 CDEFS_BZ = , BZIP2_SUPPORT
 CFLAGS_INCL = /INCLUDE = ([], [.VMS])
-LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2.OLB /library,
+INCL_BZIP2_M = , ZBZ2ERR
+LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2_NS.OLB /library,
 .FIRST
 	@ define incl_bzip2 $(IZ_BZIP2)
-	@ @[.VMS]FIND_BZIP2_LIB.COM $(IZ_BZIP2) $(SEEK_BZ) LIBBZ2.OLB lib_bzip2
+	@ @[.VMS]FIND_BZIP2_LIB.COM $(IZ_BZIP2) $(SEEK_BZ) -
+	   LIBBZ2_NS.OLB lib_bzip2
 	@ write sys$output ""
 	@ if (f$trnlnm( "lib_bzip2") .nes. "") then -
 	   write sys$output "   BZIP2 dir: ''f$trnlnm( "lib_bzip2")'"
@@ -181,6 +183,7 @@ LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2.OLB /library,
 .ELSE                                           # IZ_BZIP2
 CDEFS_BZ =
 CFLAGS_INCL = /include = []
+INCL_BZIP2_M = , ZBZ2ERR
 LIB_BZIP2_OPTS =
 .FIRST
 	@ write sys$output "   Destination: [.$(DEST)]"
@@ -302,6 +305,7 @@ MODS_OBJS_LIB_ZIP_N = \
  TREES=[.$(DEST)]TREES.OBJ \
  TTYIO=[.$(DEST)]TTYIO.OBJ \
  UTIL=[.$(DEST)]UTIL.OBJ \
+ ZBZ2ERR=[.$(DEST)]ZBZ2ERR.OBJ \
  ZIPFILE=[.$(DEST)]ZIPFILE.OBJ \
  ZIPUP=[.$(DEST)]ZIPUP.OBJ
 

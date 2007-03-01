@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     last revised:  2007-01-22  SMS.
+$!     last revised:  2007-02-23  SMS.
 $!
 $!     Command arguments:
 $!     - suppress help file processing: "NOHELP"
@@ -31,8 +31,8 @@ $!     - force installation of UNIX interface version of zip
 $!       (override LOCAL_ZIP environment): "NOVMSCLI" or "NOCLI"
 $!     - select BZIP2 support: "IZ_BZIP2=dev:[dir]", where "dev:[dir]"
 $!       (or a suitable logical name) tells where to find "bzlib.h".
-$!       The BZIP2 object library (LIBBZ2.OLB) is expected to be in a
-$!       "[.dest]" directory under that one ("dev:[dir.ALPHAL]", for
+$!       The BZIP2 object library (LIBBZ2_NS.OLB) is expected to be in
+$!       a "[.dest]" directory under that one ("dev:[dir.ALPHAL]", for
 $!       example), or in that directory itself.
 $!
 $!     To specify additional options, define the global symbol
@@ -345,19 +345,21 @@ $! If BZIP2 support was selected, find the object library.
 $! Complain if things fail.
 $!
 $ cc_incl = "[]"
+$ incl_bzip2_m = ""
 $ lib_bzip2_opts = ""
 $ if (IZ_BZIP2 .nes. "")
 $ then
 $     define incl_bzip2 'IZ_BZIP2'
 $     defs = "''defs', BZIP2_SUPPORT"
-$     @ [.VMS]FIND_BZIP2_LIB.COM 'IZ_BZIP2' 'seek_bz' LIBBZ2.OLB lib_bzip2
+$     @ [.VMS]FIND_BZIP2_LIB.COM 'IZ_BZIP2' 'seek_bz' LIBBZ2_NS.OLB lib_bzip2
 $     if (f$trnlnm( "lib_bzip2") .eqs. "")
 $     then
 $         say "Can't find BZIP2 object library.  Can't link."
 $         goto error
 $     else
 $         say "BZIP2 dir = ''f$trnlnm( "lib_bzip2")'"
-$         lib_bzip2_opts = "LIB_BZIP2:LIBBZ2.OLB /library, "
+$         incl_bzip2_m = ", ZBZ2ERR"
+$         lib_bzip2_opts = "LIB_BZIP2:LIBBZ2_NS.OLB /library, "
 $         cc_incl = cc_incl+ ", [.VMS]"
 $     endif
 $ endif
@@ -485,7 +487,6 @@ $! Compile the sources.
 $!
 $     cc 'DEF_UNX' /object = [.'dest']ZIP.OBJ ZIP.C
 $     cc 'DEF_UNX' /object = [.'dest']CRC32.OBJ CRC32.C
-$     cc 'DEF_UNX' /object = [.'dest']CRCTAB.OBJ CRCTAB.C
 $     cc 'DEF_UNX' /object = [.'dest']CRYPT.OBJ CRYPT.C
 $     cc 'DEF_UNX' /object = [.'dest']DEFLATE.OBJ DEFLATE.C
 $     cc 'DEF_UNX' /object = [.'dest']FILEIO.OBJ FILEIO.C
@@ -493,6 +494,7 @@ $     cc 'DEF_UNX' /object = [.'dest']GLOBALS.OBJ GLOBALS.C
 $     cc 'DEF_UNX' /object = [.'dest']TREES.OBJ TREES.C
 $     cc 'DEF_UNX' /object = [.'dest']TTYIO.OBJ TTYIO.C
 $     cc 'DEF_UNX' /object = [.'dest']UTIL.OBJ UTIL.C
+$     cc 'DEF_UNX' /object = [.'dest']ZBZ2ERR.OBJ ZBZ2ERR.C
 $     cc 'DEF_UNX' /object = [.'dest']ZIPFILE.OBJ ZIPFILE.C
 $     cc 'DEF_UNX' /object = [.'dest']ZIPUP.OBJ ZIPUP.C
 $     cc /include = [] 'DEF_UNX' /object = [.'dest']VMS.OBJ -
@@ -516,6 +518,7 @@ $     libr /object /replace [.'dest']ZIP.OLB -
        [.'dest']TREES.OBJ, -
        [.'dest']TTYIO.OBJ, -
        [.'dest']UTIL.OBJ, -
+       [.'dest']ZBZ2ERR.OBJ, -
        [.'dest']ZIPFILE.OBJ, -
        [.'dest']ZIPUP.OBJ, -
        [.'dest']VMS.OBJ, -
@@ -528,7 +531,7 @@ $! Link the executable.
 $!
 $ link /executable = [.'dest']'ZIPX_UNX'.EXE -
    [.'dest']ZIP.OBJ, -
-   [.'dest']ZIP.OLB /include = (GLOBALS) /library, -
+   [.'dest']ZIP.OLB /include = (GLOBALS 'incl_bzip2_m') /library, -
    'lib_bzip2_opts' -
    'opts' -
    SYS$DISK:[.VMS]ZIP.OPT /options
@@ -576,7 +579,7 @@ $!
 $ link /executable = [.'dest']'ZIPX_CLI'.EXE -
    [.'dest']ZIPCLI.OBJ, -
    [.'dest']ZIPCLI.OLB /library, -
-   [.'dest']ZIP.OLB /include = (GLOBALS) /library, -
+   [.'dest']ZIP.OLB /include = (GLOBALS 'incl_bzip2_m') /library, -
    'lib_bzip2_opts' -
    'opts' -
    SYS$DISK:[.VMS]ZIP.OPT /options
@@ -624,21 +627,18 @@ $!
 $ link /executable = [.'dest']ZIPCLOAK.EXE -
    [.'dest']ZIPCLOAK.OBJ, -
    [.'dest']ZIPUTILS.OLB /include = (GLOBALS) /library, -
-   'lib_bzip2_opts' -
    'opts' -
    SYS$DISK:[.VMS]ZIP.OPT /options
 $!
 $ link /executable = [.'dest']ZIPNOTE.EXE -
    [.'dest']ZIPNOTE.OBJ, -
    [.'dest']ZIPUTILS.OLB /include = (GLOBALS) /library, -
-   'lib_bzip2_opts' -
    'opts' -
    SYS$DISK:[.VMS]ZIP.OPT /OPTIONS
 $!
 $ LINK /EXECUTABLE = [.'DEST']ZIPSPLIT.EXE -
    [.'DEST']ZIPSPLIT.OBJ, -
    [.'DEST']ZIPUTILS.OLB /INCLUDE = (globals) /LIBRARY, -
-   'LIB_BZIP2_OPTS' -
    'OPTS' -
    sys$disk:[.VMS]ZIP.OPT /options
 $!

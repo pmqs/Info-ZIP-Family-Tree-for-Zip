@@ -41,10 +41,8 @@
 #include <strings.h>    /* str[n]casecmp() */
 #endif /* def HAVE_STRCASECMP */
 
-#include <descrip.h>
 #include <dvidef.h>
 #include <lib$routines.h>
-#include <rms.h>
 #include <ssdef.h>
 #include <stsdef.h>
 #include <starlet.h>

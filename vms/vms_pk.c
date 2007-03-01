@@ -221,6 +221,17 @@ char *file;
         return NULL;
     }
 
+#ifdef NAML$M_OPEN_SPECIAL
+    /* 2007-02-28 SMS.
+     * If processing symlinks as symlinks ("-y"), then $SEARCH for the
+     * link, not the target file.
+     */
+    if (linkput)
+    {
+        Nam.naml$v_open_special = 1;
+    }
+#endif /* def NAML$M_OPEN_SPECIAL */
+
     /* Search for the first file.  If none, signal error. */
     status = sys$search(&Fab);
 

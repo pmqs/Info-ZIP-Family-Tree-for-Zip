@@ -197,6 +197,23 @@ int set_extra_field(z, z_utim)
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = z->name;
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen( z->name);
 
+#ifdef NAML$M_OPEN_SPECIAL
+    /* 2007-02-28 SMS.
+     * If processing symlinks as symlinks ("-y"), then $OPEN the
+     * link, not the target file.
+     *
+     * Note that for a symlink, this sys$open() fails with status
+     * %x0001860c, %RMS-F-ORG, invalid file organization value.  This
+     * failure is generally ignored, with no extra fields generated.
+     * UnZip may be able to salvage the data with acceptable results,
+     * but this is not proper operation.
+     */
+    if (linkput)
+    {
+        nam.naml$v_open_special = 1;
+    }
+#endif /* def NAML$M_OPEN_SPECIAL */
+
     status = sys$open(&fab);
     if (ERR(status))
     {
@@ -539,6 +556,17 @@ struct RAB *vms_open(name)
 
     fab->fab$b_fac = FAB$M_GET | FAB$M_BIO;
     fab->fab$l_xab = (char*)fhc;
+
+#ifdef NAML$M_OPEN_SPECIAL
+    /* 2007-02-28 SMS.
+     * If processing symlinks as symlinks ("-y"), then $OPEN the
+     * link, not the target file.
+     */
+    if (linkput)
+    {
+        nam->naml$v_open_special = 1;
+    }
+#endif /* def NAML$M_OPEN_SPECIAL */
 
     if (ERR(sys$open(fab)))
     {

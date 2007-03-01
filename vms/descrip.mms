@@ -1,4 +1,4 @@
-#                                               22 January 2007.  SMS.
+#                                               23 February 2007.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -24,8 +24,8 @@
 #    IZ_BZIP2=dev:[dir]  Add optional BZIP2 support.  The valus of the
 #                        MMS macro IZ_BZIP2 ("dev:[dir]", or a suitable
 #                   logical name) tells where to find "bzlib.h".  The
-#                   BZIP2 object library (LIBBZ2.OLB) is expected to be
-#                   in a "[.dest]" directory under that one
+#                   BZIP2 object library (LIBBZ2_NS.OLB) is expected to
+#                   be in a "[.dest]" directory under that one
 #                   ("dev:[dir.ALPHAL]", for example), or in that
 #                   directory itself.
 #
@@ -276,7 +276,7 @@ $(OPT_FILE) :
 
 $(ZIP) : [.$(DEST)]ZIP.OBJ $(LIB_ZIP) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
-	 $(LIB_ZIP) /include = (GLOBALS) /library,  -
+	 $(LIB_ZIP) /include = (GLOBALS $(INCL_BZIP2_M)) /library,  -
 	 $(LIB_BZIP2_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
@@ -287,7 +287,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
              $(LIB_ZIPCLI) $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPCLI) /library, -
-	 $(LIB_ZIP) /include = (GLOBALS) /library, -
+	 $(LIB_ZIP) /include = (GLOBALS $(INCL_BZIP2_M)) /library, -
 	 $(LIB_BZIP2_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
@@ -295,29 +295,26 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
 # Utility executables.
 
 [.$(DEST)]ZIPCLOAK.EXE : [.$(DEST)]ZIPCLOAK.OBJ \
-                         $(LIB_ZIPUTILS) $(LIB_ZIP) \
+                         $(LIB_ZIPUTILS) \
                          $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
-	 $(LIB_BZIP2_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
 [.$(DEST)]ZIPNOTE.EXE : [.$(DEST)]ZIPNOTE.OBJ \
-                        $(LIB_ZIPUTILS) $(LIB_ZIP) \
+                        $(LIB_ZIPUTILS) \
                         $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
-	 $(LIB_BZIP2_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
 [.$(DEST)]ZIPSPLIT.EXE : [.$(DEST)]ZIPSPLIT.OBJ \
-                         $(LIB_ZIPUTILS) $(LIB_ZIP) \
+                         $(LIB_ZIPUTILS) \
                          $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
-	 $(LIB_BZIP2_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
@@ -346,6 +343,7 @@ $(ZIP_MSG_MSG) : ZIPERR.H [.VMS]STREAM_LF.FDL [.VMS]VMS_MSG_GEN.C
 	$(CC) /include = [] /object = [.$(DEST)]VMS_MSG_GEN.OBJ -
 	 [.VMS]VMS_MSG_GEN.C 
 	$(LINK) /executable = [.$(DEST)]VMS_MSG_GEN.EXE -
+	 $(LFLAGS_ARCH) -
 	 [.$(DEST)]VMS_MSG_GEN.OBJ
 	create /fdl = [.VMS]STREAM_LF.FDL $(MMS$TARGET)
 	define /user_mode sys$output $(MMS$TARGET)

@@ -1,7 +1,7 @@
 /*
   Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -28,9 +28,8 @@
 #endif /* VAX C */
 
 #define USE_CASE_MAP
-#define PROCNAME(n) \
- (((action == ADD) || (action == UPDATE) || (action == FRESHEN)) ? \
- wild(n) : procname(n, filter_match_case))
+#define PROCNAME(n) (action == ADD || action == UPDATE ? wild(n) : \
+                     procname(n, 1))
 
 /* 2004-11-09 SMS.
    Large file support.
@@ -126,7 +125,7 @@ typedef struct stat z_stat;
  */
 #if defined(__VAX) || __CRTL_VER < 70301000
 #  define NO_UNISTD_H
-#  define NO_SYMLINKS
+#  define NO_SYMLINK
 #endif /* defined(__VAX) || __CRTL_VER < 70301000 */
 
 /* 2007-02-22 SMS.  Use delete() when unlink() is not available. */
