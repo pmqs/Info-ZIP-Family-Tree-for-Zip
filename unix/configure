@@ -4,7 +4,7 @@
 
 # configure: Guess values for system-dependent variables
 # Output the flag definitions to the file "flags".
-# Parameters: $1 = $CC, $2 = $CFLAGS
+# Parameters: $1 = $CC, $2 = $CFLAGS, $3 = $IZ_BZIP2
 # To construct zip automatically using this file, type
 # "make -f unix/Makefile generic".
 # If this fails, then type "make list" to get a list of special targets.
@@ -13,23 +13,13 @@ trap "rm -f conftest* core a.out; exit 1" 1 2 3 15
 
 CC=${1-cc}
 CFLAGS=${2-"-I. -DUNIX"}
+IZ_BZIP2=${3-}
 LFLAGS1=''
 LFLAGS2=''
 LN="ln -s"
 
-BZIP2_CC=''
-BZIP2_LD=''
-if test -n "${IZ_BZIP2}"; then
-  echo "Check for bzip2 files in ${IZ_BZIP2}"
-  if test -f "${IZ_BZIP2}/bzlib.h" -a -f "${IZ_BZIP2}/libbz2.a"; then
-    CFLAGS="${CFLAGS} -I${IZ_BZIP2} -DUSE_BZIP2"
-    LFLAGS2="${LFLAGS2} -L${IZ_BZIP2} -lbz2"
-    echo '  yes'
-  else
-    echo '  bzlib.h and/or libbz2.a not found.'
-  fi
-fi
-
+CFLAGS_BZ=''
+CFLAGS_OPT=''
 echo "Check C compiler type (optimization option)"
 cat > conftest.c << _EOF_
 int main()
@@ -43,7 +33,7 @@ _EOF_
 $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
 if test $? -eq 0; then
   echo '  Sun C (-xO3)'
-  CFLAGS="${CFLAGS} -xO3"
+  CFLAGS_OPT='-xO3'
 else
   cat > conftest.c << _EOF_
 int main()
@@ -57,11 +47,59 @@ _EOF_
   $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
   if test $? -eq 0; then
     echo '  DEC C (-O3)'
-    CFLAGS="${CFLAGS} -O3"
+    CFLAGS_OPT='-O3'
   else
     echo '  Other (gcc?) (-O2)'
-    CFLAGS="${CFLAGS} -O2"
+    CFLAGS_OPT='-O2'
   fi
+fi
+
+if test -n "${CFLAGS_OPT}"; then
+  CFLAGS="${CFLAGS} ${CFLAGS_OPT}"
+  CFLAGS_BZ="${CFLAGS_BZ} ${CFLAGS_OPT}"
+fi
+
+CC_BZ="${CC}"
+LIB_BZ=''
+echo "Check bzip2 support"
+if test -n "${IZ_BZIP2}"; then
+  if test -f "${IZ_BZIP2}/libbz2.a"; then
+#
+#   A bzip2 library built properly ("BZ_NO_STDIO") should have an
+#   unresolved external, "bz_internal_error".  The default,
+#   full-function library will not mention it.
+#
+    nm ${IZ_BZIP2}/libbz2.a | grep bz_internal_error > /dev/null
+    if test $? -eq 0; then
+      echo "  Found bzip2 library, ${IZ_BZIP2}/libbz2.a."
+    else
+      echo "  Found bzip2 library, ${IZ_BZIP2}/libbz2.a,"
+      echo "  but it seems not to be built with the BZ_NO_STDIO option."
+      echo "  Please see the Zip installation instructions."
+    fi
+  else
+    if test -f "${IZ_BZIP2}/bzlib.h"; then
+      echo "  Found bzip2 source in ${IZ_BZIP2}."
+    else
+      echo "  Can't find bzlib.h or libbz2.a in ${IZ_BZIP2}."
+      echo "  No bzip2 support is possible."
+      IZ_BZIP2=''
+    fi
+  fi
+#
+# If bzip2 support is (still) enabled, then arrange to build a
+# BZ_NO_STDIO bzip2 object library using the same compiler and
+# optimization option as used for Zip, and to compile and link Zip with
+# bzip2 support.
+#
+  if test -n "${IZ_BZIP2}"; then
+    CFLAGS_BZ="${CFLAGS_BZ} -DBZ_NO_STDIO"
+    LIB_BZ="${IZ_BZIP2}/libbz2.a"
+    CFLAGS="${CFLAGS} -I${IZ_BZIP2} -DBZIP2_SUPPORT"
+    LFLAGS2="${LFLAGS2} -L${IZ_BZIP2} -lbz2"
+  fi
+else
+  echo "  No bzip2 support was requested (\"IZ_BZIP2\")."
 fi
 
 echo Check for the C preprocessor
@@ -80,6 +118,7 @@ $CPP conftest.c >/dev/null 2>/dev/null || CPP="${CC} -E"
 
 echo Check if we can use asm code
 OBJA=""
+OCRCU8=""
 if eval "$CPP match.S > _match.s 2>/dev/null"; then
   if test ! -s _match.s || grep error < _match.s > /dev/null; then
     :
@@ -95,6 +134,7 @@ if eval "$CPP match.S > _match.s 2>/dev/null"; then
       if eval "$CC -c _crc_i386.s >/dev/null 2>/dev/null" && [ -f _crc_i386.o ]
       then
         OBJA="$OBJA crc_i386.o"
+        OCRCU8="crc_i386.o"
         CFLAGS="${CFLAGS} -DASM_CRC"
       fi
     fi
@@ -254,10 +294,14 @@ _EOF_
 $CC -o conftest conftest.c >/dev/null 2>/dev/null
 if [ $? -ne 0 ]; then
   echo -- no Unicode support
+  OCRCU8=""
+  OCRCTB="crc32_.o"
 else
 # have wide char support
   echo -- have wchar_t - enabling Unicode support
   CFLAGS="${CFLAGS} -DUNICODE_SUPPORT"
+  OCRCU8="crc32_.o ${OCRCU8}"
+  OCRCTB=""
 fi
 
 # from configure 2.4i (Onno) 12/5/04
@@ -441,6 +485,9 @@ ln -s /dev/null null > /dev/null 2>/dev/null || LN=ln
 rm -f a.out conftest.c conftest.o conftest null
 
 echo CC=\"${CC}\" CFLAGS=\"${CFLAGS}\"  CPP=\"${CPP}\" OBJA=\"${OBJA}\" \
+       OCRCU8=\"${OCRCU8}\" OCRCTB=\"${OCRCTB}\" \
        BINDIR=${BINDIR} MANDIR=${MANDIR} LFLAGS1=\"${LFLAGS1}\" \
-       LFLAGS2=\"${LFLAGS2}\" LN=\"${LN}\" > flags
+       LFLAGS2=\"${LFLAGS2}\" LN=\"${LN}\" \
+       CC_BZ=\"${CC_BZ}\" CFLAGS_BZ=\"${CFLAGS_BZ}\" \
+       IZ_BZIP2=\"${IZ_BZIP2}\" LIB_BZ=\"${LIB_BZ}\" > flags
 

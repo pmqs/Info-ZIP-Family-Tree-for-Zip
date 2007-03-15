@@ -202,15 +202,15 @@ int set_extra_field(z, z_utim)
      * If processing symlinks as symlinks ("-y"), then $OPEN the
      * link, not the target file.
      *
-     * Note that for a symlink, this sys$open() fails with status
-     * %x0001860c, %RMS-F-ORG, invalid file organization value.  This
-     * failure is generally ignored, with no extra fields generated.
-     * UnZip may be able to salvage the data with acceptable results,
-     * but this is not proper operation.
+     * (nam.naml$v_open_special gets us the symlink itself instead of
+     * its target.  fab.fab$v_bio is necessary to allow sys$open() to
+     * work.  Without it, you get status %x0001860c, "%RMS-F-ORG,
+     * invalid file organization value".)
      */
     if (linkput)
     {
         nam.naml$v_open_special = 1;
+        fab.fab$v_bio = 1;
     }
 #endif /* def NAML$M_OPEN_SPECIAL */
 
@@ -560,7 +560,8 @@ struct RAB *vms_open(name)
 #ifdef NAML$M_OPEN_SPECIAL
     /* 2007-02-28 SMS.
      * If processing symlinks as symlinks ("-y"), then $OPEN the
-     * link, not the target file.
+     * link, not the target file.  (Note that here the required
+     * fab->fab$v_bio flag was set above.)
      */
     if (linkput)
     {
