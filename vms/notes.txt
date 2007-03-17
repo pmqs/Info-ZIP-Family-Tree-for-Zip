@@ -2,9 +2,9 @@
       ============================================
 
    This document describes some VMS-specific behavior and implementation
-details of the Info-ZIP Zip and uNZip programs.
+details of the Info-ZIP Zip and UnZip programs.
 
-   Last modified: 2007-02-05.
+   Last modified: 2007-03-16.
 
 
    Building with the LIST option using MMK or MMS
@@ -94,14 +94,14 @@ particular problems with this set are welcome to comment.
 
    In this version, as in previous versions, when UnZip expands a -V
 archive, it allocates the entire extent of a data file before writing
-any of its data.  In previous versions, this could cause the destination
-disk to be locked for a considerable time (minutes).  Now, the FAB
-"sequential access only" flag (or equivalent) is set, which prevents
-this troublesome disk locking.
+any of its data.  In some previous versions, this could cause the
+destination disk to be locked for a considerable time (minutes).  Now,
+the FAB "sequential access only" flag (or equivalent) is set, which
+prevents this troublesome disk locking.
 
-   In previous versions, when UnZip expanded a non-V archive, it did no
-pre-allocation, and used the default extension quantity.  This could
-slow file creation significantly for large files.  Now, space for
+   In some previous versions, when UnZip expanded a non-V archive, it
+did no pre-allocation, and used the default extension quantity.  This
+could slow file creation significantly for large files.  Now, space for
 extracted files is pre-allocated, and the same "sequential access only"
 flag is set, as with a -V archive.
 
@@ -138,22 +138,22 @@ be seen as corrupt because of the data from beyond EOF.
    Changes to Program Exit Status Values
    -------------------------------------
 
-   UnZip and Zip exit with 32-bit VMS status values which are formed
+   Zip and UnZip exit with 32-bit VMS status values which are formed
 from their internal OS-independent status values.  In previous program
 versions, this was done by converting the internal success code (0) into
 %x00000001 (SS$_NORMAL), and converting the other internal warning and
 error codes using an artificial control/facility code, 0x7FFF (which
 includes some reserved bits), and a severity value which was determined
-according to rules specified in the VMS-specific exit function. 
+according to rules specified in the VMS-specific exit function.
 Curiously, the internal status codes were left-shifted by 4 bits instead
 of 3, so all the resulting VMS message codes (bits 13:3) were even.
 
-   UnZip and Zip now have facility names and codes assigned by HP
+   Zip and UnZip now have facility names and codes assigned by HP
 (UnZip: IZ_UNZIP, 1954; Zip: IZ_ZIP, 1955).  Now, by default, the
 programs exit with standard 32-bit VMS status values which differ from
 the old ones in several ways: The official facility code is used, and
 the facility-specific bit is set.  (For compatibility with older
-versions, the internal status codes are still left-shifted by 4 bits.)  
+versions, the internal status codes are still left-shifted by 4 bits.)
 The builders also create non-executable message files (UNZIP_MSG.EXE and
 ZIP_MSG.EXE) so that, after a suitable SET MESSAGE command, the program
 messages will be available from DCL.  For example:
@@ -173,7 +173,7 @@ available, although this could cause some confusion if multiple versions
 of the programs are used on the system, and their error message source
 files differ.  Each different destination directory will get its own
 UNZIP_MSG.EXE or ZIP_MSG.EXE ([.ALPHA], [.ALPHAL], [.VAX], and so on),
-but all of the same-architecture files are equivalent to each other. 
+but all of the same-architecture files are equivalent to each other.
 That is, on an Alpha system, any of the [.ALPHA*]ZIP_MSG.EXE files could
 be used; on an IA64 system, any of the [.IA64*]ZIP_MSG.EXE files could
 be used; and on a VAX system, any of the [.VAX*]ZIP_MSG.EXE files could
@@ -181,11 +181,41 @@ be used.  (Similar for UNZIP_MSG.EXE, of course.)
 
    If desired, the programs may be built to use the old exit status values
 by defining a C macro with the old facility value:
-"CTL_FAC_IZ_UNZIP=0x7FFF" (UnZip) or "CTL_FAC_IZ_ZIP=0x7FFF" (Zip). 
+"CTL_FAC_IZ_UNZIP=0x7FFF" (UnZip) or "CTL_FAC_IZ_ZIP=0x7FFF" (Zip).
 (See comments in the builder regarding LOCAL_UNZIP or LOCAL_ZIP, as
 appropriate.)  This will maintain compatibility with older program
 versions, but will make the programs incompatible with the new error
 message files.
+
+
+   Symbolic Links
+   --------------
+
+   VMS V8.3 offers support for symbolic links (symlinks) on ODS5 disks. 
+In previous Zip and UnZip versions, the generic code for symlinks was
+disabled, and there was no VMS-specific code for symlinks.  Now, by
+default, Zip and UnZip attempt to support symlinks wherever the C
+headers and C run-time library include the functions needed for symlink
+support.  This means non-VAX systems with __CRTL_VER >= 70301000, so
+this includes VMS V7.3-1 and up, and thus symlink-capable Zip and UnZip
+programs may be built on systems which do not themselves offer symlink
+support.  (Various run-time failures may be expected if symlinks are
+encountered on pre-V8.3 systems, either in a file system or in a Zip
+archive.)
+
+   Symlink support can be disabled at build-time, if desired, by
+defining the C macro NO_SYMLINKS.  (See comments in the builder
+regarding LOCAL_UNZIP or LOCAL_ZIP, as appropriate.)  For example, using
+MMS to build UnZip:
+
+      MMS /DESCRIP = [.VMS] /MACRO = ("LOCAL_UNZIP=NO_SYMLINKS=1")
+
+or, using the command procedure to build Zip:
+
+      LOCAL_ZIP == "NO_SYMLINKS=1"
+      @ [.VMS]BUILD_ZIP.COM
+      DELETE /SYMBOL /GLOBAL LOCAL_ZIP
+
 
 
    GNU C
@@ -229,7 +259,7 @@ defects in the GNU C header files, such as:
 <various>: warning: passing arg 4 of `qsort' from incompatible pointer type
 
 [...]rab.h:134: warning: unnamed struct/union that defines no instances
-[...]rab.h:143: warning: unnamed struct/union that defines no instances      
+[...]rab.h:143: warning: unnamed struct/union that defines no instances
 
 These warnings appear to be harmless.
 

@@ -125,7 +125,7 @@ typedef struct stat z_stat;
  */
 #if defined(__VAX) || __CRTL_VER < 70301000
 #  define NO_UNISTD_H
-#  define NO_SYMLINK
+#  define NO_SYMLINKS
 #endif /* defined(__VAX) || __CRTL_VER < 70301000 */
 
 /* 2007-02-22 SMS.  Use delete() when unlink() is not available. */
