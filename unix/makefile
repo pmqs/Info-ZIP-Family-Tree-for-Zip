@@ -16,6 +16,7 @@ all:
 
 list:   all
 
+#MAKE = make -f unix/Makefile
 MAKEF = -f unix/Makefile
 SHELL = /bin/sh
 LN = ln -s
@@ -48,6 +49,9 @@ ZIPMANUALsplit = zipsplit.txt
 ZIPMANUALs = zip.txt zipcloak.txt zipnote.txt zipsplit.txt
 PKGDIR = IZzip
 VERSION = Version 3.0
+
+# Our bzip2 directory
+IZ_BZIP2_IZ = ./bzip2
 
 # flags
 #   CFLAGS    flags for C compile
@@ -122,11 +126,11 @@ zipsman: $(ZIPS) $(ZIPMANUALs)
 
 zip$E: $(OBJZ) $(OBJI) $(OBJA) $(LIB_BZ)
 	$(BIND) -o zip$E $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) $(LFLAGS2)
-zipnote$E: $(OBJN) $(LIB_BZ)
+zipnote$E: $(OBJN)
 	$(BIND) -o zipnote$E $(LFLAGS1) $(OBJN) $(LFLAGS2)
-zipcloak$E: $(OBJC) $(LIB_BZ)
+zipcloak$E: $(OBJC)
 	$(BIND) -o zipcloak$E $(LFLAGS1) $(OBJC) $(LFLAGS2)
-zipsplit$E: $(OBJS) $(LIB_BZ)
+zipsplit$E: $(OBJS)
 	$(BIND) -o zipsplit$E $(LFLAGS1) $(OBJS) $(LFLAGS2)
 
 $(ZIPMANUAL): man/zip.1
@@ -144,9 +148,10 @@ $(ZIPMANUALsplit): man/zipsplit.1
 
 # bzip2 object library
 
-$(LIB_BZ) : $(IZ_BZIP2)/Makefile
+$(LIB_BZ) : $(IZ_BZIP2_IZ)/Makefile
 	@echo "Building bzip2 object library..."
-	( cd $(IZ_BZIP2); $(MAKE) CC="$(CC_BZ)" CFLAGS="$(CFLAGS_BZ)" libbz2.a )
+	( cd $(IZ_BZIP2_IZ); \
+	  $(MAKE) CC="$(CC_BZ)" CFLAGS="$(CFLAGS_BZ)" libbz2.a )
 	@echo "   bzip2 object library complete."
 
 
@@ -228,9 +233,13 @@ minix:
 # You can make the zip executable with IBM's make, but you will
 # get errors dealing with the _.o targets for the other executables
 # (zipcloak, etc).  GNU make will build all the executables.
+# If you have GNU make in your path as gmake, you can uncomment
+# the following, but it shouldn't be needed:
+#MAKE = gmake
+
 os390:
 	$(MAKE) $(MAKEF) zips CFLAGS="$(CF) -I. -DUNIX -DOS390 -DEBCDIC \
-	 -DSYSV -DSYSV -DNO_PARAM_H" LFLAGS2=""
+	 -DSYSV -DNO_PARAM_H" LFLAGS2=""
 
 # QNX is "special" because out /bin/sh is ksh and it doesn't grok the
 # configure script properly, generating a bad flags file.  D'oh! [cjh]
@@ -295,13 +304,13 @@ clean:
 	rm -rf $(PKGDIR)
 
 clean_bzip2 :
-	@if test -f "$(IZ_BZIP2)/Makefile"; then \
-	  ( cd $(IZ_BZIP2); make clean ); \
+	@if test -f "$(IZ_BZIP2_IZ)/Makefile"; then \
+	  ( cd $(IZ_BZIP2_IZ); make clean ); \
 	else \
-          if test -z "$(IZ_BZIP2)"; then \
-	    echo "No bzip2 directory (\"IZ_BZIP2\") specified."; \
+          if test -z "$(IZ_BZIP2IZ)"; then \
+	    echo "No bzip2 directory (\"IZ_BZIP2_IZ\") specified."; \
 	  else \
-	    echo "No bzip2 make file found: $(IZ_BZIP2)/Makefile."; \
+	    echo "No bzip2 make file found: $(IZ_BZIP2_IZ)/Makefile."; \
 	  fi; \
 	fi
 #
