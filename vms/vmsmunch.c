@@ -123,6 +123,16 @@
 /*  Includes, Defines, etc.  */
 /*****************************/
 
+/* Accomodation for /NAMES = AS_IS with old header files. */
+
+#define sys$asctim SYS$ASCTIM
+#define sys$assign SYS$ASSIGN
+#define sys$bintim SYS$BINTIM
+#define sys$dassgn SYS$DASSGN
+#define sys$parse SYS$PARSE
+#define sys$qiow SYS$QIOW
+#define sys$search SYS$SEARCH
+
 #include "zip.h"
 
 #include <stdio.h>

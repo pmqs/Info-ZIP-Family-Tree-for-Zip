@@ -51,7 +51,7 @@ PKGDIR = IZzip
 VERSION = Version 3.0
 
 # Our bzip2 directory
-IZ_BZIP2_IZ = ./bzip2
+IZ_OUR_BZIP2_DIR = ./bzip2
 
 # flags
 #   CFLAGS    flags for C compile
@@ -148,11 +148,11 @@ $(ZIPMANUALsplit): man/zipsplit.1
 
 # bzip2 object library
 
-$(LIB_BZ) : $(IZ_BZIP2_IZ)/Makefile
+$(LIB_BZ) : $(IZ_OUR_BZIP2_DIR)/Makefile
 	@echo "Building bzip2 object library..."
-	( cd $(IZ_BZIP2_IZ); \
+	( cd $(IZ_OUR_BZIP2_DIR) ; \
 	  $(MAKE) CC="$(CC_BZ)" CFLAGS="$(CFLAGS_BZ)" libbz2.a )
-	@echo "   bzip2 object library complete."
+	@echo "   bzip2 object library created."
 
 
 # install
@@ -185,6 +185,7 @@ flags:  unix/configure
 # NO_CONST              - cannot handle ANSI const
 # NO_LARGE_FILE_SUPPORT - do not enable Large File support even if available.
 # NO_ZIP64_SUPPORT      - do not enable Zip64 archive support even if available.
+# NO_BZIP2_SUPPORT      - do not compile in bzip2 code even if available.
 
 #               Generic targets:
 
@@ -304,13 +305,13 @@ clean:
 	rm -rf $(PKGDIR)
 
 clean_bzip2 :
-	@if test -f "$(IZ_BZIP2_IZ)/Makefile"; then \
-	  ( cd $(IZ_BZIP2_IZ); make clean ); \
+	@if test -f "$(IZ_OUR_BZIP2_DIR)/Makefile"; then \
+	  ( cd $(IZ_OUR_BZIP2_DIR); make clean ); \
 	else \
-          if test -z "$(IZ_BZIP2IZ)"; then \
-	    echo "No bzip2 directory (\"IZ_BZIP2_IZ\") specified."; \
+          if test -z "$(IZ_OUR_BZIP2_DIR)"; then \
+	    echo "No bzip2 directory (\"IZ_OUR_BZIP2_DIR\") specified."; \
 	  else \
-	    echo "No bzip2 make file found: $(IZ_BZIP2_IZ)/Makefile."; \
+	    echo "No bzip2 make file found: $(IZ_OUR_BZIP2_DIR)/Makefile."; \
 	  fi; \
 	fi
 #

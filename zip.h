@@ -5,12 +5,13 @@
 
 Info-ZIP Licence
 
-This is version 2005-Feb-10 of the Info-ZIP copyright and license.
+This is version 2007-Mar-4 of the Info-ZIP license.
 The definitive version of this document should be available at
-ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely.
+ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
+a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 
-Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -22,7 +23,7 @@ the following set of individuals:
    Steve P. Miller, Sergio Monesi, Keith Owens, George Petrov, Greg Roelofs,
    Kai Uwe Rommel, Steve Salisbury, Dave Smith, Steven M. Schweda,
    Christian Spieler, Cosmin Truta, Antoine Verheijen, Paul von Behren,
-   Rich Wales, Mike White
+   Rich Wales, Mike White.
 
 This software is provided "as is," without warranty of any kind, express
 or implied.  In no event shall Info-ZIP or its contributors be held liable
@@ -31,31 +32,35 @@ arising out of the use of or inability to use this software.
 
 Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it
-freely, subject to the following restrictions:
+freely, subject to the above disclaimer and the following restrictions:
 
-    1. Redistributions of source code must retain the above copyright notice,
-       definition, disclaimer, and this list of conditions.
+    1. Redistributions of source code (in whole or in part) must retain
+       the above copyright notice, definition, disclaimer, and this list
+       of conditions.
 
-    2. Redistributions in binary form (compiled executables) must reproduce
-       the above copyright notice, definition, disclaimer, and this list of
-       conditions in documentation and/or other materials provided with the
-       distribution.  The sole exception to this condition is redistribution
-       of a standard UnZipSFX binary (including SFXWiz) as part of a
-       self-extracting archive; that is permitted without inclusion of this
-       license, as long as the normal SFX banner has not been removed from
-       the binary or disabled.
+    2. Redistributions in binary form (compiled executables and libraries)
+       must reproduce the above copyright notice, definition, disclaimer,
+       and this list of conditions in documentation and/or other materials
+       provided with the distribution.  The sole exception to this condition
+       is redistribution of a standard UnZipSFX binary (including SFXWiz) as
+       part of a self-extracting archive; that is permitted without inclusion
+       of this license, as long as the normal SFX banner has not been removed
+       from the binary or disabled.
 
     3. Altered versions--including, but not limited to, ports to new operating
-       systems, existing ports with new graphical interfaces, and dynamic,
-       shared, or static library versions--must be plainly marked as such
-       and must not be misrepresented as being the original source.  Such
-       altered versions also must not be misrepresented as being Info-ZIP
-       releases--including, but not limited to, labeling of the altered
-       versions with the names "Info-ZIP" (or any variation thereof, including,
-       but not limited to, different capitalizations), "Pocket UnZip," "WiZ"
-       or "MacZip" without the explicit permission of Info-ZIP.  Such altered
-       versions are further prohibited from misrepresentative use of the
-       Zip-Bugs or Info-ZIP e-mail addresses or of the Info-ZIP URL(s).
+       systems, existing ports with new graphical interfaces, versions with
+       modified or added functionality, and dynamic, shared, or static library
+       versions not from Info-ZIP--must be plainly marked as such and must not
+       be misrepresented as being the original source or, if binaries,
+       compiled from the original source.  Such altered versions also must not
+       be misrepresented as being Info-ZIP releases--including, but not
+       limited to, labeling of the altered versions with the names "Info-ZIP"
+       (or any variation thereof, including, but not limited to, different
+       capitalizations), "Pocket UnZip," "WiZ" or "MacZip" without the
+       explicit permission of Info-ZIP.  Such altered versions are further
+       prohibited from misrepresentative use of the Zip-Bugs or Info-ZIP
+       e-mail addresses or the Info-ZIP URL(s), such as to imply Info-ZIP
+       will provide support for the altered versions.
 
     4. Info-ZIP retains the right to use the names "Info-ZIP," "Zip," "UnZip,"
        "UnZipSFX," "WiZ," "Pocket UnZip," "Pocket Zip," and "MacZip" for its
@@ -273,10 +278,14 @@ struct plist {
 
 #if 0            /* Optimization: use the (const) result of crc32(0L,NULL,0) */
 #  define CRCVAL_INITIAL  crc32(0L, (uch *)NULL, 0)
+# if 00 /* not used, should be removed !! */
 #  define ADLERVAL_INITIAL adler16(0U, (uch *)NULL, 0)
+# endif /* 00 */
 #else
 #  define CRCVAL_INITIAL  0L
+# if 00 /* not used, should be removed !! */
 #  define ADLERVAL_INITIAL 1
+# endif /* 00 */
 #endif
 
 #define DOSTIME_MINIMUM         ((ulg)0x00210000L)
@@ -343,6 +352,8 @@ extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
    extern int vms_native;       /* Store in VMS format */
    extern int vms_case_2;       /* ODS2 file name case in VMS. -1: down. */
    extern int vms_case_5;       /* ODS5 file name case in VMS. +1: preserve. */
+/* Accomodation for /NAMES = AS_IS with old header files. */
+#define cma$tis_errno_get_addr CMA$TIS_ERRNO_GET_ADDR
 #endif /* VMS */
 #if defined(OS2) || defined(WIN32)
    extern int use_longname_ea;   /* use the .LONGNAME EA as the file's name */
@@ -439,10 +450,10 @@ extern ulg skip_current_disk;
 extern ulg    current_local_disk; /* disk with current local header */
 
 extern ulg     current_disk;     /* current disk number */
-extern int     cd_start_disk;    /* central directory start disk */
+extern ulg     cd_start_disk;    /* central directory start disk */
 extern uzoff_t cd_start_offset;  /* offset of start of cd on cd start disk */
 extern uzoff_t cd_entries_this_disk; /* cd entries this disk */
-extern uzoff_t total_cd_entries; /* total cd entries */
+extern uzoff_t total_cd_entries; /* total cd entries in new/updated archive */
 extern ulg     zip64_eocd_disk;  /* disk with Zip64 EOCD Record */
 extern uzoff_t zip64_eocd_offset; /* offset of Zip64 EOCD Record */
 /* for split method 1 (keep split with local header open and update) */
@@ -605,7 +616,7 @@ int putlocal OF((struct zlist far *, int));
 int putextended OF((struct zlist far *));
 int putcentral OF((struct zlist far *));
 /* zip64 support 09/05/2003 R.Nausedat */
-int putend OF((uzoff_t, uzoff_t, uzoff_t, ush, char *));
+int putend OF((uzoff_t, uzoff_t, uzoff_t, extent, char *));
 /* moved seekable to separate function 3/14/05 EG */
 int is_seekable OF((FILE *));
 int zipcopy OF((struct zlist far *));
@@ -648,12 +659,12 @@ int setfileattr OF((char *, int));
 char *tempname OF((char *));
 
 /* for splits */
-int close_split OF((int, FILE *, char *));
-int ask_for_split_read_path OF((int));
-int ask_for_split_write_path OF((int));
-char *get_in_split_path OF((char *, int));
-char *find_in_split_path OF((char *, int));
-char *get_out_split_path OF((char *, int));
+int close_split OF((ulg, FILE *, char *));
+int ask_for_split_read_path OF((ulg));
+int ask_for_split_write_path OF((ulg));
+char *get_in_split_path OF((char *, ulg));
+char *find_in_split_path OF((char *, ulg));
+char *get_out_split_path OF((char *, ulg));
 int rename_split OF((char *, char *));
 int set_filetype OF(());
 
@@ -853,8 +864,10 @@ void     bi_init      OF((char *, unsigned int, int));
   /* convert wide character to escape string */
   char *wide_to_escape_string OF((unsigned long));
 
+#if 0
   /* convert escape string to wide character */
   unsigned long escape_string_to_wide OF((char *));
+#endif
 
   /* convert local to UTF-8 */
   char *local_to_utf8_string OF ((char *));
@@ -921,13 +934,13 @@ size_t bfwrite OF((ZCONST void *buffer, size_t size, size_t count,
 /* options array is set in zip.c */
 struct option_struct {
   char *shortopt;           /* char * to sequence of char that is short option */
-  char *longopt;            /* char * to long option string */
+  char Far *longopt;        /* char * to long option string */
   int  value_type;          /* from above */
   int  negatable;           /* from above */
   unsigned long option_ID;  /* value returned by get_option when this option is found */
-  char *name;               /* optional string for option returned on some errors */
+  char Far *name;           /* optional string for option returned on some errors */
 };
-extern struct option_struct options[];
+extern struct option_struct far options[];
 
 
 /* moved here from fileio.c to make global - 10/6/05 EG */

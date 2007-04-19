@@ -191,7 +191,7 @@ message files.
    Symbolic Links
    --------------
 
-   VMS V8.3 offers support for symbolic links (symlinks) on ODS5 disks. 
+   VMS V8.3 offers support for symbolic links (symlinks) on ODS5 disks.
 In previous Zip and UnZip versions, the generic code for symlinks was
 disabled, and there was no VMS-specific code for symlinks.  Now, by
 default, Zip and UnZip attempt to support symlinks wherever the C

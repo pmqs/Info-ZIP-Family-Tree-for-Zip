@@ -18,6 +18,11 @@
    Removed "#ifndef UTIL", as no one should be compiling it that way.
 */
 
+/* Accomodation for /NAMES = AS_IS with old header files. */
+
+#define sys$parse SYS$PARSE
+#define sys$search SYS$SEARCH
+
 #include "zip.h"
 #include "vmsmunch.h"
 #include "vms.h"

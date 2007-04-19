@@ -94,6 +94,17 @@
 # endif
 #endif /* 0 */
 
+/* Accomodation for /NAMES = AS_IS with old header files. */
+
+#define lib$establish LIB$ESTABLISH
+#define lib$get_foreign LIB$GET_FOREIGN
+#define lib$get_input LIB$GET_INPUT
+#define lib$sig_to_ret LIB$SIG_TO_RET
+#define ots$cvt_tu_l OTS$CVT_TU_L
+#define str$concat STR$CONCAT
+#define str$find_first_substring STR$FIND_FIRST_SUBSTRING
+#define str$free1_dx STR$FREE1_DX
+
 #include "zip.h"
 #ifndef TEST
 #include "crypt.h"      /* for VMSCLI_help() */
@@ -841,7 +852,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 #define OPT_DB "-db"
 #define OPT_DC "-dc"
 #define OPT_DD "-dd"
-#define OPT_DS "-ds"
+#define OPT_DS "-ds="
 
     status = cli$present( &cli_display);
     if (status & 1)
@@ -874,13 +885,16 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_DD);
 
-            x = cmdl_len;
             /* -dd[=value] now -dd -ds=value - 5/8/05 EG */
             if (work_str.dsc$w_length > 0) {
+                x = cmdl_len;
                 cmdl_len += strlen( OPT_DS);
-                cmdl_len += work_str.dsc$w_length+ 1;
                 CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
                 strcpy( &the_cmd_line[ x], OPT_DS);
+
+                x = cmdl_len;
+                cmdl_len += work_str.dsc$w_length+ 1;
+                CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
                 strncpy( &the_cmd_line[ x],
                  work_str.dsc$a_pointer, work_str.dsc$w_length);
             }

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -28,11 +28,24 @@
 
 #ifdef VMS                      /* For VMS only ! */
 
+/* Accomodation for /NAMES = AS_IS with old header files. */
+
+#define sys$assign SYS$ASSIGN
+#define sys$close SYS$CLOSE
+#define sys$connect SYS$CONNECT
+#define sys$dassgn SYS$DASSGN
+#define sys$display SYS$DISPLAY
+#define sys$getjpiw SYS$GETJPIW
+#define sys$open SYS$OPEN
+#define sys$parse SYS$PARSE
+#define sys$qiow SYS$QIOW
+#define sys$read SYS$READ
+#define sys$search SYS$SEARCH
+
 #define NO_ZIPUP_H              /* Prevent full inclusion of vms/zipup.h. */
 
 #include "zip.h"
 #include "zipup.h"              /* Only partial. */
-#include "crc32.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -57,7 +70,6 @@
 #else /* def __VAX */
 # define GVTC
 #endif /* def __VAX */
-
 
 #ifdef UTIL
 
