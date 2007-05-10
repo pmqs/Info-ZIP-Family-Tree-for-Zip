@@ -3,7 +3,7 @@
 
   Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -15,8 +15,11 @@
 
 #include "zip.h"
 #include <time.h>       /* for tzset() declaration */
-#ifdef WINDLL
+#if defined(WIN32) || defined(WINDLL)
+#  define WIN32_LEAN_AND_MEAN
 #  include <windows.h>
+#endif
+#ifdef WINDLL
 #  include <setjmp.h>
 #  include "windll/windll.h"
 #endif
@@ -56,16 +59,12 @@
 #endif
 
 #ifdef BZIP2_SUPPORT
-# ifdef BZIP2_USEBZIP2DIR
-#   include "bzip2/bzlib.h"
-# else
-    /* If IZ_BZIP2 is defined as the location of the bzip2 files then
-       assume the location has been added to include path.  For Unix
-       this is done by the configure script. */
-    /* Also do not need path for bzip2 include if OS includes support
-       for bzip2 library. */
-#   include "bzlib.h"
-# endif
+  /* If IZ_BZIP2 is defined as the location of the bzip2 files then
+     assume the location has been added to include path.  For Unix
+     this is done by the configure script. */
+  /* Also do not need path for bzip2 include if OS includes support
+     for bzip2 library. */
+# include "bzlib.h"
 #endif
 
 #define MAXCOM 256      /* Maximum one-line comment size */
@@ -349,14 +348,8 @@ ZCONST char *h;         /* message about how it happened */
   if (tempzip != NULL)
   {
     if (tempzip != zipfile) {
-
-      /*
-      if (tempzf != NULL)
-      */
-#ifdef SPLIT_FILE
       if (current_local_file)
         fclose(current_local_file);
-#endif
       if (y != NULL)
         fclose(y);
 #ifndef DEBUG
@@ -722,10 +715,11 @@ local void help_extended()
 "  Usually better to break short options across multiple arguments by function",
 "    zip -r -dbdcds 10m -lilalf logfile archive input_directory -ll",
 "",
-"  All arguments after -- are read verbatim as paths and not options.",
+"  All arguments after -- alone are read verbatim as paths and not options.",
 "    zip zipfile path path ... -- verbatimpath verbatimpath ...",
 "  Use -nw to also disable wildcards, so paths are read literally:",
 "    zip zipfile -nw -- \"-leadingdashpath\" \"a[path].c\" \"path*withwildcard\"",
+"  You may still have to escape or quote arguments to avoid shell expansion",
 "",
 "Wildcards:",
 "  Internally zip supports the following wildcards:",
@@ -751,8 +745,8 @@ local void help_extended()
 "  If first buffer read from file contains binary the translation is skipped",
 "",
 "Recursion:",
-"  -r path path ...         recurse paths, include files in subdirectories",
-"  -R pattern pattern ...   recurse current directory and match patterns",
+"  -r        recurse paths, include files in subdirs:  zip -r a path path ...",
+"  -R        recurse current dir and match patterns:   zip -R a ptn ptn ...",
 "  Use -i and -x with either to include or exclude paths",
 "  Path root in archive starts at current dir, so if /a/b/c/file and",
 "   current dir is /a/b, 'zip -r archive .' puts c/file in archive",
@@ -779,7 +773,8 @@ local void help_extended()
 "  archive matches the files on the file system.",
 "    zip archive_to_update -FS dir_used_before",
 "  Result generally same as creating a new archive, but existing entries",
-"  are just copied so updating with File Sync can be faster.",
+"  are already compressed so updating with File Sync can be faster.",
+"      WARNING:  -FS deletes entries so make backup copy of archive first",
 "",
 "Compression:",
 "  -0        store files (no compression)",
@@ -821,9 +816,10 @@ local void help_extended()
 "                old splits not overwritten are not needed but remain",
 "",
 "Copy Mode (copying from archive to archive):",
-"  -U pattern pattern ...   select entries in archive to copy (reverse delete)",
+"  -U        (also --copy) select entries in archive to copy (reverse delete)",
 "  Copy Mode copies entries from old to new archive with --out and is used by",
 "  zip when either no input files on command line or -U (--copy) used.",
+"    zip inarchive --copy pattern pattern ... --out outarchive",
 "  To copy only files matching *.c into new archive, excluding foo.c:",
 "    zip old_archive --copy \"*.c\" --out new_archive -x foo.c",
 "  If no input files and --out, copy all entries in old archive:",
@@ -902,16 +898,15 @@ local void help_extended()
 "",
 "Unicode:",
 "  If compiled with Unicode support, Zip now stores the UTF-8 path of",
-"  entries.  This is backward compatible.  Any unzip can use the",
-"  Unicode paths to better convert entry names between different",
-"  character sets.",
+"  entries.  This is backward compatible.  The Unicode paths can be used",
+"  to better convert entry names between different character sets.",
 "",
 "  The new Unicode extra field includes a checksum to verify that the",
 "  Unicode path goes with the standard path for that entry (as there",
 "  are utilities like ZipNote that can rename entries).  If these do",
 "  not match, use the below options to set what Zip does:",
-"      -UN=ERror    - if mismatch, exit with error (default)",
-"      -UN=Warn     - if mismatch, issue warning, use standard path",
+"      -UN=ERror    - if mismatch, exit with error",
+"      -UN=Warn     - if mismatch, issue warning, ignore (default)",
 "      -UN=Ignore   - if mismatch, quietly use standard path instead",
 "      -UN=No       - ignore any Unicode paths, use standard paths for all",
 "  The option -UN=EScape tells Zip to escape all non-ASCII characters:",
@@ -920,9 +915,9 @@ local void help_extended()
 "  to match files in an archive.",
 "",
 "  The AppNote now supports storing UTF-8 in the standard path and",
-"  comment of entries using new flag bit 11.  Currently -UN=f enables",
+"  comment of entries if new flag bit 11 is set.  Currently -UN=f enables",
 "  this for paths, but these entries may not be readable on all but",
-"  UTF-8 systems or using an unzip that supports this new bit:",
+"  UTF-8 systems unless an unzip that supports this new bit is used:",
 "      -UN=Force    - force use UTF-8 for standard path and comment",
 "  Support of Unicode comments may be added by release.",
 "",
@@ -2152,7 +2147,7 @@ char **argv;            /* command line tokens */
 
   unicode_force = 0;      /* 1=force storing UTF-8 as standard per AppNote bit 11 */
   unicode_escape_all = 0; /* 1=escape all non-ASCII characters in paths */
-  unicode_mismatch = 0;   /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
+  unicode_mismatch = 1;   /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
 
   scan_delay = 5;         /* seconds before display Scanning files message */
   scan_dot_time = 2;      /* time in seconds between Scanning files dots */
@@ -2198,20 +2193,13 @@ char **argv;            /* command line tokens */
   out_path = NULL;        /* if set, use -O out_path as output */
   have_out = 0;           /* if set, in_path and out_path not the same archive */
 
-#ifdef UNICODE_SUPPORT
-  use_wide_to_mb_default = 0;
-#endif
-
-#ifdef ZIP64_SUPPORT
-  force_zip64 = 0;        /* if 1 force entries to be zip64 */
-  zip64_entry = 0;        /* current entry needs Zip64 */
-  zip64_archive = 0;      /* if 1 then at least 1 entry needs zip64 */
-#endif
-
   total_disks = 0;        /* total disks in archive */
   current_in_disk = 0;    /* current read split disk */
   current_in_offset = 0;  /* current offset in current read disk */
   skip_current_disk = 0;  /* if != 0 and fix then skip entries on this disk */
+
+  zip64_eocd_disk = 0;    /* disk with Zip64 End Of Central Directory Record */
+  zip64_eocd_offset = 0;  /* offset for Zip64 EOCD Record */
 
   current_local_disk = 0; /* disk with current local header */
 
@@ -2219,9 +2207,7 @@ char **argv;            /* command line tokens */
   cd_start_disk = (ulg)-1;    /* central directory start disk */
   cd_start_offset = 0;        /* offset of start of cd on cd start disk */
   cd_entries_this_disk = 0;   /* cd entries this disk */
-  total_cd_entries = 0;       /* total cd entries */
-  zip64_eocd_disk = 0;        /* disk with Zip64 End Of Central Directory Record */
-  zip64_eocd_offset = 0;      /* offset for Zip64 EOCD Record */
+  total_cd_entries = 0;       /* total cd entries in new/updated archive */
 
   /* for split method 1 (keep split with local header open and update) */
   current_local_tempname = NULL; /* name of temp file */
@@ -2544,7 +2530,9 @@ char **argv;            /* command line tokens */
         case 'D':   /* Do not add directory entries */
           dirnames = 0; break;
         case o_DF:  /* Create a difference archive */
-          diff_mode = 1; break;
+          diff_mode = 1;
+          allow_empty_archive = 1;
+          break;
         case 'e':   /* Encrypt */
 #if !CRYPT
           ZIPERR(ZE_PARMS, "encryption not supported");
@@ -3428,14 +3416,14 @@ char **argv;            /* command line tokens */
     zipstdout();
     comment_stream = NULL;
     if ((r = procname("-", 0)) != ZE_OK) {
-      if (r == ZE_MISS)
+      if (r == ZE_MISS) {
         if (bad_open_is_error) {
           zipwarn("name not matched: ", "-");
           ZIPERR(ZE_OPEN, "-");
         } else {
           zipwarn("name not matched: ", "-");
         }
-      else {
+      } else {
         ZIPERR(r, "-");
       }
     }
@@ -3727,12 +3715,11 @@ char **argv;            /* command line tokens */
           if (r == ZE_MISS) {
             char *n = NULL;
 #ifdef WIN32
+            /* Win9x console always uses OEM character coding, and
+               WinNT console is set to OEM charset by default, too */
             if ((n = malloc(strlen(filelist->name) + 1)) == NULL)
               ZIPERR(ZE_MEM, "name not matched error");
-            strcpy(n, filelist->name);
-# if defined(UNICODE_SUPPORT) || defined(WIN32_OEM)
-            local_to_oem_string(n, n);
-# endif
+            INTERN_TO_OEM(filelist->name, n);
 #else
             n = filelist->name;
 #endif
@@ -3758,14 +3745,14 @@ char **argv;            /* command line tokens */
       }
       for (; filelist; ) {
         if ((r = PROCNAME(filelist->name)) != ZE_OK) {
-          if (r == ZE_MISS)
+          if (r == ZE_MISS) {
             if (bad_open_is_error) {
               zipwarn("name not matched: ", filelist->name);
               ZIPERR(ZE_OPEN, filelist->name);
             } else {
               zipwarn("name not matched: ", filelist->name);
             }
-          else {
+          } else {
             ZIPERR(r, filelist->name);
           }
         }
@@ -3785,14 +3772,14 @@ char **argv;            /* command line tokens */
     if ((r = PROCNAME(".")) != ZE_OK)
 #endif
     {
-      if (r == ZE_MISS)
+      if (r == ZE_MISS) {
         if (bad_open_is_error) {
           zipwarn("name not matched: ", "current directory for -R");
           ZIPERR(ZE_OPEN, "-R");
         } else {
           zipwarn("name not matched: ", "current directory for -R");
         }
-      else {
+      } else {
         ZIPERR(r, "-R");
       }
     }
@@ -3959,10 +3946,30 @@ char **argv;            /* command line tokens */
           k++;
         }
       } else {
+        int isdirname = 0;
+
+        if (z->name && (z->name)[strlen(z->name) - 1] == '/') {
+          isdirname = 1;
+        }
+
 #ifdef USE_EF_UT_TIME
+# if defined(UNICODE_SUPPORT) && defined(WIN32)
+        if (!no_win32_wide)
+          tf = filetimew(z->namew, (ulg *)NULL, (zoff_t *)&usize, &f_utim);
+        else
+          tf = filetime(z->name, (ulg *)NULL, (zoff_t *)&usize, &f_utim);
+# else
         tf = filetime(z->name, (ulg *)NULL, (zoff_t *)&usize, &f_utim);
+# endif
 #else /* !USE_EF_UT_TIME */
+# if defined(UNICODE_SUPPORT) && defined(WIN32)
+        if (!no_win32_wide)
+          tf = filetimew(z->namew, (ulg *)NULL, (zoff_t *)&usize, NULL);
+        else
+          tf = filetime(z->name, (ulg *)NULL, (zoff_t *)&usize, NULL);
+# else
         tf = filetime(z->name, (ulg *)NULL, (zoff_t *)&usize, NULL);
+# endif
 #endif /* ?USE_EF_UT_TIME */
         if (tf == 0 ||
             tf < before || (after && tf >= after) ||
@@ -3985,9 +3992,10 @@ char **argv;            /* command line tokens */
             fprintf(logfile, "zip diagnostic: %s %s\n", z->oname,
                    z->trash ? "up to date" : "missing or early");
         }
-        else if (diff_mode && tf == z->tim && usize == z->len) {
+        else if (diff_mode && tf == z->tim &&
+                 ((isdirname && (zoff_t)usize == -1) || (usize == z->len))) {
           /* if in diff mode only include if file time or size changed */
-          /* as usize is -1 for directories they are always included */
+          /* usize is -1 for directories */
           z->mark = 0;
         }
         else {
@@ -4046,8 +4054,20 @@ char **argv;            /* command line tokens */
         }
       }
     }
+    tf = 0;
+    if (action != DELETE && action != FRESHEN) {
+#if defined(UNICODE_SUPPORT) && defined(WIN32)
+      if (!no_win32_wide)
+        tf = filetimew(f->namew, (ulg *)NULL, (zoff_t *)&usize, NULL);
+      else
+        tf = filetime(f->name, (ulg *)NULL, (zoff_t *)&usize, NULL);
+#else
+      tf = filetime(f->name, (ulg *)NULL, (zoff_t *)&usize, NULL);
+#endif
+    }
+
     if (action == DELETE || action == FRESHEN ||
-        (tf = filetime(f->name, (ulg *)NULL, (zoff_t *)&usize, NULL)) == 0 ||
+        tf == 0 ||
         tf < before || (after && tf >= after) ||
         (namecmp(f->zname, zipfile) == 0 && !zip_to_stdout)
        )
@@ -4164,7 +4184,8 @@ char **argv;            /* command line tokens */
   }
 
   /* Make sure there's something left to do */
-  if (k == 0 && found == NULL && !(zfiles == NULL && allow_empty_archive) &&
+  if (k == 0 && found == NULL && !diff_mode &&
+      !(zfiles == NULL && allow_empty_archive) &&
       !(zfiles != NULL &&
         (latest || fix || adjust || junk_sfx || comadd || zipedit))) {
     if (test && (zfiles != NULL || zipbeg != 0)) {
@@ -4802,58 +4823,45 @@ char **argv;            /* command line tokens */
     z->name = f->name;
     f->name = NULL;
 #ifdef UNICODE_SUPPORT
-    z->uname = NULL;
-    z->zuname = NULL;
-    z->ouname = NULL;
-#endif
-#ifdef WIN32
-    z->used_short_name = f->nonlocal_name;
-#endif
-#ifdef UNICODE_SUPPORT
-# ifdef WIN32
-    if (f->nonlocal_path)
-    {
-      /* Either the path has a Unicode component where the Windows 8.3
-         name was used or is not all ASCII.  In both cases get the
-         UTF-8 path from Windows.  If Unicode is not supported, such
-         as on Win9x without the Unicode package, then this returns NULL
-         and we just go with the local path converted to UTF-8 already
-         in f->uname.  Also use the local converted path for other
-         platforms.  Many platforms, such as later Linux, are already
-         using UTF-8 as the local character set so f->uname should be
-         the same path.
-      */
-      z->uname = get_win32_utf8path(z->name);
-    }
-# endif
-    /* Only set z->uname if have a non-ASCII Unicode name */
-    /* The Unicode extra fields are created if z->uname is not NULL */
-    if (z->uname == NULL) {
-      if (!is_ascii_string(f->uname))
-        z->uname = f->uname;
-      else
-        free(f->uname);
-    } else {
-      free(f->uname);
-    }
-    f->uname = NULL;
+    z->uname = NULL;          /* UTF-8 name for extra field */
+    z->zuname = NULL;         /* externalized UTF-8 name for matching */
+    z->ouname = NULL;         /* display version of UTF-8 name with OEM */
+
     /* New AppNote bit 11 allowing storing UTF-8 in path */
     if (unicode_force && f->uname) {
-      free(f->iname);
-      if ((f->iname = malloc(strlen(f->uname) + 1)) == NULL)
+      free(z->iname);
+      if ((z->iname = malloc(strlen(f->uname) + 1)) == NULL)
         ZIPERR(ZE_MEM, "Unicode bit 11");
-      strcpy(f->iname, f->uname);
-      if (f->iname)
-        free(f->iname);
-      if ((f->iname = malloc(strlen(f->uname) + 1)) == NULL)
-        ZIPERR(ZE_MEM, "Unicode bit 11");
-      strcpy(f->iname, f->uname);
-      if (f->zname)
-        free(f->zname);
-      if ((f->zname = malloc(strlen(f->uname) + 1)) == NULL)
-        ZIPERR(ZE_MEM, "Unicode bit 11");
-      strcpy(f->zname, f->uname);
+      strcpy(z->iname, f->uname);
+      if (z->iname)
+        free(z->iname);
     }
+
+    /* Only set z->uname if have a non-ASCII Unicode name */
+    /* The Unicode extra fields are created if z->uname is not NULL */
+    {
+      int is_ascii = 0;
+
+# ifdef WIN32
+      if (!no_win32_wide)
+        is_ascii = is_ascii_stringw(f->inamew);
+      else
+        is_ascii = is_ascii_string(f->uname);
+# else
+      is_ascii = is_ascii_string(f->uname);
+# endif
+
+      if (z->uname == NULL) {
+        if (!is_ascii)
+          z->uname = f->uname;
+        else
+          free(f->uname);
+      } else {
+        free(f->uname);
+      }
+    }
+    f->uname = NULL;
+
 #endif
     z->iname = f->iname;
     f->iname = NULL;
@@ -4861,6 +4869,14 @@ char **argv;            /* command line tokens */
     f->zname = NULL;
     z->oname = f->oname;
     f->oname = NULL;
+#if defined(UNICODE_SUPPORT) && defined(WIN32)
+    z->namew = f->namew;
+    f->namew = NULL;
+    z->inamew = f->inamew;
+    f->inamew = NULL;
+    z->znamew = f->znamew;
+    f->znamew = NULL;
+#endif
     z->ext = z->cext = z->com = 0;
     z->extra = z->cextra = NULL;
     z->mark = 1;
@@ -4870,20 +4886,12 @@ char **argv;            /* command line tokens */
     if (noisy)
     {
       fprintf(mesg, "  adding: %s", z->oname);
-#ifdef WIN32
-      if (z->used_short_name)
-        fprintf(mesg, " {short name used}");
-#endif
       fflush(mesg);
       mesg_line_started = 1;
     }
     if (logall)
     {
       fprintf(logfile, "  adding: %s", z->oname);
-#ifdef WIN32
-      if (z->used_short_name)
-        fprintf(logfile, " (short name)");
-#endif
     }
     /* initial scan */
     len = f->usize;
@@ -4942,6 +4950,11 @@ char **argv;            /* command line tokens */
 #ifdef UNICODE_SUPPORT
       if (z->uname)
         free(z->uname);
+#ifdef WIN32
+      free((zvoid *)(z->namew));
+      free((zvoid *)(z->inamew));
+      free((zvoid *)(z->znamew));
+#endif /* def WIN32 */
 #endif
       farfree((zvoid far *)z);
     }

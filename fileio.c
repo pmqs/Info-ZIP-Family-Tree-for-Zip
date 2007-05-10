@@ -145,6 +145,16 @@ struct flist far *f;    /* entry to delete */
     free((zvoid *)(f->zname));
   if (f->iname != NULL)
     free((zvoid *)(f->iname));
+#ifdef UNICODE_SUPPORT
+  if (f->uname)
+    free((zvoid *)f->uname);
+# ifdef WIN32
+  if (f->namew)
+    free((zvoid *)f->namew);
+  if (f->znamew)
+    free((zvoid *)f->znamew);
+# endif
+#endif
   farfree((zvoid far *)f);
   fcount--;                             /* decrement count */
   return t;                             /* return pointer to next */
@@ -192,6 +202,35 @@ char *last(p, c)
   }
 #endif
 }
+
+#ifdef UNICODE_SUPPORT
+wchar_t *lastw(pw, c)
+  wchar_t *pw;            /* sequence of path components */
+  wchar_t c;              /* path components separator character */
+/* Return a pointer to the start of the last path component. For a directory
+ * name terminated by the character in c, the return value is an empty string.
+ */
+{
+  wchar_t *tw;            /* temporary variable */
+
+  if ((tw = wcsrchr(pw, c)) != NULL)
+    return tw + 1;
+  else
+# ifndef AOS_VS
+    return pw;
+# else
+/* We want to allow finding of end of path in either AOS/VS-style pathnames
+ * or Unix-style pathnames.  This presents a few little problems ...
+ */
+  {
+    if (*pw == (wchar_t)'='  ||  *pw == (wchar_t)'^')      /* like ./ and ../ respectively */
+      return pw + 1;
+    else
+      return pw;
+  }
+# endif
+}
+#endif
 
 
 char *msname(n)
@@ -249,6 +288,64 @@ char *msname(n)
   *q = 0;
   return n;
 }
+
+#ifdef UNICODE_SUPPORT
+wchar_t *msnamew(nw)
+  wchar_t *nw;
+/* Reduce all path components to MSDOS upper case 8.3 style names. */
+{
+  wchar_t c;            /* current character */
+  int f;                /* characters in current component */
+  wchar_t *pw;          /* source pointer */
+  wchar_t *qw;          /* destination pointer */
+
+  pw = qw = nw;
+  f = 0;
+  while ((c = (unsigned char)*pw++) != 0)
+    if (c == ' ' || c == ':' || c == '"' || c == '*' || c == '+' ||
+        c == ',' || c == ';' || c == '<' || c == '=' || c == '>' ||
+        c == '?' || c == '[' || c == ']' || c == '|')
+      continue;                         /* char is discarded */
+    else if (c == '/')
+    {
+      *qw++ = c;
+      f = 0;                            /* new component */
+    }
+#ifdef __human68k__
+    else if (ismbblead(c) && *pw)
+    {
+      if (f == 7 || f == 11)
+        f++;
+      else if (*pw && f < 12 && f != 8)
+      {
+        *qw++ = c;
+        *qw++ = *pw++;
+        f += 2;
+      }
+    }
+#endif /* __human68k__ */
+    else if (c == '.')
+    {
+      if (f == 0)
+        continue;                       /* leading dots are discarded */
+      else if (f < 9)
+      {
+        *qw++ = c;
+        f = 9;                          /* now in file type */
+      }
+      else
+        f = 12;                         /* now just excess characters */
+    }
+    else
+      if (f < 12 && f != 8)
+      {
+        f++;                            /* do until end of name or type */
+        *qw++ = towupper(c);
+      }
+  *qw = 0;
+  return nw;
+}
+#endif
 
 
 int proc_archive_name(n, caseflag)
@@ -457,6 +554,284 @@ int filter(name, casesensitive)
    }
    return imatch && Rmatch;
 }
+
+
+#ifdef UNICODE_SUPPORT
+# ifdef WIN32
+
+int newnamew(namew, isdir, casesensitive)
+  wchar_t *namew;             /* name to add (or exclude) */
+  int  isdir;                 /* true for a directory */
+  int  casesensitive;         /* true for case-sensitive matching */
+/* Add (or exclude) the name of an existing disk file.  Return an error
+   code in the ZE_ class. */
+{
+  wchar_t *inamew = NULL;     /* internal name */
+  wchar_t *znamew = NULL;     /* external version of iname */
+  wchar_t *undosmw = NULL;    /* zname version with "-j" and "-k" options disabled */
+  char *oname = NULL;         /* iname converted for display */
+  char *name = NULL;
+  char *iname = NULL;
+  char *zname = NULL;
+  char *zuname = NULL;
+  char *undosm = NULL;
+  struct flist far *f;        /* where in found, or new found entry */
+  struct zlist far *z;        /* where in zfiles (if found) */
+  int dosflag;
+
+  /* Scanning files ...
+   *
+   * After 5 seconds output Scanning files...
+   * then a dot every 2 seconds
+   */
+  if (noisy) {
+    /* If find files then output message after delay */
+    if (scan_count == 0) {
+      time_t current = time(NULL);
+      scan_start = current;
+    }
+    scan_count++;
+    if (scan_count % 100 == 0) {
+      time_t current = time(NULL);
+
+      if (current - scan_start > scan_delay) {
+        if (scan_last == 0) {
+          fprintf(mesg, "Scanning files ");
+          fflush(mesg);
+          mesg_line_started = 1;
+          scan_last = current;
+        }
+        if (current - scan_last > scan_dot_time) {
+          scan_last = current;
+          fprintf(mesg, ".");
+          fflush(mesg);
+        }
+      }
+    }
+  }
+
+  /* Search for name in zip file.  If there, mark it, else add to
+     list of new names to do (or remove from that list). */
+  if ((inamew = ex2inw(namew, isdir, &dosflag)) == NULL)
+    return ZE_MEM;
+
+  /* Discard directory names with zip -rj */
+  if (*inamew == (wchar_t)'\0') {
+
+ /* If extensions needs to be swapped, we will have empty directory names
+    instead of the original directory. For example, zipping 'c.', 'c.main'
+    should zip only 'main.c' while 'c.' will be converted to '\0' by ex2in. */
+
+    if (pathput && !recurse) error("empty name without -j or -r");
+    free((zvoid *)inamew);
+    return ZE_OK;
+  }
+
+  if (dosflag || !pathput) {
+    int save_dosify = dosify, save_pathput = pathput;
+    dosify = 0;
+    pathput = 1;
+    /* zname is temporarly mis-used as "undosmode" iname pointer */
+    if ((znamew = ex2inw(namew, isdir, NULL)) != NULL) {
+      undosmw = in2exw(znamew);
+      free(znamew);
+    }
+    dosify = save_dosify;
+    pathput = save_pathput;
+  }
+  if ((znamew = in2exw(inamew)) == NULL)
+    return ZE_MEM;
+
+  /* Convert names from wchar_t to char */
+  
+  name = wchar_to_local_string(namew);
+  iname = wchar_to_local_string(inamew);
+  zname = wchar_to_local_string(znamew);
+
+  oname = local_to_display_string(zname);
+
+  zuname = wchar_to_local_string(znamew);
+
+  if (undosmw == NULL)
+    undosmw = znamew;
+  undosm = wchar_to_local_string(undosmw);
+
+  if ((z = zsearch(zuname)) != NULL) {
+    if (pcount && !filter(undosm, casesensitive)) {
+      /* Do not clear z->mark if "exclude", because, when "dosify || !pathput"
+       * is in effect, two files with different filter options may hit the
+       * same z entry.
+       */
+      if (verbose)
+        fprintf(mesg, "excluding %s\n", oname);
+    } else {
+      z->mark = 1;
+      if ((z->name = malloc(strlen(name) + 1 + PAD)) == NULL) {
+        if (undosmw != znamew)
+          free(undosmw);
+        if (undosm) free(undosm);
+        if (inamew) free(inamew);
+        if (znamew) free(znamew);
+        if (name) free(name);
+        if (iname) free(iname);
+        if (zname) free(zname);
+        if (oname) free(oname);
+        if (zuname) free(zuname);
+        return ZE_MEM;
+      }
+      strcpy(z->name, name);
+      z->oname = oname;
+      oname = NULL;
+      z->dosflag = dosflag;
+
+#ifdef FORCE_NEWNAME
+      free((zvoid *)(z->iname));
+      z->iname = iname;
+      iname = NULL;
+#else
+      /* Better keep the old name. Useful when updating on MSDOS a zip file
+       * made on Unix.
+       */
+#endif /* ? FORCE_NEWNAME */
+    }
+
+    if ((z->namew = (wchar_t *)malloc((wcslen(namew) + 1) * sizeof(wchar_t))) == NULL) {
+      if (undosmw != znamew)
+        free(undosmw);
+      if (undosm) free(undosm);
+      if (inamew) free(inamew);
+      if (znamew) free(znamew);
+      if (name) free(name);
+      if (iname) free(iname);
+      if (zname) free(zname);
+      if (oname) free(oname);
+      if (zuname) free(zuname);
+      return ZE_MEM;
+    }
+    wcscpy(z->namew, namew);
+    z->inamew = inamew;
+    inamew = NULL;
+    z->znamew = znamew;
+    znamew = NULL;
+    z->uname = wchar_to_utf8_string(z->inamew);
+    if (name == label) {
+       label = z->name;
+    }
+  } else if (pcount == 0 || filter(undosm, casesensitive)) {
+
+    /* Check that we are not adding the zip file to itself. This
+     * catches cases like "zip -m foo ../dir/foo.zip".
+     */
+/* Version of stat() for CMS/MVS isn't complete enough to see if       */
+/* files match.  Just let ZIP.C compare the filenames.  That's good    */
+/* enough for CMS anyway since there aren't paths to worry about.      */
+    z_stat statb;      /* now use structure z_stat and function zstat globally 7/24/04 EG */
+
+    if (zipstate == -1)
+       zipstate = strcmp(zipfile, "-") != 0 &&
+                   zstat(zipfile, &zipstatb) == 0;
+
+    if (zipstate == 1 && (statb = zipstatb, zwstat(namew, &statb) == 0
+      && zipstatb.st_mode  == statb.st_mode
+      && zipstatb.st_ino   == statb.st_ino
+      && zipstatb.st_dev   == statb.st_dev
+      && zipstatb.st_uid   == statb.st_uid
+      && zipstatb.st_gid   == statb.st_gid
+      && zipstatb.st_size  == statb.st_size
+      && zipstatb.st_mtime == statb.st_mtime
+      && zipstatb.st_ctime == statb.st_ctime)) {
+      /* Don't compare a_time since we are reading the file */
+        if (verbose)
+          fprintf(mesg, "file matches zip file -- skipping\n");
+        if (undosmw != znamew)
+          free(undosmw);
+        if (undosm) free(undosm);
+        if (inamew) free(inamew);
+        if (znamew) free(znamew);
+        if (name) free(name);
+        if (iname) free(iname);
+        if (zname) free(zname);
+        if (oname) free(oname);
+        if (zuname) free(zuname);
+        return ZE_OK;
+    }
+
+    /* allocate space and add to list */
+    if ((f = (struct flist far *)farmalloc(sizeof(struct flist))) == NULL ||
+        fcount + 1 < fcount ||
+        (f->name = malloc(strlen(name) + 1 + PAD)) == NULL)
+    {
+      if (f != NULL)
+        farfree((zvoid far *)f);
+      if (undosmw != znamew)
+        free(undosmw);
+      if (undosm) free(undosm);
+      if (inamew) free(inamew);
+      if (znamew) free(znamew);
+      if (name) free(name);
+      if (iname) free(iname);
+      if (zname) free(zname);
+      if (oname) free(oname);
+      if (zuname) free(zuname);
+      return ZE_MEM;
+    }
+    if (undosmw != znamew)
+      free((zvoid *)undosmw);
+    strcpy(f->name, name);
+    f->iname = iname;
+    iname = NULL;
+    f->zname = zname;
+    zname = NULL;
+    /* set by directory scan if used Windows 8.3 name */
+    f->nonlocal_name = nonlocal_name;
+    f->nonlocal_path = nonlocal_path;
+    /* Unicode */
+    if ((f->namew = (wchar_t *)malloc((wcslen(namew) + 1) * sizeof(wchar_t))) == NULL) {
+      if (f != NULL)
+        farfree((zvoid far *)f);
+      if (undosmw != znamew)
+        free(undosmw);
+      if (undosm) free(undosm);
+      if (inamew) free(inamew);
+      if (znamew) free(znamew);
+      if (name) free(name);
+      if (iname) free(iname);
+      if (zname) free(zname);
+      if (oname) free(oname);
+      if (zuname) free(zuname);
+      return ZE_MEM;
+    }
+    wcscpy(f->namew, namew);
+    f->znamew = znamew;
+    znamew = NULL;
+    f->uname = wchar_to_utf8_string(inamew);
+    f->inamew = inamew;
+    inamew = NULL;
+    f->oname = oname;
+    oname = NULL;
+    f->dosflag = dosflag;
+    *fnxt = f;
+    f->lst = fnxt;
+    f->nxt = NULL;
+    fnxt = &f->nxt;
+    fcount++;
+    if (name == label) {
+      label = f->name;
+    }
+  }
+  if (undosm) free(undosm);
+  if (inamew) free(inamew);
+  if (znamew) free(znamew);
+  if (name) free(name);
+  if (iname) free(iname);
+  if (zname) free(zname);
+  if (oname) free(oname);
+  if (zuname) free(zuname);
+  return ZE_OK;
+}
+
+# endif
+#endif
 
 int newname(name, isdir, casesensitive)
   char *name;           /* name to add (or exclude) */
@@ -2588,6 +2963,44 @@ int utf8_chars(utf8)
  * different sizes of wchar_t.
  */
 
+#ifdef WIN32
+
+zwchar *wchar_to_wide_string(wchar_string)
+  wchar_t *wchar_string;
+{
+  int i;
+  int wchar_len;
+  zwchar *wide_string;
+
+  wchar_len = wcslen(wchar_string);
+
+  if ((wide_string = malloc((wchar_len + 1) * sizeof(zwchar))) == NULL) {
+    ZIPERR(ZE_MEM, "wchar to wide conversion");
+  }
+  for (i = 0; i <= wchar_len; i++) {
+    wide_string[i] = wchar_string[i];
+  }
+
+  return wide_string;
+}
+
+/* is_ascii_stringw
+ * Checks if a wide string is all ascii
+ */
+int is_ascii_stringw(wstring)
+  wchar_t *wstring;
+{
+  wchar_t *pw;
+  wchar_t cw;
+
+  for (pw = wstring; (cw = *pw) != '\0'; pw++) {
+    if (cw > 0x7F) {
+      return 0;
+    }
+  }
+  return 1;
+}
+#endif
 
 /* is_ascii_string
  * Checks if a string is all ascii
@@ -2731,6 +3144,21 @@ zwchar escape_string_to_wide(escape_string)
 }
 #endif
 
+
+#ifdef WIN32
+char *wchar_to_local_string(wstring)
+  wchar_t *wstring;
+{
+  zwchar *wide_string = wchar_to_wide_string(wstring);
+  char *local_string = wide_to_local_string(wide_string);
+
+  free(wide_string);
+
+  return local_string;
+}
+#endif
+
+
 /* convert wide character string to multi-byte character string */
 char *wide_to_local_string(wide_string)
   zwchar *wide_string;
@@ -2825,7 +3253,7 @@ char *local_to_display_string(local_string)
 #ifdef UNIX
 # define DSP_STR_LEN (2* strlen(local_string))
   char *cp_dst;                 /* Character pointers used in the */
-  char *cp_src;                 /* copying/changing procedure.    */  
+  char *cp_src;                 /* copying/changing procedure.    */
 #else /* def UNIX */
 # define DSP_STR_LEN strlen(local_string)
 #endif /* def UNIX [else] */
@@ -2915,6 +3343,20 @@ zwchar *local_to_wide_string(local_string)
 
   return wide_string;
 }
+
+
+#ifndef WIN32
+char *wchar_to_utf8_string(wstring)
+  wchar_t *wstring;
+{
+  zwchar *wide_string = wchar_to_wide_string(wstring);
+  char *local_string = wide_to_utf8_string(wide_string);
+
+  free(wide_string);
+
+  return local_string;
+}
+#endif
 
 
 /* convert wide string to UTF-8 */

@@ -18,11 +18,6 @@
    Removed "#ifndef UTIL", as no one should be compiling it that way.
 */
 
-/* Accomodation for /NAMES = AS_IS with old header files. */
-
-#define sys$parse SYS$PARSE
-#define sys$search SYS$SEARCH
-
 #include "zip.h"
 #include "vmsmunch.h"
 #include "vms.h"
@@ -843,6 +838,22 @@ char *ex2in( char *x, int isdir, int *pdosflag)
       /* Absolute path.  Skip first "[" (or "<"). */
       dir_len -= 1;
       ext_dir_and_name += 1;
+
+      /* 2007-04-26 SMS.
+         Skip past "000000." or "000000]" (or "000000>"), which should
+         not be stored in the archive.  This arises, for example, with
+         "zip -r archive [000000]foo.dir"
+      */
+#define MFD "000000"
+
+      if ((strncmp( ext_dir_and_name, MFD, strlen( MFD)) == 0) &&
+       ((ext_dir_and_name[ 6] == '.') ||
+       (ext_dir_and_name[ 6] == ']') ||
+       (ext_dir_and_name[ 6] == '>')))
+      {
+        dir_len -= 7;
+        ext_dir_and_name += 7;
+      } 
     }
   }
   else

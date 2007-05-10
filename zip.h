@@ -173,6 +173,9 @@ struct zlist {
   char *ouname;                 /* Display version of zuname */
 # ifdef WIN32
   char *wuname;                 /* Converted back ouname for Win32 */
+  wchar_t *namew;
+  wchar_t *inamew;
+  wchar_t *znamew;
 # endif
 #endif
   int mark;                     /* Marker for files to operate on */
@@ -190,6 +193,11 @@ struct flist {
   char *oname;                  /* Display version of internal name */
 #ifdef UNICODE_SUPPORT
   char *uname;                  /* UTF-8 name */
+# ifdef WIN32
+  wchar_t *namew;
+  wchar_t *inamew;
+  wchar_t *znamew;
+# endif
 #endif
 #ifdef WIN32
   int nonlocal_name;            /* Name needs UTF-8 */
@@ -352,8 +360,30 @@ extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
    extern int vms_native;       /* Store in VMS format */
    extern int vms_case_2;       /* ODS2 file name case in VMS. -1: down. */
    extern int vms_case_5;       /* ODS5 file name case in VMS. +1: preserve. */
+
 /* Accomodation for /NAMES = AS_IS with old header files. */
-#define cma$tis_errno_get_addr CMA$TIS_ERRNO_GET_ADDR
+# define cma$tis_errno_get_addr CMA$TIS_ERRNO_GET_ADDR
+# define lib$establish LIB$ESTABLISH
+# define lib$get_foreign LIB$GET_FOREIGN
+# define lib$get_input LIB$GET_INPUT
+# define lib$sig_to_ret LIB$SIG_TO_RET
+# define ots$cvt_tu_l OTS$CVT_TU_L
+# define str$concat STR$CONCAT
+# define str$find_first_substring STR$FIND_FIRST_SUBSTRING
+# define str$free1_dx STR$FREE1_DX
+# define sys$asctim SYS$ASCTIM
+# define sys$assign SYS$ASSIGN
+# define sys$bintim SYS$BINTIM
+# define sys$close SYS$CLOSE
+# define sys$connect SYS$CONNECT
+# define sys$dassgn SYS$DASSGN
+# define sys$display SYS$DISPLAY
+# define sys$getjpiw SYS$GETJPIW
+# define sys$open SYS$OPEN
+# define sys$parse SYS$PARSE
+# define sys$qiow SYS$QIOW
+# define sys$read SYS$READ
+# define sys$search SYS$SEARCH
 #endif /* VMS */
 #if defined(OS2) || defined(WIN32)
    extern int use_longname_ea;   /* use the .LONGNAME EA as the file's name */
@@ -364,6 +394,11 @@ extern short qlflag;
 /* 9/26/04 EG */
 extern int no_wild;             /* wildcards are disabled */
 extern int wild_stop_at_dir;    /* wildcards do not include / in matches */
+#ifdef UNICODE_SUPPORT
+# ifdef WIN32
+   extern int no_win32_wide;    /* 1 = no wide functions, like GetFileAttributesW() */
+# endif
+#endif
 /* 10/20/04 EG */
 extern zoff_t dot_size;         /* if not 0 then display dots every size buffers */
 extern zoff_t dot_count;        /* if dot_size not 0 counts buffers */
@@ -630,10 +665,21 @@ char *copy_nondup_extra_fields OF((char *, unsigned, char *, unsigned, unsigned 
    char *getnam OF((FILE *));
    struct flist far *fexpel OF((struct flist far *));
    char *last OF((char *, int));
+# ifdef UNICODE_SUPPORT
+   wchar_t *lastw OF((wchar_t *, wchar_t));
+# endif
    char *msname OF((char *));
+# ifdef UNICODE_SUPPORT
+   wchar_t *msnamew OF((wchar_t *));
+# endif
    int check_dup OF((void));
    int filter OF((char *, int));
    int newname OF((char *, int, int));
+# ifdef UNICODE_SUPPORT
+#  ifdef WIN32
+   int newnamew OF((wchar_t *, int, int));
+#  endif
+# endif
    /* used by copy mode */
    int proc_archive_name OF((char *, int));
 #endif /* !UTIL */
@@ -685,6 +731,11 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
 # endif
    char *in2ex OF((char *));
    char *ex2in OF((char *, int, int *));
+#ifdef UNICODE_SUPPORT
+   wchar_t *in2exw OF((wchar_t *));
+   wchar_t *ex2inw OF((wchar_t *, int, int *));
+   int procnamew OF((wchar_t *, int));
+#endif
    int procname OF((char *, int));
    void stamp OF((char *, ulg));
 
@@ -692,7 +743,9 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
    /* Windows Unicode */
 # ifdef UNICODE_SUPPORT
 # ifdef WIN32
+   ulg filetimew OF((wchar_t *, ulg *, zoff_t *, iztimes *));
    char *get_win32_utf8path OF((char *));
+   wchar_t *local_to_wchar_string OF ((char *));
 # endif
 # endif
 
@@ -711,6 +764,12 @@ void version_local OF((void));
 #ifndef UTIL
 int   fseekable    OF((FILE *));
 char *isshexp      OF((char *));
+#ifdef UNICODE_SUPPORT
+# ifdef WIN32
+   wchar_t *isshexpw     OF((wchar_t *));
+   int dosmatchw   OF((ZCONST wchar_t *, ZCONST wchar_t *, int));
+# endif
+#endif
 int   shmatch      OF((ZCONST char *, ZCONST char *, int));
 # if defined(DOS) || defined(WIN32)
    int dosmatch    OF((ZCONST char *, ZCONST char *, int));
@@ -848,6 +907,10 @@ void     bi_init      OF((char *, unsigned int, int));
 
   /* check if string is all ASCII */
   int is_ascii_string OF((char *));
+#ifdef WIN32
+  int is_ascii_stringw OF((wchar_t *));
+  zwchar *wchar_to_wide_string OF((wchar_t *));
+#endif
 
   /* convert UTF-8 string to multi-byte string */
   char *utf8_to_local_string OF((char *));
@@ -857,6 +920,9 @@ void     bi_init      OF((char *, unsigned int, int));
 
   /* convert wide string to multi-byte string */
   char *wide_to_local_string OF((zwchar *));
+#ifdef WIN32
+  char *wchar_to_local_string OF((wchar_t *));
+#endif
 
   /* convert local string to multi-byte display string */
   char *local_to_display_string OF((char *));
@@ -877,6 +943,9 @@ void     bi_init      OF((char *, unsigned int, int));
 
   /* convert wide string to UTF-8 */
   char *wide_to_utf8_string OF((zwchar *));
+#ifdef WIN32
+  char *wchar_to_utf8_string OF((wchar_t *));
+#endif
 
 #endif /* UNICODE_SUPPORT */
 
