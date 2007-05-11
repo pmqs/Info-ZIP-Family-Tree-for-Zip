@@ -73,7 +73,7 @@ installation instructions for details.
 .sk
 Format
 .sk;.lm+2;.literal
-ZIP [-options] archive inpattern inpattern ...
+ZIP [-options] archive inpath inpath ...
 .end literal;.lm-2
 .!------------------------------------------------------------------------------
 .indent -4
@@ -81,13 +81,13 @@ ZIP [-options] archive inpattern inpattern ...
 .br
 Format
 .sk;.lm+2;.literal
-ZIP [-options] archive inpattern inpattern ...
+ZIP [-options] archive inpath inpath ...
 .end literal;.lm-2
 .sk
 The default action of Zip is to add or replace entries in "archive" from
-the list of "inpattern" file specifications, which can include
-directories and file names with VMS-style wildcards, or the special name
--@ to read file specifications from SYS$INPUT (stdin).
+the list of "inpath" file specifications, which can include directories
+and file names with VMS-style wildcards, or the special name -@ to read
+file specifications from SYS$INPUT (stdin).
 .sk
 With SET PROCESS /PARSE_STYLE = EXTENDED (available on recent non-VAX
 systems), Zip preserves the case of the command line.  Otherwise, mixed-
@@ -175,7 +175,7 @@ because Zip will normally generate sequentially numbered types ".z01",
 the last split.
 .sk
 Standard VMS wildcard expansion ($SEARCH) is used to interpret the
-"inpattern" file and directory specifications, like the "*.*" in this
+"inpath" file and directory specifications, like the "*.*" in this
 example.
 .sk
 On VMS, the most natural way to archive an entire directory tree is to
@@ -604,6 +604,9 @@ A split archive with missing split files can be fixed using -F if you
 have the last split of the archive (the ".zip" file).  If this file is
 missing, you must use -FF to fix the archive, which will prompt you for
 the splits you have.
+.sk
+Currently, the fix options can't recover an entry which has a bad
+checksum or is otherwise damaged.
 .!------------------------------------------------------------------------------
 .indent -4
 2 Log_File
@@ -964,10 +967,10 @@ also be used with -U to copy entries from an existing archive to
 a new archive.  See the EXAMPLES section below.
 .sk
 Another use is converting zip files from one split size to
-another.  For instance, to convert an archive with 700 MB CD splits
-to one with 4 GB DVD splits, can use:
+another.  For instance, to convert an archive with 700MB CD splits
+to one with 2GB DVD splits, can use:
 .sk;.indent 10
-zip -s 4g cd-split.zip --out dvd-split.zip
+zip -s 2g cd-split.zip --out dvd-split.zip
 .sk
 which uses copy mode.  See -U below.  Also:
 .sk;.indent 10
@@ -1014,11 +1017,14 @@ must be installed properly for this to work.
 .sk;.literal
 -TT unzip_cmd  --unzip-command unzip_cmd
 .end literal;.br
-Specify the actual UnZip command name, "unzip_cmd" (normally a DCL
-symbol) to use for "zip -T".  This can be useful if multiple versions of
-UnZip are installed on a system, and the DCL symbol "UNZIP" would run
-the wrong one (or the logical name DCL$PATH would lead to the wrong
-one).
+Specify the actual UnZip command, "unzip_cmd" (normally a DCL symbol) to
+use for "zip -T".  This can be useful if multiple versions of UnZip are
+installed on a system, and the default DCL symbol "UNZIP" would run the
+wrong one (or the logical name DCL$PATH would lead to the wrong one).
+.sk
+In "unzip_cmd", the string "{}" is replaced by the name of the archive
+to be tested, otherwise the name of the archive is appended to the end
+of the command.  The exit status is checked for success severity.
 .sk;.literal
 -v  --verbose
 .end literal;.br
@@ -1156,16 +1162,17 @@ not just the target system where its embedded UnZip SFX program runs.
 .indent -4
 2 Split_Archives
 .br
-A split archive is one which is divided into multiple files, usually to
-allow it to be stored on multiple storage media (floppy diskettes,
-CD-ROMs, or the like) when a single medium would be too small to contain
-the whole archive.  (Note that split archives are not just unitary
-archives split into pieces, as the .ZIP file format includes offsets to
-data structures in the archive, and for a split archive these are based
-on the start of each split, not on the start of the whole archive. 
-Concatenating the pieces will invalidate these offsets, but UnZip can
-usually deal with it.  Zip will usually refuse to process such a
-spliced archive unless the -FF fix option is used to fix the offsets.)
+Beginning with version 3.0, Zip supports split archives.  A split
+archive is one which is divided into multiple files, usually to allow it
+to be stored on multiple storage media (floppy diskettes, CD-ROMs, or
+the like) when a single medium would be too small to contain the whole
+archive.  (Note that split archives are not just unitary archives split
+into pieces, as the .ZIP file format includes offsets to data structures
+in the archive, and for a split archive these are based on the start of
+each split, not on the start of the whole archive.  Concatenating the
+pieces will invalidate these offsets, but UnZip can usually deal with
+it.  Zip will usually refuse to process such a spliced archive unless
+the -FF fix option is used to fix the offsets.)
 .sk
 For a split archive with, say, 20 split files, the files are typically
 named ARCHIVE.z01, ARCHIVE.z02, ..., ARCHIVE.z19, ARCHIVE.zip, where
