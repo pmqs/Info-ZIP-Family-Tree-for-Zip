@@ -46,6 +46,8 @@
 .!              unified spelling of "Info-ZIP", final cleanups for 2.2.
 .!      Steven Schweda          10 May 2007
 .!              General update for version 3.0.
+.!      Ed Gordon               12 May 2007
+.!              Minor updates for version 3.0.
 .!
 .noflags
 .lm4 .rm72
@@ -142,14 +144,14 @@ requiring a C RTL ECO before VMS V7.3-2).
 Zip automatically uses the Zip64 extensions when a file larger than 2 GB
 is added to an archive, an archive containing a Zip64 entry is updated
 (if the resulting archive still needs Zip64), the size of the archive
-will exceed 2 GB, or when the number of entries in the archive will
+will exceed 4 GB, or when the number of entries in the archive will
 exceed about 64K.  Zip64 is also used for archives streamed to a
 non-seekable output device.  You must use a 4.5 compatible UnZip to
-extract files using the Zip64 extensions such as unzip 6.0 or later.
+extract files using the Zip64 extensions such as UnZip 6.0 or later.
 .sk
 In addition, streamed archives, entries encrypted with standard
 encryption, or split archives created with the pause option may not be
-[Bcompatible with PKZIP as data descriptors are used, and PKZIP at the 
+compatible with PKZIP as data descriptors are used, and PKZIP at the 
 time of this writing does not support data descriptors (but recent
 changes in the PKWare published .ZIP file standard now include some
 support for the data descriptor format Zip uses).
@@ -172,7 +174,8 @@ in the file specification, but for split archives (archives split over
 multiple files), the user should normally specify a type-less name,
 because Zip will normally generate sequentially numbered types ".z01",
 ".z02", and so on for the early splits, and then the required ".zip" for
-the last split.
+the last split.  These file types are required by the Zip standard for
+split archives.
 .sk
 Standard VMS wildcard expansion ($SEARCH) is used to interpret the
 "inpath" file and directory specifications, like the "*.*" in this
@@ -211,7 +214,7 @@ itself must be specified:
 .sk;.indent 10
 zip -r foo.zip [000000]www.dir ftp.dir
 .sk
-You may want to make a archive that contains the files in [.foo], but not
+You may want to make an archive that contains the files in [.foo], but not
 record the directory name, "foo".  You can use the -j (junk path) option
 to leave off the path:
 .sk;.indent 10
@@ -234,7 +237,9 @@ it.  The -m option means "move", and it will cause Zip to delete all
 files added to the archive after making or updating foo.zip.  No
 deletions will be done until the Zip operation has completed with no
 errors.  This option is obviously dangerous and should be used with
-care, but it does reduce the need for free disk space.
+care, but it does reduce the need for free disk space.  When -m is
+used, the -T option is recommended and will test the resulting archive
+before deleting the input files.
 .sk
 If a file specification list is too long to fit conveniently on the Zip
 command line, the -@ option can be used to cause Zip to read a list of
@@ -294,12 +299,14 @@ SYS$INPUT (stdin)) can't be used together (successfully).
 2 Compression
 .br
 Zip can archive files with or without compression.  The standard
-compression method ("deflate") is compatible with all UnZip versions. 
+compression method ("deflate") is compatible with all UnZip versions
+(except really old ones that only understand the "store" method). 
 Current Zip and UnZip versions may be built with optional support for
-the bzip2 compression method.  (The bzip2 method usually compresses
-better, but uses more CPU time, and requires an UnZip which includes the
-optional bzip2 support.  See the installation instructions for details
-on adding bzip2 compression support at build time.)
+the bzip2 compression method.  (The bzip2 method can compress better,
+especially when compressing smaller files, but uses more CPU time, and
+requires an UnZip which includes the optional bzip2 support.  See the
+installation instructions for details on adding bzip2 compression
+support at build time.)
 .sk
 Numeric compression level options control the effort put into data
 compression, with -1 being the fastest, and -9 giving the most
@@ -370,7 +377,8 @@ possible, use the non-echoing, interactive password entry method.
 Because standard Zip encryption is weak, where security is truly
 important, use a strong encryption program, such as Pretty Good Privacy
 (PGP) or GNU Privacy Guard (GnuPG), on an archive instead of standard
-Zip encryption.
+Zip encryption.  A stronger encryption method, such as AES, is planned
+for Zip 3.1.
 .!------------------------------------------------------------------------------
 .indent -4
 2 Exit_Status
@@ -440,7 +448,7 @@ USE_EF_UT_TIME in a "zip -v" report.)  On VMS, with -V or -VV, Zip will
 also store VMS-specific file attributes.  These data are packaged as
 "extra fields" in the archive.  Some extra fields are specific to a
 particular operating system (like VMS file attributes).  Large files
-(bigger than 2GB) on any OS require an extra field to hold their 64-bit
+(bigger than 4GB) on any OS require an extra field to hold their 64-bit
 size data.  Depending on the capabilities of the UnZip program used to
 expand the archive, these extra fields may be used or ignored when files
 are extracted from the archive.
@@ -514,10 +522,10 @@ $ zip stuff.zip [.zip30...]*.* -x */vms/*.c
 because the files to be added to the Zip archive are specified using VMS
 file specifications, but the -x (--exclude) option excludes names based
 on their archive path/file names.  Options dealing with archive names
-include -R (--recurse-patterns), -d (--delete), -i (--include), and -x
-(--exclude).
+include -R (--recurse-patterns), -d (--delete), -i (--include), -x
+(--exclude), and -U (--copy-entries).
 .sk
-Note: On VMS, archive name matching (-R, -d, -i, and -x) is case
+Note: On VMS, archive name matching (-R, -d, -i, -x, and -U) is case
 sensitive, even when the file system is not case sensitive (or even case
 preserving).  This allows accurate matching of mixed-case names in an
 archive which may have been created on a system with a case sensitive
@@ -583,7 +591,7 @@ repair, the -t option of UnZip may show that some files have a bad CRC.
 Such files cannot be recovered; you can remove them from the archive
 using the -d option of Zip.
 .sk
-Because of the uncertainty of the "fixing" process, it's generally wise
+Because of the uncertainty of the "fixing" process, it's required
 to specify an output archive, rather than risking further damage to the
 original damaged archive.  For example, to fix the damaged archive
 foo.zip,
@@ -592,7 +600,8 @@ zip -F foo --out foo_fix
 .sk
 tries to read the entries normally, copying good entries to the new 
 archive foo_fix.zip.  If this doesn't work, as when the archive is
-truncated, or some entries are missed, try -FF:
+truncated, or if some entries are missed because of bad central
+directory entries, try -FF:
 .sk;.indent 10
 zip -FF foo --out foo_fixfix
 .sk
@@ -612,7 +621,7 @@ checksum or is otherwise damaged.
 2 Log_File
 .br
 Zip normally sends messages to the user's terminal, but these may be
-directed to a log file..sk
+also directed to a log file.
 .sk;.literal
 -la  --log-append
 .end literal;.br
@@ -621,7 +630,7 @@ Append to an existing log file.  Default is to create a new version.
 -lf logfilepath  --logfile-path logfilepath
 .end literal;.br
 Open a logfile at the given path.  By default, a new version will be
-created, with the -la option, an existing file will be opened and the
+created, but with the -la option an existing file will be opened and the
 new log information appended to any existing information.  Only
 warnings and errors are written to the log unless the -li option is also
 given, then all information messages are also written to the log.
@@ -731,11 +740,9 @@ $ zip foo [.foo...]*.*
 .sk
 will replace foo/file1 in foo.zip and add foo/file3 to foo.zip.  After
 this, foo.zip contains foo/file1, foo/file2, and foo/file3, with foo/file2
-unchanged from before.
+unchanged from before.  This is the default mode -u (update).
 .sk
-There are two other ways to change or add entries in a archive that are
-restrictions of simple addition or replacement.  The first is -u (update)
-which will add new entries to the archive as before but will replace
+Update will add new entries to the archive and will replace
 existing entries only if the modified date of the file is more recent than
 the date recorded for that name in the archive.  For example:
 .sk;.indent 10
@@ -748,7 +755,7 @@ output files when selecting files to include in the archive, so it
 should be safe, as in this case, to have the archive included in the
 list of input files.
 .sk
-The second restriction is -f (freshen) which, like update, will only
+A second mode, -f (freshen), like update will only
 replace entries with newer files.  Unlike update, however, it will not
 add files that are not already in the archive.  For example:
 .sk;.indent 10
@@ -771,7 +778,8 @@ included in the archive.  For example:
 $ zip -rt 12071991 infamy [.FOO]*.*
 .sk
 will add all the files in [.FOO] and its subdirectories that were last
-modified on December 7, 1991, or later to the archive infamy.zip.
+modified on December 7, 1991, or later to the achive infamy.zip.  Dates
+can be in format mmddyyyy or yyyy-mm-dd.
 .sk
 Also, files can be explicitly excluded using the -x option:
 .sk;.indent 10
@@ -780,7 +788,7 @@ $ zip -r foo [.FOO] -x *.obj
 which will zip up the contents of [.FOO] into foo.zip but exclude all the
 files that end in ".obj".
 .sk
-The last operation is -d (delete) which will remove entries from an
+The -d (delete) mode will remove entries from an
 archive.  An example might be:
 .sk;.indent 10
 $ zip -d foo foo/harry/*.* *.obj
@@ -788,7 +796,15 @@ $ zip -d foo foo/harry/*.* *.obj
 which will remove all of the files that start with "foo/harry/" and all of
 the files that end with ".obj" (in any path).
 .sk
-Note: On VMS, archive name matching (-R, -d, -i, and -x) is case
+The last mode, -U (--copy-entries), selects entries from an existing
+archive and copies them to a new archive.
+.sk;.indent 10
+$ zip -U foo *.obj --out fooobj
+.sk
+will copy all .obj entries from foo.zip and put them in the new archive
+fooobj.zip.
+.sk
+Note: On VMS, archive name matching (-R, -d, -i, -x) is case
 sensitive, even when the file system is not case sensitive (or even case
 preserving).  This allows accurate matching of mixed-case names in an
 archive which may have been created on a system with a case sensitive
@@ -1022,9 +1038,9 @@ use for "zip -T".  This can be useful if multiple versions of UnZip are
 installed on a system, and the default DCL symbol "UNZIP" would run the
 wrong one (or the logical name DCL$PATH would lead to the wrong one).
 .sk
-In "unzip_cmd", the string "{}" is replaced by the name of the archive
-to be tested, otherwise the name of the archive is appended to the end
-of the command.  The exit status is checked for success severity.
+In "unzip_cmd", the string "{}" is replaced by the temporary name of the
+archive to be tested, otherwise the name of the archive is appended
+to the end of the command.  The exit status is checked for success severity.
 .sk;.literal
 -v  --verbose
 .end literal;.br
@@ -1063,7 +1079,7 @@ the destination file system.
 .sk
 On VMS, symbolic links are supported on ODS5 disks where the C RTL
 supports symbolic links.  Full support for symbolic links seems to
-requite VMS V8.3, but a Zip program supporting symbolic links may be
+require VMS V8.3, but a Zip program supporting symbolic links may be
 built on VMS V7.3-2.
 .!------------------------------------------------------------------------------
 .indent -4
@@ -1086,9 +1102,9 @@ Display running count of entries processed and entries to go.
 Display dots while each entry is processed (except on ports that have 
 their own progress indicator).  See -ds below for setting dot size.  The
 default is a dot every 10 MB of input file processed.  The -v
-(--verbose) option also displays dots and at a higher rate than this (at
-the same rate as in previous versions of Zip) but this rate is also
-controlled by -ds.
+(--verbose) option also displays dots and used to at a higher rate than
+this (at the same rate as in previous versions of Zip) but this rate has
+been changed to the new 10 MB default, and is also controlled by -ds.
 .sk;.literal
 -dg  --display-globaldots
 .end literal;.br
@@ -1107,10 +1123,10 @@ the format "nm" where n is a number and m is a multiplier.  Currently
 "m" can be k (KB), m (MB), g (GB), or t (TB), so if "n" is 100 and "m"
 is k, "size" would be 100k which is 100KB.  The default is 10MB.
 .sk
-The -v (--verbose) option also displays dots and defaults to a higher
-rate than this (at the same rate as in previous versions of Zip) but
-this rate is also controlled by this option.  A "size" of 0 turns dots
-off.
+The -v (--verbose) option also displays dots and used to default to a
+higher rate than this (at the same rate as in previous versions of Zip)
+but now the default is 10 MB and the -v dots are also controlled by this
+option.  A "size" of 0 turns dots off.
 .sk
 This option does not control the dots from the "Scanning files" message 
 as Zip scans for input files.  The dot size for that is fixed at 2
@@ -1259,25 +1275,28 @@ These may have limited utility on VMS.
 .sk;.literal
 -l  --to-crlf
 .end literal;.br
-Translate the UNIX end-of-line character LF into the MSDOS convention 
-CR-LF.  This option should not be used on binary files.  This option can
-be used on UNIX if the Zip file is intended for PKUNZIP under MSDOS.
-If the input files already contain CR-LF, this option adds an extra CR.
-This ensure that "unzip -a" on Unix will get back an exact copy of the
-original file, to undo the effect of "zip -l".
+Translate the UNIX end-of-line character LF (CR on MAC) into the MSDOS
+convention CR-LF.  This option should not be used on binary files.  This
+option can be used on UNIX if the Zip file is intended for PKUNZIP under
+MSDOS.  If the input files already contain CR-LF, this option adds an
+extra CR.  This ensure that "unzip -a" on Unix will get back an exact
+copy of the original file, to undo the effect of "zip -l".  See -ll
+below for the binary checks.
 .sk;.literal
 -ll  --from-crlf
 .end literal;.br
-Translate the MSDOS end-of-line CR LF into UNIX LF.  This option should
-not be used on binary files.  This option can be used on MSDOS if the
-Zip archive is intended for UnZip under UNIX.  If the file is converted
-and the file is later determined to be binary, a warning is issued and
-the file is probably corrupted.  If Zip with -ll detects binary
-(non-text) in the first buffer read from a file, it issues a warning and
-skips line-ending conversion on the file.  This check seems to catch all
-binary files tested, but the original check remains and if a converted
-file is later determined to be binary, that warning is still issued. 
-The algorithm now being used for binary detection should allow
+Translate the MSDOS end-of-line CR LF into UNIX LF (CR on MAC).  This
+option should not be used on binary files.  This option can be used on
+MSDOS if the Zip archive is intended for UnZip under UNIX.
+.sk
+For both -l and -ll, if the file is converted and the file is later
+determined to be binary, a warning is issued and the file is probably
+corrupted.  If Zip with -l or -ll detects binary (non-text) in the first
+buffer read from a file, it issues a warning and skips line-ending
+conversion on the file, avoiding corruption.  This check seems to catch
+all binary files tested, but the original check remains and if a
+converted file is later determined to be binary, that warning is still
+issued.  The algorithm now being used for binary detection should allow
 line-ending conversion of text files in UTF-8 and similar encodings.
 .!------------------------------------------------------------------------------
 .indent -4
