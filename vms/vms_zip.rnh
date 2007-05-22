@@ -525,14 +525,15 @@ on their archive path/file names.  Options dealing with archive names
 include -R (--recurse-patterns), -d (--delete), -i (--include), -x
 (--exclude), and -U (--copy-entries).
 .sk
-Note: On VMS, archive name matching (-R, -d, -i, -x, and -U) is case
-sensitive, even when the file system is not case sensitive (or even case
-preserving).  This allows accurate matching of mixed-case names in an
-archive which may have been created on a system with a case sensitive
-file system, but it can involve extra effort on VMS, where it may be
-necessary to use unnatural case names (or the same names in multiple
-cases, like "*.obj *.OBJ") for this kind of pattern matching to give the
-desired behavior.
+Note: By default, on VMS, archive name pattern matching (-R, -d, -i, -x,
+and -U) is case sensitive, even when the file system is not case
+sensitive (or even case preserving).  This allows accurate matching of
+mixed-case names in an archive which may have been created on a system
+with a case sensitive file system, but it can involve extra effort on
+VMS, where it may be necessary to use unnatural case names (or the same
+names in multiple cases, like "*.obj *.OBJ") for this kind of pattern
+matching to give the desired behavior.  If completely case-blind pattern
+matching behavior is desired, specify the -fc (--foldcase) option.
 .!------------------------------------------------------------------------------
 .indent -4
 3 Case
@@ -558,6 +559,18 @@ options give the user control over these conversions:
 -C5   preserve case of ODS5 names (default)
 -C5-  down-case ODS5 file names
 .end literal;.lm -10
+.sk
+Case is handled differently for archive member names, which the user
+specifies with the -R, -d, -i, -x, and -U options.  By default, on VMS,
+archive name pattern matching is case sensitive, even when the file
+system is not case sensitive (or even case preserving).  This allows
+accurate matching of mixed-case names in an archive which may have been
+created on a system with a case sensitive file system, but it can
+involve extra effort on VMS, where it may be necessary to use unnatural
+case names (or the same names in multiple cases, like "*.obj *.OBJ") for
+this kind of pattern matching to give the desired behavior.  If
+completely case-blind pattern matching behavior is desired, specify the
+-fc (--foldcase) option.
 .!------------------------------------------------------------------------------
 .indent -4
 2 Fixing_Damage
@@ -804,14 +817,15 @@ $ zip -U foo *.obj --out fooobj
 will copy all .obj entries from foo.zip and put them in the new archive
 fooobj.zip.
 .sk
-Note: On VMS, archive name matching (-R, -d, -i, -x) is case
-sensitive, even when the file system is not case sensitive (or even case
-preserving).  This allows accurate matching of mixed-case names in an
-archive which may have been created on a system with a case sensitive
-file system, but it can involve extra effort on VMS, where it may be
-necessary to use unnatural-case names (or the same names in multiple
-cases, like "*.obj *.OBJ") for this kind of pattern matching to give the
-desired behavior.
+Note: By default, on VMS, archive name pattern matching (-R, -d, -i, -x,
+and -U) is case sensitive, even when the file system is not case
+sensitive (or even case preserving).  This allows accurate matching of
+mixed-case names in an archive which may have been created on a system
+with a case sensitive file system, but it can involve extra effort on
+VMS, where it may be necessary to use unnatural case names (or the same
+names in multiple cases, like "*.obj *.OBJ") for this kind of pattern
+matching to give the desired behavior.  If completely case-blind pattern
+matching behavior is desired, specify the -fc (--foldcase) option.
 .!------------------------------------------------------------------------------
 .indent -4
 2 Options_List
@@ -884,6 +898,7 @@ be separated by a space or "=".  For example:
  FF  fixfix              salvage what can be salvaged (not as reliable)
  FS  filesync            remove archive entries unmatched in file system
  f   freshen             update existing entries (only changed files)
+ fc  foldcase            fold case (case-blind archive entry name matching)
  fd  force-descriptors   force data descriptors as if streaming
  fz  force-zip64         force use of Zip64 format
  g   grow                grow existing archive (unless updating or deleting)

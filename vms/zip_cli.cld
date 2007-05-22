@@ -42,6 +42,7 @@ Define	Verb		ZIP
 			VALUE(list, required, type=LOG_OPTS)
 	Qualifier	MUST_MATCH, NonNegatable
 	Qualifier	OUTPUT, VALUE(required,type=$FILE)
+	Qualifier	PATTERN_CASE, NonNegatable, VALUE(type=PATT_CASE_OPTS)
 	Qualifier	PAUSE, Negatable
 	Qualifier	PKZIP, Negatable
 	Qualifier	PRESERVE_CASE, Negatable,
@@ -84,6 +85,10 @@ Define	Verb		ZIP
 	Disallow	RECURSE.PATH and RECURSE.FILENAMES
 	Disallow	(neg EXTRA_FIELDS) and
 			 (KEEP_EXISTING or EXTRA_FIELDS.NORMAL)
+
+Define	Type		PATT_CASE_OPTS
+	Keyword		BLIND
+	Keyword		SENSITIVE, DEFAULT
 
 Define	Type		COMMENTS_KEYWORDS
 	Keyword		ARCHIVE, DEFAULT

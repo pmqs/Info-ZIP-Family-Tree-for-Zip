@@ -210,6 +210,9 @@ $DESCRIPTOR(cli_log_file_file,  "LOG_FILE.FILE");       /* -lf */
 $DESCRIPTOR(cli_log_file_info,  "LOG_FILE.INFORMATIONAL"); /* -li */
 $DESCRIPTOR(cli_must_match,     "MUST_MATCH");          /* -MM */
 $DESCRIPTOR(cli_output,         "OUTPUT");              /* -O */
+$DESCRIPTOR(cli_patt_case,      "PATTERN_CASE");        /* -fc[-] */
+$DESCRIPTOR(cli_patt_case_blind, "PATTERN_CASE.BLIND"); /* -fc */
+$DESCRIPTOR(cli_patt_case_sensitive, "PATTERN_CASE.SENSITIVE"); /* -fc- */
 $DESCRIPTOR(cli_pkzip,          "PKZIP");               /* -k */
 $DESCRIPTOR(cli_pres_case,      "PRESERVE_CASE");       /* -C */
 $DESCRIPTOR(cli_pres_case_no2,  "PRESERVE_CASE.NOODS2");/* -C2- */
@@ -594,6 +597,33 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
                     strcpy( &the_cmd_line[ x], opt);
                 }
             }
+        }
+    }
+
+    /*
+    **  Pattern case sensitivity.
+    */
+#define OPT_FC  "-fc"           /* Case-insensitive pattern matching. */
+#define OPT_FCN "-fc-"          /* Case-sensitive pattern matching. */
+
+    status = cli$present( &cli_patt_case);
+    if (status & 1)
+    {
+        if (cli$present( &cli_patt_case_blind) & 1)
+        {
+            /* "-fc". */
+            x = cmdl_len;
+            cmdl_len += strlen( OPT_FC)+ 1;
+            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            strcpy( &the_cmd_line[ x], OPT_FC);
+        }
+        else if (cli$present( &cli_patt_case_sensitive) & 1)
+        {
+            /* "-fc-". */
+            x = cmdl_len;
+            cmdl_len += strlen( OPT_FCN)+ 1;
+            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            strcpy( &the_cmd_line[ x], OPT_FCN);
         }
     }
 
@@ -1731,7 +1761,8 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /EXCLUDE=(file_list), /EXLIST=file, /INCLUDE=(file_list), /INLIST=file,",
 "    /LATEST, /OUTPUT=out_archive, /SINCE=creation_time, /TEMP_PATH=directory,",
 "    /LOG_FILE=(FILE=log_file[,APPEND][,INFORMATIONAL]), /MUST_MATCH,",
-"    /NORECURSE|/RECURSE[={PATH|FILENAMES}], /STORE_TYPES=(type_list),",
+"    /PATTERN_CASE={BLIND|SENSITIVE}, /NORECURSE|/RECURSE[={PATH|FILENAMES}],",
+"    /STORE_TYPES=(type_list),",
 #if CRYPT
 "\
     /QUIET, /VERBOSE[={MORE|DEBUG}], /[NO]DIRNAMES, /JUNK, /ENCRYPT[=\"pwd\"],\
@@ -1740,8 +1771,8 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /QUIET, /VERBOSE[={MORE|DEBUG}], /[NO]DIRNAMES, /JUNK,",
 #endif /* ?CRYPT */
 "    /COMPRESSION = {BZIP2|DEFLATE|STORE}, /LEVEL=[0-9], /NOVMS|/VMS[=ALL],",
-"    /[NO]PRESERVE_CASE[=([NO]ODS{2|5}[,...])], /[NO]PKZIP,",
-"    /[NO]KEEP_VERSION, /DOT_VERSION, /TRANSLATE_EOL[={LF|CRLF}],",
+"    /STORE_TYPES=(type_list), /[NO]PRESERVE_CASE[=([NO]ODS{2|5}[,...])],", 
+"    /[NO]PKZIP, /[NO]KEEP_VERSION, /DOT_VERSION, /TRANSLATE_EOL[={LF|CRLF}],",
 "    /DISPLAY=([BYTES][,COUNTS][,DOTS=mb_per_dot][,GLOBALDOTS][,USIZE]",
 "    [,VOLUME]), /DESCRIPTORS, /[NO]EXTRA_FIELDS, /ZIP64,",
 #ifdef S_IFLNK

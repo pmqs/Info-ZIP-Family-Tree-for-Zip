@@ -27,9 +27,10 @@
 #  define NO_FCNTL_H        /* VAXC does not supply fcntl.h. */
 #endif /* VAX C */
 
+/* SMSd. */
 #define USE_CASE_MAP
 #define PROCNAME(n) (action == ADD || action == UPDATE ? wild(n) : \
-                     procname(n, 1))
+                     procname(n, filter_match_case))
 
 /* 2004-11-09 SMS.
    Large file support.

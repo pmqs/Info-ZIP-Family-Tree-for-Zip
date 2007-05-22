@@ -298,6 +298,45 @@ local void eat_carets( char *str)
 }
 
 
+/* 2007-05-22 SMS.
+ * explicit_dev().
+ *
+ * Determine if an explicit device name is present in a (VMS) file
+ * specification.
+ */
+local int explicit_dev( char *file_spec)
+{
+  int sts;
+  struct FAB fab;               /* FAB. */
+  struct NAM_STRUCT nam;        /* NAM[L]. */
+
+  /* Initialize the FAB and NAM[L], and link the NAM[L] to the FAB. */
+  nam = CC_RMS_NAM;
+  fab = cc$rms_fab;
+  fab.FAB_NAM = &nam;
+
+  /* Point the FAB/NAM[L] fields to the actual name and default name. */
+
+#ifdef NAML$C_MAXRSS
+
+  fab.fab$l_dna = (char *) -1;  /* Using NAML for default name. */
+  fab.fab$l_fna = (char *) -1;  /* Using NAML for file name. */
+
+#endif /* def NAML$C_MAXRSS */
+
+  /* File name. */
+  FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = file_spec;
+  FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen( file_spec);
+
+  nam.NAM_NOP = NAM_M_SYNCHK;   /* Syntax-only analysis. */
+  sts = sys$parse( &fab, 0, 0); /* Parse the file spec. */
+
+  /* Device found = $PARSE success and "device was explicit" flag. */
+  return (((sts& STS$M_SEVERITY) == STS$M_SUCCESS) &&
+   ((nam.NAM_FNB& NAM_M_EXP_DEV) != 0));
+}
+
+
 /* 2005-02-04 SMS.
    find_dir().
 
@@ -955,48 +994,65 @@ char *ex2in( char *x, int isdir, int *pdosflag)
     }
   } /* (relative_dir_s) */
 
-/* If ODS5 is possible, do complicated down-case check.
+  /* 2007-05-22 SMS.
+   * If a device name is present, assume that it's a real (VMS) file
+   * specification, and do down-casing according to the ODS2 or ODS5
+   * down-casing policy.  If no device name is present, assume that it's
+   * a pattern ("-i", ...), and do no down-casing here.  (Case
+   * sensitivity in patterns is handled elsewhere.)
+   */
+  if (explicit_dev( x))
+  {
+    /* If ODS5 is possible, do complicated down-case check.
 
-   Note that the test for ODS2/ODS5 is misleading and over-broad.  Here,
-   "ODS2" includes anything from DVI$C_ACP_F11V1 (=1, ODS1) up to (but
-   not including) DVI$C_ACP_F11V5 (= 11, DVI$C_ACP_F11V5), while "ODS5"
-   includes anything from DVI$C_ACP_F11V5 on up.  See DVIDEF.H.
-*/
+       Note that the test for ODS2/ODS5 is misleading and over-broad. 
+       Here, "ODS2" includes anything from DVI$C_ACP_F11V1 (=1, ODS1) up
+       to (but not including) DVI$C_ACP_F11V5 (= 11, DVI$C_ACP_F11V5),
+       while "ODS5" includes anything from DVI$C_ACP_F11V5 on up.  See
+       DVIDEF.H.
+    */
 
 #if defined( DVI$C_ACP_F11V5) && defined( NAML$C_MAXRSS)
 
-  /* Check options and/or ODS level for down-case or preserve case. */
-  down_case = 0;        /* Assume preserve case. */
-  if ((vms_case_2 <= 0) && (vms_case_5 < 0))
-  {
-    /* Always down-case. */
-    down_case = 1;
-  }
-  else if ((vms_case_2 <= 0) || (vms_case_5 < 0))
-  {
-    /* Down-case depending on ODS level.  (Use (full) external name.) */
-    ods_level = file_sys_type( x);
-
-    if (((ods_level < DVI$C_ACP_F11V5) && (vms_case_2 <= 0)) ||
-     ((ods_level >= DVI$C_ACP_F11V5) && (vms_case_5 < 0)))
+    /* Check options and/or ODS level for down-case or preserve case. */
+    down_case = 0;      /* Assume preserve case. */
+    if ((vms_case_2 <= 0) && (vms_case_5 < 0))
     {
-      /* Down-case for this ODS level. */
+      /* Always down-case. */
       down_case = 1;
     }
-  }
+    else if ((vms_case_2 <= 0) || (vms_case_5 < 0))
+    {
+      /* Down-case depending on ODS level.  (Use (full) external name.) */
+      ods_level = file_sys_type( x);
+
+      if (ods_level > 0)
+      {
+        /* Valid ODS level.  (Name (full) contains device.)
+         * Down-case accordingly.
+         */
+        if (((ods_level < DVI$C_ACP_F11V5) && (vms_case_2 <= 0)) ||
+         ((ods_level >= DVI$C_ACP_F11V5) && (vms_case_5 < 0)))
+        {
+          /* Down-case for this ODS level. */
+          down_case = 1;
+        }
+      }
+    }
 
 #else /* defined( DVI$C_ACP_F11V5) && defined( NAML$C_MAXRSS) */
 
 /* No case-preserved names are possible (VAX).  Do simple down-case check. */
 
-  down_case = (vms_case_2 <= 0);
+    down_case = (vms_case_2 <= 0);
 
 #endif /* defined( DVI$C_ACP_F11V5) && defined( NAML$C_MAXRSS) [else] */
 
-  /* If not preserving case, convert to lower case. */
-  if (down_case != 0)
-  {
-    strlower( n);
+    /* If down-casing, convert to lower case. */
+    if (down_case != 0)
+    {
+      strlower( n);
+    }
   }
 
   /* Remove simple ODS5 extended file name escape characters. */

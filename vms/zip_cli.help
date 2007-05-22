@@ -34,6 +34,8 @@
 .!              Cleanups for Zip 2.2 release (no version change).
 .!      01-007          Steven Schweda          15-MAY-2007
 .!              Zip 3.0.
+.!      01-007          Ed Gordon               15-MAY-2007
+.!              Minor updates to Zip 3.0 help.
 .!
 <INIT>
 <MAIN>
@@ -126,13 +128,13 @@ using the Zip64 extensions to the original .ZIP file format.  On VMS,
 this genarally means non-VAX systems with VMS V7.2 or later (perhaps
 requiring a C RTL ECO before VMS V7.3-2).
 
-Zip automatically uses the Zip64 extensions when a file larger than 2 GB
+Zip automatically uses the Zip64 extensions when a file 4 GB or larger
 is added to an archive, an archive containing a Zip64 entry is updated
 (if the resulting archive still needs Zip64), the size of the archive
 will exceed 4 GB, or when the number of entries in the archive will
 exceed about 64K.  Zip64 is also used for archives streamed to a
 non-seekable output device.  You must use a 4.5 compatible UnZip to
-extract files using the Zip64 extensions such as unzip 6.0 or later.
+extract files using the Zip64 extensions such as UnZip 6.0 or later.
 
 In addition, streamed archives, entries encrypted with standard
 encryption, or split archives created with the pause option may not be
@@ -292,8 +294,8 @@ The "zip /VERBOSE" report should show the perceived settings of these
 variables.
 
 For example, the following will cause Zip to skip directories, include
-VMS attribute information perform all operations at quiet-level 1 by
-default:
+VMS portable attribute information, and perform all operations at
+quiet-level 1 by default:
 
 <LITERAL>
 |  $ define ZIP_OPTS "-qDV"
@@ -329,35 +331,40 @@ defined by PKWARE, as shown in the following table:
 |  VMS      Zip err
 |severity    code     Error description
 |---------+---------+----------------------------------------------
-|Success       0      Normal; no errors or warnings detected.
-|Fatal         2      Unexpected end of archive.
-|Error         3      A generic error in the  archive  format  was
-|                     detected.   Processing  may  have  completed
+|Success       0      (OK) Normal; no errors or warnings detected.
+|Fatal         2      (EOF) Unexpected end of archive.
+|Error         3      (FORM) A generic error in the archive format
+|                     was detected.  Processing may have completed
 |                     successfully anyway;  some  broken  archives
 |                     created by other archivers have simple work-
 |                     arounds.
-|Fatal         4      Zip was unable to allocate memory for one or
-|                     more  buffers during program initialization.
-|Fatal         5      A severe error in  the  archive  format  was
-|                     detected.   Processing probably failed imme-
-|                     diately.
-|Error         6      Entry too large to be split with zipsplit.
-|Error         7      Invalid comment format.
-|Fatal         8      Zip -T failed or out of memory.
-|Error         9      The user aborted zip prematurely  with  con-
-|                     trol-C (or equivalent).
-|Fatal        10      Zip  encountered an error while using a temp
-|                     file.
-|Fatal        11      Read or seek error.
-|Warning      12      Zip has nothing to do.
-|Error        13      Missing or empty zip file.
-|Fatal        14      Error writing to a file.
-|Fatal        15      Zip was unable to create a file to write to.
-|Error        16      Bad command line parameters.
-|Error        18      Zip could not open a specified file to read.
-|Fatal        19      Zip was built with options not supported  on
-|                     this system
-|Fatal        20      Attempt to read unsupported Zip64 archive
+|Fatal         4      (MEM) Zip was unable to allocate memory for
+|                     one or more buffers during program initializ-
+|                     ation.
+|Fatal         5      (LOGIC) A severe error in the archive format
+|                     was detected.  Processing  probably  failed
+|                     immediately.
+|Error         6      (BIG) Entry too large to  split,  read,  or
+|                     write.
+|Error         7      (NOTE) Invalid comment format.
+|Fatal         8      (TEST) Zip -T failed or out of memory.
+|Error         9      (ABORT) The user aborted  zip  prematurely
+|                     with  control-C (or equivalent).
+|Fatal        10      (TEMP) Zip  encountered an error while using
+|                     a tempfile.
+|Fatal        11      (READ) Read or seek error.
+|Warning      12      (NONE) Zip has nothing to do.
+|Error        13      (NAME) Missing or empty zip file.
+|Fatal        14      (WRITE) Error writing to a file.
+|Fatal        15      (CREAT) Zip was unable to create a file to
+|                     write to.
+|Error        16      (PARMS) Bad command line parameters.
+|Error        18      (OPEN) Zip could not open a specified file
+|                     to read.
+|Fatal        19      (COMPERR) Zip was built with options not
+|                     supported on this system.
+|Fatal        20      (ZIP64) Attempt to read unsupported Zip64
+|                     archive.
 <0LARETIL>
 
 <TOPIC>
@@ -426,14 +433,16 @@ slashes ("/") will confuse the command-line interpreter, causing errors
 like "%CLI-W-IVQUAL, unrecognized qualifier - check validity, spelling,
 and placement".
 
-Note: On VMS, archive name matching (/COPY_ENTRIES, /DELETE, /EXCLUDE,
-/INCLUDE, and /RECURSE=FILENAMES) is case sensitive, even when the file
-system is not case sensitive (or even case preserving).  This allows
-accurate matching of mixed-case names in an archive which may have been
-created on a system with a case sensitive file system, but it can
-involve extra effort on VMS, where it may be necessary to use unnatural
-case names (or the same names in multiple cases, like "*.obj *.OBJ") for
-this kind of pattern matching to give the desired behavior.
+Note: By default, on VMS, archive name pattern matching (/COPY_ENTRIES,
+/DELETE, /EXCLUDE, /INCLUDE, and /RECURSE=FILENAMES) is case sensitive,
+even when the file system is not case sensitive (or even case
+preserving).  This allows accurate matching of mixed-case names in an
+archive which may have been created on a system with a case sensitive
+file system, but it can involve extra effort on VMS, where it may be
+necessary to use unnatural case names (or the same names in multiple
+cases, like "*.obj *.OBJ") for this kind of pattern matching to give the
+desired behavior.  If completely case-blind pattern matching behavior is
+desired, specify the /PATTERN_CASE=BLIND option.
 <TOPIC>
 Modes_of_Operation
 
@@ -474,6 +483,17 @@ to the archive.
 Delete entries from an existing archive.
 
 <LITERAL>
+  /COPY_ENTRIES
+<LARETIL>
+
+Select entries in an existing archive and copy them to a new archive.
+Copy mode is like update mode, but entries in the existing archive are
+selected by command line patterns rather than files from the file system
+and it uses the /OUTPUT option to write the resulting archive to a new
+file rather than updating the existing archive, leaving the original
+archive unchanged.
+
+<LITERAL>
   /DIFFERENCE
 <LARETIL>
 
@@ -506,21 +526,18 @@ option is used to specify the new (incremental) output archive.
 <LARETIL>
 
 Delete entries in the archive that do not match files on the OS.
-
-<LITERAL>
-  /COPY_ENTRIES
-<LARETIL>
-
-Select entries in an existing archive and copy them to a new archive.
-Copy mode is like update mode, but entries in the existing archive are
-selected by command line patterns rather than files from the file system
-and it uses the /OUTPUT option to write the resulting archive to a new
-file rather than updating the existing archive, leaving the original
-archive unchanged.
+Normally files already in an archive that are not updated remain
+in the archive unchanged.  The /FILESYNC option deletes files in
+the archive that are not matched during the directory scan,
+resulting in the archive being updated having the same contents
+as a new archive would.  If much of the archive will remain
+unchanged, this can be faster than creating a new archive as
+copying entries is faster than compressing and adding new files.
 
 Normally, when updating an archive using relative file specifications
 ("[]", "[.xxx]", and so on), it helps to have the same default directory
 as when the archive was created, but this is not a strict requirement.
+
 <TOPIC>
 Self_Extracting_Archives
 
@@ -660,10 +677,10 @@ compression method ("deflate") is compatible with all UnZip versions
 (except really old ones that only understand the "store" method).
 Current Zip and UnZip versions may be built with optional support for
 the bzip2 compression method.  (The bzip2 method can compress better,
-especially when compressing smaller files, but uses more CPU time, and
-requires an UnZip which includes the optional bzip2 support.  See the
-installation instructions for details on adding bzip2 compression
-support at build time.)
+especially when compressing highly redundant files, but uses more CPU
+time, and requires an UnZip which includes the optional bzip2 support.
+See the installation instructions for details on adding bzip2
+compression support at build time.)
 <QUALIFIER>
 /COPY_ENTRIES
 
@@ -729,7 +746,7 @@ to the new 10 MB default, and is also controlled by /DISPLAY=DOTS=size.
 /DOT_VERSION
 
 Directs Zip to retain VMS file version numbers on names in an archive,
-but as ".nnn" instead of ";nnn".  By default, for for compatibility
+but as ".nnn" instead of ";nnn".  By default, for compatibility
 with non-VMS systems, Zip strips VMS file version numbers from the names
 stored in an archive.  Thus, without /DOT_VERSION or /KEEP_VERSION, a
 version number wildcard (";*") can cause errors when multiple versions
@@ -838,8 +855,8 @@ situated) has been truncated, you must use /FIX_ARCHIVE=FULL.  This is
 a change from zip 2.32, where the /FIX=NORMAL option was able to read a
 truncated archive.  The /FIX=NORMAL option now more reliably fixes
 archives with minor damage, and the /FIX=FULL option is needed to fix
-archives where /FIX=NORMAL was used before.
-.sk
+some archives where /FIX=NORMAL was sufficient before.
+
 With /FIX=FULL, the archive is scanned from the beginning and Zip scans
 for special signatures to identify the limits between the archive
 members. The /FIX=NORMAL option is more reliable if the archive is not
@@ -850,14 +867,14 @@ transferred, such as by FTP in ASCII mode instead of binary.  After the
 repair, the /TEST (-t) option of UnZip may show that some files have a
 bad CRC. Such files cannot be recovered; you can remove them from the
 archive using the /DELETE option of Zip.
-.sk
+
 Because of the uncertainty of the "fixing" process, it's required
 to specify an output archive, rather than risking further damage to the
 original damaged archive.  For example, to fix the damaged archive
 foo.zip:
 
 <LITERAL>
-zip /fix_archive /output = foo_fix foo
+zip /fix_archive /output=foo_fix foo
 <LARETIL>
 
 tries to read the entries normally, copying good entries to the new
@@ -866,7 +883,7 @@ truncated, or if some entries are missed because of bad central
 directory entries, try /FIX_ARCHIVE=FULL:
 
 <LITERAL>
-zip /fix_archive = full --out foo_fixfix foo
+zip /fix_archive=full /output=foo_fixfix foo
 <LARETIL>
 
 and compare the resulting archive to the archive created using
@@ -911,7 +928,7 @@ its original state.  If the restoration fails, the archive might become
 corrupted.  This option is ignored when there's no existing archive or
 when at least one archive member must be updated or deleted.
 
-See also /DELETE /DIFFERENCE, /FRESHEN, /UPDATE.
+See also /DELETE, /DIFFERENCE, /FRESHEN, /UPDATE.
 <QUALIFIER>
 /HELP
 
@@ -954,7 +971,7 @@ alias for /NOFULL_PATH.
 /NOKEEP_VERSION (default)
 
 Directs Zip to retain VMS file version numbers on names in an archive.
-By default, for for compatibility with non-VMS systems, Zip strips VMS
+By default, for compatibility with non-VMS systems, Zip strips VMS
 file version numbers from the names stored in an archive.  Thus, without
 /DOT_VERSION or /KEEP_VERSION, a version number wildcard (";*") can
 cause errors when multiple versions of a single file are treated as
@@ -1025,7 +1042,9 @@ Move the specified files into the Zip archive.  That is, Zip will delete
 any files which are successfully added to or updated in the archive.  No
 deletions will be done until the Zip operation has completed with no
 errors.  This option is obviously dangerous and should be used with
-care, but it does reduce the need for free disk space.
+care, but it does reduce the need for free disk space.  It's recommended
+that /TEST also be used to test the archive before the input files are
+deleted.
 <QUALIFIER>
 /MUST_MATCH
 
@@ -1050,9 +1069,30 @@ missing or unreadable files should result in an error.  It may be less
 useful when used with wildcards, but Zip will still exit with an error
 if any input pattern doesn't match at least  one file or if any
 matched files are unreadable.  If you want to create the archive anyway
-and only need to know if files were skipped, then don't use -MM and just
-check the exit status.  Also, a log file (see /LOG_FILE) could be
-useful.
+and only need to know if files were skipped, then don't use /MUST_MATCH
+and just check the exit status.  Also, a log file (see /LOG_FILE) could
+be useful.
+<QUALIFIER>
+/PATTERN_CASE
+
+/PATTERN_CASE={BLIND|SENSITIVE}
+
+<LITERAL>
+|  BLIND      Use case-blind pattern matching for archive entry names.
+|  SENSITIVE  Use case-sensitive pattern matching for archive entry
+|             names.  (Default.)
+<LARETIL>
+
+By default, on VMS, archive name pattern matching (/COPY_ENTRIES,
+/DELETE, /EXCLUDE, /INCLUDE, and /RECURSE=FILENAMES) is case sensitive,
+even when the file system is not case sensitive (or even case
+preserving).  This allows accurate matching of mixed-case names in an
+archive which may have been created on a system with a case sensitive
+file system, but it can involve extra effort on VMS, where it may be
+necessary to use unnatural case names (or the same names in multiple
+cases, like "*.obj *.OBJ") for this kind of pattern matching to give the
+desired behavior.  If completely case-blind pattern matching behavior is
+desired, specify the /PATTERN_CASE=BLIND option.
 <QUALIFIER>
 /PKZIP
 
@@ -1070,7 +1110,7 @@ MSDOS (even though it wasn't).
 /NOPRESERVE_CASE
 /PRESERVE_CASE[=(keyword[, ...])]
 
-Diects Zip to preserve the case of, or convert to lower-case, file names
+Directs Zip to preserve the case of, or convert to lower-case, file names
 in the archive.  Optional keywords are:
 <LITERAL>
 |  NOODS2        Down-case ODS2 file names (default).
@@ -1125,10 +1165,10 @@ Controls various diagnostic messages.
 
 The keywords recognized are:
 <LITERAL>
-|  COMMAND  Show command line arguments as processed (only).
+|  COMMAND  Show command line arguments as processed (only, then exit).
 |  DEBUG    Show Debug information.
-|  FILES    Show files to process (only).
-|  OPTIONS  Show all available command-line options on this system
+|  FILES    Show files to process (only, then exit).
+|  OPTIONS  Show all available command-line options on this system.
 <LARETIL>
 <QUALIFIER>
 /SINCE
@@ -1169,9 +1209,12 @@ readable by any UnZip that supports split archives.  See PAUSE below for
 enabling split pause mode which allows splits to be written directly to
 removable media.
 
-PAUSE  causes Zip to pause Zip between splits to allow
-changing removable media, for example, but read the descriptions and
-warnings for both /SPLIT and PAUSE below.
+PAUSE  causes Zip to pause between splits to allow
+changing removable media, for example.  PAUSE uses stream mode to
+write splits so unzips that can't read stream mode entries may not
+be able to read some entries in the archive.  Unless standard encryption
+was used, copy mode using /COPY_ENTRIES can convert stream mode entries
+to normal entries.
 
 BELL  ring the terminal bell when Zip pauses for the next split
 destination.
@@ -1386,7 +1429,9 @@ Controls wildcard processing.
 
 /ZIP64
 
-Forces use of Zip64 archive format, even for small files.
+Forces use of Zip64 archive format, even for small files.  This is
+mainly for testing and should never be used.  Zip will automatically
+use Zip64 as needed without this option.
 <TOPIC>
 UNIX_Options
 
@@ -1394,7 +1439,7 @@ UNIX_Options
 -h2" provides more details.  "zip -so" provides a list of all available
 options.  "zip -v" shows the program version and available features.
 (The list below was derived from a "zip -so" listing.)
-.sk
+
 Short-form options begin with a single hyphen ("-").  Long-form option
 begin with a double hyphen ("--"), and may be abbreviated to any
 unambiguous shorter string.  For example:
