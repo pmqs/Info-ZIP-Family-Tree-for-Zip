@@ -754,10 +754,10 @@ local void help_extended()
 "    zip -x pattern pattern @ zipfile path path ...",
 "",
 "Case matching:",
-"  On most OS the case of patterns must match the case in the archive, unless",
-"  the -fc option is used.",
-"  -fc       fold case (perform case-insensitive matching) of archive entries",
-"            It's possible that multiple entries will match when -fc is used.",
+"  On most operating systems, the case of patterns must match the case in the",
+"  archive, unless the -ic option is used.",
+"  -ic       ignore case (perform case-insensitive matching) of archive entries",
+"            It's possible that multiple entries will match when -ic is used.",
 "",
 "End Of Line Translation (text files only):",
 "  -l        change CR or LF (depending on OS) line end to CR LF (Unix->Win)",
@@ -1754,10 +1754,10 @@ int set_filetype(out_path)
 #define o_ds            0x112
 #define o_du            0x113
 #define o_dv            0x114
-#define o_fc            0x115
-#define o_FF            0x116
-#define o_FS            0x117
-#define o_h2            0x118
+#define o_FF            0x115
+#define o_FS            0x116
+#define o_h2            0x117
+#define o_ic            0x118
 #define o_jj            0x119
 #define o_la            0x120
 #define o_lf            0x121
@@ -1843,9 +1843,6 @@ struct option_struct far options[] = {
     {"FF", "fixfix",      o_NO_VALUE,       o_NOT_NEGATABLE, o_FF, "salvage what can (not as reliable)"},
     {"FS", "filesync",    o_NO_VALUE,       o_NOT_NEGATABLE, o_FS, "delete archive entry if no match on OS"},
     {"f",  "freshen",     o_NO_VALUE,       o_NOT_NEGATABLE, 'f',  "freshen existing archive entries"},
-#if defined(VMS) || defined(WIN32)
-    {"fc", "foldcase",    o_NO_VALUE,       o_NEGATABLE,     o_fc, "fold case (case-insen arc entry matching)"},
-#endif
     {"fd", "force-descriptors", o_NO_VALUE, o_NOT_NEGATABLE, o_des,"force data descriptors as if streaming"},
 #ifdef ZIP64_SUPPORT
     {"fz", "force-zip64", o_NO_VALUE,       o_NOT_NEGATABLE, o_z64,"force use of Zip64 format"},
@@ -1858,6 +1855,9 @@ struct option_struct far options[] = {
     {"h2", "more-help",   o_NO_VALUE,       o_NOT_NEGATABLE, o_h2, "extended help"},
 #endif /* !WINDLL */
     {"i",  "include",     o_VALUE_LIST,     o_NOT_NEGATABLE, 'i',  "include only files matching patterns"},
+#if defined(VMS) || defined(WIN32)
+    {"ic", "ignore-case", o_NO_VALUE,       o_NEGATABLE,     o_ic, "ignore case when matching archive entries"},
+#endif
 #ifdef RISCOS
     {"I",  "no-image",    o_NO_VALUE,       o_NOT_NEGATABLE, 'I',  "no image"},
 #endif
@@ -2587,14 +2587,6 @@ char **argv;            /* command line tokens */
           key_needed = 1;
 #endif /* !CRYPT */
           break;
-#if defined(VMS) || defined(WIN32)
-        case o_fc:  /* Fold case (case-insensitive matching of archive entries) */
-          if (negated)
-            filter_match_case = 1;
-          else
-            filter_match_case = 0;
-          break;
-#endif
         case 'F':   /* fix the zip file */
           fix = 1; break;
         case o_FF:  /* try harder to fix file */
@@ -2626,6 +2618,14 @@ char **argv;            /* command line tokens */
 #endif /* !WINDLL */
 
         /* -i is with -x */
+#if defined(VMS) || defined(WIN32)
+        case o_ic:  /* Ignore case (case-insensitive matching of archive entries) */
+          if (negated)
+            filter_match_case = 1;
+          else
+            filter_match_case = 0;
+          break;
+#endif
 #ifdef RISCOS
         case 'I':   /* Don't scan through Image files */
           scanimage = 0;

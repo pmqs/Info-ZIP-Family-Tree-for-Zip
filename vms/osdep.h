@@ -29,8 +29,9 @@
 
 /* SMSd. */
 #define USE_CASE_MAP
-#define PROCNAME(n) (action == ADD || action == UPDATE ? wild(n) : \
-                     procname(n, filter_match_case))
+#define PROCNAME(n) \
+ (((action == ADD) || (action == UPDATE) || (action == FRESHEN)) ? \
+ wild(n) : procname(n, filter_match_case))
 
 /* 2004-11-09 SMS.
    Large file support.
