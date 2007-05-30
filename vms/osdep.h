@@ -27,7 +27,6 @@
 #  define NO_FCNTL_H        /* VAXC does not supply fcntl.h. */
 #endif /* VAX C */
 
-/* SMSd. */
 #define USE_CASE_MAP
 #define PROCNAME(n) \
  (((action == ADD) || (action == UPDATE) || (action == FRESHEN)) ? \
