@@ -148,9 +148,9 @@ $(ZIPMANUALsplit): man/zipsplit.1
 
 # bzip2 object library
 
-$(LIB_BZ) : $(IZ_OUR_BZIP2_DIR)/Makefile
+$(IZ_OUR_BZIP2_DIR)/libbz2.a : $(IZ_OUR_BZIP2_DIR)/Makefile
 	@echo "Building bzip2 object library..."
-	( cd $(IZ_OUR_BZIP2_DIR) ; \
+	( cd $(IZ_OUR_BZIP2_DIR); \
 	  $(MAKE) CC="$(CC_BZ)" CFLAGS="$(CFLAGS_BZ)" libbz2.a )
 	@echo "   bzip2 object library created."
 
