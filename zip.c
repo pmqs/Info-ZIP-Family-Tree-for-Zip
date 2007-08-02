@@ -52,12 +52,6 @@
 #include <signal.h>
 #include <stdio.h>
 
-#ifdef UNICODE_SUPPORT
-# ifdef UNIX
-#   include <locale.h>
-# endif
-#endif
-
 #ifdef UNICODE_TEST
 # ifdef WIN32
 #  include <direct.h>
@@ -84,7 +78,7 @@
 #define UPDATE  2
 #define FRESHEN 3
 #define ARCHIVE 4
-local int action = ADD; /* one of ADD, UPDATE, FRESHEN, or DELETE */
+local int action = ADD; /* one of ADD, UPDATE, FRESHEN, DELETE, or ARCHIVE */
 local int comadd = 0;   /* 1=add comments for new files */
 local int zipedit = 0;  /* 1=edit zip comment and all file comments */
 local int latest = 0;   /* 1=set zip file time to time of latest file */
@@ -344,6 +338,14 @@ ZCONST char *h;         /* message about how it happened */
      EXIT(ZE_LOGIC);  /* ziperr recursion is an internal logic error! */
 #endif /* !WINDLL */
 
+  if (mesg_line_started) {
+    fprintf(mesg, "\n");
+  }
+  if (logfile) {
+    if (mesg_line_started)
+      fprintf(mesg, "\n");
+  }
+  mesg_line_started = 0;
   if (h != NULL) {
     if (PERR(c))
       fprintf(mesg, "zip I/O error: %s", strerror(errno));
@@ -364,7 +366,7 @@ ZCONST char *h;         /* message about how it happened */
     if (tempzip != zipfile) {
       if (current_local_file)
         fclose(current_local_file);
-      if (y != NULL)
+      if (y != current_local_file && y != NULL)
         fclose(y);
 #ifndef DEBUG
       destroy(tempzip);
@@ -473,8 +475,8 @@ int nl;             /* 1 = add nl to end */
     fprintf(logfile, "%s", a);
     if (nl) {
       fprintf(logfile, "\n");
-      mesg_line_started = 0;
     }
+    fflush(logfile);
   }
   fflush(mesg);
 }
@@ -492,6 +494,7 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
     if (mesg_line_started)
       fprintf(mesg, "\n");
     fprintf(logfile, "%s%s\n", a, b);
+    fflush(logfile);
   }
   mesg_line_started = 0;
   fflush(mesg);
@@ -510,6 +513,7 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
     if (mesg_line_started)
       fprintf(logfile, "\n");
     fprintf(logfile, "\tzip warning: %s%s\n", a, b);
+    fflush(logfile);
   }
   mesg_line_started = 0;
   fflush(mesg);
@@ -684,13 +688,14 @@ local void help_extended()
 "  zip options archive_name file file ...",
 "",
 "Some examples:",
-"  Add file.txt to z.zip (create z if needed):  zip z file.txt",
-"  Zip all files in current dir:                zip z *",
-"  Zip files in current dir and subdirs also:   zip -r z .",
+"  Add file.txt to z.zip (create z if needed):      zip z file.txt",
+"  Zip all files in current dir:                    zip z *",
+"  Zip files in current dir and subdirs also:       zip -r z .",
 "",
 "Basic modes:",
 " External modes (selects files from file system):",
-"  -u    update   - add new/update existing files in archive (default)",
+"        add      - add new files/update existing files in archive (default)",
+"  -u    update   - add new files/update existing files only if later date",
 "  -f    freshen  - update existing files only (no files added)",
 " Internal modes (selects entries in archive):",
 "  -d    delete   - delete files from archive (see below)",
@@ -754,10 +759,15 @@ local void help_extended()
 "    zip -x pattern pattern @ zipfile path path ...",
 "",
 "Case matching:",
-"  On most operating systems, the case of patterns must match the case in the",
-"  archive, unless the -ic option is used.",
-"  -ic       ignore case (perform case-insensitive matching) of archive entries",
-"            It's possible that multiple entries will match when -ic is used.",
+"  On most OS the case of patterns must match the case in the archive, unless",
+"  the -ic option is used.",
+"  -ic       ignore case of archive entries",
+"  This option not available on case-sensitive file systems.  On others, case",
+"  ignored when matching files on file system but matching against archive",
+"  entries remains case sensitive for modes -f (freshen), -U (archive copy),",
+"  and -d (delete) because archive paths are always case sensitive.  With",
+"  -ic, all matching ignores case, but it's then possible multiple archive",
+"  entries that differ only in case will match.",
 "",
 "End Of Line Translation (text files only):",
 "  -l        change CR or LF (depending on OS) line end to CR LF (Unix->Win)",
@@ -914,7 +924,7 @@ local void help_extended()
 "  -sU       as -sf but show escaped UTF-8 Unicode names instead",
 "  Any character not in the current locale is escaped as #Uxxxx, where x",
 "  is hex digit, if 16-bit code is sufficient, or #Lxxxxxxxx if 32-bits",
-"  are needed.",
+"  are needed.  If add -UN=e, Zip escapes all non-ASCII characters.",
 "",
 "Unicode:",
 "  If compiled with Unicode support, Zip now stores the UTF-8 path of",
@@ -925,20 +935,24 @@ local void help_extended()
 "  Unicode path goes with the standard path for that entry (as there",
 "  are utilities like ZipNote that can rename entries).  If these do",
 "  not match, use the below options to set what Zip does:",
-"      -UN=ERror    - if mismatch, exit with error",
+"      -UN=Quit     - if mismatch, exit with error",
 "      -UN=Warn     - if mismatch, issue warning, ignore (default)",
 "      -UN=Ignore   - if mismatch, quietly use standard path instead",
 "      -UN=No       - ignore any Unicode paths, use standard paths for all",
-"  The option -UN=EScape tells Zip to escape all non-ASCII characters:",
-"    zip -sU -UN=es archive",
+"  An exception to -UN=NO are entries with the new UTF-8 bit set.  These",
+"  are always handled as Unicode.",
+"  The option -UN=Escape tells Zip to also escape all non-ASCII characters:",
+"    zip -sU -UN=e archive",
 "  Can use either normal path or escaped Unicode path on command line",
 "  to match files in an archive.",
+#ifdef UNICODE_ALLOW_FORCE
 "",
 "  The AppNote now supports storing UTF-8 in the standard path and",
 "  comment of entries if new flag bit 11 is set.  Currently -UN=f enables",
 "  this for paths, but these entries may not be readable on all but",
 "  UTF-8 systems unless an unzip that supports this new bit is used:",
 "      -UN=Force    - force use UTF-8 for standard path and comment",
+#endif
 "  Support of Unicode comments may be added by release.",
 "",
 "More option highlights (see manual for additional options and details):",
@@ -1163,10 +1177,17 @@ local void version_info()
 
 
 #ifndef PROCNAME
-# if 0
-#  define PROCNAME(n) procname(n, (action == DELETE || action == FRESHEN))
-# endif
-#  define PROCNAME(n) procname(n, filter_match_case)
+/* Default to case-sensitive matching of archive entries for the modes
+   that specifically operate on archive entries, as this archive may
+   have come from a system that allows paths in the archive to differ
+   only by case.  Except for adding ARCHIVE (copy mode), this is how it
+   was done before.  Note that some case-insensitive ports (WIN32, VMS)
+   define their own PROCNAME() in their respective osdep.h that use the
+   filter_match_case flag set to FALSE by the -ic option to enable
+   case-insensitive archive entry mathing. */
+#  define PROCNAME(n) procname(n, (action == ARCHIVE || action == DELETE \
+                                   || action == FRESHEN) \
+                                  && filter_match_case)
 #endif /* PROCNAME */
 
 #ifndef WINDLL
@@ -1414,10 +1435,14 @@ local void check_zipfile(zipname, zippath)
     fprintf(mesg, "test of %s FAILED\n", zipfile);
     ziperr(ZE_TEST, "original files unmodified");
   }
-  if (noisy)
+  if (noisy) {
     fprintf(mesg, "test of %s OK\n", zipfile);
-  if (logfile)
+    fflush(mesg);
+  }
+  if (logfile) {
     fprintf(logfile, "test of %s OK\n", zipfile);
+    fflush(logfile);
+  }
 }
 #endif /* !WINDLL */
 
@@ -1623,6 +1648,10 @@ local int DisplayRunningStats()
         fprintf(logfile, "-%4s] ", tempstrg);
     }
   }
+  if (noisy)
+      fflush(mesg);
+  if (logall)
+      fflush(logfile);
 
   return 0;
 }
@@ -1918,7 +1947,7 @@ struct option_struct far options[] = {
     {"u",  "update",      o_NO_VALUE,       o_NOT_NEGATABLE, 'u',  "update existing entries and add new"},
     {"U",  "copy-entries", o_NO_VALUE,      o_NOT_NEGATABLE, 'U',  "select from archive instead of file system"},
 #ifdef UNICODE_SUPPORT
-    {"UN", "unicode",     o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_UN, "UN=err, warn, ignore, no use, force"},
+    {"UN", "unicode",     o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_UN, "UN=err, warn, ignore, no use"},
 #endif
     {"v",  "verbose",     o_NO_VALUE,       o_NOT_NEGATABLE, 'v',  "display additional information"},
     {"",   "version",     o_NO_VALUE,       o_NOT_NEGATABLE, o_ve, "(if no other args) show version information"},
@@ -2044,8 +2073,11 @@ char **argv;            /* command line tokens */
     printf("langinfo %s\n", nl_langinfo(CODESET));
     */
 
-    if (verbose) {
-      if (loc == NULL) {
+    if (loc != NULL) {
+      /* using UTF-8 character set so can set UTF-8 GPBF bit 11 */
+      using_utf8 = 1;
+    } else {
+      if (verbose) {
         printf("  Could not set Unicode UTF-8 locale\n");
       } else {
         printf("  Locale set to %s\n", loc);
@@ -2182,7 +2214,9 @@ char **argv;            /* command line tokens */
   zip64_archive = 0;      /* if 1 then at least 1 entry needs zip64 */
 #endif
 
+#ifdef UNICODE_ALLOW_FORCE
   unicode_force = 0;      /* 1=force storing UTF-8 as standard per AppNote bit 11 */
+#endif
   unicode_escape_all = 0; /* 1=escape all non-ASCII characters in paths */
   unicode_mismatch = 1;   /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
 
@@ -2273,10 +2307,6 @@ char **argv;            /* command line tokens */
   scan_started = 0;           /* space at start of scan has been displayed */
   scan_last = 0;              /* Time last dot displayed for Scanning files message */
   scan_start = 0;             /* Time scanning started for Scanning files message */
-#ifdef WIN32
-  nonlocal_name = 0;          /* Name has non-local characters */
-  nonlocal_path = 0;          /* Path has non-local characters */
-#endif
 #ifdef UNICODE_SUPPORT
   use_wide_to_mb_default = 0;
 #endif
@@ -2869,7 +2899,7 @@ char **argv;            /* command line tokens */
           break;
 #ifdef UNICODE_SUPPORT
         case o_UN:   /* Unicode */
-          if (abbrevmatch("error", value, 0, 2)) {
+          if (abbrevmatch("quit", value, 0, 1)) {
             /* Unicode path mismatch is error */
             unicode_mismatch = 0;
           } else if (abbrevmatch("warn", value, 0, 1)) {
@@ -2881,17 +2911,23 @@ char **argv;            /* command line tokens */
           } else if (abbrevmatch("no", value, 0, 1)) {
             /* no use Unicode path */
             unicode_mismatch = 3;
-          } else if (abbrevmatch("escape", value, 0, 2)) {
+          } else if (abbrevmatch("escape", value, 0, 1)) {
             /* escape all non-ASCII characters */
             unicode_escape_all = 1;
+#ifdef UNICODE_ALLOW_FORCE
           } else if (abbrevmatch("force", value, 0, 1)) {
             /* force storing UTF-8 as standard per AppNote bit 11 */
             unicode_force = 1;
             zipwarn("-UN=force not done", "");
             free(value);
             ZIPERR(ZE_PARMS, "-UN (unicode) bad value");
+#endif
           } else {
-            zipwarn("-UN must be ERror, Warn, Ignore, No, EScape, or Force: ", value);
+#ifdef UNICODE_ALLOW_FORCE
+            zipwarn("-UN must be Quit, Warn, Ignore, No, Escape, or Force: ", value);
+#else
+            zipwarn("-UN must be Quit, Warn, Ignore, No, or Escape: ", value);
+#endif
             free(value);
             ZIPERR(ZE_PARMS, "-UN (unicode) bad value");
           }
@@ -3377,6 +3413,7 @@ char **argv;            /* command line tokens */
         fprintf(logfile, "%s ", args[i]);
       }
       fprintf(logfile, "\n\n");
+      fflush(logfile);
     }
   } else {
     /* only set logall if logfile open */
@@ -3441,8 +3478,7 @@ char **argv;            /* command line tokens */
   }
 
   if (action == ARCHIVE && !have_out && !show_files) {
-    zipwarn("-U (--copy) requires -O (--out)", "");
-    ZIPERR(ZE_PARMS, "--copy requires --out");
+    ZIPERR(ZE_PARMS, "-U (--copy) requires -O (--out)");
   }
 
   if (fix && !have_out) {
@@ -3456,7 +3492,7 @@ char **argv;            /* command line tokens */
   }
 
   if (!have_out && diff_mode) {
-    ZIPERR(ZE_PARMS, "--diff (-DF) requires --out");
+    ZIPERR(ZE_PARMS, "-DF (--diff) requires -O (--out)");
   }
 
   if (diff_mode && (action == ARCHIVE || action == DELETE)) {
@@ -3738,6 +3774,7 @@ char **argv;            /* command line tokens */
         time(&clocktime);
         now = localtime(&clocktime);
         fprintf(logfile, "\nDone %s", asctime(now));
+        fflush(logfile);
     }
 
     RETURN(finish(ZE_OK));
@@ -4022,8 +4059,14 @@ char **argv;            /* command line tokens */
 
 #ifdef USE_EF_UT_TIME
 # if defined(UNICODE_SUPPORT) && defined(WIN32)
-        if (!no_win32_wide)
+        if (!no_win32_wide) {
+          if (z->namew == NULL)
+            if (z->uname != NULL)
+              z->namew = utf8_to_wchar_string(z->uname);
+            else
+              z->namew = local_to_wchar_string(z->name);
           tf = filetimew(z->namew, (ulg *)NULL, (zoff_t *)&usize, &f_utim);
+        }
         else
           tf = filetime(z->name, (ulg *)NULL, (zoff_t *)&usize, &f_utim);
 # else
@@ -4093,7 +4136,7 @@ char **argv;            /* command line tokens */
 
     if (noisy) {
       /* if updating archive and update was quick, new file scan can still take a long time */
-      if (scan_last == 0 && scan_count % 100 == 0) {
+      if (!zip_to_stdout && scan_last == 0 && scan_count % 100 == 0) {
         time_t current = time(NULL);
 
         if (current - scan_start > scan_delay) {
@@ -4615,10 +4658,6 @@ char **argv;            /* command line tokens */
              fprintf(mesg, "freshening: %s", z->oname);
           else
              fprintf(mesg, "updating: %s", z->oname);
-#ifdef WIN32
-          if (z->used_short_name)
-            fprintf(mesg, " {short name used}");
-#endif
           fflush(mesg);
           mesg_line_started = 1;
         }
@@ -4859,6 +4898,7 @@ char **argv;            /* command line tokens */
             fprintf(logfile, ")");
           }
           fprintf(logfile, "\n");
+          fflush(logfile);
         }
         files_so_far++;
         good_bytes_so_far += z->siz;
@@ -4968,6 +5008,7 @@ char **argv;            /* command line tokens */
     z->zuname = NULL;         /* externalized UTF-8 name for matching */
     z->ouname = NULL;         /* display version of UTF-8 name with OEM */
 
+#ifdef UNICODE_ALLOW_FORCE
     /* New AppNote bit 11 allowing storing UTF-8 in path */
     if (unicode_force && f->uname) {
       free(z->iname);
@@ -4977,9 +5018,12 @@ char **argv;            /* command line tokens */
       if (z->iname)
         free(z->iname);
     }
+#endif
 
     /* Only set z->uname if have a non-ASCII Unicode name */
-    /* The Unicode extra fields are created if z->uname is not NULL */
+    /* The Unicode path extra field is created if z->uname is not NULL,
+       unless on a UTF-8 system, then instead of creating the extra field
+       set bit 11 in the General Purpose Bit Flag */
     {
       int is_ascii = 0;
 
@@ -5033,6 +5077,7 @@ char **argv;            /* command line tokens */
     if (logall)
     {
       fprintf(logfile, "  adding: %s", z->oname);
+      fflush(logfile);
     }
     /* initial scan */
     len = f->usize;

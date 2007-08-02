@@ -23,7 +23,7 @@ CFLAGS_OPT=''
 IZ_BZIP2=${3-}
 CFLAGS_BZ=''
 
-echo "Check C compiler type (optimization option)"
+echo 'Check C compiler type (optimization options)'
 cat > conftest.c << _EOF_
 int main()
 {
@@ -52,8 +52,41 @@ _EOF_
     echo '  DEC C (-O3)'
     CFLAGS_OPT='-O3'
   else
-    echo '  Other (gcc?) (-O2)'
-    CFLAGS_OPT='-O2'
+    cat > conftest.c << _EOF_
+int main()
+{
+#ifdef __GNUC__
+   bad code
+#endif
+#ifndef __hpux
+   bad code
+#endif
+   return 0;
+}
+_EOF_
+    $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
+    if test $? -eq 0; then
+      # HP-UX, not GCC.  Lame bundled or real ANSI compiler?
+      cat > conftest.c << _EOF_
+int main()
+{
+#ifndef __HP_cc
+   bad code
+#endif
+   return 0;
+}
+_EOF_
+      $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
+      if test $? -eq 0; then
+        echo '  HP-UX ANSI C (+O3 +Onolimit)'
+        CFLAGS_OPT='+O3 +Onolimit'
+      else        
+        echo '  HP-UX Bundled C (no opt)'
+      fi
+    else
+      echo '  Other (gcc?) (-O2)'
+      CFLAGS_OPT='-O2'
+    fi
   fi
 fi
 
@@ -70,8 +103,7 @@ CC_BZ="${CC}"
 LIB_BZ=''
 echo "Check bzip2 support"
 if test -n "${IZ_BZIP2}"; then
-  echo "  Check for bzip2 files in IZ_BZIP2 (${IZ_BZIP2})"
-  BZ_BAD=''
+  echo "  Check for bzip2 compiled library in IZ_BZIP2 (${IZ_BZIP2})"
   if test -f "${IZ_BZIP2}/libbz2.a"; then
 #
 #   A bzip2 library built with BZ_NO_STDIO should have an
@@ -80,56 +112,51 @@ if test -n "${IZ_BZIP2}"; then
 #
     nm ${IZ_BZIP2}/libbz2.a | grep bz_internal_error > /dev/null
     if test $? -eq 0; then
-      echo "    Found bzip2 BZ_NO_STDIO library, ${IZ_BZIP2}/libbz2.a."
+      echo "    Found bzip2 BZ_NO_STDIO library, ${IZ_BZIP2}/libbz2.a"
     else
       echo "    Found bzip2 library, ${IZ_BZIP2}/libbz2.a,"
-      echo "      but library not compiled with BZ_NO_STDIO."
-      echo "    WARNING:  For proper error handling, we recommend using"
-      echo "    a bzip2 library compiled with BZ_NO_STDIO defined."
-      echo "    Please see the Zip installation instructions in bzip2/install.txt."
+      echo "      but library not compiled with BZ_NO_STDIO"
+      echo "    WARNING:  We recommend using a bzip2 library compiled"
+      echo "      with BZ_NO_STDIO defined for proper error handling"
+      echo "    Please see the Zip installation instructions in bzip2/install.txt"
       echo "    Continuing anyway with standard bzip2 library..."
     fi
     if test -f "${IZ_BZIP2}/bzlib.h"; then
       CFLAGS="${CFLAGS} -I${IZ_BZIP2} -DBZIP2_SUPPORT"
       LFLAGS2="${LFLAGS2} -L${IZ_BZIP2} -lbz2"
-      echo "    Found bzip2 files.  Building with bzip2 support."
+      echo "-- Found bzip2 library - linking in bzip2"
     else
-      echo "    ${IZ_BZIP2}/bzlib.h not found."
-      BZ_BAD='bad'
+      echo "    ${IZ_BZIP2}/bzlib.h not found"
+      echo "-- Since IZ_BZIP2 defined, skipping OS and bzip2 dir checks - no bzip2"
     fi
   else
     echo "    ${IZ_BZIP2}/libbz2.a not found"
-    BZ_BAD='bad'
-  fi
-  if test -n "${BZ_BAD}"; then
-    echo "  User-specified IZ_BZIP2 is incomplete.  Building WITHOUT bzip2 support."
-    echo "  Please see the Zip installation instructions in bzip2/install.txt."
-    IZ_BZIP2=''
+    echo "-- Since IZ_BZIP2 defined, skipping OS and bzip2 checks - no bzip2"
   fi
 else
-  IZ_BZIP2=./bzip2
-  echo "  Check for bzip2 files in ${IZ_BZIP2} directory"
+  echo "  Check for bzip2 in bzip2 directory"
+  IZ_BZIP2=bzip2
   if test -f "${IZ_BZIP2}/libbz2.a"; then
     nm ${IZ_BZIP2}/libbz2.a | grep bz_internal_error > /dev/null
-      if test $? -eq 0; then
-      echo "    Found bzip2 BZ_NO_STDIO library, ${IZ_BZIP2}/libbz2.a."
+    if test $? -eq 0; then
+      echo "    Found bzip2 BZ_NO_STDIO library in bzip2 directory"
     else
-      echo "    Found bzip2 library, ${IZ_BZIP2}/libbz2.a,"
-      echo "      but library not compiled with BZ_NO_STDIO."
-      echo "    WARNING:  For proper error handling, we recommend using"
-      echo "    a bzip2 library compiled with BZ_NO_STDIO defined."
-      echo "    Please see the Zip installation instructions in bzip2/install.txt."
+      echo "    Found bzip2 library in bzip2 directory,"
+      echo "      but not built with the BZ_NO_STDIO option"
+      echo "    WARNING:  We recommend using a bzip2 library compiled"
+      echo "      with BZ_NO_STDIO defined for proper error handling"
+      echo "    Please see the Zip installation instructions"
       echo "    Continuing anyway with standard bzip2 library..."
     fi
   fi
-  if test -f "${IZ_BZIP2}/bzlib.h" -a -f "${IZ_BZIP2}/libbz2.a"; then
+  if test -f "bzip2/bzlib.h" -a -f "bzip2/libbz2.a"; then
     CFLAGS="${CFLAGS} -I${IZ_BZIP2} -DBZIP2_SUPPORT"
-    LFLAGS2="${LFLAGS2} -L${IZ_BZIP2} -lbz2"
-    echo "    Found bzip2 files.  Building with bzip2 support."
+    LFLAGS2="${LFLAGS2} -Lbzip2 -lbz2"
+    echo "-- Found bzip2 library - linking in bzip2"
   else
-    if test -f "${IZ_BZIP2}/bzlib.c"; then
-      echo "  Found bzip2 source in ${IZ_BZIP2} directory."
-      echo "  Will try to build a bzip2 library from source, and use that."
+    if test -f "bzip2/bzlib.c" -a -f "bzip2/bzlib.h"; then
+      echo "-- No library, but found bzip2 source in bzip2 directory"
+      echo "-- Will try to build bzip2 library from source and link in"
 #
 # Arrange to build a BZ_NO_STDIO bzip2 object library using the
 # same compiler and optimization options as used for Zip, and
@@ -137,8 +164,8 @@ else
 #
       CFLAGS_BZ="${CFLAGS_BZ} -DBZ_NO_STDIO"
       LIB_BZ="bzip2/libbz2.a"
-      CFLAGS="${CFLAGS} -I${IZ_BZIP2} -DBZIP2_SUPPORT"
-      LFLAGS2="${LFLAGS2} -L${IZ_BZIP2} -lbz2"
+      CFLAGS="${CFLAGS} -Ibzip2 -DBZIP2_SUPPORT"
+      LFLAGS2="${LFLAGS2} -Lbzip2 -lbz2"
     else
       echo "  Check if OS already has bzip2 library installed"
       cat > conftest.c << _EOF_
@@ -152,13 +179,11 @@ int main()
 _EOF_
       $CC $CFLAGS -o conftest conftest.c -lbz2 > /dev/null 2>/dev/null
       if test $? -eq 0; then
-        echo "  OS supports bzip2.  Building with bzip2 support."
+        echo "-- OS supports bzip2 - linking in bzip2"
         CFLAGS="${CFLAGS} -DBZIP2_SUPPORT"
         LFLAGS2="${LFLAGS2} -lbz2"
       else
-        echo "  OS support test for bzip2 failed.  (Missing bzlib.h or libbz2.a,"
-        echo "  bad library path, ...?)  Building WITHOUT bzip2 support."
-        IZ_BZIP2=''
+        echo "-- Either bzlib.h or libbz2.a not found - no bzip2"
       fi
     fi
   fi
@@ -531,11 +556,11 @@ else
         $CC ${CFLAGS} -Olimit 1000 -o conftest conftest.c >/dev/null 2>/dev/null
         [ $? -eq 0 ] && CFLAGS="${CFLAGS} -Olimit 1000"
         ;;
-     HP-UX)
-        echo Check for +Onolimit option
-        $CC ${CFLAGS} +Onolimit -o conftest conftest.c >/dev/null 2>/dev/null
-        [ $? -eq 0 ] && CFLAGS="${CFLAGS} +Onolimit"
-        ;;
+###     HP-UX)
+###        echo Check for +Onolimit option
+###        $CC ${CFLAGS} +Onolimit -o conftest conftest.c >/dev/null 2>/dev/null
+###        [ $? -eq 0 ] && CFLAGS="${CFLAGS} +Onolimit"
+###        ;;
 ###     SunOS)
 ###        CFLAGS="${CFLAGS} -D_FILE_OFFSET_BITS=64"
 ###        ;;

@@ -321,11 +321,10 @@ IZ_IMP char *mktemp();
  * (differently) when <locale.h> is read later.
  */
 #ifdef UNICODE_SUPPORT
-# if defined( UNIX) || defined( VMS)
+# ifdef UNIX
 #   include <locale.h>
-# endif /* defined( UNIX) || defined( VMS) */
-# include <wchar.h>
-#endif /* def UNICODE_SUPPORT */
+# endif
+#endif
 
 #ifdef _MBCS
 #   include <locale.h>
