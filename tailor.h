@@ -3,7 +3,7 @@
 
   Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -314,6 +314,19 @@ IZ_IMP char *mktemp();
  * by Yoshioka Tsuneo (QWF00133@nifty.ne.jp,tsuneo-y@is.aist-nara.ac.jp)
  * This code is public domain!   Date: 1998/12/20
  */
+
+/* 2007-07-29 SMS.
+ * Include <locale.h> here if it will be needed later for Unicode.
+ * Otherwise, SETLOCALE may be defined here, and then defined again
+ * (differently) when <locale.h> is read later.
+ */
+#ifdef UNICODE_SUPPORT
+# if defined( UNIX) || defined( VMS)
+#   include <locale.h>
+# endif /* defined( UNIX) || defined( VMS) */
+# include <wchar.h>
+#endif /* def UNICODE_SUPPORT */
+
 #ifdef _MBCS
 #   include <locale.h>
 
@@ -327,7 +340,9 @@ IZ_IMP char *mktemp();
     int lastchar OF((ZCONST char *ptr));
 #   define MBSCHR(str,c) (char *)zmbschr((ZCONST unsigned char *)(str), c)
 #   define MBSRCHR(str,c) (char *)zmbsrchr((ZCONST unsigned char *)(str), (c))
-#   define SETLOCALE(category, locale) setlocale(category, locale)
+#   ifndef SETLOCALE
+#      define SETLOCALE(category, locale) setlocale(category, locale)
+#   endif /* ndef SETLOCALE */
 #else /* !_MBCS */
 #   define CLEN(ptr) 1
 #   define PREINCSTR(ptr) (++(ptr))
@@ -335,7 +350,9 @@ IZ_IMP char *mktemp();
 #   define lastchar(ptr) ((*(ptr)=='\0') ? '\0' : ptr[strlen(ptr)-1])
 #   define MBSCHR(str, c) strchr(str, c)
 #   define MBSRCHR(str, c) strrchr(str, c)
-#   define SETLOCALE(category, locale)
+#   ifndef SETLOCALE
+#      define SETLOCALE(category, locale)
+#   endif /* ndef SETLOCALE */
 #endif /* ?_MBCS */
 #define INCSTR(ptr) PREINCSTR(ptr)
 
@@ -559,6 +576,11 @@ typedef struct ztimbuf {
 
       /* 64-bit stat functions */
 #     define zstat _stati64
+# ifdef UNICODE_SUPPORT
+#     define zwfstat _fstati64
+#     define zwstat _wstati64
+#     define zw_stat struct _stati64
+# endif
 #     define zfstat _fstati64
 #     define zlstat lstat
 
@@ -601,6 +623,11 @@ typedef struct ztimbuf {
 
       /* 64-bit stat functions */
 #     define zstat _stati64
+# ifdef UNICODE_SUPPORT
+#     define zwfstat _fstati64
+#     define zwstat _wstati64
+#     define zw_stat struct _stati64
+# endif
 #     define zfstat _fstati64
 #     define zlstat lstat
 
@@ -623,6 +650,11 @@ typedef struct ztimbuf {
 
       /* 64-bit stat functions */
 #     define zstat _stati64
+# ifdef UNICODE_SUPPORT
+#     define zwfstat _fstati64
+#     define zwstat _wstati64
+#     define zw_stat struct _stati64
+# endif
 #     define zfstat _fstati64
 #     define zlstat lstat
 
@@ -669,6 +701,11 @@ typedef struct ztimbuf {
 # define zftello ftell
 # define zfopen fopen
 # define zfdopen fdopen
+# ifdef UNICODE_SUPPORT
+#   define zwfstat _fstat
+#   define zwstat _wstat
+#   define zw_stat struct _stat
+# endif
 
 #endif
 
@@ -676,6 +713,9 @@ typedef struct ztimbuf {
 
 # ifndef SSTAT
 #  define SSTAT      zstat
+#  ifdef UNICODE_SUPPORT
+#    define SSTATW   zwstat
+#  endif
 # endif
 # ifdef S_IFLNK
 #  define LSTAT      zlstat
@@ -683,6 +723,9 @@ typedef struct ztimbuf {
 # else
 #  define LSTAT      SSTAT
 #  define LSSTAT     SSTAT
+#  ifdef UNICODE_SUPPORT
+#    define LSSTATW  SSTATW
+#  endif
 # endif
 
 #else /* no LARGE_FILE_SUPPORT */
@@ -696,6 +739,9 @@ typedef struct ztimbuf {
 # else
 #  define LSTAT      SSTAT
 #  define LSSTAT     SSTAT
+#  ifdef UNICODE_SUPPORT
+#    define LSSTATW  SSTATW
+#  endif
 # endif
 
 #endif
