@@ -46,8 +46,8 @@
      o Build a large-file product from scratch, for debug, getting
        compiler listings and link maps:
 
-          mms /desc = [.vms] clean
-          mms /desc = [.vms] /macro = (DBG=1, LARGE=1. LIST=1)
+          MMS /DESC = [.VMS] CLEAN
+          MMS /DESC = [.VMS] /MACRO = (DBG=1, LARGE=1. LIST=1)
 
      On VAX, the builders attempt to cope with the various available C
      compilers, DEC/Compaq/HP C, VAX C, or GNU C.  If DEC/Compaq/HP C is
