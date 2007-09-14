@@ -51,7 +51,7 @@ PKGDIR = IZzip
 VERSION = Version 3.0
 
 # Our bzip2 directory
-IZ_OUR_BZIP2_DIR = ./bzip2
+IZ_OUR_BZIP2_DIR = bzip2
 
 # flags
 #   CFLAGS    flags for C compile
