@@ -39,7 +39,7 @@ DESCRIPTION
        zipsplit reads a zipfile and splits it into smaller zipfiles.
 
 EXAMPLES
-       To be filled it.
+       To be filled in.
 
 BUGS
        Does not yet support large (> 2 GB) or split archives.

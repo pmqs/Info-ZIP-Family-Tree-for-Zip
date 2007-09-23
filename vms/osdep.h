@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 #ifndef VMS
 #  define VMS 1
@@ -27,11 +27,10 @@
 #  define NO_FCNTL_H        /* VAXC does not supply fcntl.h. */
 #endif /* VAX C */
 
-#define NO_UNISTD_H
-
 #define USE_CASE_MAP
-#define PROCNAME(n) (action == ADD || action == UPDATE ? wild(n) : \
-                     procname(n, 1))
+#define PROCNAME(n) \
+ (((action == ADD) || (action == UPDATE) || (action == FRESHEN)) ? \
+ wild(n) : procname(n, filter_match_case))
 
 /* 2004-11-09 SMS.
    Large file support.
@@ -73,8 +72,10 @@
 
 #ifdef LARGE_FILE_SUPPORT
    typedef off_t zoff_t;
+   typedef unsigned long long uzoff_t;
 #else /* def LARGE_FILE_SUPPORT */
    typedef long zoff_t;
+   typedef unsigned long uzoff_t;
 #endif /* def LARGE_FILE_SUPPORT */
 
 #include <stat.h>
@@ -94,6 +95,18 @@ typedef struct stat z_stat;
 #  undef _MBCS                 /* Zip on VMS does not support MBCS */
 #endif
 
+/* VMS is run on little-endian processors with 4-byte ints:
+ * enable the optimized CRC-32 code */
+#ifdef IZ_CRC_BE_OPTIMIZ
+#  undef IZ_CRC_BE_OPTIMIZ
+#endif
+#if !defined(IZ_CRC_LE_OPTIMIZ) && !defined(NO_CRC_OPTIMIZ)
+#  define IZ_CRC_LE_OPTIMIZ
+#endif
+#if !defined(IZ_CRCOPTIM_UNFOLDTBL) && !defined(NO_CRC_OPTIMIZ)
+#  define IZ_CRCOPTIM_UNFOLDTBL
+#endif
+
 #if !defined(NO_EF_UT_TIME) && !defined(USE_EF_UT_TIME)
 #  if (defined(__CRTL_VER) && (__CRTL_VER >= 70000000))
 #    define USE_EF_UT_TIME
@@ -107,8 +120,20 @@ typedef struct stat z_stat;
 #  define VMS_PK_EXTRA 1              /* PK style VMS support is default */
 #endif
 
-#define unlink delete
-#define NO_SYMLINK
+/* 2007-02-22 SMS.
+ * <unistd.h> is needed for symbolic link functions, so use it when the
+ * symbolic link criteria are met.
+ */
+#if defined(__VAX) || __CRTL_VER < 70301000
+#  define NO_UNISTD_H
+#  define NO_SYMLINKS
+#endif /* defined(__VAX) || __CRTL_VER < 70301000 */
+
+/* 2007-02-22 SMS.  Use delete() when unlink() is not available. */
+#if defined(NO_UNISTD_H) || (__CRTL_VER < 70000000)
+#  define unlink delete
+#endif /* defined(NO_UNISTD_H) || __CRTL_VER < 70000000) */
+
 #define SSTAT vms_stat
 #define EXIT(exit_code) vms_exit(exit_code)
 #define RETURN(exit_code) return (vms_exit(exit_code), 1)

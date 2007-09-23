@@ -13,7 +13,6 @@ TEXT:
    zip c
    util c
    crc32.c
-   crctab.c
    zipfile c
    zipup c
    cmsmvs c

@@ -561,7 +561,8 @@ char *GetLongPathEA(const char *name)
   BOOL bFound = FALSE;
 
   nbuf[0] = 0;
-  strcpy(tempbuf, name);
+  strncpy(tempbuf, name, CCHMAXPATH);
+  tempbuf[CCHMAXPATH] = '\0';
   next = tempbuf;
 
   while (*next)

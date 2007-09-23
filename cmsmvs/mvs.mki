@@ -59,11 +59,11 @@ LDFLAGS=
 OBJECTS= $(BLD_P)zip$(O) $(BLD_P)trees$(O) \
    $(BLD_P)crypt$(O)  $(BLD_P)ttyio$(O)   $(BLD_P)deflate$(O) \
    $(BLD_P)fileio$(O) $(BLD_P)globals$(O) $(BLD_P)util$(O) \
-   $(BLD_P)crc32$(O)  $(BLD_P)crctab$(O)  $(BLD_P)zipfile$(O) \
+   $(BLD_P)crc32$(O)  $(BLD_P)zipfile$(O) \
    $(BLD_P)zipup$(O)  $(BLD_P)cmsmvs$(O)  $(BLD_P)mvs$(O)
 
 # Header files
-HFILES= $(SRC_P)api.h $(SRC_P)crypt.h $(SRC_P)ebcdic.h \
+HFILES= $(SRC_P)api.h $(SRC_P)crc32.h $(SRC_P)crypt.h $(SRC_P)ebcdic.h \
     $(SRC_P)revision.h $(SRC_P)tailor.h $(SRC_P)ttyio.h \
     $(SRC_P)zip.h $(SRC_P)ziperr.h $(CMSMVS_P)cmsmvs.h \
     $(CMSMVS_P)cstat.h $(CMSMVS_P)mvs.h $(CMSMVS_P)zipup.h
@@ -111,9 +111,6 @@ $(BLD_P)util$(O):    $(SRC_P)util.c         $(HFILES)
 
 $(BLD_P)crc32$(O):   $(SRC_P)crc32.c        $(HFILES)
 	$(CC) -c -o $% $(CFLAGS) $(SRC_P)crc32.c
-
-$(BLD_P)crctab$(O):  $(SRC_P)crctab.c       $(HFILES)
-	$(CC) -c -o $% $(CFLAGS) $(SRC_P)crctab.c
 
 $(BLD_P)zipfile$(O): $(SRC_P)zipfile.c      $(HFILES)
 	$(CC) -c -o $% $(CFLAGS) $(SRC_P)zipfile.c

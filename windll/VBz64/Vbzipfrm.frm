@@ -92,11 +92,17 @@ Private Sub Form_Click()
   
   If Not SetZipOptions(ZOPT, _
                        ZipMode:=Add, _
-                       CompressionLevel:=c6_Default) Then
+                       CompressionLevel:=c6_Default _
+                       ) Then
            ' Some additional options ...
            '            RootDirToZipFrom:="", _
+           '   strip paths and just store names:
            '            JunkDirNames:=False, _
+           '   do not store entries for the directories themselves:
+           '            NoDirEntries:=True _
+           '   include files only if match one of these patterns:
            '            i_IncludeFiles:="*.vbp *.frm", _
+           '   exclude files that match these patterns:
            '            x_ExcludeFiles:="*.bas", _
            '            Verboseness:=Verbose, _
            '            IncludeEarlierThanDate:="2004-4-1", _
@@ -108,6 +114,7 @@ Private Sub Form_Click()
 ' Delete
  ' If Not SetZipOptions(ZOPT, _
  '                      ZipMode:=Delete) Then
+ 
     ' a problem if get here - error message already displayed so just exit
     Exit Sub
   End If
@@ -126,8 +133,9 @@ Private Sub Form_Click()
   '---------------
   ' Example using file name array
   
-  ' store the file paths
-  ' change Dim of zFiles at top of VBZipBas.bas if more than 100 files
+  ' Store the file paths
+  ' Change Dim of zFiles at top of VBZipBas.bas if more than 100 files
+  ' See note at top of VBZipBas.bas for limit on number of files
   
 '  zArgc = 2           ' Number Of file paths below
 '  zZipFileNames.zFiles(1) = "*.bas"
@@ -138,6 +146,7 @@ Private Sub Form_Click()
   
   ' List of files to zip as string of names with space between
   ' Set zArgc = 0 as not using array
+  ' Using string for file list avoids above array limit
   
   zArgc = 0
 '  ReDim FilesToZip(1)      ' dim to number of files below

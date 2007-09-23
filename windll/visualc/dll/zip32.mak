@@ -2,28 +2,28 @@
 !IF "$(CFG)" == ""
 CFG=zip32 - Win32 Debug
 !MESSAGE No configuration specified. Defaulting to zip32 - Win32 Debug.
-!ENDIF
+!ENDIF 
 
 !IF "$(CFG)" != "zip32 - Win32 Release" && "$(CFG)" != "zip32 - Win32 Debug"
 !MESSAGE Invalid configuration "$(CFG)" specified.
 !MESSAGE You can specify a configuration when running NMAKE
 !MESSAGE by defining the macro CFG on the command line. For example:
-!MESSAGE
+!MESSAGE 
 !MESSAGE NMAKE /f "zip32.mak" CFG="zip32 - Win32 Debug"
-!MESSAGE
+!MESSAGE 
 !MESSAGE Possible choices for configuration are:
-!MESSAGE
+!MESSAGE 
 !MESSAGE "zip32 - Win32 Release" (based on "Win32 (x86) Dynamic-Link Library")
 !MESSAGE "zip32 - Win32 Debug" (based on "Win32 (x86) Dynamic-Link Library")
-!MESSAGE
+!MESSAGE 
 !ERROR An invalid configuration is specified.
-!ENDIF
+!ENDIF 
 
 !IF "$(OS)" == "Windows_NT"
 NULL=
-!ELSE
+!ELSE 
 NULL=nul
-!ENDIF
+!ENDIF 
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
@@ -33,20 +33,12 @@ INTDIR=.\Release
 OutDir=.\..\Release\app
 # End Custom Macros
 
-!IF "$(RECURSE)" == "0"
-
 ALL : "$(OUTDIR)\zip32.dll"
 
-!ELSE
-
-ALL : "$(OUTDIR)\zip32.dll"
-
-!ENDIF
 
 CLEAN :
 	-@erase "$(INTDIR)\api.obj"
 	-@erase "$(INTDIR)\crc32.obj"
-	-@erase "$(INTDIR)\crctab.obj"
 	-@erase "$(INTDIR)\crypt.obj"
 	-@erase "$(INTDIR)\deflate.obj"
 	-@erase "$(INTDIR)\fileio.obj"
@@ -55,8 +47,9 @@ CLEAN :
 	-@erase "$(INTDIR)\trees.obj"
 	-@erase "$(INTDIR)\ttyio.obj"
 	-@erase "$(INTDIR)\util.obj"
-	-@erase "$(INTDIR)\vc50.idb"
+	-@erase "$(INTDIR)\vc60.idb"
 	-@erase "$(INTDIR)\win32.obj"
+	-@erase "$(INTDIR)\win32i64.obj"
 	-@erase "$(INTDIR)\win32zip.obj"
 	-@erase "$(INTDIR)\windll.obj"
 	-@erase "$(INTDIR)\windll.res"
@@ -74,62 +67,53 @@ CLEAN :
     if not exist "$(INTDIR)/$(NULL)" mkdir "$(INTDIR)"
 
 CPP=cl.exe
-CPP_PROJ=/nologo /Zp4 /MT /W3 /GX /O2 /I "..\..\.." /I "..\..\..\WINDLL" /I "..\..\..\WIN32" /D "NDEBUG" /D "_WINDOWS" /D "WIN32" /D "NO_ASM" /D "WINDLL" /D\
- "MSDOS" /D "USE_ZIPMAIN" /Fp"$(INTDIR)\zip32.pch" /YX\
- /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c
-CPP_OBJS=.\Release/
-CPP_SBRS=.
+CPP_PROJ=/nologo /Zp4 /MT /W3 /GX /O2 /I "..\..\.." /I "..\..\..\WINDLL" /I "..\..\..\WIN32" /D "NDEBUG" /D "_WINDOWS" /D "WIN32" /D "NO_ASM" /D "WINDLL" /D "MSDOS" /D "USE_ZIPMAIN" /Fp"$(INTDIR)\zip32.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
 
-.c{$(CPP_OBJS)}.obj::
+.c{$(INTDIR)}.obj::
    $(CPP) @<<
-   $(CPP_PROJ) $<
+   $(CPP_PROJ) $< 
 <<
 
-.cpp{$(CPP_OBJS)}.obj::
+.cpp{$(INTDIR)}.obj::
    $(CPP) @<<
-   $(CPP_PROJ) $<
+   $(CPP_PROJ) $< 
 <<
 
-.cxx{$(CPP_OBJS)}.obj::
+.cxx{$(INTDIR)}.obj::
    $(CPP) @<<
-   $(CPP_PROJ) $<
+   $(CPP_PROJ) $< 
 <<
 
-.c{$(CPP_SBRS)}.sbr::
+.c{$(INTDIR)}.sbr::
    $(CPP) @<<
-   $(CPP_PROJ) $<
+   $(CPP_PROJ) $< 
 <<
 
-.cpp{$(CPP_SBRS)}.sbr::
+.cpp{$(INTDIR)}.sbr::
    $(CPP) @<<
-   $(CPP_PROJ) $<
+   $(CPP_PROJ) $< 
 <<
 
-.cxx{$(CPP_SBRS)}.sbr::
+.cxx{$(INTDIR)}.sbr::
    $(CPP) @<<
-   $(CPP_PROJ) $<
+   $(CPP_PROJ) $< 
 <<
 
 MTL=midl.exe
-MTL_PROJ=/nologo /D "NDEBUG" /mktyplib203 /o NUL /win32
+MTL_PROJ=/nologo /D "NDEBUG" /mktyplib203 /o "NUL" /win32 
 RSC=rc.exe
-RSC_PROJ=/l 0x409 /fo"$(INTDIR)\windll.res" /d "NDEBUG" /d "WIN32"
+RSC_PROJ=/l 0x409 /fo"$(INTDIR)\windll.res" /d "NDEBUG" /d "WIN32" 
 BSC32=bscmake.exe
-BSC32_FLAGS=/nologo /o"$(OUTDIR)\zip32.bsc"
+BSC32_FLAGS=/nologo /o"$(OUTDIR)\zip32.bsc" 
 BSC32_SBRS= \
-
+	
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib user32.lib advapi32.lib\
- /nologo /subsystem:windows /dll /incremental:no\
- /pdb:"$(OUTDIR)\zip32.pdb" /machine:I386\
- /def:"..\..\..\windll\windll32.def" /out:"$(OUTDIR)\zip32.dll"\
- /implib:"$(OUTDIR)\zip32.lib"
+LINK32_FLAGS=kernel32.lib user32.lib advapi32.lib /nologo /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\zip32.pdb" /machine:I386 /def:"..\..\windll32.def" /out:"$(OUTDIR)\zip32.dll" /implib:"$(OUTDIR)\zip32.lib" 
 DEF_FILE= \
-	"..\..\..\windll\windll32.def"
+	"..\..\windll32.def"
 LINK32_OBJS= \
 	"$(INTDIR)\api.obj" \
 	"$(INTDIR)\crc32.obj" \
-	"$(INTDIR)\crctab.obj" \
 	"$(INTDIR)\crypt.obj" \
 	"$(INTDIR)\deflate.obj" \
 	"$(INTDIR)\fileio.obj" \
@@ -139,12 +123,13 @@ LINK32_OBJS= \
 	"$(INTDIR)\ttyio.obj" \
 	"$(INTDIR)\util.obj" \
 	"$(INTDIR)\win32.obj" \
+	"$(INTDIR)\win32i64.obj" \
 	"$(INTDIR)\win32zip.obj" \
 	"$(INTDIR)\windll.obj" \
-	"$(INTDIR)\windll.res" \
 	"$(INTDIR)\zip.obj" \
 	"$(INTDIR)\zipfile.obj" \
-	"$(INTDIR)\zipup.obj"
+	"$(INTDIR)\zipup.obj" \
+	"$(INTDIR)\windll.res"
 
 "$(OUTDIR)\zip32.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -159,42 +144,53 @@ INTDIR=.\Debug
 OutDir=.\..\Debug\app
 # End Custom Macros
 
-!IF "$(RECURSE)" == "0"
+ALL : "$(OUTDIR)\zip32z64.dll" "$(OUTDIR)\zip32.bsc"
 
-ALL : "$(OUTDIR)\zip32.dll"
-
-!ELSE
-
-ALL : "$(OUTDIR)\zip32.dll"
-
-!ENDIF
 
 CLEAN :
 	-@erase "$(INTDIR)\api.obj"
+	-@erase "$(INTDIR)\api.sbr"
 	-@erase "$(INTDIR)\crc32.obj"
-	-@erase "$(INTDIR)\crctab.obj"
+	-@erase "$(INTDIR)\crc32.sbr"
 	-@erase "$(INTDIR)\crypt.obj"
+	-@erase "$(INTDIR)\crypt.sbr"
 	-@erase "$(INTDIR)\deflate.obj"
+	-@erase "$(INTDIR)\deflate.sbr"
 	-@erase "$(INTDIR)\fileio.obj"
+	-@erase "$(INTDIR)\fileio.sbr"
 	-@erase "$(INTDIR)\globals.obj"
+	-@erase "$(INTDIR)\globals.sbr"
 	-@erase "$(INTDIR)\nt.obj"
+	-@erase "$(INTDIR)\nt.sbr"
 	-@erase "$(INTDIR)\trees.obj"
+	-@erase "$(INTDIR)\trees.sbr"
 	-@erase "$(INTDIR)\ttyio.obj"
+	-@erase "$(INTDIR)\ttyio.sbr"
 	-@erase "$(INTDIR)\util.obj"
-	-@erase "$(INTDIR)\vc50.idb"
-	-@erase "$(INTDIR)\vc50.pdb"
+	-@erase "$(INTDIR)\util.sbr"
+	-@erase "$(INTDIR)\vc60.idb"
+	-@erase "$(INTDIR)\vc60.pdb"
 	-@erase "$(INTDIR)\win32.obj"
+	-@erase "$(INTDIR)\win32.sbr"
+	-@erase "$(INTDIR)\win32i64.obj"
+	-@erase "$(INTDIR)\win32i64.sbr"
 	-@erase "$(INTDIR)\win32zip.obj"
+	-@erase "$(INTDIR)\win32zip.sbr"
 	-@erase "$(INTDIR)\windll.obj"
 	-@erase "$(INTDIR)\windll.res"
+	-@erase "$(INTDIR)\windll.sbr"
 	-@erase "$(INTDIR)\zip.obj"
+	-@erase "$(INTDIR)\zip.sbr"
 	-@erase "$(INTDIR)\zipfile.obj"
+	-@erase "$(INTDIR)\zipfile.sbr"
 	-@erase "$(INTDIR)\zipup.obj"
-	-@erase "$(OUTDIR)\zip32.dll"
-	-@erase "$(OUTDIR)\zip32.exp"
-	-@erase "$(OUTDIR)\zip32.ilk"
-	-@erase "$(OUTDIR)\zip32.lib"
-	-@erase "$(OUTDIR)\zip32.pdb"
+	-@erase "$(INTDIR)\zipup.sbr"
+	-@erase "$(OUTDIR)\zip32.bsc"
+	-@erase "$(OUTDIR)\zip32z64.dll"
+	-@erase "$(OUTDIR)\zip32z64.exp"
+	-@erase "$(OUTDIR)\zip32z64.ilk"
+	-@erase "$(OUTDIR)\zip32z64.lib"
+	-@erase "$(OUTDIR)\zip32z64.pdb"
 
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
@@ -203,63 +199,75 @@ CLEAN :
     if not exist "$(INTDIR)/$(NULL)" mkdir "$(INTDIR)"
 
 CPP=cl.exe
-CPP_PROJ=/nologo /Zp4 /MTd /W3 /Gm /GX /Zi /Od /I "..\..\.." /I\
- "..\..\..\WINDLL" /I "..\..\..\WIN32" /D "_DEBUG" /D "_WINDOWS" /D "WIN32" /D\
- "NO_ASM" /D "WINDLL" /D "MSDOS" /D "USE_ZIPMAIN"\
- /Fp"$(INTDIR)\zip32.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c
-CPP_OBJS=.\Debug/
-CPP_SBRS=.
+CPP_PROJ=/nologo /Zp4 /MTd /W3 /Gm /GX /ZI /Od /I "..\..\..\ZIP" /I "..\..\..\WINDLL" /I "..\..\..\WIN32" /D "_DEBUG" /D "_WINDOWS" /D "WIN32" /D "NO_ASM" /D "WINDLL" /D "MSDOS" /D "USE_ZIPMAIN" /FR"$(INTDIR)\\" /Fp"$(INTDIR)\zip32.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
 
-.c{$(CPP_OBJS)}.obj::
+.c{$(INTDIR)}.obj::
    $(CPP) @<<
-   $(CPP_PROJ) $<
+   $(CPP_PROJ) $< 
 <<
 
-.cpp{$(CPP_OBJS)}.obj::
+.cpp{$(INTDIR)}.obj::
    $(CPP) @<<
-   $(CPP_PROJ) $<
+   $(CPP_PROJ) $< 
 <<
 
-.cxx{$(CPP_OBJS)}.obj::
+.cxx{$(INTDIR)}.obj::
    $(CPP) @<<
-   $(CPP_PROJ) $<
+   $(CPP_PROJ) $< 
 <<
 
-.c{$(CPP_SBRS)}.sbr::
+.c{$(INTDIR)}.sbr::
    $(CPP) @<<
-   $(CPP_PROJ) $<
+   $(CPP_PROJ) $< 
 <<
 
-.cpp{$(CPP_SBRS)}.sbr::
+.cpp{$(INTDIR)}.sbr::
    $(CPP) @<<
-   $(CPP_PROJ) $<
+   $(CPP_PROJ) $< 
 <<
 
-.cxx{$(CPP_SBRS)}.sbr::
+.cxx{$(INTDIR)}.sbr::
    $(CPP) @<<
-   $(CPP_PROJ) $<
+   $(CPP_PROJ) $< 
 <<
 
 MTL=midl.exe
-MTL_PROJ=/nologo /D "_DEBUG" /mktyplib203 /o NUL /win32
+MTL_PROJ=/nologo /D "_DEBUG" /mktyplib203 /o "NUL" /win32 
 RSC=rc.exe
-RSC_PROJ=/l 0x409 /fo"$(INTDIR)\windll.res" /d "_DEBUG" /d "WIN32"
+RSC_PROJ=/l 0x409 /fo"$(INTDIR)\windll.res" /d "_DEBUG" /d "WIN32" 
 BSC32=bscmake.exe
-BSC32_FLAGS=/nologo /o"$(OUTDIR)\zip32.bsc"
+BSC32_FLAGS=/nologo /o"$(OUTDIR)\zip32.bsc" 
 BSC32_SBRS= \
+	"$(INTDIR)\api.sbr" \
+	"$(INTDIR)\crc32.sbr" \
+	"$(INTDIR)\crypt.sbr" \
+	"$(INTDIR)\deflate.sbr" \
+	"$(INTDIR)\fileio.sbr" \
+	"$(INTDIR)\globals.sbr" \
+	"$(INTDIR)\nt.sbr" \
+	"$(INTDIR)\trees.sbr" \
+	"$(INTDIR)\ttyio.sbr" \
+	"$(INTDIR)\util.sbr" \
+	"$(INTDIR)\win32.sbr" \
+	"$(INTDIR)\win32i64.sbr" \
+	"$(INTDIR)\win32zip.sbr" \
+	"$(INTDIR)\windll.sbr" \
+	"$(INTDIR)\zip.sbr" \
+	"$(INTDIR)\zipfile.sbr" \
+	"$(INTDIR)\zipup.sbr"
+
+"$(OUTDIR)\zip32.bsc" : "$(OUTDIR)" $(BSC32_SBRS)
+    $(BSC32) @<<
+  $(BSC32_FLAGS) $(BSC32_SBRS)
+<<
 
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib user32.lib advapi32.lib\
- /nologo /subsystem:windows /dll /incremental:yes\
- /pdb:"$(OUTDIR)\zip32.pdb" /debug /machine:I386\
- /def:"..\..\..\windll\windll32.def" /out:"$(OUTDIR)\zip32.dll"\
- /implib:"$(OUTDIR)\zip32.lib" /pdbtype:sept
+LINK32_FLAGS=kernel32.lib user32.lib advapi32.lib /nologo /subsystem:windows /dll /incremental:yes /pdb:"$(OUTDIR)\zip32z64.pdb" /debug /machine:I386 /def:"..\..\windll32.def" /out:"$(OUTDIR)\zip32z64.dll" /implib:"$(OUTDIR)\zip32z64.lib" /pdbtype:sept 
 DEF_FILE= \
-	"..\..\..\windll\windll32.def"
+	"..\..\windll32.def"
 LINK32_OBJS= \
 	"$(INTDIR)\api.obj" \
 	"$(INTDIR)\crc32.obj" \
-	"$(INTDIR)\crctab.obj" \
 	"$(INTDIR)\crypt.obj" \
 	"$(INTDIR)\deflate.obj" \
 	"$(INTDIR)\fileio.obj" \
@@ -269,590 +277,356 @@ LINK32_OBJS= \
 	"$(INTDIR)\ttyio.obj" \
 	"$(INTDIR)\util.obj" \
 	"$(INTDIR)\win32.obj" \
+	"$(INTDIR)\win32i64.obj" \
 	"$(INTDIR)\win32zip.obj" \
 	"$(INTDIR)\windll.obj" \
-	"$(INTDIR)\windll.res" \
 	"$(INTDIR)\zip.obj" \
 	"$(INTDIR)\zipfile.obj" \
-	"$(INTDIR)\zipup.obj"
+	"$(INTDIR)\zipup.obj" \
+	"$(INTDIR)\windll.res"
 
-"$(OUTDIR)\zip32.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+"$(OUTDIR)\zip32z64.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
   $(LINK32_FLAGS) $(LINK32_OBJS)
 <<
 
-!ENDIF
+!ENDIF 
+
+
+!IF "$(NO_EXTERNAL_DEPS)" != "1"
+!IF EXISTS("zip32.dep")
+!INCLUDE "zip32.dep"
+!ELSE 
+!MESSAGE Warning: cannot find "zip32.dep"
+!ENDIF 
+!ENDIF 
 
 
 !IF "$(CFG)" == "zip32 - Win32 Release" || "$(CFG)" == "zip32 - Win32 Debug"
-SOURCE=D:\wiz\zip\api.c
-DEP_CPP_API_C=\
-	"..\..\..\api.h"\
-	"..\..\..\crypt.h"\
-	"..\..\..\revision.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\windll\structs.h"\
-	"..\..\..\windll\windll.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
-
-
-"$(INTDIR)\api.obj" : $(SOURCE) $(DEP_CPP_API_C) "$(INTDIR)"
-	$(CPP) $(CPP_PROJ) $(SOURCE)
-
-
-SOURCE=D:\wiz\zip\crc32.c
+SOURCE=..\..\..\api.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_CRC32=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\crc32.obj" : $(SOURCE) $(DEP_CPP_CRC32) "$(INTDIR)"
+"$(INTDIR)\api.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_CRC32=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\crc32.obj" : $(SOURCE) $(DEP_CPP_CRC32) "$(INTDIR)"
+"$(INTDIR)\api.obj"	"$(INTDIR)\api.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\crctab.c
+SOURCE=..\..\..\crc32.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_CRCTA=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\crctab.obj" : $(SOURCE) $(DEP_CPP_CRCTA) "$(INTDIR)"
+"$(INTDIR)\crc32.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_CRCTA=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\crctab.obj" : $(SOURCE) $(DEP_CPP_CRCTA) "$(INTDIR)"
+"$(INTDIR)\crc32.obj"	"$(INTDIR)\crc32.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\crypt.c
+SOURCE=..\..\..\crypt.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_CRYPT=\
-	"..\..\..\api.h"\
-	"..\..\..\crypt.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\ttyio.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\crypt.obj" : $(SOURCE) $(DEP_CPP_CRYPT) "$(INTDIR)"
+"$(INTDIR)\crypt.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_CRYPT=\
-	"..\..\..\api.h"\
-	"..\..\..\crypt.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\ttyio.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\crypt.obj" : $(SOURCE) $(DEP_CPP_CRYPT) "$(INTDIR)"
+"$(INTDIR)\crypt.obj"	"$(INTDIR)\crypt.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\deflate.c
+SOURCE=..\..\..\deflate.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_DEFLA=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\deflate.obj" : $(SOURCE) $(DEP_CPP_DEFLA) "$(INTDIR)"
+"$(INTDIR)\deflate.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_DEFLA=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\deflate.obj" : $(SOURCE) $(DEP_CPP_DEFLA) "$(INTDIR)"
+"$(INTDIR)\deflate.obj"	"$(INTDIR)\deflate.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\fileio.c
+SOURCE=..\..\..\fileio.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_FILEI=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\fileio.obj" : $(SOURCE) $(DEP_CPP_FILEI) "$(INTDIR)"
+"$(INTDIR)\fileio.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_FILEI=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\fileio.obj" : $(SOURCE) $(DEP_CPP_FILEI) "$(INTDIR)"
+"$(INTDIR)\fileio.obj"	"$(INTDIR)\fileio.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\globals.c
+SOURCE=..\..\..\globals.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_GLOBA=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\globals.obj" : $(SOURCE) $(DEP_CPP_GLOBA) "$(INTDIR)"
+"$(INTDIR)\globals.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_GLOBA=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\globals.obj" : $(SOURCE) $(DEP_CPP_GLOBA) "$(INTDIR)"
+"$(INTDIR)\globals.obj"	"$(INTDIR)\globals.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\Win32\nt.c
+SOURCE=..\..\..\win32\nt.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_NT_C10=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\nt.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\nt.obj" : $(SOURCE) $(DEP_CPP_NT_C10) "$(INTDIR)"
+"$(INTDIR)\nt.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_NT_C10=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\nt.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\nt.obj" : $(SOURCE) $(DEP_CPP_NT_C10) "$(INTDIR)"
+"$(INTDIR)\nt.obj"	"$(INTDIR)\nt.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\trees.c
+SOURCE=..\..\..\trees.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_TREES=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\trees.obj" : $(SOURCE) $(DEP_CPP_TREES) "$(INTDIR)"
+"$(INTDIR)\trees.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_TREES=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\trees.obj" : $(SOURCE) $(DEP_CPP_TREES) "$(INTDIR)"
+"$(INTDIR)\trees.obj"	"$(INTDIR)\trees.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\ttyio.c
+SOURCE=..\..\..\ttyio.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_TTYIO=\
-	"..\..\..\api.h"\
-	"..\..\..\crypt.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\ttyio.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\ttyio.obj" : $(SOURCE) $(DEP_CPP_TTYIO) "$(INTDIR)"
+"$(INTDIR)\ttyio.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_TTYIO=\
-	"..\..\..\api.h"\
-	"..\..\..\crypt.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\ttyio.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\ttyio.obj" : $(SOURCE) $(DEP_CPP_TTYIO) "$(INTDIR)"
+"$(INTDIR)\ttyio.obj"	"$(INTDIR)\ttyio.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\util.c
+SOURCE=..\..\..\util.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_UTIL_=\
-	"..\..\..\api.h"\
-	"..\..\..\ebcdic.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\util.obj" : $(SOURCE) $(DEP_CPP_UTIL_) "$(INTDIR)"
+"$(INTDIR)\util.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_UTIL_=\
-	"..\..\..\api.h"\
-	"..\..\..\ebcdic.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\util.obj" : $(SOURCE) $(DEP_CPP_UTIL_) "$(INTDIR)"
+"$(INTDIR)\util.obj"	"$(INTDIR)\util.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\Win32\win32.c
+SOURCE=..\..\..\win32\win32.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_WIN32=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\win32\win32zip.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\win32.obj" : $(SOURCE) $(DEP_CPP_WIN32) "$(INTDIR)"
+"$(INTDIR)\win32.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_WIN32=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\win32\win32zip.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\win32.obj" : $(SOURCE) $(DEP_CPP_WIN32) "$(INTDIR)"
+"$(INTDIR)\win32.obj"	"$(INTDIR)\win32.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\Win32\win32zip.c
+SOURCE=..\..\..\win32\win32i64.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_WIN32Z=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\nt.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\win32\win32zip.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\win32zip.obj" : $(SOURCE) $(DEP_CPP_WIN32Z) "$(INTDIR)"
+"$(INTDIR)\win32i64.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_WIN32Z=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\nt.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\win32\win32zip.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\win32zip.obj" : $(SOURCE) $(DEP_CPP_WIN32Z) "$(INTDIR)"
+"$(INTDIR)\win32i64.obj"	"$(INTDIR)\win32i64.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\windll\windll.c
-DEP_CPP_WINDL=\
-	"..\..\..\api.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\windll\structs.h"\
-	"..\..\..\windll\windll.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
+SOURCE=..\..\..\win32\win32zip.c
+
+!IF  "$(CFG)" == "zip32 - Win32 Release"
 
 
-"$(INTDIR)\windll.obj" : $(SOURCE) $(DEP_CPP_WINDL) "$(INTDIR)"
+"$(INTDIR)\win32zip.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-SOURCE=D:\wiz\zip\windll\windll.rc
+!ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
+
+
+"$(INTDIR)\win32zip.obj"	"$(INTDIR)\win32zip.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
+SOURCE=..\..\..\windll\windll.c
+
+!IF  "$(CFG)" == "zip32 - Win32 Release"
+
+
+"$(INTDIR)\windll.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
+
+
+"$(INTDIR)\windll.obj"	"$(INTDIR)\windll.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
+SOURCE=..\..\..\windll\windll.rc
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
 
 "$(INTDIR)\windll.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\windll.res" /i "\wiz\zip\windll" /d "NDEBUG" /d\
- "WIN32" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\windll.res" /i "\aZip3\Zip3\windll" /d "NDEBUG" /d "WIN32" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
 
 "$(INTDIR)\windll.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\windll.res" /i "\wiz\zip\windll" /d "_DEBUG" /d\
- "WIN32" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\windll.res" /i "\aZip3\Zip3\windll" /d "_DEBUG" /d "WIN32" $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\zip.c
+SOURCE=..\..\..\zip.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_ZIP_C=\
-	"..\..\..\api.h"\
-	"..\..\..\crypt.h"\
-	"..\..\..\revision.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\ttyio.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\windll\structs.h"\
-	"..\..\..\windll\windll.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\zip.obj" : $(SOURCE) $(DEP_CPP_ZIP_C) "$(INTDIR)"
+"$(INTDIR)\zip.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_ZIP_C=\
-	"..\..\..\api.h"\
-	"..\..\..\crypt.h"\
-	"..\..\..\revision.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\ttyio.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\windll\structs.h"\
-	"..\..\..\windll\windll.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\zip.obj" : $(SOURCE) $(DEP_CPP_ZIP_C) "$(INTDIR)"
+"$(INTDIR)\zip.obj"	"$(INTDIR)\zip.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\zipfile.c
+SOURCE=..\..\..\zipfile.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_ZIPFI=\
-	"..\..\..\api.h"\
-	"..\..\..\revision.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\zipfile.obj" : $(SOURCE) $(DEP_CPP_ZIPFI) "$(INTDIR)"
+"$(INTDIR)\zipfile.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_ZIPFI=\
-	"..\..\..\api.h"\
-	"..\..\..\revision.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\zipfile.obj" : $(SOURCE) $(DEP_CPP_ZIPFI) "$(INTDIR)"
+"$(INTDIR)\zipfile.obj"	"$(INTDIR)\zipfile.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
-SOURCE=D:\wiz\zip\zipup.c
+SOURCE=..\..\..\zipup.c
 
 !IF  "$(CFG)" == "zip32 - Win32 Release"
 
-DEP_CPP_ZIPUP=\
-	"..\..\..\api.h"\
-	"..\..\..\crypt.h"\
-	"..\..\..\revision.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\win32\zipup.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\zipup.obj" : $(SOURCE) $(DEP_CPP_ZIPUP) "$(INTDIR)"
+"$(INTDIR)\zipup.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
 
-DEP_CPP_ZIPUP=\
-	"..\..\..\api.h"\
-	"..\..\..\crypt.h"\
-	"..\..\..\revision.h"\
-	"..\..\..\tailor.h"\
-	"..\..\..\win32\osdep.h"\
-	"..\..\..\win32\zipup.h"\
-	"..\..\..\zip.h"\
-	"..\..\..\ziperr.h"\
 
-
-"$(INTDIR)\zipup.obj" : $(SOURCE) $(DEP_CPP_ZIPUP) "$(INTDIR)"
+"$(INTDIR)\zipup.obj"	"$(INTDIR)\zipup.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF
+!ENDIF 
 
 
-!ENDIF
+!ENDIF 
 

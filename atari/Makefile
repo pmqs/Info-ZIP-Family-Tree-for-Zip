@@ -27,14 +27,14 @@ LFLAGS1 =
 LFLAGS2 = -s
 
 # object file lists
-OBJZ = zip.o zipfile.o zipup.o fileio.o util.o crc32.o crctab.o globals.o \
+OBJZ = zip.o zipfile.o zipup.o fileio.o util.o crc32.o globals.o \
 	crypt.o ttyio.o atari.o
 
 OBJI = deflate.o trees.o
 OBJA =
 OBJU = zipfile_.o fileio_.o util_.o globals.o atari_.o
 OBJN = zipnote.o  $(OBJU)
-OBJC = zipcloak.o $(OBJU) crctab.o crypt_.o ttyio.o
+OBJC = zipcloak.o $(OBJU) crc32_.o crypt_.o ttyio.o
 OBJS = zipsplit.o $(OBJU)
 
 ZIP_H = zip.h ziperr.h tailor.h atari/osdep.h
@@ -58,7 +58,9 @@ $(OBJI): $(ZIP_H)
 $(OBJN): $(ZIP_H)
 $(OBJS): $(ZIP_H)
 $(OBJC): $(ZIP_H)
-zip.o zipup.o crypt.o ttyio.o zipcloak.o crypt_.o:  crypt.h
+zip.o crc32.o crypt.o fileio.o zipfile.o zipup.o: crc32.h
+zipcloak.o crc32_.o crypt_.o fileio_.o zipfile_.o:  crc32.h
+zip.o zipup.o crypt.o ttyio.o zipcloak.o crypt_.o: crypt.h
 zip.o zipup.o zipnote.o zipcloak.o zipsplit.o: revision.h
 zip.o crypt.o ttyio.o zipcloak.o crypt_.o: ttyio.h
 zipup.o: atari/zipup.h

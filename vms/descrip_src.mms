@@ -1,4 +1,4 @@
-#                                               13 December 2004.  SMS.
+#                                               23 February 2007.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Source Description File.
 #
@@ -86,6 +86,7 @@ DESTL =
 .ENDIF                          # LARGE
 
 DEST = $(DESTM)$(DESTI)$(DESTL)
+SEEK_BZ = $(DESTM)$(DESTL)
 
 # Library module name suffix for XXX_.OBJ with GNU C.
 
@@ -158,11 +159,38 @@ NON_VAX_CMPL = 1
 	@ write sys$output ""
 	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
 .ELSE                                       # LARGE_VAX
+.IFDEF IZ_BZIP2                                 # IZ_BZIP2
+CDEFS_BZ = , BZIP2_SUPPORT
+CFLAGS_INCL = /INCLUDE = ([], [.VMS])
+INCL_BZIP2_M = , ZBZ2ERR
+LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2_NS.OLB /library,
+.FIRST
+	@ define incl_bzip2 $(IZ_BZIP2)
+	@ @[.VMS]FIND_BZIP2_LIB.COM $(IZ_BZIP2) $(SEEK_BZ) -
+	   LIBBZ2_NS.OLB lib_bzip2
+	@ write sys$output ""
+	@ if (f$trnlnm( "lib_bzip2") .nes. "") then -
+	   write sys$output "   BZIP2 dir: ''f$trnlnm( "lib_bzip2")'"
+	@ if (f$trnlnm( "lib_bzip2") .eqs. "") then -
+	   write sys$output "   Can not find BZIP2 object library."
+	@ write sys$output ""
+	@ if (f$trnlnm( "lib_bzip2") .eqs. "") then -
+	   I_WILL_DIE_NOW.  /$$$$INVALID$$$$
+	@ write sys$output "   Destination: [.$(DEST)]"
+	@ write sys$output ""
+	if (f$search( "$(DEST).DIR;1") .eqs. "") then -
+	 create /directory [.$(DEST)]
+.ELSE                                           # IZ_BZIP2
+CDEFS_BZ =
+CFLAGS_INCL = /include = []
+INCL_BZIP2_M = , ZBZ2ERR
+LIB_BZIP2_OPTS =
 .FIRST
 	@ write sys$output "   Destination: [.$(DEST)]"
 	@ write sys$output ""
 	if (f$search( "$(DEST).DIR;1") .eqs. "") then -
 	 create /directory [.$(DEST)]
+.ENDIF                                          # IZ_BZIP2
 .ENDIF                                      # LARGE_VAX
 .ENDIF                                  # NON_VAX_CMPL
 .ENDIF                              # VAX_MULTI_CMPL
@@ -202,7 +230,7 @@ C_LOCAL_ZIP = , $(LOCAL_ZIP)
 C_LOCAL_ZIP =
 .ENDIF
 
-CDEFS = VMS $(CDEFS_IM) $(CDEFS_LARGE) $(C_LOCAL_ZIP)
+CDEFS = VMS $(CDEFS_BZ) $(CDEFS_IM) $(CDEFS_LARGE) $(C_LOCAL_ZIP)
 
 CDEFS_UNX = /define = ($(CDEFS))
 
@@ -211,8 +239,6 @@ CDEFS_CLI = /define = ($(CDEFS), VMSCLI)
 CDEFS_UTIL = /define = ($(CDEFS), UTIL)
 
 # Other C compiler options.
-
-CFLAGS_INCL = /include = []
 
 .IFDEF DECC                             # DECC
 CFLAGS_ARCH = /decc /prefix = (all)
@@ -229,11 +255,11 @@ CFLAGS_ARCH =
 .ENDIF                                  # DECC
 
 .IFDEF VAXC_OR_FORCE_VAXC               # VAXC_OR_FORCE_VAXC
-OPT_FILE = [.$(DEST)]vaxcshr.opt
+OPT_FILE = [.$(DEST)]VAXCSHR.OPT
 LFLAGS_ARCH = $(OPT_FILE) /options, 
 .ELSE                                   # VAXC_OR_FORCE_VAXC
 .IFDEF GNUC                                 # GNUC
-OPT_FILE = [.$(DEST)]vaxcshr.opt
+OPT_FILE = [.$(DEST)]VAXCSHR.OPT
 LFLAGS_GNU = GNU_CC:[000000]GCCLIB.OLB /LIBRARY
 LFLAGS_ARCH = $(LFLAGS_GNU), SYS$DISK:$(OPT_FILE) /options, 
 .ELSE                                       # GNUC
@@ -271,64 +297,64 @@ LINKFLAGS = \
 #    Primary object library, [].
 
 MODS_OBJS_LIB_ZIP_N = \
- crc32=[.$(DEST)]crc32.obj \
- crctab=[.$(DEST)]crctab.obj \
- crypt=[.$(DEST)]crypt.obj \
- deflate=[.$(DEST)]deflate.obj \
- fileio=[.$(DEST)]fileio.obj \
- globals=[.$(DEST)]globals.obj \
- trees=[.$(DEST)]trees.obj \
- ttyio=[.$(DEST)]ttyio.obj \
- util=[.$(DEST)]util.obj \
- zipfile=[.$(DEST)]zipfile.obj \
- zipup=[.$(DEST)]zipup.obj
+ CRC32=[.$(DEST)]CRC32.OBJ \
+ CRYPT=[.$(DEST)]CRYPT.OBJ \
+ DEFLATE=[.$(DEST)]DEFLATE.OBJ \
+ FILEIO=[.$(DEST)]FILEIO.OBJ \
+ GLOBALS=[.$(DEST)]GLOBALS.OBJ \
+ TREES=[.$(DEST)]TREES.OBJ \
+ TTYIO=[.$(DEST)]TTYIO.OBJ \
+ UTIL=[.$(DEST)]UTIL.OBJ \
+ ZBZ2ERR=[.$(DEST)]ZBZ2ERR.OBJ \
+ ZIPFILE=[.$(DEST)]ZIPFILE.OBJ \
+ ZIPUP=[.$(DEST)]ZIPUP.OBJ
 
-#    Primary object library, [.vms].
+#    Primary object library, [.VMS].
                     
 MODS_OBJS_LIB_ZIP_V = \
- vms=[.$(DEST)]vms.obj \
- vmsmunch=[.$(DEST)]vmsmunch.obj \
- vmszip=[.$(DEST)]vmszip.obj
+ VMS=[.$(DEST)]VMS.OBJ \
+ VMSMUNCH=[.$(DEST)]VMSMUNCH.OBJ \
+ VMSZIP=[.$(DEST)]VMSZIP.OBJ
 
 MODS_OBJS_LIB_ZIP = $(MODS_OBJS_LIB_ZIP_N) $(MODS_OBJS_LIB_ZIP_V)
 
 #    Utility object library, normal, [].
 
 MODS_OBJS_LIB_ZIPUTILS_N = \
- crctab=[.$(DEST)]crctab.obj \
- globals=[.$(DEST)]globals.obj \
- ttyio=[.$(DEST)]ttyio.obj
+ GLOBALS=[.$(DEST)]GLOBALS.OBJ \
+ TTYIO=[.$(DEST)]TTYIO.OBJ
 
 #    Utility object library, variant, [].
 
 MODS_OBJS_LIB_ZIPUTILS_U = \
- crypt$(GCC_)=[.$(DEST)]crypt_.obj \
- fileio$(GCC_)=[.$(DEST)]fileio_.obj \
- util$(GCC_)=[.$(DEST)]util_.obj \
- zipfile$(GCC_)=[.$(DEST)]zipfile_.obj
+ CRC32$(GCC_)=[.$(DEST)]CRC32_.OBJ \
+ CRYPT$(GCC_)=[.$(DEST)]CRYPT_.OBJ \
+ FILEIO$(GCC_)=[.$(DEST)]FILEIO_.OBJ \
+ UTIL$(GCC_)=[.$(DEST)]UTIL_.OBJ \
+ ZIPFILE$(GCC_)=[.$(DEST)]ZIPFILE_.OBJ
 
-#    Utility object library, normal, [.vms].
+#    Utility object library, normal, [.VMS].
 
 MODS_OBJS_LIB_ZIPUTILS_N_V = \
- vmsmunch=[.$(DEST)]vmsmunch.obj
+ VMSMUNCH=[.$(DEST)]VMSMUNCH.OBJ
 
-#    Utility object library, variant, [.vms].
+#    Utility object library, variant, [.VMS].
 
 MODS_OBJS_LIB_ZIPUTILS_U_V = \
- vms$(GCC_)=[.$(DEST)]vms_.obj
+ VMS$(GCC_)=[.$(DEST)]VMS_.OBJ
 
 MODS_OBJS_LIB_ZIPUTILS = $(MODS_OBJS_LIB_ZIPUTILS_N) \
  $(MODS_OBJS_LIB_ZIPUTILS_U) \
  $(MODS_OBJS_LIB_ZIPUTILS_N_V) \
  $(MODS_OBJS_LIB_ZIPUTILS_U_V) \
 
-#    CLI object library, [.vms].
+#    CLI object library, [.VMS].
 
 MODS_OBJS_LIB_ZIPCLI_C_V = \
- cmdline=[.$(DEST)]cmdline.obj
+ CMDLINE=[.$(DEST)]CMDLINE.OBJ
 
 MODS_OBJS_LIB_ZIPCLI_CLD_V = \
- ZIP_CLITABLE=[.$(DEST)]zip_cli.obj
+ ZIP_CLITABLE=[.$(DEST)]ZIP_CLI.OBJ
 
 MODS_OBJS_LIB_ZIPCLI = \
  $(MODS_OBJS_LIB_ZIPCLI_C_V) \
@@ -336,12 +362,12 @@ MODS_OBJS_LIB_ZIPCLI = \
 
 # Executables.
 
-ZIP = [.$(DEST)]zip.exe
+ZIP = [.$(DEST)]ZIP.EXE
 
-ZIP_CLI = [.$(DEST)]zip_cli.exe
+ZIP_CLI = [.$(DEST)]ZIP_CLI.EXE
 
 ZIPUTILS = \
- [.$(DEST)]zipcloak.exe \
- [.$(DEST)]zipnote.exe \
- [.$(DEST)]zipsplit.exe
+ [.$(DEST)]ZIPCLOAK.EXE \
+ [.$(DEST)]ZIPNOTE.EXE \
+ [.$(DEST)]ZIPSPLIT.EXE
 

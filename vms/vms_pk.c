@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2000-Apr-09 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -77,6 +77,7 @@
 #define VMS_ZIP
 #endif
 
+#include "crc32.h"
 #include "vms.h"
 #include "vmsdefs.h"
 
@@ -110,8 +111,8 @@ typedef struct
 {
     struct iosb         iosb;
     long                vbn;
-    zoff_t              size;
-    zoff_t              rest;
+    uzoff_t             size;
+    uzoff_t             rest;
     int                 status;
     ush                 chan;
     ush                 chan_pad;       /* alignment member */
@@ -203,8 +204,8 @@ char *file;
 
 #endif /* def NAML$C_MAXRSS */
 
-    FAB_OR_NAM( Fab, Nam).FAB_OR_NAM_FNA = file ; /* name of file */
-    FAB_OR_NAM( Fab, Nam).FAB_OR_NAM_FNS = strlen(file);
+    FAB_OR_NAML( Fab, Nam).FAB_OR_NAML_FNA = file ;     /* File name. */
+    FAB_OR_NAML( Fab, Nam).FAB_OR_NAML_FNS = strlen(file);
     Nam.NAM_ESA = EName; /* expanded filename */
     Nam.NAM_ESS = sizeof(EName);
     Nam.NAM_RSA = RName; /* resultant filename */
@@ -219,6 +220,17 @@ char *file;
          " vms_open(): $parse sts = %%x%08x.\n", status);
         return NULL;
     }
+
+#ifdef NAML$M_OPEN_SPECIAL
+    /* 2007-02-28 SMS.
+     * If processing symlinks as symlinks ("-y"), then $SEARCH for the
+     * link, not the target file.
+     */
+    if (linkput)
+    {
+        Nam.naml$v_open_special = 1;
+    }
+#endif /* def NAML$M_OPEN_SPECIAL */
 
     /* Search for the first file.  If none, signal error. */
     status = sys$search(&Fab);
@@ -285,7 +297,7 @@ char *file;
            (This occurs with a zero-length file, for example.)
         */
         ctx -> size =
-        ctx -> rest = ((zoff_t) hiblk)* BLOCK_BYTES;
+        ctx -> rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
     }
     else
     {
@@ -294,12 +306,12 @@ char *file;
            If multiple -V, store allocated-blocks size in ->rest.
         */
         ctx -> size =
-         (((zoff_t) efblk)- 1)* BLOCK_BYTES+ fat -> fat$w_ffbyte;
+         (((uzoff_t) efblk)- 1)* BLOCK_BYTES+ fat -> fat$w_ffbyte;
 
         if (vms_native < 2)
             ctx -> rest = ctx -> size;
         else
-            ctx -> rest = ((zoff_t) hiblk)* BLOCK_BYTES;
+            ctx -> rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
     }
 
     ctx -> status = SS$_NORMAL;
@@ -326,9 +338,9 @@ char *buf;
 size_t size;
 {
     int act_cnt;
-    int rest_rndup;
+    uzoff_t rest_rndup;
     int status;
-    unsigned int bytes_read = 0;
+    size_t bytes_read = 0;
 
     /* If previous read hit EOF, fail early. */
     if (ctx -> status == SS$_ENDOFFILE)

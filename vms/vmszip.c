@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 
 /* 2005-02-14 SMS.
@@ -41,10 +41,8 @@
 #include <strings.h>    /* str[n]casecmp() */
 #endif /* def HAVE_STRCASECMP */
 
-#include <descrip.h>
 #include <dvidef.h>
 #include <lib$routines.h>
-#include <rms.h>
 #include <ssdef.h>
 #include <stsdef.h>
 #include <starlet.h>
@@ -256,7 +254,7 @@ local void eat_carets( char *str)
           /* Hex digit.  Get char code from this and next hex digit. */
           if (uchr <= '9')
           {
-            hdgt = uchr- '0';           /* '0' - '9' -> 0 - 9.
+            hdgt = uchr- '0';           /* '0' - '9' -> 0 - 9. */
           }
           else
           {
@@ -297,6 +295,45 @@ local void eat_carets( char *str)
     /* Terminate the destination string. */
     *strd = '\0';
   }
+}
+
+
+/* 2007-05-22 SMS.
+ * explicit_dev().
+ *
+ * Determine if an explicit device name is present in a (VMS) file
+ * specification.
+ */
+local int explicit_dev( char *file_spec)
+{
+  int sts;
+  struct FAB fab;               /* FAB. */
+  struct NAM_STRUCT nam;        /* NAM[L]. */
+
+  /* Initialize the FAB and NAM[L], and link the NAM[L] to the FAB. */
+  nam = CC_RMS_NAM;
+  fab = cc$rms_fab;
+  fab.FAB_NAM = &nam;
+
+  /* Point the FAB/NAM[L] fields to the actual name and default name. */
+
+#ifdef NAML$C_MAXRSS
+
+  fab.fab$l_dna = (char *) -1;  /* Using NAML for default name. */
+  fab.fab$l_fna = (char *) -1;  /* Using NAML for file name. */
+
+#endif /* def NAML$C_MAXRSS */
+
+  /* File name. */
+  FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = file_spec;
+  FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen( file_spec);
+
+  nam.NAM_NOP = NAM_M_SYNCHK;   /* Syntax-only analysis. */
+  sts = sys$parse( &fab, 0, 0); /* Parse the file spec. */
+
+  /* Device found = $PARSE success and "device was explicit" flag. */
+  return (((sts& STS$M_SEVERITY) == STS$M_SUCCESS) &&
+   ((nam.NAM_FNB& NAM_M_EXP_DEV) != 0));
 }
 
 
@@ -527,13 +564,15 @@ local void vms_wild( char *p, zDIR *d)
 
 #endif /* def NAML$C_MAXRSS */
 
-  d->FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNA = p;          /* Arg wild name, */
-  d->FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNS = strlen(p);  /* length. */
+  /* Argument file name and length. */
+  d->FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = p;
+  d->FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen(p);
 
 #define DEF_DEVDIR "SYS$DISK:[]"
 
-  d->FAB_OR_NAM( fab, nam).FAB_OR_NAM_DNA = DEF_DEVDIR; /* Default fspec */
-  d->FAB_OR_NAM( fab, nam).FAB_OR_NAM_DNS = sizeof( DEF_DEVDIR)- 1;
+  /* Default file spec and length. */
+  d->FAB_OR_NAML( fab, nam).FAB_OR_NAML_DNA = DEF_DEVDIR;
+  d->FAB_OR_NAML( fab, nam).FAB_OR_NAML_DNS = sizeof( DEF_DEVDIR)- 1;
 
   d->nam.NAM_ESA = d->d_qualwildname;   /* qualified wild name */
   d->nam.NAM_ESS = NAM_MAXRSS;          /* max length */
@@ -791,6 +830,11 @@ char *ex2in( char *x, int isdir, int *pdosflag)
    Note that if we were really clever, we'd save the truncated original
    file name for later use as "iname", instead of running the de-escaped
    product back through in2ex() to recover it later.
+
+   2005-11-13 SMS.
+   Changed to translate "[..." into enough "/" characters to cause
+   in2ex() to reconstruct it.  This should not be needed, however, as
+   pattern matching really should avoid ex2in() and in2ex().
 */
 {
   char *n;                      /* Internal file name (malloc'ed). */
@@ -816,15 +860,39 @@ char *ex2in( char *x, int isdir, int *pdosflag)
     /* Include directory. */
     if (ext_dir_and_name[ 1] == '.')
     {
-      /* Relative path.  Drop first "[." (or "<."). */
-      dir_len -= 2;
-      ext_dir_and_name += 2;
+      /* Relative path.  If not a directory-depth wildcard, then drop
+         first "[." (or "<.").  If "[..." (or "<..."), then preserve all
+         characters, including the first "[" (or "<") for special
+         handling below.
+      */
+      if ((ext_dir_and_name[ 2] != '.') || (ext_dir_and_name[ 3] != '.'))
+      {
+        /* Normal relative path.  Drop first "[." (or "<."). */
+        dir_len -= 2;
+        ext_dir_and_name += 2;
+      }
     }
     else
     {
       /* Absolute path.  Skip first "[" (or "<"). */
       dir_len -= 1;
       ext_dir_and_name += 1;
+
+      /* 2007-04-26 SMS.
+         Skip past "000000." or "000000]" (or "000000>"), which should
+         not be stored in the archive.  This arises, for example, with
+         "zip -r archive [000000]foo.dir"
+      */
+#define MFD "000000"
+
+      if ((strncmp( ext_dir_and_name, MFD, strlen( MFD)) == 0) &&
+       ((ext_dir_and_name[ 6] == '.') ||
+       (ext_dir_and_name[ 6] == ']') ||
+       (ext_dir_and_name[ 6] == '>')))
+      {
+        dir_len -= 7;
+        ext_dir_and_name += 7;
+      } 
     }
   }
   else
@@ -853,9 +921,11 @@ char *ex2in( char *x, int isdir, int *pdosflag)
         if (char_prop[ (unsigned char) *nn]& 64)
           nn++;
       }
-      else if (chr == '.')
+      else if ((chr == '.') || ((nn == n) && ((chr == '[') || (chr == '<'))))
       {
-        /* Convert VMS directory separator (".") to "/". */
+        /* Convert VMS directory separator (".", or initial "[" or "<"
+           of "[..." or "<...") to "/".
+        */
         *nn = '/';
       }
     }
@@ -924,48 +994,65 @@ char *ex2in( char *x, int isdir, int *pdosflag)
     }
   } /* (relative_dir_s) */
 
-/* If ODS5 is possible, do complicated down-case check.
+  /* 2007-05-22 SMS.
+   * If a device name is present, assume that it's a real (VMS) file
+   * specification, and do down-casing according to the ODS2 or ODS5
+   * down-casing policy.  If no device name is present, assume that it's
+   * a pattern ("-i", ...), and do no down-casing here.  (Case
+   * sensitivity in patterns is handled elsewhere.)
+   */
+  if (explicit_dev( x))
+  {
+    /* If ODS5 is possible, do complicated down-case check.
 
-   Note that the test for ODS2/ODS5 is misleading and over-broad.  Here,
-   "ODS2" includes anything from DVI$C_ACP_F11V1 (=1, ODS1) up to (but
-   not including) DVI$C_ACP_F11V5 (= 11, DVI$C_ACP_F11V5), while "ODS5"
-   includes anything from DVI$C_ACP_F11V5 on up.  See DVIDEF.H.
-*/
+       Note that the test for ODS2/ODS5 is misleading and over-broad. 
+       Here, "ODS2" includes anything from DVI$C_ACP_F11V1 (=1, ODS1) up
+       to (but not including) DVI$C_ACP_F11V5 (= 11, DVI$C_ACP_F11V5),
+       while "ODS5" includes anything from DVI$C_ACP_F11V5 on up.  See
+       DVIDEF.H.
+    */
 
 #if defined( DVI$C_ACP_F11V5) && defined( NAML$C_MAXRSS)
 
-  /* Check options and/or ODS level for down-case or preserve case. */
-  down_case = 0;        /* Assume preserve case. */
-  if ((vms_case_2 <= 0) && (vms_case_5 < 0))
-  {
-    /* Always down-case. */
-    down_case = 1;
-  }
-  else if ((vms_case_2 <= 0) || (vms_case_5 < 0))
-  {
-    /* Down-case depending on ODS level.  (Use (full) external name.) */
-    ods_level = file_sys_type( x);
-
-    if (((ods_level < DVI$C_ACP_F11V5) && (vms_case_2 <= 0)) ||
-     ((ods_level >= DVI$C_ACP_F11V5) && (vms_case_5 < 0)))
+    /* Check options and/or ODS level for down-case or preserve case. */
+    down_case = 0;      /* Assume preserve case. */
+    if ((vms_case_2 <= 0) && (vms_case_5 < 0))
     {
-      /* Down-case for this ODS level. */
+      /* Always down-case. */
       down_case = 1;
     }
-  }
+    else if ((vms_case_2 <= 0) || (vms_case_5 < 0))
+    {
+      /* Down-case depending on ODS level.  (Use (full) external name.) */
+      ods_level = file_sys_type( x);
+
+      if (ods_level > 0)
+      {
+        /* Valid ODS level.  (Name (full) contains device.)
+         * Down-case accordingly.
+         */
+        if (((ods_level < DVI$C_ACP_F11V5) && (vms_case_2 <= 0)) ||
+         ((ods_level >= DVI$C_ACP_F11V5) && (vms_case_5 < 0)))
+        {
+          /* Down-case for this ODS level. */
+          down_case = 1;
+        }
+      }
+    }
 
 #else /* defined( DVI$C_ACP_F11V5) && defined( NAML$C_MAXRSS) */
 
 /* No case-preserved names are possible (VAX).  Do simple down-case check. */
 
-  down_case = (vms_case_2 <= 0);
+    down_case = (vms_case_2 <= 0);
 
 #endif /* defined( DVI$C_ACP_F11V5) && defined( NAML$C_MAXRSS) [else] */
 
-  /* If not preserving case, convert to lower case. */
-  if (down_case != 0)
-  {
-    strlower( n);
+    /* If down-casing, convert to lower case. */
+    if (down_case != 0)
+    {
+      strlower( n);
+    }
   }
 
   /* Remove simple ODS5 extended file name escape characters. */

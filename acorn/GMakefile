@@ -25,14 +25,14 @@ LFLAGS2  = $(LIB)
 #CFLAGS  = $(CFLAGS) -DUSE_EF_UT_TIME
 
 # object file lists
-OBJZ = o.zip o.zipfile o.zipup o.fileio o.util o.globals o.crc32 o.crctab \
+OBJZ = o.zip o.zipfile o.zipup o.fileio o.util o.globals o.crc32 \
        o.crypt o.ttyio o.riscos o.acornzip o.swiven
 
 OBJI = o.deflate o.trees
 OBJA = o.match o.sendbits
 OBJU = o.zipfile_ o.fileio_ o.util_ o.globals o.riscos o.acornzip_ o.swiven
 OBJN = o.zipnote  $(OBJU)
-OBJC = o.zipcloak $(OBJU) o.crctab o.crypt_ o.ttyio
+OBJC = o.zipcloak $(OBJU) o.crc32_ o.crypt_ o.ttyio
 OBJS = o.zipsplit $(OBJU)
 
 ZIP_H = h.zip h.ziperr h.tailor acorn.h.osdep acorn.h.riscos acorn.h.swiven
@@ -51,15 +51,13 @@ install:  %.zip %.zipnote %.zipsplit %.zipcloak %.acorn.zipsfx \
 
 o.api:		c.api
 	$(CC) $(CFLAGS) -c c.api -o o.api
-o.crc32:	c.crc32 $(ZIP_H)
+o.crc32:	c.crc32 $(ZIP_H) h.crc32
 	$(CC) $(CFLAGS) -c c.crc32 -o o.crc32
-o.crctab:	c.crctab $(ZIP_H)
-	$(CC) $(CFLAGS) -c c.crctab -o o.crctab
-o.crypt:	c.crypt $(ZIP_H) h.crypt h.ttyio
+o.crypt:	c.crypt $(ZIP_H) h.crypt h.crc32 h.ttyio
 	$(CC) $(CFLAGS) -c c.crypt -o o.crypt
 o.deflate:	c.deflate $(ZIP_H)
 	$(CC) $(CFLAGS) -c c.deflate -o o.deflate
-o.fileio:	c.fileio $(ZIP_H)
+o.fileio:	c.fileio $(ZIP_H) h.crc32
 	$(CC) $(CFLAGS) -c c.fileio -o o.fileio
 o.globals:	c.globals $(ZIP_H)
 	$(CC) $(CFLAGS) -c c.globals -o o.globals
@@ -71,26 +69,28 @@ o.ttyio:	c.ttyio $(ZIP_H) h.crypt
 	$(CC) $(CFLAGS) -c c.ttyio -o o.ttyio
 o.util:		c.util $(ZIP_H)
 	$(CC) $(CFLAGS) -c c.util -o o.util
-o.zip:		c.zip $(ZIP_H) h.crypt h.revision h.ttyio
+o.zip:		c.zip $(ZIP_H) h.crc32 h.crypt h.revision h.ttyio
 	$(CC) $(CFLAGS) -c c.zip -o o.zip
-o.zipcloak:	c.zipcloak $(ZIP_H) h.crypt h.revision h.ttyio
+o.zipcloak:	c.zipcloak $(ZIP_H) h.crc32 h.crypt h.revision h.ttyio
 	$(CC) $(CFLAGS) -c c.zipcloak -o o.zipcloak
-o.zipfile:	c.zipfile $(ZIP_H)
+o.zipfile:	c.zipfile $(ZIP_H) h.crc32
 	$(CC) $(CFLAGS) -c c.zipfile -o o.zipfile
 o.zipnote:	c.zipnote $(ZIP_H) h.revision
 	$(CC) $(CFLAGS) -c c.zipnote -o o.zipnote
 o.zipsplit:	c.zipsplit $(ZIP_H) h.revision
 	$(CC) $(CFLAGS) -c c.zipsplit -o o.zipsplit
-o.zipup:	c.zipup $(ZIP_H) h.crypt h.revision
+o.zipup:	c.zipup $(ZIP_H) h.crc32 h.crypt h.revision
 	$(CC) $(CFLAGS) -c c.zipup -o o.zipup
 
-o.crypt_: c.crypt $(ZIP_H) h.crypt h.ttyio
+o.crc32_: c.crc32 $(ZIP_H) h.crc32
+	$(CC) $(CFLAGS) -DUTIL -c c.crc32 -o o.crc32_
+o.crypt_: c.crypt $(ZIP_H) h.crypt h.crc32 h.ttyio
 	$(CC) $(CFLAGS) -DUTIL -c c.crypt -o o.crypt_
 o.util_: c.util $(ZIP_H)
 	$(CC) $(CFLAGS) -DUTIL -c c.util -o o.util_
-o.fileio_: c.fileio $(ZIP_H)
+o.fileio_: c.fileio $(ZIP_H) h.crc32
 	$(CC) $(CFLAGS) -DUTIL -c c.fileio -o o.fileio_
-o.zipfile_: c.zipfile $(ZIP_H)
+o.zipfile_: c.zipfile $(ZIP_H) h.crc32
 	$(CC) $(CFLAGS) -DUTIL -c c.zipfile -o o.zipfile_
 o.acornzip_: acorn.c.acornzip $(ZIP_H)
 	$(CC) $(CFLAGS) -I@ -DUTIL -c acorn.c.acornzip -o o.acornzip_

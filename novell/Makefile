@@ -57,7 +57,6 @@ linkop = $+$(linkop)$- Nod
 
 objlst = BITS.OBJ
 objlst = $+$(objlst)$- CRC32.OBJ
-objlst = $+$(objlst)$- CRCTAB.OBJ
 objlst = $+$(objlst)$- CRYPT.OBJ
 objlst = $+$(objlst)$- DEFLATE.OBJ
 objlst = $+$(objlst)$- FILEIO.OBJ

@@ -1,10 +1,8 @@
 /*
-  crypt.h
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
-
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
-  (the contents of which are also included in (un)zip.h) for terms of use.
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
@@ -63,13 +61,13 @@
 #endif
 
 #define CR_MAJORVER        2
-#define CR_MINORVER        10
+#define CR_MINORVER        91
 #ifdef CR_BETA
-#  define CR_BETA_VER      "a BETA"
-#  define CR_VERSION_DATE  "02 Mar 2005"       /* last real code change */
+#  define CR_BETA_VER      "c BETA"
+#  define CR_VERSION_DATE  "05 Jan 2007"       /* last real code change */
 #else
 #  define CR_BETA_VER      ""
-#  define CR_VERSION_DATE  "02 Mar 2005"       /* last public release date */
+#  define CR_VERSION_DATE  "05 Jan 2007"       /* last public release date */
 #  define CR_RELEASE
 #endif
 
@@ -124,13 +122,6 @@
 #define RAND_HEAD_LEN  12       /* length of encryption random header */
 
 /* the crc_32_tab array has to be provided externally for the crypt calculus */
-#ifndef CRC_32_TAB                   /* UnZip provides this in globals.h */
-# if (!defined(USE_ZLIB) || defined(USE_OWN_CRCTAB))
-   extern ZCONST ulg near *crc_32_tab;
-# else
-   extern ZCONST ulg Far *crc_32_tab;
-# endif
-#endif /* !CRC_32_TAB */
 
 /* encode byte c, using temp t.  Warning: c must not have side effects. */
 #define zencode(c,t)  (t=decrypt_byte(__G), update_keys(c), t^(c))
@@ -143,12 +134,12 @@ int  update_keys OF((__GPRO__ int c));
 void init_keys OF((__GPRO__ ZCONST char *passwd));
 
 #ifdef ZIP
-   void crypthead OF((ZCONST char *, ulg, FILE *));
+   void crypthead OF((ZCONST char *, ulg));
 #  ifdef UTIL
-     int zipcloak OF((struct zlist far *, FILE *, FILE *, ZCONST char *));
-     int zipbare OF((struct zlist far *, FILE *, FILE *, ZCONST char *));
+     int zipcloak OF((struct zlist far *, ZCONST char *));
+     int zipbare OF((struct zlist far *, ZCONST char *));
 #  else
-     unsigned zfwrite OF((zvoid *, extent, extent, FILE *));
+     unsigned zfwrite OF((zvoid *, extent, extent));
      extern char *key;
 #  endif
 #endif /* ZIP */
@@ -172,7 +163,7 @@ void init_keys OF((__GPRO__ ZCONST char *passwd));
 #define zencode
 #define zdecode
 
-#define zfwrite  fwrite
+#define zfwrite(b,s,c) bfwrite(b,s,c,BFWRITE_DATA)
 
 #endif /* ?CRYPT */
 #endif /* !__crypt_h */

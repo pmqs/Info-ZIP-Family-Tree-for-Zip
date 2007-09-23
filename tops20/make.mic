@@ -5,14 +5,13 @@
 @cc -c -q fileio
 @cc -c -q util
 @cc -c -q crc32
-@cc -c -q crctab
 @cc -c -q global
 @cc -c -q deflat
 @cc -c -q trees
 @cc -c -q crypt
 @cc -c -q ttyio
 @cc -c -q tops20
-@cc -i -o zip zip.rel zipfil.rel zipup.rel fileio.rel util.rel crc32.rel crctab.rel global.rel deflat.rel trees.rel crypt.rel ttyio.rel tops20.rel
+@cc -i -o zip zip.rel zipfil.rel zipup.rel fileio.rel util.rel crc32.rel global.rel deflat.rel trees.rel crypt.rel ttyio.rel tops20.rel
 @cc -c -q zipnot
 @rename zipfil.c zipfix.c
 @rename fileio.c filiox.c

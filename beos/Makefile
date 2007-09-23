@@ -90,12 +90,12 @@ all:
 
 # Object file lists
 OBJZ = zip.o zipfile.o zipup.o fileio.o util.o globals.o crypt.o ttyio.o \
-       beos.o crc32.o crctab.o
+       beos.o crc32.o
 OBJI = deflate.o trees.o
 # OBJA moved into ifeq block above; we'll use assembly for x86
 OBJU = zipfile_.o fileio_.o util_.o globals.o beos_.o
 OBJN = zipnote.o  $(OBJU)
-OBJC = zipcloak.o $(OBJU) crctab.o crypt_.o ttyio.o
+OBJC = zipcloak.o $(OBJU) crc32_.o crypt_.o ttyio.o
 OBJS = zipsplit.o $(OBJU)
 
 # Headers
@@ -124,6 +124,8 @@ $(OBJI): $(ZIP_H)
 $(OBJN): $(ZIP_H)
 $(OBJS): $(ZIP_H)
 $(OBJC): $(ZIP_H)
+zip.o crc32.o crypt.o fileio.o zipfile.o zipup.o: crc32.h
+zipcloak.o crc32_.o crypt_.o fileio_.o zipfile_.o: crc32.h
 zip.o zipup.o crypt.o ttyio.o zipcloak.o crypt_.o: crypt.h
 zip.o zipup.o zipnote.o zipcloak.o zipsplit.o: revision.h
 zip.o crypt.o ttyio.o zipcloak.o crypt_.o: ttyio.h

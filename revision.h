@@ -1,9 +1,9 @@
 /*
   revision.h - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -19,10 +19,10 @@
 #define Z_MAJORVER   3
 #define Z_MINORVER   0
 #define Z_PATCHLEVEL 0
-#define Z_BETALEVEL "e BETA"
+#define Z_BETALEVEL "f BETA"
 
-#define VERSION "3.0e BETA"
-#define REVDATE "August 2nd 2005"
+#define VERSION "3.0f BETA"
+#define REVDATE "September 24th 2007"
 
 #define DW_MAJORVER    Z_MAJORVER
 #define DW_MINORVER    Z_MINORVER
@@ -34,23 +34,26 @@
  * (revision.h).
  */
 
-#ifndef DEFCPYRT                     /* copyright[] gets defined only once ! */
-extern ZCONST char *copyright[1];    /* keep array sizes in sync with number */
-extern ZCONST char *swlicense[50];   /*  of text line in definition below !! */
-extern ZCONST char *versinfolines[7];
-extern ZCONST char *cryptnote[7];
+#ifndef DEFCPYRT
+/* copyright[] et.al. get defined only once ! */
+/* keep array sizes in sync with number of text */
+/* lines in the array definitions below !!      */
+extern ZCONST char *copyright[1];
+extern ZCONST char * far swlicense[50];
+extern ZCONST char * far versinfolines[7];
+extern ZCONST char * far cryptnote[7];
 
 #else /* DEFCPYRT */
 
 ZCONST char *copyright[] = {
-"Copyright (c) 1990-2005 Info-ZIP - Type '%s \"-L\"' for software license."
+"Copyright (c) 1990-2007 Info-ZIP - Type '%s \"-L\"' for software license."
 /* XXX still necessary ???? */
 #ifdef AZTEC_C
 ,        /* extremely lame compiler bug workaround */
 #endif
 };
 
-ZCONST char *versinfolines[] = {
+ZCONST char * far versinfolines[] = {
 "This is %s %s (%s), by Info-ZIP.",
 "Currently maintained by E. Gordon.  Please send bug reports to",
 "the authors using the web page at www.info-zip.org; see README for details.",
@@ -60,8 +63,8 @@ ZCONST char *versinfolines[] = {
 ""
 };
 
-/* new notice - 2/27/2004 EG */
-ZCONST char *cryptnote[] = {
+/* new notice - 2/27/2004 */
+ZCONST char * far cryptnote[] = {
 "Encryption notice:",
 "\tThe encryption code of this program is not copyrighted and is",
 "\tput in the public domain.  It was originally written in Europe",
@@ -71,8 +74,8 @@ ZCONST char *cryptnote[] = {
 "\tAdministration Regulations (section 740.13(e)) of 6 June 2002."
 };
 
-ZCONST char *swlicense[] = {
-"Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.",
+ZCONST char * far swlicense[] = {
+"Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.",
 "",
 "For the purposes of this copyright and license, \"Info-ZIP\" is defined as",
 "the following set of individuals:",
@@ -93,31 +96,35 @@ ZCONST char *swlicense[] = {
 "",
 "Permission is granted to anyone to use this software for any purpose,",
 "including commercial applications, and to alter it and redistribute it",
-"freely, subject to the following restrictions:",
+"freely, subject to the above disclaimer and the following restrictions:",
 "",
-"    1. Redistributions of source code must retain the above copyright notice,",
-"       definition, disclaimer, and this list of conditions.",
+"    1. Redistributions of source code (in whole or in part) must retain",
+"       the above copyright notice, definition, disclaimer, and this list",
+"       of conditions.",
 "",
-"    2. Redistributions in binary form (compiled executables) must reproduce",
-"       the above copyright notice, definition, disclaimer, and this list of",
-"       conditions in documentation and/or other materials provided with the",
-"       distribution.  The sole exception to this condition is redistribution",
-"       of a standard UnZipSFX binary (including SFXWiz) as part of a",
-"       self-extracting archive; that is permitted without inclusion of this",
-"       license, as long as the normal SFX banner has not been removed from",
-"       the binary or disabled.",
+"    2. Redistributions in binary form (compiled executables and libraries)",
+"       must reproduce the above copyright notice, definition, disclaimer,",
+"       and this list of conditions in documentation and/or other materials",
+"       provided with the distribution.  The sole exception to this condition",
+"       is redistribution of a standard UnZipSFX binary (including SFXWiz) as",
+"       part of a self-extracting archive; that is permitted without inclusion",
+"       of this license, as long as the normal SFX banner has not been removed",
+"       from the binary or disabled.",
 "",
 "    3. Altered versions--including, but not limited to, ports to new operating",
-"       systems, existing ports with new graphical interfaces, and dynamic,",
-"       shared, or static library versions--must be plainly marked as such",
-"       and must not be misrepresented as being the original source.  Such",
-"       altered versions also must not be misrepresented as being Info-ZIP",
-"       releases--including, but not limited to, labeling of the altered",
-"       versions with the names \"Info-ZIP\" (or any variation thereof, including,",
-"       but not limited to, different capitalizations), \"Pocket UnZip,\" \"WiZ\"",
-"       or \"MacZip\" without the explicit permission of Info-ZIP.  Such altered",
-"       versions are further prohibited from misrepresentative use of the",
-"       Zip-Bugs or Info-ZIP e-mail addresses or of the Info-ZIP URL(s).",
+"       systems, existing ports with new graphical interfaces, versions with",
+"       modified or added functionality, and dynamic, shared, or static library",
+"       versions not from Info-ZIP--must be plainly marked as such and must not",
+"       be misrepresented as being the original source or, if binaries,",
+"       compiled from the original source.  Such altered versions also must not",
+"       be misrepresented as being Info-ZIP releases--including, but not",
+"       limited to, labeling of the altered versions with the names \"Info-ZIP\"",
+"       (or any variation thereof, including, but not limited to, different",
+"       capitalizations), \"Pocket UnZip,\" \"WiZ\" or \"MacZip\" without the",
+"       explicit permission of Info-ZIP.  Such altered versions are further",
+"       prohibited from misrepresentative use of the Zip-Bugs or Info-ZIP",
+"       e-mail addresses or the Info-ZIP URL(s), such as to imply Info-ZIP",
+"       will provide support for the altered versions.",
 "",
 "    4. Info-ZIP retains the right to use the names \"Info-ZIP,\" \"Zip,\" \"UnZip,\"",
 "       \"UnZipSFX,\" \"WiZ,\" \"Pocket UnZip,\" \"Pocket Zip,\" and \"MacZip\" for its",

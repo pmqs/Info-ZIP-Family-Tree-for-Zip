@@ -1,7 +1,7 @@
 # Makefile for Zip, ZipNote, ZipCloak and ZipSplit, Amiga SAS/C 5.10b
 # See the master Makefile under the top level Zip/Unzip source directory
 # for more information on compiler macros and flags for this version.
-# Last update: Jun 25, 1998
+# Last update: Jan 07, 2007
 # -John Bush, <J.Bush@MD-B.Prime.COM>, <JBush@BIX.COM>
 
 
@@ -39,10 +39,10 @@ TMPFILE = ram:MakeZip.tmp
 
 # object file macrough lists
 
-HFILES = zip.h ziperr.h tailor.h revision.h crypt.h ttyio.h amiga/amiga.h \
-         amiga/zipup.h amiga/osdep.h
+HFILES = zip.h ziperr.h tailor.h revision.h crc32.h crypt.h ttyio.h \
+         amiga/amiga.h amiga/zipup.h amiga/osdep.h
 
-OBJA = zipfile.o zipup.o fileio.o util.o globals.o crc32.o crctab.o crypt.o \
+OBJA = zipfile.o zipup.o fileio.o util.o globals.o crc32.o crypt.o \
        timezone.o ttyio.o amiga.o amigazip.o filedate.o
 OBJI = deflate.o trees.o
 OBJU = zipfile.oo fileio.oo util.oo globals.o timezone.o \
@@ -51,7 +51,7 @@ OBJU = zipfile.oo fileio.oo util.oo globals.o timezone.o \
 OBJZ = zip.o $(OBJA) $(OBJI)
 
 OBJN = zipnote.o  $(OBJU)
-OBJC = zipcloak.o $(OBJU) crctab.o crypt.oo ttyio.o
+OBJC = zipcloak.o $(OBJU) crc32.oo crypt.oo ttyio.o
 OBJS = zipsplit.o $(OBJU)
 
 ZIPS = zip zipnote zipcloak zipsplit

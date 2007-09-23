@@ -2,9 +2,9 @@
       ============================================
 
    This document describes some VMS-specific behavior and implementation
-details of the Info-ZIP Zip and Unzip programs.
+details of the Info-ZIP Zip and UnZip programs.
 
-   Last modified: 2005-07-29.
+   Last modified: 2007-03-16.
 
 
    Building with the LIST option using MMK or MMS
@@ -29,8 +29,8 @@ options like "-V" or "-Z".  This works on non-VAX systems with a
 sufficiently recent C RTL, and SET PROCESS /PARSE_STYLE = EXTENDED.
 (Sufficiently recent here means __CRTL_VER >= 70301000, which includes
 VMS V7.3-1 with a C Run Time Library ECO, or V7.3-2 or newer.)   This
-code uses the decc$feature_set_value() function to enable the DEC
-C$ARGV_PARSE_STYLE feature.  There is a small range of C RTL versions
+code uses the decc$feature_set_value() function to enable the
+DECC$ARGV_PARSE_STYLE feature.  There is a small range of C RTL versions
 where this function is unavailable, but where manually setting the
 logical name DECC$ARGV_PARSE_STYLE to "ENABLE" will work.   HELP CRTL
 leads to some additional information on these features.
@@ -44,7 +44,7 @@ UnZip file I/O code now includes open callback functions which are used
 to try to set some RMS parameters to non-default values, with the
 intention of improving file I/O speed.  This affects reading an archive
 file in UnZip and writing one in Zip.  (Reading and writing the
-individual data files is handled in more exotic ways, making these
+individual data files are handled in more exotic ways, making these
 parameters less important for them.)
 
    Currently, the built-in default parameters enable read-ahead and
@@ -68,18 +68,18 @@ showing a failure status from sys$getjpi() indicates this problem.
    Sample results (UnZip shown, Zip similar):
 
    VMS VAX V5.4, VAX C.  Callback code disabled, no messages:
-      WIMP $ UNZIP.EXE -vt TESTMAKE.ZIP
+      WIMP $ unzip -tvv TESTMAKE.ZIP
       Archive:  SYS$SYSDEVICE:[UTILITY.SOURCE.ZIP.UNZIP60C]TESTMAKE.ZIP;1
       [...]
 
    VMS VAX V5.5-2, DEC C.  SYS$GETJPI() fails (%SYSTEM-F-BADPARAM):
-      WEAK $ exec UNZIP.EXE -vt TESTMAKE.ZIP
+      WEAK $ unzip -tvv TESTMAKE.ZIP
       Get RMS defaults.  getjpi sts = %x00000014.
       Archive:  DUA1:[UTILITY.SOURCE.ZIP.UNZIP60C]TESTMAKE.ZIP;1
       [...]
 
    VMS VAX V7.3, DEC/Compaq C.  Callback code works:
-      WUSS $ unzip6c -tv TESTMAKE.ZIP
+      WUSS $ unzip -tvv TESTMAKE.ZIP
       Get RMS defaults.  getjpi sts = %x00000001.
                      Default: deq =      0, mbc =   0, mbf =   0.
       Open callback.  ID = 1, deq =  16384, mbc = 127, mbf =   2.
@@ -94,16 +94,16 @@ particular problems with this set are welcome to comment.
 
    In this version, as in previous versions, when UnZip expands a -V
 archive, it allocates the entire extent of a data file before writing
-any of its data.  In previous versions, this could cause the destination
-disk to be locked for a considerable time (minutes).  Now, the FAB
-"sequential access only" flag (or equivalent) is set, which prevents
-this troublesome disk locking.
+any of its data.  In some previous versions, this could cause the
+destination disk to be locked for a considerable time (minutes).  Now,
+the FAB "sequential access only" flag (or equivalent) is set, which
+prevents this troublesome disk locking.
 
-   In previous versions, when UnZip expanded a non-V archive, it did no
-pre-allocation, and used the default extension quantity.  This could
-slow file creation significantly for large files.  Now, space for
-extracted files is pre-allocated, and the same "sequential access only
-"flag is set, as with a -V archive.
+   In some previous versions, when UnZip expanded a non-V archive, it
+did no pre-allocation, and used the default extension quantity.  This
+could slow file creation significantly for large files.  Now, space for
+extracted files is pre-allocated, and the same "sequential access only"
+flag is set, as with a -V archive.
 
 
    Changes to the "-V" (/VMS) Option
@@ -124,15 +124,98 @@ multiple in size.
 
    Now (Zip 2.31 and later), with "-V" (/VMS), Zip truncates a data file
 at EOF, and portable-format files (Stream_LF, fixed-512) should be
-extracted properly on a non-VMS system.  On a VMS system,
-well-formed files (that is, those with no valid data beyond EOF) should
-also be restored correctly.
+extracted properly on a non-VMS system.  On a VMS system, well-formed
+files (that is, those with no valid data beyond EOF) should also be
+restored correctly.
 
    With the new "-VV" (/VMS = ALL) option, the archive includes all
 allocated blocks for the file (including those beyond EOF).  When
 extracted on a VMS system, the original file should be reproduced with
 as much fidelity as possible, but on a non-VMS system, most files will
 be seen as corrupt because of the data from beyond EOF.
+
+
+   Changes to Program Exit Status Values
+   -------------------------------------
+
+   Zip and UnZip exit with 32-bit VMS status values which are formed
+from their internal OS-independent status values.  In previous program
+versions, this was done by converting the internal success code (0) into
+%x00000001 (SS$_NORMAL), and converting the other internal warning and
+error codes using an artificial control/facility code, 0x7FFF (which
+includes some reserved bits), and a severity value which was determined
+according to rules specified in the VMS-specific exit function.
+Curiously, the internal status codes were left-shifted by 4 bits instead
+of 3, so all the resulting VMS message codes (bits 13:3) were even.
+
+   Zip and UnZip now have facility names and codes assigned by HP
+(UnZip: IZ_UNZIP, 1954; Zip: IZ_ZIP, 1955).  Now, by default, the
+programs exit with standard 32-bit VMS status values which differ from
+the old ones in several ways: The official facility code is used, and
+the facility-specific bit is set.  (For compatibility with older
+versions, the internal status codes are still left-shifted by 4 bits.)
+The builders also create non-executable message files (UNZIP_MSG.EXE and
+ZIP_MSG.EXE) so that, after a suitable SET MESSAGE command, the program
+messages will be available from DCL.  For example:
+
+      $ SET MESSAGE dev:[dir]ZIP_MSG.EXE
+      $ ZIP FRED.ZIP no_such_file
+        zip warning: name not matched: no_such_file
+
+      zip error: Nothing to do!
+      (dev:[dir]FRED.ZIP;)
+
+      ALP $ WRITE SYS$OUTPUT F$MESSAGE( $STATUS)
+      %IZ_ZIP-W-NONE, Nothing to do
+
+The message files may be copied into SYS$MESSAGE to make them generally
+available, although this could cause some confusion if multiple versions
+of the programs are used on the system, and their error message source
+files differ.  Each different destination directory will get its own
+UNZIP_MSG.EXE or ZIP_MSG.EXE ([.ALPHA], [.ALPHAL], [.VAX], and so on),
+but all of the same-architecture files are equivalent to each other.
+That is, on an Alpha system, any of the [.ALPHA*]ZIP_MSG.EXE files could
+be used; on an IA64 system, any of the [.IA64*]ZIP_MSG.EXE files could
+be used; and on a VAX system, any of the [.VAX*]ZIP_MSG.EXE files could
+be used.  (Similar for UNZIP_MSG.EXE, of course.)
+
+   If desired, the programs may be built to use the old exit status values
+by defining a C macro with the old facility value:
+"CTL_FAC_IZ_UNZIP=0x7FFF" (UnZip) or "CTL_FAC_IZ_ZIP=0x7FFF" (Zip).
+(See comments in the builder regarding LOCAL_UNZIP or LOCAL_ZIP, as
+appropriate.)  This will maintain compatibility with older program
+versions, but will make the programs incompatible with the new error
+message files.
+
+
+   Symbolic Links
+   --------------
+
+   VMS V8.3 offers support for symbolic links (symlinks) on ODS5 disks.
+In previous Zip and UnZip versions, the generic code for symlinks was
+disabled, and there was no VMS-specific code for symlinks.  Now, by
+default, Zip and UnZip attempt to support symlinks wherever the C
+headers and C run-time library include the functions needed for symlink
+support.  This means non-VAX systems with __CRTL_VER >= 70301000, so
+this includes VMS V7.3-1 and up, and thus symlink-capable Zip and UnZip
+programs may be built on systems which do not themselves offer symlink
+support.  (Various run-time failures may be expected if symlinks are
+encountered on pre-V8.3 systems, either in a file system or in a Zip
+archive.)
+
+   Symlink support can be disabled at build-time, if desired, by
+defining the C macro NO_SYMLINKS.  (See comments in the builder
+regarding LOCAL_UNZIP or LOCAL_ZIP, as appropriate.)  For example, using
+MMS to build UnZip:
+
+      MMS /DESCRIP = [.VMS] /MACRO = ("LOCAL_UNZIP=NO_SYMLINKS=1")
+
+or, using the command procedure to build Zip:
+
+      LOCAL_ZIP == "NO_SYMLINKS=1"
+      @ [.VMS]BUILD_ZIP.COM
+      DELETE /SYMBOL /GLOBAL LOCAL_ZIP
+
 
 
    GNU C
@@ -176,7 +259,7 @@ defects in the GNU C header files, such as:
 <various>: warning: passing arg 4 of `qsort' from incompatible pointer type
 
 [...]rab.h:134: warning: unnamed struct/union that defines no instances
-[...]rab.h:143: warning: unnamed struct/union that defines no instances      
+[...]rab.h:143: warning: unnamed struct/union that defines no instances
 
 These warnings appear to be harmless.
 

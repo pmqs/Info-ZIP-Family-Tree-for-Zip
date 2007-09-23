@@ -1,9 +1,9 @@
 /*
   api.h - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -119,7 +119,7 @@ BOOL fOffsets;          /* Update archive offsets for SFX files */
 BOOL fPrivilege;        /* Use privileges (WIN32 only) */
 BOOL fEncryption;       /* TRUE if encryption supported, else FALSE.
                            this is a read only flag */
-LPSTR szSplitSize;      /* This string contains the size that you want to 
+LPSTR szSplitSize;      /* This string contains the size that you want to
                            split the archive into. i.e. 100 for 100 bytes,
                            2K for 2 k bytes, where K is 1024, m for meg
                            and g for gig. If this string is not NULL it

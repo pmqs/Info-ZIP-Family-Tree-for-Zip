@@ -100,14 +100,14 @@ Public Type ZpOpt
   fSystem        As Long   ' 1 To Include System/Hidden Files, Else 0
   fVolume        As Long   ' 1 If Storing Volume Label, Else 0
   fExtra         As Long   ' 1 If Excluding Extra Attributes, Else 0
-  fNoDirEntries  As Long   ' 1 If Ignoring Directory Entries, Else 0
+  fNoDirEntries  As Long   ' 1 If Ignoring Directory Entries (end with /), Else 0
   fExcludeDate   As Long   ' 1 If Excluding Files After Specified Date, Else 0
   fIncludeDate   As Long   ' 1 If Including Files After Specified Date, Else 0
   fVerbose       As Long   ' 1 If Full Messages Wanted, Else 0
   fQuiet         As Long   ' 1 If Minimum Messages Wanted, Else 0
   fCRLF_LF       As Long   ' 1 If Translate CR/LF To LF, Else 0
   fLF_CRLF       As Long   ' 1 If Translate LF To CR/LF, Else 0
-  fJunkDir       As Long   ' 1 If Junking Directory Names, Else 0
+  fJunkDir       As Long   ' 1 If Junking Directory Names on entries, Else 0
   fGrow          As Long   ' 1 If Allow Appending To Zip File, Else 0
   fForce         As Long   ' 1 If Making Entries Using DOS File Names, Else 0
   fMove          As Long   ' 1 If Deleting Files Added Or Updated, Else 0

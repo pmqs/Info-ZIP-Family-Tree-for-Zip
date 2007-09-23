@@ -23,13 +23,13 @@ ASFLAGS=-c -Cx
 
 # variables
 OBJZ = zip.obj crypt.obj ttyio.obj zipfile.obj zipup.obj fileio.obj util.obj \
-	crc32.obj crctab.obj globals.obj
+	crc32.obj globals.obj
 
 OBJI = deflate.obj trees.obj $(ASMOBJS) win32.obj win32zip.obj nt.obj
 
 OBJU = zipfile_.obj fileio_.obj util_.obj globals.obj win32_.obj
 OBJN = zipnote.obj $(OBJU)
-OBJC = zipcloak.obj crctab.obj crypt_.obj ttyio.obj $(OBJU)
+OBJC = zipcloak.obj crc32_.obj crypt_.obj ttyio.obj $(OBJU)
 OBJS = zipsplit.obj $(OBJU)
 
 ZIP_H = zip.h ziperr.h tailor.h win32/osdep.h
@@ -38,16 +38,16 @@ ZIPS = zip.exe zipnote.exe zipsplit.exe zipcloak.exe
 
 zips:   $(ZIPS)
 
-zip.obj:        zip.c $(ZIP_H) revision.h crypt.h ttyio.h
+zip.obj:        zip.c $(ZIP_H) revision.h crc32.h crypt.h ttyio.h
 	$(CC) -c $(CFLAGS) $*.c
 
-zipfile.obj:    zipfile.c $(ZIP_H)
+zipfile.obj:    zipfile.c $(ZIP_H) crc32.h
 	$(CC) -c $(CFLAGS) $*.c
 
-zipup.obj:      zipup.c $(ZIP_H) revision.h crypt.h win32/zipup.h
+zipup.obj:      zipup.c $(ZIP_H) revision.h crc32.h crypt.h win32/zipup.h
 	$(CC) -c $(CFLAGS) $*.c
 
-fileio.obj:     fileio.c $(ZIP_H)
+fileio.obj:     fileio.c $(ZIP_H) crc32.h
 	$(CC) -c $(CFLAGS) $*.c
 
 util.obj:       util.c $(ZIP_H)
@@ -62,13 +62,10 @@ deflate.obj:    deflate.c $(ZIP_H)
 trees.obj:      trees.c $(ZIP_H)
 	$(CC) -c $(CFLAGS) $*.c
 
-crc32.obj:      crc32.c $(ZIP_H)
+crc32.obj:      crc32.c $(ZIP_H) crc32.h
 	$(CC) -c $(CFLAGS) $*.c
 
-crctab.obj:     crctab.c $(ZIP_H)
-	$(CC) -c $(CFLAGS) $*.c
-
-crypt.obj:      crypt.c $(ZIP_H) crypt.h ttyio.h
+crypt.obj:      crypt.c $(ZIP_H) crypt.h crc32.h ttyio.h
 	$(CC) -c $(CFLAGS) $*.c
 
 ttyio.obj:      ttyio.c $(ZIP_H) crypt.h ttyio.h
@@ -83,7 +80,7 @@ win32.obj:      win32/win32.c $(ZIP_H) win32/win32zip.h
 nt.obj:         win32/nt.c $(ZIP_H) win32/nt.h
 	$(CC) -c $(CFLAGS) -I. win32/nt.c
 
-zipcloak.obj:   zipcloak.c $(ZIP_H) revision.h crypt.h ttyio.h
+zipcloak.obj:   zipcloak.c $(ZIP_H) revision.h crc32.h crypt.h ttyio.h
 	$(CC) -c $(CFLAGS) $*.c
 
 zipnote.obj:    zipnote.c $(ZIP_H) revision.h
@@ -92,16 +89,19 @@ zipnote.obj:    zipnote.c $(ZIP_H) revision.h
 zipsplit.obj:   zipsplit.c $(ZIP_H) revision.h
 	$(CC) -c $(CFLAGS) $*.c
 
-zipfile_.obj:   zipfile.c $(ZIP_H)
+zipfile_.obj:   zipfile.c $(ZIP_H) crc32.h
 	$(CC) -c $(UTILFLAGS) zipfile.c
 
-fileio_.obj:    fileio.c $(ZIP_H)
+fileio_.obj:    fileio.c $(ZIP_H) crc32.h
 	$(CC) -c $(UTILFLAGS) fileio.c
 
 util_.obj:      util.c $(ZIP_H)
 	$(CC) -c $(UTILFLAGS) util.c
 
-crypt_.obj:     crypt.c $(ZIP_H) crypt.h ttyio.h
+crc32_.obj:     crc32.c $(ZIP_H) crc32.h
+	$(CC) -c $(UTILFLAGS) crc32.c
+
+crypt_.obj:     crypt.c $(ZIP_H) crypt.h crc32.h ttyio.h
 	$(CC) -c $(UTILFLAGS) crypt.c
 
 win32_.obj:     win32/win32.c $(ZIP_H) win32/win32zip.h

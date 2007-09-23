@@ -41,19 +41,50 @@
           MMK /DESC = [.VMS] CLEAN_EXE  ! Deletes existing executables.
           MMK /DESC = [.VMS]            ! Builds new executables.
           MMK /DESC = [.VMS] /MACRO = LARGE=1 CLEAN_EXE
-          MMK /DESC = [.VMS] /MACRO = LARGE=1 
+          MMK /DESC = [.VMS] /MACRO = LARGE=1
 
      o Build a large-file product from scratch, for debug, getting
        compiler listings and link maps:
 
-          mms /desc = [.vms] clean
-          mms /desc = [.vms] /macro = (DBG=1, LARGE=1. LIST=1)
+          MMS /DESC = [.VMS] CLEAN
+          MMS /DESC = [.VMS] /MACRO = (DBG=1, LARGE=1. LIST=1)
 
      On VAX, the builders attempt to cope with the various available C
      compilers, DEC/Compaq/HP C, VAX C, or GNU C.  If DEC/Compaq/HP C is
      not available or not desired, comments in the relevant builder file
      explain the command-line options used to select a different
      compiler.
+
+     By default, Zip uses the "deflate" compression method.  To add
+     support for the optional "bzip2" compression method, first obtain
+     and build the bzip2 software (http://www.bzip.org/ or, for a more
+     VMS-friendly kit, http://antinode.org/dec/sw/bzip2.html).  Then,
+     define the macro IZ_BZIP2 on the BUILD_ZIP.COM or MMS/MMK command
+     line to specify the directory where the bzip2 files may be found.
+     For example:
+
+          @ [.VMS]BUILD_ZIP LARGE -
+           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3C_VMS]
+       or:
+          MMS /DESC = [.VMS] /MACRO = (LARGE=1, -
+           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3C_VMS])
+
+     Note that historically, Zip has been built with the default
+     compiler option, /NAMES = UPPERCASE, while bzip2 is normally built
+     with /NAMES = AS_IS, to avoid name collisions.  With modern
+     compilers, the "#pragma names" directives in [.VMS]BZLIB.H will
+     handle these differences without user intervention.  An old
+     compiler (for example, DEC C V4.0-000) will emit complaints
+     %CC-I-UNKNOWNPRAGMA, and will mishandle the bzip2 library function
+     names, which will cause the link to fail.  To solve this problem,
+     either build the bzip2 BZ_NO_STDIO object library with /NAMES =
+     UPPERCASE, or else build Zip with /NAMES = AS_IS.  For example:
+
+          @ [.VMS]BUILD_ZIP LARGE "CCOPTS=/NAMES=AS_IS" -
+           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3C_VMS]
+       or:
+          MMS /DESC = [.VMS] /MACRO = (LARGE=1, "CCOPTS=/NAMES=AS_IS", -
+           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3C_VMS])
 
      System-architecture-specific files (like objects and executables)
      are placed in separate directories, such as [.ALPHA], [.IA64], or
@@ -110,6 +141,17 @@
      details.   The command procedure HLP_LIB_NEXT.COM may be used to
      determine the next available HLP$LIBRARY logical name, and could be
      adapted to define a HLP$LIBRARY logical name for a Zip help library.
+
+     The builders also create VMS message files, ZIP_MSG.EXE, in the
+     destination directory with the program executables.  A user may
+     gain DCL access to the Zip error messages using a command like:
+
+           $ SET MESSAGE device:[directory]ZIP_MSG.EXE
+
+     For system-wide access, the system manager may move or copy this
+     file to SYS$MESSAGE, although this could cause some confusion if
+     multiple versions of Zip are used on the system, and their error
+     message source files differ.
 
      Some further information may be found in the files
      [.VMS]00README.TXT and [.VMS]00BINARY.VMS, though much of what's

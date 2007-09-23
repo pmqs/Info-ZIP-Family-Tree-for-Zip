@@ -1,7 +1,7 @@
 /*
   deflate.c - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -553,15 +553,15 @@ local void check_match(start, match, length)
     /* check that the match is indeed a match */
     if (memcmp((char*)window + match,
                 (char*)window + start, length) != EQUAL) {
-        fprintf(stderr,
+        fprintf(mesg,
             " start %d, match %d, length %d\n",
             start, match, length);
         error("invalid match");
     }
     if (verbose > 1) {
-        fprintf(stderr,"\\[%d,%d]", start-match, length);
+        fprintf(mesg,"\\[%d,%d]", start-match, length);
 #ifndef WINDLL
-        do { putc(window[start++], stderr); } while (--length != 0);
+        do { putc(window[start++], mesg); } while (--length != 0);
 #else
         do { fprintf(stdout,"%c",window[start++]); } while (--length != 0);
 #endif
@@ -638,25 +638,28 @@ local void fill_window()
                  */
             }
             more += WSIZE;
-            if (dot_size > 0) {
+            if (dot_size > 0 && !display_globaldots) {
               /* initial space */
               if (noisy && dot_count == -1) {
 #ifndef WINDLL
-                putc(' ', stderr);
+                putc(' ', mesg);
+                fflush(mesg);
 #else
                 fprintf(stdout,"%c",' ');
 #endif
                 dot_count++;
               }
               dot_count++;
-              if (dot_size <= dot_count) dot_count = 0;
+              if (dot_size <= (dot_count + 1) * WSIZE) dot_count = 0;
             }
             if ((verbose || noisy) && dot_size && !dot_count) {
 #ifndef WINDLL
-              putc('.', stderr);
+              putc('.', mesg);
+              fflush(mesg);
 #else
               fprintf(stdout,"%c",'.');
 #endif
+              mesg_line_started = 1;
             }
         }
         if (eofile) return;

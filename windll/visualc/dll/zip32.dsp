@@ -98,10 +98,6 @@ SOURCE=..\..\..\crc32.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\..\crctab.c
-# End Source File
-# Begin Source File
-
 SOURCE=..\..\..\crypt.c
 # End Source File
 # Begin Source File

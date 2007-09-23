@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2000-Apr-09 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -77,18 +77,14 @@
 
 #  define NAM_STRUCT NAML
 
-#  define FAB_OR_NAM( fab, nam) nam
-#  define FAB_OR_NAM_DNA naml$l_long_defname
-#  define FAB_OR_NAM_DNS naml$l_long_defname_size
-#  define FAB_OR_NAM_FNA naml$l_long_filename
-#  define FAB_OR_NAM_FNS naml$l_long_filename_size
+#  define FAB_OR_NAML( fab, nam) nam
+#  define FAB_OR_NAML_DNA naml$l_long_defname
+#  define FAB_OR_NAML_DNS naml$l_long_defname_size
+#  define FAB_OR_NAML_FNA naml$l_long_filename
+#  define FAB_OR_NAML_FNS naml$l_long_filename_size
 
 #  define CC_RMS_NAM cc$rms_naml
 #  define FAB_NAM fab$l_naml
-#  define NAME_DNA naml$l_long_defname
-#  define NAME_DNS naml$l_long_defname_size
-#  define NAME_FNA naml$l_long_filename
-#  define NAME_FNS naml$l_long_filename_size
 #  define NAM_DID naml$w_did
 #  define NAM_DVI naml$t_dvi
 #  define NAM_ESA naml$l_long_expand
@@ -101,6 +97,7 @@
 #  define NAM_RSS naml$l_long_result_alloc
 #  define NAM_MAXRSS NAML$C_MAXRSS
 #  define NAM_NOP naml$b_nop
+#  define NAM_M_EXP_DEV NAML$M_EXP_DEV
 #  define NAM_M_SYNCHK NAML$M_SYNCHK
 #  define NAM_B_DEV naml$l_long_dev_size
 #  define NAM_L_DEV naml$l_long_dev
@@ -117,18 +114,14 @@
 
 #  define NAM_STRUCT NAM
 
-#  define FAB_OR_NAM( fab, nam) fab
-#  define FAB_OR_NAM_DNA fab$l_dna
-#  define FAB_OR_NAM_DNS fab$b_dns
-#  define FAB_OR_NAM_FNA fab$l_fna
-#  define FAB_OR_NAM_FNS fab$b_fns
+#  define FAB_OR_NAML( fab, nam) fab
+#  define FAB_OR_NAML_DNA fab$l_dna
+#  define FAB_OR_NAML_DNS fab$b_dns
+#  define FAB_OR_NAML_FNA fab$l_fna
+#  define FAB_OR_NAML_FNS fab$b_fns
 
 #  define CC_RMS_NAM cc$rms_nam
 #  define FAB_NAM fab$l_nam
-#  define NAME_DNA fab$l_dna
-#  define NAME_DNS fab$b_dns
-#  define NAME_FNA fab$l_fna
-#  define NAME_FNS fab$b_fns
 #  define NAM_DID nam$w_did
 #  define NAM_DVI nam$t_dvi
 #  define NAM_ESA nam$l_esa
@@ -141,6 +134,7 @@
 #  define NAM_RSS nam$b_rss
 #  define NAM_MAXRSS NAM$C_MAXRSS
 #  define NAM_NOP nam$b_nop
+#  define NAM_M_EXP_DEV NAM$M_EXP_DEV
 #  define NAM_M_SYNCHK NAM$M_SYNCHK
 #  define NAM_B_DEV nam$b_dev
 #  define NAM_L_DEV nam$l_dev
@@ -354,5 +348,7 @@ struct PK_header
 };
 
 #define PK_HEADER_SIZE  8
+
+char *vms_file_version( char *s);
 
 #endif /* !__vms_h */

@@ -1,5 +1,8 @@
 ziplimit.txt
 
+Zip 3 and UnZip 6 now support many of the extended limits of Zip64.
+These are currently in beta. - 20 August 2006, Ed Gordon
+
 A) Hard limits of the Zip archive format:
 
    Number of entries in Zip archive:            64 k (2^16 - 1 entries)

@@ -4,17 +4,20 @@
 all:
 	@echo ''
 	@echo 'Make what?  You must say what system to make Zip for--e.g.'
-	@echo '"make generic".  Choices: generic, generic_gcc,'
-	@echo 'att6300nodir, coherent, cray_v3, cygwin, lynx, minix,'
-	@echo 'os390, qnx, qnxnto, solaris, solaris_gcc'
+	@echo '"make generic".'
+	@echo 'Choices: generic, generic_gcc, att6300nodir,'
+	@echo 'coherent, cray_v3, cygwin, lynx, minix, os390,'
+	@echo 'qnx, qnxnto, solaris, solaris_gcc'
 	@echo 'Try first "make -f unix/Makefile generic" as'
 	@echo 'it should autodetect and set the proper flags.'
+	@echo 'To make the manuals use "make zipsman"'
 	@echo 'See the files INSTALL and zip.txt for more information.'
 	@echo ''
 
 list:   all
 
-MAKE = make -f unix/Makefile
+#MAKE = make -f unix/Makefile
+MAKEF = -f unix/Makefile
 SHELL = /bin/sh
 LN = ln -s
 
@@ -47,22 +50,28 @@ ZIPMANUALs = zip.txt zipcloak.txt zipnote.txt zipsplit.txt
 PKGDIR = IZzip
 VERSION = Version 3.0
 
+# Our bzip2 directory
+IZ_OUR_BZIP2_DIR = bzip2
+
 # flags
 #   CFLAGS    flags for C compile
 #   LFLAGS1   flags after output file spec, before obj file list
 #   LFLAGS2   flags after obj file list (libraries, etc)
-CFLAGS = -O2 -I. -DUNIX $(LOCAL_ZIP)
+CFLAGS_NOOPT = -I. -DUNIX $(LOCAL_ZIP)
+CFLAGS = -O2 $(CFLAGS_NOOPT)
 LFLAGS1 =
 LFLAGS2 = -s
 
 # object file lists
 OBJZ = zip.o zipfile.o zipup.o fileio.o util.o globals.o crypt.o ttyio.o \
-       unix.o crc32.o crctab.o
+       unix.o crc32.o zbz2err.o
 OBJI = deflate.o trees.o
 OBJA =
-OBJU = zipfile_.o fileio_.o util_.o globals.o unix_.o
+OCRCU8 =
+OCRCTB = crc32_.o
+OBJU = zipfile_.o fileio_.o util_.o globals.o unix_.o $(OCRCU8)
 OBJN = zipnote.o  $(OBJU)
-OBJC = zipcloak.o $(OBJU) crctab.o crypt_.o ttyio.o
+OBJC = zipcloak.o $(OBJU) $(OCRTB) crypt_.o ttyio.o
 OBJS = zipsplit.o $(OBJU)
 
 ZIP_H = zip.h ziperr.h tailor.h unix/osdep.h
@@ -85,6 +94,8 @@ $(OBJI): $(ZIP_H)
 $(OBJN): $(ZIP_H)
 $(OBJS): $(ZIP_H)
 $(OBJC): $(ZIP_H)
+zip.o zipup.o zipfile.o fileio.o crc32.o crypt.o: crc32.h
+zipcloak.o zipfile_.o fileio_.o crc32_.o crypt_.o: crc32.h
 zip.o zipup.o crypt.o ttyio.o zipcloak.o crypt_.o: crypt.h
 zip.o zipup.o zipnote.o zipcloak.o zipsplit.o: revision.h
 zip.o crypt.o ttyio.o zipcloak.o crypt_.o: ttyio.h
@@ -113,7 +124,7 @@ ZIPS = zip$E zipnote$E zipsplit$E zipcloak$E
 zips: $(ZIPS)
 zipsman: $(ZIPS) $(ZIPMANUALs)
 
-zip$E: $(OBJZ) $(OBJI) $(OBJA)
+zip$E: $(OBJZ) $(OBJI) $(OBJA) $(LIB_BZ)
 	$(BIND) -o zip$E $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) $(LFLAGS2)
 zipnote$E: $(OBJN)
 	$(BIND) -o zipnote$E $(LFLAGS1) $(OBJN) $(LFLAGS2)
@@ -135,6 +146,14 @@ $(ZIPMANUALsplit): man/zipsplit.1
 	nroff -man man/zipsplit.1 | col -bx | uniq > $(ZIPMANUALsplit)
 
 
+# bzip2 object library
+
+$(IZ_OUR_BZIP2_DIR)/libbz2.a : $(IZ_OUR_BZIP2_DIR)/Makefile
+	@echo "Building bzip2 object library..."
+	( cd $(IZ_OUR_BZIP2_DIR); \
+	  $(MAKE) CC="$(CC_BZ)" CFLAGS="$(CFLAGS_BZ)" libbz2.a )
+	@echo "   bzip2 object library created."
+
 
 # install
 install:        $(ZIPS)
@@ -150,7 +169,7 @@ uninstall:
 	-cd $(MANDIR); rm -f zip.$(manext)
 
 flags:  unix/configure
-	sh unix/configure "${CC}" "${CFLAGS}"
+	sh unix/configure "${CC}" "${CFLAGS_NOOPT}" "${IZ_BZIP2}"
 
 # These symbols, when #defined using -D have these effects on compilation:
 # ZMEM                  - includes C language versions of memset(), memcpy(),
@@ -166,18 +185,19 @@ flags:  unix/configure
 # NO_CONST              - cannot handle ANSI const
 # NO_LARGE_FILE_SUPPORT - do not enable Large File support even if available.
 # NO_ZIP64_SUPPORT      - do not enable Zip64 archive support even if available.
+# NO_BZIP2_SUPPORT      - do not compile in bzip2 code even if available.
 
 #               Generic targets:
 
 generic: flags
-	eval $(MAKE) zips `cat flags`
+	eval $(MAKE) $(MAKEF) zips `cat flags`
 
 generic_gcc:
-	$(MAKE) generic CC=gcc CPP="gcc -E"
+	$(MAKE) $(MAKEF) generic CC=gcc CPP="gcc -E"
 
 # AT&T 6300 PLUS (don't know yet how to allocate 64K bytes):
 att6300nodir:
-	$(MAKE) zips LFLAGS1="-Ml -s" \
+	$(MAKE) $(MAKEF) zips LFLAGS1="-Ml -s" \
 	CFLAGS="-DUNIX -I. -O -Ml -DNO_RMDIR -DDYN_ALLOC -DMEDIUM_MEM \
 -DWSIZE=16384 -DNO_STDLIB_H -DNO_STDDEF_H -DNO_RENAME \
 -DNO_MKTIME -DNO_SIZE_T -DNO_VOID -DNO_PROTO -DNO_DIR \
@@ -186,38 +206,41 @@ att6300nodir:
 
 # Coherent (AS definition not needed for gcc)
 coherent:
-	$(MAKE) zips CFLAGS="-DUNIX -I. -O -DDIRENT -DASMV" AS="as -gx" \
-		     OBJA=match.o
+	$(MAKE) $(MAKEF) zips CFLAGS="-DUNIX -I. -O -DDIRENT -DASMV" \
+	 AS="as -gx" OBJA=match.o
 
 # Cray Unicos 6.1, Standard C compiler 3.0 (all routines except trees.c
 # may be compiled with vector3; internal compiler bug in 3.0.2.3 and
 # earlier requires vector2 for trees.c)
 cray_v3:
-	$(MAKE) zips CC="scc" \
+	$(MAKE) $(MAKEF) zips CC="scc" \
 		CFLAGS="-DUNIX -I. -O -h vector2 -h scalar3 -DHAVE_DIRENT_H"
 
 # Cygwin
 cygwin:
-	$(MAKE) generic CC="gcc" CPP="gcc -E" EXE=".exe"
+	$(MAKE) $(MAKEF) generic CC="gcc" CPP="gcc -E" EXE=".exe"
 
 # LynxOS
 lynx:
-	$(MAKE) generic CC=gcc CPP="gcc -E" CFLAGS="$(CFLAGS) -DNO_UNDERLINE -DLynx -DLYNX LFLAGS2="$LFLAGS2 -lc_p"
+	$(MAKE) $(MAKEF) generic CC=gcc CPP="gcc -E" CFLAGS="$(CFLAGS) \
+	 -DNO_UNDERLINE -DLynx -DLYNX LFLAGS2="$LFLAGS2 -lc_p"
 
 # MINIX 1.5.10 with Bruce Evans 386 patches and gcc/GNU make
 minix:
-	$(MAKE) zips CFLAGS="-DUNIX -I. -O -DDIRENT -DMINIX" CC=gcc
+	$(MAKE) $(MAKEF) zips CFLAGS="-DUNIX -I. -O -DDIRENT -DMINIX" CC=gcc
 	chmem =262144 zip
 
 # IBM OS/390 (formerly MVS) compiled under "OpenEdition" shell
 # You can make the zip executable with IBM's make, but you will
 # get errors dealing with the _.o targets for the other executables
 # (zipcloak, etc).  GNU make will build all the executables.
-# If you have GNU make in your path as gmake, uncomment the following:
-#MAKE = gmake -f unix/Makefile
+# If you have GNU make in your path as gmake, you can uncomment
+# the following, but it shouldn't be needed:
+#MAKE = gmake
+
 os390:
-	${MAKE} zips CFLAGS="$(CF) -I. -DUNIX -DOS390 -DEBCDIC -DSYSV \
--DSYSV -DNO_PARAM_H" LFLAGS2=""
+	$(MAKE) $(MAKEF) zips CFLAGS="$(CF) -I. -DUNIX -DOS390 -DEBCDIC \
+	 -DSYSV -DNO_PARAM_H" LFLAGS2=""
 
 # QNX is "special" because out /bin/sh is ksh and it doesn't grok the
 # configure script properly, generating a bad flags file.  D'oh! [cjh]
@@ -227,20 +250,20 @@ os390:
 # to produce x86, PowerPC (big- or little-endian) and MIPS (big-
 # or little-endian) using gcc. [cjh]
 qnx:
-	$(MAKE) zips LN=ln CC=cc CFLAGS="-DUNIX -I. -O -DHAVE_DIRENT_H \
--DHAVE_TERMIOS_H -DNO_MKTEMP"
+	$(MAKE) $(MAKEF) zips LN=ln CC=cc CFLAGS="-DUNIX -I. -O \
+	 -DHAVE_DIRENT_H -DHAVE_TERMIOS_H -DNO_MKTEMP"
 
 qnxnto:
 	@if [ "$(ARCH)" = "" ] ; then \
 		echo "You didn't set ARCH; I'll assume you meant ARCH=x86..." ; \
 		echo "" ; \
-		$(MAKE) zips LN=ln CC="qcc -Vgcc_ntox86" \
+		$(MAKE) $(MAKEF) zips LN=ln CC="qcc -Vgcc_ntox86" \
 			CFLAGS="-g -DUNIX -I. -O -DHAVE_DIRENT_H -DHAVE_TERMIOS_H -DNO_MKTEMP" \
 			LFLAGS2=-g ; \
 	else \
 		echo "Making zip for $(ARCH)..." ; \
 		echo "" ; \
-		$(MAKE) zips LN=ln CC="qcc -Vgcc_nto$(ARCH)" \
+		$(MAKE) $(MAKEF) zips LN=ln CC="qcc -Vgcc_nto$(ARCH)" \
 			CFLAGS="-g -DUNIX -I. -O -DHAVE_DIRENT_H -DHAVE_TERMIOS_H -DNO_MKTEMP" \
 			LFLAGS2=-g ; \
 	fi
@@ -281,3 +304,14 @@ clean:
 	rm -f *.o $(ZIPS) flags
 	rm -rf $(PKGDIR)
 
+clean_bzip2 :
+	@if test -f "$(IZ_OUR_BZIP2_DIR)/Makefile"; then \
+	  ( cd $(IZ_OUR_BZIP2_DIR); make clean ); \
+	else \
+          if test -z "$(IZ_OUR_BZIP2_DIR)"; then \
+	    echo "No bzip2 directory (\"IZ_OUR_BZIP2_DIR\") specified."; \
+	  else \
+	    echo "No bzip2 make file found: $(IZ_OUR_BZIP2_DIR)/Makefile."; \
+	  fi; \
+	fi
+#

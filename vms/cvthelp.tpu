@@ -53,6 +53,8 @@ Local   temp
    hg$substitute_comment(current_buffer,"<INIT>",".noflags;.lm3;.rm70");
    hg$substitute_comment(current_buffer,"<LITERAL>",".lm+4;.literal");
    hg$substitute_comment(current_buffer,"<LARETIL>",".end literal;.lm-4");
+   hg$substitute_comment(current_buffer,"<LITERAL0>",".literal");
+   hg$substitute_comment(current_buffer,"<0LARETIL>",".end literal");
    hg$substitute_comment(current_buffer,"<DOT1LIST>",'.list 1,"o"');
    hg$substitute_comment(current_buffer,"<DOT0LIST>",'.list 0,"o"');
    hg$substitute_comment(current_buffer,"<ENTRY>",".le");

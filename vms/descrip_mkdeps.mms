@@ -1,4 +1,4 @@
-#                                               24 May 2005.  SMS.
+#                                               8 January 2007.  SMS.
 #
 #    Zip 3.0 for VMS - MMS Dependency Description File.
 #
@@ -6,7 +6,7 @@
 #    dependencies file.  Unsightly errors result when /EXTENDED_SYNTAX
 #    is not specified.  Typical usage:
 #
-#    $ MMS /EXTEND /DESCRIP = [.vms]descrip_mkdeps.mms /SKIP
+#    $ MMS /EXTEND /DESCRIP = [.VMS]DESCRIP_MKDEPS.MMS /SKIP
 #
 # Note that this description file must be used from the main
 # distribution directory, not from the [.VMS] subdirectory.
@@ -34,11 +34,11 @@ COMS = [.VMS]MOD_DEP.COM [.VMS]COLLECT_DEPS.COM
 # Include the source file lists (among other data).
 
 INCL_DESCRIP_SRC = 1
-.INCLUDE [.vms]descrip_src.mms
+.INCLUDE [.VMS]DESCRIP_SRC.MMS
 
 # The ultimate product, a comprehensive dependency list.
 
-DEPS_FILE = [.vms]descrip_deps.mms 
+DEPS_FILE = [.VMS]DESCRIP_DEPS.MMS 
 
 # Detect valid qualifier and/or macro options.
 
@@ -74,38 +74,38 @@ UNK_MMSD = 1
 
 # In case it's not obvious...
 # To extract module name lists from object library module=object lists:
-# 1.  Transform "module=[.dest]name.obj" into "module=[.dest] name".
-# 2.  For [.vms], add [.vms] to name.
+# 1.  Transform "module=[.dest]name.OBJ" into "module=[.dest] name".
+# 2.  For [.VMS], add [.VMS] to name.
 # 3.  Delete "*]" words.
 #
 # A similar scheme works for executable lists.
 
 MODS_LIB_ZIP_N = $(FILTER-OUT *], \
- $(PATSUBST *]*.obj, *] *, $(MODS_OBJS_LIB_ZIP_N)))
+ $(PATSUBST *]*.OBJ, *] *, $(MODS_OBJS_LIB_ZIP_N)))
 
 MODS_LIB_ZIP_V = $(FILTER-OUT *], \
- $(PATSUBST *]*.obj, *] [.vms]*, $(MODS_OBJS_LIB_ZIP_V)))
+ $(PATSUBST *]*.OBJ, *] [.VMS]*, $(MODS_OBJS_LIB_ZIP_V)))
 
 MODS_LIB_ZIPUTILS_N = $(FILTER-OUT *], \
- $(PATSUBST *]*.obj, *] *, $(MODS_OBJS_LIB_ZIPUTILS_N)))
+ $(PATSUBST *]*.OBJ, *] *, $(MODS_OBJS_LIB_ZIPUTILS_N)))
 
 MODS_LIB_ZIPUTILS_N_V = $(FILTER-OUT *], \
- $(PATSUBST *]*.obj, *] [.vms]*, $(MODS_OBJS_LIB_ZIPUTILS_N_V)))
+ $(PATSUBST *]*.OBJ, *] [.VMS]*, $(MODS_OBJS_LIB_ZIPUTILS_N_V)))
 
 MODS_LIB_ZIPUTILS_U = $(FILTER-OUT *], \
- $(PATSUBST *]*.obj, *] *, $(MODS_OBJS_LIB_ZIPUTILS_U)))
+ $(PATSUBST *]*.OBJ, *] *, $(MODS_OBJS_LIB_ZIPUTILS_U)))
 
 MODS_LIB_ZIPUTILS_U_V = $(FILTER-OUT *], \
- $(PATSUBST *]*.obj, *] [.vms]*, $(MODS_OBJS_LIB_ZIPUTILS_U_V)))
+ $(PATSUBST *]*.OBJ, *] [.VMS]*, $(MODS_OBJS_LIB_ZIPUTILS_U_V)))
 
 MODS_LIB_ZIPCLI_V = $(FILTER-OUT *], \
- $(PATSUBST *]*.obj, *] [.vms]*, $(MODS_OBJS_LIB_ZIPCLI_C_V)))
+ $(PATSUBST *]*.OBJ, *] [.VMS]*, $(MODS_OBJS_LIB_ZIPCLI_C_V)))
 
 MODS_ZIP = $(FILTER-OUT *], \
- $(PATSUBST *]*.exe, *] *, $(ZIP)))
+ $(PATSUBST *]*.EXE, *] *, $(ZIP)))
 
 MODS_ZIPUTILS = $(FILTER-OUT *], \
- $(PATSUBST *]*.exe, *] *, $(ZIPUTILS)))
+ $(PATSUBST *]*.EXE, *] *, $(ZIPUTILS)))
 
 # Complete list of C object dependency file names.
 # Note that the CLI Zip main program object file is a special case.
@@ -115,8 +115,8 @@ DEPS = $(FOREACH NAME, \
  $(MODS_ZIPUTILS_N) $(MODS_ZIPUTILS_N_V) \
  $(MODS_LIB_ZIPUTILS_U) $(MODS_LIB_ZIPUTILS_U_V) \
  $(MODS_LIB_ZIPCLI_V) \
- $(MODS_ZIP) zipcli $(MODS_ZIPUTILS), \
- $(NAME).mmsd)
+ $(MODS_ZIP) ZIPCLI $(MODS_ZIPUTILS), \
+ $(NAME).MMSD)
 
 # Target is the comprehensive dependency list.
 
@@ -134,18 +134,18 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
 #       Note that the space in P3, which prevents immediate macro
 #       expansion, is removed by COLLECT_DEPS.COM.
 #
-        @[.vms]collect_deps.com "Zip" -
-         "$(MMS$TARGET)" "[...]*.mmsd" "[.$ (DEST)]" $(MMSDESCRIPTION_FILE)
+        @[.VMS]COLLECT_DEPS.COM "Zip" -
+         "$(MMS$TARGET)" "[...]*.MMSD" "[.$ (DEST)]" $(MMSDESCRIPTION_FILE)
         @ write sys$output -
          "Created a new dependency file: $(MMS$TARGET)"
 .IF DELETE_MMSD
 	@ write sys$output -
          "Deleting intermediate .MMSD files..."
-	delete /log *.mmsd;*, [.vms]*.mmsd;*
+	delete /log *.MMSD;*, [.VMS]*.MMSD;*
 .ELSE
 	@ write sys$output -
          "Purging intermediate .MMSD files..."
-	purge /log *.mmsd, [.vms]*.mmsd
+	purge /log *.MMSD, [.VMS]*.MMSD
 .ENDIF
 
 # Explicit dependencies and rules for utility variant modules.
@@ -153,45 +153,51 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
 # The extra dependency on the normal dependency file obviates including
 # the /SKIP warning code in each rule here.
 
-crypt_.mmsd : crypt.c crypt.mmsd
+CRC32_.MMSD : CRC32.C CRC32.MMSD
 	$(CC) $(CFLAGS_INCL) $(CFLAGS_CLI) $(MMS$SOURCE) -
          /NOLIST /NOOBJECT /MMS_DEPENDENCIES = -
          (FILE = $(MMS$TARGET), NOSYSTEM_INCLUDE_FILES)
-	@[.vms]mod_dep.com $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
+	@[.VMS]MOD_DEP.COM $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
 
-fileio_.mmsd : fileio.c fileio.mmsd
+CRYPT_.MMSD : CRYPT.C CRYPT.MMSD
 	$(CC) $(CFLAGS_INCL) $(CFLAGS_CLI) $(MMS$SOURCE) -
          /NOLIST /NOOBJECT /MMS_DEPENDENCIES = -
          (FILE = $(MMS$TARGET), NOSYSTEM_INCLUDE_FILES)
-	@[.vms]mod_dep.com $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
+	@[.VMS]MOD_DEP.COM $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
 
-util_.mmsd : util.c util.mmsd
+FILEIO_.MMSD : FILEIO.C FILEIO.MMSD
 	$(CC) $(CFLAGS_INCL) $(CFLAGS_CLI) $(MMS$SOURCE) -
          /NOLIST /NOOBJECT /MMS_DEPENDENCIES = -
          (FILE = $(MMS$TARGET), NOSYSTEM_INCLUDE_FILES)
-	@[.vms]mod_dep.com $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
+	@[.VMS]MOD_DEP.COM $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
 
-zipfile_.mmsd : zipfile.c zipfile.mmsd
+UTIL_.MMSD : UTIL.C UTIL.MMSD
 	$(CC) $(CFLAGS_INCL) $(CFLAGS_CLI) $(MMS$SOURCE) -
          /NOLIST /NOOBJECT /MMS_DEPENDENCIES = -
          (FILE = $(MMS$TARGET), NOSYSTEM_INCLUDE_FILES)
-	@[.vms]mod_dep.com $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
+	@[.VMS]MOD_DEP.COM $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
 
-[.vms]vms_.mmsd : [.vms]vms.c [.vms]vms.mmsd
+ZIPFILE_.MMSD : ZIPFILE.C ZIPFILE.MMSD
 	$(CC) $(CFLAGS_INCL) $(CFLAGS_CLI) $(MMS$SOURCE) -
          /NOLIST /NOOBJECT /MMS_DEPENDENCIES = -
          (FILE = $(MMS$TARGET), NOSYSTEM_INCLUDE_FILES)
-	@[.vms]mod_dep.com $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
+	@[.VMS]MOD_DEP.COM $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
 
-zipcli.mmsd : zip.c zip.mmsd
+[.VMS]VMS_.MMSD : [.VMS]VMS.C [.VMS]VMS.MMSD
 	$(CC) $(CFLAGS_INCL) $(CFLAGS_CLI) $(MMS$SOURCE) -
          /NOLIST /NOOBJECT /MMS_DEPENDENCIES = -
          (FILE = $(MMS$TARGET), NOSYSTEM_INCLUDE_FILES)
-	@[.vms]mod_dep.com $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
+	@[.VMS]MOD_DEP.COM $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
+
+ZIPCLI.MMSD : ZIP.C ZIP.MMSD
+	$(CC) $(CFLAGS_INCL) $(CFLAGS_CLI) $(MMS$SOURCE) -
+         /NOLIST /NOOBJECT /MMS_DEPENDENCIES = -
+         (FILE = $(MMS$TARGET), NOSYSTEM_INCLUDE_FILES)
+	@[.VMS]MOD_DEP.COM $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
 
 # Special case.  No normal (non-CLI) version.
 
-[.vms]cmdline.mmsd : [.vms]cmdline.c
+[.VMS]CMDLINE.MMSD : [.VMS]CMDLINE.C
 .IF UNK_MMSD
 	@ write sys$output -
  "   /SKIP_INTERMEDIATES is expected on the MMS command line."
@@ -204,5 +210,5 @@ zipcli.mmsd : zip.c zip.mmsd
 	$(CC) $(CFLAGS_INCL) $(CFLAGS_CLI) $(MMS$SOURCE) -
          /NOLIST /NOOBJECT /MMS_DEPENDENCIES = -
          (FILE = $(MMS$TARGET), NOSYSTEM_INCLUDE_FILES)
-	@[.vms]mod_dep.com $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
+	@[.VMS]MOD_DEP.COM $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
 

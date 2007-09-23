@@ -1,5 +1,5 @@
 # WMAKE makefile for 16 bit MSDOS or 32 bit DOS extender (PMODE/W or DOS/4GW)
-# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 17 Feb 2005.
+# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 07 Aug 2005.
 # Makes Zip.exe, ZipNote.exe, ZipCloak.exe, and ZipSplit.exe.
 #
 # Invoke from Zip source dir with "WMAKE -F MSDOS\MAKEFILE.WAT [targets]"
@@ -67,7 +67,8 @@ O = $(OBDIR)\   # comment here so backslash won't continue the line
 # optional.  This section controls its usage.
 
 !ifdef NOASM
-asmob = $(O)crc32.obj                       # C source
+  # C source
+asmob =
 cvars = $+$(cvars)$- -DDYN_ALLOC -DNO_ASM   # or ASM_CRC might default on!
 # "$+$(foo)$-" means expand foo as it has been defined up to now; normally,
 # this make defers inner expansion until the outer macro is expanded.
@@ -97,7 +98,7 @@ cc     = wcc386
 cflags = -bt=DOS -mf -6r -zt -zq
 aflags = -bt=DOS -mf -3 -zq
 cvars  = $+$(cvars)$- -DDOS $(variation)
-avars  = $+$(avars)$- $(variation)
+avars  = $+$(avars)$- -DWATCOM_DSEG $(variation)
 
 !  ifdef GW
 lflags = sys DOS4G
@@ -143,12 +144,12 @@ ldebug = op el
 
 OBJZ2 = $(O)zip.obj $(O)crypt.obj $(O)ttyio.obj $(O)zipfile.obj $(O)zipup.obj
 OBJZA = $(OBJZ2) $(O)util.obj $(O)fileio.obj $(O)deflate.obj
-OBJZB = $(O)trees.obj $(O)globals.obj $(O)crctab.obj $(asmob) $(O)msdos.obj
+OBJZB = $(O)trees.obj $(O)globals.obj $(O)crc32.obj $(asmob) $(O)msdos.obj
 
 OBJU2 = $(O)zipfile_.obj $(O)fileio_.obj $(O)util_.obj $(O)globals.obj
 OBJ_U = $(OBJU2) $(O)msdos_.obj
 
-OBJC  = $(O)zipcloak.obj $(O)crctab.obj $(O)crypt_.obj $(O)ttyio.obj $(OBJ_U)
+OBJC  = $(O)zipcloak.obj $(O)crc32_.obj $(O)crypt_.obj $(O)ttyio.obj $(OBJ_U)
 
 OBJN  = $(O)zipnote.obj $(OBJ_U)
 
@@ -193,20 +194,19 @@ ZipSplit.exe:	$(OBDIR) $(OBJS)
 
 # Source dependencies:
 
-$(O)crctab.obj:   crctab.c $(ZIP_H)
-$(O)crc32.obj:    crc32.c $(ZIP_H)              # only used if NOASM
-$(O)crypt.obj:    crypt.c $(ZIP_H) crypt.h ttyio.h
+$(O)crc32.obj:    crc32.c $(ZIP_H) crc32.h
+$(O)crypt.obj:    crypt.c $(ZIP_H) crypt.h crc32.h ttyio.h
 $(O)deflate.obj:  deflate.c $(ZIP_H)
-$(O)fileio.obj:   fileio.c $(ZIP_H)
+$(O)fileio.obj:   fileio.c $(ZIP_H) crc32.h
 $(O)globals.obj:  globals.c $(ZIP_H)
 $(O)trees.obj:    trees.c $(ZIP_H)
 $(O)ttyio.obj:    ttyio.c $(ZIP_H) crypt.h ttyio.h
 $(O)util.obj:     util.c $(ZIP_H)
-$(O)zip.obj:      zip.c $(ZIP_H) crypt.h revision.h ttyio.h
-$(O)zipfile.obj:  zipfile.c $(ZIP_H)
-$(O)zipup.obj:    zipup.c $(ZIP_H) revision.h crypt.h msdos\zipup.h
+$(O)zip.obj:      zip.c $(ZIP_H) crc32.h crypt.h revision.h ttyio.h
+$(O)zipfile.obj:  zipfile.c $(ZIP_H) crc32.h
+$(O)zipup.obj:    zipup.c $(ZIP_H) revision.h crc32.h crypt.h msdos\zipup.h
 $(O)zipnote.obj:  zipnote.c $(ZIP_H) revision.h
-$(O)zipcloak.obj: zipcloak.c $(ZIP_H) revision.h crypt.h ttyio.h
+$(O)zipcloak.obj: zipcloak.c $(ZIP_H) revision.h crc32.h crypt.h ttyio.h
 $(O)zipsplit.obj: zipsplit.c $(ZIP_H) revision.h
 
 # Special case object files:
@@ -222,16 +222,19 @@ $(O)crc.obj:      $(crc_s)
 
 # Variant object files for ZipNote, ZipCloak, and ZipSplit:
 
-$(O)zipfile_.obj: zipfile.c $(ZIP_H)
+$(O)zipfile_.obj: zipfile.c $(ZIP_H) crc32.h
 	$(cc) $(cdebug) $(cflags) $(cvars) -DUTIL zipfile.c -fo=$@
 
-$(O)fileio_.obj:  fileio.c $(ZIP_H)
+$(O)fileio_.obj:  fileio.c $(ZIP_H) crc32.h
 	$(cc) $(cdebug) $(cflags) $(cvars) -DUTIL fileio.c -fo=$@
 
 $(O)util_.obj:    util.c $(ZIP_H)
 	$(cc) $(cdebug) $(cflags) $(cvars) -DUTIL util.c -fo=$@
 
-$(O)crypt_.obj:   crypt.c $(ZIP_H) crypt.h ttyio.h
+$(O)crc32_.obj:   crc32.c $(ZIP_H) crc32.h
+	$(cc) $(cdebug) $(cflags) $(cvars) -DUTIL crc32.c -fo=$@
+
+$(O)crypt_.obj:   crypt.c $(ZIP_H) crc32.h crypt.h ttyio.h
 	$(cc) $(cdebug) $(cflags) $(cvars) -DUTIL crypt.c -fo=$@
 
 $(O)msdos_.obj:   msdos\msdos.c $(ZIP_H)

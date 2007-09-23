@@ -1,7 +1,7 @@
 /*
   unix/unix.c - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -202,6 +202,18 @@ int caseflag;           /* true to force case-sensitive match */
     }
     free((zvoid *)p);
   } /* (s.st_mode & S_IFDIR) */
+#ifdef OS390
+  else if (S_ISFIFO(s.st_mode))
+#else
+  else if ((s.st_mode & S_IFIFO) == S_IFIFO)
+#endif
+  {
+    /* FIFO (Named Pipe) - handle as normal file */
+    /* add or remove name of FIFO */
+    if (noisy) zipwarn("Reading FIFO (Named Pipe): ", n);
+    if ((m = newname(n, 0, caseflag)) != ZE_OK)
+      return m;
+  } /* S_IFIFO */
   else
     zipwarn("ignoring special file: ", n);
   return ZE_OK;
@@ -424,11 +436,24 @@ int set_extra_field(z, z_utim)
      in central header */
 {
   z_stat s;
+  char *name;
+  int len = strlen(z->name);
 
   /* For the full sized UT local field including the UID/GID fields, we
    * have to stat the file again. */
-  if (LSSTAT(z->name, &s))
+
+  if ((name = malloc(len + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "set_extra_field");
+  }
+  strcpy(name, z->name);
+  if (name[len - 1] == '/')
+    name[len - 1] = '\0';
+  /* not all systems allow stat'ing a file with / appended */
+  if (LSSTAT(name, &s)) {
+    free(name);
     return ZE_OPEN;
+  }
+  free(name);
 
 #define EB_L_UT_SIZE    (EB_HEADSIZE + EB_UT_LEN(2))
 #define EB_C_UT_SIZE    (EB_HEADSIZE + EB_UT_LEN(1))
@@ -536,8 +561,21 @@ void version_local()
     char compiler_name[80];
 #  endif
 #else
-#  if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
+#  if (defined( __SUNPRO_C))
+    char compiler_name[33];
+#  else
+#    if (defined( __HP_cc))
+    char compiler_name[33];
+#    else
+#      if (defined( __DECC_VER))
+    char compiler_name[33];
+    int compiler_typ;
+#      else
+#        if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
     char compiler_name[40];
+#        endif
+#      endif
+#    endif
 #  endif
 #endif
 
@@ -561,21 +599,49 @@ void version_local()
 #ifdef __GNUC__
 #  ifdef NX_CURRENT_COMPILER_RELEASE
     sprintf(compiler_name, "NeXT DevKit %d.%02d (gcc " __VERSION__ ")",
-        NX_CURRENT_COMPILER_RELEASE/100, NX_CURRENT_COMPILER_RELEASE%100);
+     NX_CURRENT_COMPILER_RELEASE/100, NX_CURRENT_COMPILER_RELEASE%100);
 #    define COMPILER_NAME compiler_name
 #  else
 #    define COMPILER_NAME "gcc " __VERSION__
 #  endif
 #else /* !__GNUC__ */
-#  if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
-    sprintf(compiler_name, "cc version %d", _RELEASE);
+#  if defined(__SUNPRO_C)
+    sprintf( compiler_name, "Sun C version %x", __SUNPRO_C);
 #    define COMPILER_NAME compiler_name
 #  else
-#  ifdef __VERSION__
-#    define COMPILER_NAME "cc " __VERSION__
-#  else
-#    define COMPILER_NAME "cc "
-#  endif
+#    if (defined( __HP_cc))
+    if ((__HP_cc% 100) == 0)
+    {
+      sprintf( compiler_name, "HP C version A.%02d.%02d",
+       (__HP_cc/ 10000), ((__HP_cc% 10000)/ 100));
+    }
+    else
+    {
+      sprintf( compiler_name, "HP C version A.%02d.%02d.%02d",
+       (__HP_cc/ 10000), ((__HP_cc% 10000)/ 100), (__HP_cc% 100));
+    }
+#      define COMPILER_NAME compiler_name
+#    else
+#      if (defined( __DECC_VER))
+    sprintf( compiler_name, "DEC C version %c%d.%d-%03d",
+     ((compiler_typ = (__DECC_VER / 10000) % 10) == 6 ? 'T' :
+     (compiler_typ == 8 ? 'S' : 'V')),
+     __DECC_VER / 10000000,
+     (__DECC_VER % 10000000) / 100000, __DECC_VER % 1000);
+#        define COMPILER_NAME compiler_name
+#      else
+#        if ((defined(CRAY) || defined(cray)) && defined(_RELEASE))
+    sprintf(compiler_name, "cc version %d", _RELEASE);
+#          define COMPILER_NAME compiler_name
+#        else
+#          ifdef __VERSION__
+#            define COMPILER_NAME "cc " __VERSION__
+#          else
+#            define COMPILER_NAME "cc "
+#          endif
+#        endif
+#      endif
+#    endif
 #  endif
 #endif /* ?__GNUC__ */
 
@@ -587,9 +653,9 @@ void version_local()
 #ifdef sun
 #  ifdef sparc
 #    ifdef __SVR4
-#      define OS_NAME "Sun Sparc/Solaris"
+#      define OS_NAME "Sun SPARC/Solaris"
 #    else /* may or may not be SunOS */
-#      define OS_NAME "Sun Sparc"
+#      define OS_NAME "Sun SPARC"
 #    endif
 #  else
 #  if defined(sun386) || defined(i386)
@@ -604,7 +670,7 @@ void version_local()
 #  endif
 #else
 #ifdef __hpux
-#  define OS_NAME "HP/UX"
+#  define OS_NAME "HP-UX"
 #else
 #ifdef __osf__
 #  define OS_NAME "DEC OSF/1"
@@ -757,7 +823,7 @@ void version_local()
 #endif /* RT/AIX */
 #endif /* AIX */
 #endif /* OSF/1 */
-#endif /* HP/UX */
+#endif /* HP-UX */
 #endif /* Sun */
 #endif /* SGI */
 
@@ -773,3 +839,71 @@ void version_local()
            COMPILER_NAME, OS_NAME, COMPILE_DATE);
 
 } /* end function version_local() */
+
+
+/* 2006-03-23 SMS.
+ * Emergency replacement for strerror().  (Useful on SunOS 4.*.)
+ * Enable by specifying "LOCAL_UNZIP=-DNEED_STRERROR=1" on the "make"
+ * command line.
+ */
+
+#ifdef NEED_STRERROR
+
+char *strerror( err)
+  int err;
+{
+    extern char *sys_errlist[];
+    extern int sys_nerr;
+
+    static char no_msg[ 64];
+
+    if ((err >= 0) && (err < sys_nerr))
+    {
+        return sys_errlist[ err];
+    }
+    else
+    {
+        sprintf( no_msg, "(no message, code = %d.)", err);
+        return no_msg;
+    }
+}
+
+#endif /* def NEED_STRERROR */
+
+
+/* 2006-03-23 SMS.
+ * Emergency replacement for memmove().  (Useful on SunOS 4.*.)
+ * Enable by specifying "LOCAL_UNZIP=-DNEED_MEMMOVE=1" on the "make"
+ * command line.
+ */
+
+#ifdef NEED_MEMMOVE
+
+/* memmove.c -- copy memory.
+   Copy LENGTH bytes from SOURCE to DEST.  Does not null-terminate.
+   In the public domain.
+   By David MacKenzie <djm@gnu.ai.mit.edu>.
+   Adjusted by SMS.
+*/
+
+void *memmove( dest0, source0, length)
+  void *dest0;
+  void const *source0;
+  size_t length;
+{
+    char *dest = dest0;
+    char const *source = source0;
+    if (source < dest)
+        /* Moving from low mem to hi mem; start at end.  */
+        for (source += length, dest += length; length; --length)
+            *--dest = *--source;
+    else if (source != dest)
+    {
+        /* Moving from hi mem to low mem; start at beginning.  */
+        for (; length; --length)
+            *dest++ = *source++;
+    }
+    return dest0;
+}
+
+#endif /* def NEED_MEMMOVE */

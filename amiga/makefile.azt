@@ -1,6 +1,6 @@
 # Makefile for Zip, ZipNote, ZipCloak, ZipSplit for Aztec C 5.2
 # Also ZipLM, a version of Zip that needs much less free memory
-#   -- Paul Kienitz, last updated 08 Apr 05
+#   -- Paul Kienitz, last updated 07 Jan 2007
 
 # Make sure platform is defined correctly, and select memory usage options:
 DEFINES = -d AMIGA -d DYN_ALLOC -d ASM_CRC
@@ -72,18 +72,18 @@ ZIP_H = zip.h ziperr.h tailor.h amiga/osdep.h amiga/z-stat.h
 
 OBJZ = $(O)zip.o $(O)deflate.o \
         $(O)trees.o $(O)zipfile.o $(O)zipup.o $(O)util.o $(O)timezone.o \
-        $(O)fileio.o $(O)globals.o $(O)amiga.o $(O)amigazip.o $(O)crc_68.o \
-        $(O)crctab.o $(O)crypt.o $(O)ttyio.o
+        $(O)fileio.o $(O)globals.o $(O)crc32.o $(O)crypt.o $(O)ttyio.o \
+        $(O)amiga.o $(O)amigazip.o $(O)crc_68.o
 
 OBJL = $(O)zip.ol $(O)deflate.ol \
         $(O)trees.ol $(O)zipfile.ol $(O)zipup.ol $(O)util.ol $(O)timezone.ol \
-        $(O)fileio.ol $(O)globals.ol $(O)crypt.ol $(O)ttyio.ol $(O)crctab.ol \
+        $(O)fileio.ol $(O)globals.ol $(O)crc32.ol $(O)crypt.ol $(O)ttyio.ol \
         $(O)amiga.ol $(O)amigazip.ol $(O)crc_68.o
 
 OBJU = $(O)zipfile.oo $(O)fileio.oo \
         $(O)util.oo $(O)globals.o $(O)amiga.oo $(O)amigazip.oo
 OBJN = $(O)zipnote.o  $(OBJU)
-OBJC = $(O)zipcloak.o $(OBJU) $(O)crctab.o \
+OBJC = $(O)zipcloak.o $(OBJU) $(O)crc32.oo \
         $(O)crypt.oo $(O)ttyio.o
 OBJS = $(O)zipsplit.o $(OBJU)
 
@@ -91,18 +91,18 @@ OBJS = $(O)zipsplit.o $(OBJU)
 
 DBJZ = $(O)zip.od $(O)deflate.od \
         $(O)trees.od $(O)zipfile.od $(O)zipup.od $(O)util.od $(O)timezone.od \
-        $(O)fileio.od $(O)globals.od $(O)amiga.od $(O)amigazip.od $(O)crc_68.o \
-        $(O)crctab.od $(O)crypt.od $(O)ttyio.od
+        $(O)fileio.od $(O)globals.od $(O)crc32.od $(O)crypt.od $(O)ttyio.od \
+        $(O)amiga.od $(O)amigazip.od $(O)crc_68.o
 
 DBJL = $(O)zip.dl $(O)deflate.dl \
         $(O)trees.dl $(O)zipfile.dl $(O)zipup.dl $(O)util.dl $(O)timezone.dl \
-        $(O)fileio.dl $(O)globals.dl $(O)amiga.dl $(O)amigazip.dl $(O)crc_68.o \
-        $(O)crctab.dl $(O)crypt.dl $(O)ttyio.dl
+        $(O)fileio.dl $(O)globals.dl $(O)crc32.dl $(O)crypt.dl $(O)ttyio.dl \
+        $(O)amiga.dl $(O)amigazip.dl $(O)crc_68.o
 
 DBJU = $(O)zipfile.dd $(O)fileio.dd \
         $(O)util.dd $(O)globals.od $(O)amiga.dd $(O)amigazip.dd
 DBJN = $(O)zipnote.od  $(DBJU)
-DBJC = $(O)zipcloak.od $(DBJU) $(O)crctab.od \
+DBJC = $(O)zipcloak.od $(DBJU) $(O)crc32.dd \
         $(O)crypt.dd $(O)ttyio.od
 DBJS = $(O)zipsplit.od $(DBJU)
 
@@ -194,14 +194,14 @@ cleaner : clean
 
 $(O)zip.o $(O)zipnote.o $(O)zipcloak.o $(O)zipsplit.o $(O)crypt.o $(O)ttyio.o \
    $(O)deflate.o $(O)trees.o $(O)zipfile.o $(O)zipup.o $(O)fileio.o $(O)util.o \
-   $(O)timezone.o $(O)crctab.o $(O)globals.o $(O)amiga.o : $(ZIP_H)
+   $(O)timezone.o $(O)crc32.o $(O)globals.o $(O)amiga.o : $(ZIP_H)
 
 $(O)zip.ol $(O)zipnote.ol $(O)zipcloak.ol $(O)zipsplit.ol $(O)crypt.ol \
    $(O)ttyio.ol $(O)deflate.ol $(O)trees.ol $(O)zipfile.ol $(O)zipup.ol \
-   $(O)fileio.ol $(O)util.ol $(O)timezone.ol $(O)crctab.ol $(O)globals.ol \
+   $(O)fileio.ol $(O)util.ol $(O)timezone.ol $(O)crc32.ol $(O)globals.ol \
    $(O)amiga.ol : $(ZIP_H)
 
-$(O)crypt.oo $(O)zipfile.oo $(O)fileio.oo $(O)util.oo : $(ZIP_H)
+$(O)crc32.oo $(O)crypt.oo $(O)zipfile.oo $(O)fileio.oo $(O)util.oo : $(ZIP_H)
 
 $(O)amigazip.o $(O)amigazip.ol $(O)amigazip.oo : amiga/amiga.h $(ZIP_H)
 
@@ -210,6 +210,12 @@ $(O)zip.o $(O)zipnote.o $(O)zipcloak.o $(O)zipsplit.o $(O)zipup.o \
    $(O)zipup.ol : revision.h
 
 $(O)amiga.o $(O)amiga.ol : crypt.h
+
+$(O)crc32.o $(O)crc32.oo $(O)crc32.ol $(O)crypt.o $(O)crypt.oo $(O)crypt.ol \
+   $(O)zipcloak.o $(O)zipcloak.ol $(O)zip.o $(O)zip.ol \
+   $(O)zipup.o $(O)zipup.ol \
+   $(O)zipfile.o $(O)zipfile.oo $(O)zipfile.ol \
+   $(O)fileio.o $(O)fileio.oo $(O)fileio.ol : crc32.h
 
 $(O)crypt.o $(O)crypt.oo $(O)crypt.ol $(O)ttyio.o $(O)ttyio.ol \
    $(O)zipcloak.o $(O)zipcloak.ol $(O)zip.o $(O)zip.ol \

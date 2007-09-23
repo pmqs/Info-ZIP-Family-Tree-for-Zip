@@ -104,7 +104,7 @@ msc:
 	LDFLAGS2="-link /noe /pm:vio" \
 	OUT="-Fo" \
 	OBJ=".obj" \
-	CRC32="crc_i86" \
+	CRCA_O="crc_i86.obj" \
 	OBJA="match.obj" \
 	DEF="os2\zip.def"
 
@@ -119,7 +119,7 @@ mscdebug:
 	LDFLAGS2="-link /noe /pm:vio" \
 	OUT="-Fo" \
 	OBJ=".obj" \
-	CRC32="crc_i86" \
+	CRCA_O="crc_i86.obj" \
 	OBJA="match.obj" \
 	DEF="os2\zip.def"
 
@@ -134,7 +134,7 @@ mscdos:
 	LDFLAGS2="-link /noe /exe" \
 	OUT="-Fo" \
 	OBJ=".obj" \
-	CRC32="crc_i86" \
+	CRCA_O="crc_i86.obj" \
 	OBJA="match.obj" \
 	OBJ2="msdos.obj" OBJU2="msdos_.obj" \
 	OSDEP_H="msdos/osdep.h" ZIPUP_H="msdos/zipup.h"
@@ -201,7 +201,7 @@ watcom:
 	$(MAKE) -f os2/makefile.os2 zips \
 	CC="wcl386 -bt=os2v2 -zq -Ox -s" \
 	CFLAGS="-Zp1 -DOS2 -DNO_ASM" \
-	AS="wasm -bt=os2v2 -3p" \
+	AS="wasm -zq -bt=os2v2 -3p" \
 	ASFLAGS="" \
 	LDFLAGS="-k0x50000 -x -l=os2v2 -Fe=" \
 	LDFLAGS2="" \
@@ -216,7 +216,7 @@ watcom16:
 	$(MAKE) -f os2/makefile.os2 zips \
 	CC="wcl -bt=os2 -zq -ml -Ox -s" \
 	CFLAGS="-Zp1 -DOS2 -DNO_ASM" \
-	AS="wasm -bt=os2 -3p" \
+	AS="wasm -zq -bt=os2 -2p -ml" \
 	ASFLAGS="" \
 	LDFLAGS="/\"option newfiles\" -k0x3000 -x -l=os2 -Fe=" \
 	LDFLAGS2="" \
@@ -230,14 +230,15 @@ watcom16:
 watcomdos:
 	$(MAKE) -f os2/makefile.os2 zips \
 	CC="wcl386 -bt=dos4g -zq -Ox -s" \
-	CFLAGS="-Zp1 -DDOS -DMSDOS -DNO_ASM" \
-	AS="wasm -bt=dos4g -3p" \
-	ASFLAGS="" \
+	CFLAGS="-Zp1 -DDOS -DMSDOS -DASM_CRC" \
+	AS="wasm -zq -bt=dos4g -3p" \
+	ASFLAGS="-DWATCOM_DSEG" \
 	LDFLAGS="-k0x50000 -x -l=dos4g -Fe=" \
 	LDFLAGS2="" \
 	OUT="-Fo" \
 	OBJ=".obj" \
-	OBJA="" \
+	CRCA_O="crc_i386.obj" \
+	OBJA="match32.obj" \
 	OBJ2="msdos.obj" \
 	OBJU2="msdos_.obj" \
 	OSDEP_H="msdos/osdep.h" \
@@ -250,13 +251,13 @@ pmodew:
 	$(MAKE) -f os2/makefile.os2 zips \
 	CC="wcl386 -bt=dos4g -zq -Ox -s" \
 	CFLAGS="-Zp1 -DDOS -DMSDOS -DASM_CRC" \
-	AS="wasm -bt=dos4g -3p" \
-	ASFLAGS="" \
+	AS="wasm -zq -bt=dos4g -3p" \
+	ASFLAGS="-DWATCOM_DSEG" \
 	LDFLAGS="-k0x50000 -x -l=pmodew -Fe=" \
 	LDFLAGS2="" \
 	OUT="-Fo" \
 	OBJ=".obj" \
-	CRC32="crc_i386" \
+	CRCA_O="crc_i386.obj" \
 	OBJA="match32.obj" \
 	OBJ2="msdos.obj" \
 	OBJU2="msdos_.obj" \
@@ -270,7 +271,7 @@ watcom16dos:
 	$(MAKE) -f os2/makefile.os2 zips \
 	CC="wcl -bt=dos -zq -ml -Ox -s" \
 	CFLAGS="-Zp1 -DDOS -DMSDOS -DDYN_ALLOC -DNO_ASM" \
-	AS="wasm -bt=dos -2p -ml" \
+	AS="wasm -zq -bt=dos -2 -ml" \
 	ASFLAGS="-DDYN_ALLOC" \
 	LDFLAGS="-k0x2000 -x -l=dos -Fe=" \
 	LDFLAGS2="" \
@@ -322,7 +323,7 @@ gcc:
 	LDFLAGS2="-Zsys -Zstack 320 -s -Zsmall-conv" \
 	OUT="-o" \
 	OBJ=".obj" \
-	CRC32="crc_gcc" \
+	CRCA_O="crc_gcc.obj" \
 	OBJA="matchgcc.obj" \
 	DEF="os2/zip.def"
 
@@ -337,7 +338,7 @@ gccdyn:
 	LDFLAGS2="-Zcrtdll -Zstack 320 -s" \
 	OUT="-o" \
 	OBJ=".obj" \
-	CRC32="crc_gcc" \
+	CRCA_O="crc_gcc.obj" \
 	OBJA="matchgcc.obj" \
 	DEF="os2/zip.def"
 
@@ -352,7 +353,7 @@ gcczlib:
 	LDFLAGS2="-L. -lzlib -Zsys -Zstack 320 -s -Zsmall-conv" \
 	OUT="-o" \
 	OBJ=".obj" \
-	CRC32="crc32" \
+	CRCA_O="" \
 	OBJA="" \
 	DEF="os2/zip.def"
 
@@ -367,7 +368,7 @@ gccdebug:
 	LDFLAGS2="" \
 	OUT="-o" \
 	OBJ=".o" \
-	CRC32="crc_gcc" \
+	CRCA_O="crc_gcc.o" \
 	OBJA="matchgcc.o" \
 	DEF="os2/zip.def"
 
@@ -382,7 +383,7 @@ gccdos:
 	LDFLAGS2="-s -Zsmall-conv" \
 	OUT="-o" \
 	OBJ=".o" \
-	CRC32="crc_gcc" \
+	CRCA_O="crc_gcc.o" \
 	OBJA="matchgcc.o" \
 	OBJ2="msdos.o" \
 	OBJU2="msdos_.o" \
@@ -400,7 +401,7 @@ gccwin32:
 	LDFLAGS2="-ladvapi32 -Zsys -Zsmall-conv -s" \
 	OUT="-o" \
 	OBJ=".o" \
-	CRC32="crc_gcc" \
+	CRCA_O="crc_gcc.o" \
 	OBJA="matchgcc.o" \
 	OBJ2="win32zip.o win32.o nt.o" \
 	OBJU2="win32_.o" \
@@ -419,7 +420,7 @@ gccw32dyn:
 	LDFLAGS2="-ladvapi32 -s" \
 	OUT="-o" \
 	OBJ=".o" \
-	CRC32="crc_gcc" \
+	CRCA_O="crc_gcc.o" \
 	OBJA="matchgcc.o" \
 	OBJ2="win32zip.o win32.o nt.o" \
 	OBJU2="win32_.o" \
@@ -439,11 +440,11 @@ CCFLAGS = $(CFLAGS) $(LOCAL_OPTS)
 
 OSDEP_H = os2/osdep.h
 ZIPUP_H = os2/os2zip.h os2/zipup.h
-CRC32   = crc32
+CRCA_O  =
 
 
 OBJZ =  zip$(OBJ) zipfile$(OBJ) zipup$(OBJ) fileio$(OBJ) util$(OBJ) \
-        $(CRC32)$(OBJ) crctab$(OBJ) globals$(OBJ) \
+        crc32$(OBJ) $(CRCA_O) globals$(OBJ) \
 	deflate$(OBJ) trees$(OBJ) crypt$(OBJ) ttyio$(OBJ)
 OBJ2 =	os2zip$(OBJ) os2$(OBJ) os2acl$(OBJ)
 
@@ -452,7 +453,7 @@ OBJU2 = os2zip_$(OBJ)
 
 OBJN =  zipnote$(OBJ) $(OBJU) $(OBJU2)
 OBJS =  zipsplit$(OBJ) $(OBJU) $(OBJU2)
-OBJC =  zipcloak$(OBJ) crctab$(OBJ) crypt_$(OBJ) ttyio$(OBJ) $(OBJU) $(OBJU2)
+OBJC =  zipcloak$(OBJ) crc32_$(OBJ) crypt_$(OBJ) ttyio$(OBJ) $(OBJU) $(OBJU2)
 
 ZIP_H = zip.h ziperr.h tailor.h $(OSDEP_H)
 
@@ -470,17 +471,16 @@ ZIP_H = zip.h ziperr.h tailor.h $(OSDEP_H)
 
 zips:	zip.exe zipnote.exe zipsplit.exe zipcloak.exe
 
-zip$(OBJ):	zip.c $(ZIP_H) revision.h crypt.h ttyio.h
-zipfile$(OBJ):	zipfile.c $(ZIP_H)
-zipup$(OBJ):	zipup.c $(ZIP_H) revision.h crypt.h $(ZIPUP_H)
-fileio$(OBJ):	fileio.c $(ZIP_H)
+zip$(OBJ):	zip.c $(ZIP_H) revision.h crc32.h crypt.h ttyio.h
+zipfile$(OBJ):	zipfile.c $(ZIP_H) crc32.h
+zipup$(OBJ):	zipup.c $(ZIP_H) revision.h crc32.h crypt.h $(ZIPUP_H)
+fileio$(OBJ):	fileio.c $(ZIP_H) crc32.h
 util$(OBJ):	util.c $(ZIP_H)
 globals$(OBJ):	globals.c $(ZIP_H)
 deflate$(OBJ):	deflate.c $(ZIP_H)
 trees$(OBJ):	trees.c $(ZIP_H)
-crc32$(OBJ):	crc32.c $(ZIP_H)
-crctab$(OBJ):	crctab.c $(ZIP_H)
-crypt$(OBJ):	crypt.c $(ZIP_H) crypt.h ttyio.h
+crc32$(OBJ):	crc32.c $(ZIP_H) crc32.h
+crypt$(OBJ):	crypt.c $(ZIP_H) crypt.h crc32.h ttyio.h
 ttyio$(OBJ):	ttyio.c $(ZIP_H) crypt.h ttyio.h
 
 os2zip$(OBJ):	os2/os2zip.c $(ZIP_H) os2/os2zip.h os2/os2acl.h
@@ -522,20 +522,23 @@ match32$(OBJ):	win32/match32.asm
 matchgcc$(OBJ):	match.S
 	$(AS) $(ASFLAGS) -x assembler-with-cpp -c -o $@ match.S
 
-zipcloak$(OBJ):	zipcloak.c $(ZIP_H) revision.h crypt.h ttyio.h
+zipcloak$(OBJ):	zipcloak.c $(ZIP_H) revision.h crc32.h crypt.h ttyio.h
 zipnote$(OBJ):	zipnote.c $(ZIP_H) revision.h
 zipsplit$(OBJ): zipsplit.c $(ZIP_H) revision.h
 
-zipfile_$(OBJ):	zipfile.c $(ZIP_H)
+zipfile_$(OBJ):	zipfile.c $(ZIP_H) crc32.h
 	$(CC) -c -I. $(CCFLAGS) -DUTIL $(OUT)$@ zipfile.c
 
-fileio_$(OBJ):	fileio.c $(ZIP_H)
+fileio_$(OBJ):	fileio.c $(ZIP_H) crc32.h
 	$(CC) -c -I. $(CCFLAGS) -DUTIL $(OUT)$@ fileio.c
 
 util_$(OBJ):	util.c $(ZIP_H) os2/os2zip.h
 	$(CC) -c -I. $(CCFLAGS) -DUTIL $(OUT)$@ util.c
 
-crypt_$(OBJ):	crypt.c $(ZIP_H) crypt.h ttyio.h
+crc32_$(OBJ):	crc32.c $(ZIP_H) crc32.h
+	$(CC) -c -I. $(CCFLAGS) -DUTIL $(OUT)$@ crc32.c
+
+crypt_$(OBJ):	crypt.c $(ZIP_H) crypt.h crc32.h ttyio.h
 	$(CC) -c -I. $(CCFLAGS) -DUTIL $(OUT)$@ crypt.c
 
 os2zip_$(OBJ):	os2/os2zip.c $(ZIP_H) os2/os2zip.h

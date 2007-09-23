@@ -29,13 +29,13 @@ all: zip
 
 # object file lists
 OBJZ = zip.o zipfile.o zipup.o fileio.o util.o globals.o crypt.o qdos.o ttyio.o
-OBJI = deflate.o trees.o qfileio.o crctab.o
+OBJI = deflate.o trees.o qfileio.o crc32.o
 OBJA = config.o crc68.o match.o
 #  crc32.o
 OBJQ = qdos_.o config.o qfileio_.o
-OBJU = zipfile_.o zipup_.o fileio_.o util_.o globals.o $(OBJQ)
+OBJU = zipfile_.o fileio_.o util_.o globals.o $(OBJQ)
 OBJN = zipnote.o  $(OBJU)
-OBJC = zipcloak.o $(OBJU) crctab.o crypt_.o
+OBJC = zipcloak.o $(OBJU) crc32_.o crypt_.o
 OBJS = zipsplit.o $(OBJU)
 
 
@@ -58,6 +58,8 @@ $(OBJI): zip.h ziperr.h tailor.h
 $(OBJN): zip.h ziperr.h tailor.h
 $(OBJS): zip.h ziperr.h tailor.h
 $(OBJC): zip.h ziperr.h tailor.h
+zip.o zipup.o crc32.o crypt.o fileio.o zipfile.o:  crc32.h
+zipcloak.o crc32_.o crypt_.o fileio_.o zipfile_.o:  crc32.h
 zip.o zipup.o crypt.o zipup_.o zipcloak.o crypt_.o:  crypt.h
 
 qfileio.o: qdos/qfileio.c

@@ -8,7 +8,6 @@ Op Caseexact
 Op Nod
 File BITS.OBJ
 File CRC_i386.OBJ
-File CRCTAB.OBJ
 File CRYPT.OBJ
 File DEFLATE.OBJ
 File FILEIO.OBJ

@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 
 /* 2004-12-13 SMS.
@@ -123,15 +123,22 @@
 /*  Includes, Defines, etc.  */
 /*****************************/
 
+/* Accomodation for /NAMES = AS_IS with old header files. */
+
+#define sys$asctim SYS$ASCTIM
+#define sys$assign SYS$ASSIGN
+#define sys$bintim SYS$BINTIM
+#define sys$dassgn SYS$DASSGN
+#define sys$parse SYS$PARSE
+#define sys$qiow SYS$QIOW
+#define sys$search SYS$SEARCH
+
 #include "zip.h"
 
 #include <stdio.h>
 #include <string.h>
-#include <descrip.h>
-#include <rms.h>
 #include <iodef.h>
 #include <starlet.h>
-#include <atrdef.h>   /* this gets created with the c3.0 compiler */
 #include <fibdef.h>   /* this gets created with the c3.0 compiler */
 
 /*

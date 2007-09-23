@@ -1,9 +1,9 @@
 /*
   win32/rsxntwin.h - Zip 3
 
-  Copyright (c) 1990-2003 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2003-May-08 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -164,5 +164,10 @@ VOID WINAPI InitializeCriticalSection();
 #endif
 
 #endif /* TFUNCT */
+
+#ifndef CP_UTF8
+#  define CP_UTF8               65001           /* UTF-8 translation */
+#endif
+
 #endif /* !defined (_RSXNTWIN_H) */
 #endif /* __RSXNT__ */

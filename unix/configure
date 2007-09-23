@@ -4,7 +4,7 @@
 
 # configure: Guess values for system-dependent variables
 # Output the flag definitions to the file "flags".
-# Parameters: $1 = $CC, $2 = $CFLAGS
+# Parameters: $1 = $CC, $2 = $CFLAGS, $3 = $IZ_BZIP2
 # To construct zip automatically using this file, type
 # "make -f unix/Makefile generic".
 # If this fails, then type "make list" to get a list of special targets.
@@ -12,9 +12,183 @@
 trap "rm -f conftest* core a.out; exit 1" 1 2 3 15
 
 CC=${1-cc}
-CFLAGS=${2-"-O2 -I. -DUNIX"}
-LFLAGS1=""
+CFLAGS=${2-"-I. -DUNIX"}
+LFLAGS1=''
+LFLAGS2=''
 LN="ln -s"
+
+CFLAGS_OPT=''
+
+# bzip2
+IZ_BZIP2=${3-}
+CFLAGS_BZ=''
+
+echo 'Check C compiler type (optimization options)'
+cat > conftest.c << _EOF_
+int main()
+{
+#ifndef __SUNPRO_C
+   bad code
+#endif
+   return 0;
+}
+_EOF_
+$CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
+if test $? -eq 0; then
+  echo '  Sun C (-xO3)'
+  CFLAGS_OPT='-xO3'
+else
+  cat > conftest.c << _EOF_
+int main()
+{
+#ifndef __DECC
+   bad code
+#endif
+   return 0;
+}
+_EOF_
+  $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
+  if test $? -eq 0; then
+    echo '  DEC C (-O3)'
+    CFLAGS_OPT='-O3'
+  else
+    cat > conftest.c << _EOF_
+int main()
+{
+#ifdef __GNUC__
+   bad code
+#endif
+#ifndef __hpux
+   bad code
+#endif
+   return 0;
+}
+_EOF_
+    $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
+    if test $? -eq 0; then
+      # HP-UX, not GCC.  Lame bundled or real ANSI compiler?
+      cat > conftest.c << _EOF_
+int main()
+{
+#ifndef __HP_cc
+   bad code
+#endif
+   return 0;
+}
+_EOF_
+      $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
+      if test $? -eq 0; then
+        echo '  HP-UX ANSI C (+O3 +Onolimit)'
+        CFLAGS_OPT='+O3 +Onolimit'
+      else        
+        echo '  HP-UX Bundled C (no opt)'
+      fi
+    else
+      echo '  Other (gcc?) (-O2)'
+      CFLAGS_OPT='-O2'
+    fi
+  fi
+fi
+
+# optimization flags
+if test -n "${CFLAGS_OPT}"; then
+  CFLAGS="${CFLAGS} ${CFLAGS_OPT}"
+  CFLAGS_BZ="${CFLAGS_BZ} ${CFLAGS_OPT}"
+fi
+
+
+# bzip2
+
+CC_BZ="${CC}"
+LIB_BZ=''
+echo "Check bzip2 support"
+if test -n "${IZ_BZIP2}"; then
+  echo "  Check for bzip2 compiled library in IZ_BZIP2 (${IZ_BZIP2})"
+  if test -f "${IZ_BZIP2}/libbz2.a"; then
+#
+#   A bzip2 library built with BZ_NO_STDIO should have an
+#   unresolved external, "bz_internal_error".  The default,
+#   full-function library will not mention it.
+#
+    nm ${IZ_BZIP2}/libbz2.a | grep bz_internal_error > /dev/null
+    if test $? -eq 0; then
+      echo "    Found bzip2 BZ_NO_STDIO library, ${IZ_BZIP2}/libbz2.a"
+    else
+      echo "    Found bzip2 library, ${IZ_BZIP2}/libbz2.a,"
+      echo "      but library not compiled with BZ_NO_STDIO"
+      echo "    WARNING:  We recommend using a bzip2 library compiled"
+      echo "      with BZ_NO_STDIO defined for proper error handling"
+      echo "    Please see the Zip installation instructions in bzip2/install.txt"
+      echo "    Continuing anyway with standard bzip2 library..."
+    fi
+    if test -f "${IZ_BZIP2}/bzlib.h"; then
+      CFLAGS="${CFLAGS} -I${IZ_BZIP2} -DBZIP2_SUPPORT"
+      LFLAGS2="${LFLAGS2} -L${IZ_BZIP2} -lbz2"
+      echo "-- Found bzip2 library - linking in bzip2"
+    else
+      echo "    ${IZ_BZIP2}/bzlib.h not found"
+      echo "-- Since IZ_BZIP2 defined, skipping OS and bzip2 dir checks - no bzip2"
+    fi
+  else
+    echo "    ${IZ_BZIP2}/libbz2.a not found"
+    echo "-- Since IZ_BZIP2 defined, skipping OS and bzip2 checks - no bzip2"
+  fi
+else
+  echo "  Check for bzip2 in bzip2 directory"
+  IZ_BZIP2=bzip2
+  if test -f "${IZ_BZIP2}/libbz2.a"; then
+    nm ${IZ_BZIP2}/libbz2.a | grep bz_internal_error > /dev/null
+    if test $? -eq 0; then
+      echo "    Found bzip2 BZ_NO_STDIO library in bzip2 directory"
+    else
+      echo "    Found bzip2 library in bzip2 directory,"
+      echo "      but not built with the BZ_NO_STDIO option"
+      echo "    WARNING:  We recommend using a bzip2 library compiled"
+      echo "      with BZ_NO_STDIO defined for proper error handling"
+      echo "    Please see the Zip installation instructions"
+      echo "    Continuing anyway with standard bzip2 library..."
+    fi
+  fi
+  if test -f "bzip2/bzlib.h" -a -f "bzip2/libbz2.a"; then
+    CFLAGS="${CFLAGS} -I${IZ_BZIP2} -DBZIP2_SUPPORT"
+    LFLAGS2="${LFLAGS2} -Lbzip2 -lbz2"
+    echo "-- Found bzip2 library - linking in bzip2"
+  else
+    if test -f "bzip2/bzlib.c" -a -f "bzip2/bzlib.h"; then
+      echo "-- No library, but found bzip2 source in bzip2 directory"
+      echo "-- Will try to build bzip2 library from source and link in"
+#
+# Arrange to build a BZ_NO_STDIO bzip2 object library using the
+# same compiler and optimization options as used for Zip, and
+# to compile and link Zip with bzip2.
+#
+      CFLAGS_BZ="${CFLAGS_BZ} -DBZ_NO_STDIO"
+      LIB_BZ="bzip2/libbz2.a"
+      CFLAGS="${CFLAGS} -Ibzip2 -DBZIP2_SUPPORT"
+      LFLAGS2="${LFLAGS2} -Lbzip2 -lbz2"
+    else
+      echo "  Check if OS already has bzip2 library installed"
+      cat > conftest.c << _EOF_
+#include "bzlib.h"
+int main()
+{
+  bz_stream strm;
+  BZ2_bzCompressEnd(&strm);
+  return 0;
+}
+_EOF_
+      $CC $CFLAGS -o conftest conftest.c -lbz2 > /dev/null 2>/dev/null
+      if test $? -eq 0; then
+        echo "-- OS supports bzip2 - linking in bzip2"
+        CFLAGS="${CFLAGS} -DBZIP2_SUPPORT"
+        LFLAGS2="${LFLAGS2} -lbz2"
+      else
+        echo "-- Either bzlib.h or libbz2.a not found - no bzip2"
+      fi
+    fi
+  fi
+fi
+
 
 echo Check for the C preprocessor
 # on SVR4, cc -E does not produce correct assembler files. Need /lib/cpp.
@@ -32,6 +206,7 @@ $CPP conftest.c >/dev/null 2>/dev/null || CPP="${CC} -E"
 
 echo Check if we can use asm code
 OBJA=""
+OCRCU8=""
 if eval "$CPP match.S > _match.s 2>/dev/null"; then
   if test ! -s _match.s || grep error < _match.s > /dev/null; then
     :
@@ -47,6 +222,7 @@ if eval "$CPP match.S > _match.s 2>/dev/null"; then
       if eval "$CC -c _crc_i386.s >/dev/null 2>/dev/null" && [ -f _crc_i386.o ]
       then
         OBJA="$OBJA crc_i386.o"
+        OCRCU8="crc_i386.o"
         CFLAGS="${CFLAGS} -DASM_CRC"
       fi
     fi
@@ -182,6 +358,40 @@ else
   fi
 fi
 
+# Added 11/24/2005 EG
+# Check for wide char for Unicode support
+echo Check for wide char support
+cat > conftest.c << _EOF_
+#include <stdlib.h>
+#include <stdio.h>
+int main()
+{
+  int wsize;
+  wchar_t *wide_string;
+
+  if ((wide_string = (wchar_t *)malloc(4 * sizeof(wchar_t))) == NULL) {
+    return 0;
+  }
+  /* get wide string */
+  wsize = mbstowcs(wide_string, "foo", 3);
+  wide_string[wsize] = (wchar_t) NULL;
+  return 1;
+}
+_EOF_
+# compile it
+$CC -o conftest conftest.c >/dev/null 2>/dev/null
+if [ $? -ne 0 ]; then
+  echo -- no Unicode support
+  OCRCU8=""
+  OCRCTB="crc32_.o"
+else
+# have wide char support
+  echo -- have wchar_t - enabling Unicode support
+  CFLAGS="${CFLAGS} -DUNICODE_SUPPORT"
+  OCRCU8="crc32_.o ${OCRCU8}"
+  OCRCTB=""
+fi
+
 # from configure 2.4i (Onno) 12/5/04
 echo Check for gcc no-builtin flag
 # -fno-builtin since version 2
@@ -212,6 +422,22 @@ echo Check for memset
 echo "int main(){ char k; memset(&k,0,0); return 0; }" > conftest.c
 $CC -o conftest conftest.c >/dev/null 2>/dev/null
 [ $? -ne 0 ] && CFLAGS="${CFLAGS} -DZMEM"
+
+echo Check for memmove
+cat > conftest.c << _EOF_
+#include <string.h>
+int main() { int a; int b = 0; memmove( &a, &b, sizeof( a)); return a; }
+_EOF_
+$CC -o conftest conftest.c >/dev/null 2>/dev/null
+[ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNEED_MEMMOVE"
+
+echo Check for strerror
+cat > conftest.c << _EOF_
+#include <string.h>
+int main() { strerror( 0); return 0; }
+_EOF_
+$CC -o conftest conftest.c >/dev/null 2>/dev/null
+[ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNEED_STRERROR"
 
 echo Check for errno declaration
 cat > conftest.c << _EOF_
@@ -330,14 +556,14 @@ else
         $CC ${CFLAGS} -Olimit 1000 -o conftest conftest.c >/dev/null 2>/dev/null
         [ $? -eq 0 ] && CFLAGS="${CFLAGS} -Olimit 1000"
         ;;
-     HP-UX)
-        echo Check for +Onolimit option
-        $CC ${CFLAGS} +Onolimit -o conftest conftest.c >/dev/null 2>/dev/null
-        [ $? -eq 0 ] && CFLAGS="${CFLAGS} +Onolimit"
-        ;;
-     SunOS)
-        CFLAGS="${CFLAGS} -D_FILE_OFFSET_BITS=64"
-        ;;
+###     HP-UX)
+###        echo Check for +Onolimit option
+###        $CC ${CFLAGS} +Onolimit -o conftest conftest.c >/dev/null 2>/dev/null
+###        [ $? -eq 0 ] && CFLAGS="${CFLAGS} +Onolimit"
+###        ;;
+###     SunOS)
+###        CFLAGS="${CFLAGS} -D_FILE_OFFSET_BITS=64"
+###        ;;
   esac
 fi
 
@@ -347,5 +573,9 @@ ln -s /dev/null null > /dev/null 2>/dev/null || LN=ln
 rm -f a.out conftest.c conftest.o conftest null
 
 echo CC=\"${CC}\" CFLAGS=\"${CFLAGS}\"  CPP=\"${CPP}\" OBJA=\"${OBJA}\" \
+       OCRCU8=\"${OCRCU8}\" OCRCTB=\"${OCRCTB}\" \
        BINDIR=${BINDIR} MANDIR=${MANDIR} LFLAGS1=\"${LFLAGS1}\" \
-       LFLAGS2=\"${LFLAGS2}\" LN=\"${LN}\" > flags
+       LFLAGS2=\"${LFLAGS2}\" LN=\"${LN}\" \
+       CC_BZ=\"${CC_BZ}\" CFLAGS_BZ=\"${CFLAGS_BZ}\" \
+       IZ_BZIP2=\"${IZ_BZIP2}\" LIB_BZ=\"${LIB_BZ}\" > flags
+

@@ -27,8 +27,6 @@ say 'Compiling UTIL C...'
 'cc util c 'parms
 say 'Compiling CRC32 C...'
 'cc crc32 c 'parms
-say 'Compiling CRCTAB C...'
-'cc crctab c 'parms
 say 'Compiling ZIPFILE C...'
 'cc zipfile c 'parms
 say 'Compiling ZIPUP C...'
@@ -40,7 +38,7 @@ say 'Compiling CMS C...'
 
 say 'Linking all files...'
 'cmod zip zip trees crypt deflate fileio globals ttyio',
-           'util crc32 crctab zipfile zipup cmsmvs cms'
+           'util crc32 zipfile zipup cmsmvs cms'
 say 'All Done!'
 say "To run enter : ZIP parms"
 exit rc

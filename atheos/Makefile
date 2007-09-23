@@ -2,7 +2,7 @@
 #
 # Makefile for Info-ZIP's zip, zipcloak, zipnote, and zipsplit on AtheOS
 #
-# Copyright (C) 1999 Info-ZIP
+# Copyright (C) 1999-2007 Info-ZIP
 #                    Chris Herborth (chrish@pobox.com)
 #                    Ruslan Nickolaev (nruslan@hotbox.ru)
 #
@@ -49,13 +49,13 @@ all:
 # Object file lists and other build goodies
 
 # Object file lists
-OBJZ = zip.o zipfile.o zipup.o fileio.o util.o globals.o crypt.o ttyio.o \
-       atheos.o crctab.o
+OBJZ = zip.o zipfile.o zipup.o fileio.o util.o globals.o crc32.o crypt.o \
+       ttyio.o atheos.o
 OBJI = deflate.o trees.o
 OBJA = match.o crc_i386.o
 OBJU = zipfile_.o fileio_.o util_.o globals.o atheos_.o
 OBJN = zipnote.o  $(OBJU)
-OBJC = zipcloak.o $(OBJU) crctab.o crypt_.o ttyio.o
+OBJC = zipcloak.o $(OBJU) crc32_.o crypt_.o ttyio.o
 OBJS = zipsplit.o $(OBJU)
 
 # Headers
@@ -84,6 +84,8 @@ $(OBJI): $(ZIP_H)
 $(OBJN): $(ZIP_H)
 $(OBJS): $(ZIP_H)
 $(OBJC): $(ZIP_H)
+zip.o crc32.o crypt.o fileio.o zipfile.o zipup.o: crc32.h
+zipcloak.o crc32_.o crypt_.o fileio_.o zipfile_.o: crc32.h
 zip.o zipup.o crypt.o ttyio.o zipcloak.o crypt_.o: crypt.h
 zip.o zipup.o zipnote.o zipcloak.o zipsplit.o: revision.h
 zip.o crypt.o ttyio.o zipcloak.o crypt_.o: ttyio.h

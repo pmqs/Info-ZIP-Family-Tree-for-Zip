@@ -3,12 +3,12 @@ testing of portable Zip.  They are responsible for whatever works in
 Zip.  Whatever doesn't work is solely the fault of the authors of Zip
 (Mark Adler, Rich Wales, Jean-loup Gailly, Kai Uwe Rommel, Igor Mandrichenko,
 Onno van der Linden, Christian Spieler, John Bush, Paul Kienitz, Sergio Monesi
-and Karl Davis). If you have contributed and your name
-has been forgotten, please send a reminder to the zip-bugs address given
-in the Readme file. The names are given here in alphabetical order,
-because it's impossible to classify them by importance of the
-contribution. Some have made a complete port to a new target, some
-have provided a one line fix. All are to be thanked.
+and Karl Davis, but see the license for the latest list).  If you have
+contributed and your name has been forgotten, please send a reminder to us
+using the contact information in the Readme file.  The names are given here
+in alphabetical order, because it's impossible to classify them by importance
+of the contribution.  Some have made a complete port to a new target, some
+have provided a one line fix.  All are to be thanked.
 
 Mark Adler              madler@tybalt.caltech.edu       NeXT 2.x
                         alan@spri.levels.unisa.edu.au   Linux

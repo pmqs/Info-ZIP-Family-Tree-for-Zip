@@ -1,6 +1,6 @@
 #===========================================================================
 # Makefile for Zip, ZipNote, ZipCloak, ZipSplit     AMIGA SAS/C Version 6.58
-# Version:  2.3                                     last revised:  24 Aug 98
+# Version:  2.3                                   last revised:  07 Jan 2007
 #===========================================================================
 # -John Bush, <John.Bush@East.Sun.COM>
 #         or: <JBush@Bix.COM>
@@ -359,7 +359,7 @@ ASMOPTSL = $(AFLAGS) $(ALOWMEM)                 # Zip low-mem version asm flags
 
 # Zip objects
 OBJZ1 = zip$(O) zipfile$(O) zipup$(O) fileio$(O) util$(O) globals$(O)
-OBJZ2 = crc32$(O) crctab$(O) crypt$(O) timezone$(O) ttyio$(O)
+OBJZ2 = crc32$(O) crypt$(O) timezone$(O) ttyio$(O)
 OBJZI = deflate$(O) trees$(O)
 OBJZA = amiga$(O) amigazip$(O) stat$(O) filedate$(O)
 OBJZ  = $(OBJZ1) $(OBJZ2) $(OBJZI) $(OBJZA)
@@ -377,7 +377,7 @@ OBJN  = $(OBJN1) $(OBJU)
 # ZipCloak objects
 OBJC1 = zipcloak$(O)
 OBJCU = $(OBJU) crypt$(OU)
-OBJCS = crctab$(O) ttyio$(O)
+OBJCS = crc32$(OU) ttyio$(O)
 OBJC  = $(OBJC1) $(OBJCU) $(OBJCS)
 
 #ZipSplit objects
@@ -386,7 +386,7 @@ OBJS  = $(OBJS1) $(OBJU)
 
 # ZipLM objects
 OBJL1 = zip$(OL) zipfile$(OL) zipup$(OL) fileio$(OL) util$(OL) globals$(OL)
-OBJL2 = crc32$(OL) crctab$(OL) crypt$(OL) timezone$(OL) ttyio$(OL)
+OBJL2 = crc32$(OL) crypt$(OL) timezone$(OL) ttyio$(OL)
 OBJLI = deflate$(OL) trees$(OL)
 OBJLA = amiga$(OL) amigazip$(OL) stat$(OL) filedate$(OL)
 OBJL  = $(OBJL1) $(OBJL2) $(OBJLI) $(OBJLA)
@@ -503,17 +503,16 @@ spotless: clean
 # Zip dependencies:
 #
 
-zip$(O):        zip.c      $(ZIP_H) revision.h crypt.h ttyio.h
-zipup$(O):      zipup.c    $(ZIP_H) revision.h crypt.h amiga/zipup.h
-zipfile$(O):    zipfile.c  $(ZIP_H) revision.h
-crypt$(O):      crypt.c    $(ZIP_H) crypt.h ttyio.h
+zip$(O):        zip.c      $(ZIP_H) revision.h crc32.h crypt.h ttyio.h
+zipup$(O):      zipup.c    $(ZIP_H) revision.h crc32.h crypt.h amiga/zipup.h
+zipfile$(O):    zipfile.c  $(ZIP_H) revision.h crc32.h
+crypt$(O):      crypt.c    $(ZIP_H) crypt.h crc32.h ttyio.h
 ttyio$(O):      ttyio.c    $(ZIP_H) crypt.h ttyio.h
 deflate$(O):    deflate.c  $(ZIP_H)                          #C-src
 trees$(O):      trees.c    $(ZIP_H)
-fileio$(O):     fileio.c   $(ZIP_H)
+fileio$(O):     fileio.c   $(ZIP_H) crc32.h
 util$(O):       util.c     $(ZIP_H)
-crc32$(O):      crc32.c    $(ZIP_H)
-crctab$(O):     crctab.c   $(ZIP_H)
+crc32$(O):      crc32.c    $(ZIP_H) crc32.h
 globals$(O):    globals.c  $(ZIP_H)
 timezone$(O):   timezone.c $(ZIP_H) timezone.h
 # Amiga specific objects
@@ -529,28 +528,28 @@ amigazip$(O):   amiga/amigazip.c $(ZIP_H) amiga/amiga.h env:Workbench
 # Utility (ZipNote, ZipCloak, ZipSplit) dependencies:
 #
 zipnote$(O):    zipnote.c  $(ZIP_H) revision.h
-zipcloak$(O):   zipcloak.c $(ZIP_H) revision.h crypt.h ttyio.h
+zipcloak$(O):   zipcloak.c $(ZIP_H) revision.h crc32.h crypt.h ttyio.h
 zipsplit$(O):   zipsplit.c $(ZIP_H) revision.h
-zipfile$(OU):   zipfile.c  $(ZIP_H) revision.h
-fileio$(OU):    fileio.c   $(ZIP_H)
+zipfile$(OU):   zipfile.c  $(ZIP_H) revision.h crc32.h
+fileio$(OU):    fileio.c   $(ZIP_H) crc32.h
 util$(OU):      util.c     $(ZIP_H)
-crypt$(OU):     crypt.c    $(ZIP_H) crypt.h ttyio.h
+crc32$(OU):     crc32.c    $(ZIP_H) crc32.h
+crypt$(OU):     crypt.c    $(ZIP_H) crypt.h crc32.h ttyio.h
 # Amiga specific objects
 amigazip$(OU):   amiga/amigazip.c $(ZIP_H) amiga/amiga.h env:Workbench
 
 # ZipLM dependencies:
 #
-zip$(OL):       zip.c      $(ZIP_H) revision.h crypt.h ttyio.h
-zipup$(OL):     zipup.c    $(ZIP_H) revision.h crypt.h amiga/zipup.h
-zipfile$(OL):   zipfile.c  $(ZIP_H) revision.h
-crypt$(OL):     crypt.c    $(ZIP_H) crypt.h ttyio.h
+zip$(OL):       zip.c      $(ZIP_H) revision.h crc32.h crypt.h ttyio.h
+zipup$(OL):     zipup.c    $(ZIP_H) revision.h crc32.h crypt.h amiga/zipup.h
+zipfile$(OL):   zipfile.c  $(ZIP_H) revision.h crc32.h
+crypt$(OL):     crypt.c    $(ZIP_H) crypt.h crc32.h ttyio.h
 ttyio$(OL):     ttyio.c    $(ZIP_H) crypt.h ttyio.h
 deflate$(OL):   deflate.c  $(ZIP_H)
 trees$(OL):     trees.c    $(ZIP_H)
-fileio$(OL):    fileio.c   $(ZIP_H)
+fileio$(OL):    fileio.c   $(ZIP_H) crc32.h
 util$(OL):      util.c     $(ZIP_H)
 crc32$(OL):     crc32.c    $(ZIP_H)
-crctab$(OL):    crctab.c   $(ZIP_H)
 globals$(OL):   globals.c  $(ZIP_H)
 timezone$(OL):  timezone.c $(ZIP_H) timezone.h
 # Amiga specific objects

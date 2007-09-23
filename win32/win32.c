@@ -1,9 +1,9 @@
 /*
   win32/win32.c - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -24,6 +24,7 @@
 #include <limits.h>
 #include <time.h>
 #include <ctype.h>
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 /* for LARGE_FILE_SUPPORT but may not be needed */
 #include <io.h>
@@ -44,6 +45,9 @@
 
 #define EAID     0x0009
 
+#if (defined(__MINGW32__) && !defined(USE_MINGW_GLOBBING))
+   int _CRT_glob = 0;   /* suppress command line globbing by C RTL */
+#endif
 
 #ifndef UTIL
 
@@ -51,6 +55,9 @@ extern int noisy;
 
 #ifdef NT_TZBUG_WORKAROUND
 local int FSusesLocalTime(const char *path);
+#ifdef UNICODE_SUPPORt
+local int FSusesLocalTimeW(const wchar_t *path);
+#endif
 #endif
 #if (defined(USE_EF_UT_TIME) || defined(NT_TZBUG_WORKAROUND))
 local int FileTime2utime(FILETIME *pft, time_t *ut);
@@ -103,6 +110,49 @@ int IsFileSystemOldFAT(char *dir)
     return lastDriveOldFAT;
 }
 
+#ifdef UNICODE_SUPPORT
+int IsFileSystemOldFATW(wchar_t *dir)
+{
+  static wchar_t lastDrive = (wchar_t)'\0';    /* cached drive of last GetVolumeInformation call */
+  static int lastDriveOldFAT = 0;  /* cached OldFAT value of last GetVolumeInformation call */
+  wchar_t root[4];
+  DWORD vfnsize;
+  DWORD vfsflags;
+
+    /*
+     * We separate FAT and HPFS+other file systems here.
+     * I consider other systems to be similar to HPFS/NTFS, i.e.
+     * support for long file names and being case sensitive to some extent.
+     */
+
+    wcsncpy(root, dir, 3);
+    if ( iswalpha(root[0]) && (root[1] == (wchar_t)':') ) {
+      root[0] = towupper(dir[0]);
+      root[2] = (wchar_t)'\\';
+      root[3] = 0;
+    }
+    else {
+      root[0] = (wchar_t)'\\';
+      root[1] = 0;
+    }
+    if (lastDrive == root[0]) {
+      return lastDriveOldFAT;
+    }
+
+    if ( !GetVolumeInformationW(root, NULL, 0,
+                                NULL, &vfnsize, &vfsflags,
+                                NULL, 0)) {
+        fprintf(mesg, "zip diagnostic: GetVolumeInformation failed\n");
+        return(FALSE);
+    }
+
+    lastDrive = root[0];
+    lastDriveOldFAT = vfnsize <= 12;
+
+    return lastDriveOldFAT;
+}
+#endif
+
 
 /* access mode bits and time stamp */
 
@@ -110,11 +160,6 @@ int GetFileMode(char *name)
 {
 DWORD dwAttr;
 #if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
-  char *ansi_name = (char *)alloca(strlen(name) + 1);
-
-  OemToAnsi(name, ansi_name);
-  name = ansi_name;
-#elif defined(WIN32_OEM)
   char *ansi_name = (char *)alloca(strlen(name) + 1);
 
   OemToAnsi(name, ansi_name);
@@ -134,6 +179,56 @@ DWORD dwAttr;
         | (dwAttr&FILE_ATTRIBUTE_ARCHIVE   ? A_ARCHIVE :0));
 }
 
+#ifdef UNICODE_SUPPORT
+int GetFileModeW(wchar_t *namew)
+{
+DWORD dwAttr;
+#if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
+  wchar_t *ansi_namew = (wchar_t *)alloca((wcslen(namew) + 1) * sizeof(wchar_t));
+
+  CharToAnsiW(namew, ansi_namew);
+  namew = ansi_namew;
+#endif
+
+  dwAttr = GetFileAttributesW(namew);
+  if ( dwAttr == 0xFFFFFFFF ) {
+    fprintf(mesg, "zip diagnostic: GetFileAttributes failed\n");
+    return(0x20); /* the most likely, though why the error? security? */
+  }
+  return(
+          (dwAttr&FILE_ATTRIBUTE_READONLY  ? A_RONLY   :0)
+        | (dwAttr&FILE_ATTRIBUTE_HIDDEN    ? A_HIDDEN  :0)
+        | (dwAttr&FILE_ATTRIBUTE_SYSTEM    ? A_SYSTEM  :0)
+        | (dwAttr&FILE_ATTRIBUTE_DIRECTORY ? A_DIR     :0)
+        | (dwAttr&FILE_ATTRIBUTE_ARCHIVE   ? A_ARCHIVE :0));
+}
+#endif
+
+
+int ClearArchiveBit(char *name)
+{
+DWORD dwAttr;
+#if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
+  char *ansi_name = (char *)alloca(strlen(name) + 1);
+
+  OemToAnsi(name, ansi_name);
+  name = ansi_name;
+#endif
+
+  dwAttr = GetFileAttributes(name);
+  if ( dwAttr == 0xFFFFFFFF ) {
+    fprintf(mesg, "zip diagnostic: GetFileAttributes failed\n");
+    return(0);
+  }
+
+  if (!SetFileAttributes(name, (DWORD)(dwAttr & ~FILE_ATTRIBUTE_ARCHIVE))) {
+    fprintf(mesg, "zip diagnostic: SetFileAttributes failed\n");
+    perror("SetFileAttributes");
+    return(0);
+  }
+  return(1);
+}
+
 
 #ifdef NT_TZBUG_WORKAROUND
 local int FSusesLocalTime(const char *path)
@@ -143,11 +238,6 @@ local int FSusesLocalTime(const char *path)
     char   tmp1[MAX_PATH], tmp2[MAX_PATH];
     DWORD  volSerNo, maxCompLen, fileSysFlags;
 #if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
-    char *ansi_path = (char *)alloca(strlen(path) + 1);
-
-    OemToAnsi(path, ansi_path);
-    path = ansi_path;
-#elif defined(WIN32_OEM)
     char *ansi_path = (char *)alloca(strlen(path) + 1);
 
     OemToAnsi(path, ansi_path);
@@ -176,6 +266,45 @@ local int FSusesLocalTime(const char *path)
            !strncmp(tmp2, "HPFS", 4);
 
 } /* end function FSusesLocalTime() */
+
+# ifdef UNICODE_SUPPORT
+local int FSusesLocalTimeW(const wchar_t *path)
+{
+    wchar_t  *tmp0;
+    wchar_t   rootPathName[4];
+    wchar_t   tmp1[MAX_PATH], tmp2[MAX_PATH];
+    DWORD  volSerNo, maxCompLen, fileSysFlags;
+#if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
+    wchar_t *ansi_path = (wchar_t *)alloca((wcslen(path) + 1) * sizeof(wchar_t));
+
+    CharToAnsiW(path, ansi_path);
+    path = ansi_path;
+#endif
+
+    if (iswalpha(path[0]) && (path[1] == (wchar_t)':'))
+        tmp0 = (wchar_t *)path;
+    else
+    {
+        GetFullPathNameW(path, MAX_PATH, tmp1, &tmp0);
+        tmp0 = &tmp1[0];
+    }
+    wcsncpy(rootPathName, tmp0, 3);   /* Build the root path name, */
+    rootPathName[3] = (wchar_t)'\0';           /* e.g. "A:/"                */
+
+    GetVolumeInformationW(rootPathName, tmp1, (DWORD)MAX_PATH,
+                         &volSerNo, &maxCompLen, &fileSysFlags,
+                         tmp2, (DWORD)MAX_PATH);
+
+    /* Volumes in (V)FAT and (OS/2) HPFS format store file timestamps in
+     * local time!
+     */
+    return !wcsncmp(_wcsupr(tmp2), L"FAT", 3) ||
+           !wcsncmp(tmp2, L"VFAT", 4) ||
+           !wcsncmp(tmp2, L"HPFS", 4);
+
+} /* end function FSusesLocalTimeW() */
+# endif
+
 #endif /* NT_TZBUG_WORKAROUND */
 
 
@@ -395,8 +524,8 @@ WORD dh, dl;
   name = ansi_name;
 #endif
 
-  h = CreateFile(name, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                 OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  h = CreateFile(name, FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                 NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
   if ( h != INVALID_HANDLE_VALUE ) {
     BOOL ftOK = GetFileTime(h, &Creft, &Accft, &Modft);
     CloseHandle(h);
@@ -499,17 +628,20 @@ char *GetLongPathEA(char *name)
     return(NULL); /* volunteers ? */
 }
 
+#ifdef UNICODE_SUPPORT
+wchar_t *GetLongPathEAW(wchar_t *name)
+{
+    return(NULL); /* volunteers ? */
+}
+#endif
+
+
 int IsFileNameValid(x)
 char *x;
 {
     WIN32_FIND_DATA fd;
     HANDLE h;
 #if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
-    char *ansi_name = (char *)alloca(strlen(x) + 1);
-
-    OemToAnsi(x, ansi_name);
-    x = ansi_name;
-#elif defined(WIN32_OEM)
     char *ansi_name = (char *)alloca(strlen(x) + 1);
 
     OemToAnsi(x, ansi_name);
@@ -543,8 +675,6 @@ char *getVolumeLabel(drive, vtime, vmode, vutim)
   if (GetVolumeInformation(drive ? rootpath : NULL, vol, 13, NULL,
                            &fnlen, &flags, NULL, 0))
 #if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
-    return (AnsiToOem(vol, vol), vol);
-#elif defined(WIN32_OEM)
     return (AnsiToOem(vol, vol), vol);
 #else
     return vol;
@@ -656,19 +786,13 @@ char *StringLower(char *szArg)
 
         OemToAnsi(path, ansi_path);
 #       define Ansi_Path  ansi_path
-#elif defined(WIN32_OEM)
-        char *ansi_path = (char *)alloca(strlen(path) + 1);
-
-        OemToAnsi(path, ansi_path);
-#       define Ansi_Path  ansi_path
 #else
 #       define Ansi_Path  path
 #endif
 
         Trace((stdout, "stat(%s) finds modtime %08lx\n", path, buf->st_mtime));
-        h = CreateFile(Ansi_Path, GENERIC_READ,
-                       FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        h = CreateFile(Ansi_Path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                       NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
         if (h != INVALID_HANDLE_VALUE) {
             BOOL ftOK = GetFileTime(h, &Creft, &Accft, &Modft);
             CloseHandle(h);
@@ -723,11 +847,6 @@ char *StringLower(char *szArg)
 
         OemToAnsi(path, ansi_path);
 #       define Ansi_Path  ansi_path
-#elif defined(WIN32_OEM)
-        char *ansi_path = (char *)alloca(strlen(path) + 1);
-
-        OemToAnsi(path, ansi_path);
-#       define Ansi_Path  ansi_path
 #else
 #       define Ansi_Path  path
 #endif
@@ -757,6 +876,117 @@ char *StringLower(char *szArg)
 #endif /* W32_STATROOT_FIX */
     return -1;
 }
+
+
+# ifdef UNICODE_SUPPORT
+
+int zstat_zipwin32w(const wchar_t *pathw, zw_stat *buf)
+{
+    if (!zwstat(pathw, buf))
+    {
+#ifdef NT_TZBUG_WORKAROUND
+        /* stat was successful, now redo the time-stamp fetches */
+        int fs_uses_loctime = FSusesLocalTimeW(pathw);
+        HANDLE h;
+        FILETIME Modft, Accft, Creft;
+#if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
+        char *ansi_path = (char *)alloca(strlen(pathw) + 1);
+
+        OemToAnsi(path, ansi_path);
+#       define Ansi_Path  ansi_path
+#else
+#       define Ansi_Path  pathw
+#endif
+
+        Trace((stdout, "stat(%s) finds modtime %08lx\n", pathw, buf->st_mtime));
+        h = CreateFileW(Ansi_Path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                       NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+        if (h != INVALID_HANDLE_VALUE) {
+            BOOL ftOK = GetFileTime(h, &Creft, &Accft, &Modft);
+            CloseHandle(h);
+
+            if (ftOK) {
+                if (!fs_uses_loctime) {
+                    /*  On a filesystem that stores UTC timestamps, we refill
+                     *  the time fields of the struct stat buffer by directly
+                     *  using the UTC values as returned by the Win32
+                     *  GetFileTime() API call.
+                     */
+                    FileTime2utime(&Modft, &(buf->st_mtime));
+                    if (Accft.dwLowDateTime != 0 || Accft.dwHighDateTime != 0)
+                        FileTime2utime(&Accft, &(buf->st_atime));
+                    else
+                        buf->st_atime = buf->st_mtime;
+                    if (Creft.dwLowDateTime != 0 || Creft.dwHighDateTime != 0)
+                        FileTime2utime(&Creft, &(buf->st_ctime));
+                    else
+                        buf->st_ctime = buf->st_mtime;
+                    Tracev((stdout,"NTFS, recalculated modtime %08lx\n",
+                            buf->st_mtime));
+                } else {
+                    /*  On VFAT and FAT-like filesystems, the FILETIME values
+                     *  are converted back to the stable local time before
+                     *  converting them to UTC unix time-stamps.
+                     */
+                    VFatFileTime2utime(&Modft, &(buf->st_mtime));
+                    if (Accft.dwLowDateTime != 0 || Accft.dwHighDateTime != 0)
+                        VFatFileTime2utime(&Accft, &(buf->st_atime));
+                    else
+                        buf->st_atime = buf->st_mtime;
+                    if (Creft.dwLowDateTime != 0 || Creft.dwHighDateTime != 0)
+                        VFatFileTime2utime(&Creft, &(buf->st_ctime));
+                    else
+                        buf->st_ctime = buf->st_mtime;
+                    Tracev((stdout, "VFAT, recalculated modtime %08lx\n",
+                            buf->st_mtime));
+                }
+            }
+        }
+#       undef Ansi_Path
+#endif /* NT_TZBUG_WORKAROUND */
+        return 0;
+    }
+#ifdef W32_STATROOT_FIX
+    else
+    {
+        DWORD flags;
+#if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
+        char *ansi_path = (char *)alloca(strlen(pathw) + 1);
+
+        OemToAnsi(path, ansi_path);
+#       define Ansi_Path  ansi_path
+#else
+#       define Ansi_Path  pathw
+#endif
+
+        flags = GetFileAttributesW(Ansi_Path);
+        if (flags != 0xFFFFFFFF && flags & FILE_ATTRIBUTE_DIRECTORY) {
+            Trace((stderr, "\nstat(\"%s\",...) failed on existing directory\n",
+                   pathw));
+#ifdef LARGE_FILE_SUPPORT         /* E. Gordon 9/12/03 */
+            memset(buf, 0, sizeof(z_stat));
+#else
+            memset(buf, 0, sizeof(struct stat));
+#endif
+            buf->st_atime = buf->st_ctime = buf->st_mtime =
+              dos2unixtime(DOSTIME_MINIMUM);
+            /* !!!   you MUST NOT add a cast to the type of "st_mode" here;
+             * !!!   different compilers do not agree on the "st_mode" size!
+             * !!!   (And, some compiler may not declare the "mode_t" type
+             * !!!   identifier, so you cannot use it, either.)
+             */
+            buf->st_mode = S_IFDIR | S_IREAD |
+                           ((flags & FILE_ATTRIBUTE_READONLY) ? 0 : S_IWRITE);
+            return 0;
+        } /* assumes: stat() won't fail on non-dirs without good reason */
+#       undef Ansi_Path
+    }
+#endif /* W32_STATROOT_FIX */
+    return -1;
+}
+
+# endif
+
 
 #endif /* W32_STAT_BANDAID */
 
@@ -1017,3 +1247,81 @@ void version_local()
  * in WiZ using UnZip and Zip libraries.
  * 9/25/2003
  */
+
+
+/* --------------------------------------------------- */
+/* Unicode Support for Win32
+ *
+ */
+
+#if 0
+#ifdef UNICODE_SUPPORT
+
+  /* get the wide command line and convert to argvw */
+  /* windows ignores argv and gets argvw separately */
+  zchar **get_wide_argv(argv)
+    char **argv;
+  {
+    int i;
+    int argc;
+    int size;
+    zchar **argvw = NULL;
+    zchar *commandline = NULL;
+    zchar **a = NULL;
+
+    commandline = GetCommandLineW();
+    a = CommandLineToArgvW(commandline, &argc);
+
+    if (a == NULL) {
+      /* failed */
+      ZIPERR(ZE_COMPERR, "get_wide_argv");
+    }
+
+    /* copy args so can use free_args() */
+    if ((argvw = (zchar **)malloc((argc + 1) * sizeof(zchar *))) == NULL) {
+      ZIPERR(ZE_MEM, "get_wide_argv");
+    }
+    for (i = 0; i < argc; i++) {
+      size = zstrlen(a[i]) + 1;
+      if ((argvw[i] = (zchar *)malloc(size * sizeof(zchar))) == NULL) {
+        ZIPERR(ZE_MEM, "get_wide_argv");
+      }
+      if ((argvw[i] = copy_zstring(a[i])) == NULL) {
+        ZIPERR(ZE_MEM, "get_wide_argv");
+      }
+    }
+    argvw[argc] = L'\0';
+
+    /* free original argvw */
+    LocalFree(a);
+
+    return argvw;
+  }
+#endif
+#endif
+
+#if defined(UNICODE_SUPPORT) || defined(WIN32_OEM)
+/* convert oem to ansi character string */
+char *oem_to_local_string(local_string, oem_string)
+  char *local_string;
+  char *oem_string;
+{
+  /* convert OEM to ANSI character set */
+  OemToChar(oem_string, local_string);
+
+  return local_string;
+}
+#endif
+
+#if defined(UNICODE_SUPPORT) || defined(WIN32_OEM)
+/* convert local to oem character string */
+char *local_to_oem_string(oem_string, local_string)
+  char *oem_string;
+  char *local_string;
+{
+  /* convert to OEM display character set */
+  CharToOem(local_string, oem_string);
+  return oem_string;
+}
+#endif
+

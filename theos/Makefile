@@ -20,54 +20,54 @@ UTILFLAGS=-DUTIL $(CFLAGS) -Fo
 
 # object file lists
 OBJZ = zip.o zipfile.o zipup.o fileio.o util.o globals.o crypt.o ttyio.o \
-       theos.o crc32.o crctab.o _fprintf.o _stat.o _chmod.o _isatty.o \
+       theos.o crc32.o _fprintf.o _stat.o _chmod.o _isatty.o \
        _setargv.o _rename.o
 OBJI = deflate.o trees.o
 OBJA =
 OBJU = zipfile_.o fileio_.o util_.o globals.o theos_.o _rename.o _stat.o \
        _chmod.o _fprintf.o
 OBJN = zipnote.o  $(OBJU)
-OBJC = zipcloak.o $(OBJU) crctab.o crypt_.o ttyio.o
+OBJC = zipcloak.o $(OBJU) crc32_.o crypt_.o ttyio.o
 OBJS = zipsplit.o $(OBJU)
+
+OSDEP_H = theos/osdep.h
+ZIP_H = zip.h ziperr.h tailor.h $(OSDEP_H)
 
 ZIPS = zip.command zipnote.command zipsplit.command zipcloak.command
 
 zips:	$(ZIPS)
 
-zip.o:	zip.h theos/osdep.h ziperr.h tailor.h ttyio.h revision.h zip.c
+zip.o:	zip.c $(ZIP_H) crc32.h crypt.h ttyio.h revision.h
 	$(CC) -c $(CFLAGS) $*.c
 
-zipfile.o:	zip.h theos/osdep.h ziperr.h tailor.h zipfile.c
+zipfile.o:	zipfile.c $(ZIP_H) crc32.h
 	$(CC) -c $(CFLAGS) $*.c
 
-zipup.o:	zip.h theos/osdep.h ziperr.h tailor.h revision.h zipup.c
+zipup.o:	zipup.c $(ZIP_H) revision.h crc32.h crypt.h
 	$(CC) -c $(CFLAGS) $*.c
 
-fileio.o:	zip.h theos/osdep.h ziperr.h tailor.h fileio.c
+fileio.o:	fileio.c $(ZIP_H) crc32.h
 	$(CC) -c $(CFLAGS) $*.c
 
-util.o:	zip.h theos/osdep.h theos/charconv.h ziperr.h tailor.h util.c
+util.o:	util.c $(ZIP_H) theos/charconv.h
 	$(CC) -c $(CFLAGS) $*.c
 
-globals.o:	zip.h theos/osdep.h ziperr.h tailor.h globals.c
+globals.o:	globals.c $(ZIP_H)
 	$(CC) -c $(CFLAGS) $*.c
 
-crc32.o:	zip.h theos/osdep.h ziperr.h tailor.h crc32.c
+crc32.o:	crc32.c $(ZIP_H) crc32.h
 	$(CC) -c $(CFLAGS) $*.c
 
-crctab.o:	zip.h theos/osdep.h ziperr.h tailor.h crctab.c
+deflate.o:	deflate.c $(ZIP_H)
 	$(CC) -c $(CFLAGS) $*.c
 
-deflate.o:	zip.h theos/osdep.h ziperr.h tailor.h deflate.c
+trees.o:	trees.c $(ZIP_H)
 	$(CC) -c $(CFLAGS) $*.c
 
-trees.o:	zip.h theos/osdep.h ziperr.h tailor.h trees.c
+crypt.o:	crypt.c $(ZIP_H) crc32.h crypt.h
 	$(CC) -c $(CFLAGS) $*.c
 
-crypt.o:	zip.h theos/osdep.h ziperr.h tailor.h crypt.c
-	$(CC) -c $(CFLAGS) $*.c
-
-theos.o:	zip.h theos/osdep.h ziperr.h tailor.h theos/theos.c
+theos.o:	theos/theos.c $(ZIP_H)
 	$(CC) -c $(CFLAGS) -Fo$@ theos/theos.c
 
 _fprintf.o:	theos/_fprintf.c
@@ -88,31 +88,34 @@ _rename.o:	theos/_rename.c
 _setargv.o:	theos/_setargv.c
 	$(CC) -c $(CFLAGS) -Fo$@ theos/_setargv.c
 
-ttyio.o:	zip.h theos/osdep.h ziperr.h tailor.h ttyio.h ttyio.c
+ttyio.o:	$(ZIP_H) ttyio.h ttyio.c
 	$(CC) -c $(CFLAGS) $*.c
 
-zipcloak.o:	zip.h theos/osdep.h ziperr.h tailor.h ttyio.h revision.h zipcloak.c
+zipcloak.o:	zipcloak.c $(ZIP_H) crc32.h crypt.h ttyio.h revision.h
 	$(CC) -c $(CFLAGS) $*.c
 
-zipnote.o:	zip.h theos/osdep.h ziperr.h tailor.h revision.h zipnote.c
+zipnote.o:	zipnote.c $(ZIP_H) revision.h
 	$(CC) -c $(CFLAGS) $*.c
 
-zipsplit.o:	zipsplit.c zip.h theos/osdep.h ziperr.h tailor.h revision.h
+zipsplit.o:	$(ZIP_H) revision.h
 	$(CC) -c $(CFLAGS) $*.c
 
-zipfile_.o:	zipfile.c zip.h theos/osdep.h ziperr.h tailor.h
+zipfile_.o:	zipfile.c $(ZIP_H) crc32.h
 	$(CC) -c $(UTILFLAGS)$@ zipfile.c
 
-fileio_.o:	fileio.c zip.h theos/osdep.h ziperr.h tailor.h
+fileio_.o:	fileio.c $(ZIP_H) crc32.h
 	$(CC) -c $(UTILFLAGS)$@ fileio.c
 
-theos_.o:	zip.h theos/osdep.h ziperr.h tailor.h theos/theos.c
+theos_.o:	theos/theos.c $(ZIP_H)
 	$(CC) -c $(UTILFLAGS)$@ theos/theos.c
 
-util_.o:	util.c zip.h theos/osdep.h ziperr.h tailor.h
+util_.o:	util.c $(ZIP_H)
 	$(CC) -c $(UTILFLAGS)$@ util.c
 
-crypt_.o:	zip.h theos/osdep.h ziperr.h tailor.h crypt.c
+crc32_.o:	crc32.c $(ZIP_H) crc32.h
+	$(CC) -c $(UTILFLAGS)$@ $*.c
+
+crypt_.o:	crypt.c $(ZIP_H) crc32.h crypt.h
 	$(CC) -c $(UTILFLAGS)$@ crypt.c
 
 zip.command: $(OBJZ) $(OBJI)

@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 #include "zip.h"
 
@@ -387,10 +387,10 @@ iztimes *t;             /* return value: access, modific. and creation times */
    a file size of -1 */
 {
   struct stat s;        /* results of stat() */
-  /* from FNMAX to malloc - 11/8/04 EG */
   char *name;
   ulg r;
-  int len = strlen(f), isstdin = !strcmp(f, "-");
+  unsigned int len = strlen(f);
+  int isstdin = !strcmp(f, "-");
 
   if (f == label) {
     if (a != NULL)
@@ -401,6 +401,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
       t->atime = t->mtime = t->ctime = label_utim;
     return label_time;
   }
+
   if ((name = malloc(len + 1)) == NULL) {
     ZIPERR(ZE_MEM, "filetime");
   }
@@ -445,6 +446,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
 
   r = GetFileTime(name);
   free(name);
+
   return r;
 }
 

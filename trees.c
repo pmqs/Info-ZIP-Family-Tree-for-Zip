@@ -1,7 +1,7 @@
 /*
   trees.h - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -450,7 +450,7 @@ local void copy_block     OF((char *buf, unsigned len, int header));
 
 #else /* DEBUG */
 #  define send_code(c, tree) \
-     { if (verbose>1) fprintf(stderr,"\ncd %3d ",(c)); \
+     { if (verbose>1) fprintf(mesg,"\ncd %3d ",(c)); \
        send_bits(tree[c].Code, tree[c].Len); }
 #endif
 
@@ -822,7 +822,7 @@ local void build_tree(desc)
         tree[n].Dad = tree[m].Dad = (ush)node;
 #ifdef DUMP_BL_TREE
         if (tree == bl_tree) {
-            fprintf(stderr,"\nnode %d(%d), sons %d(%d) %d(%d)",
+            fprintf(mesg,"\nnode %d(%d), sons %d(%d) %d(%d)",
                     node, tree[node].Freq, n, tree[n].Freq, m, tree[m].Freq);
         }
 #endif
@@ -1264,7 +1264,7 @@ local void set_file_type()
      * set bits 0..6, 14..25, and 28..31
      * 0xf3ffc07f = binary 11110011111111111100000001111111
      */
-    unsigned long mask = 0xf3ffc07fUL;
+    unsigned long mask = 0xf3ffc07fL;
     int n;
 
     /* Check for non-textual ("black-listed") bytes. */
@@ -1380,6 +1380,43 @@ local void bi_windup()
 /* ===========================================================================
  * Copy a stored block to the zip file, storing first the length and its
  * one's complement if requested.
+ *
+ * Buffer Overwrite fix
+ *
+ * A buffer flush has been added to fix a bug when encrypting deflated files
+ * with embedded "copied blocks".  When encrypting, the flush_out() routine
+ * modifies its data buffer because encryption is done "in-place" in
+ * zfwrite(), whereas without encryption, the flush_out() data buffer is
+ * left unaltered.  This can be a problem as noted below by the submitter.
+ *
+ * "But an exception comes when a block of stored data (data that could not
+ * be compressed) is being encrypted. In this case, the data that is passed
+ * to zfwrite (and is therefore encrypted-in-place) is actually a block of
+ * data from within the sliding input window that is being managed by
+ * deflate.c.
+ *
+ * "Since part of the sliding input window has now been overwritten by
+ * encrypted (and essentially random) data, deflate.c's search for previous
+ * text that matches the current text will usually fail but on rare
+ * occasions will find a match with something in the encrypted data. This
+ * incorrect match then causes incorrect information to be placed in the
+ * ZIP file."
+ *
+ * The problem results in the zip file having bad data and so a bad CRC.
+ * This does not happen often and to recreate the problem a large file
+ * with non-compressable data is needed so that deflate chooses to store the
+ * data.  A test file of 400 MB seems large enough to recreate the problem
+ * using a command such as
+ *     zip -1 -e crcerror.zip testfile.dat
+ * maybe half the time.
+ *
+ * This problem has been fixed by copying the data into the deflate output
+ * buffer before calling flush_outbuf(), when encryption is enabled.
+ *
+ * Thanks to the nice people at WinZip for identifying the problem and
+ * passing it on.  Also see Changes.
+ *
+ * 2006-03-06 EG, CS
  */
 local void copy_block(block, len, header)
     char *block;  /* the input data */
@@ -1397,8 +1434,28 @@ local void copy_block(block, len, header)
     }
     if (flush_flg) {
         flush_outbuf(out_buf, &out_offset);
-        out_offset = len;
-        flush_outbuf(block, &out_offset);
+        if (key != (char *)NULL) {  /* key is the global password pointer */
+            /* Encryption modifies the data in the output buffer. But the
+             * copied input data must remain intact for further deflate
+             * string matching lookups.  Therefore, the input data is
+             * copied into the compression output buffer for flushing
+             * to the compressed/encrypted output stream.
+             */
+            while(len > 0) {
+                out_offset = (len < out_size ? len : out_size);
+                memcpy(out_buf, block, out_offset);
+                block += out_offset;
+                len -= out_offset;
+                flush_outbuf(out_buf, &out_offset);
+            }
+        } else {
+            /* Without encryption, the output routines do not touch the
+             * written data, so there is no need for an additional copy
+             * operation.
+             */
+            out_offset = len;
+            flush_outbuf(block, &out_offset);
+        }
     } else if (out_offset + len > out_size) {
         error("output buffer too small for in-memory compression");
     } else {

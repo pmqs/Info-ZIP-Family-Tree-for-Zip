@@ -1,11 +1,11 @@
 /*
   win32/nt.c - Zip 3
 
-  Copyright (c) 1990-2003 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2003-May-08 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*++
@@ -54,6 +54,12 @@ Author:
 #  define FILE_SHARE_DELETE 0x00000004
 #endif
 
+/* This macro definition is missing in old versions of MS' winbase.h. */
+#ifndef InterlockedExchangePointer
+#  define InterlockedExchangePointer(Target, Value) \
+      (PVOID)InterlockedExchange((PLONG)(Target), (LONG)(Value))
+#endif
+
 /* private prototypes */
 
 static BOOL Initialize(VOID);
@@ -98,11 +104,13 @@ static BOOL Initialize(VOID)
     hMutex = CreateMutex(NULL, TRUE, NULL);
     if(hMutex == NULL) return FALSE;
 
-    hOldMutex = (HANDLE)InterlockedExchange((LPLONG)&hZipInitMutex, (LONG)hMutex);
+    hOldMutex = (HANDLE)InterlockedExchangePointer(&hZipInitMutex,
+                                                   hMutex);
 
     if(hOldMutex != NULL) {
         /* somebody setup the mutex already */
-        InterlockedExchange((LPLONG)&hZipInitMutex, (LONG)hOldMutex);
+        InterlockedExchangePointer(&hZipInitMutex,
+                                   hOldMutex);
 
         CloseHandle(hMutex); /* close new, un-needed mutex */
 

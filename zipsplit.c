@@ -1,9 +1,9 @@
 /*
   zipsplit.c - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -93,6 +93,98 @@ zvoid *talls[TMAX];     /* malloc'ed pointers to track */
 int talln = 0;          /* number of entries in talls[] */
 
 
+int set_filetype(out_path)
+  char *out_path;
+{
+#ifdef __BEOS__
+  /* Set the filetype of the zipfile to "application/zip" */
+  setfiletype( out_path, "application/zip" );
+#endif
+
+#ifdef __ATHEOS__
+  /* Set the filetype of the zipfile to "application/x-zip" */
+  setfiletype(out_path, "application/x-zip");
+#endif
+
+#ifdef MACOS
+  /* Set the Creator/Type of the zipfile to 'IZip' and 'ZIP ' */
+  setfiletype(out_path, 'IZip', 'ZIP ');
+#endif
+
+#ifdef RISCOS
+  /* Set the filetype of the zipfile to &DDC */
+  setfiletype(out_path, 0xDDC);
+#endif
+  return ZE_OK;
+}
+
+/* rename a split
+ * A split has a tempfile name until it is closed, then
+ * here rename it as out_path the final name for the split.
+ *
+ * This is not used in zipsplit but is referenced by the generic split
+ * writing code.  If zipsplit is made split aware (so can write splits of
+ * splits, if that makes sense) then this would get used.  But if that
+ * happens these utility versions should be dropped and the main ones
+ * used.
+ */
+int rename_split(temp_name, out_path)
+  char *temp_name;
+  char *out_path;
+{
+  int r;
+  /* Replace old zip file with new zip file, leaving only the new one */
+  if ((r = replace(out_path, temp_name)) != ZE_OK)
+  {
+    zipwarn("new zip file left as: ", temp_name);
+    free((zvoid *)tempzip);
+    tempzip = NULL;
+    ZIPERR(r, "was replacing split file");
+  }
+  if (zip_attributes) {
+    setfileattr(out_path, zip_attributes);
+  }
+  return ZE_OK;
+}
+
+void zipmessage_nl(a, nl)
+ZCONST char *a;     /* message string to output */
+int nl;             /* 1 = add nl to end */
+/* Print a message to mesg without new line and return. */
+{
+  mesg_line_started = 1;
+  if (noisy) {
+    fprintf(mesg, "%s", a);
+    if (nl) {
+      fprintf(mesg, "\n");
+      mesg_line_started = 0;
+    }
+  }
+  if (logfile) {
+    fprintf(logfile, "%s", a);
+    if (nl) {
+      fprintf(logfile, "\n");
+      mesg_line_started = 0;
+    }
+  }
+  fflush(mesg);
+}
+
+void zipmessage(a, b)
+ZCONST char *a, *b;     /* message strings juxtaposed in output */
+/* Print a message to mesg and return. */
+{
+  if (noisy) {
+    if (mesg_line_started)
+      fprintf(mesg, "\n");
+    fprintf(mesg, "%s%s\n", a, b);
+    mesg_line_started = 0;
+  }
+  if (logfile) fprintf(logfile, "%s%s\n", a, b);
+  fflush(mesg);
+}
+
+
 local zvoid *talloc(s)
 extent s;
 /* does a malloc() and saves the pointer to free later (does not check
@@ -141,7 +233,7 @@ ZCONST char *h;         /* message about how it happened */
 {
   if (PERR(c))
     perror("zipsplit error");
-  fprintf(stderr, "zipsplit error: %s (%s)\n", ziperrors[c-1], h);
+  fprintf(mesg, "zipsplit error: %s (%s)\n", ZIPERRORS(c), h);
   if (indexmade)
   {
     strcpy(name, INDEX);
@@ -164,7 +256,7 @@ int s;                  /* signal number (ignored) */
 /* Upon getting a user interrupt, abort cleanly using ziperr(). */
 {
 #ifndef MSDOS
-  putc('\n', stderr);
+  putc('\n', mesg);
 #endif /* !MSDOS */
   ziperr(ZE_ABORT, "aborting");
   s++;                                  /* keep some compilers happy */
@@ -173,9 +265,9 @@ int s;                  /* signal number (ignored) */
 
 void zipwarn(a, b)
 ZCONST char *a, *b;     /* message strings juxtaposed in output */
-/* Print a warning message to stderr and return. */
+/* Print a warning message to mesg (usually stderr) and return. */
 {
-  fprintf(stderr, "zipsplit warning: %s%s\n", a, b);
+  fprintf(mesg, "zipsplit warning: %s%s\n", a, b);
 }
 
 
@@ -199,9 +291,9 @@ local void help()
 "",
 "ZipSplit %s (%s)",
 #ifdef VM_CMS
-"Usage:  zipsplit [-tips] [-n size] [-r room] [-b fm] zipfile",
+"Usage:  zipsplit [-tipqs] [-n size] [-r room] [-b fm] zipfile",
 #else
-"Usage:  zipsplit [-tips] [-n size] [-r room] [-b path] zipfile",
+"Usage:  zipsplit [-tipqs] [-n size] [-r room] [-b path] zipfile",
 #endif
 "  -t   report how many files it will take, but don't make them",
 #ifdef RISCOS
@@ -216,6 +308,7 @@ local void help()
 #else
 "  -b   use \"path\" for the output zip files",
 #endif
+"  -q   quieter operation, suppress some informational messages",
 "  -p   pause between output zip files",
 "  -s   do a sequential split even if it takes more zip files",
 "  -h   show this help    -v   show version info    -L   show software license"
@@ -393,7 +486,7 @@ uzoff_t d;          /* amount to deduct from first bin */
 }
 
 /* keep compiler happy until implement long options - 11/4/2003 EG */
-struct option_struct options[] = {
+struct option_struct far options[] = {
   /* short longopt        value_type        negatable        ID    name */
     {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     /* the end of the list */
@@ -404,7 +497,7 @@ struct option_struct options[] = {
 local int retry()
 {
   char m[10];
-  fputs("Error writing to disk--redo entire disk? ", stderr);
+  fputs("Error writing to disk--redo entire disk? ", mesg);
   fgets(m, 10, stdin);
   return *m == 'y' || *m == 'Y';
 }
@@ -445,6 +538,7 @@ char **argv;            /* command line tokens */
 #ifdef AMIGA
   char tailchar;         /* temporary variable used in name generation below */
 #endif
+  char errbuf[5000];
 
 #ifdef THEOS
   setlocale(LC_CTYPE, "I");
@@ -454,8 +548,11 @@ char **argv;            /* command line tokens */
   if (argc == 1)
   {
     help();
-    EXIT(0);
+    EXIT(ZE_OK);
   }
+
+  /* Informational messages are written to stdout. */
+  mesg = stdout;
 
   init_upper();           /* build case map table */
 
@@ -463,6 +560,21 @@ char **argv;            /* command line tokens */
   signal(SIGINT, handler);
 #ifdef SIGTERM                 /* Amiga has no SIGTERM */
   signal(SIGTERM, handler);
+#endif
+#ifdef SIGABRT
+  signal(SIGABRT, handler);
+#endif
+#ifdef SIGBREAK
+  signal(SIGBREAK, handler);
+#endif
+#ifdef SIGBUS
+  signal(SIGBUS, handler);
+#endif
+#ifdef SIGILL
+  signal(SIGILL, handler);
+#endif
+#ifdef SIGSEGV
+  signal(SIGSEGV, handler);
 #endif
   k = h = x = d = u = 0;
   c = DEFSIZ;
@@ -480,12 +592,12 @@ char **argv;            /* command line tokens */
                 k = 1;          /* Next non-option is path */
               break;
             case 'h':   /* Show help */
-              help();  EXIT(0);
+              help();  EXIT(ZE_OK);
             case 'i':   /* Make an index file */
               x = 1;
               break;
             case 'l': case 'L':  /* Show copyright and disclaimer */
-              license();  EXIT(0);
+              license();  EXIT(ZE_OK);
             case 'n':   /* Specify maximum size of resulting zip files */
               if (k)
                 ziperr(ZE_PARMS, "options are separate and precede zip file");
@@ -494,6 +606,9 @@ char **argv;            /* command line tokens */
               break;
             case 'p':
               u = 1;
+              break;
+            case 'q':   /* Quiet operation, suppress info messages */
+              noisy = 0;
               break;
             case 'r':
               if (k)
@@ -508,7 +623,7 @@ char **argv;            /* command line tokens */
               d = 1;
               break;
             case 'v':   /* Show version info */
-              version_info();  EXIT(0);
+              version_info();  EXIT(ZE_OK);
             default:
               ziperr(ZE_PARMS, "Use option -h for help.");
           }
@@ -544,6 +659,10 @@ char **argv;            /* command line tokens */
   if (zipfile == NULL)
     ziperr(ZE_PARMS, "need to specify zip file");
 
+  if ((in_path = malloc(strlen(zipfile) + 1)) == NULL) {
+    ziperr(ZE_MEM, "input");
+  }
+  strcpy(in_path, zipfile);
 
   /* Read zip file */
   if ((r = readzipfile()) != ZE_OK)
@@ -567,10 +686,16 @@ char **argv;            /* command line tokens */
     w[j] = z;
     if (x)
       i += z->nam + 6 + NL;
+    /* New scanzip_reg only reads central directory so use cext for ext */
     t += a[j] = 8 + LOCHEAD + CENHEAD +
-           2 * (zoff_t)z->nam + 2 * (zoff_t)z->ext + z->com + z->siz;
-    if (a[j] > c)
+           2 * (zoff_t)z->nam + 2 * (zoff_t)z->cext + z->com + z->siz;
+    if (a[j] > c) {
+      sprintf(errbuf, "Entry is larger than max split size of: %s",
+       zip_fzofft(c, NULL, "u"));
+      zipwarn(errbuf, "");
+      zipwarn("use -n to set split size", "");
       ziperr(ZE_BIG, z->zname);
+    }
   }
 
   /* Decide on split to use, report number of files */
@@ -600,7 +725,7 @@ char **argv;            /* command line tokens */
     tfreeall();
     free((zvoid *)zipfile);
     zipfile = NULL;
-    EXIT(0);
+    EXIT(ZE_OK);
   }
 
   /* Set up path for output files */
@@ -714,13 +839,17 @@ char **argv;            /* command line tokens */
   for (j = 0; j < s; j++)
   {
     /* jump here on a disk retry */
-   redobin:
+  redobin:
+
+    current_disk = 0;
+    cd_start_disk = 0;
+    cd_entries_this_disk = 0;
 
     /* prompt if requested */
     if (u)
     {
       char m[10];
-      fprintf(stderr, "Insert disk #%ld of %ld and hit return: ",
+      fprintf(mesg, "Insert disk #%ld of %ld and hit return: ",
               (ulg)j + 1, (ulg)s);
       fgets(m, 10, stdin);
     }
@@ -753,11 +882,12 @@ char **argv;            /* command line tokens */
     sprintf(name, template, j + 1L);
     printf("creating: %s\n", path);
     zipsmade = j + 1;
-    if ((f = fopen(path, FOPW)) == NULL)
+    if ((y = f = fopen(path, FOPW)) == NULL)
     {
       if (u && retry()) goto redobin;
       ziperr(ZE_CREAT, path);
     }
+    bytes_this_split = 0;
     tempzn = 0;
 
     /* write local headers and copy compressed data */
@@ -765,7 +895,8 @@ char **argv;            /* command line tokens */
     {
       if (zfseeko(e, w[g]->off, SEEK_SET))
         ziperr(ferror(e) ? ZE_READ : ZE_EOF, zipfile);
-      if ((r = zipcopy(w[g], e, f)) != ZE_OK)
+      in_file = e;
+      if ((r = zipcopy(w[g])) != ZE_OK)
       {
         if (r == ZE_TEMP)
         {
@@ -784,15 +915,17 @@ char **argv;            /* command line tokens */
       ziperr(ZE_WRITE, path);
     }
     for (g = b[j], k = 0; g != (extent)-1; g = n[g], k++)
-      if ((r = putcentral(w[g], f)) != ZE_OK)
+      if ((r = putcentral(w[g])) != ZE_OK)
       {
         if (u && retry()) goto redobin;
         ziperr(ZE_WRITE, path);
       }
 
     /* write end-of-central header */
+    cd_start_offset = c;
+    total_cd_entries = k;
     if ((t = zftello(f)) == (zoff_t)-1 ||
-        (r = putend((zoff_t)k, t - c, c, (extent)0, (char *)NULL, f)) !=
+        (r = putend((zoff_t)k, t - c, c, (extent)0, (char *)NULL)) !=
         ZE_OK ||
         ferror(f) || fclose(f))
     {
@@ -808,7 +941,7 @@ char **argv;            /* command line tokens */
 
   /* Done! */
   if (u)
-    fputs("Done.\n", stderr);
+    fputs("Done.\n", mesg);
   tfreeall();
 
   RETURN(0);
