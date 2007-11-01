@@ -1,7 +1,7 @@
 /*
   zipnote.c - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -576,13 +576,13 @@ char **argv;            /* command line tokens */
     int yd;
     int i;
 
-    /* use mkstemp to avoid race condition and compiler warning */
+    /* Use mkstemp to avoid race condition and compiler warning. */
 
     if (tempath != NULL)
     {
-      /* if -b used to set temp file dir use that for split temp */
+      /* Append "/" to tempath (if needed), and append template. */
       if ((tempzip = malloc(strlen(tempath) + 12)) == NULL) {
-        ZIPERR(ZE_MEM, "allocating temp filename");
+      ZIPERR(ZE_MEM, "allocating temp filename");
       }
       strcpy(tempzip, tempath);
       if (lastchar(tempzip) != '/')
@@ -590,7 +590,7 @@ char **argv;            /* command line tokens */
     }
     else
     {
-      /* create path by stripping name and appending template */
+      /* Create path by stripping name and appending template. */
       if ((tempzip = malloc(strlen(zipfile) + 12)) == NULL) {
       ZIPERR(ZE_MEM, "allocating temp filename");
       }
