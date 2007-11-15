@@ -1072,6 +1072,13 @@ local void version_info()
     bz_opt_ver2,
     bz_opt_ver3,
 #endif
+#ifndef NO_SYMLINKS
+# ifdef VMS
+    "SYMLINK_SUPPORT      (symbolic links supported, if C RTL permits)",
+# else /* def VMS */
+    "SYMLINK_SUPPORT      (symbolic links supported)",
+# endif /* def VMS [else] */
+#endif /* ndef NO_SYMLINKS */
 #ifdef LARGE_FILE_SUPPORT
 # ifdef USING_DEFAULT_LARGE_FILE_SUPPORT
     "LARGE_FILE_SUPPORT (default settings)",
@@ -1914,13 +1921,13 @@ struct option_struct far options[] = {
     {"C5", "preserve-case-5", o_NO_VALUE,   o_NEGATABLE,     o_C5, "Preserve (C5-: down-) case ODS5 on VMS"},
 #endif /* VMS */
     {"d",  "delete",      o_NO_VALUE,       o_NOT_NEGATABLE, 'd',  "delete"},
-    {"db", "display-bytes", o_NO_VALUE,     o_NOT_NEGATABLE, o_db, "display running bytes"},
-    {"dc", "display-counts", o_NO_VALUE,    o_NOT_NEGATABLE, o_dc, "display running file count"},
-    {"dd", "display-dots", o_NO_VALUE,      o_NOT_NEGATABLE, o_dd, "display dots as process each file"},
-    {"dg", "display-globaldots",o_NO_VALUE, o_NOT_NEGATABLE, o_dg, "display dots for archive instead of files"},
+    {"db", "display-bytes", o_NO_VALUE,     o_NEGATABLE,     o_db, "display running bytes"},
+    {"dc", "display-counts", o_NO_VALUE,    o_NEGATABLE,     o_dc, "display running file count"},
+    {"dd", "display-dots", o_NO_VALUE,      o_NEGATABLE,     o_dd, "display dots as process each file"},
+    {"dg", "display-globaldots",o_NO_VALUE, o_NEGATABLE,     o_dg, "display dots for archive instead of files"},
     {"ds", "dot-size",     o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_ds, "set dot size in MB - default 10M bytes"},
-    {"du", "display-usize", o_NO_VALUE,     o_NOT_NEGATABLE, o_du, "display uncompressed size in bytes"},
-    {"dv", "display-volume", o_NO_VALUE,    o_NOT_NEGATABLE, o_dv, "display volume (disk) number"},
+    {"du", "display-usize", o_NO_VALUE,     o_NEGATABLE,     o_du, "display uncompressed size in bytes"},
+    {"dv", "display-volume", o_NO_VALUE,    o_NEGATABLE,     o_dv, "display volume (disk) number"},
 #ifdef MACOS
     {"df", "datafork",    o_NO_VALUE,       o_NOT_NEGATABLE, o_df, "save datafork"},
 #endif /* MACOS */
@@ -2111,7 +2118,6 @@ char **argv;            /* command line tokens */
   int seen_doubledash = 0; /* seen -- argument */
   int key_needed = 0;   /* prompt for encryption key */
   int have_out = 0;     /* if set in_path and out_path different archive */
-  int show_files = 0;   /* show files to operate on and exit (=2 log only) */
 #ifdef UNICODE_TEST
   int create_files = 0;
 #endif
@@ -2519,16 +2525,11 @@ char **argv;            /* command line tokens */
 
 
 #if defined(UNICODE_SUPPORT) && defined(WIN32)
-# ifdef __MINGW32__
-  /* MinGW seems to have problems doing wide character directory scans */
-  no_win32_wide = 1;
-# else
   /* check if this Win32 OS has support for wide character calls */
   has_win32_wide();
-# endif
 #endif
 
-  /* make copy of args that can use with insert_arg() */
+  /* make copy of args that can use with insert_arg() used by get_option() */
   args = copy_args(argv, 0);
 
   kk = 0;                       /* Next non-option argument type */
@@ -2616,30 +2617,45 @@ char **argv;            /* command line tokens */
           break;
 #endif /* MACOS */
         case o_db:
-          display_bytes = 1;
+          if (negated)
+            display_bytes = 0;
+          else
+            display_bytes = 1;
           break;
         case o_dc:
-          display_counts = 1;
+          if (negated)
+            display_counts = 0;
+          else
+            display_counts = 1;
           break;
         case o_dd:
           /* display dots */
           display_globaldots = 0;
-          /* set default dot size if dot_size not set (dot_count = 0) */
-          if (dot_count == 0)
-            /* default to 10 MB */
-            dot_size = 10 * 0x100000;
-          dot_count = -1;
+          if (negated) {
+            dot_count = 0;
+          } else {
+            /* set default dot size if dot_size not set (dot_count = 0) */
+            if (dot_count == 0)
+              /* default to 10 MB */
+              dot_size = 10 * 0x100000;
+            dot_count = -1;
+          }
           break;
         case o_dg:
           /* display dots globally for archive instead of for each file */
-          display_globaldots = 1;
-          /* set default dot size if dot_size not set (dot_count = 0) */
-          if (dot_count == 0)
-            dot_size = 10 * 0x100000;
-          dot_count = -1;
+          if (negated) {
+            display_globaldots = 0;
+          } else {
+            display_globaldots = 1;
+            /* set default dot size if dot_size not set (dot_count = 0) */
+            if (dot_count == 0)
+              dot_size = 10 * 0x100000;
+            dot_count = -1;
+          }
           break;
         case o_ds:
-          /* input dot_size is now actual dot size to account for different buffer sizes */
+          /* input dot_size is now actual dot size to account for
+             different buffer sizes */
           if (value == NULL)
             dot_size = 10 * 0x100000;
           else if (value[0] == '\0') {
@@ -2649,12 +2665,13 @@ char **argv;            /* command line tokens */
           } else {
             dot_size = ReadNumString(value);
             if (dot_size == (uzoff_t)-1) {
-              sprintf(errbuf, "option -ds (--dot-size) has bad size:  '%s'", value);
+              sprintf(errbuf, "option -ds (--dot-size) has bad size:  '%s'",
+                      value);
               free(value);
               ZIPERR(ZE_PARMS, errbuf);
             }
             if (dot_size < 0x400) {
-              /* < 1 KB there is no multiplier, assume MB */
+              /* < 1 KB so there is no multiplier, assume MB */
               dot_size *= 0x100000;
 
             } else if (dot_size < 0x400L * 32) {
@@ -2671,10 +2688,16 @@ char **argv;            /* command line tokens */
           dot_count = -1;
           break;
         case o_du:
-          display_usize = 1;
+          if (negated)
+            display_usize = 0;
+          else
+            display_usize = 1;
           break;
         case o_dv:
-          display_volume = 1;
+          if (negated)
+            display_volume = 0;
+          else
+            display_volume = 1;
           break;
         case 'D':   /* Do not add directory entries */
           dirnames = 0; break;
@@ -2701,7 +2724,8 @@ char **argv;            /* command line tokens */
           else
             allow_fifo = 1;
           break;
-        case o_FS:  /* delete exiting entries without matching file on file system */
+        case o_FS:  /* delete exiting entries in archive where there is
+                       no matching file on file system */
           filesync = 1; break;
         case 'f':   /* Freshen zip file--overwrite only */
           if (action != ADD) {
@@ -3739,13 +3763,13 @@ char **argv;            /* command line tokens */
       int yd;
       int i;
 
-      /* Use mkstemp to avoid race condition and compiler warning. */
+      /* use mkstemp to avoid race condition and compiler warning */
 
       if (tempath != NULL)
       {
-        /* Append "/" to tempath (if needed), and append template. */
+        /* if -b used to set temp file dir use that for split temp */
         if ((tempzip = malloc(strlen(tempath) + 12)) == NULL) {
-        ZIPERR(ZE_MEM, "allocating temp filename");
+          ZIPERR(ZE_MEM, "allocating temp filename");
         }
         strcpy(tempzip, tempath);
         if (lastchar(tempzip) != '/')
@@ -3753,7 +3777,7 @@ char **argv;            /* command line tokens */
       }
       else
       {
-        /* Create path by stripping name and appending template. */
+        /* create path by stripping name and appending template */
         if ((tempzip = malloc(strlen(zipfile) + 12)) == NULL) {
         ZIPERR(ZE_MEM, "allocating temp filename");
         }
@@ -4698,13 +4722,13 @@ char **argv;            /* command line tokens */
       int yd;
       int i;
 
-      /* Use mkstemp to avoid race condition and compiler warning. */
+      /* use mkstemp to avoid race condition and compiler warning */
 
       if (tempath != NULL)
       {
-        /* Append "/" to tempath (if needed), and append template. */
+        /* if -b used to set temp file dir use that for split temp */
         if ((tempzip = malloc(strlen(tempath) + 12)) == NULL) {
-        ZIPERR(ZE_MEM, "allocating temp filename");
+          ZIPERR(ZE_MEM, "allocating temp filename");
         }
         strcpy(tempzip, tempath);
         if (lastchar(tempzip) != '/')
@@ -4712,7 +4736,7 @@ char **argv;            /* command line tokens */
       }
       else
       {
-        /* Create path by stripping name and appending template. */
+        /* create path by stripping name and appending template */
         if ((tempzip = malloc(strlen(zipfile) + 12)) == NULL) {
         ZIPERR(ZE_MEM, "allocating temp filename");
         }
