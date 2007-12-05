@@ -467,20 +467,20 @@ int nl;             /* 1 = add nl to end */
 {
   if (noisy) {
     fprintf(mesg, "%s", a);
-    if (nl && mesg_line_started) {
+    if (nl) {
       fprintf(mesg, "\n");
       mesg_line_started = 0;
-    } else if (!nl) {
+    } else {
       mesg_line_started = 1;
     }
     fflush(mesg);
   }
   if (logfile) {
     fprintf(logfile, "%s", a);
-    if (nl && logfile_line_started) {
+    if (nl) {
       fprintf(logfile, "\n");
       logfile_line_started = 0;
-    } else if (!nl) {
+    } else {
       logfile_line_started = 1;
     }
     fflush(logfile);
@@ -950,10 +950,11 @@ local void help_extended()
 "      -UN=Warn     - if mismatch, issue warning, ignore (default)",
 "      -UN=Ignore   - if mismatch, quietly use standard path instead",
 "      -UN=No       - ignore any Unicode paths, use standard paths for all",
-"  An exception to -UN=NO are entries with the new UTF-8 bit set.  These",
-"  are always handled as Unicode.",
+"  An exception to -UN=NO are entries with the new UTF-8 bit set (instead",
+"  of using the extra fields).  These are always handled as Unicode.",
 "  Normally Zip escapes all chars outside current char set, but leaves",
-"  as is supported chars.  -UN=Escape escapes any character not ASCII:",
+"  as is supported chars, which may not be OK in path names.  -UN=Escape",
+"  escapes any character not ASCII:",
 "    zip -sU -UN=e archive",
 "  Can use either normal path or escaped Unicode path on command line",
 "  to match files in an archive.",
@@ -968,7 +969,8 @@ local void help_extended()
 "  the local character set is UTF-8 and this bit should not be used",
 "  otherwise.  This option is for testing only.",
 #endif
-"  Support of Unicode comments may be added by release.",
+"  Support of Unicode comments may be added by release.  Storage of",
+"  UTF-8 comments on UTF-8 native systems is already supported.",
 "",
 "More option highlights (see manual for additional options and details):",
 "  -b dir    when creating or updating archive, create the temp archive in",
@@ -4045,7 +4047,7 @@ char **argv;            /* command line tokens */
 
 
   if (show_what_doing) {
-    fprintf(mesg, "sd: Apply filters\n");
+    fprintf(mesg, "sd: Applying filters\n");
     fflush(mesg);
   }
   /* Clean up selections ("3 <= kk <= 5" now) */
@@ -4125,7 +4127,7 @@ char **argv;            /* command line tokens */
      updating or freshening, compare date with entry in old zip file.
      Unmark if it doesn't exist or is too old, else update marked count. */
   if (show_what_doing) {
-    fprintf(mesg, "sd: Scanning files to update and add\n");
+    fprintf(mesg, "sd: Scanning files to update\n");
     fflush(mesg);
   }
 #ifdef MACOS
@@ -4216,7 +4218,6 @@ char **argv;            /* command line tokens */
           isdirname = 1;
         }
 
-#ifdef USE_EF_UT_TIME
 # if defined(UNICODE_SUPPORT) && defined(WIN32)
         if (!no_win32_wide) {
           if (z->namew == NULL)
@@ -4224,8 +4225,13 @@ char **argv;            /* command line tokens */
               z->namew = utf8_to_wchar_string(z->uname);
             else
               z->namew = local_to_wchar_string(z->name);
-          tf = filetimew(z->namew, (ulg *)NULL, (zoff_t *)&usize, &f_utim);
         }
+# endif
+
+#ifdef USE_EF_UT_TIME
+# if defined(UNICODE_SUPPORT) && defined(WIN32)
+        if (!no_win32_wide)
+          tf = filetimew(z->namew, (ulg *)NULL, (zoff_t *)&usize, &f_utim);
         else
           tf = filetime(z->name, (ulg *)NULL, (zoff_t *)&usize, &f_utim);
 # else
@@ -5802,9 +5808,23 @@ char **argv;            /* command line tokens */
       zipmessage("Clearing archive bits...", "");
     for (z = zfiles; z != NULL; z = z->nxt)
     {
-      if (!ClearArchiveBit(z->name)){
-        zipwarn("Could not clear archive bit for: ", z->name);
+# ifdef UNICODE_SUPPORT
+      if (z->mark) {
+        if (!no_win32_wide) {
+          if (!ClearArchiveBitW(z->namew)){
+            zipwarn("Could not clear archive bit for: ", z->oname);
+          }
+        } else {
+          if (!ClearArchiveBit(z->name)){
+            zipwarn("Could not clear archive bit for: ", z->oname);
+          }
+        }
       }
+# else
+      if (!ClearArchiveBit(z->name)){
+        zipwarn("Could not clear archive bit for: ", z->oname);
+      }
+# endif
     }
   }
 #endif

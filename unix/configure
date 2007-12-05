@@ -22,8 +22,8 @@ CFLAGS_OPT=''
 # bzip2
 IZ_BZIP2=${3-}
 CFLAGS_BZ=''
-
 echo 'Check C compiler type (optimization options)'
+# Sun C?
 cat > conftest.c << _EOF_
 int main()
 {
@@ -35,9 +35,10 @@ int main()
 _EOF_
 $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
 if test $? -eq 0; then
-  echo '  Sun C (-xO3)'
   CFLAGS_OPT='-xO3'
+  echo "  Sun C ($CFLAGS_OPT)"
 else
+  # Tru64 DEC/Compaq/HP C?
   cat > conftest.c << _EOF_
 int main()
 {
@@ -49,9 +50,10 @@ int main()
 _EOF_
   $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
   if test $? -eq 0; then
-    echo '  DEC C (-O3)'
     CFLAGS_OPT='-O3'
+    echo "  DEC C ($CFLAGS_OPT)"
   else
+    # HP-UX HP C?
     cat > conftest.c << _EOF_
 int main()
 {
@@ -78,14 +80,30 @@ int main()
 _EOF_
       $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
       if test $? -eq 0; then
-        echo '  HP-UX ANSI C (+O3 +Onolimit)'
-        CFLAGS_OPT='+O3 +Onolimit'
+        CFLAGS_OPT="+O3 +Onolimit"
+        echo '  HP-UX ANSI C ($CFLAGS_OPT)'
       else        
         echo '  HP-UX Bundled C (no opt)'
       fi
     else
-      echo '  Other (gcc?) (-O2)'
-      CFLAGS_OPT='-O2'
+      # GNU C?
+      cat > conftest.c << _EOF_
+int main()
+{
+#ifndef __GNUC__
+   bad code
+#endif
+   return 0;
+}
+_EOF_
+      $CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
+      if test $? -eq 0; then
+        CFLAGS_OPT='-O3'
+        echo "  GNU C ($CFLAGS_OPT)"
+      else
+        CFLAGS_OPT='-O'
+        echo "  Other-unknown C ($CFLAGS_OPT)"
+      fi
     fi
   fi
 fi

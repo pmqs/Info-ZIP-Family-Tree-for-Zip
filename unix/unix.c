@@ -570,7 +570,7 @@ void version_local()
 #  if (defined( __SUNPRO_C))
     char compiler_name[33];
 #  else
-#    if (defined( __HP_cc))
+#    if (defined( __HP_cc)) || defined( __IBMC__)
     char compiler_name[33];
 #    else
 #      if (defined( __DECC_VER))
@@ -640,10 +640,16 @@ void version_local()
     sprintf(compiler_name, "cc version %d", _RELEASE);
 #          define COMPILER_NAME compiler_name
 #        else
-#          ifdef __VERSION__
-#            define COMPILER_NAME "cc " __VERSION__
+#          ifdef __IBMC__
+    sprintf( compiler_name, "IBM C version %d.%d.%d",
+     (__IBMC__/ 100), ((__IBMC__/ 10)% 10), (__IBMC__% 10));
+#            define COMPILER_NAME compiler_name
 #          else
-#            define COMPILER_NAME "cc "
+#            ifdef __VERSION__
+#              define COMPILER_NAME "cc " __VERSION__
+#            else
+#              define COMPILER_NAME "cc "
+#            endif
 #          endif
 #        endif
 #      endif
