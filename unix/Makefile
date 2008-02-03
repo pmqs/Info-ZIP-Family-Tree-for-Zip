@@ -40,8 +40,8 @@ MANFLAGS = 644
 # target directories - where to install executables and man pages to
 prefix = /usr/local
 BINDIR = $(prefix)/bin
-manext=1
-MANDIR = $(prefix)/man/man$(manext)
+MANEXT=1
+MANDIR = $(prefix)/man/man$(MANEXT)
 ZIPMANUAL = zip.txt
 ZIPMANUALcloak = zipcloak.txt
 ZIPMANUALnote = zipnote.txt
@@ -119,7 +119,7 @@ unix.o: unix/unix.c
 unix_.o: unix/unix.c
 	$(CC) -c $(CFLAGS) -DUTIL -o $@ unix/unix.c
 
-ZIPS = zip$E zipnote$E zipsplit$E zipcloak$E
+ZIPS = zip$E zipcloak$E zipnote$E zipsplit$E
 
 zips: $(ZIPS)
 zipsman: $(ZIPS) $(ZIPMANUALs)
@@ -161,12 +161,20 @@ install:        $(ZIPS)
 	$(INSTALL_PROGRAM) $(ZIPS) $(BINDIR)
 	-cd $(BINDIR); $(CHMOD) $(BINFLAGS) $(ZIPS)
 	-$(INSTALL_D) $(MANDIR)
-	$(INSTALL_PROGRAM) man/zip.1 man/zipcloak.1 man/zipnote $(MANDIR)/zip.$(manext)
-	$(CHMOD) $(MANFLAGS) $(MANDIR)/zip.$(manext)
+	$(INSTALL_PROGRAM) man/zip.1 $(MANDIR)/zip.$(MANEXT)
+	$(CHMOD) $(MANFLAGS) $(MANDIR)/zip.$(MANEXT)
+	$(INSTALL_PROGRAM) man/zipcloak.1 $(MANDIR)/zipcloak.$(MANEXT)
+	$(CHMOD) $(MANFLAGS) $(MANDIR)/zipcloak.$(MANEXT)
+	$(INSTALL_PROGRAM) man/zipnote.1 $(MANDIR)/zipnote.$(MANEXT)
+	$(CHMOD) $(MANFLAGS) $(MANDIR)/zipnote.$(MANEXT)
+	$(INSTALL_PROGRAM) man/zipsplit.1 $(MANDIR)/zipsplit.$(MANEXT)
+	$(CHMOD) $(MANFLAGS) $(MANDIR)/zipsplit.$(MANEXT)
 
 uninstall:
 	-cd $(BINDIR); rm -f $(ZIPS)
-	-cd $(MANDIR); rm -f zip.$(manext)
+	-cd $(MANDIR); rm -f \
+	 zip.$(MANEXT) zipcloak.$(MANEXT) zipnote.$(MANEXT) zipsplit.$(MANEXT)
+
 
 flags:  unix/configure
 	sh unix/configure "${CC}" "${CFLAGS_NOOPT}" "${IZ_BZIP2}"
@@ -314,4 +322,7 @@ clean_bzip2 :
 	    echo "No bzip2 make file found: $(IZ_OUR_BZIP2_DIR)/Makefile."; \
 	  fi; \
 	fi
+
+clean_exe :
+	rm -f $(ZIPS)
 #

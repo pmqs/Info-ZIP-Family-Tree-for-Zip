@@ -1,9 +1,9 @@
 /*
   util.c
 
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -85,6 +85,7 @@ FILE *fp;
 }
 #endif /* HAVE_FSEEKABLE */
 
+
 char *isshexp(p)
 char *p;                /* candidate sh expression */
 /* If p is a sh expression, a pointer to the first special character is
@@ -102,6 +103,170 @@ char *p;                /* candidate sh expression */
   return NULL;
 }
 
+#ifdef UNICODE_SUPPORT
+# ifdef WIN32
+
+wchar_t *isshexpw(pw)
+  wchar_t *pw;          /* candidate sh expression */
+/* If pw is a sh expression, a pointer to the first special character is
+   returned.  Otherwise, NULL is returned. */
+{
+  for (; *pw; pw++)
+    if (*pw == (wchar_t)'\\' && *(pw+1))
+      pw++;
+    else if (*pw == (wchar_t)WILDCHR_SINGLE || *pw == (wchar_t)WILDCHR_MULTI ||
+             *pw == (wchar_t)'[')
+      return pw;
+  return NULL;
+}
+
+# endif
+#endif
+
+
+#ifdef UNICODE_SUPPORT
+# ifdef WIN32
+
+local long recmatchw(pw, sw, cs)
+ZCONST wchar_t *pw;     /* sh pattern to match */
+ZCONST wchar_t *sw;     /* string to match it to */
+int cs;                 /* flag: force case-sensitive matching */
+/* Recursively compare the sh pattern p with the string s and return 1 if
+   they match, and 0 or 2 if they don't or if there is a syntax error in the
+   pattern.  This routine recurses on itself no deeper than the number of
+   characters in the pattern. */
+{
+  long c;               /* pattern char or start of range in [-] loop */
+  /* Get first character, the pattern for new recmatch calls follows */
+
+  c = (long)*(pw++);
+
+  /* If that was the end of the pattern, match if string empty too */
+  if (c == 0)
+    return *sw == 0;
+
+  /* '?' matches any character (but not an empty string) */
+  if ((wchar_t)c == (wchar_t)WILDCHR_SINGLE) {
+    if (wild_stop_at_dir)
+      return (*sw && *sw != (wchar_t)DIRSEP_CHR) ? recmatchw(pw, sw + 1, cs) : 0;
+    else
+      return *sw ? recmatchw(pw, sw + 1, cs) : 0;
+  }
+
+  /* WILDCHR_MULTI ('*') matches any number of characters, including zero */
+  if (!no_wild && (wchar_t)c == (wchar_t)WILDCHR_MULTI)
+  {
+    if (wild_stop_at_dir) {
+      /* Check for an immediately following WILDCHR_MULTI */
+      if (*pw != (wchar_t)WILDCHR_MULTI) {
+        /* Single WILDCHR_MULTI ('*'): this doesn't match slashes */
+        for (; *sw && *sw != (wchar_t)DIRSEP_CHR; sw++)
+          if ((c = recmatchw(pw, sw, cs)) != 0)
+            return c;
+        /* end of pattern: matched if at end of string, else continue */
+        if (*pw == 0)
+          return (*sw == 0);
+        /* continue to match if at DIRSEP_CHR in pattern, else give up */
+        return (*pw == (wchar_t)DIRSEP_CHR || (*pw == (wchar_t)'\\' &&
+                pw[1] == (wchar_t)DIRSEP_CHR))
+               ? recmatchw(pw, sw, cs) : 2;
+      }
+      /* Two consecutive WILDCHR_MULTI ("**"): this matches DIRSEP_CHR ('/') */
+      pw++;        /* move p past the second WILDCHR_MULTI */
+      /* continue with the normal non-WILD_STOP_AT_DIR code */
+    } /* wild_stop_at_dir */
+
+    /* Not wild_stop_at_dir */
+    if (*pw == 0)
+      return 1;
+    if (!isshexpw((wchar_t *)pw))
+    {
+      /* optimization for rest of pattern being a literal string */
+
+      /* optimization to handle patterns like *.txt */
+      /* if the first char in the pattern is '*' and there */
+      /* are no other shell expression chars, i.e. a literal string */
+      /* then just compare the literal string at the end */
+
+      ZCONST wchar_t *swrest;
+
+      swrest = sw + (wcslen(sw) - wcslen(pw));
+      if (swrest - sw < 0)
+        /* remaining literal string from pattern is longer than rest of
+           test string, there can't be a match
+         */
+        return 0;
+      else
+        /* compare the remaining literal pattern string with the last bytes
+           of the test string to check for a match */
+        return ((cs ? wcscmp(pw, swrest) : _wcsicmp(pw, swrest)) == 0);
+    }
+    else
+    {
+      /* pattern contains more wildcards, continue with recursion... */
+      for (; *sw; sw++)
+        if ((c = recmatchw(pw, sw, cs)) != 0)
+          return c;
+      return 2;           /* 2 means give up--shmatch will return false */
+    }
+  }
+
+  /* Parse and process the list of characters and ranges in brackets */
+  if (!no_wild && allow_regex && (wchar_t)c == '[')
+  {
+    int e;              /* flag true if next char to be taken literally */
+    ZCONST wchar_t *qw; /* pointer to end of [-] group */
+    int r;              /* flag true to match anything but the range */
+
+    if (*sw == 0)                        /* need a character to match */
+      return 0;
+    pw += (r = (*pw == (wchar_t)'!' || *pw == (wchar_t)'^')); /* see if reverse */
+    for (qw = pw, e = 0; *qw; qw++)         /* find closing bracket */
+      if (e)
+        e = 0;
+      else
+        if (*qw == (wchar_t)'\\')
+          e = 1;
+        else if (*qw == (wchar_t)']')
+          break;
+    if (*qw != (wchar_t)']')                      /* nothing matches if bad syntax */
+      return 0;
+    for (c = 0, e = *pw == (wchar_t)'-'; pw < qw; pw++)      /* go through the list */
+    {
+      if (e == 0 && *pw == (wchar_t)'\\')         /* set escape flag if \ */
+        e = 1;
+      else if (e == 0 && *pw == (wchar_t)'-')     /* set start of range if - */
+        c = *(pw-1);
+      else
+      {
+        wchar_t cc = (cs ? *sw : towupper(*sw));
+        wchar_t uc = (wchar_t) c;
+
+        if (*(pw+1) != (wchar_t)'-')
+          for (uc = uc ? uc : *pw; cc <= *pw; uc++)
+            /* compare range */
+            if ((cs ? uc : towupper(uc)) == cc)
+              return r ? 0 : recmatchw(qw + 1, sw + 1, cs);
+        c = e = 0;                      /* clear range, escape flags */
+      }
+    }
+    return r ? recmatchw(qw + 1, sw + 1, cs) : 0;
+                                        /* bracket match failed */
+  }
+
+  /* If escape ('\'), just compare next character */
+  if (!no_wild && (wchar_t)c == (wchar_t)'\\')
+    if ((c = *pw++) == '\0')            /* if \ at end, then syntax error */
+      return 0;
+
+  /* Just a character--compare it */
+  return (cs ? (wchar_t)c == *sw : towupper((wchar_t)c) == towupper(*sw)) ?
+          recmatchw(pw, sw + 1, cs) : 0;
+}
+
+# endif
+#endif
+
 
 local int recmatch(p, s, cs)
 ZCONST char *p;         /* sh pattern to match */
@@ -114,6 +279,24 @@ int cs;                 /* flag: force case-sensitive matching */
 {
   int c;                /* pattern char or start of range in [-] loop */
   /* Get first character, the pattern for new recmatch calls follows */
+
+  /* This fix provided by akt@m5.dion.ne.jp for Japanese.
+     See 21 July 2006 mail.
+     It only applies when p is pointing to a doublebyte character and
+     things like / and wildcards are not doublebyte.  This probably
+     should not be needed. */
+
+#ifdef _MBCS
+  if (CLEN(p) == 2) {
+    if (CLEN(s) == 2) {
+      return (*p == *s && *(p+1) == *(s+1)) ?
+        recmatch(p + 2, s + 2, cs) : 0;
+    } else {
+      return 0;
+    }
+  }
+#endif /* ?_MBCS */
+
   c = *POSTINCSTR(p);
 
   /* If that was the end of the pattern, match if string empty too */
@@ -219,7 +402,7 @@ int cs;                 /* flag: force case-sensitive matching */
 
 #ifndef VMS             /* No bracket matching in VMS */
   /* Parse and process the list of characters and ranges in brackets */
-  if (!no_wild && c == '[')
+  if (!no_wild && allow_regex && c == '[')
   {
     int e;              /* flag true if next char to be taken literally */
     ZCONST char *q;     /* pointer to end of [-] group */
@@ -312,6 +495,38 @@ int cs;                 /* force case-sensitive match if TRUE */
 
 
 #if defined(DOS) || defined(WIN32)
+
+#ifdef UNICODE_SUPPORT
+
+int dosmatchw(pw, sw, cs)
+ZCONST wchar_t *pw;     /* dos pattern to match    */
+ZCONST wchar_t *sw;     /* string to match it to   */
+int cs;                 /* force case-sensitive match if TRUE */
+/* Treat filenames without periods as having an implicit trailing period */
+{
+  wchar_t *sw1;         /* revised string to match */
+  int r;                /* result */
+
+  if (wcschr(pw, (wchar_t)'.') && !wcschr(sw, (wchar_t)'.') &&
+      ((sw1 = (wchar_t *)malloc((wcslen(sw) + 2) * sizeof(wchar_t))) != NULL))
+  {
+    wcscpy(sw1, sw);
+    wcscat(sw1, L".");
+  }
+  else
+  {
+    /* will usually be OK */
+    sw1 = (wchar_t *)sw;
+  }
+
+  r = recmatchw(pw, sw1, cs) == 1;
+  if (sw != sw1)
+    free((zvoid *)sw1);
+  return r == 1;
+}
+
+#endif
+
 /* XXX  also suitable for OS2?  Atari?  Human68K?  TOPS-20?? */
 
 int dosmatch(p, s, cs)
@@ -411,7 +626,7 @@ void init_upper()
     lower[c] = (uch) c;
   }
   for (c = 0; c < sizeof(upper); c++ ) {
-    int u = upper[c];
+    unsigned int u = upper[c];
     if (u != c && lower[u] == (uch) u) {
       lower[u] = (uch)c;
     }
@@ -1142,6 +1357,8 @@ int WriteNumString( num, outstring )
 }
 
 
+#if 0 /* not used anywhere, should get removed by next release... */
+
 /* Apply the Adler-16 checksum to a set of bytes.
  * Use this function as you would use crc32():
  * - First call this function by passing a NULL pointer instead of buf
@@ -1184,4 +1401,47 @@ unsigned int adler16(chksum, buf, len)
     }
 
     return (sum2 << 8) | sum1;
+}
+
+#endif /* 0, not used anywhere */
+
+
+/* returns true if abbrev is abbreviation for matchstring */
+int abbrevmatch (matchstring, abbrev, case_sensitive, minmatch)
+  char *matchstring;
+  char *abbrev;
+  int case_sensitive;
+  int minmatch;
+{
+  int cnt = 0;
+  char *m;
+  char *a;
+
+  m = matchstring;
+  a = abbrev;
+
+  for (; *m && *a; m++, a++) {
+    cnt++;
+    if (case_sensitive) {
+      if (*m != *a) {
+        /* mismatch */
+        return 0;
+      }
+    } else {
+      if (toupper(*m) != toupper(*a)) {
+        /* mismatch */
+        return 0;
+      }
+    }
+  }
+  if (cnt < minmatch) {
+    /* not big enough string */
+    return 0;
+  }
+  if (*a != '\0') {
+    /* abbreviation longer than match string */
+    return 0;
+  }
+  /* either abbreviation or match */
+  return 1;
 }

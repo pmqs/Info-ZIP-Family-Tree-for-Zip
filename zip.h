@@ -11,7 +11,7 @@ ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
 a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 
-Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -149,6 +149,7 @@ struct zlist {
   /* Do not rearrange these as less than smart coding in zipfile.c
      in scanzipf_reg() depends on u being set to ver and then stepping
      through as a byte array.  Ack.  Should be fixed.  5/25/2005 EG */
+  /* All the new read code does not rely on this order.  */
   ush vem, ver, flg, how;
   ulg tim, crc;
   uzoff_t siz, len;             /* zip64 support 08/29/2003 R.Nausedat */
@@ -173,17 +174,15 @@ struct zlist {
   char *ouname;                 /* Display version of zuname */
 # ifdef WIN32
   char *wuname;                 /* Converted back ouname for Win32 */
-  wchar_t *namew;
-  wchar_t *inamew;
-  wchar_t *znamew;
+  wchar_t *namew;               /* Windows wide character version of name */
+  wchar_t *inamew;              /* Windows wide character version of iname */
+  wchar_t *znamew;              /* Windows wide character version of zname */
 # endif
 #endif
   int mark;                     /* Marker for files to operate on */
   int trash;                    /* Marker for files to delete */
+  int current;                  /* Marker for files that are current to what is on OS (filesync) */
   int dosflag;                  /* Set to force MSDOS file attributes */
-#ifdef WIN32
-  int used_short_name;          /* used Windows short name instead of long name */
-#endif
   struct zlist far *nxt;        /* Pointer to next header in list */
 };
 struct flist {
@@ -194,14 +193,10 @@ struct flist {
 #ifdef UNICODE_SUPPORT
   char *uname;                  /* UTF-8 name */
 # ifdef WIN32
-  wchar_t *namew;
-  wchar_t *inamew;
-  wchar_t *znamew;
+  wchar_t *namew;               /* Windows wide character version of name */
+  wchar_t *inamew;              /* Windows wide character version of iname */
+  wchar_t *znamew;              /* Windows wide character version of zname */
 # endif
-#endif
-#ifdef WIN32
-  int nonlocal_name;            /* Name needs UTF-8 */
-  int nonlocal_path;            /* Path needs UTF-8 */
 #endif
   int dosflag;                  /* Set to force MSDOS file attributes */
   uzoff_t usize;                /* usize from initial scan */
@@ -393,16 +388,18 @@ extern short qlflag;
 #endif
 /* 9/26/04 EG */
 extern int no_wild;             /* wildcards are disabled */
+extern int allow_regex;         /* 1 = allow [list] matching (regex) */
 extern int wild_stop_at_dir;    /* wildcards do not include / in matches */
 #ifdef UNICODE_SUPPORT
+  extern int using_utf8;        /* 1 if current character set is UTF-8 */
 # ifdef WIN32
    extern int no_win32_wide;    /* 1 = no wide functions, like GetFileAttributesW() */
 # endif
 #endif
-/* 10/20/04 EG */
+/* 10/20/04 */
 extern zoff_t dot_size;         /* if not 0 then display dots every size buffers */
 extern zoff_t dot_count;        /* if dot_size not 0 counts buffers */
-/* status 10/30/04 EG */
+/* status 10/30/04 */
 extern int display_counts;      /* display running file count */
 extern int display_bytes;       /* display running bytes remaining */
 extern int display_globaldots;  /* display dots for archive instead of for each file */
@@ -415,7 +412,7 @@ extern uzoff_t bytes_so_far;    /* bytes processed so far (from initial scan) */
 extern uzoff_t good_bytes_so_far;/* good bytes read so far */
 extern uzoff_t bad_bytes_so_far;/* bad bytes skipped so far */
 extern uzoff_t bytes_total;     /* total bytes to process (from initial scan) */
-/* logfile 6/5/05 EG */
+/* logfile 6/5/05 */
 extern int logall;          /* 0 = warnings/errors, 1 = all */
 extern FILE *logfile;           /* pointer to open logfile or NULL */
 extern int logfile_append;      /* append to existing logfile */
@@ -425,13 +422,14 @@ extern int nonlocal_name;       /* Name has non-local characters */
 extern int nonlocal_path;       /* Path has non-local characters */
 #endif
 #ifdef UNICODE_SUPPORT
-/* Unicode 10/12/05 EG */
+/* Unicode 10/12/05 */
 extern int use_wide_to_mb_default;/* use the default MB char instead of escape */
 #endif
 
 extern int hidden_files;        /* process hidden and system files */
 extern int volume_label;        /* add volume label */
 extern int dirnames;            /* include directory names */
+extern int filter_match_case;   /* 1=match case when filter() */
 extern int diff_mode;           /* 1=require --out and only store changed and add */
 #if defined(WIN32)
 extern int only_archive_set;    /* only include if DOS archive bit set */
@@ -453,11 +451,15 @@ extern int output_seekable;     /* 1 = output seekable 3/13/05 EG */
  extern int zip64_entry;        /* current entry needs Zip64 */
  extern int zip64_archive;      /* at least 1 entry needs zip64 */
 #endif
+extern int allow_fifo;          /* Allow reading Unix FIFOs, waiting if pipe open */
+extern int show_files;          /* show files to operate on and exit (=2 log only) */
 
 extern char *tempzip;           /* temp file name */
 extern FILE *y;                 /* output file now global for splits */
 
-extern int unicode_force;       /* 1=store UTF-8 as standard per AppNote bit 11 */
+#ifdef UNICODE_ALLOW_FORCE
+  extern int unicode_force;     /* 1=store UTF-8 as standard per AppNote bit 11 */
+#endif
 extern int unicode_escape_all;  /* 1=escape all non-ASCII characters in paths */
 extern int unicode_mismatch;    /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
 
@@ -503,8 +505,9 @@ extern uzoff_t split_size;       /* how big each split should be */
 extern int split_bell;           /* when pause for next split ring bell */
 extern uzoff_t bytes_prev_splits; /* total bytes written to all splits before this */
 extern uzoff_t bytes_this_entry; /* bytes written for this entry across all splits */
-extern int noisy_splits;       /* note when splits are being created */
-extern int mesg_line_started;   /* 1=started writing a line to mesg */
+extern int noisy_splits;         /* note when splits are being created */
+extern int mesg_line_started;    /* 1=started writing a line to mesg */
+extern int logfile_line_started; /* 1=started writing a line to logfile */
 extern char *key;               /* Scramble password or NULL */
 extern char *tempath;           /* Path for temporary files */
 extern FILE *mesg;              /* Where informational output goes */
@@ -528,6 +531,7 @@ extern uzoff_t tempzn;          /* Count of bytes written to output zip file */
 
 extern struct zlist far *zfiles;/* Pointer to list of files in zip file */
 extern extent zcount;           /* Number of files in zip file */
+extern int zipfile_exists;      /* 1 if zipfile exists */
 extern ush zcomlen;             /* Length of zip file comment */
 extern char *zcomment;          /* Zip file comment (not zero-terminated) */
 extern struct flist far **fsort;/* List of files sorted by name */
@@ -731,7 +735,8 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
 # endif
    char *in2ex OF((char *));
    char *ex2in OF((char *, int, int *));
-#ifdef UNICODE_SUPPORT
+#if defined(UNICODE_SUPPORT) && defined(WIN32)
+   int has_win32_wide();
    wchar_t *in2exw OF((wchar_t *));
    wchar_t *ex2inw OF((wchar_t *, int, int *));
    int procnamew OF((wchar_t *, int));
@@ -863,6 +868,9 @@ void     bi_init      OF((char *, unsigned int, int));
 #ifdef WIN32
    int ZipIsWinNT         OF((void));                         /* win32.c */
    int ClearArchiveBit    OF((char *));                       /* win32.c */
+# ifdef UNICODE_SUPPORT
+   int ClearArchiveBitW   OF((wchar_t *));                    /* win32.c */
+# endif
 #endif /* WIN32 */
 
 #if (defined(WINDLL) || defined(DLL_ZIPAPI))
@@ -914,13 +922,19 @@ void     bi_init      OF((char *, unsigned int, int));
 
   /* convert UTF-8 string to multi-byte string */
   char *utf8_to_local_string OF((char *));
+  char *utf8_to_escape_string OF((char *));
 
   /* convert UTF-8 string to wide string */
   zwchar *utf8_to_wide_string OF((char *));
 
   /* convert wide string to multi-byte string */
   char *wide_to_local_string OF((zwchar *));
+  char *wide_to_escape_string OF((zwchar *));
+  char *local_to_escape_string OF((char *));
 #ifdef WIN32
+  /* convert UTF-8 to wchar */
+  wchar_t *utf8_to_wchar_string OF ((char *));
+
   char *wchar_to_local_string OF((wchar_t *));
 #endif
 
@@ -928,7 +942,7 @@ void     bi_init      OF((char *, unsigned int, int));
   char *local_to_display_string OF((char *));
 
   /* convert wide character to escape string */
-  char *wide_to_escape_string OF((unsigned long));
+  char *wide_char_to_escape_string OF((unsigned long));
 
 #if 0
   /* convert escape string to wide character */

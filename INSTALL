@@ -311,6 +311,10 @@ Compiler Flags
     what's where.  This is only a problem if an archive becomes broke for
     some reason.  To be safe, define this.
 
+  ALLOW_REGEX
+    For MSDOS and Windows, now [list] wildcard matching is turned off unless
+    the new -RE option is used.  Defining this forces [list] to be always on.
+
 
 For command help on any of the zip* utilities, simply enter
 the name with no arguments.

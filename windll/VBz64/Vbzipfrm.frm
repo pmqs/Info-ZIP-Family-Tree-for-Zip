@@ -41,7 +41,9 @@ Option Explicit
 '---------------------------------------------------------------
 '--
 '-- The Source Code Is Freely Available From Info-ZIP At:
-'-- ftp://ftp.info-zip.org/pub/infozip/infozip.html
+'--   ftp://ftp.info-zip.org/pub/infozip/infozip.html
+'-- and
+'--   http://sourceforge.net/projects/infozip/
 '--
 '-- A Very Special Thanks To Mr. Mike Le Voi
 '-- And Mr. Mike White Of The Info-ZIP project
@@ -68,7 +70,7 @@ Option Explicit
 ' Contact Info-Zip if problems.  This code is
 ' provided under the Info-Zip license.
 '
-' 4/24/2004 EG
+' 4/24/2004, 12/4/2007 EG
 '---------------------------------------------------------------
 
 Private Sub Form_Click()
@@ -88,12 +90,11 @@ Private Sub Form_Click()
   ' appear.  Delete a := and retype to see a list of choices.
 
   ' Be warned:  There are bugs in the previous dll.  See the Original VB
-  ' example for details.
+  ' example in the VB directory for details.
   
   If Not SetZipOptions(ZOPT, _
                        ZipMode:=Add, _
-                       CompressionLevel:=c6_Default _
-                       ) Then
+                       CompressionLevel:=c6_Default) Then
            ' Some additional options ...
            '            RootDirToZipFrom:="", _
            '   strip paths and just store names:
@@ -111,6 +112,8 @@ Private Sub Form_Click()
            '            ArchiveComment:=False
            ' date example (format mmddyyyy or yyyy-mm-dd):
            '           ExcludeEarlierThanDate:="2002-12-10", _
+           ' split example (can only create, can't update split archives in VB):
+           '            SplitSize:="110k", _
 ' Delete
  ' If Not SetZipOptions(ZOPT, _
  '                      ZipMode:=Delete) Then

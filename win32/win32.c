@@ -1,7 +1,7 @@
 /*
   win32/win32.c - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -168,7 +168,11 @@ DWORD dwAttr;
 
   dwAttr = GetFileAttributes(name);
   if ( dwAttr == 0xFFFFFFFF ) {
-    fprintf(mesg, "zip diagnostic: GetFileAttributes failed\n");
+    zipwarn("reading file attributes failed: ", name);
+    /*
+    fprintf(mesg, "zip diagnostic: GetFileAttributes failed");
+    fflush();
+    */
     return(0x20); /* the most likely, though why the error? security? */
   }
   return(
@@ -192,7 +196,9 @@ DWORD dwAttr;
 
   dwAttr = GetFileAttributesW(namew);
   if ( dwAttr == 0xFFFFFFFF ) {
-    fprintf(mesg, "zip diagnostic: GetFileAttributes failed\n");
+    char *name = wchar_to_local_string(namew);
+    zipwarn("reading file attributes failed: ", name);
+    free(name);
     return(0x20); /* the most likely, though why the error? security? */
   }
   return(
@@ -204,6 +210,23 @@ DWORD dwAttr;
 }
 #endif
 
+
+int ClearArchiveBitW(wchar_t *namew)
+{
+DWORD dwAttr;
+  dwAttr = GetFileAttributesW(namew);
+  if ( dwAttr == 0xFFFFFFFF ) {
+    fprintf(mesg, "zip diagnostic: GetFileAttributes failed\n");
+    return(0);
+  }
+
+  if (!SetFileAttributesW(namew, (DWORD)(dwAttr & ~FILE_ATTRIBUTE_ARCHIVE))) {
+    fprintf(mesg, "zip diagnostic: SetFileAttributes failed\n");
+    perror("SetFileAttributes");
+    return(0);
+  }
+  return(1);
+}
 
 int ClearArchiveBit(char *name)
 {

@@ -1,7 +1,7 @@
 /*
   unix/unix.c - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -202,6 +202,24 @@ int caseflag;           /* true to force case-sensitive match */
     }
     free((zvoid *)p);
   } /* (s.st_mode & S_IFDIR) */
+#ifdef OS390
+  else if (S_ISFIFO(s.st_mode))
+#else
+  else if ((s.st_mode & S_IFIFO) == S_IFIFO)
+#endif
+  {
+    if (allow_fifo) {
+      /* FIFO (Named Pipe) - handle as normal file */
+      /* add or remove name of FIFO */
+      /* zip will stop if FIFO is open and wait for pipe to be fed and closed */
+      if (noisy) zipwarn("Reading FIFO (Named Pipe): ", n);
+      if ((m = newname(n, 0, caseflag)) != ZE_OK)
+        return m;
+    } else {
+      zipwarn("ignoring FIFO (Named Pipe) - use -FI to read: ", n);
+      return ZE_OK;
+    }
+  } /* S_IFIFO */
   else
     zipwarn("ignoring special file: ", n);
   return ZE_OK;
@@ -424,11 +442,24 @@ int set_extra_field(z, z_utim)
      in central header */
 {
   z_stat s;
+  char *name;
+  int len = strlen(z->name);
 
   /* For the full sized UT local field including the UID/GID fields, we
    * have to stat the file again. */
-  if (LSSTAT(z->name, &s))
+
+  if ((name = malloc(len + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "set_extra_field");
+  }
+  strcpy(name, z->name);
+  if (name[len - 1] == '/')
+    name[len - 1] = '\0';
+  /* not all systems allow stat'ing a file with / appended */
+  if (LSSTAT(name, &s)) {
+    free(name);
     return ZE_OPEN;
+  }
+  free(name);
 
 #define EB_L_UT_SIZE    (EB_HEADSIZE + EB_UT_LEN(2))
 #define EB_C_UT_SIZE    (EB_HEADSIZE + EB_UT_LEN(1))
@@ -882,4 +913,3 @@ void *memmove( dest0, source0, length)
 }
 
 #endif /* def NEED_MEMMOVE */
-

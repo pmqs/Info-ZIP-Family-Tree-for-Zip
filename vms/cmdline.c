@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -210,9 +210,9 @@ $DESCRIPTOR(cli_log_file_file,  "LOG_FILE.FILE");       /* -lf */
 $DESCRIPTOR(cli_log_file_info,  "LOG_FILE.INFORMATIONAL"); /* -li */
 $DESCRIPTOR(cli_must_match,     "MUST_MATCH");          /* -MM */
 $DESCRIPTOR(cli_output,         "OUTPUT");              /* -O */
-$DESCRIPTOR(cli_patt_case,      "PATTERN_CASE");        /* -fc[-] */
-$DESCRIPTOR(cli_patt_case_blind, "PATTERN_CASE.BLIND"); /* -fc */
-$DESCRIPTOR(cli_patt_case_sensitive, "PATTERN_CASE.SENSITIVE"); /* -fc- */
+$DESCRIPTOR(cli_patt_case,      "PATTERN_CASE");        /* -ic[-] */
+$DESCRIPTOR(cli_patt_case_blind, "PATTERN_CASE.BLIND"); /* -ic */
+$DESCRIPTOR(cli_patt_case_sensitive, "PATTERN_CASE.SENSITIVE"); /* -ic- */
 $DESCRIPTOR(cli_pkzip,          "PKZIP");               /* -k */
 $DESCRIPTOR(cli_pres_case,      "PRESERVE_CASE");       /* -C */
 $DESCRIPTOR(cli_pres_case_no2,  "PRESERVE_CASE.NOODS2");/* -C2- */
@@ -603,27 +603,27 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     /*
     **  Pattern case sensitivity.
     */
-#define OPT_FC  "-fc"           /* Case-insensitive pattern matching. */
-#define OPT_FCN "-fc-"          /* Case-sensitive pattern matching. */
+#define OPT_IC  "-ic"           /* Case-insensitive pattern matching. */
+#define OPT_ICN "-ic-"          /* Case-sensitive pattern matching. */
 
     status = cli$present( &cli_patt_case);
     if (status & 1)
     {
         if (cli$present( &cli_patt_case_blind) & 1)
         {
-            /* "-fc". */
+            /* "-ic". */
             x = cmdl_len;
-            cmdl_len += strlen( OPT_FC)+ 1;
+            cmdl_len += strlen( OPT_IC)+ 1;
             CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
-            strcpy( &the_cmd_line[ x], OPT_FC);
+            strcpy( &the_cmd_line[ x], OPT_IC);
         }
         else if (cli$present( &cli_patt_case_sensitive) & 1)
         {
-            /* "-fc-". */
+            /* "-ic-". */
             x = cmdl_len;
-            cmdl_len += strlen( OPT_FCN)+ 1;
+            cmdl_len += strlen( OPT_ICN)+ 1;
             CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
-            strcpy( &the_cmd_line[ x], OPT_FCN);
+            strcpy( &the_cmd_line[ x], OPT_ICN);
         }
     }
 

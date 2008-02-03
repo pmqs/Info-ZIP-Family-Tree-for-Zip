@@ -4,7 +4,7 @@
    This document describes some VMS-specific behavior and implementation
 details of the Info-ZIP Zip and UnZip programs.
 
-   Last modified: 2007-03-16.
+   Last modified: 2007-10-20.
 
 
    Building with the LIST option using MMK or MMS
@@ -61,9 +61,10 @@ the SET RMS_DEFAULT values, and in this situation, the callback function
 will not try to use its improved parameter values.  Users on such old
 VMS versions who seek improved I/O speed may wish to bypass this check,
 which requires changing the code in the get_rms_defaults() function in
-[.VMS]VMS.C.  The "-v" option on both programs enables diagnostic
-messages which show the operation of the callback function.  A message
-showing a failure status from sys$getjpi() indicates this problem.
+[.VMS]VMS.C.  The "-vv" (/VERBOSE = MORE) option on both programs
+enables diagnostic messages which show the operation of the callback
+function.  A message showing a failure status from sys$getjpi()
+indicates this problem.
 
    Sample results (UnZip shown, Zip similar):
 
@@ -109,9 +110,9 @@ flag is set, as with a -V archive.
    Changes to the "-V" (/VMS) Option
    ---------------------------------
 
-   The intent of the "-V" (/VMS) option was to store VMS RMS file
-attributes in a Zip archive, allowing UnZip to extract an exact copy of
-a file on a VMS system, including all its RMS attributes.
+   The intent of the "-V" (/VMS) option was to store VMS file attributes
+in a Zip archive, allowing UnZip to extract an exact copy of a file on a
+VMS system, including all its VMS attributes.
 
    In Zip before version 2.31, using the "-V" (/VMS) option created an
 archive which usually contained data from beyond the EOF (End-of-File)
@@ -216,6 +217,73 @@ or, using the command procedure to build Zip:
       @ [.VMS]BUILD_ZIP.COM
       DELETE /SYMBOL /GLOBAL LOCAL_ZIP
 
+   Currently, the only indication of symlink support in Zip is the
+mention of the "-y" (or /SYMLINKS) option in the "zip -h" (or "zip
+/help") report.  UnZip is even less convenient, but searching the UnZip
+executable (or EXTRACT.OBJ) for "symlink" should fail if symlink support
+is missing (or succeed if it's present):
+
+      $ SEARCH /NOOUTPUT UNZIP.EXE SYMLINK      ! No symlink support.
+      %SEARCH-I-NOMATCHES, no strings matched
+or:
+      $ SEARCH /NOOUTPUT EXTRACT.OBJ SYMLINK    ! Symlink support.
+      $ SHOW SYMBOL $STATUS
+        $STATUS == "%X00000001"
+
+
+   VMS File Attribute Schemes
+   --------------------------
+
+   Zip's "-V" (/VMS) option causes VMS file attributes to be stored in
+an archive.  Since Zip version 2.2 (released in 1996), Zip has, by
+default, stored VMS file attributes using a scheme ("PK") which is
+compatible with the one used by PKWARE in their PKZIP product.  Before
+that, a different scheme ("IM") was used.  UnZip versions before 5.2
+support only the older IM scheme, but since UnZip version 5.2, both
+schemes have been supported by UnZip.
+
+   The IM scheme has not been well tested recently, but it is still
+available.  Some problems were seen when the IM scheme was used with
+symbolic links on VMS V8.3.  Details on how build Zip to use the IM
+scheme instead of the PK scheme are included in comments in the main
+builder files.  Look for VMS_IM_EXTRA in [.VMS]BUILD_ZIP.COM or IM in
+[.VMS]DESCRIP.MMS.
+
+   The "special compilation options" section of a "zip -v" ("zip
+/verbose") report should show either VMS_PK_EXTRA or VMS_IM_EXTRA,
+according to how Zip was built.
+
+
+   UTC Date-Times
+   --------------
+
+   Zip archives traditionally include local (MS-DOS compatible)
+date-time information for files.  Since Zip version 2.1, it has also
+been possible to store UTC date-time information in the archive, and
+since UnZip version 5.2, UnZip has been able to use this UTC date-time
+information when extracting files.
+
+   On VMS, support in the C run-time environment for UTC became
+available with VMS V7.0.  UTC support in Zip and UnZip is automatically
+enabled at compile time, if it is available on the system where the code
+is compiled (__CRTL_VER >= 70000000).  It may be disabled at compile
+time by defining the C macro NO_EF_UT_TIME.  Details on how build Zip
+and UnZip with additional C macros defined are included in comments in
+the main builder files.  Look for LOCAL_[UN]ZIP in
+[.VMS]BUILD_[UN]ZIP.COM or in [.VMS]DESCRIP.MMS.  For example, using MMS
+to build UnZip:
+
+      MMS /DESCRIP = [.VMS] /MACRO = ("LOCAL_UNZIP=NO_EF_UT_TIME=1")
+
+or, using the command procedure to build Zip:
+
+      LOCAL_ZIP == "NO_EF_UT_TIME=1"
+      @ [.VMS]BUILD_ZIP.COM
+      DELETE /SYMBOL /GLOBAL LOCAL_ZIP
+
+   The "special compilation options" section of a "zip -v" ("zip
+/verbose") or "unzip -v" ("unzip /verbose") report should show
+USE_EF_UT_TIME if the program was built with UTC support.
 
 
    GNU C

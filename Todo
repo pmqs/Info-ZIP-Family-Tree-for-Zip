@@ -1,4 +1,4 @@
-Main features still missing for next official version (last updated 9/12/2007):
+Main features still missing for next official version (last updated 1/30/2008):
 
 - Fix -W option that prevents * from spanning / in paths (done?) (5/9/2005)
 - Verbose -v still needs work (done?) (5/17/2006)
@@ -7,9 +7,9 @@ Main features still missing for next official version (last updated 9/12/2007):
 - Add About page option similar to -h2 and -v but lists Info-ZIP
       information (could be -sa) (4/29/2006)
 - Update utilities ZipSplit, ZipNote, and ZipCloak, still more to do (3/16/2006)
-- Update ziperr and finish (needs another look)
+- Update ziperr and finish (could be done)
 - Review memory allocation and fill in memory leaks, mainly for
-      dll (12/17/05)
+      dll (some done)
 - Fix -F and -FF to handle split archives, make more robust (done?)
 - Enhance -FF to fix common problems such as archives ftp in text mode
       and fixing checksums so entries can be extracted if that makes
@@ -29,7 +29,7 @@ Main features still missing for next official version (last updated 9/12/2007):
       and avoid name conflicts (4/17/2006)
 - Maybe convert ../ in archive (5/20/2006)
 - Extended file attributes (1/23/2006)
-- Could turn off [] matching on Windows
+- Could turn off [] matching on Windows (done)
 - Per so many buffers dll callback (12/23/2005 Ale)
 - Replace mktemp with mkstemp (some ports like Win32 do not have mkstemp
       so need to do based on port) but mkstemp returns open file handle

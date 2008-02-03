@@ -1,9 +1,9 @@
 /*
   zipsplit.c - Zip 3
 
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -839,11 +839,11 @@ char **argv;            /* command line tokens */
   for (j = 0; j < s; j++)
   {
     /* jump here on a disk retry */
-   redobin:
+  redobin:
 
-  current_disk = 0;
-  cd_start_disk = 0;
-  cd_entries_this_disk = 0;
+    current_disk = 0;
+    cd_start_disk = 0;
+    cd_entries_this_disk = 0;
 
     /* prompt if requested */
     if (u)

@@ -1,9 +1,9 @@
 /*
   zipnote.c - Zip 3
 
-  Copyright (c) 1990-2006 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -574,16 +574,38 @@ char **argv;            /* command line tokens */
 #if defined(UNIX) && !defined(NO_MKSTEMP)
   {
     int yd;
+    int i;
 
     /* use mkstemp to avoid race condition and compiler warning */
-    strcpy(errbuf, "ziXXXXXX");
-    if ((yd = mkstemp(errbuf)) == EOF) {
-      ZIPERR(ZE_TEMP, errbuf);
+
+    if (tempath != NULL)
+    {
+      /* if -b used to set temp file dir use that for split temp */
+      if ((tempzip = malloc(strlen(tempath) + 12)) == NULL) {
+        ZIPERR(ZE_MEM, "allocating temp filename");
+      }
+      strcpy(tempzip, tempath);
+      if (lastchar(tempzip) != '/')
+        strcat(tempzip, "/");
     }
-    if ((tempzip = malloc(strlen(errbuf) + 1)) == NULL) {
+    else
+    {
+      /* create path by stripping name and appending template */
+      if ((tempzip = malloc(strlen(zipfile) + 12)) == NULL) {
       ZIPERR(ZE_MEM, "allocating temp filename");
+      }
+      strcpy(tempzip, zipfile);
+      for(i = strlen(tempzip); i > 0; i--) {
+        if (tempzip[i - 1] == '/')
+          break;
+      }
+      tempzip[i] = '\0';
     }
-    strcpy(tempzip, errbuf);
+    strcat(tempzip, "ziXXXXXX");
+
+    if ((yd = mkstemp(tempzip)) == EOF) {
+      ZIPERR(ZE_TEMP, tempzip);
+    }
     if ((tempzf = y = fdopen(yd, FOPW)) == NULL) {
       ZIPERR(ZE_TEMP, tempzip);
     }

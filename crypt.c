@@ -94,7 +94,7 @@
      local int testp OF((__GPRO__ ZCONST uch *h));
      local int testkey OF((__GPRO__ ZCONST uch *h, ZCONST char *key));
 #  endif
-#else /* def UNZIP */
+#else /* def UNZIP */           /* moved to globals.h for UnZip */
    local z_uint4 keys[3];       /* keys defining the pseudo-random sequence */
 #endif /* def UNZIP [else] */
 

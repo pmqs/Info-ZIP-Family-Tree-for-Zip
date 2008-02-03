@@ -30,7 +30,7 @@ Option Explicit
 ' Zip 3.0 with Zip64 enabled.  This allows for archives with more
 ' and larger files than allowed in previous versions.
 '
-' Modified 4/24/2004 by Ed Gordon
+' Modified 4/24/2004, 12/4/2007 by Ed Gordon
 '---------------------------------------------------------------
 
 '---------------------------------------------------------------
@@ -56,11 +56,13 @@ Option Explicit
 '-- C Style argv
 '-- Holds The Zip Archive Filenames
 '
-' Max for this just over 8000 as each pointer takes up 4 bytes and
+' Max for zFiles just over 8000 as each pointer takes up 4 bytes and
 ' VB only allows 32 kB of local variables and that includes function
 ' parameters.  - 3/19/2004 EG
 '
-' Can put names in strZipFileNames instead of using this array
+' Can put names in strZipFileNames instead of using this array,
+' which avoids this limit.  File names are separated by spaces.
+' Enclose names in quotes if include spaces.
 Public Type ZIPnames
   zFiles(1 To 100) As String
 End Type
@@ -454,9 +456,13 @@ Public Function SetZipOptions(ByRef ZipOpts As ZpOpt, _
   Optional ByVal ArchiveComment As Boolean = False, _
   Optional ByVal ArchiveCommentTextString = Empty, _
   Optional ByVal UsePrivileges As Boolean = False, _
-  Optional ByVal ExcludeExtraAttributes As Boolean = False, _
+  Optional ByVal ExcludeExtraAttributes As Boolean = False, Optional ByVal SplitSize As String = "", _
   Optional ByVal TempDirPath As String = "") As Boolean
 
+  Dim SplitNum As Long
+  Dim SplitMultS As String
+  Dim SplitMult As Long
+  
   ' set some defaults
   ZipOpts.date = vbNullString
   ZipOpts.szRootDir = vbNullString
@@ -567,6 +573,34 @@ Public Function SetZipOptions(ByRef ZipOpts As ZpOpt, _
   If TempDirPath <> "" Then
     ZipOpts.szTempDir = TempDirPath
     ZipOpts.fTemp = 1
+  End If
+  
+  If SplitSize <> "" Then
+    SplitSize = Trim(SplitSize)
+    SplitMultS = Right(SplitSize, 1)
+    SplitMultS = UCase(SplitMultS)
+    If (SplitMultS = "K") Then
+        SplitMult = 1024
+        SplitNum = Val(Left(SplitSize, Len(SplitSize) - 1))
+    ElseIf SplitMultS = "M" Then
+        SplitMult = 1024 * 1024&
+        SplitNum = Val(Left(SplitSize, Len(SplitSize) - 1))
+    ElseIf SplitMultS = "G" Then
+        SplitMult = 1024 * 1024 * 1024&
+        SplitNum = Val(Left(SplitSize, Len(SplitSize) - 1))
+    Else
+        SplitMult = 1024 * 1024&
+        SplitNum = Val(SplitSize)
+    End If
+    SplitNum = SplitNum * SplitMult
+    If SplitNum = 0 Then
+        MsgBox "SplitSize of 0 not supported"
+        Exit Function
+    ElseIf SplitNum < 64 * 1024& Then
+        MsgBox "SplitSize must be at least 64k"
+        Exit Function
+    End If
+    ZipOpts.szSplitSize = SplitSize
   End If
   
   If IncludeVolumeLabel Then ZipOpts.fVolume = 1

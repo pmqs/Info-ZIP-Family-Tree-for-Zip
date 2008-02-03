@@ -11,10 +11,10 @@ with previous VB examples using the zip32.dll interface as this new
 interface supports more files and handles file sizes larger than 2 GB.
 It should be simple to convert a VB program using zip32.dll to
 zip32z64.dll but the program may need some changes.  For a compatible
-replacement use Zip 2.32 (released separately) and the example in the
-VB directory.
+replacement use the dll compiled from Zip 2.32 (released separately)
+and see the zip32.dll example in the VB directory of this source tree.
 
-Note that the files are saved in unix format with carriage returns
+Note that the files may be saved in unix format with carriage returns
 stripped.  These must be restored before the project can be successfully
 used.  This can be done by using the -a option to unzip.  Another way to
 do this is to open each file in WordPad, select and cut a line, paste
@@ -22,4 +22,4 @@ the line back, and save the file.  This will force WordPad to change the
 line ends in the entire file.
 
 Ed Gordon
-2/2/2007
+12/4/2007

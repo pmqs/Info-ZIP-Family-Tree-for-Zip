@@ -1,9 +1,9 @@
 /*
   zipup.c - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -183,12 +183,11 @@ local ftype ifile;              /* file to compress */
    */
 #endif /* MMAP || BIG_MEM */
 #ifdef USE_ZLIB
-  local int deflInit;           /* flag: zlib deflate is initialized */
+  local int deflInit = FALSE;   /* flag: zlib deflate is initialized */
   local z_stream zstrm;         /* zlib's data interface structure */
   local char *f_ibuf = NULL;
   local char *f_obuf = NULL;
 #else /* !USE_ZLIB */
-  local FILE *zfile;            /* output zip file */
   local char file_outbuf[1024]; /* output buffer for compression to file */
 
 # ifdef ZP_NEED_MEMCOMPR
@@ -217,7 +216,8 @@ local ftype ifile;              /* file to compress */
     local zoff_t isize;         /* input file size. global only for debugging */
 #endif /* ?DEBUG */
   /* If file_read detects binary it sets this flag - 12/16/04 EG */
-  local int file_binary = 0;
+  local int file_binary = 0;        /* first buf */
+  local int file_binary_final = 0;  /* for bzip2 for entire file.  assume text until find binary */
 
 
 /* moved check to function 3/14/05 EG */
@@ -429,8 +429,17 @@ struct zlist far *z;    /* zip entry to compress */
   isdir = z->iname[z->nam-1] == (char)0x2f; /* ascii[(unsigned)('/')] */
 
   file_binary = -1;      /* not set, set after first read */
+  file_binary_final = 0; /* not set, set after first read */
 
-  if ((tim = filetime(z->name, &a, &q, &f_utim)) == 0 || q == (zoff_t) -3)
+#if defined(UNICODE_SUPPORT) && defined(WIN32)
+  if (!no_win32_wide)
+    tim = filetimew(z->namew, &a, &q, &f_utim);
+  else
+    tim = filetime(z->name, &a, &q, &f_utim);
+#else
+  tim = filetime(z->name, &a, &q, &f_utim);
+#endif
+  if (tim == 0 || q == (zoff_t) -3)
     return ZE_OPEN;
 
   /* q is set to -1 if the input file is a device, -2 for a volume label */
@@ -451,13 +460,15 @@ struct zlist far *z;    /* zip entry to compress */
     fprintf(mesg, " (");
     DisplayNumString( mesg, uq );
     fprintf(mesg, ")");
-    fflush(mesg);
     mesg_line_started = 1;
+    fflush(mesg);
   }
   if (logall && display_usize) {
     fprintf(logfile, " (");
     DisplayNumString( logfile, uq );
     fprintf(logfile, ")");
+    logfile_line_started = 1;
+    fflush(logfile);
   }
 
   /* initial z->len so if error later have something */
@@ -520,7 +531,7 @@ struct zlist far *z;    /* zip entry to compress */
   /* By release need to force deflation based on reports some inflate
      streamed data to find the end of the data */
   /* Need to handle bzip2 */
-#if 0
+#ifdef NO_STREAMING_STORE
   if (use_descriptors && m == STORE)
   {
       m = DEFLATE;
@@ -552,7 +563,7 @@ struct zlist far *z;    /* zip entry to compress */
 # endif /* RISCOS */
 
       /* For now allow store for testing */
-#if 0
+#ifdef NO_STREAMING_STORE
       /* For now force deflation if using data descriptors. */
       if (use_descriptors && m == STORE)
       {
@@ -587,8 +598,18 @@ struct zlist far *z;    /* zip entry to compress */
       }
       else
 #endif /* CMS_MVS */
+#if defined(UNICODE_SUPPORT) && defined(WIN32)
+      if (!no_win32_wide) {
+        if ((ifile = zwopen(z->namew, fhow)) == fbad)
+          return ZE_OPEN;
+      } else {
+        if ((ifile = zopen(z->name, fhow)) == fbad)
+          return ZE_OPEN;
+      }
+#else
       if ((ifile = zopen(z->name, fhow)) == fbad)
         return ZE_OPEN;
+#endif
     }
 
     z->tim = tim;
@@ -708,12 +729,16 @@ struct zlist far *z;    /* zip entry to compress */
   /* (Assume ext, cext, com, and zname already filled in.) */
 #if defined(OS2) || defined(WIN32)
 # ifdef WIN32_OEM
-  z->vem = 20;
+  /* When creating OEM-coded names on Win32, the entries must always be marked
+     as "created on MSDOS" (OS_CODE = 0), because UnZip needs to handle archive
+     entry names just like those created by Zip's MSDOS port.
+   */
+  z->vem = (ush)(dosify ? 20 : 0 + Z_MAJORVER * 10 + Z_MINORVER);
 # else
   z->vem = (ush)(z->dosflag ? (dosify ? 20 : /* Made under MSDOS by PKZIP 2.0 */
                                (0 + Z_MAJORVER * 10 + Z_MINORVER))
                  : OS_CODE + Z_MAJORVER * 10 + Z_MINORVER);
-  /* For a FAT file system, we cheat and pretend that the file
+  /* For a plain old (8+3) FAT file system, we cheat and pretend that the file
    * was not made on OS2/WIN32 but under DOS. unzip is confused otherwise.
    */
 # endif
@@ -724,7 +749,7 @@ struct zlist far *z;    /* zip entry to compress */
   z->ver = (ush)(m == STORE ? 10 : 20); /* Need PKUNZIP 2.0 except for store */
 #ifdef BZIP2_SUPPORT
   if (method == BZIP2)
-      z->ver = 46;
+      z->ver = (ush)(m == STORE ? 10 : 46);
 #endif
   z->crc = 0;  /* to be updated later */
   /* Assume first that we will need an extended local header: */
@@ -955,17 +980,17 @@ struct zlist far *z;    /* zip entry to compress */
     /* Try to rewrite the local header with correct information */
     z->crc = crc;
     z->siz = s;
-#  if CRYPT
+#if CRYPT
     if (!isdir && key != NULL)
       z->siz += RAND_HEAD_LEN;
-#  endif /* CRYPT */
+#endif /* CRYPT */
     z->len = isize;
     /* if can seek back to local header */
-#  ifdef BROKEN_FSEEK
+#ifdef BROKEN_FSEEK
     if (use_descriptors || !fseekable(y) || zfseeko(y, z->off, SEEK_SET))
-#  else
+#else
     if (use_descriptors || zfseeko(y, z->off, SEEK_SET))
-#  endif
+#endif
     {
       if (z->how != (ush) m)
          error("can't rewrite method");
@@ -974,11 +999,11 @@ struct zlist far *z;    /* zip entry to compress */
       if ((r = putextended(z)) != ZE_OK)
         return r;
       /* if Zip64 and not seekable then Zip64 data descriptor */
-#  ifdef ZIP64_SUPPORT
+#ifdef ZIP64_SUPPORT
       tempzn += (zip64_entry ? 24L : 16L);
-#  else
+#else
       tempzn += 16L;
-#  endif
+#endif
       z->flg = z->lflg; /* if z->flg modified by deflate */
     } else {
       /* ftell() not as useful across splits */
@@ -987,16 +1012,16 @@ struct zlist far *z;    /* zip entry to compress */
                 zip_fzofft(s, NULL, NULL), zip_fzofft(bytes_this_entry, NULL, NULL));
         error("incorrect compressed size");
       }
-#  if 0
+#if 0
        /* seek ok, ftell() should work, check compressed size */
-#   if !defined(VMS) && !defined(CMS_MVS)
+# if !defined(VMS) && !defined(CMS_MVS)
       if (p - o != s) {
         fprintf(mesg, " s=%s, actual=%s ",
                 zip_fzofft(s, NULL, NULL), zip_fzofft(p-o, NULL, NULL));
         error("incorrect compressed size");
       }
-#   endif /* !VMS && !CMS_MVS */
-#  endif /* 0 */
+# endif /* !VMS && !CMS_MVS */
+#endif /* 0 */
       z->how = (ush)m;
       switch (m)
       {
@@ -1005,10 +1030,10 @@ struct zlist far *z;    /* zip entry to compress */
       /* Need PKUNZIP 2.0 for DEFLATE */
       case DEFLATE:
         z->ver = 20; break;
-#  ifdef BZIP2_SUPPORT
+#ifdef BZIP2_SUPPORT
       case BZIP2:
         z->ver = 46; break;
-#  endif
+#endif
       }
       /*
        * The encryption header needs the crc, but we don't have it
@@ -1027,8 +1052,7 @@ struct zlist far *z;    /* zip entry to compress */
          be different. */
       z->lflg = z->flg;
 
-      /* if not using descriptors back up and rewrite local header */
-      /* rewrite the local header: */
+      /* If not using descriptors, back up and rewrite local header. */
       if (split_method == 1 && current_local_file != y) {
         if (zfseeko(current_local_file, z->off, SEEK_SET))
           return ZE_READ;
@@ -1038,7 +1062,6 @@ struct zlist far *z;    /* zip entry to compress */
       if ((r = putlocal(z, PUTLOCAL_REWRITE)) != ZE_OK)
         return r;
 
-
       if (zfseeko(y, bytes_this_split, SEEK_SET))
         return ZE_READ;
 
@@ -1046,14 +1069,14 @@ struct zlist far *z;    /* zip entry to compress */
         /* encrypted file, extended header still required */
         if ((r = putextended(z)) != ZE_OK)
           return r;
-#  ifdef ZIP64_SUPPORT
+#ifdef ZIP64_SUPPORT
         if (zip64_entry)
           tempzn += 24L;
         else
           tempzn += 16L;
-#  else
+#else
         tempzn += 16L;
-#  endif
+#endif
       }
     }
   } /* isdir */
@@ -1082,15 +1105,22 @@ struct zlist far *z;    /* zip entry to compress */
       fprintf(mesg, " (deflated %d%%)\n", percent(isize, s));
     else
       fprintf(mesg, " (stored 0%%)\n");
-    fflush(mesg);
     mesg_line_started = 0;
+    fflush(mesg);
   }
   if (logall)
   {
+#ifdef BZIP2_SUPPORT
+    if (m == BZIP2)
+      fprintf(logfile, " (bzipped %d%%)\n", percent(isize, s));
+    else
+#endif
     if (m == DEFLATE)
       fprintf(logfile, " (deflated %d%%)\n", percent(isize, s));
     else
       fprintf(logfile, " (stored 0%%)\n");
+    logfile_line_started = 0;
+    fflush(logfile);
   }
 
 #ifdef WINDLL
@@ -1330,6 +1360,7 @@ void zl_deflate_free()
         if (err != Z_OK && err !=Z_DATA_ERROR) {
             ziperr(ZE_LOGIC, "zlib deflateEnd failed");
         }
+        deflInit = FALSE;
     }
 }
 
@@ -1558,9 +1589,6 @@ local zoff_t filecompress(z_entry, cmpr_method)
 #else /* !USE_ZLIB */
 
     /* Set the defaults for file compression. */
-    /*
-    zfile = zipfile;
-    */
     read_buf = file_read;
 
     /* Initialize deflate's internals and execute file compression. */
@@ -1621,9 +1649,6 @@ ulg memcompress(tgt, tgtsize, src, srcsize)
     if ((err = deflateReset(&zstrm)) != Z_OK)
         error("zlib deflateReset failed");
 #else /* !USE_ZLIB */
-    /*
-    zfile     = NULL;
-    */
     read_buf  = mem_read;
     in_buf    = src;
     in_size   = (unsigned)srcsize;
@@ -1759,6 +1784,11 @@ int *cmpr_method;
         bstrm.next_in = (char *)f_ibuf;
     }
     bstrm.avail_in = file_read(bstrm.next_in, ibuf_sz);
+    if (file_binary_final == 0) {
+      /* check for binary as library does not */
+      if (!is_text_buf(bstrm.next_in, ibuf_sz))
+        file_binary_final = 1;
+    }
     if (bstrm.avail_in < ibuf_sz) {
         unsigned more = file_read(bstrm.next_in + bstrm.avail_in,
                                   (ibuf_sz - bstrm.avail_in));
@@ -1771,8 +1801,8 @@ int *cmpr_method;
     bstrm.next_out = (char *)f_obuf;
     bstrm.avail_out = OBUF_SZ;
 
-    if (!maybe_stored) while (bstrm.avail_in != 0 &&
-     bstrm.avail_in != (unsigned) EOF) {
+    if (!maybe_stored) {
+      while (bstrm.avail_in != 0 && bstrm.avail_in != (unsigned) EOF) {
         err = BZ2_bzCompress(&bstrm, BZ_RUN);
         if (err != BZ_RUN_OK && err != BZ_STREAM_END) {
             sprintf(errbuf, "unexpected bzlib compress error %d", err);
@@ -1823,8 +1853,22 @@ int *cmpr_method;
             bstrm.next_in = (char *)f_ibuf;
 #endif
             bstrm.avail_in = file_read(bstrm.next_in, ibuf_sz);
+            if (file_binary_final == 0) {
+              /* check for binary as library does not */
+              if (!is_text_buf(bstrm.next_in, ibuf_sz))
+                file_binary_final = 1;
+            }
         }
+      }
     }
+
+    /* binary or text */
+    if (file_binary_final)
+      /* found binary in file */
+      z_entry->att = (ush)BINARY;
+    else
+      /* text file */
+      z_entry->att = (ush)ASCII;
 
     do {
         err = BZ2_bzCompress(&bstrm, BZ_FINISH);

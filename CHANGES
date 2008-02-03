@@ -851,6 +851,9 @@
  3. tandem: fix temporary file leftovers (Dave Smith)
  4. solaris: enable large file I/O to break 2G barrier (Rick Moakley, Onno)
 
+Note:  Zip 2.4 was never released.  That code was the start of the Zip 3.0
+effort below.  Some changes and fixes also made it to the Zip 2.3x releases.
+
 ---------------------- January 21st 2004 version 3.0a ----------------------
 Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  1. Changed some comments to update copyrights (Ed)
@@ -2983,3 +2986,180 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  4. Update announcement date.  zip30f.ann (Ed)
  5. Update Unicode extra field definitions based on changes proposed for
     AppNote.  extrafld.txt (Ed)
+------------------------ October 17th 2007 version 3.0g01 ---------------------
+ 1. Can get stuck on open Unix FIFO so default to skip and add option -FI to
+    enable reading FIFO.  Add global allow_fifo.  zip.c, zip.h, globals.c
+    (Willus 0, Ed)
+ 2. As problems with MinGW with wide-character paths, disable wide-character
+    Unicode support.  zip.c, unix/unix.c (Willus 0, Ed)
+ 3. Update manual installs to include zipcloak.1, zipnote.1, and zipsplit.1
+    pages.  unix/Makefile (Ed)
+ 4. Update Solaris packages.  unix/Packaging/pkginfo.in,
+    unix/Packaging/postinstall, unix/Packaging/preinstall.in,
+    unix/Packaging/prototype (SMS)
+------------------------ October 30th 2007 version 3.0g02 ---------------------
+ 1. Fix bug in get_in_split_path() where look for .zip split when attempting
+    to open archives without a .zip extension, even when a single file archive
+    like jar file.  fileio.c (Gabriele (balducci@units.it), Ed)
+ 2. Fix bug where temp file got created in current working directory on Unix
+    by giving entire archive path to mkstemp() as template.  fileio.c, zip.c
+    (Willus, Ed)
+ 3. Use 64-bit output functions for bits_sent.  trees.c (SMS)
+ 4. Add -FF to fixfix -sd messages to make different from identical main
+    messages. zip.c (SMS, Ed)
+ 5. If quiet do not ask for splits and all splits must be in same location.
+    zipfile.c (Ed)
+ 6. Clean up making zip manuals.  unix/Makefile (Ed, SMS)
+ 7. Add clean_exe to make.  unix/Makefile (SMS)
+ 8. Update to VMS Notes, including adding details on symlinks, -V, and UTC
+    dates times.  vms/notes.txt (SMS)
+ 9. Fix bug in wild() when calling wile_recursew() where qw should be
+    pointing inside pw.  win32/win32zip.c (Willus, Ed)
+10. Fix bug where is_ascii_string() fails when passed a NULL string.  This
+    may fix problem where the CentOS mbstowcs() function is returning -1 when
+    trying to convert a file name with a bad character (0xe6), causing
+    local_to_wide_string() and then local_to_utf8_string() to return NULL, so
+    f->uname gets NULL and so is_ascii_string() fails with SIGSEGV.  fileio.c
+    (Willus, Ed)
+------------------------ October 31st 2007 version 3.0g03 ---------------------
+ 1. Add handling of -b temp directory when opening splits in bfwrite() using
+    mkstemp().  fileio.c (SMS, Ed)
+------------------------ November 3rd 2007 version 3.0g04 ---------------------
+ 1. Move show_files to global so can avoid split warning for -sf.  zip.c,
+    globals.c, zip.h, zipfile.c (Ed)
+ 2. Account for -b tempath when opening temp file.  zip.c, zipnote.c,
+    zipcloak.c (SMS, Ed)
+------------------------ November 4th 2007 version 3.0g05 ---------------------
+ 1. Minor fixes to fdopen calls.  zipcloak.c, zipnote.c (SMS, Ed)
+------------------------ November 4th 2007 version 3.0g06 ---------------------
+ 1. Add negation to -db, -dc, -dd, -dg, -du, -dv display options.  zip.c (Ed)
+ 2. Put back UNICODE_SUPPORT no_win32_wide code left out in previous fix.
+    win32/win32zip.c (Willus, Ed)
+------------------------ November 21st 2007 version 3.0g07 ---------------------
+ 1. Fix bug preventing newline in some cases in zipmessage().  zip.c (Ed)
+ 2. Update Unicode help.  zip.c (Ed)
+ 3. Update -sd messages.  zip.c (Ed)
+ 4. Add filetimew() for Unicode case.  zip.c (Ed)
+ 5. Add ClearArchiveBitW() for Win32 wide.  zip.c, zip.h, win32/win32.c (Ed)
+ 6. Only ask for .zip split if path ends in .znn or .znnn where n 0 to 9.  This
+    allows -FF to work on .exe sfx files without adding .zip.  zipfile.c (Ed)
+ 7. Fix bug where only backed up 20 bytes to find Z64 EOCD Locator.  Now back
+    up 24 bytes to include size of Z64 EOCD Locator signature.  This prevented
+    reading and updating archives greater than 4 GB.  zipfile.c (Ed)
+ 8. If -FF on Win32 initialize wide strings namew, inamew, and znamew to NULL.
+    zipfile.c (Ed)
+ 9. Add #include <wctype.h> to support towupper().  tailor.h (SMS)
+------------------------ December 4th 2007 version 3.0g08 ---------------------
+ 1. Update dot_size comment.  globals.c (Ed)
+ 2. Update Compression in extended help.  zip.c (Ed)
+ 3. Add extended help on self extractor -A and -J.  zip.c (Ed)
+ 4. Update VMS SYMLINK version information.  zip.c (SMS)
+ 5. Remove not final from Unicode version information as final now.  zip.c (Ed)
+ 6. Remove apparently not needed WINDLL variable retcode.  zip.c (Ed)
+ 7. Fix -A to calculate sfx offset and adjust offsets as it should.  zip.c (Ed)
+ 8. Split -F and -FF used with -A warning to separate warnings.  zip.c (Ed)
+ 9. Add adjusting to can't to that to split archive error.  zip.c (Ed)
+10. Fix bug for -A that tries to open split by asking for disk 0 instead of
+    disk 1.  Add adjust_offset and cd_total_size variables.  Calculate
+    sfx offset by determining offset of start of central directory.  Archives
+    larger than 4 GB are not supported as sfx archives but these don't seem
+    to work anyway.  Add adjust_offset to Zip64 EOCDR offset and central
+    directory offsets.  zip.c, zipfile.c (Ed)
+11. Comment out here debug variable in find_next_signature().  zipfile.c (Ed)
+12. Change %2x to %02x as format for parts of a signature in error messages.
+    zipfile.c (SMS)
+13. Add warning adjusting split archives not yet supported.  zipfile.c (Ed)
+14. Add period to central directory comment.  zipfile.c (Ed)
+15. Update readme for vb Zip64 project.  windll/vbz64/readvb64.txt (Ed)
+16. Update comments of VB for Zip64 example.  Add SplitSize to VB Zip64
+    example.  windll/vbz64/vbzipbas.bas, windll/vbz64/vbzipfrm.frm  (Ed)
+17. Add SourceForge to comment noting where can get the source code.
+    windll/vbz64/vbzipfrm.frm (Ed)
+18. Update WhatsNew.  WHATSNEW (Ed)
+------------------------ December 12th 2007 version 3.0g09 --------------------
+ 1. A few minor changes to extended help.  zip.c (Ed)
+ 2. Uppercase beginning of most -sd messages.  zip.c (Ed)
+ 3. Add spaces between options in some error messages.  zip.c (Ed)
+ 4. Update comments in scanzipf_regnew().  zipfile.c (Ed)
+ 5. Update scanzipf_regnew() to figure out sfx offset. (Ed)
+ 6. Uppercase VMS RUNOFF file as apparently needed.  VMS_ZIP.RNH (SMS)
+ 7. Add comments to zipmessage().  zip.c (Ed)
+ 8. Update extended help and option descriptions.  zip.c (Ed)
+------------------------ December 20th 2007 version 3.0g10 --------------------
+ 1. Fix -F to include -A adjustment check.  zipfile.c (Ed)
+ 2. Change -FF message when find EOCDR.  zipfile.c (Ed)
+ 3. For -FF, reset first CD entry flag in_central_directory when a local entry
+    is found after CD entries so that another CD entry forces sorting of all
+    local entries to that point.  This allows files with multiple archives in
+    them to be processed.  zipfile.c (Ed)
+ 4. Add message when a local entry is found after a central directory.
+    zipfile.c (Ed)
+ 5. Remove word offset from disk offset location messages.  zipfile.c (Ed)
+ 6. Make Adjust offset message more descriptive.  zipfile.c (SMS, Ed)
+ 7. In scanzipf_regnew(), if adjustment to offsets, add it to
+    in_cd_start_offset.  zipfile.c (Ed)
+ 8. Allocate cextra only if localz->ext not 0 in zipcopy().  zipfile.c (Ed)
+------------------------ December 28th 2007 version 3.0g11 --------------------
+ 1. Include definitions of zip64_eocdr_start and z64eocdl_offset in
+    ZIP64_SUPPORT ifdef block.  Add comments for End Of CD Record (EOCDR).
+    Update comments for adjust offset detection.  zipfile.c (Ed)
+ 2. Change ((uzoff_t)1 << 32) to 0xFFFFFFFF.  zipfile.c (SMS, Ed)
+ 3. Leave off local header detection as not useful when searching for start
+    of central directory to get adjust offset.  Looks like all expected cases
+    are now covered as long as archive is intact.  zipfile.c (Ed)
+ 4. Update some warning messages.  Simplify adjust offset information message.
+    zipfile.c (Ed)
+ 5. Add braces to unicode_mismatch if block.  zipfile.c (Christian)
+ 6. Add (void *) cast in InterlockedExchangePointer() mutex calls to fix
+    compile warnings in MinGW (GCC 3.4.4).  win32/nt.c (Christian)
+ 7. Remove unused nonlocalpath variable.  win32/win32zip.c (Christian)
+ 8. Update betas readme file.  betas_readme.txt (Ed)
+ 9. Partial update to Who list of contributors.  proginfo/infozip.who (Ed)
+10. Update ReadMe.  Create Announcement.  README, zip30g.ann (Ed)
+11. Update WhatsNew.  WHATSNEW (Ed)
+------------------------ January 7th 2007 version 3.0g12 --------------------
+ 1. Convert Scanning files message to use standard zipmessage_nl() so line
+    ends are generated when needed.  fileio.c (Ed)
+ 2. Add line ends in DisplayRunningStats() if a display line has been
+    started.  zip.c (Ed)
+ 3. For the command line listed at the top of the log file, add double
+    quotes around any arguments that have spaces in them.
+    zip.c (Ed)
+ 4. Instead of stdout use standard mesg output stream for show files.
+    Output new line for show files for display and log file if there was
+    output on the current line.  zip.c (Ed)
+ 5. Comment out new line output code after zipup() and replace with
+    call to zipmessage_nl("", 1) to output new line if needed.
+    zip.c (Ed)
+ 6. In GetFileMode() and GetFileModeW() when get attributes fails
+    instead of fprintf(mesg, ...) use zipwarn() so error goes in
+    log file and new lines are displayed when needed.  win32/win32.c (Ed)
+ 7. In GetSD(), change cbytes from long to ulg.  Check cbytes (the
+    compressed size of the security descriptor) and issue warning if
+    the compressed security descriptor is greater than 0x7FFF (32k)
+    as the entire header this extra field is in needs to fit in the
+    64k header.  Should be a check on the running size of the header
+    so the actual space remaining is tracked.  Maybe in Zip 3.1.  If
+    cbytes OK cast to ush and store.  win32/win32zip.c (Ed)
+ 8. Use zipmessage_nl() for bytes security message so new lines are
+    handled and message goes in log file.  win32/win32zip.c (Ed)
+ 9. Add new option -RE to enable [list] (regex) matching in DOS and
+    WIN32 but disable [list] matching otherwise.  Default behavior
+    is restored if ALLOW_REGEX is defined.  globals.c, util.c,
+    zip.h, zip.c (Ed)
+------------------------ January 20th 2007 version 3.0g13 --------------------
+ 1. Update copyrights to 2008.  zip.c, zipcloak.c, zipfile.c, zipnote.c,
+    zipsplit.c, zipup.c, README (Ed)
+ 2. Update Who.  proginfo/infozip.who (Ed)
+------------------------ January 30th 2007 version 3.0g14 --------------------
+ 1. Update copyrights.  fileio.c, globals.c, revision.h, util.c, zip.h,
+    win32/win32.c, win32/win32zip.c (Ed)
+ 2. Updates.  README, proginfo/infozip.who (Ed)
+ 3. Update announcement and WhatsNew.  zip30g.ann, WHATSNEW (Ed)
+ 4. Add ALLOW_REGEX to INSTALL define list.  INSTALL (Ed)
+ 5. Change -sd message.  zip.c (Ed)
+ 6. For bzip2 check for binary and set binary/text flag.  Handle -l and -ll
+    line end conversions for bzip2.  zipup.c (Ed)
+------------------------ February 3rd 2007 version 3.0g --------------------
+ 1. Change && to || to fix logic bug in show files.  zip.c (Johnny)
+ 2. Add CLEAN and CLEAN_ALL VMS targets.  vms/descrip_mkdeps.mms (SMS)

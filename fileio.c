@@ -1,7 +1,7 @@
 /*
   fileio.c - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -71,6 +71,9 @@ local int fqcmpz OF((ZCONST zvoid *, ZCONST zvoid *));
 /* Local module level variables. */
 char *label = NULL;                /* global, but only used in `system'.c */
 local z_stat zipstatb;             /* now use z_stat globally - 7/24/04 EG */
+#if defined(UNICODE_SUPPORT) && defined(WIN32)
+ local zw_stat zipstatbw;
+#endif
 #if (!defined(MACOS) && !defined(WINDLL))
 local int zipstate = -1;
 #else
@@ -151,6 +154,8 @@ struct flist far *f;    /* entry to delete */
 # ifdef WIN32
   if (f->namew)
     free((zvoid *)f->namew);
+  if (f->inamew)
+    free((zvoid *)f->inamew);
   if (f->znamew)
     free((zvoid *)f->znamew);
 # endif
@@ -203,7 +208,7 @@ char *last(p, c)
 #endif
 }
 
-#ifdef UNICODE_SUPPORT
+#if defined(UNICODE_SUPPORT) && defined(WIN32)
 wchar_t *lastw(pw, c)
   wchar_t *pw;            /* sequence of path components */
   wchar_t c;              /* path components separator character */
@@ -389,13 +394,13 @@ int proc_archive_name(n, caseflag)
            then converts it back which ends up not the same as
            started with.
          */
-        char *uname = z->wuname;
+        char *zuname = z->wuname;
 #else
-        char *uname = z->zuname;
+        char *zuname = z->zuname;
 #endif
-        if (MATCH(p, uname, caseflag))
+        if (MATCH(p, zuname, caseflag))
         {
-          z->mark = pcount ? filter(uname, caseflag) : 1;
+          z->mark = pcount ? filter(zuname, caseflag) : 1;
           if (verbose) {
               fprintf(mesg, "zip diagnostic: %scluding %s\n",
                  z->mark ? "in" : "ex", z->oname);
@@ -596,9 +601,7 @@ int newnamew(namew, isdir, casesensitive)
 
       if (current - scan_start > scan_delay) {
         if (scan_last == 0) {
-          fprintf(mesg, "Scanning files ");
-          fflush(mesg);
-          mesg_line_started = 1;
+          zipmessage_nl("Scanning files ", 0);
           scan_last = current;
         }
         if (current - scan_last > scan_dot_time) {
@@ -725,21 +728,23 @@ int newnamew(namew, isdir, casesensitive)
 /* Version of stat() for CMS/MVS isn't complete enough to see if       */
 /* files match.  Just let ZIP.C compare the filenames.  That's good    */
 /* enough for CMS anyway since there aren't paths to worry about.      */
-    z_stat statb;      /* now use structure z_stat and function zstat globally 7/24/04 EG */
+    zw_stat statbw;     /* need for wide stat */
+    wchar_t *zipfilew = local_to_wchar_string(zipfile);
 
     if (zipstate == -1)
        zipstate = strcmp(zipfile, "-") != 0 &&
-                   zstat(zipfile, &zipstatb) == 0;
+                   zwstat(zipfilew, &zipstatbw) == 0;
+    free(zipfilew);
 
-    if (zipstate == 1 && (statb = zipstatb, zwstat(namew, &statb) == 0
-      && zipstatb.st_mode  == statb.st_mode
-      && zipstatb.st_ino   == statb.st_ino
-      && zipstatb.st_dev   == statb.st_dev
-      && zipstatb.st_uid   == statb.st_uid
-      && zipstatb.st_gid   == statb.st_gid
-      && zipstatb.st_size  == statb.st_size
-      && zipstatb.st_mtime == statb.st_mtime
-      && zipstatb.st_ctime == statb.st_ctime)) {
+    if (zipstate == 1 && (statbw = zipstatbw, zwstat(namew, &statbw) == 0
+      && zipstatbw.st_mode  == statbw.st_mode
+      && zipstatbw.st_ino   == statbw.st_ino
+      && zipstatbw.st_dev   == statbw.st_dev
+      && zipstatbw.st_uid   == statbw.st_uid
+      && zipstatbw.st_gid   == statbw.st_gid
+      && zipstatbw.st_size  == statbw.st_size
+      && zipstatbw.st_mtime == statbw.st_mtime
+      && zipstatbw.st_ctime == statbw.st_ctime)) {
       /* Don't compare a_time since we are reading the file */
         if (verbose)
           fprintf(mesg, "file matches zip file -- skipping\n");
@@ -782,9 +787,6 @@ int newnamew(namew, isdir, casesensitive)
     iname = NULL;
     f->zname = zname;
     zname = NULL;
-    /* set by directory scan if used Windows 8.3 name */
-    f->nonlocal_name = nonlocal_name;
-    f->nonlocal_path = nonlocal_path;
     /* Unicode */
     if ((f->namew = (wchar_t *)malloc((wcslen(namew) + 1) * sizeof(wchar_t))) == NULL) {
       if (f != NULL)
@@ -864,9 +866,7 @@ int newname(name, isdir, casesensitive)
 
       if (current - scan_start > scan_delay) {
         if (scan_last == 0) {
-          fprintf(mesg, "Scanning files ");
-          fflush(mesg);
-          mesg_line_started = 1;
+          zipmessage_nl("Scanning files ", 0);
           scan_last = current;
         }
         if (current - scan_last > scan_dot_time) {
@@ -960,6 +960,11 @@ int newname(name, isdir, casesensitive)
       free((zvoid *)zname);
 #endif /* ? FORCE_NEWNAME */
     }
+#if defined(UNICODE_SUPPORT) && defined(WIN32)
+    z->namew = NULL;
+    z->inamew = NULL;
+    z->znamew = NULL;
+#endif
     if (name == label) {
        label = z->name;
     }
@@ -1023,17 +1028,19 @@ int newname(name, isdir, casesensitive)
     strcpy(f->name, name);
     f->iname = iname;
     f->zname = zname;
-#ifdef WIN32
-    /* set by directory scan if used Windows 8.3 name */
-    f->nonlocal_name = nonlocal_name;
-    f->nonlocal_path = nonlocal_path;
-#endif
 #ifdef UNICODE_SUPPORT
     /* Unicode */
     f->uname = local_to_utf8_string(iname);
+#ifdef WIN32
+    f->namew = NULL;
+    f->inamew = NULL;
+    f->znamew = NULL;
+#endif
+
 #endif
     f->oname = oname;
     f->dosflag = dosflag;
+
     *fnxt = f;
     f->lst = fnxt;
     f->nxt = NULL;
@@ -2072,24 +2079,24 @@ int ask_for_split_read_path(current_disk)
   for (;;) {
     if (is_readable) {
       fprintf(mesg, "\nHit c      (change path to where this split file is)");
-      fprintf(mesg, "\n    a      (abort archive)");
+      fprintf(mesg, "\n    q      (abort archive - quit)");
       fprintf(mesg, "\n or ENTER  (continue with this split): ");
     } else {
       if (fix == 1) {
         fprintf(mesg, "\nHit c      (change path to where this split file is)");
         fprintf(mesg, "\n    s      (skip this split)");
-        fprintf(mesg, "\n    a      (abort archive)");
+        fprintf(mesg, "\n    q      (abort archive - quit)");
         fprintf(mesg, "\n or ENTER  (try reading this split again): ");
       } else if (fix == 2) {
         fprintf(mesg, "\nHit c      (change path to where this split file is)");
         fprintf(mesg, "\n    s      (skip this split)");
-        fprintf(mesg, "\n    a      (abort archive)");
+        fprintf(mesg, "\n    q      (abort archive - quit)");
         fprintf(mesg, "\n    e      (end this archive - no more splits)");
         fprintf(mesg, "\n    z      (look for .zip split - the last split)");
         fprintf(mesg, "\n or ENTER  (try reading this split again): ");
       } else {
         fprintf(mesg, "\nHit c      (change path to where this split file is)");
-        fprintf(mesg, "\n    a      (abort archive)");
+        fprintf(mesg, "\n    q      (abort archive - quit)");
         fprintf(mesg, "\n or ENTER  (try reading this split again): ");
       }
     }
@@ -2102,15 +2109,8 @@ int ask_for_split_read_path(current_disk)
         break;
       }
     }
-    if (toupper(buf[0]) == 'A' || toupper(buf[0]) == 'Q') {
-      fprintf(mesg, "\nQuit? [n/y] ");
-      fflush(mesg);
-      fgets(buf, SPLIT_MAXPATH, stdin);
-      if (buf[0] == 'y' || buf[0] == 'Y') {
-        return ZE_ABORT;
-      } else {
-        continue;
-      }
+    if (toupper(buf[0]) == 'Q') {
+      return ZE_ABORT;
     } else if ((fix == 1 || fix == 2) && toupper(buf[0]) == 'S') {
     /*
       fprintf(mesg, "\nSkip this split/disk?  (files in this split will not be recovered) [n/y] ");
@@ -2416,7 +2416,13 @@ char *get_in_split_path(base_path, disk_number)
    */
 
   if (num == total_disks) {
-    strcpy(ext, "zip");
+    /* last disk is base path */
+    if ((split_path = malloc(strlen(base_path) + 1)) == NULL) {
+      ZIPERR(ZE_MEM, "base path");
+    }
+    strcpy(split_path, base_path);
+
+    return split_path;
   } else {
     if (num > 99999) {
       ZIPERR(ZE_BIG, "More than 99999 splits needed");
@@ -2561,7 +2567,7 @@ size_t bfwrite(buffer, size, count, mode)
   if (mode == BFWRITE_LOCALHEADER) {
     /* writing local header - reset entry data count */
     bytes_this_entry = 0;
-    /* save start of local header */
+    /* save start of local header so we can rewrite later */
     current_local_file = y;
     current_local_disk = current_disk;
     current_local_offset = bytes_this_split;
@@ -2611,87 +2617,151 @@ size_t bfwrite(buffer, size, count, mode)
   }
 
   if (bytes_to_write > 0) {
-    /* still bytes to write so close split and open next split */
-    bytes_prev_splits += bytes_this_split;
+    if (split_method) {
+      /* still bytes to write so close split and open next split */
+      bytes_prev_splits += bytes_this_split;
 
-    /* close this split */
-    if (split_method == 1 && current_local_disk == current_disk) {
-      /* keep split open so can update it */
-      current_local_tempname = tempzip;
-    } else {
-      /* close split */
-      close_split(current_disk, y, tempzip);
-      y = NULL;
-      free(tempzip);
-      tempzip = NULL;
-    }
-    cd_entries_this_disk = 0;
-    bytes_this_split = 0;
+      if (split_method == 1 && ferror(y)) {
+        /* if writing all splits to same place and have problem then bad */
+        ZIPERR(ZE_WRITE, "Could not write split");
+      }
 
-    /* increment disk - disks are numbered 0, 1, 2, ... and
-       splits are 01, 02, ... */
-    current_disk++;
-
-    if (split_method == 2 && split_bell) {
-      /* bell when pause to ask for next split */
-      putc('\007', mesg);
-      fflush(mesg);
-    }
-
-    for (;;) {
-      /* if method 2 pause and allow changing path */
-      if (split_method == 2) {
-        if (ask_for_split_write_path(current_disk) == 0) {
-          ZIPERR(ZE_ABORT, "could not write split");
+      if (split_method == 2 && ferror(y)) {
+        /* A split must be at least 64K except last .zip split */
+        if (bytes_this_split < 64 * 0x400) {
+          ZIPERR(ZE_WRITE, "Not enough space to write split");
         }
       }
 
-      /* open next split */
-#if defined(UNIX) && !defined(NO_MKSTEMP)
-      {
-        int yd;
+      /* close this split */
+      if (split_method == 1 && current_local_disk == current_disk) {
+        /* keep split open so can update it */
+        current_local_tempname = tempzip;
+      } else {
+        /* close split */
+        close_split(current_disk, y, tempzip);
+        y = NULL;
+        free(tempzip);
+        tempzip = NULL;
+      }
+      cd_entries_this_disk = 0;
+      bytes_this_split = 0;
 
-        /* use mkstemp to avoid race condition and compiler warning */
-        strcpy(errbuf, "ziXXXXXX");
-        if ((yd = mkstemp(errbuf)) == EOF) {
-          ZIPERR(ZE_TEMP, errbuf);
+      /* increment disk - disks are numbered 0, 1, 2, ... and
+         splits are 01, 02, ... */
+      current_disk++;
+
+      if (split_method == 2 && split_bell) {
+        /* bell when pause to ask for next split */
+        putc('\007', mesg);
+        fflush(mesg);
+      }
+
+      for (;;) {
+        /* if method 2 pause and allow changing path */
+        if (split_method == 2) {
+          if (ask_for_split_write_path(current_disk) == 0) {
+            ZIPERR(ZE_ABORT, "could not write split");
+          }
         }
-        if ((tempzip = malloc(strlen(errbuf) + 1)) == NULL) {
+
+        /* open next split */
+#if defined(UNIX) && !defined(NO_MKSTEMP)
+        {
+          int yd;
+          int i;
+
+          /* use mkstemp to avoid race condition and compiler warning */
+
+          if (tempath != NULL)
+          {
+            /* if -b used to set temp file dir use that for split temp */
+            if ((tempzip = malloc(strlen(tempath) + 12)) == NULL) {
+              ZIPERR(ZE_MEM, "allocating temp filename");
+            }
+            strcpy(tempzip, tempath);
+            if (lastchar(tempzip) != '/')
+              strcat(tempzip, "/");
+          }
+          else
+          {
+            /* create path by stripping name and appending template */
+            if ((tempzip = malloc(strlen(zipfile) + 12)) == NULL) {
+            ZIPERR(ZE_MEM, "allocating temp filename");
+            }
+            strcpy(tempzip, zipfile);
+            for(i = strlen(tempzip); i > 0; i--) {
+              if (tempzip[i - 1] == '/')
+                break;
+            }
+            tempzip[i] = '\0';
+          }
+          strcat(tempzip, "ziXXXXXX");
+
+          if ((yd = mkstemp(tempzip)) == EOF) {
+            ZIPERR(ZE_TEMP, tempzip);
+          }
+          if ((y = fdopen(yd, FOPW_TMP)) == NULL) {
+            ZIPERR(ZE_TEMP, tempzip);
+          }
+        }
+#else
+        if ((tempzip = tempname(zipfile)) == NULL) {
           ZIPERR(ZE_MEM, "allocating temp filename");
         }
-        strcpy(tempzip, errbuf);
-        if ((y = fdopen(yd, FOPW_TMP)) == NULL) {
+        if ((y = zfopen(tempzip, FOPW_TMP)) == NULL) {
           ZIPERR(ZE_TEMP, tempzip);
         }
-      }
-#else
-      if ((tempzip = tempname(zipfile)) == NULL) {
-        ZIPERR(ZE_MEM, "allocating temp filename");
-      }
-      if ((y = zfopen(tempzip, FOPW_TMP)) == NULL) {
-        ZIPERR(ZE_TEMP, tempzip);
-      }
 #endif
 
-      r = fwrite((char *)buffer + bytes_written, 1, bytes_to_write, y);
-      bytes_written += r;
-      bytes_this_split += r;
-      bytes_this_entry += r;
-      if (bytes_to_write > r) {
-        /* buffer bigger than split */
-        if (split_method == 2) {
-          /* let user choose another disk */
-          zipwarn("Not enough room on disk", "");
-          continue;
-        } else {
-          ZIPERR(ZE_WRITE, "Not enough room on disk");
+        r = fwrite((char *)buffer + bytes_written, 1, bytes_to_write, y);
+        bytes_written += r;
+        bytes_this_split += r;
+        if (!(mode == BFWRITE_HEADER ||
+              mode == BFWRITE_LOCALHEADER ||
+              mode == BFWRITE_CENTRALHEADER)) {
+          bytes_this_entry += r;
         }
+        if (bytes_to_write > r) {
+          /* buffer bigger than split */
+          if (split_method == 2) {
+            /* let user choose another disk */
+            zipwarn("Not enough room on disk", "");
+            continue;
+          } else {
+            ZIPERR(ZE_WRITE, "Not enough room on disk");
+          }
+        }
+        if (mode == BFWRITE_LOCALHEADER ||
+            mode == BFWRITE_HEADER ||
+            mode == BFWRITE_CENTRALHEADER) {
+          if (split_method == 1 && current_local_file &&
+              current_local_disk != current_disk) {
+            /* We're opening a new split because the next header
+               did not fit on the last split.  We need to now close
+               the last split and update the pointers for
+               the current split. */
+            close_split(current_local_disk, current_local_file,
+                        current_local_tempname);
+            free(current_local_tempname);
+          }
+          current_local_tempname = tempzip;
+          current_local_file = y;
+          current_local_offset = 0;
+          current_local_disk = current_disk;
+        }
+        break;
       }
-      if (mode == BFWRITE_LOCALHEADER) {
-        current_local_offset = 0;
-        current_local_disk = current_disk;
-      }
-      break;
+    }
+    else
+    {
+      /* likely have more than fits but no splits */
+
+      /* probably already have error "no space left on device" */
+      /* could let flush_outbuf() handle error but bfwrite() is called for
+         headers also */
+      if (ferror(y))
+        ziperr(ZE_WRITE, "write error on zip file");
     }
   }
 
@@ -2993,6 +3063,9 @@ int is_ascii_stringw(wstring)
   wchar_t *pw;
   wchar_t cw;
 
+  if (wstring == NULL)
+    return 0;
+
   for (pw = wstring; (cw = *pw) != '\0'; pw++) {
     if (cw > 0x7F) {
       return 0;
@@ -3000,6 +3073,7 @@ int is_ascii_stringw(wstring)
   }
   return 1;
 }
+
 #endif
 
 /* is_ascii_string
@@ -3010,6 +3084,9 @@ int is_ascii_string(mbstring)
 {
   char *p;
   uch c;
+
+  if (mbstring == NULL)
+    return 0;
 
   for (p = mbstring; (c = (uch)*p) != '\0'; p++) {
     if (c > 0x7F) {
@@ -3023,10 +3100,14 @@ int is_ascii_string(mbstring)
 char *local_to_utf8_string(local_string)
   char *local_string;
 {
-  return wide_to_utf8_string(local_to_wide_string(local_string));
+  zwchar *wide_string = local_to_wide_string(local_string);
+  char *utf8_string = wide_to_utf8_string(wide_string);
+
+  free(wide_string);
+  return utf8_string;
 }
 
-/* wide_to_escape_string
+/* wide_char_to_escape_string
    provides a string that represents a wide char not in local char set
 
    An initial try at an algorithm.  Suggestions welcome.
@@ -3045,14 +3126,13 @@ char *local_to_utf8_string(local_string)
  /* set this to the max bytes an escape can be */
 #define MAX_ESCAPE_BYTES 10
 
-char *wide_to_escape_string(wide_char)
+char *wide_char_to_escape_string(wide_char)
   zwchar wide_char;
 {
   int i;
   zwchar w = wide_char;
-  uch b[sizeof(zwchar)];
-  char d[MAX_ESCAPE_BYTES - 1];
-  char e[MAX_ESCAPE_BYTES + 1];
+  uch b[9];
+  char e[7];
   int len;
   char *r;
 
@@ -3065,23 +3145,23 @@ char *wide_to_escape_string(wide_char)
     b[len] = (char)(w % 0x100);
     w /= 0x100;
   }
-  strcpy(e, "#");
+
+  if ((r = malloc(MAX_ESCAPE_BYTES + 8)) == NULL) {
+    ZIPERR(ZE_MEM, "wide_char_to_escape_string");
+  }
+  strcpy(r, "#");
   /* either 2 bytes or 4 bytes */
   if (len < 3) {
     len = 2;
-    strcat(e, "U");
+    strcat(r, "U");
   } else {
     len = 4;
-    strcat(e, "L");
+    strcat(r, "L");
   }
   for (i = len - 1; i >= 0; i--) {
-    sprintf(d, "%02x", b[i]);
-    strcat(e, d);
+    sprintf(e, "%02x", b[i]);
+    strcat(r, e);
   }
-  if ((r = malloc(strlen(e) + 1)) == NULL) {
-    ZIPERR(ZE_MEM, "escape_string");
-  }
-  strcpy(r, e);
   return r;
 }
 
@@ -3145,6 +3225,16 @@ zwchar escape_string_to_wide(escape_string)
 #endif
 
 
+char *local_to_escape_string(local_string)
+  char *local_string;
+{
+  zwchar *wide_string = local_to_wide_string(local_string);
+  char *escape_string = wide_to_escape_string(wide_string);
+
+  free(wide_string);
+  return escape_string;
+}
+
 #ifdef WIN32
 char *wchar_to_local_string(wstring)
   wchar_t *wstring;
@@ -3206,9 +3296,9 @@ char *wide_to_local_string(wide_string)
         strncat(buffer, buf, b);
       } else {
         /* use escape for wide character */
-        char *escape_string = wide_to_escape_string(wide_string[i]);
-        strcat(buffer, escape_string);
-        free(escape_string);
+        char *e = wide_char_to_escape_string(wide_string[i]);
+        strcat(buffer, e);
+        free(e);
       }
     } else if (b > 0) {
       /* multi-byte char */
@@ -3220,9 +3310,9 @@ char *wide_to_local_string(wide_string)
         strcat(buffer, wide_to_mb_default_string);
       } else {
         /* use escape for wide character */
-        char *escape_string = wide_to_escape_string(wide_string[i]);
-        strcat(buffer, escape_string);
-        free(escape_string);
+        char *e = wide_char_to_escape_string(wide_string[i]);
+        strcat(buffer, e);
+        free(e);
       }
     }
   }
@@ -3236,10 +3326,52 @@ char *wide_to_local_string(wide_string)
 }
 
 
+/* convert wide character string to escaped string */
+char *wide_to_escape_string(wide_string)
+  zwchar *wide_string;
+{
+  int i;
+  int wsize = 0;
+  char buf[9];
+  char *buffer = NULL;
+  char *escape_string = NULL;
+
+  for (wsize = 0; wide_string[wsize]; wsize++) ;
+
+  if ((buffer = (char *)malloc(wsize * MAX_ESCAPE_BYTES + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "wide_to_escape_string");
+  }
+
+  /* convert it */
+  buffer[0] = '\0';
+  for (i = 0; i < wsize; i++) {
+    if (wide_string[i] <= 0x7f) {
+      /* ASCII */
+      buf[0] = (char)wide_string[i];
+      buf[1] = '\0';
+      strcat(buffer, buf);
+    } else {
+      /* use escape for wide character */
+      char *e = wide_char_to_escape_string(wide_string[i]);
+      strcat(buffer, e);
+      free(e);
+    }
+  }
+  if ((escape_string = (char *)malloc(strlen(buffer) + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "wide_to_escape_string");
+  }
+  strcpy(escape_string, buffer);
+  free(buffer);
+
+  return escape_string;
+}
+
+
 /* convert local string to display character set string */
 char *local_to_display_string(local_string)
   char *local_string;
 {
+  char *temp_string;
   char *display_string;
 
   /* For Windows, OEM string should never be bigger than ANSI string, says
@@ -3250,25 +3382,23 @@ char *local_to_display_string(local_string)
      names this way, too.  (0x00 is not possible, I hope.)
      For all other ports, just make a copy of local_string.
   */
-#ifdef UNIX
-# define DSP_STR_LEN (2* strlen(local_string))
-  char *cp_dst;                 /* Character pointers used in the */
-  char *cp_src;                 /* copying/changing procedure.    */
-#else /* def UNIX */
-# define DSP_STR_LEN strlen(local_string)
-#endif /* def UNIX [else] */
 
-  if ((display_string = (char *)malloc(DSP_STR_LEN + 1)) == NULL) {
+#ifdef UNIX
+  char *cp_dst;                 /* Character pointers used in the */
+  char *cp_src;                 /*  copying/changing procedure.   */
+#endif
+
+  if ((temp_string = (char *)malloc(2 * strlen(local_string) + 1)) == NULL) {
     ZIPERR(ZE_MEM, "local_to_display_string");
   }
 
 #ifdef WIN32
   /* convert to OEM display character set */
-  local_to_oem_string(display_string, local_string);
-#else /* def WIN32 */
+  local_to_oem_string(temp_string, local_string);
+#else
 # ifdef UNIX
   /* Copy source string, expanding non-printable characters to "^x". */
-  cp_dst = display_string;
+  cp_dst = temp_string;
   cp_src = local_string;
   while (*cp_src != '\0') {
     if ((unsigned char)*cp_src < ' ') {
@@ -3279,11 +3409,11 @@ char *local_to_display_string(local_string)
       *cp_dst++ = *cp_src++;
     }
   }
-  *cp_src = '\0';
-# else /* def UNIX */
-  strcpy(display_string, local_string);
-# endif /* def UNIX [else] */
-#endif /* def WIN32 */
+  *cp_dst = '\0';
+# else /* not UNIX */
+  strcpy(temp_string, local_string);
+# endif /* UNIX */
+#endif
 
 #ifdef EBCDIC
   {
@@ -3298,6 +3428,12 @@ char *local_to_display_string(local_string)
   }
 #endif
 
+  if ((display_string = (char *)malloc(strlen(temp_string) + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "local_to_display_string");
+  }
+  strcpy(display_string, temp_string);
+  free(temp_string);
+
   return display_string;
 }
 
@@ -3305,10 +3441,20 @@ char *local_to_display_string(local_string)
 char *utf8_to_local_string(utf8_string)
   char *utf8_string;
 {
-  zwchar *wide = utf8_to_wide_string(utf8_string);
-  char *loc = wide_to_local_string(wide);
-  free(wide);
+  zwchar *wide_string = utf8_to_wide_string(utf8_string);
+  char *loc = wide_to_local_string(wide_string);
+  free(wide_string);
   return loc;
+}
+
+/* UTF-8 to local */
+char *utf8_to_escape_string(utf8_string)
+  char *utf8_string;
+{
+  zwchar *wide_string = utf8_to_wide_string(utf8_string);
+  char *escape_string = wide_to_escape_string(wide_string);
+  free(wide_string);
+  return escape_string;
 }
 
 /* convert multi-byte character string to wide character string */
@@ -3345,7 +3491,12 @@ zwchar *local_to_wide_string(local_string)
 }
 
 
-#ifndef WIN32
+#if 0
+/* All wchar functions are only used by Windows and are
+   now in win32zip.c so that the Windows functions can
+   be used and multiple character wide characters can
+   be handled easily. */
+# ifndef WIN32
 char *wchar_to_utf8_string(wstring)
   wchar_t *wstring;
 {
@@ -3356,6 +3507,7 @@ char *wchar_to_utf8_string(wstring)
 
   return local_string;
 }
+# endif
 #endif
 
 
@@ -3390,7 +3542,7 @@ zwchar *utf8_to_wide_string(utf8_string)
   wcount = utf8_to_ucs4_string(utf8_string, NULL, 0);
   if (wcount == -1)
     return NULL;
-  if ((wide_string = (zwchar *) malloc((wcount + 1) * sizeof(zwchar))) == NULL) {
+  if ((wide_string = (zwchar *) malloc((wcount + 2) * sizeof(zwchar))) == NULL) {
     ZIPERR(ZE_MEM, "utf8_to_wide_string");
   }
   wcount = utf8_to_ucs4_string(utf8_string, wide_string, wcount + 1);
@@ -3413,8 +3565,8 @@ zwchar *utf8_to_wide_string(utf8_string)
  *
  *  This version does not include argument file support and can
  *  work directly on argv.  The argument file code complicates things and
- *  it seemed best to leave it out for now.  If argument file support (reading in
- *  command line arguments stored in a file and inserting into
+ *  it seemed best to leave it out for now.  If argument file support (reading
+ *  in command line arguments stored in a file and inserting into
  *  command line where @filename is found) is added later the arguments
  *  can change and a freeable copy of argv will be needed and can be
  *  created using copy_args in the left out code.

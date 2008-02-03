@@ -533,7 +533,7 @@ with a case sensitive file system, but it can involve extra effort on
 VMS, where it may be necessary to use unnatural case names (or the same
 names in multiple cases, like "*.obj *.OBJ") for this kind of pattern
 matching to give the desired behavior.  If completely case-blind pattern
-matching behavior is desired, specify the -fc (--foldcase) option.
+matching behavior is desired, specify the -ic (--ignore-case) option.
 .!------------------------------------------------------------------------------
 .indent -4
 3 Case
@@ -570,7 +570,7 @@ involve extra effort on VMS, where it may be necessary to use unnatural
 case names (or the same names in multiple cases, like "*.obj *.OBJ") for
 this kind of pattern matching to give the desired behavior.  If
 completely case-blind pattern matching behavior is desired, specify the
--fc (--foldcase) option.
+-ic (--ignore-case) option.
 .!------------------------------------------------------------------------------
 .indent -4
 2 Fixing_Damage
@@ -825,7 +825,7 @@ with a case sensitive file system, but it can involve extra effort on
 VMS, where it may be necessary to use unnatural case names (or the same
 names in multiple cases, like "*.obj *.OBJ") for this kind of pattern
 matching to give the desired behavior.  If completely case-blind pattern
-matching behavior is desired, specify the -fc (--foldcase) option.
+matching behavior is desired, specify the -ic (--ignore-case) option.
 .!------------------------------------------------------------------------------
 .indent -4
 2 Options_List
@@ -898,7 +898,6 @@ be separated by a space or "=".  For example:
  FF  fixfix              salvage what can be salvaged (not as reliable)
  FS  filesync            remove archive entries unmatched in file system
  f   freshen             update existing entries (only changed files)
- fc  foldcase            fold case (case-blind archive entry name matching)
  fd  force-descriptors   force data descriptors as if streaming
  fz  force-zip64         force use of Zip64 format
  g   grow                grow existing archive (unless updating or deleting)
@@ -906,6 +905,7 @@ be separated by a space or "=".  For example:
  h   help                show the Zip help screen
  h2  more-help           show extended Zip help
  i   include  pat1 [pat2 [...]]  include only names matching the patterns
+ ic  ignore-case         ignore case (case-blind archive entry name matching)
  J   junk-sfx            junk (remove) archive preamble (unzipsfx)
  j   junk-paths          junk (don't store) directory names, only file names
  k   DOS-names           simulate PKZIP-made archive (DOS 8.3 names)

@@ -1,4 +1,4 @@
-#                                               8 January 2007.  SMS.
+#                                               1 February 2008.  SMS.
 #
 #    Zip 3.0 for VMS - MMS Dependency Description File.
 #
@@ -25,6 +25,19 @@
 # do not depend on host architecture type or other such variables. 
 # Therefore, no "#include" directive in the C source itself should be
 # conditional on such variables.
+#
+# The default target is the comprehensive source dependency file,
+# DEPS_FILE = [.VMS]DESCRIP_DEPS.MMS.
+#
+# Other targets:
+#
+#    CLEAN      deletes the individual source dependency files,
+#               *.MMSD;*, but leaves the comprehensive source dependency
+#               file.
+#
+#    CLEAN_ALL  deletes all source dependency files, including the
+#               individual *.MMSD;* files and the comprehensive file,
+#               DESCRIP_DEPS.MMS.*.
 #
 
 # Required command procedures.
@@ -118,7 +131,7 @@ DEPS = $(FOREACH NAME, \
  $(MODS_ZIP) ZIPCLI $(MODS_ZIPUTILS), \
  $(NAME).MMSD)
 
-# Target is the comprehensive dependency list.
+# Default target is the comprehensive dependency list.
 
 $(DEPS_FILE) : $(DEPS) $(COMS)
 .IF UNK_MMSD
@@ -147,6 +160,26 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
          "Purging intermediate .MMSD files..."
 	purge /log *.MMSD, [.VMS]*.MMSD
 .ENDIF
+
+# CLEAN target.  Delete the individual C dependency files.
+
+CLEAN :
+	if (f$search( "*.MMSD") .nes. "") then -
+	 delete /log *.MMSD;*
+	if (f$search( "[.VMS]*.MMSD") .nes. "") then -
+	 delete /log [.VMS]*.MMSD;*
+
+# CLEAN_ALL target.  Delete:
+#    The individual C dependency files.
+#    The collected source dependency file.
+
+CLEAN_ALL :
+	if (f$search( "*.MMSD") .nes. "") then -
+	 delete /log *.MMSD;*
+	if (f$search( "[.VMS]*.MMSD") .nes. "") then -
+	 delete /log [.VMS]*.MMSD;*
+	if (f$search( "[.VMS]DESCRIP_DEPS.MMS") .nes. "") then -
+	 delete /log [.VMS]DESCRIP_DEPS.MMS;*
 
 # Explicit dependencies and rules for utility variant modules.
 #

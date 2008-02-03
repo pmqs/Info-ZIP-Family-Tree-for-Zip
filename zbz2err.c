@@ -1,8 +1,8 @@
 /*
   Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2000-Apr-09 or later
-  (the contents of which are also included in unzip.h) for terms of use.
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
@@ -32,8 +32,16 @@
 #include "zip.h"
 
 #ifdef BZIP2_SUPPORT
-
-#include "bzlib.h"
+# ifdef BZIP2_USEBZIP2DIR
+#   include "bzip2/bzlib.h"
+# else
+    /* If IZ_BZIP2 is defined as the location of the bzip2 files then
+       assume the location has been added to include path.  For Unix
+       this is done by the configure script. */
+    /* Also do not need path for bzip2 include if OS includes support
+       for bzip2 library. */
+#   include "bzlib.h"
+# endif
 
 /**********************************/
 /*  Function bz_internal_error()  */

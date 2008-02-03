@@ -1,8 +1,8 @@
 What's New
 
-Last updated 14 September 2007
+Last updated 30 January 2008
 
-See the file zip30f.ann for a quick list of features and the
+See the file zip30g.ann for a quick list of features and the
 file Changes for full details of changes during development.
 
 At release these sections may get combined and updated.  What's
@@ -10,28 +10,44 @@ here may get put somewhere else.
 
 Still remaining and could still get in Zip 3.0
 
-- Add C# example for Zip 3.0 (need to be converted to new DLLs, but probably
-  won't get to it) - original C# example added with note
 - Decide if -R, -i and -x should use external rather than internal patterns
-- When pattern is directory add end /
+- When pattern is directory add end / automatically
 - Though Unicode paths have been implemented and tested, Unicode comments
-  are not yet supported
-- Discussions continue between Info-ZIP and others on UTF-8 support and
-  the official way to store UTF-8 information in archives has not
-  been determined yet, but it looks like the approach implemented in
-  Zip 3.0 will become standard
+  are not yet supported (except for UTF-8 bit comments) and probably won't be
+  this release
 - Update manual pages (mostly done)
-- Support -d@ for deleting list of files (this may not make it in this release)
 - Verbose mode -v may still need work
 
 Maybe Planned for Zip 3.1
 
 - Extended attributes for Windows and Linux
-- C# example
+- Add C# example for Zip 3.0 (need to be converted to new DLLs) - original
+  C# example added with note
+- Support -d@ for deleting list of files
 - Unicode Comments
 - AES encryption maybe
 - Send in your suggestions
 - ...
+
+New things in Zip 3.0g
+
+- Add split support to VB project for Zip64.
+
+- Disable reading of Unix FIFOs unless new -FI option used to avoid an
+  archiving operation stopping when it hits an active unfed FIFO.
+
+- The [list] wildcard expression (regular expression matching of any
+  character or range of characters in list) is now disabled on DOS and
+  Windows as it has caused confusion when filenames have [ and ] in
+  them.  The new -RE option reenables it.
+
+- Add negation to many display options such as -dc and -db.
+
+- Allow -FF to read and fix archives having local entries that appear
+  after central directory entries.
+
+- Bug fixes.
+
 
 New things in Zip 3.0f
 
@@ -59,10 +75,6 @@ New things in Zip 3.0f
   current character set is UTF-8, preliminary support for the new
   General Purpose Bit Flag, bit 11, UTF-8 flag, that indicates UTF-8
   is stored in the path and comment fields is implemented for paths.
-  Note that discussions on how to store the UTF-8 paths continue
-  between Info-ZIP and others as this is being written, so do not
-  use or rely on Unicode in this beta, though it looks like the
-  approach used will become standard.
 - Unicode on Win32 - On WIN32 systems that support the wide character
   calls (mainly NT and later systems using NTFS), when UNICODE SUPPORT
   is enabled Zip will now do directory scans using Unicode and convert

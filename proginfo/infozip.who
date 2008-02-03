@@ -10,7 +10,8 @@ in alphabetical order, because it's impossible to classify them by importance
 of the contribution.  Some have made a complete port to a new target, some
 have provided a one line fix.  All are to be thanked.
 
-Mark Adler              madler@tybalt.caltech.edu       NeXT 2.x
+
+Mark Adler              madler@tybalt.caltech.edu       NeXT 2.x, Mac
                         alan@spri.levels.unisa.edu.au   Linux
 Jeffrey Altman          jaltman@watsun.cc.columbia.edu  fseek bug on NT
 Glenn J. Andrews        oper1%drcv06.decnet@drcvax.af.mil       VAX VMS
@@ -22,6 +23,8 @@ Elmar Bartel            bartel@informatik.tu-muenchen.de
 Mark E. Becker          mbecker@cs.uml.edu              bug report
 Paul von Behren         Paul_von_Behren@stortek.com     OS/390 port
 Jon Bell                swy@wsdot.wa.gov                Intergraph/CLIX
+Myles Bennett           -                               Initial UnZip 6.0 large
+                                                        files beta
 Michael Bernardi        mike@childsoc.demon.co.uk       RS6000
 Tom Betz                marob!upaya!tbetz@phri.nyu.edu  SCO Xenix 2.3.1
 James Birdsall          jwbirdsa@picarefy.com           AT&T 3B1
@@ -68,10 +71,13 @@ Jean-loup Gailly        jloup@chorus.fr                 MS-DOS Microsoft C 5.1
 Scott D. Galloway       sgallowa@letterkenn-emh1.army.mil   Sperry 5000 SysV.3
 Rainer Gerling          gerling@faupt101.physik.uni-erlangen.de   HPUX, MSDOS
 Henry Gessau            henryg@kullmar.kullmar.se       Windows NT
+Ed Gordon               -                               Zip 3.0, VB, Unicode,
+                                                        large files, splits, DLLs
 Ian E. Gorman           ian@iosphere.net                ported zip 2.2 to VM/CMS
 Wayne R. Graves         graves@csa2.lbl.gov             Vax VMS
 George Grimes           grimes@netcom.com               Apollo Domain SR10.4
-Hunter Goatley          goathunter@MadGoat.com          VMS (VAX & Alpha)
+Hunter Goatley          goathunter@MadGoat.com          VMS (VAX & Alpha),
+                                                        web and ftp sites
 Arnt Gulbrandsen        agulbra@pvv.unit.no             Linux
 David Gundlach          david@rolf.stat.uga.edu         Sun SS1+ SunOS 4.1
 Peter Gutmann           pgut1@cs.aukuni.ac.nz           bug report
@@ -134,6 +140,7 @@ Robert McBroom (?)      rm3@ornl.gov                    DECsystem 5810
 Tom McConnell           tmcconne@sedona.intel.com       NCR SVR4
 Frank P. McIngvale      frankm@eng.auburn.edu           Bug report
 Conor McMenamin         C.S.McMenamin@sussex.ac.uk      MSDOS
+Will Menninger                                          Win32, MinGW
 John Messenger          jlm@proteon.com                 Bug report
 Michael                 kuch@mailserv.zdv.uni-tuebingen.de SGI
 Dan Mick                dmick@pongo.west.sun.com        Solaris
@@ -144,6 +151,7 @@ Sergio Monesi           pel0015@cdc8g5.cdc.polimi.it    Acorn
 J. Mukherjee            jmukherj@ringer.cs.utsa.edu     OS/2
 Anthony Naggs           amn@ubik.demon.co.uk            bug report
 Matti Narkia            matti.narkia@ntc.nokia.com      VAX VMS
+Rainer Nausedat                                         Zip 3.0, large files
 Robert E. Newman Jr.    newmanr@ssl.msfc.nasa.gov       bug report
 Robert Nielsen          NielsenRJ@ems.com               2.2 -V VMS bug report
 Christian Michel        cmichel@de.ibm.com              2.2 check_dup OS/2 bug
@@ -192,6 +200,7 @@ Darren Salt             ds@youmustbejoking.demon.co.uk  RISC OS
 NIIMI Satoshi           a01309@cfi.waseda.ac.jp         Human68K
 Tom Schmidt             tschmidt@micron.com             SCO 286
 Martin Schulz           martin.schulz@isltd.insignia.com Windows NT, Atari
+Steven Schweda                                          VMS, Unix, large files
 Dan Seyb                dseyb@halnet.com                AIX
 Mark Shadley            shadcat@catcher.com             unix fixes
 Timur Shaporev          tim@rd.relcom.msk.su            MSDOS
@@ -230,3 +239,4 @@ Ray Wickert             wickert@dc-srv.pa-x.dec.com     MSDOS/DJGPP
 Winfried Winkler        willi@wap0109.chem.tu-berlin.de AIX
 Norman J. Wong          as219@freenet.carleton.ca       MSDOS
 Martin Zinser           m.zinser@gsi.de                 VMS 7.x
+

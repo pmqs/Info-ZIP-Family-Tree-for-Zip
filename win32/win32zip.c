@@ -1,7 +1,7 @@
 /*
   win32/win32zip.c - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -767,7 +767,6 @@ local int wild_recursew(whole, wildtail)
     wchar_t *subwild, *name, *newwhole = NULL, *glue = NULL, plug = 0, plug2;
     extent newlen;
     int amatch = 0, e = ZE_MISS;
-    int nonlocalpath = 0;
 
     if (!isshexpw(wildtail)) {
         if (GetFileAttributesW(whole) != 0xFFFFFFFF) {    /* file exists? */
@@ -858,7 +857,6 @@ local int wild_recurse(whole, wildtail)
     char *subwild, *name, *newwhole = NULL, *glue = NULL, plug = 0, plug2;
     extent newlen;
     int amatch = 0, e = ZE_MISS;
-    int nonlocalpath = 0;
 
     if (!isshexp(wildtail)) {
         if (GetFileAttributes(whole) != 0xFFFFFFFF) {    /* file exists? */
@@ -980,7 +978,11 @@ int wild(w)
 {
     char *p;             /* path */
     char *q;             /* diskless path */
-    int e;                /* result */
+    int e;               /* result */
+#ifdef UNICODE_SUPPORT
+    wchar_t *pw;         /* wide path */
+    wchar_t *qw;         /* wide diskless path */
+#endif
 
     if (volume_label == 1) {
       volume_label = 2;
@@ -1007,6 +1009,36 @@ int wild(w)
         if (*q == '\\')
             *q = '/';
 
+#ifdef UNICODE_SUPPORT
+    if (!no_win32_wide) {
+      /* wide char version */
+      pw = local_to_wchar_string(p);
+
+      /* Separate the disk part of the path */
+      if ((qw = wcschr(pw, ':')) != NULL) {
+          if (wcschr(++qw, ':'))     /* sanity check for safety of wild_recurse */
+              return ZE_MISS;
+      } else
+          qw = pw;
+
+      /* Normalize bare disk names */
+      if (qw > pw && !*qw)
+          wcscpy(qw, L".");
+    } else {
+      /* multibyte version */
+      /* Separate the disk part of the path */
+      if ((q = MBSCHR(p, ':')) != NULL) {
+          if (MBSCHR(++q, ':'))     /* sanity check for safety of wild_recurse */
+              return ZE_MISS;
+      } else
+          q = p;
+
+      /* Normalize bare disk names */
+      if (q > p && !*q)
+          strcpy(q, ".");
+    }
+#else
+    /* multibyte version */
     /* Separate the disk part of the path */
     if ((q = MBSCHR(p, ':')) != NULL) {
         if (MBSCHR(++q, ':'))     /* sanity check for safety of wild_recurse */
@@ -1017,21 +1049,18 @@ int wild(w)
     /* Normalize bare disk names */
     if (q > p && !*q)
         strcpy(q, ".");
+#endif
 
     /* Here we go */
 #ifdef UNICODE_SUPPORT
-    if (no_win32_wide) {
-      /* use multibyte directory scan */
-      e = wild_recurse(p, q);
-    } else {
+    if (!no_win32_wide) {
       /* use wide Unicode directory scan */
-      wchar_t *pw = local_to_wchar_string(p);
-      wchar_t *qw = local_to_wchar_string(q);
-
       e = wild_recursew(pw, qw);
 
-      free(qw);
       free(pw);
+    } else {
+      /* use multibyte directory scan */
+      e = wild_recurse(p, q);
     }
 #else
     e = wild_recurse(p, q);
@@ -1039,6 +1068,7 @@ int wild(w)
     free((zvoid *)p);
     return e;
 }
+
 
 local int procname_win32(n, caseflag, attribs)
   char *n;                /* name to process */
@@ -1351,9 +1381,6 @@ int procnamew(nw, caseflag)
   wchar_t *nw;          /* name to process */
   int caseflag;         /* true to force case-sensitive match */
 {
-    /* assume don't need Unicode */
-    int nonlocalpath = 0;
-
     return procname_win32w(nw, caseflag, INVALID_WIN32_FILE_ATTRIBS);
 }
 #endif
@@ -1362,9 +1389,6 @@ int procname(n, caseflag)
   char *n;             /* name to process */
   int caseflag;         /* true to force case-sensitive match */
 {
-    /* assume don't need Unicode */
-    int nonlocalpath = 0;
-
     return procname_win32(n, caseflag, INVALID_WIN32_FILE_ATTRIBS);
 }
 
@@ -1744,7 +1768,7 @@ local void GetSD(char *path, char **bufptr, ush *size,
   unsigned long bytes = NTSD_BUFFERSIZE;
   unsigned char *buffer = stackbuffer;
   unsigned char *DynBuffer = NULL;
-  long cbytes;
+  ulg cbytes;
   PEF_NTSD_L_HEADER pLocalHeader;
   PEF_NTSD_C_HEADER pCentralHeader;
   VOLUMECAPS VolumeCaps;
@@ -1809,7 +1833,15 @@ local void GetSD(char *path, char **bufptr, ush *size,
   cbytes = memcompress(((char *)pLocalHeader + EF_NTSD_L_LEN), cbytes,
                        (char *)buffer, bytes);
 
-  *size += EF_NTSD_L_LEN + cbytes;
+  if (cbytes > 0x7FFF) {
+    sprintf(errbuf, "security info too large to store (%ld bytes), %d max", bytes, 0x7FFF);
+    zipwarn(errbuf, "");
+    zipwarn("security info not stored: ", path);
+    if(DynBuffer) free(DynBuffer);
+    return;
+  }
+
+  *size += EF_NTSD_L_LEN + (ush)cbytes;
 
   pLocalHeader->nID = EF_NTSD;
   pLocalHeader->nSize = (USHORT)(EF_NTSD_L_LEN - EB_HEADSIZE
@@ -1826,8 +1858,10 @@ local void GetSD(char *path, char **bufptr, ush *size,
   pCentralHeader->nSize = EF_NTSD_C_LEN - EB_HEADSIZE;  /* sbz */
   pCentralHeader->lSize = bytes;
 
-  if (noisy)
-    printf(" (%ld bytes security)", bytes);
+  if (noisy) {
+    sprintf(errbuf, " (%ld bytes security)", bytes);
+    zipmessage_nl(errbuf, 0);
+  }
 
   if(DynBuffer) free(DynBuffer);
 }

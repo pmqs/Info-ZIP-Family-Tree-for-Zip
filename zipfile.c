@@ -1,7 +1,7 @@
 /*
   zipfile.c - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -163,6 +163,10 @@
  local int add_Unicode_Path_local_extra_field OF((struct zlist far *));
  local int add_Unicode_Path_cen_extra_field OF((struct zlist far *));
 #endif
+
+/* New General Purpose Bit Flag bit 11 flags when entry path and
+   comment are in UTF-8 */
+#define UTF8_BIT (1 << 11)
 
 /* moved out of ZIP64_SUPPORT - 2/6/2005 EG */
 local void write_ushort_to_mem OF((ush, char *));                      /* little endian conversions */
@@ -1705,11 +1709,19 @@ FILE *file;
    * requires that rewind() be used instead of fseek(), or else
    * the EOF flag is not cleared properly.
    */
+  /* As WIN32 has this same problem (EOF not being cleared) when
+   * NO_ZIP64_SUPPORT is set but LARGE_FILE_SUPPORT is set on a
+   * small file, seems no reason not to always use rewind().
+   * 8/5/07 EG
+   */
+#if 0
 #ifdef VAXC
   sts = rewind( file);
 #else /* def VAXC */
   sts = zfseeko( file, 0, SEEK_SET);
 #endif /* def VAXC [else] */
+#endif
+  rewind(file);
 
   return ofs;
 }
@@ -1748,9 +1760,8 @@ struct zlist far *z;
                 z->lflg, z->flg);
         zipwarn(errbuf, z->oname);
     }
-    else if (z->flg & ~0xf)
-    /* This check fails on new bit 12 used for Unicode paths and comments,
-       but we don't support it fully yet */
+    else if (z->flg & ~0xf && (z->flg & ~0xf0) != UTF8_BIT)
+    /* Only bit in high byte we support is the new UTF-8 bit */
     {
         sprintf(errbuf, "undefined bits used in flags = 0x%04x: ", z->flg);
         zipwarn(errbuf, z->oname);
@@ -1783,6 +1794,7 @@ struct zlist far *z;
     /* This test is just annoying, as Zip itself does not write the same
        extra fields to both the local and central headers.  It's much more
        complicated than this test implies.  3/17/05 */
+#if 0
     if (z->ext || z->cext)
     {
 # if 0
@@ -1809,6 +1821,7 @@ struct zlist far *z;
                     z->ext ? (z->cext ? "" : "local ") : "central ");
         }
     }
+#endif
 }
 
 
@@ -2245,7 +2258,8 @@ int readlocal(localz, z)
 
   /* Compare localz to z */
   if (locz->ver != z->ver) {
-    zipwarn("Local Entry Version Needed To Extract does not match CD: ", z->iname);
+    sprintf(errbuf, "Local Version Needed (%d) does not match CD (%d): ", locz->ver, z->ver);
+    zipwarn(errbuf, z->iname);
   }
   if (locz->lflg != z->flg) {
     zipwarn("Local Entry Flag does not match CD: ", z->iname);
@@ -2908,13 +2922,17 @@ local int find_next_signature(f)
   FILE *f;
 {
   int m;
+  /*
   zoff_t here;
+  */
 
   /* look for P K ? ? signature */
 
   m = getc(f);
 
+  /*
   here = zftello(f);
+  */
 
   while (m != EOF)
   {
@@ -2985,6 +3003,9 @@ local int find_signature(f, signature)
 {
   int i;
   char sig[4];
+  /*
+  zoff_t here = zftello(f);
+  */
 
   for (i = 0; i < 4; i++)
     sig[i] = signature[i];
@@ -3184,14 +3205,16 @@ local int scanzipf_fixnew()
 #endif /* def VMS */
   in_path_ext = zipfile + plen - 4;
 
-  if (plen < 4 ||
-      in_path_ext[0] != '.' ||
-      toupper(in_path_ext[1]) != 'Z' ||
-      toupper(in_path_ext[2]) != 'I' ||
-      toupper(in_path_ext[3]) != 'P') {
-    strcpy(errbuf, "archive to fix must end in .zip extension even if\n");
-    strcat(errbuf, "     is split archive and .zip file doesn't exist");
-    strcat(errbuf, "     (will ask for splits)");
+  if (plen >= 4 &&
+      in_path_ext[0] == '.' &&
+      toupper(in_path_ext[1]) == 'Z' &&
+      in_path_ext[2] >= '0' && in_path_ext[2] <= '9' &&
+      in_path_ext[3] >= '0' && in_path_ext[3] <= '9' &&
+      (plen == 4 || (in_path_ext[4] >= '0' && in_path_ext[4] <= '9'))) {
+    /* This may be a split but not the end split */
+    strcpy(errbuf, "if archive to fix is split archive, need to provide\n");
+    strcat(errbuf, "      path of the last split with .zip extension,\n");
+    strcat(errbuf, "      even if it doesn't exist (zip will ask for splits)");
     zipwarn(errbuf, "");
     return ZE_FORM;
   }
@@ -3332,9 +3355,9 @@ local int scanzipf_fixnew()
           }
         }
         if (total_disks != 1)
-          sprintf(errbuf, " Found end record (EOCDR) - expect %lu splits", total_disks);
+          sprintf(errbuf, " Found end record (EOCDR) - says expect %lu splits", total_disks);
         else
-          sprintf(errbuf, " Found end record (EOCDR) - expect single disk archive");
+          sprintf(errbuf, " Found end record (EOCDR) - says expect single disk archive");
         zipmessage(errbuf, "");
         if (zcomment)
           zipmessage("  Found archive comment", "");
@@ -3557,6 +3580,14 @@ local int scanzipf_fixnew()
         /* Attempt to copy entry */
 
         r = zipcopy(z);
+
+        if (in_central_directory) {
+          sprintf(errbuf, "Entry after central directory found (%2lu %6s)...",
+                  current_in_disk + 1, zip_fzofft(current_in_offset - 4, NULL, "u"));
+          zipmessage_nl(errbuf, 1);
+          in_central_directory = 0;
+        }
+
         if (r == ZE_EOF)
           /* user said no more splits */
           break;
@@ -3704,9 +3735,11 @@ local int scanzipf_fixnew()
           /* Apparently as iname and date and time match this central
              directory entry goes with this zlist entry */
 
-          /* cen dir name matches a local name */
-          sprintf(errbuf, "updating: %s", cz->iname);
-          zipmessage_nl(errbuf, 0);
+          if (verbose) {
+            /* cen dir name matches a local name */
+            sprintf(errbuf, "updating: %s", cz->iname);
+            zipmessage_nl(errbuf, 0);
+          }
 
           if (z->crc != cz->crc) {
             sprintf(errbuf, "local (%lu) and cen (%lu) crc mismatch", z->crc, cz->crc);
@@ -3732,13 +3765,20 @@ local int scanzipf_fixnew()
          /* z->off = cz->off; */
           z->dosflag = cz->dosflag;
 
-/*
 #ifdef UNICODE_SUPPORT
-          if (unicode_mismatch != 3) {
-            read_Unicode_Path_entry(z);
+          if (unicode_mismatch != 3 && z->uname == NULL) {
+            if (z->flg & UTF8_BIT) {
+              /* path is UTF-8 */
+              if ((z->uname = malloc(strlen(z->iname) + 1)) == NULL) {
+                ZIPERR(ZE_MEM, "reading archive");
+              }
+              strcpy(z->uname, z->iname);
+            } else {
+              /* check for UTF-8 path extra field */
+              read_Unicode_Path_entry(z);
+            }
           }
 #endif
-*/
 
 #ifdef WIN32
           /* Input path may be OEM */
@@ -3787,11 +3827,6 @@ local int scanzipf_fixnew()
           }
           zcount++;
  */
-
-#ifdef WIN32
-          /* No idea if existing entry is Win32 short name */
-          z->used_short_name = 0;
-#endif
 
 #ifndef UTIL
           if (verbose)
@@ -3855,10 +3890,10 @@ local int scanzipf_fixnew()
 
         strcpy(errbuf, "unexpected signature ");
         for (c = 0; c < 4; c++) {
-          sprintf(errbuftemp, "%2x ", sigbuf[c]);
+          sprintf(errbuftemp, "%02x ", sigbuf[c]);
           strcat(errbuf, errbuftemp);
         }
-        sprintf(errbuftemp, "on disk %lu at offset %s\n", current_in_disk,
+        sprintf(errbuftemp, "on disk %lu at %s\n", current_in_disk,
                                  zip_fzofft(current_in_offset - 4, NULL, "u"));
         strcat(errbuf, errbuftemp);
         zipwarn(errbuf, "");
@@ -3906,20 +3941,18 @@ local int scanzipf_fixnew()
  * This scan assumes the zip file is well structured.  If not it may
  * fail and the new scanzipf_fixnew should be used.
  *
- * The path to the current split is in global in_path initially set
- * in zip.c.
- *
- * 2/4/06 EG
+ * 2006-2-4, 2007-12-10 EG
  */
 
 local int scanzipf_regnew()
 /*
-   The input path for the .zip file is in in_path.  If a split is not in the
-   same directory as the last split we ask the user where it is and update
-   in_path.
+   The input path for the .zip file is in in_path.  If a split archive,
+   the path for each split is created from the current disk number
+   and in_path.  If a split is not in the same directory as the last
+   split we ask the user where it is and update in_path.
  */
 /*
-   This is old:
+   This is old but more or less still applies:
 
    The name of the zip file is pointed to by the global "zipfile".  The globals
    zipbeg, cenbeg, zfiles, zcount, zcomlen, zcomment, and zsort are filled in.
@@ -3962,10 +3995,14 @@ local int scanzipf_regnew()
   uzoff_t z64eocdr_size;
   ush     version_made;
   ush     version_needed = 0;
+  zoff_t zip64_eocdr_start;
+  zoff_t z64eocdl_offset;
 # endif /* def ZIP64_SUPPORT */
   uzoff_t cd_total_entries;        /* num of entries as read from (Zip64) EOCDR */
   ulg     in_cd_start_disk;        /* central directory start disk */
   uzoff_t in_cd_start_offset;      /* offset of start of cd on cd start disk */
+  uzoff_t adjust_offset = 0;       /* bytes before first entry (size of sfx prefix) */
+  uzoff_t cd_total_size = 0;       /* total size of cd */
 
 
   int first_CD = 1;           /* looking for first CD entry */
@@ -4010,7 +4047,7 @@ local int scanzipf_regnew()
          for the error value -1.
        */
       (zftello(in_file) == (zoff_t)-1L)) {
-    /* file is less than 128 KB so backup to beginning */
+    /* file is less than 128 KB so back up to beginning */
     if (zfseeko(in_file, 0L, SEEK_SET) != 0) {
       fclose(in_file);
       in_file = NULL;
@@ -4044,10 +4081,11 @@ local int scanzipf_regnew()
      EOCDR signature from a stored archive in the last 128 KB) and so not
      the one we want.
 
-     The below assumes the signature does not appear in the assumed text
+     The below assumes the signature does not appear in the assumed ASCII text
      .ZIP file comment.
   */
   while (find_signature(in_file, "PK\05\06")) {
+    /* previous one was not the one */
     eocdr_offset = (uzoff_t) zftello(in_file);
   }
 
@@ -4083,8 +4121,9 @@ local int scanzipf_regnew()
   eocdr_disk = (ulg)SH(scbuf);
   total_disks = eocdr_disk + 1;
 
-  /* assume this is this disk - if Zip64 it may not be as the
-     disk number may be bigger than this field can hold
+  /* Assume EOCDR disk is this disk.  If a lot of disks, the Zip64 field
+     may be needed and this EOCDR field could be set to the Zip64 flag
+     value as the disk number may be bigger than this field can hold.
   */
   current_in_disk = total_disks - 1;
 
@@ -4092,6 +4131,7 @@ local int scanzipf_regnew()
   in_cd_start_disk = (ulg)SH(scbuf + ENDBEG);
   in_cd_start_offset = (uzoff_t)LG(scbuf + ENDOFF);
   cd_total_entries = (uzoff_t)SH(scbuf + ENDTOT);
+  cd_total_size = (uzoff_t)LG(scbuf + ENDSIZ);
 
   /* length of zipfile comment */
   zcomlen = SH(scbuf + ENDCOM);
@@ -4126,6 +4166,11 @@ local int scanzipf_regnew()
     int plen = strlen(in_path);
     char *in_path_ext;
 
+    if (adjust) {
+      zipwarn("Adjusting split archives not yet supported", "");
+      return ZE_FORM;
+    }
+
 #ifdef VMS
     /* On VMS, adjust plen (and in_path_ext) to avoid the file version. */
     plen -= strlen(vms_file_version(in_path));
@@ -4145,7 +4190,8 @@ local int scanzipf_regnew()
   }
 
   /* if input or output are split archives, must be different archives */
-  if ((total_disks != 1 || split_method) && strcmp(in_path, out_path) == 0) {
+  if ((total_disks != 1 || split_method) && !show_files &&
+      strcmp(in_path, out_path) == 0) {
     fclose(in_file);
     in_file = NULL;
     zipwarn("cannot update a split archive (use --out option)", "");
@@ -4159,6 +4205,164 @@ local int scanzipf_regnew()
     zipwarn("must use --out when fixing an archive", "");
     return ZE_PARMS;
   }
+
+
+  /* Get sfx offset if adjusting. Above we made sure not split archive. */
+  /* Also check for an offset if fix and single disk archive. */
+  if ((fix == 1 && total_disks == 1) || adjust) {
+    zoff_t cd_start;
+# ifdef ZIP64_SUPPORT
+    zoff_t zip64_eocdr_start;
+# endif
+
+    /* First attempt.  If the CD start offset and size are valid in the EOCDR
+       (meaning they are not the Zip64 flag values that say the actual values
+       are in the Zip64 EOCDR), we can use them to get the offset */
+    if (in_cd_start_offset != 0xFFFFFFFF && cd_total_size != 0xFFFFFFFF) {
+      /* Search for start of central directory */
+      /* There still might be a Zip64 EOCDR.  This assumes if there is
+         a Zip64 EOCDR, it's version 1 and 52 bytes */
+      cd_start = eocdr_offset - cd_total_size - 24 - 56;
+      if (zfseeko(in_file, cd_start, SEEK_SET) != 0) {
+        fclose(in_file);
+        in_file = NULL;
+        if (fix == 1) {
+          zipwarn("could not seek back to start of central directory: ", strerror(errno));
+          zipwarn("(try -FF)", "");
+        } else {
+          zipwarn("reading archive fseek: ", strerror(errno));
+        }
+        return ZE_FORM;
+      }
+      if (find_signature(in_file, "PK\01\02")) {
+        /* Should now be after first central directory header signature in archive */
+        adjust_offset = zftello(in_file) - 4 - in_cd_start_offset;
+      } else {
+        zipwarn("central dir not where expected - could not adjust offsets", "");
+        zipwarn("(try -FF)", "");
+        return ZE_FORM;
+      }
+    } else {
+
+      /* Second attempt.  We need the Zip64 EOCDL to get the offset */
+
+      /*
+       * Check for a Zip64 EOCD Locator signature
+       */
+
+      /* Format of Z64EOCD Locator is
+           zip64 end of central dir locator
+            signature                       4 bytes  (0x07064b50)
+           number of the disk with the
+            start of the zip64 end of
+            central directory               4 bytes
+           relative offset of the zip64
+            end of central directory record 8 bytes
+           total number of disks            4 bytes
+       */
+
+      /* back up 20 bytes from EOCDR to Z64 EOCDL */
+      if (zfseeko(in_file, eocdr_offset - 24, SEEK_SET) != 0) {
+        fclose(in_file);
+        in_file = NULL;
+        if (fix == 1) {
+          zipwarn("could not seek back to Zip64 EOCDL: ", strerror(errno));
+          zipwarn("(try -FF)", "");
+        } else {
+          zipwarn("reading archive fseek: ", strerror(errno));
+        }
+        return ZE_FORM;
+      }
+      if (at_signature(in_file, "PK\06\07"))
+#ifndef ZIP64_SUPPORT
+      {
+        fclose(in_file);
+        in_file = NULL;
+        zipwarn("found Zip64 signature - this may be a Zip64 archive", "");
+        zipwarn("Need PKZIP 4.5 or later compatible zip", "");
+        zipwarn("Set ZIP64_SUPPORT in Zip 3", "");
+        return ZE_ZIP64;
+      }
+#else /* ZIP64_SUPPORT */
+      {
+        z64eocdl_offset = zftello(in_file) - 4;
+
+        /* read Z64 EOCDL */
+        if (fread(scbuf, EC64LOC, 1, in_file) != 1) {
+          fclose(in_file);
+          in_file = NULL;
+          zipwarn("reading archive: ", strerror(errno));
+          return ZE_READ;
+        }
+        /* now should be back at the EOCD signature */
+        if (!at_signature(in_file, "PK\05\06")) {
+          fclose(in_file);
+          in_file = NULL;
+          zipwarn("unable to read EOCD after seek: ", in_path);
+          return ZE_READ;
+        }
+
+        /* read disk and offset to Zip64 EOCDR and total disks */
+        z64eocdr_disk = LG(scbuf);
+        z64eocdr_offset = LLG(scbuf + 4);
+        total_disks = LG(scbuf + 12);
+
+        /* For now no split archives */
+        if (total_disks != 1) {
+          zipwarn("Adjusting split archives not supported:  ", in_path);
+          zipwarn("(try -FF)", "");
+          return ZE_FORM;
+        }
+
+        /* go to the Zip64 EOCDR */
+        if (zfseeko(in_file, z64eocdr_offset, SEEK_SET) != 0) {
+          fclose(in_file);
+          in_file = NULL;
+          zipwarn("reading archive fseek: ", strerror(errno));
+          return ZE_FORM;
+        }
+        /* Should be at Zip64 EOCDR signature */
+        if (at_signature(in_file, "PK\06\06")) {
+          /* apparently no offset */
+
+        } else {
+          /* Wasn't there, so calculate based on Zip64 EOCDL offset */
+
+          zip64_eocdr_start = z64eocdl_offset - 24 - 56;
+          if (zfseeko(in_file, zip64_eocdr_start, SEEK_SET) != 0) {
+            fclose(in_file);
+            in_file = NULL;
+            if (fix == 1) {
+              zipwarn("could not seek back to Zip64 EOCDR: ", strerror(errno));
+              zipwarn("(try -FF)", "");
+            } else {
+              zipwarn("reading archive fseek: ", strerror(errno));
+            }
+            return ZE_FORM;
+          }
+          if (find_next_signature(in_file) && is_signature(sigbuf, "PK\06\06")) {
+            /* Should now be after Zip64 EOCDR signature in archive */
+            adjust_offset = zftello(in_file) - 4 - z64eocdr_offset;
+          } else {
+            zipwarn("Could not determine offset of entries", "");
+            zipwarn("(try -FF)", "");
+            return ZE_FORM;
+          }
+        }
+      }
+#endif
+    }
+    if (noisy) {
+      if (adjust_offset) {
+        sprintf(errbuf, "Zip entry offsets appear off by %s bytes - correcting...",
+                        zip_fzofft(adjust_offset, NULL, NULL));
+      } else {
+        sprintf(errbuf, "Zip entry offsets do not need adjusting");
+      }
+      zipmessage(errbuf, "");
+    }
+  }
+
 
   /*
    * Check for a Zip64 EOCD Locator signature
@@ -4175,8 +4379,8 @@ local int scanzipf_regnew()
        total number of disks            4 bytes
    */
 
-  /* back up 20 bytes (size of Z64 EOCDL) */
-  if (zfseeko(in_file, eocdr_offset - 20, SEEK_SET) != 0) {
+  /* back up 20 bytes from EOCDR to Z64 EOCDL */
+  if (zfseeko(in_file, eocdr_offset - 24, SEEK_SET) != 0) {
     fclose(in_file);
     in_file = NULL;
     if (fix == 1) {
@@ -4199,6 +4403,7 @@ local int scanzipf_regnew()
   }
 #else /* ZIP64_SUPPORT */
   {
+    z64eocdl_offset = zftello(in_file) - 4;
     /* read Z64 EOCDL */
     if (fread(scbuf, EC64LOC, 1, in_file) != 1) {
       fclose(in_file);
@@ -4216,7 +4421,7 @@ local int scanzipf_regnew()
 
     /* read disk and offset to Zip64 EOCDR and total disks */
     z64eocdr_disk = LG(scbuf);
-    z64eocdr_offset = LLG(scbuf + 4);
+    z64eocdr_offset = LLG(scbuf + 4) + adjust_offset;
     total_disks = LG(scbuf + 12);
 
     /* set the current disk */
@@ -4260,15 +4465,35 @@ local int scanzipf_regnew()
     }
     /* Should be at Zip64 EOCDR signature */
     if (!at_signature(in_file, "PK\06\06")) {
-      fclose(in_file);
-      in_file = NULL;
-      if (fix == 1) {
-        zipwarn("bad archive - Zip64 EOCDR not found in split:  ", in_path);
-        zipwarn("(try -FF)", "");
-      } else {
-        zipwarn("Zip64 End Of Central Directory Record not found:  ", in_path);
+      /* Wasn't there, so calculate based on Zip64 EOCDL offset */
+      zip64_eocdr_start = z64eocdl_offset - 24 - 56;
+      if (zfseeko(in_file, zip64_eocdr_start, SEEK_SET) != 0) {
+        fclose(in_file);
+        in_file = NULL;
+        if (fix == 1) {
+          zipwarn("bad archive - could not seek back to Zip64 EOCDR: ", strerror(errno));
+          zipwarn("(try -FF)", "");
+        } else {
+          zipwarn("reading archive fseek: ", strerror(errno));
+        }
+        return ZE_FORM;
       }
-      return ZE_FORM;
+      if (find_next_signature(in_file) && is_signature(sigbuf, "PK\06\06")) {
+        /* Should now be after Zip64 EOCDR signature in archive */
+        adjust_offset = zftello(in_file) - 4 - z64eocdr_offset;
+        zipwarn("Zip64 EOCDR not found where expected - compensating", "");
+        zipwarn("(try -A to adjust offsets)", "");
+      } else {
+        fclose(in_file);
+        in_file = NULL;
+        if (fix == 1) {
+          zipwarn("bad archive - Zip64 EOCDR not found in split:  ", in_path);
+          zipwarn("(try -FF)", "");
+        } else {
+          zipwarn("Zip64 End Of Central Directory Record not found:  ", in_path);
+        }
+        return ZE_FORM;
+      }
     }
 
     /*
@@ -4317,7 +4542,7 @@ local int scanzipf_regnew()
     version_needed = SH(scbuf + 10);
     in_cd_start_disk = LG(scbuf + 16);
     cd_total_entries = LLG(scbuf + 28);
-    in_cd_start_offset = LLG(scbuf + 44);
+    in_cd_start_offset = LLG(scbuf + 44) + adjust_offset;
 
     if (version_needed > 46) {
       int major = version_needed / 10;
@@ -4344,6 +4569,8 @@ local int scanzipf_regnew()
 
   /* Multi-volume file names end in .z01, .z02, ..., .z10, .zip for 11 disk archive */
 
+  in_cd_start_offset += adjust_offset;
+  cenbeg = in_cd_start_offset;
   zipbegset = 0;
   zipbeg = 0;
   first_CD = 1;
@@ -4356,7 +4583,7 @@ local int scanzipf_regnew()
   }
 
   /* Read the disks with the central directory in order - usually the
-     central directory fits on the last disk, but it doesn't have to
+     central directory fits on the last disk, but it doesn't have to.
    */
   for (current_in_disk = in_cd_start_disk;
        current_in_disk < total_disks;
@@ -4463,17 +4690,17 @@ local int scanzipf_regnew()
 
           strcpy(errbuf, "bad archive - unexpected signature ");
           for (c = 0; c < 4; c++) {
-            sprintf(errbuftemp, "%2x ", sigbuf[c]);
+            sprintf(errbuftemp, "%02x ", sigbuf[c]);
             strcat(errbuf, errbuftemp);
           }
-          sprintf(errbuftemp, "on disk %lu at offset %s\n", current_in_disk,
+          sprintf(errbuftemp, "on disk %lu at %s\n", current_in_disk,
                                    zip_fzofft(current_in_offset - 4, NULL, "u"));
           strcat(errbuf, errbuftemp);
           zipwarn(errbuf, "");
           zipwarn("skipping this signature...", "");
           continue;
         } else {
-          sprintf(errbuf, "unexpected signature on disk %lu at offset %s\n",
+          sprintf(errbuf, "unexpected signature on disk %lu at %s\n",
                   current_in_disk, zip_fzofft(current_in_offset - 4, NULL, "u"));
           zipwarn(errbuf, "");
           zipwarn("archive not in correct format: ", split_path);
@@ -4486,7 +4713,7 @@ local int scanzipf_regnew()
 
       /* central directory signature */
       if (verbose && fix == 1) {
-        fprintf(mesg, "central directory header signature on disk %lu at offset %s\n",
+        fprintf(mesg, "central directory header signature on disk %lu at %s\n",
                 current_in_disk, zip_fzofft(current_in_offset - 4, NULL, "u"));
       }
 
@@ -4544,7 +4771,7 @@ local int scanzipf_regnew()
       z->dsk = SH(CENDSK + scbuf);
       z->att = SH(CENATT + scbuf);
       z->atx = LG(CENATX + scbuf);
-      z->off = LG(CENOFF + scbuf);
+      z->off = LG(CENOFF + scbuf);      /* adjust_offset is added below */
       z->dosflag = (z->vem & 0xff00) == 0;
 
       /* Initialize all fields pointing to malloced data to NULL */
@@ -4584,7 +4811,15 @@ local int scanzipf_regnew()
       z->iname[z->nam] = '\0';                  /* terminate name */
 #ifdef UNICODE_SUPPORT
       if (unicode_mismatch != 3) {
-        read_Unicode_Path_entry(z);
+        if (z->flg & UTF8_BIT) {
+          /* path is UTF-8 */
+          z->uname = z->iname;
+          /* Create a local name.  If UTF-8 system this should also be UTF-8 */
+          z->iname = utf8_to_local_string(z->uname);
+        } else {
+          /* check for UTF-8 path extra field */
+          read_Unicode_Path_entry(z);
+        }
       }
 #endif
 
@@ -4624,6 +4859,8 @@ local int scanzipf_regnew()
       /* uses it, we should do so, too.                       */
       adjust_zip_central_entry(z);
 #endif
+      /* if adjusting for sfx prefix, add the offset */
+      if ((fix ==1 && total_disks == 1) || adjust) z->off += adjust_offset;
 
       /* Update zipbeg beginning of archive offset, prepare for next header */
       if (z->dsk == 0 && (!zipbegset || z->off < zipbeg)) {
@@ -4742,10 +4979,6 @@ local int scanzipf_regnew()
       }
       strcpy(z->oname, z->zname);
 #endif /* ?(UNICODE_SUPPORT && !UTIL) */
-#ifdef WIN32
-      /* No idea if existing entry is Win32 short name */
-      z->used_short_name = 0;
-#endif
 
 #ifndef UTIL
       if (verbose && fix == 0)
@@ -4846,8 +5079,9 @@ int readzipfile()
   }
 #endif /* ?VMS */
 
+  /* skip check if streaming */
   if (!readable) {
-    if (fix != 2 && strcmp(in_path, out_path)) {
+    if (!zip_to_stdout && fix != 2 && strcmp(in_path, out_path)) {
       /* If -O used then in_path must exist */
       if (fix == 1)
         zipwarn("No .zip file found\n        ",
@@ -5055,8 +5289,28 @@ int putlocal(z, rewrite)
   if (zip64_entry || was_zip64)
     /* update extra field */
     add_local_zip64_extra_field( z );
-
 #endif /* ZIP64_SUPPORT */
+
+#ifdef UNICODE_SUPPORT
+# if 0
+  /* if UTF-8 bit is set on an existing entry, assume it should be */
+  /* clear the UTF-8 flag */
+  z->flg &= ~UTF8_BIT;
+  z->lflg &= ~UTF8_BIT;
+# endif
+  if (z->uname) {
+    /* need UTF-8 name */
+    if (using_utf8) {
+      /* if locale is UTF-8, name is already UTF-8 so set UTF-8 flag */
+      z->flg |= UTF8_BIT;
+      z->lflg |= UTF8_BIT;
+    } else {
+      /* use extra field */
+      add_Unicode_Path_local_extra_field( z );
+    }
+  }
+#endif
+
   append_ulong_to_mem(LOCSIG, &block, &offset, &blocksize);     /* local file header signature */
   append_ushort_to_mem(z->ver, &block, &offset, &blocksize);    /* version needed to extract */
   append_ushort_to_mem(z->lflg, &block, &offset, &blocksize);   /* general purpose bit flag */
@@ -5077,11 +5331,6 @@ int putlocal(z, rewrite)
   append_ulong_to_mem((ulg)z->len, &block, &offset, &blocksize);    /* uncompressed size */
 #endif
   append_ushort_to_mem((ush)z->nam, &block, &offset, &blocksize);   /* file name length */
-
-#ifdef UNICODE_SUPPORT
-  if (z->uname)
-    add_Unicode_Path_local_extra_field( z );
-#endif
 
   append_ushort_to_mem(z->ext, &block, &offset, &blocksize);    /* extra field length */
 
@@ -5270,8 +5519,19 @@ int putcentral(z)
 #endif
 
 #ifdef UNICODE_SUPPORT
-  if (z->uname)
-    add_Unicode_Path_cen_extra_field(z);
+  if (z->uname) {
+    if (using_utf8) {
+      /* set new UTF-8 bit to flag everything is UTF-8 */
+      z->flg |= UTF8_BIT;
+      z->lflg |= UTF8_BIT;
+    } else {
+      add_Unicode_Path_cen_extra_field(z);
+    }
+  } else {
+    /* clear UTF-8 bit as not needed */
+    z->flg &= ~UTF8_BIT;
+    z->lflg &= ~UTF8_BIT;
+  }
 #endif
 
   off = z->off;
@@ -5655,6 +5915,10 @@ int zipcopy(z)
       while ((in_file = zfopen(split_path, FOPR)) == NULL) {
         /* could not open split */
 
+        if (!noisy) {
+          ZIPERR(ZE_OPEN, split_path);
+        }
+
         /* Ask for directory with split.  Updates global in_path */
         r = ask_for_split_read_path(start_disk);
         if (r == ZE_ABORT) {
@@ -5668,25 +5932,6 @@ int zipcopy(z)
         split_path = get_in_split_path(in_path, start_disk);
       }
     }
-
-#ifndef UTIL
-    if (!fix && split_method == 0 && total_disks > 1) {
-      /* if input archive is multi-disk and splitting has not been
-         enabled or disabled (split_method == -1), then automatically
-         set split size to same as first input split */
-      zoff_t size = 0;
-
-      if (filetime(split_path, NULL, &size, NULL) == 0) {
-        zipwarn("Could not get info for input split: ", split_path);
-        return ZE_OPEN;
-      }
-      split_method = 1;
-      split_size = (uzoff_t) size;
-
-      if (noisy_splits)
-        zipmessage("splitsize = ", zip_fuzofft(split_size, NULL, NULL));
-    }
-#endif
 
     if (zfseeko(in_file, start_offset, SEEK_SET) != 0) {
       fclose(in_file);
@@ -5815,15 +6060,23 @@ int zipcopy(z)
     localz->vem = z->vem;
 
 #ifdef UNICODE_SUPPORT
-  if (unicode_mismatch != 3)
-    read_Unicode_Path_local_entry(localz);
+    if (unicode_mismatch != 3) {
+      if (z->flg & UTF8_BIT) {
+        /* path is UTF-8 */
+        localz->uname = localz->iname;
+        localz->iname = utf8_to_local_string(localz->uname);
+      } else {
+        /* check for UTF-8 path extra field */
+        read_Unicode_Path_local_entry(localz);
+      }
+    }
 #endif
 
 #ifdef WIN32_OEM
-    /* If fix == 2 and reading local headers first, vem is not in the local header
-       so we don't know when to do OEM translation, as the ver field is set to
-       MSDOS (0) by all unless something specific is needed.  However, if local header
-       has a Unicode path extra field, we can get the real file name from there. */
+      /* If fix == 2 and reading local headers first, vem is not in the local header
+         so we don't know when to do OEM translation, as the ver field is set to
+         MSDOS (0) by all unless something specific is needed.  However, if local header
+         has a Unicode path extra field, we can get the real file name from there. */
     if ((z->vem & 0xff00) == 0)
       /* assume archive name is OEM if from DOS */
       oem_to_local_string(localz->iname, localz->iname);
@@ -5831,6 +6084,14 @@ int zipcopy(z)
   }
 
   if (fix == 2) {
+# ifdef WIN32
+    localz->namew = NULL;
+    localz->inamew = NULL;
+    localz->znamew = NULL;
+    z->namew = NULL;
+    z->inamew = NULL;
+    z->znamew = NULL;
+# endif
     /* set z from localz */
     z->flg = localz->lflg;
     z->len = localz->len;
@@ -5839,7 +6100,7 @@ int zipcopy(z)
   } else {
     /* Compare localz to z */
     if (localz->ver != z->ver) {
-      zipwarn("Local Entry Version Needed To Extract does not match CD: ", z->iname);
+      zipwarn("Local Version Needed To Extract does not match CD: ", z->iname);
     }
     if (localz->lflg != z->flg) {
       zipwarn("Local Entry Flag does not match CD: ", z->iname);
@@ -6085,10 +6346,13 @@ int zipcopy(z)
     z->extra = localz->extra;
     /* copy local extra fields to central directory for now */
     z->cext = localz->ext;
-    if ((z->cextra = malloc(localz->ext + 1)) == NULL) {
+    z->cextra = NULL;
+    if (localz->ext) {
+      if ((z->cextra = malloc(localz->ext + 1)) == NULL) {
       return ZE_MEM;
+      }
+      strcpy(z->cextra, localz->extra);
     }
-    strcpy(z->cextra, localz->extra);
     z->com = 0;
     z->att = 0;
     z->atx = 0;
