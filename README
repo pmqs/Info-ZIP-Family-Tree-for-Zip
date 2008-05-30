@@ -1,20 +1,20 @@
-zip 3.0g is a BETA version. Do not distribute outside the Info-ZIP group.
+Zip 3.0 is the first Zip update adding large file support.  For now Zip 2.3x
+remains available and supported, but users should switch to this new release.
 
-Some ports probably don't work in this beta and Zip 3.0 development so far
-has been mainly on Unix, VMS, and Win32 platforms, though some others have
-been recently tested.  We hope to get the other ports working by release but
-may have to drop support for some ports or operating systems.  If you find
-your favorite port is broke, send us the details or, better, send bug fixes.
+Testing for Zip 3.0 has focused mainly on Unix, VMS, Max OS X, and Win32,
+and some other ports may not be fully supported yet.  If you find your
+favorite port is broke, send us the details or, better, send bug fixes.  It's
+possible that support for some older ports may be dropped in the future.
 
 
 
 Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
-See the accompanying file LICENSE (the contents of which are also
-included in unzip.h, zip.h and wiz.h) for terms of use.  If, for
-some reason, all of these files are missing, the Info-ZIP license
-also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
-and http://www.info-zip.org/pub/infozip/license.html.
+See the accompanying file LICENSE (the contents of which are also included
+in unzip.h, zip.h and wiz.h) for terms of use.  If, for some reason, all
+of these files are missing, the Info-ZIP license also may be found at:
+ftp://ftp.info-zip.org/pub/infozip/license.html and
+http://www.info-zip.org/pub/infozip/license.html.
 
 
 Zip 3.0 is a compression and file packaging utility.  It is compatible with
@@ -33,19 +33,19 @@ device; VMS, BeOS and OS/2 extended file attributes; conversion from Unix to
 MSDOS text file format; and, of course, the ability to run on most of your
 favorite operating systems.  And it's free.
 
-See the file zip30g.ann for a summary of new features, WhatsNew for a more
-detailed list of new features, and the file CHANGES for a detailed list of
-all changes.
+See the file zip30.ann for a summary of new features in Zip 3.0 and WhatsNew
+for the detailed list of new features and changes since Zip 2.32.  The file
+CHANGES details all day-to-day changes during development.
 
 Notes:
 
 Multi-volume support.  This version does not support multi-volume spanned
 archives as in pkzip 2.04g, and there is no intention at this point to support
-spanned archives, but version 3.0 supports split archives.  A split archive
-is an archive split into a set of files, each file a piece of the archive
-and each file using an extension, such as .z02 as in the file name archive.z02,
-that provides the order of the splits.  In contrast, a spanned archive is the
-original multi-floppy archive supported by pkzip 2.0g and where the split order
+spanned archives, but Zip 3.0 supports split archives.  A split archive is an
+archive split into a set of files, each file a piece of the archive and each
+file using an extension, such as .z02 as in the file name archive.z02, that
+provides the order of the splits.  In contrast, a spanned archive is the
+original multi-floppy archive supported by pkzip 2.0g where the split order
 is contained in the volume labels.  The contents of split and spanned archives
 are mostly identical and there is a simple procedure to convert between the
 formats.  Many current unzips now support split archives.
@@ -55,7 +55,8 @@ PKWare AppNote.  These archives use additional fields to support archives
 greater than 2 GB and files in archives over the 2 GB previous limit (4 GB
 on some ports).  The Zip64 format also allows more than 64k entries in an
 archive.  Use of Zip64 is automatic and the Zip64 fields will only be used
-if needed.  A Zip64 archive requires a pkzip 4.5 compatible unzip.
+if needed to maximize backward compatibility.  A Zip64 archive requires a
+pkzip 4.5 compatible unzip, such as UnZip 6.0.
 
 Unicode support.  This version has initial Unicode support.  This allows
 paths and names of files in other character sets to be accurately recreated
@@ -76,16 +77,17 @@ or otherwise does not work well on a particular OS, send in the details
 and we might be able to help.
 
 Compression methods.  In addition to the standard store and deflate methods,
-zip now can support the bzip2 compression format using the bzip2 library.
+zip now can use the bzip2 compression format using the bzip2 library.  Though
+bzip2 compression generally takes longer, in many cases using bzip2 results
+in much better compression.  However, many unzips may not yet support
+bzip2 compressed entries in archives, so test your unzip first before using
+bzip2.
 
 Installation.  Please read the file INSTALL for information on how to compile
 and install zip, zipsplit, zipcloak, and zipnote and please read the manual
 pages ZIP.txt, ZIPSPLIT.txt, ZIPCLOAK.txt, and ZIPNOTE.txt for information on
-how to use them.  The file "contents" is a complete list of the files
-you should have in this distribution (but remains missing in this beta and
-should be updated by the release).  Also, if you are using MSDOS, you should
-read the note on file formats at the end of the contents file.  In particular,
-text files in the distribution are generally in Unix line end format (LF only)
+how to use them.  Also, if you are using MSDOS or Windows, note that text
+files in the distribution are generally in Unix line end format (LF only)
 and Windows and DOS users will need to either convert the files as needed to
 DOS line ends (CR LF) or extract the distribution contents using unzip -a.
 
@@ -103,10 +105,14 @@ Bug reports.  All bug reports or patches should go to zip-bugs via the web
 site contact form at http://www.info-zip.org/zip-bug.html (we have discontinued
 the old email address zip-bugs@lists.wku.edu because of too much spam lately)
 and suggestions for new features can be submitted there also (although we don't
-promise to use all of them).  Now a new Info-ZIP discussion forum is
-available as well, and bug reports can be posted there.  See below.  We also
-are on SourceForge at http://sourceforge.net/projects/infozip/ and now
-automatically get Bug Reports and Feature Requests submitted there.
+promise to use all of them).  We also are on SourceForge at
+http://sourceforge.net/projects/infozip/ and now automatically get Bug Reports
+and Feature Requests submitted there.  In addition, a new Info-ZIP discussion
+forum is available as well.  See below.  Though bug reports can be posted there,
+we have not yet set up automatic monitoring of postings there so you may want to
+use the web form or SoureForge for a quicker response.  A good approach may be
+to post the details on the forum so others can benefit from the posting, then
+use the web reply form to let us know you did that.
 
 Ports.  If you're considering a port, please check in with zip-bugs FIRST,
 since the code is constantly being updated behind the scenes.  We'll
@@ -149,7 +155,7 @@ Q. I can't extract this zip file that I just downloaded.  I get
 A. Please make sure that you made the transfer in binary mode.  Check
    in particular that your copy has exactly the same size as the original.
    Note that the above message also may actually mean you have only part
-   of a multi-part archive.  Also note that UnZip 5.x and UnZip 6.0
+   of a multi-part archive.  Also note that UnZip 5.x does not and UnZip 6.0
    probably won't have multi-disk (split) archive support.  A work around
    is to use Zip 3.0 to convert the split archive to a single-file archive
    then use UnZip on that archive.

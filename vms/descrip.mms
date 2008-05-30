@@ -1,4 +1,4 @@
-#                                               21 December 2007.  SMS.
+#                                               23 February 2007.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -11,8 +11,8 @@
 #
 # Optional macros:
 #
-#    "CCOPTS=xxx"   Compile with CC options xxx.  For example:
-#                   "CCOPTS=/ARCH=HOST"
+#    CCOPTS=xxx     Compile with CC options xxx.  For example:
+#                   CCOPTS=/ARCH=HOST
 #
 #    DBG=1          Compile with /DEBUG /NOOPTIMIZE.
 #                   Link with /DEBUG /TRACEBACK.
@@ -31,8 +31,8 @@
 #
 #    LARGE=1        Enable large-file (>2GB) support.  Non-VAX only.
 #
-#    "LINKOPTS=xxx" Link with LINK options xxx.  For example:
-#                   "LINKOPTS=/NOINFO"
+#    LINKOPTS=xxx   Link with LINK options xxx.  For example:
+#                   LINKOPTS=/NOINFO   
 #
 #    LIST=1         Compile with /LIST /SHOW = (ALL, NOMESSAGES).
 #                   Link with /MAP /CROSS_REFERENCE /FULL.

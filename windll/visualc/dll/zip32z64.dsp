@@ -1,24 +1,24 @@
-# Microsoft Developer Studio Project File - Name="zip32" - Package Owner=<4>
+# Microsoft Developer Studio Project File - Name="zip32z64" - Package Owner=<4>
 # Microsoft Developer Studio Generated Build File, Format Version 6.00
 # ** DO NOT EDIT **
 
 # TARGTYPE "Win32 (x86) Dynamic-Link Library" 0x0102
 
-CFG=zip32 - Win32 Debug
+CFG=zip32z64 - Win32 Debug
 !MESSAGE This is not a valid makefile. To build this project using NMAKE,
 !MESSAGE use the Export Makefile command and run
 !MESSAGE 
-!MESSAGE NMAKE /f "zip32.mak".
+!MESSAGE NMAKE /f "zip32z64.mak".
 !MESSAGE 
 !MESSAGE You can specify a configuration when running NMAKE
 !MESSAGE by defining the macro CFG on the command line. For example:
 !MESSAGE 
-!MESSAGE NMAKE /f "zip32.mak" CFG="zip32 - Win32 Debug"
+!MESSAGE NMAKE /f "zip32z64.mak" CFG="zip32z64 - Win32 Debug"
 !MESSAGE 
 !MESSAGE Possible choices for configuration are:
 !MESSAGE 
-!MESSAGE "zip32 - Win32 Release" (based on "Win32 (x86) Dynamic-Link Library")
-!MESSAGE "zip32 - Win32 Debug" (based on "Win32 (x86) Dynamic-Link Library")
+!MESSAGE "zip32z64 - Win32 Release" (based on "Win32 (x86) Dynamic-Link Library")
+!MESSAGE "zip32z64 - Win32 Debug" (based on "Win32 (x86) Dynamic-Link Library")
 !MESSAGE 
 
 # Begin Project
@@ -29,7 +29,7 @@ CPP=cl.exe
 MTL=midl.exe
 RSC=rc.exe
 
-!IF  "$(CFG)" == "zip32 - Win32 Release"
+!IF  "$(CFG)" == "zip32z64 - Win32 Release"
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 0
@@ -55,7 +55,7 @@ LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib advapi32.lib /nologo /subsystem:windows /dll /machine:I386
 # ADD LINK32 kernel32.lib user32.lib advapi32.lib /nologo /subsystem:windows /dll /machine:I386
 
-!ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
+!ELSEIF  "$(CFG)" == "zip32z64 - Win32 Debug"
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 1
@@ -86,8 +86,8 @@ LINK32=link.exe
 
 # Begin Target
 
-# Name "zip32 - Win32 Release"
-# Name "zip32 - Win32 Debug"
+# Name "zip32z64 - Win32 Release"
+# Name "zip32z64 - Win32 Debug"
 # Begin Source File
 
 SOURCE=..\..\..\api.c

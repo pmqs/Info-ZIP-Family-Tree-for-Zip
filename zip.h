@@ -457,8 +457,8 @@ extern int show_files;          /* show files to operate on and exit (=2 log onl
 extern char *tempzip;           /* temp file name */
 extern FILE *y;                 /* output file now global for splits */
 
-#ifdef UNICODE_ALLOW_FORCE
-  extern int unicode_force;     /* 1=store UTF-8 as standard per AppNote bit 11 */
+#ifdef UNICODE_SUPPORT
+  extern int utf8_force;         /* 1=store UTF-8 as standard per AppNote bit 11 */
 #endif
 extern int unicode_escape_all;  /* 1=escape all non-ASCII characters in paths */
 extern int unicode_mismatch;    /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
@@ -716,7 +716,7 @@ char *get_in_split_path OF((char *, ulg));
 char *find_in_split_path OF((char *, ulg));
 char *get_out_split_path OF((char *, ulg));
 int rename_split OF((char *, char *));
-int set_filetype OF(());
+int set_filetype OF((char *));
 
 int bfcopy OF((uzoff_t));
 
@@ -736,7 +736,7 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
    char *in2ex OF((char *));
    char *ex2in OF((char *, int, int *));
 #if defined(UNICODE_SUPPORT) && defined(WIN32)
-   int has_win32_wide();
+   int has_win32_wide OF((void));
    wchar_t *in2exw OF((wchar_t *));
    wchar_t *ex2inw OF((wchar_t *, int, int *));
    int procnamew OF((wchar_t *, int));
@@ -883,17 +883,25 @@ void     bi_init      OF((char *, unsigned int, int));
 
    /* WIN32_OEM */
 #ifdef WIN32
+/*
 # if defined(UNICODE_SUPPORT) || defined(WIN32_OEM)
+*/
   /* convert oem to ansi string */
   char *oem_to_local_string OF((char *, char *));
+/*
 # endif
+*/
 #endif
 
 #ifdef WIN32
+/*
 # if defined(UNICODE_SUPPORT) || defined(WIN32_OEM)
+*/
   /* convert local string to oem string */
   char *local_to_oem_string OF((char *, char *));
+/*
 # endif
+*/
 #endif
 
 
@@ -1060,7 +1068,8 @@ char **copy_args OF((char **args, int max_args));
 int free_args OF ((char **args));
 
 /* insert arg - copy an arg into args */
-int insert_arg OF ((char ***args, char *arg, int insert_at, int free_args));
+int insert_arg OF ((char ***args, ZCONST char *arg, int insert_at,
+                    int free_args));
 
 
 /*--------------------------------------------------------------------

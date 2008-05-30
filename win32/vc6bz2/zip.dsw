@@ -3,7 +3,7 @@ Microsoft Developer Studio Workspace File, Format Version 6.00
 
 ###############################################################################
 
-Project: "zip"=".\zip.dsp" - Package Owner=<4>
+Project: "zip"=.\zip.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -15,7 +15,7 @@ Package=<4>
 
 ###############################################################################
 
-Project: "zipcloak"="..\vc6\zipcloak.dsp" - Package Owner=<4>
+Project: "zipcloak"=..\vc6\zipcloak.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -27,7 +27,7 @@ Package=<4>
 
 ###############################################################################
 
-Project: "zipnote"="..\vc6\zipnote.dsp" - Package Owner=<4>
+Project: "zipnote"=..\vc6\zipnote.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -39,7 +39,7 @@ Package=<4>
 
 ###############################################################################
 
-Project: "zipsplit"="..\vc6\zipsplit.dsp" - Package Owner=<4>
+Project: "zipsplit"=..\vc6\zipsplit.dsp - Package Owner=<4>
 
 Package=<5>
 {{{

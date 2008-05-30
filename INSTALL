@@ -13,14 +13,29 @@ Installation on Unix (see below for installation on other systems)
      unpacked the sources. First, unpack the source as follows,
      assuming that you have zip30.zip in the current directory.
 
+     Zip 3.0 distribution kits (unlike previously distributed Zip 2.x
+     kits) are created with a top-level directory (like "zip30") in
+     the archive, making the creating of the zipsrc directory optional.
+
+     For example, to extract to a new zipsrc directory (assuming
+     zip30.zip is in the current directory):
+
           mkdir zipsrc
           cd zipsrc
-          unzip ../zip30
+          cp ../zip30.zip .
+          unzip zip30.zip
+          cd zip30
 
-     This extracts all source files and documentation in the
-     directory called "zipsrc".  It's likely the source will be
-     distributed in its own directory, zip30/, in the archive,
-     making the creating of the zipsrc directory optional.
+     To extract in an existing directory, such as /usr/local/src/zip:
+
+          cd /usr/local/src/zip
+          (copy zip30.zip here)
+          unzip zip30.zip
+          cd zip30
+
+     The first extracts all source files and documentation to the
+     directory "zipsrc/zip30".  The second places the zip30 directory
+     in the /usr/local/src/zip directory.
 
      This release now includes the standard encryption code previously
      in the separate package zcrypt29.zip, but you still can decide
@@ -28,7 +43,7 @@ Installation on Unix (see below for installation on other systems)
      default, but you may disable it by specifying the option -DNO_CRYPT
      in the LOCAL_ZIP environment variable (or by adding this option
      to the compilation options in the appropiate makefile).  See
-     Readme.cr for more on crypt.
+     README.CR for more on crypt.
 
      You then do:
 
@@ -37,13 +52,24 @@ Installation on Unix (see below for installation on other systems)
      where "system" is one of: generic, generic_gcc,
      att6300, coherent, cray_v3, minix, sco_x286, xenix, zilog.
 
-     For unix systems, try "make -f unix/Makefile generic" first, as this
-     should work on most systems and automatically selects compilation
-     options based on a set of tests, including detection of large file
-     support sufficient to enable Zip64 support.  If generic fails, then
-     use one of the special targets given above.
+     For Unix systems where "cc" is the preferred C compiler command,
+     try
+
+          make -f unix/Makefile generic
+
+     first.  If "gcc" is preferred, specify "generic_gcc" instead of
+     "generic".  This should work on most systems and automatically
+     selects compilation options based on a set of tests (in
+     unix/configure), including detection of large file support
+     sufficient to enable Zip64 support.  If "generic" (or "generic_gcc"
+     if that is used) fail, then one of the special targets given above
+     may work.
 
      Among other special systems are Cray Unicos, Zilog Zeus and MINIX.
+
+     The optimization settings for many systems should be close, but
+     if you see optimization for your system is not ideal, send in
+     the changes so we can improve it.
 
      By default, Zip uses the "deflate" compression method.  To add
      support for the optional "bzip2" compression method, see the file
@@ -60,7 +86,9 @@ Installation on Unix (see below for installation on other systems)
      entry mmap_gcc for an example.
 
      If none of these compiles, links, and functions properly on
-     your Unix system, see the file README for how to get help.
+     your Unix system, then your system apparently has specific
+     requirements we did not account for.  See the file README for how
+     to get help.
 
      If the appropriate system was selected, then the executables zip,
      zipnote, zipcloak, and zipsplit will be created.  You can copy
@@ -69,25 +97,21 @@ Installation on Unix (see below for installation on other systems)
           make -f unix/Makefile install
 
      The defaults are /usr/local/bin for the executables and
-     /usr/local/man/man1 for the manual page. Change the macros
-     BINDIR and MANDIR in makefile if appropriate.
+     /usr/local/man/man1 for the manual pages. Change the macros
+     BINDIR and MANDIR in makefile to change these if needed.
 
-     You can use the command "set" to see the current search
-     path.  If you are using the C-Shell (csh), enter the com-
-     mand:
+     If necessary, add the directory with the Zip executables to your
+     shell's PATH (or "path") variable.  (C-shell users may need to
+     use the "rehash" command so csh can find the new command in the
+     path.)  You should now be ready to use Zip.
 
-          rehash
-
-     so csh can find the new command in the path.  You are now
-     ready to use Zip.
-
-     You can get rid of the now unnecessary source and object
-     files with:
+     You can get rid of the now unnecessary source and object files
+     with:
 
           cd ..
-          rm -r zipsrc
+          rm -r zip30
 
-     This will remove the directory zip and its contents created
+     This will remove the directory zip30 and its contents created
      by unzip.  You should keep the zip30.zip file around though,
      in case you need to build it again or want to give it to a
      colleague.
@@ -107,16 +131,16 @@ Installation on other systems
 
      The steps for installation under VMS, MSDOS, OS/2, NT, Amiga and
      Atari are similar to the above: first unzip the distribution
-     files into their own directory.  The system dependant files are
+     files into their own directory.  The system-dependent files are
      stored in special subdirectories.
 
-     For all the non-unix ports which support the creation of "UT" extra
+     For all the non-Unix ports which support the creation of "UT" extra
      fields (these ports contain USE_EF_UT_TIME in the list of optional
      features displayed with "zip -v"), the timezone environment variable TZ
-     should be set according to the local timezone in order for the -f,
-     -u and -o options to work correctly.  This is not needed for the WIN32
-     and WinDLL ports, since they get the timezone information from the OS by
-     other means.
+     should be set according to the local timezone in order for the -f, -u,
+     -o, and similar options to work correctly.  This is not needed for the
+     WIN32 and WinDLL ports, since they get the timezone information from
+     the OS by other means.
 
   MSDOS:
 
@@ -179,7 +203,7 @@ Installation on other systems
   VMS (OpenVMS):
 
      The most complete information on building and installation for VMS
-     is in [.VMS]INSTALL_VMS.TXT.  Optimists in a hurry may wish to try
+     is in [.vms]install_vms.txt.  Optimists in a hurry may wish to try
      commands like these:
 
            @ [.VMS]BUILD_ZIP.COM
@@ -198,10 +222,10 @@ Installation on other systems
      SYS$LOGIN:LOGIN.COM procedure, or to a common, site-specific
      procedure, like SYS$MANAGER:SYLOGIN.COM.
 
-     Additional installation options are described in INSTALL_VMS.TXT.
+     Additional installation options are described in install_vms.txt.
 
      The builders create help text files, ZIP.HLP and ZIP_CLI.HLP.  Also
-     see INSTALL_VMS.TXT for how to create the help libraries.
+     see install_vms.txt for how to create the help libraries.
 
 Compiler Flags
 
@@ -220,18 +244,21 @@ Compiler Flags
     (typically 64-bit) for the OS instead of using the standard
     (typically 32-bit) file calls.  On Unix Zip tries to switch over to
     the 64-bit file environment.  If setting this flag causes errors
-    or Zip still can't handle large files, then probably either Zip
-    doesn't have the code to support large files on your OS (write a
-    patch and send it in to us) or your OS doesn't support large files.
+    or Zip still can't handle large files on that port, then probably
+    either Zip doesn't have the code to support large files on your OS
+    (write a patch and send it in to us) or your OS doesn't support large
+    files.
 
-    This flag should be set automatically on Unix, Win32, VMS, and some
+    This flag should be set automatically on Unix, Win32, and some
     other ports.  Setting NO_LARGE_FILE_SUPPORT turns this flag off.
 
   ZIP64_SUPPORT
     Enable the Zip64 code in Zip that supports the Zip64 extensions noted
     in the PKWare AppNote.  These extensions allow storing files larger
     than 4 GB in archives and the creating of archives larger than 4 GB.
-    They also allow storing more than 64K files in an archive.
+    They also allow storing more than 64K files in an archive.  Currently
+    Zip does not handle archives of PKZip version 4.5 or later unless
+    this flag is set.
 
     This flag should be set automatically on most ports if
     LARGE_FILE_SUPPORT is set.  Setting NO_ZIP64_SUPPORT turns this flag
@@ -252,12 +279,9 @@ Compiler Flags
     Enable storing and using UTF-8 paths.  These paths are stored in
     a backward-compatible way so that archives with UTF-8 paths still
     work on zips and unzips that don't support Unicode.  This support
-    is preliminary and only paths are currently stored, though UTF-8
-    comment support should also be implemented in the next release.
-    This flag also enables recognizing and using the new Unicode flag
-    bit in the PKWare AppNote, but this flag is not fully backward
-    compatible and is only supported on systems where UTF-8 is the
-    native character set.
+    follows the recent additions to the PKWare AppNote for Unicode
+    support, except that Unicode comments on systems where UTF-8 is
+    not the current character set is not implemented in this release.
 
     On some ports UNICODE_SUPPORT is set automatically if wide characters
     are supported.  Setting NO_UNICODE_SUPPORT turns off this flag.
@@ -284,9 +308,9 @@ Compiler Flags
     method, bzip2, that can be used instead of the default Zip compression
     method deflate.
 
-    Set on Unix, including Mac OS X, when compiling using generic if the
-    bzip2 library is found.  Set on Win32 if the bzip2 projects are used.
-    See the VMS documentation for when VMS sets this flag.  Setting
+    This flag is set on Unix, including Mac OS X, when compiling using generic
+    if the bzip2 library is found.  Set on Win32 if the bzip2 projects are
+    used.  See the VMS documentation for when VMS sets this flag.  Setting
     NO_BZIP2_SUPPORT turns this off.
 
     See bzip2/install.txt for more on installing bzip2 support.
@@ -299,8 +323,10 @@ Compiler Flags
     enables the translation of OEM paths in DOS archives to ANSI and should
     eliminate some problems with funny characters showing up in path names.
 
-    This flag is on by default on Win32.  Defining NO_WIN32_OEM turns
-    this flag off.
+    This flag is on by default on most Win32 ports.  Some ports apparently
+    have problems with OEM conversions.  If your port or compiler does
+    funny things with file names, you may want to turn this off.  Defining
+    NO_WIN32_OEM turns this flag off.
 
   NO_STREAMING_STORE
     Because storing zip archives inside a zip entry adds "false" signatures
@@ -312,8 +338,11 @@ Compiler Flags
     some reason.  To be safe, define this.
 
   ALLOW_REGEX
-    For MSDOS and Windows, now [list] wildcard matching is turned off unless
-    the new -RE option is used.  Defining this forces [list] to be always on.
+    For MSDOS and Windows, now "[list]" wildcard matching (where any
+    character between [ and ] can be used to match the character at that
+    position) is turned off unless the new -RE option is used.  Defining
+    this flag forces "[list]" matching to be always on as in previous
+    releases.
 
 
 For command help on any of the zip* utilities, simply enter

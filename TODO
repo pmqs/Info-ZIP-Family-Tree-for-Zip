@@ -1,4 +1,12 @@
-Main features still missing for next official version (last updated 1/30/2008):
+This file is out of date, but will take some work to verify what has been done and
+what should still be on the list.  This may be updated by release of Zip 3.0.  See
+WhatsNew for the list of implemented features.  26 May 2008
+
+
+Main features still missing for next official version (last updated 24 March 2008):
+
+(Feature set for Zip 3.0 is mostly frozen and ready for release, so this
+is more for Zip 3.1 and later.)
 
 - Fix -W option that prevents * from spanning / in paths (done?) (5/9/2005)
 - Verbose -v still needs work (done?) (5/17/2006)

@@ -1,6 +1,6 @@
 # Makefile for Zip, ZipCloak, ZipNote and ZipSplit using LCC-Win32.
 # By E-Yen Tan (3 June 1998).
-# Last updated 5 January 2007 (Christian Spieler).
+# Last updated 9 February 2008 (Christian Spieler).
 
 # This compiler evaluates #include locations relative to current working dir,
 # not relative to the location of the file containing the #include directive.
@@ -10,7 +10,7 @@
 CC = lcc
 # -O caused a segmentation violation with previous versions of lcc, but
 # now the optimizer seems to be fixed.
-CCFLAGS = -zp8 -O -DWIN32
+CCFLAGS = -Zp8 -O -DWIN32
 AS = lcc
 ASFLAGS =
 LD = lcclnk

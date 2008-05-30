@@ -1,14 +1,15 @@
 _____________________________________________________________________________
 
-  This is Info-ZIP's README.CR for zcrypt29.zip, last updated 28 February 2005.
+  This is Info-ZIP's README.CR for zcrypt29.zip, last updated 27 March 2008.
 _____________________________________________________________________________
 
 
 The files described below contain the encryption/decryption code for Zip 2.31,
 UnZip 5.52, and WiZ 5.02 (and later).  These files are included in the main
-source for all of these.  This file both describes the history of this package
-and notes the current conditions for use.  Check the comments at the top
-of crypt.c and crypt.h for additional information.
+source distributions for all of these now, but the encryption patch is still
+available for earlier versions of these.  This file both describes the history
+of the encryption package and notes the current conditions for use.  Check
+the comments at the top of crypt.c and crypt.h for additional information.
 
 As of version 2.9, this encryption source code is copyrighted by Info-ZIP;
 see the enclosed LICENSE file for details.  Older versions remain in the pub-
@@ -44,13 +45,15 @@ designed to keep your mother from reading your mail, it's OK.
 For more serious encryption, check into PGP (Pretty Good Privacy), a
 public-key-based encryption system available from various Internet sites.
 PGP has Zip and UnZip built into it.  The most recent version at the time
-this was written was 6.5, although older versions are still widespread.
+this was originally written was 6.5, although older versions were still
+widespread.  At the time of this writing there are now GPG, PGP Universal
+2.0, and various others based on OpenPGP.
 
 We are looking at adding AES strong encryption to future versions of Zip and
 UnZip.
 
-Zip 2.3x and UnZip 5.5x are compatible with PKZIP 2.04g.  (Thanks to Phil
-Katz for accepting our suggested minor changes to the zipfile format.)
+Zip 2.3x and UnZip 5.5x and later are compatible with PKZIP 2.04g.  (Thanks
+to Phil Katz for accepting our suggested minor changes to the zipfile format.)
 
 IMPORTANT NOTE:
 
@@ -86,7 +89,8 @@ should be able to find Zip and UnZip in the same place you found this
 (see ftp://ftp.info-zip.org/pub/infozip/Info-ZIP.html or the file
 "WHERE" for details).
 
-To update previous versions using the zcrypt sources:
+Current releases all have encryption built in.  To update previous versions
+using the zcrypt sources:
 
   (1) Get the main sources (e.g., Zip 2.3) and unpack into a working
       directory, as usual.

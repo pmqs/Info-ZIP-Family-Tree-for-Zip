@@ -64,10 +64,10 @@
      For example:
 
           @ [.VMS]BUILD_ZIP LARGE -
-           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_4B_VMS]
-     or:
+           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3C_VMS]
+       or:
           MMS /DESC = [.VMS] /MACRO = (LARGE=1, -
-           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_4B_VMS])
+           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3C_VMS])
 
      Note that historically, Zip has been built with the default
      compiler option, /NAMES = UPPERCASE, while bzip2 is normally built
@@ -81,10 +81,10 @@
      UPPERCASE, or else build Zip with /NAMES = AS_IS.  For example:
 
           @ [.VMS]BUILD_ZIP LARGE "CCOPTS=/NAMES=AS_IS" -
-           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_4B_VMS]
-     or:
+           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3C_VMS]
+       or:
           MMS /DESC = [.VMS] /MACRO = (LARGE=1, "CCOPTS=/NAMES=AS_IS", -
-           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_4B_VMS])
+           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3C_VMS])
 
      System-architecture-specific files (like objects and executables)
      are placed in separate directories, such as [.ALPHA], [.IA64], or
@@ -111,29 +111,29 @@
      location, like SYS$MANAGER:SYLOGIN.COM.  Typical symbol definitions
      might look like these:
 
-          ZIP :== $ dev:[dir]ZIP.EXE            ! UNIX-like command line.
-     or:
-          ZIP :== $ dev:[dir]ZIP_CLI.EXE        ! VMS-like command line.
+           ZIP :== $ dev:[dir]ZIP.EXE            ! UNIX-like command line.
+   or:
+           ZIP :== $ dev:[dir]ZIP_CLI.EXE        ! VMS-like command line.
 
      On a non-VAX system, different symbols could be defined for the
      small-file and large-file programs.  For example:
 
-          ZIPS  :== $ dev:[dir.ALPHA]ZIP.EXE    ! ZIPS = small-file Zip.
-          ZIP*L :== $ dev:[dir.ALPHAL]ZIP.EXE   ! ZIP[L] = large-file Zip.
+           ZIPS  :== $ dev:[dir.ALPHA]ZIP.EXE    ! ZIPS = small-file Zip.
+           ZIP*L :== $ dev:[dir.ALPHAL]ZIP.EXE   ! ZIP[L] = large-file Zip.
 
      The builders create help text files, ZIP.HLP and ZIP_CLI.HLP.
      These may be incorporated into an existing help library, or a separate
      Zip help library may be created using commands like these, using
      either ZIP.HLP (as shown) or ZIP_CLI.HLP:
 
-          LIBRARY /HELP dev:[dir]existing_library.HLB ZIP.HLP
+           $ LIBRARY /HELP dev:[dir]existing_library.HLB ZIP.HLP
 
-          LIBRARY /CREATE /HELP ZIP.HLB ZIP.HLP
+           $ LIBRARY /CREATE /HELP ZIP.HLB ZIP.HLP
 
      Zip help may then be accessed from a separate Zip help library
      using a command like:
 
-          HELP /LIBRARY = device:[directory]ZIP.HLB
+           $ HELP /LIBRARY = device:[directory]ZIP.HLB
 
      For greater ease, the user (or system manager) may define a
      HLP$LIBRARY logical name to allow the HELP utility to find the Zip
@@ -146,10 +146,13 @@
      destination directory with the program executables.  A user may
      gain DCL access to the Zip error messages using a command like:
 
-          SET MESSAGE device:[directory]ZIP_MSG.EXE
+           $ SET MESSAGE device:[directory]ZIP_MSG.EXE
 
      For system-wide access, the system manager may move or copy this
      file to SYS$MESSAGE, although this could cause some confusion if
      multiple versions of Zip are used on the system, and their error
      message source files differ.
 
+     Some further information may be found in the files
+     [.VMS]00README.TXT and [.VMS]00BINARY.VMS, though much of what's
+     there is now obsolete.

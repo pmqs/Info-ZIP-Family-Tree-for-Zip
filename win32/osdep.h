@@ -1,7 +1,7 @@
 /*
   win32/osdep.h
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -123,10 +123,24 @@
   /* 64-bit Large File Support */
 
   /* Only types and the printf format stuff go here.  Functions
-     go in tailor.h until ANSI prototypes are required and OF define
-     can go. */
+     go in tailor.h since ANSI prototypes are required and the OF define
+     is not defined here. */
 
-# if (defined(__GNUC__) || defined(ULONG_LONG_MAX))
+# if (defined(_MSC_VER) && (_MSC_VER >= 1100)) || defined(__MINGW32__)
+    /* MS C and VC, MinGW32 */
+    /* these compiler systems use the Microsoft C RTL */
+
+    /* base types for file offsets and file sizes */
+    typedef __int64             zoff_t;
+    typedef unsigned __int64    uzoff_t;
+
+    /* 64-bit stat struct */
+    typedef struct _stati64 z_stat;
+
+    /* printf format size prefix for zoff_t values */
+#   define ZOFF_T_FORMAT_SIZE_PREFIX "I64"
+
+# elif (defined(__GNUC__) || defined(ULONG_LONG_MAX))
     /* GNU C */
 
     /* base types for file offsets and file sizes */
@@ -156,19 +170,6 @@
 
     /* printf format size prefix for zoff_t values */
 #   define ZOFF_T_FORMAT_SIZE_PREFIX "ll"
-
-# elif (defined(_MSC_VER) && (_MSC_VER >= 1100)) || defined(__MINGW32__)
-    /* MS C and VC */
-
-    /* base types for file offsets and file sizes */
-    typedef __int64             zoff_t;
-    typedef unsigned __int64    uzoff_t;
-
-    /* 64-bit stat struct */
-    typedef struct _stati64 z_stat;
-
-    /* printf format size prefix for zoff_t values */
-#   define ZOFF_T_FORMAT_SIZE_PREFIX "I64"
 
 # elif (defined(__IBMC__) && (__IBMC__ >= 350))
     /* IBM C */
@@ -246,18 +247,18 @@
 
 #if 0
   /* this is now generic */
-#ifdef UNICODE_SUPPORT
+# ifdef UNICODE_SUPPORT
   /* Set up Unicode support - 9/27/05 EG */
 
   /* type of wide string characters */
-# define zchar wchar_t
+#  define zchar wchar_t
 
   /* default char string used if a wide char can't be converted */
-# define zchar_default "_"
+#  define zchar_default "_"
 
-#else
-# define zchar char
-#endif
+# else
+#  define zchar char
+# endif
 #endif
 
 

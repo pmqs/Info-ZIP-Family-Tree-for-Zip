@@ -150,40 +150,35 @@ int rename_split(temp_name, out_path)
 void zipmessage_nl(a, nl)
 ZCONST char *a;     /* message string to output */
 int nl;             /* 1 = add nl to end */
-/* Print a message to mesg without new line and return. */
+/* If nl false, print a message to mesg without new line.
+   If nl true, print and add new line.  If logfile is
+   open then also write message to log file. */
 {
-  mesg_line_started = 1;
   if (noisy) {
     fprintf(mesg, "%s", a);
     if (nl) {
       fprintf(mesg, "\n");
       mesg_line_started = 0;
+    } else {
+      mesg_line_started = 1;
     }
+    fflush(mesg);
   }
-  if (logfile) {
-    fprintf(logfile, "%s", a);
-    if (nl) {
-      fprintf(logfile, "\n");
-      mesg_line_started = 0;
-    }
-  }
-  fflush(mesg);
 }
 
 void zipmessage(a, b)
 ZCONST char *a, *b;     /* message strings juxtaposed in output */
-/* Print a message to mesg and return. */
+/* Print a message to mesg and flush.  Also write to log file if
+   open.  Write new line first if current line has output already. */
 {
   if (noisy) {
     if (mesg_line_started)
       fprintf(mesg, "\n");
     fprintf(mesg, "%s%s\n", a, b);
     mesg_line_started = 0;
+    fflush(mesg);
   }
-  if (logfile) fprintf(logfile, "%s%s\n", a, b);
-  fflush(mesg);
 }
-
 
 local zvoid *talloc(s)
 extent s;
@@ -542,6 +537,41 @@ char **argv;            /* command line tokens */
 
 #ifdef THEOS
   setlocale(LC_CTYPE, "I");
+#endif
+
+#ifdef UNICODE_SUPPORT
+# ifdef UNIX
+  /* For Unix, set the locale to UTF-8.  Any UTF-8 locale is
+     OK and they should all be the same.  This allows seeing,
+     writing, and displaying (if the fonts are loaded) all
+     characters in UTF-8. */
+  {
+    char *loc;
+
+    /*
+      loc = setlocale(LC_CTYPE, NULL);
+      printf("  Initial language locale = '%s'\n", loc);
+    */
+
+    loc = setlocale(LC_CTYPE, "en_US.UTF-8");
+
+    /*
+      printf("langinfo %s\n", nl_langinfo(CODESET));
+    */
+
+    if (loc != NULL) {
+      /* using UTF-8 character set so can set UTF-8 GPBF bit 11 */
+      using_utf8 = 1;
+      /*
+        printf("  Locale set to %s\n", loc);
+      */
+    } else {
+      /*
+        printf("  Could not set Unicode UTF-8 locale\n");
+      */
+    }
+  }
+# endif
 #endif
 
   /* If no args, show help */

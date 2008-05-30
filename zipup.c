@@ -152,8 +152,7 @@ local unsigned file_read OF((char *buf, unsigned size));
 local zoff_t filecompress OF((struct zlist far *z_entry, int *cmpr_method));
 
 #ifdef BZIP2_SUPPORT
-local int bz_deflate_init OF((int pack_level));
-local ulg bzfilecompress OF((struct zlist far *z_entry, int *cmpr_method));
+local zoff_t bzfilecompress OF((struct zlist far *z_entry, int *cmpr_method));
 #endif
 
 /* Deflate "internal" global data (currently not in zip.h) */
@@ -829,30 +828,18 @@ struct zlist far *z;    /* zip entry to compress */
   if (isdir) {
     /* nothing to write */
   }
-  else
+  else if (m != STORE) {
+    if (set_type) z->att = (ush)UNKNOWN;
+    /* ... is finally set in file compression routine */
 #ifdef BZIP2_SUPPORT
-  if (m == BZIP2) {
-    if (set_type) z->att = (ush)UNKNOWN; /* is finally set in bzfilecompress() */
-    s = bzfilecompress(z, &m);
-#ifndef PGP
-    if (z->att == (ush)BINARY && translate_eol && file_binary) {
-      if (translate_eol == 1)
-        zipwarn("has binary so -l ignored", "");
-      else
-        zipwarn("has binary so -ll ignored", "");
+    if (m == BZIP2) {
+      s = bzfilecompress(z, &m);
     }
-    else if (z->att == (ush)BINARY && translate_eol) {
-      if (translate_eol == 1)
-        zipwarn("-l used on binary file - corrupted?", "");
-      else
-        zipwarn("-ll used on binary file - corrupted?", "");
-    }
-#endif
-  } else
+    else
 #endif /* BZIP2_SUPPORT */
-  if (m == DEFLATE) {
-    if (set_type) z->att = (ush)UNKNOWN; /* is finally set in filecompress() */
-    s = filecompress(z, &m);
+    {
+      s = filecompress(z, &m);
+    }
 #ifndef PGP
     if (z->att == (ush)BINARY && translate_eol && file_binary) {
       if (translate_eol == 1)
@@ -868,7 +855,7 @@ struct zlist far *z;    /* zip entry to compress */
     }
 #endif
   }
-  else if (!isdir)
+  else
   {
     if ((b = malloc(SBSZ)) == NULL)
        return ZE_MEM;
@@ -1734,7 +1721,7 @@ void bz_compress_free()
  * BZIP2 Compression to archive file.
  */
 
-local ulg bzfilecompress(z_entry, cmpr_method)
+local zoff_t bzfilecompress(z_entry, cmpr_method)
 struct zlist far *z_entry;
 int *cmpr_method;
 {
@@ -1743,7 +1730,7 @@ int *cmpr_method;
     int err = BZ_OK;
     unsigned mrk_cnt = 1;
     int maybe_stored = FALSE;
-    ulg cmpr_size;
+    zoff_t cmpr_size;
 #if defined(MMAP) || defined(BIG_MEM)
     unsigned ibuf_sz = (unsigned)SBSZ;
 #else
@@ -1766,7 +1753,7 @@ int *cmpr_method;
 #else /* !(MMAP || BIG_MEM */
     if (f_ibuf == NULL || f_obuf == NULL)
 #endif /* MMAP || BIG_MEM */
-        ziperr(ZE_MEM, "allocating zlib file-I/O buffers");
+        ziperr(ZE_MEM, "allocating zlib/bzlib file-I/O buffers");
 
     if (!bzipInit) {
         err = bz_compress_init(level);
@@ -1818,7 +1805,13 @@ int *cmpr_method;
         /* $TODO what about high 32-bits of total-in??? */
         if (bstrm.avail_in == 0) {
             if (verbose || noisy)
+#ifdef LARGE_FILE_SUPPORT
+                while((unsigned)((bstrm.total_in_lo32
+                                  + (((zoff_t)bstrm.total_in_hi32) << 32))
+                                 / (zoff_t)(ulg)WSIZE) > mrk_cnt) {
+#else
                 while((unsigned)(bstrm.total_in_lo32 / (ulg)WSIZE) > mrk_cnt) {
+#endif
                     mrk_cnt++;
                     if (!display_globaldots) {
                       if (dot_size > 0) {
@@ -1873,9 +1866,17 @@ int *cmpr_method;
     do {
         err = BZ2_bzCompress(&bstrm, BZ_FINISH);
         if (maybe_stored) {
-            if (err == BZ_STREAM_END && bstrm.total_out_lo32 >= bstrm.total_in_lo32 &&
-                  fseekable(zipfile)) {
-                /* BZIP2 compress does not reduce size, switch to STORE method */
+            /* This code is only executed when the complete data stream fits
+               into the input buffer (see above where maybe_stored gets set).
+               So, it is safe to assume that total_in_hi32 (and total_out_hi32)
+               are 0, because the input buffer size is well below the 32-bit
+               limit.
+             */
+            if (err == BZ_STREAM_END
+                && bstrm.total_out_lo32 >= bstrm.total_in_lo32
+                && fseekable(zipfile)) {
+                /* BZIP2 compress does not reduce size,
+                   switch to STORE method */
                 unsigned len_out = (unsigned)bstrm.total_in_lo32;
                 if (zfwrite(f_ibuf, 1, len_out) != len_out) {
                     ziperr(ZE_TEMP, "error writing to zipfile");
@@ -1904,8 +1905,12 @@ int *cmpr_method;
 
     if (z_entry->att == (ush)UNKNOWN)
         z_entry->att = (ush)BINARY;
-    /* $TODO what about upper 32 bits? */
-    cmpr_size = (ulg)bstrm.total_out_lo32;
+#ifdef LARGE_FILE_SUPPORT
+    cmpr_size = (zoff_t)bstrm.total_out_lo32
+               + (((zoff_t)bstrm.total_out_hi32) << 32);
+#else
+    cmpr_size = (zoff_t)bstrm.total_out_lo32;
+#endif
 
     if ((err = BZ2_bzCompressEnd(&bstrm)) != BZ_OK)
         ziperr(ZE_LOGIC, "zlib deflateReset failed");

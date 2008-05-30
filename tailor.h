@@ -1,7 +1,7 @@
 /*
   tailor.h - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -26,6 +26,15 @@
 #    undef WIN32
 #  endif
 #endif
+
+
+/* UNICODE */
+#ifdef NO_UNICODE_SUPPORT
+# ifdef UNICODE_SUPPORT
+#   undef UNICODE_SUPPORT
+# endif
+#endif
+
 
 #ifdef AMIGA
 #include "amiga/osdep.h"

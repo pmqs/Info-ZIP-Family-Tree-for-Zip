@@ -1,7 +1,7 @@
 /*
   fileio.c - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -61,6 +61,19 @@ int rename OF((ZCONST char *, ZCONST char *));
 local int optionerr OF((char *, ZCONST char *, int, int));
 local unsigned long get_shortopt OF((char **, int, int *, int *, char **, int *, int));
 local unsigned long get_longopt OF((char **, int, int *, int *, char **, int *, int));
+
+#ifdef UNICODE_SUPPORT
+local int utf8_char_bytes OF((ZCONST char *utf8));
+local long ucs4_char_from_utf8 OF((ZCONST char **utf8 ));
+local int utf8_from_ucs4_char OF((char *utf8buf, ulg ch));
+local int utf8_to_ucs4_string OF((ZCONST char *utf8, ulg *usc4buf,
+                                  int buflen));
+local int ucs4_string_to_utf8 OF((ZCONST ulg *ucs4, char *utf8buf,
+                                  int buflen));
+#if 0
+  local int utf8_chars OF((ZCONST char *utf8));
+#endif
+#endif /* UNICODE_SUPPORT */
 
 #ifndef UTIL    /* the companion #endif is a bit of ways down ... */
 
@@ -601,9 +614,7 @@ int newnamew(namew, isdir, casesensitive)
 
       if (current - scan_start > scan_delay) {
         if (scan_last == 0) {
-          fprintf(mesg, "Scanning files ");
-          fflush(mesg);
-          mesg_line_started = 1;
+          zipmessage_nl("Scanning files ", 0);
           scan_last = current;
         }
         if (current - scan_last > scan_dot_time) {
@@ -648,7 +659,7 @@ int newnamew(namew, isdir, casesensitive)
     return ZE_MEM;
 
   /* Convert names from wchar_t to char */
-  
+
   name = wchar_to_local_string(namew);
   iname = wchar_to_local_string(inamew);
   zname = wchar_to_local_string(znamew);
@@ -868,9 +879,7 @@ int newname(name, isdir, casesensitive)
 
       if (current - scan_start > scan_delay) {
         if (scan_last == 0) {
-          fprintf(mesg, "Scanning files ");
-          fflush(mesg);
-          mesg_line_started = 1;
+          zipmessage_nl("Scanning files ", 0);
           scan_last = current;
         }
         if (current - scan_last > scan_dot_time) {
@@ -1039,6 +1048,9 @@ int newname(name, isdir, casesensitive)
     f->namew = NULL;
     f->inamew = NULL;
     f->znamew = NULL;
+    if (strcmp(f->name, "-") == 0) {
+      f->namew = local_to_wchar_string(f->name);
+    }
 #endif
 
 #endif
@@ -2632,7 +2644,7 @@ size_t bfwrite(buffer, size, count, mode)
 
       if (split_method == 2 && ferror(y)) {
         /* A split must be at least 64K except last .zip split */
-        if (bytes_this_split < 64 * 0x400) {
+        if (bytes_this_split < 64 * (uzoff_t)0x400) {
           ZIPERR(ZE_WRITE, "Not enough space to write split");
         }
       }
@@ -2675,11 +2687,11 @@ size_t bfwrite(buffer, size, count, mode)
           int yd;
           int i;
 
-          /* Use mkstemp to avoid race condition and compiler warning. */
+          /* use mkstemp to avoid race condition and compiler warning */
 
           if (tempath != NULL)
           {
-            /* Append "/" to tempath (if needed), and append template. */
+            /* if -b used to set temp file dir use that for split temp */
             if ((tempzip = malloc(strlen(tempath) + 12)) == NULL) {
               ZIPERR(ZE_MEM, "allocating temp filename");
             }
@@ -2689,7 +2701,7 @@ size_t bfwrite(buffer, size, count, mode)
           }
           else
           {
-            /* Create path by stripping name and appending template. */
+            /* create path by stripping name and appending template */
             if ((tempzip = malloc(strlen(zipfile) + 12)) == NULL) {
             ZIPERR(ZE_MEM, "allocating temp filename");
             }
@@ -2845,7 +2857,7 @@ size_t bfwrite(buffer, size, count, mode)
  * Returns the number of bytes used by the first character in a UTF-8
  * string, or -1 if the UTF-8 is invalid or null.
  */
-int utf8_char_bytes(utf8)
+local int utf8_char_bytes(utf8)
   ZCONST char *utf8;
 {
   int      t, r;
@@ -2914,7 +2926,7 @@ long ucs4_char_from_utf8(utf8)
  * Returns the number of bytes put into utf8buf to represent ch, from 1 to 6,
  * or -1 if ch is too large to represent.  utf8buf must have room for 6 bytes.
  */
-int utf8_from_ucs4_char(utf8buf, ch)
+local int utf8_from_ucs4_char(utf8buf, ch)
   char *utf8buf;
   ulg ch;
 {
@@ -2953,7 +2965,7 @@ int utf8_from_ucs4_char(utf8buf, ch)
  *
  * Return UCS count.  Now returns int so can return -1.
  */
-int utf8_to_ucs4_string(utf8, ucs4buf, buflen)
+local int utf8_to_ucs4_string(utf8, ucs4buf, buflen)
   ZCONST char *utf8;
   ulg *ucs4buf;
   int buflen;
@@ -2981,7 +2993,7 @@ int utf8_to_ucs4_string(utf8, ucs4buf, buflen)
  *
  *
  */
-int ucs4_string_to_utf8(ucs4, utf8buf, buflen)
+local int ucs4_string_to_utf8(ucs4, utf8buf, buflen)
   ZCONST ulg *ucs4;
   char *utf8buf;
   int buflen;
@@ -3011,15 +3023,17 @@ int ucs4_string_to_utf8(ucs4, utf8buf, buflen)
 }
 
 
+#if 0  /* currently unused */
 /* utf8_chars
  *
  * Wrapper: counts the actual unicode characters in a UTF-8 string.
  */
-int utf8_chars(utf8)
+local int utf8_chars(utf8)
   ZCONST char *utf8;
 {
   return utf8_to_ucs4_string(utf8, NULL, 0);
 }
+#endif
 
 
 /* --------------------------------------------------- */
@@ -3116,19 +3130,22 @@ char *local_to_utf8_string(local_string)
 
    An initial try at an algorithm.  Suggestions welcome.
 
-   If not an ASCII char probably need 2 bytes at least.  So if
-   a 2-byte wide encode it as 4 hex digits with a leading #U.  If
-   needs 4 bytes then prefix the string with #L.  So
+   If not an ASCII char, probably need 2 bytes at least.  So if
+   a 2-byte wide encode it as 4 hex digits with a leading #U.
+   Since the Unicode standard has been frozen, it looks like 3 bytes
+   should be enough for any large Unicode character.  In these cases
+   prefix the string with #L.
+   So
    #U1234
    is a 2-byte wide character with bytes 0x12 and 0x34 while
-   #L12345678
-   is a 4-byte wide with bytes 0x12, 0x34, 0x56, and 0x78.
-   On Windows, wide that need two wide characters need to be converted
-   to a single number.
+   #L123456
+   is a 3-byte wide with bytes 0x12, 0x34, and 0x56.
+   On Windows, wide that need two wide characters as a surrogate pair
+   to represent them need to be converted to a single number.
   */
 
  /* set this to the max bytes an escape can be */
-#define MAX_ESCAPE_BYTES 10
+#define MAX_ESCAPE_BYTES 8
 
 char *wide_char_to_escape_string(wide_char)
   zwchar wide_char;
@@ -3159,7 +3176,7 @@ char *wide_char_to_escape_string(wide_char)
     len = 2;
     strcat(r, "U");
   } else {
-    len = 4;
+    len = 3;
     strcat(r, "L");
   }
   for (i = len - 1; i >= 0; i--) {
@@ -3189,17 +3206,17 @@ zwchar escape_string_to_wide(escape_string)
     return 0;
   }
   len = strlen(e);
-  /* either #U1234 or #L12345678 format */
-  if (len != 6 && len != 10) {
+  /* either #U1234 or #L123456 format */
+  if (len != 6 && len != 8) {
     return 0;
   }
   w = 0;
   if (e[1] == 'L') {
-    if (len != 10) {
+    if (len != 8) {
       return 0;
     }
-    /* 4 bytes */
-    for (i = 2; i < 10; i++) {
+    /* 3 bytes */
+    for (i = 2; i < 8; i++) {
       c = e[i];
       u = toupper(c);
       if (u >= 'A' && u <= 'F') {
@@ -3253,6 +3270,7 @@ char *wchar_to_local_string(wstring)
 #endif
 
 
+#ifndef WIN32   /* The Win32 port uses a system-specific variant. */
 /* convert wide character string to multi-byte character string */
 char *wide_to_local_string(wide_string)
   zwchar *wide_string;
@@ -3321,6 +3339,7 @@ char *wide_to_local_string(wide_string)
     }
   }
   if ((local_string = (char *)malloc(strlen(buffer) + 1)) == NULL) {
+    free(buffer);
     ZIPERR(ZE_MEM, "wide_to_local_string");
   }
   strcpy(local_string, buffer);
@@ -3328,6 +3347,7 @@ char *wide_to_local_string(wide_string)
 
   return local_string;
 }
+#endif /* !WIN32 */
 
 
 /* convert wide character string to escaped string */
@@ -3349,7 +3369,7 @@ char *wide_to_escape_string(wide_string)
   /* convert it */
   buffer[0] = '\0';
   for (i = 0; i < wsize; i++) {
-    if (wide_string[i] <= 0x7f) {
+    if (wide_string[i] <= 0x7f && isprint((char)wide_string[i])) {
       /* ASCII */
       buf[0] = (char)wide_string[i];
       buf[1] = '\0';
@@ -3447,7 +3467,8 @@ char *utf8_to_local_string(utf8_string)
 {
   zwchar *wide_string = utf8_to_wide_string(utf8_string);
   char *loc = wide_to_local_string(wide_string);
-  free(wide_string);
+  if (wide_string)
+    free(wide_string);
   return loc;
 }
 
@@ -3461,6 +3482,7 @@ char *utf8_to_escape_string(utf8_string)
   return escape_string;
 }
 
+#ifndef WIN32   /* The Win32 port uses a system-specific variant. */
 /* convert multi-byte character string to wide character string */
 zwchar *local_to_wide_string(local_string)
   char *local_string;
@@ -3493,6 +3515,7 @@ zwchar *local_to_wide_string(local_string)
 
   return wide_string;
 }
+#endif /* !WIN32 */
 
 
 #if 0
@@ -3774,6 +3797,7 @@ char **copy_args(args, max_args)
       break;
     }
     if ((new_args[j] = malloc(strlen(args[j]) + 1)) == NULL) {
+      free_args(new_args);
       oERR(ZE_MEM, "ca");
     }
     strcpy(new_args[j], args[j]);
@@ -3814,7 +3838,7 @@ int free_args(args)
 
 int insert_arg(pargs, arg, at_arg, free_args)
    char ***pargs;
-   char *arg;
+   ZCONST char *arg;
    int at_arg;
    int free_args;
 {
@@ -4054,8 +4078,8 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
       clen = MB_CLEN(s);
     } else if (options[match].value_type == o_OPTIONAL_VALUE) {
       /* optional value */
-      /* This seemed inconsistent so now if no value attached to argument look to
-         the next argument if that argument is not an option for option
+      /* This seemed inconsistent so now if no value attached to argument look
+         to the next argument if that argument is not an option for option
          value - 11/12/04 EG */
       if (arg[(*optchar) + clen]) {
         /* has value */
@@ -4065,7 +4089,8 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
           clen++;
         }
         if (arg[(*optchar) + clen]) {
-          if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1)) == NULL) {
+          if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1))
+              == NULL) {
             oERR(ZE_MEM, "gso");
           }
           strcpy(*value, arg + (*optchar) + clen);
@@ -4090,7 +4115,8 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
           /* skip = */
           clen++;
         }
-        if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1)) == NULL) {
+          if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1))
+              == NULL) {
           oERR(ZE_MEM, "gso");
         }
         strcpy(*value, arg + (*optchar) + clen);
@@ -4137,7 +4163,8 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
 
 /* get_longopt
  *
- * Get the long option in args array at argnum.  Parameters same as for get_shortopt.
+ * Get the long option in args array at argnum.
+ * Parameters same as for get_shortopt.
  */
 
 local unsigned long get_longopt(args, argnum, optchar, negated, value,
@@ -4207,6 +4234,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
     if (options[op].longopt && strncmp(options[op].longopt, longopt, strlen(longopt)) == 0) {
       if (match > -1) {
         sprintf(optionerrbuf, long_op_ambig_err, longopt);
+        free(arg);
         if (depth > 0) {
           /* unwind */
           oWARN(optionerrbuf);
@@ -4300,6 +4328,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
     if (valuestart) {
       /* --option=value */
       optionerr(optionerrbuf, op_no_allow_val_err, match, 1);
+      free(arg);
       if (depth > 0) {
         oWARN(optionerrbuf);
         return o_ARG_FILE_ERR;
@@ -4332,8 +4361,8 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
  * get_option() it is a returned value and the caller should either store
  * the char pointer or free() it before calling get_option() again to avoid
  * leaking memory.  If a non-option non-value argument is returned get_option()
- * returns o_NON_OPTION_ARG and value is set to the entire argument.  When there
- * are no more arguments get_option() returns 0.
+ * returns o_NON_OPTION_ARG and value is set to the entire argument.
+ * When there are no more arguments get_option() returns 0.
  *
  * The parameters argnum (after set to 0 on initial call),
  * optchar, first_nonopt_arg, option_num, and depth (after initial
@@ -4377,25 +4406,25 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
  *   negated    is set if the option was negated by a trailing dash (-)
  *   option_num is set to either the index in options[] for the option or
  *                o_NO_OPTION_MATCH if no match.
- * Negation is checked before the value is read if the option is negatable so that
- * the - is not included in the value.  If the option is not negatable but takes
- * a value then the - will start the value.  If permuting then argnum and
- * first_nonopt_arg are unreliable and should not be used.
+ * Negation is checked before the value is read if the option is negatable so
+ * that the - is not included in the value.  If the option is not negatable
+ * but takes a value then the - will start the value.  If permuting then
+ * argnum and first_nonopt_arg are unreliable and should not be used.
  *
  * Command line is read from left to right.  As get_option() finds non-option
- * arguments (arguments not starting with - and that are not values to options) it
- * moves later options and values in front of the non-option arguments.  This
- * permuting is turned off by setting enable_permute to 0.  Then get_option() will
- * return options and non-option arguments in the order found.  Currently
- * permuting is only done after an argument is completely processed so
- * that any value can be moved with options they go with.  All state information is
- * stored in the parameters argnum, optchar, first_nonopt_arg and option_num.  You
- * should not change these after the first call to get_option().  If you need to
- * back up to a previous arg then set argnum to that arg (remembering that
- * args may have been permuted) and set optchar = 0 and first_nonopt_arg to
- * the first non-option argument if permuting.  After all arguments are returned
- * the next call to get_option() returns 0.  The caller can then call
- * free_args(args) if appropriate.
+ * arguments (arguments not starting with - and that are not values to options)
+ * it moves later options and values in front of the non-option arguments.
+ * This permuting is turned off by setting enable_permute to 0.  Then
+ * get_option() will return options and non-option arguments in the order
+ * found.  Currently permuting is only done after an argument is completely
+ * processed so that any value can be moved with options they go with.  All
+ * state information is stored in the parameters argnum, optchar,
+ * first_nonopt_arg and option_num.  You should not change these after the
+ * first call to get_option().  If you need to back up to a previous arg then
+ * set argnum to that arg (remembering that args may have been permuted) and
+ * set optchar = 0 and first_nonopt_arg to the first non-option argument if
+ * permuting.  After all arguments are returned the next call to get_option()
+ * returns 0.  The caller can then call free_args(args) if appropriate.
  *
  * get_option() accepts arguments in the following forms:
  *  short options
@@ -4473,8 +4502,17 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
  *       If = is not followed by anything it is treated as no value.
  *
  *  @path
- *       Argument files support removed from this version.  It may be added
- *       back later.
+ *       When an argument in the form @path is encountered, the file at path
+ *       is opened and white space separated arguments read from the file
+ *       and inserted into the command line at that point as if the contents
+ *       of the file were directly typed at that location.  The file can
+ *       have options, files to zip, or anything appropriate at that location
+ *       in the command line.  Since Zip has permuting enabled, options and
+ *       files will propagate to the appropriate locations in the command
+ *       line.
+ *
+ *       Argument files support has been removed from this version.  It may
+ *       be added back later.
  *
  *  non-option argument
  *       is any argument not given above.  If enable_permute is 1 then
@@ -4485,23 +4523,25 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
  *
  * Arguments to get_option:
  *  char ***pargs          - pointer to arg array in the argv form
- *  int *argc              - returns the current argc for args including args[0]
+ *  int *argc              - returns the current argc for args incl. args[0]
  *  int *argnum            - the index of the current argument (caller
- *                            should set = 0 on first call and not change after that)
+ *                            should set = 0 on first call and not change
+ *                            after that)
  *  int *optchar           - index of next short opt in arg or special
  *  int *first_nonopt_arg  - used by get_option to permute args
  *  int *negated           - option was negated (had trailing -)
  *  char *value            - value of option if any (free when done with it) or NULL
  *  int *option_num        - the index in options of the last option returned
  *                            (can be o_NO_OPTION_MATCH)
- *  int recursion_depth    - current depth of recursion (always set to 0 by caller)
+ *  int recursion_depth    - current depth of recursion
+ *                            (always set to 0 by caller)
  *                            (always 0 with argument files support removed)
  *
  *  Caller should only read the returned option ID and the value, negated,
  *  and option_num (if required) parameters after each call.
  *
  *  Ed Gordon
- *  8/24/2003 (last updated 4/28/2006 EG)
+ *  24 August 2003 (last updated 2 April 2008 EG)
  *
  */
 
@@ -4639,13 +4679,14 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
       }
       argn++;
       arg = args[argn];
-      /* if end of args and still in list and there are non-option args then terminate list */
+      /* if end of args and still in list and there are non-option args then
+         terminate list */
       if (arg == NULL && (optc == START_VALUE_LIST || optc == IN_VALUE_LIST)
           && first_nonoption_arg > -1) {
         /* terminate value list with @ */
         /* this is only needed for argument files */
-        /* but is also good for show command line so command lines with lists can
-           always be read back in */
+        /* but is also good for show command line so command lines with lists
+           can always be read back in */
         argcnt = insert_arg(&args, "@", first_nonoption_arg, 1);
         argn++;
         if (first_nonoption_arg > -1) {
@@ -4767,7 +4808,8 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
               argn = first_nonoption_arg - 1;
             }
 
-            /* disable permuting and treat remaining arguments as not options */
+            /* disable permuting and treat remaining arguments as not
+               options */
             read_rest_args_verbatim = 1;
             optc = READ_REST_ARGS_VERBATIM;
 

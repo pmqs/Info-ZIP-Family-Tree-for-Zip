@@ -19,7 +19,7 @@ stripped.  These must be restored before the project can be successfully
 used.  This can be done by using the -a option to unzip.  Another way to
 do this is to open each file in WordPad, select and cut a line, paste
 the line back, and save the file.  This will force WordPad to change the
-line ends in the entire file.
+line ends in the entire file.  Newer versions of WordPad may not do this.
 
 Ed Gordon
-12/4/2007
+4/26/2008

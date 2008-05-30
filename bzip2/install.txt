@@ -4,20 +4,20 @@ This document describes how to add bzip2 support to Zip.
 
 Adding bzip2 support by compiling or linking in the bzip2 library
 adds the additional bzip2 compression method, which can be selected
-instead of the Zip traditional compression method deflation to
+instead of the Zip traditional compression method deflation, to
 compress files and often gives a better compression ratio (perhaps
 at the cost of greater CPU time).  The compression method is specified
 using the "-Z method" command-line option, where "method" may be
 either "deflate" (the default), or "bzip2" (if Zip is built with bzip2
-support).  Tested with bzip2 library 1.0.4 and earlier.
+support).  Tested with bzip2 library 1.0.5 and earlier.
 
 Notes
 
 Compression method bzip2 requires a modern unzip.  Before using bzip2
-compression in Zip, please verify that a modern UnZip program with bzip2
-support will be used to read the resulting zip archive so that entries
-compressed with bzip2 (compression method 12) can be read.  Older unzips
-probably won't recognize the compression method and will skip those entries.
+compression in Zip, verify that a modern UnZip program with bzip2 support
+will be used to read the resulting zip archive so that entries compressed
+with bzip2 (compression method 12) can be read.  Older unzips probably
+won't recognize the compression method and will skip those entries.
 
 Note that the Zip source kit does not include the bzip2 library or source
 files, but these can be found at "http://www.bzip.org/" for example.  See
@@ -55,7 +55,7 @@ Building the bzip2 library from the bzip2 source files (recommended):
   Download the latest bzip2 package (from "http://www.bzip.org/", for
   example).
      
-  Unpack the bzip2 source kit (bzip2-1.0.4.tar.gz was current as of
+  Unpack the bzip2 source kit (bzip2-1.0.5.tar.gz was current as of
   this writing, but the latest should work).
 
   Read the README file in the bzip2 source kit.
@@ -83,7 +83,7 @@ Installation on UNIX (see below for installation on other systems):
   define the "make" macro IZ_BZIP2 to point to that directory.  For
   example:
     make -f unix/Makefile generic IZ_BZIP2=/mybz2
-  where /mybz2 might be "/usr/local/src/bzip2/bzip2-1.0.4" on some
+  where /mybz2 might be "/usr/local/src/bzip2/bzip2-1.0.5" on some
   systems.  Only a compiled bzip2 library can be pointed to using
   IZ_BZIP2 and Zip will not compile bzip2 source in other than the
   bzip2 directory.
@@ -109,9 +109,9 @@ Installation on UNIX (see below for installation on other systems):
       # Move down to the Zip kit's "bzip2" directory, ...
       cd zip30/bzip2
       # ... and unpack the bzip2 source kit there.
-      gzip -cd ../../bzip2-1.0.4.tar.gz | tar xfo -
+      gzip -cd ../../bzip2-1.0.5.tar.gz | tar xfo -
       # Move the bzip2 source files up to the Zip kit's bzip2 directory.
-      cd bzip2-1.0.4
+      cd bzip2-1.0.5
       mv * ..
       # Return to the Zip source kit directory, ready to build.
       cd ../..
@@ -238,7 +238,7 @@ Installation on other systems
 
   VMS (OpenVMS):
 
-  See [.vms]Install_vms.txt for how to enable bzip2 support on VMS.
+  See [.vms]install_vms.txt for how to enable bzip2 support on VMS.
 
 
-Last updated 26 March 2007, 15 July 2007, S. Schweda, E. Gordon
+Last updated 26 March 2007, 15 July 2007, 9 April 2008 S. Schweda, E. Gordon

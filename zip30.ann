@@ -1,0 +1,84 @@
+Zip 3.0
+
+We have posted Zip 3.0, June 5th 2008.  This is a major upgrade
+from Zip 2.32, the current Zip 2.x release.  A quick summary of
+features is below, but see the file WhatsNew for the detailed list
+of major features and upgrades as well as what's on the list for
+Zip 3.1.  Send in your feature suggestions and bug reports.
+
+Quick list of major changes in Zip 3.0:
+
+- Support for files and archives greater than 2 GB using large file I/O
+  and the Zip64 extensions.  Also can now have more than 64K entries in
+  an archive.
+
+- Zip now can create and update split archives.  Split archives are
+  normal archives split into a set of files that can then be stored on
+  removable media for instance.  There's also a split pause mode that
+  tells Zip to pause after each split to allow writing splits directly
+  to removable media and changing the media between splits.
+
+- Unicode extensions are supported.  If Unicode support is enabled
+  and supported on the system Zip is run on, Zip now can read all
+  paths, including paths not supported in the current character
+  set, and store those paths in portable UTF-8 format.  These
+  Unicode paths can then be used to partially or fully recreate
+  the paths on other systems depending on the Unicode support provided
+  by the unzip on the receiving system.  In particular, this allows
+  portability of paths between Windows and Unix.  Unicode comments
+  are also supported for entries, but only on systems where UTF-8
+  is the current character set.  Unicode comment support for other
+  systems is expected in Zip 3.1.
+
+- A new command line parser is implemented.  This new parser allows
+  for command line permuting, where options can appear anywhere on
+  the command line that an argument is not reserved as part of another
+  option or value list, and allows adding options to the end of the
+  command line, for instance.  It supports long options, allowing for
+  more readable command lines.  It allows lists for the -x and -i
+  exclude and include options to now appear anywhere in the command
+  line.  And some bugs in command line processing in Zip 2.32 have
+  been fixed.
+
+- Additional archive modes have been added, including a difference
+  mode for supporting incremental backups, a file sync mode for
+  synchronizing an existing archive with the current file system
+  (which can be much faster than creating a new archive), and a
+  copy mode that allows copying entries from one archive to another.
+
+- Now can add bzip2 compression as a compression option in Zip.  bzip2
+  compression can result in much more compact entries in some cases,
+  but the user should verify that bzip2 is supported on the target
+  unzip before using this new compression choice.
+
+- The Windows dll has been updated to support the new Zip64 large
+  file and larger number of entries limits.  This new dll is not
+  backward compatible with the Zip 2.32 dll, as the arguments to
+  the dll support the added capabilities, but modifying existing
+  programs to use the new dll should be simple.  See the included
+  Visual Basic example project for details.
+
+- Zip now has better support of streaming and piping.
+
+- Zip can now output progress information, such as how many entries
+  have been processed, how many bytes have been processed, and more
+  useful progress dots.  Zip can also now generate log files.
+
+- The archive fixing capability is slightly improved, and now can
+  fix split archives.
+
+- The Windows archive bit is now supported, though the new difference
+  mode is probably more reliable than relying on the Windows archive
+  bit for creating incremental backups.
+
+- Zip can list the files that would be added to an archive.
+
+- A new extended help option lists a very terse summary of the major
+  features of Zip and how to use them.
+
+- Many bug fixes.
+
+As always, see the Zip manual page for details on what Zip has and
+how to use all features.
+
+Enjoy!

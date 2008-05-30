@@ -10,7 +10,7 @@ all:
 	@echo 'qnx, qnxnto, solaris, solaris_gcc'
 	@echo 'Try first "make -f unix/Makefile generic" as'
 	@echo 'it should autodetect and set the proper flags.'
-	@echo 'To make the manuals use "make zipsman"'
+	@echo 'To make the manuals use "make zipsman" after Zip is made.'
 	@echo 'See the files INSTALL and zip.txt for more information.'
 	@echo ''
 
@@ -71,7 +71,7 @@ OCRCU8 =
 OCRCTB = crc32_.o
 OBJU = zipfile_.o fileio_.o util_.o globals.o unix_.o $(OCRCU8)
 OBJN = zipnote.o  $(OBJU)
-OBJC = zipcloak.o $(OBJU) $(OCRTB) crypt_.o ttyio.o
+OBJC = zipcloak.o $(OBJU) $(OCRCTB) crypt_.o ttyio.o
 OBJS = zipsplit.o $(OBJU)
 
 ZIP_H = zip.h ziperr.h tailor.h unix/osdep.h
@@ -128,7 +128,7 @@ zip$E: $(OBJZ) $(OBJI) $(OBJA) $(LIB_BZ)
 	$(BIND) -o zip$E $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) $(LFLAGS2)
 zipnote$E: $(OBJN)
 	$(BIND) -o zipnote$E $(LFLAGS1) $(OBJN) $(LFLAGS2)
-zipcloak$E: $(OBJC)
+zipcloak$E: $(OBJC) $(OCRCTB)
 	$(BIND) -o zipcloak$E $(LFLAGS1) $(OBJC) $(LFLAGS2)
 zipsplit$E: $(OBJS)
 	$(BIND) -o zipsplit$E $(LFLAGS1) $(OBJS) $(LFLAGS2)
@@ -193,6 +193,7 @@ flags:  unix/configure
 # NO_CONST              - cannot handle ANSI const
 # NO_LARGE_FILE_SUPPORT - do not enable Large File support even if available.
 # NO_ZIP64_SUPPORT      - do not enable Zip64 archive support even if available.
+# NO_UNICODE_SUPPORT    - do not enable Unicode support even if available.
 # NO_BZIP2_SUPPORT      - do not compile in bzip2 code even if available.
 
 #               Generic targets:

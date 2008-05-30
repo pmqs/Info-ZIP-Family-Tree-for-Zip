@@ -1,51 +1,76 @@
 What's New
 
-Last updated 30 January 2008
+Last updated 25 May 2008
 
-See the file zip30g.ann for a quick list of features and the
-file Changes for full details of changes during development.
+This file is the full list of features and major changes for Zip 3.0.  See
+the announcement file zip30.ann for a quick summary of features and changes
+for Zip 3.0.  Also see the file ReadMe for release information and the
+manual pages zip.txt, zipsplit.txt, zipcloak.txt, and zipnote.txt for how
+to use the new features.
 
-At release these sections may get combined and updated.  What's
-here may get put somewhere else.
-
-Still remaining and could still get in Zip 3.0
+Postponed until Zip 3.1
 
 - Decide if -R, -i and -x should use external rather than internal patterns
 - When pattern is directory add end / automatically
 - Though Unicode paths have been implemented and tested, Unicode comments
-  are not yet supported (except for UTF-8 bit comments) and probably won't be
-  this release
-- Update manual pages (mostly done)
+  are not yet supported (except for comments on UTF-8 native systems which
+  are supported)
 - Verbose mode -v may still need work
 
-Maybe Planned for Zip 3.1
+Maybe planned for Zip 3.1
 
-- Extended attributes for Windows and Linux
+- Extended attributes for Windows, Linux, and Mac OS X
 - Add C# example for Zip 3.0 (need to be converted to new DLLs) - original
   C# example added with note
 - Support -d@ for deleting list of files
-- Unicode Comments
 - AES encryption maybe
+- Path Prefix maybe, so entries added to an archive can have a directory
+  path string prepended to each path
+- UNC path support maybe
+- Support for other languages maybe
 - Send in your suggestions
 - ...
+
+
+New things in Zip 3.0h
+
+- Allow -@ and -x to work together.
+- Unicode code cleanup.
+- Allow forcing use of UTF-8 storage in standard path and comment.
+- Update symbolic link checks.
+- Add support for storing 32-bit UIDs/GIDs using new extra field.
+  Backward compatible support for the old 16-bit UID/GID extra field
+  remains if Zip is compiled on an OS that has 16-bit UID/GID
+  storage.
+- Update VMS notes.
+- Directory scan using -AS (include only files with Windows archive
+  bit set) now ignores archive bit on directories to include all files
+  with archive bit set in all directories.  Also, to avoid empty
+  directories being created, -AS now does not store directory
+  entries.
+- Add Unix IBM support.
+- Change -W to -ws to free -W for later use.
+- Fix large file support for MinGW.
+- Fix large file support for bzip2.
+- Fix compile error in ZipCloak when UNICODE_SUPPORT is not enabled.
+- Fix Unicode bug in ZipCloak involving Unicode paths.
+- Long Unicode escapes changed from #Lxxxxxxxx to #Lxxxxxx to shorten
+  paths with escaped Unicode.
+- Bug fixes.
+
 
 New things in Zip 3.0g
 
 - Add split support to VB project for Zip64.
-
 - Disable reading of Unix FIFOs unless new -FI option used to avoid an
   archiving operation stopping when it hits an active unfed FIFO.
-
-- The [list] wildcard expression (regular expression matching of any
+- The "[list]" wildcard expression (regular expression matching of any
   character or range of characters in list) is now disabled on DOS and
   Windows as it has caused confusion when filenames have [ and ] in
   them.  The new -RE option reenables it.
-
 - Add negation to many display options such as -dc and -db.
-
 - Allow -FF to read and fix archives having local entries that appear
   after central directory entries.
-
 - Bug fixes.
 
 
@@ -104,7 +129,6 @@ New things in Zip 3.0f
   archive bit set and use new -AC (clear archive bits) option to clear
   the archive bits on files after the archive has been created.
   But -DF is probably better.
-
 
 - Difference mode - A new option -DF (--dif) creates an output archive
   that includes only files changed or new since the input archive was
@@ -229,6 +253,7 @@ New things in Zip 3.0d
   be made.  Even there, (DCL) SET RMS /EXTEND = <big> can help
   performance.  RMS_DEFAULT values override built-in default values.
 
+
 New things in Zip 3.0c
 
 - Converted to using 64-bit file environment instead of transitional functions
@@ -238,6 +263,7 @@ New things in Zip 3.0c
 - Binary detection adjusted from 20% binary is binary to 2%
 - When -R and -i used together now -i has precedence over -R
 - Archive names with spaces can now be tested on MSDOS and Win32
+
 
 New things in Zip 3.0b
 
@@ -252,11 +278,17 @@ New things in Zip 3.0b
   to help debug but both or at least -sd might go away in the release
 - Some minor posted bugs fixed (see Changes)
 
+
 New things in Zip 3.0a
 
 - Initial Zip64 support allowing large files and large numbers of files
 - New command line processor
 - Other changes, see file Changes
+
+
+Note:  Zip 2.4 was never released.  That code was the start of the Zip 3.0
+effort above.
+
 
 New things in Zip 2.3
 
@@ -266,6 +298,7 @@ New things in Zip 2.3
 - Multibyte characterset support by Yoshioka Tsuneo
 - Support for ISO 8601 date format with -t and -tt options
 - Info-ZIP license
+
 
 New things in Zip 2.2
 

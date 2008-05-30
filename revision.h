@@ -19,10 +19,10 @@
 #define Z_MAJORVER   3
 #define Z_MINORVER   0
 #define Z_PATCHLEVEL 0
-#define Z_BETALEVEL "g BETA"
+#define Z_BETALEVEL "h BETA"
 
-#define VERSION "3.0g BETA"
-#define REVDATE "February 3rd 2008"
+#define VERSION "3.0h BETA"
+#define REVDATE "May 31st 2008"
 
 #define DW_MAJORVER    Z_MAJORVER
 #define DW_MINORVER    Z_MINORVER

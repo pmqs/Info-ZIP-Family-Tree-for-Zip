@@ -1,20 +1,20 @@
-# Microsoft Developer Studio Generated NMAKE File, Based on zip32.dsp
+# Microsoft Developer Studio Generated NMAKE File, Based on zip32z64.dsp
 !IF "$(CFG)" == ""
-CFG=zip32 - Win32 Debug
-!MESSAGE No configuration specified. Defaulting to zip32 - Win32 Debug.
+CFG=zip32z64 - Win32 Debug
+!MESSAGE No configuration specified. Defaulting to zip32z64 - Win32 Debug.
 !ENDIF 
 
-!IF "$(CFG)" != "zip32 - Win32 Release" && "$(CFG)" != "zip32 - Win32 Debug"
+!IF "$(CFG)" != "zip32z64 - Win32 Release" && "$(CFG)" != "zip32z64 - Win32 Debug"
 !MESSAGE Invalid configuration "$(CFG)" specified.
 !MESSAGE You can specify a configuration when running NMAKE
 !MESSAGE by defining the macro CFG on the command line. For example:
 !MESSAGE 
-!MESSAGE NMAKE /f "zip32.mak" CFG="zip32 - Win32 Debug"
+!MESSAGE NMAKE /f "zip32z64.mak" CFG="zip32z64 - Win32 Debug"
 !MESSAGE 
 !MESSAGE Possible choices for configuration are:
 !MESSAGE 
-!MESSAGE "zip32 - Win32 Release" (based on "Win32 (x86) Static Library")
-!MESSAGE "zip32 - Win32 Debug" (based on "Win32 (x86) Static Library")
+!MESSAGE "zip32z64 - Win32 Release" (based on "Win32 (x86) Static Library")
+!MESSAGE "zip32z64 - Win32 Debug" (based on "Win32 (x86) Static Library")
 !MESSAGE 
 !ERROR An invalid configuration is specified.
 !ENDIF 
@@ -25,7 +25,7 @@ NULL=
 NULL=nul
 !ENDIF 
 
-!IF  "$(CFG)" == "zip32 - Win32 Release"
+!IF  "$(CFG)" == "zip32z64 - Win32 Release"
 
 OUTDIR=.\..\Release\libs
 INTDIR=.\Release
@@ -33,7 +33,7 @@ INTDIR=.\Release
 OutDir=.\..\Release\libs
 # End Custom Macros
 
-ALL : "$(OUTDIR)\zip32.lib"
+ALL : "$(OUTDIR)\zip32z64.lib"
 
 
 CLEAN :
@@ -55,7 +55,7 @@ CLEAN :
 	-@erase "$(INTDIR)\zip.obj"
 	-@erase "$(INTDIR)\zipfile.obj"
 	-@erase "$(INTDIR)\zipup.obj"
-	-@erase "$(OUTDIR)\zip32.lib"
+	-@erase "$(OUTDIR)\zip32z64.lib"
 
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
@@ -99,11 +99,11 @@ CPP_PROJ=/nologo /ML /W3 /GX /O2 /I "..\..\.." /I "..\..\..\win32" /I "..\..\..\
 RSC=rc.exe
 RSC_PROJ=/l 0x409 /fo"$(INTDIR)\windll.res" 
 BSC32=bscmake.exe
-BSC32_FLAGS=/nologo /o"$(OUTDIR)\zip32.bsc" 
+BSC32_FLAGS=/nologo /o"$(OUTDIR)\zip32z64.bsc" 
 BSC32_SBRS= \
 	
 LIB32=link.exe -lib
-LIB32_FLAGS=/nologo /out:"$(OUTDIR)\zip32.lib" 
+LIB32_FLAGS=/nologo /out:"$(OUTDIR)\zip32z64.lib" 
 LIB32_OBJS= \
 	"$(INTDIR)\api.obj" \
 	"$(INTDIR)\crc32.obj" \
@@ -123,12 +123,12 @@ LIB32_OBJS= \
 	"$(INTDIR)\zipup.obj" \
 	"$(INTDIR)\windll.res"
 
-"$(OUTDIR)\zip32.lib" : "$(OUTDIR)" $(DEF_FILE) $(LIB32_OBJS)
+"$(OUTDIR)\zip32z64.lib" : "$(OUTDIR)" $(DEF_FILE) $(LIB32_OBJS)
     $(LIB32) @<<
   $(LIB32_FLAGS) $(DEF_FLAGS) $(LIB32_OBJS)
 <<
 
-!ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
+!ELSEIF  "$(CFG)" == "zip32z64 - Win32 Debug"
 
 OUTDIR=.\..\Debug\libs
 INTDIR=.\Debug
@@ -136,7 +136,7 @@ INTDIR=.\Debug
 OutDir=.\..\Debug\libs
 # End Custom Macros
 
-ALL : "$(OUTDIR)\zip32.lib"
+ALL : "$(OUTDIR)\zip32z64.lib"
 
 
 CLEAN :
@@ -158,7 +158,7 @@ CLEAN :
 	-@erase "$(INTDIR)\zip.obj"
 	-@erase "$(INTDIR)\zipfile.obj"
 	-@erase "$(INTDIR)\zipup.obj"
-	-@erase "$(OUTDIR)\zip32.lib"
+	-@erase "$(OUTDIR)\zip32z64.lib"
 
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
@@ -202,11 +202,11 @@ CPP_PROJ=/nologo /MLd /W3 /GX /Z7 /Od /I "..\..\.." /I "..\..\..\win32" /I "..\.
 RSC=rc.exe
 RSC_PROJ=/l 0x409 /fo"$(INTDIR)\windll.res" 
 BSC32=bscmake.exe
-BSC32_FLAGS=/nologo /o"$(OUTDIR)\zip32.bsc" 
+BSC32_FLAGS=/nologo /o"$(OUTDIR)\zip32z64.bsc" 
 BSC32_SBRS= \
 	
 LIB32=link.exe -lib
-LIB32_FLAGS=/nologo /out:"$(OUTDIR)\zip32.lib" 
+LIB32_FLAGS=/nologo /out:"$(OUTDIR)\zip32z64.lib" 
 LIB32_OBJS= \
 	"$(INTDIR)\api.obj" \
 	"$(INTDIR)\crc32.obj" \
@@ -226,7 +226,7 @@ LIB32_OBJS= \
 	"$(INTDIR)\zipup.obj" \
 	"$(INTDIR)\windll.res"
 
-"$(OUTDIR)\zip32.lib" : "$(OUTDIR)" $(DEF_FILE) $(LIB32_OBJS)
+"$(OUTDIR)\zip32z64.lib" : "$(OUTDIR)" $(DEF_FILE) $(LIB32_OBJS)
     $(LIB32) @<<
   $(LIB32_FLAGS) $(DEF_FLAGS) $(LIB32_OBJS)
 <<
@@ -235,15 +235,15 @@ LIB32_OBJS= \
 
 
 !IF "$(NO_EXTERNAL_DEPS)" != "1"
-!IF EXISTS("zip32.dep")
-!INCLUDE "zip32.dep"
+!IF EXISTS("zip32z64.dep")
+!INCLUDE "zip32z64.dep"
 !ELSE 
-!MESSAGE Warning: cannot find "zip32.dep"
+!MESSAGE Warning: cannot find "zip32z64.dep"
 !ENDIF 
 !ENDIF 
 
 
-!IF "$(CFG)" == "zip32 - Win32 Release" || "$(CFG)" == "zip32 - Win32 Debug"
+!IF "$(CFG)" == "zip32z64 - Win32 Release" || "$(CFG)" == "zip32z64 - Win32 Debug"
 SOURCE=..\..\..\api.c
 
 "$(INTDIR)\api.obj" : $(SOURCE) "$(INTDIR)"
@@ -324,14 +324,14 @@ SOURCE=..\..\..\windll\windll.c
 
 SOURCE=..\..\..\windll\windll.rc
 
-!IF  "$(CFG)" == "zip32 - Win32 Release"
+!IF  "$(CFG)" == "zip32z64 - Win32 Release"
 
 
 "$(INTDIR)\windll.res" : $(SOURCE) "$(INTDIR)"
 	$(RSC) /l 0x409 /fo"$(INTDIR)\windll.res" /i "\aZip3\Zip3\windll" $(SOURCE)
 
 
-!ELSEIF  "$(CFG)" == "zip32 - Win32 Debug"
+!ELSEIF  "$(CFG)" == "zip32z64 - Win32 Debug"
 
 
 "$(INTDIR)\windll.res" : $(SOURCE) "$(INTDIR)"

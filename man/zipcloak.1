@@ -1,4 +1,4 @@
-.TH zipcloak 1 "v3.0 of 12 November 2004"
+.TH zipcloak 1 "v3.0 of 8 May 2008"
 .SH NAME
 zipcloak \- encrypt entries in a zipfile
 
@@ -18,20 +18,60 @@ zipfile  Zipfile to encrypt entries in
 
 .SH OPTIONS
 .TP
-.BI \-d
-Decrypt encrypted entries (copy if given wrong password)
+.PD 0
+.B \-b\ \fPpath
 .TP
-.BI \-b\ path
-Use path for the temporary zip file.
+.PD
+.B \-\-temp\-path \fPpath
+Use the directory given by path for the temporary zip file.
+
 .TP
-.BI \-h
+.PD 0
+.B \-d
+.TP
+.PD
+.B \-\-decrypt
+Decrypt encrypted entries (copy if given wrong password).
+
+.TP
+.PD 0
+.B \-h
+.TP
+.PD
+.B \-\-help\ 
 Show a short help.
+
 .TP
-.BI \-v
-Show version information.
+.PD 0
+.B \-L
 .TP
-.BI \-L
+.PD
+.B \-\-license
 Show software license.
+
+.TP
+.PD 0
+.B \-O\ \fPpath
+.TP
+.PD
+.B \-\-output\-file\ \fPzipfile
+Write output to new archive zipfile, leaving original archive as is.
+
+.TP
+.PD 0
+.B \-q
+.TP
+.PD
+.B \-\-quiet
+Quiet operation.  Suppresses some informational messages.
+
+.TP
+.PD 0
+.B \-v
+.TP
+.PD
+.B \-\-version
+Show version information.
 
 .SH DESCRIPTION
 .I zipcloak
@@ -46,16 +86,24 @@ The \-d option is used to decrypt encrypted entries in the zipfile.
 .TP
 Note:
 The encryption code of this program is not copyrighted and is put in
-the public domain. It was originally written in Europe and can be freely
-distributed from any country except the U.S.A. If this program is imported
-into the U.S.A, it cannot be re-exported from the U.S.A to another country.
-The copyright notice of the zip program applies to the rest of the code.
+the public domain.  It was originally written in Europe and can be freely
+distributed from any country including the U.S.A.  (Previously if this
+program was imported into the U.S.A, it could not be re-exported from
+the U.S.A to another country.)  See the file README.CR included in the
+source distribution for more on this.  Otherwise, the Info-ZIP license
+applies.
 
 .SH EXAMPLES
 To be added.
 
 .SH BUGS
-Large files (> 2 GB) and split archives not yet supported.
+Large files (> 2 GB) and large archives not yet supported.
+
+Split archives not yet supported.  A work around is to convert the
+split archive to a single-file archive using \fIzip\fP and then
+use \fIzipcloak\fP on the single-file archive.  If needed, the
+resulting archive can then be split again using \fIzip\fP.
+
 
 .SH SEE ALSO
 zip(1), unzip(1)

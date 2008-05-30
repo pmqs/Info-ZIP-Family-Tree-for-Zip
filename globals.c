@@ -115,7 +115,7 @@ int show_files = 0;           /* show files to operate on and exit (=2 log only)
 int output_seekable = 1;      /* 1 = output seekable 3/13/05 EG */
 
 #ifdef ZIP64_SUPPORT          /* zip64 support 10/4/03 */
-  int force_zip64 = 0;        /* if 1 force entries to be zip64 */
+  int force_zip64 = -1;       /* if 1 force entries to be zip64, 0 force not zip64 */
                               /* mainly for streaming from stdin */
   int zip64_entry = 0;        /* current entry needs Zip64 */
   int zip64_archive = 0;      /* if 1 then at least 1 entry needs zip64 */
@@ -141,8 +141,8 @@ char *key = NULL;       /* Scramble password if scrambling */
 char *tempath = NULL;   /* Path for temporary files */
 FILE *mesg;             /* stdout by default, stderr for piping */
 
-#ifdef UNICODE_ALLOW_FORCE
- int unicode_force = 0; /* 1=force storing UTF-8 as standard per AppNote bit 11 */
+#ifdef UNICODE_SUPPORT
+ int utf8_force = 0;    /* 1=force storing UTF-8 as standard per AppNote bit 11 */
 #endif
 int unicode_escape_all = 0; /* 1=escape all non-ASCII characters in paths */
 int unicode_mismatch = 1; /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */

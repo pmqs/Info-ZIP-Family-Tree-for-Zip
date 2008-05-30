@@ -3117,7 +3117,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  9. Partial update to Who list of contributors.  proginfo/infozip.who (Ed)
 10. Update ReadMe.  Create Announcement.  README, zip30g.ann (Ed)
 11. Update WhatsNew.  WHATSNEW (Ed)
------------------------- January 7th 2007 version 3.0g12 --------------------
+------------------------ January 7th 2008 version 3.0g12 --------------------
  1. Convert Scanning files message to use standard zipmessage_nl() so line
     ends are generated when needed.  fileio.c (Ed)
  2. Add line ends in DisplayRunningStats() if a display line has been
@@ -3147,11 +3147,11 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     WIN32 but disable [list] matching otherwise.  Default behavior
     is restored if ALLOW_REGEX is defined.  globals.c, util.c,
     zip.h, zip.c (Ed)
------------------------- January 20th 2007 version 3.0g13 --------------------
+------------------------ January 20th 2008 version 3.0g13 --------------------
  1. Update copyrights to 2008.  zip.c, zipcloak.c, zipfile.c, zipnote.c,
     zipsplit.c, zipup.c, README (Ed)
  2. Update Who.  proginfo/infozip.who (Ed)
------------------------- January 30th 2007 version 3.0g14 --------------------
+------------------------ January 30th 2008 version 3.0g14 --------------------
  1. Update copyrights.  fileio.c, globals.c, revision.h, util.c, zip.h,
     win32/win32.c, win32/win32zip.c (Ed)
  2. Updates.  README, proginfo/infozip.who (Ed)
@@ -3160,6 +3160,231 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  5. Change -sd message.  zip.c (Ed)
  6. For bzip2 check for binary and set binary/text flag.  Handle -l and -ll
     line end conversions for bzip2.  zipup.c (Ed)
------------------------- February 3rd 2007 version 3.0g --------------------
+------------------------ February 3rd 2008 version 3.0g --------------------
  1. Change && to || to fix logic bug in show files.  zip.c (Johnny)
  2. Add CLEAN and CLEAN_ALL VMS targets.  vms/descrip_mkdeps.mms (SMS)
+----------------------- February 22nd 2008 version 3.0h01 --------------------
+ 1. Update some echo statements to use CFLAGS_OPT.  Add GNUC check.
+    unix/configure (SMS)
+ 2. Only store UID and GID if 16 bit.  unix/unix.c (Ed)
+----------------------- March 21st 2008 version 3.0h02 --------------------
+ 1. Change long Unicode escapes from 8 characters to 6 characters based on
+    change in UnZip 6.0.  fileio.c (Ed)
+ 2. Put zuebcmp() declaration in #if 0 block as definition already is.  This
+    function would be used to allow Unicode escapes on the command line
+    without using the -UN=escape option, but the utility of this is still
+    being determined.  zipfile.c (SMS, Ed)
+ 3. Remove declaration for unused bz_deflate_init().  zipup.c (SMS, Ed)
+ 4. Add release announcement file, anticipating the long-awaited release.
+    zip30.ann (Ed)
+ 5. Update WhatsNew.  WHATSNEW (Ed)
+----------------------- March 24th 2008 version 3.0h03 --------------------
+ 1. Update Unix configure script to better test for modern HP-UX compiler.
+    unix/configure (SMS)
+ 2. Updated Beta Readme.  betas_readme.txt (Ed)
+ 3. Update Install.  INSTALL (Ed)
+ 4. Update ReadMe.  README (Ed)
+ 5. Small change to main help screen.  zip.c (Ed)
+ 6. Small update to top of ToDo list.  Actual updating of items still
+    needs to be done.  TODO (Ed)
+----------------------- April 2nd 2008 version 3.0h04 --------------------
+ 1. Update copyright.  crc32.h (Christian)
+ 2. Remove zip.h include.  crc32.h (Christian)
+ 3. Add local prototypes for Unicode functions.  Add cast for split size
+    check.  Make many Unicode functions local.  #if 0 out currently unused
+    utf8_chars().  Fix memory leak in wide_to_local_string() by adding
+    free() for buffer on error return.  Fix memory leak in copy_args() on
+    error return by adding free-args().  Add ZCONST to arg in
+    insert_arg().  Shorten some lines to less than 80 characters.  Add
+    free() to get_longopt() to fix memory leak.  fileio.c (Christian)
+ 4. Create Win32 versions of wide_to_local_string() and
+    local_to_wide_string() so can use Win32 conversion functions.
+    fileio.c, win32/win32.c (Christian)
+ 5. Update comments for get_option().  fileio.c (Ed)
+ 6. Update encryption code readme.  README.cr (Ed)
+ 7. Add prototype for recmatchw().  util.c (Christian)
+ 8. Change count_args() from static to local.  util.c (Christian)
+ 9. Change ifdefs for includes for prototypes for version_info(),
+    zipstdout(), and check_zipfile() for WINDLL and MACOS and add
+    check_unzip_version().  zip.c (Christian)
+10. Change ifndef NO_SYMLINKS to ifdef S_IFLNK for determining compiler
+    information.  zip.c (Christian)
+11. Change UTF-8 locale from en_GB.UTF-8 to .UTF-8.  zip.c (Christian)
+12. Change cast of -1 for dot_size from uzoff_t to zoff_t.
+    zip.c (Christian)
+13. Change prototype for set_filetype to include parameter char *.
+    Change prototype of has_win32_wide to include parameter void.
+    zip.h (Christian)
+14. Add prototypes for find_next_signature(), find_signature(),
+    and is_signature().  Change duplicate prototype scanzipf_regnew()
+    to missing prototype scanzipf_fixnew().  Change comment for Adler-16
+    checksum to CRC-32 checksum as that is being used at that point in
+    the code.  Move multiple uname assignments to common assignment.
+    Add inameLocal for WIN32_OEM and use define for inameLocal if not
+    to save memory allocation when not not using WIN32_OEM.  Also
+    change _INTERN_OEM(str1) to INTERN_TO_OEM(src, dst) for OEM
+    conversion.  Format comment for vem to fit in 80 character lines.
+    zipfile.c (Christian)
+15. Change variable a from buffer to a pointer and add abf as the
+    buffer for zgetline() to handle NULL case.  zipnote.c (Christian)
+16. Change comments to zipentry comments and zipfile comment in
+    messages.  zipnote.c (Ed)
+17. Use uidgid_16bit as flag variable instead of uid_size.  Modify
+    size check that prevents saving Unix UIDs and GIDs in the old
+    Unix extra field if they are not 16 bits.  Change memory
+    allocation based on uidgid_16bit.  Delete unused code for memory
+    copy for extra field.  unix/unix.c (Christian, Ed)
+18. Change compiler flag from -zp8 to -Zp8 for LCC Win32.
+    win32/makefile.lcc (Christian)
+19. Add ifndef debug.  Add bzip2 support.  Add additional compiler
+    flags.  win32/makenoas.w32 (Christian)
+----------------------- April 10th 2008 version 3.0h05 --------------------
+ 1. Fix bug found by forum poster where Zip stops recursing down a tree
+    when option -AS is set and a directory without the Windows archive
+    bit is reached.  Now Zip continues down the tree to include files with
+    the bit set.  win32/win32zip.c (forum poster, Ed)
+ 2. Update comments.  win32/osdep.h (Ed)
+ 3. Update VMS notes to better organize and add information about file
+    name case.  Additional small updates.  vms/notes.txt (SMS)
+ 4. Fix bugs from previous changes to unix.  unix/unix.c (SMS, Christian,
+    Ed)
+ 5. Add unix IBM support.  unix/unix.c (SMS)
+ 6. Update INSTALL to account for new distribution structure and other
+    changes. INSTALL (SMS, Ed)
+ 7. Update bzip2 install readme.  bzip2/install.txt (SMS, Ed)
+ 8. Fix bug noted in forum where -@ and -x generated a "nothing to
+    select from error" by also checking filelist variable populated by
+    -@ for entries.  zip.c (forum poster, Ed)
+----------------------- April 20th 2008 version 3.0h06 --------------------
+ 1. Start announcement for Zip 3.0h public beta.  zip30h.ann (Ed)
+ 2. Update beta readme.  betas_readme.txt (Ed)
+ 3. Update case of README.CR.  INSTALL (Ed)
+ 4. Change -W to -ws for option to stop wildcards from scanning directory
+    boundaries in path.  This frees up -W for later use, maybe as extendted
+    option introducer.  zip.c, man/zip.1 (Ed)
+ 5. Updated date in announcement to May 4th.  zip30.ann (Ed)
+ 6. Added announcement for public beta Zip 3.0h.  zip30h.ann (Ed)
+ 7. Fix large file support for MinGW by checking for compiler environments
+    before the check for (generic) gcc.  zipup.c, win32/osdep.h
+    (Will, Christian)
+ 8. Fix large file support for bzip2.  Additionally, the "dot printout"
+    code has also been adapted for LARGE_FILE support.  zipup.c
+    (Will, Christian)
+ 9. Add comments to top of configure.  unix/configure (Ed)
+10. Move comment and comment out value size check for UID/GID extra field.
+    unix/unix.c (Ed)
+11. Change case of file ToDo to TODO for consistency and to work with Unix
+    package.  TODO (SMS, Ed)
+----------------------- April 26th 2008 version 3.0h07 --------------------
+ 1. For -AS, which for Windows only includes files with the archive bit
+    set, exclude directory entries (by setting -D) as some directories may
+    not have any files with the archive bit set and so the directory would
+    be empty.  zip.c (Ed)
+ 2. Fix UID/GID size detection to use byte sizes and remove data fit test.
+    unix/unix.c (Ed)
+ 3. Update announcement.  zip30h.ann (Ed)
+ 4. Add new unix extra field with tag 'ux' that stores UIDs/GIDs of 1 to 4
+    bytes (8 to 32 bits).  unix/unix.c (Ed)
+ 5. Update VB readme.  windll/vbz64/readVB64.txt (Ed)
+ 6. For Unicode escaped output also show escape for ASCII 7-bit if
+    isprintable() is false.  fileio.c (Ed)
+ 7. Use locale "en_US.UTF-8" for Unix.  zip.c (Ed)
+ 8. Also show escaped Unicode for new files in found list.  zip.c (Ed)
+ 9. Update manual.  man/zip.1, zip.txt (Ed)
+------------------------ May 4th 2008 version 3.0h08 -----------------------
+ 1. Handle when a bad Unicode string in archive forces
+    utf8_to_wide_string() to return a NULL string.  Give warning if UTF-8
+    in existing archive is bad.  Put WIN32 wide local header initializations
+    in UNICODE_SUPPORT block.  fileio.c, zipfile.c (Ed)
+ 2. Leave out Unicode escape code if not Unicode enabled.  zip.c (Ed)
+ 3. Enable oem_to_local_string() and local_to_oem_string() for WIN32
+    even if no Unicode.  zip.h, win32/win32.c (Christian, Ed)
+ 4. Update comment about encryption code.  zipcloak.c (Ed)
+ 4. Update zipmessage_nl() and zipmessage() from zip.c.  zipcloak.c,
+    zipnote.c, zipsplit.c (Ed)
+ 5. Add Mac OS X library check.  unix/configure (SMS)
+ 6. Add 16-bit UID/GID check.  unix/configure (Christian, Ed)
+ 7. Format echo and comment statements a bit.  unix/configure (Ed)
+ 8. Only compile in old 16-bit UID/GID code if new define UIDGID_NOT_16BIT
+    from unix configure script is not defined.  unix/unix.c (Christian)
+ 9. A couple changes to updated 16-bit UID/GID code.  Add 64-bit
+    UID/GID support to new Unix extra field.  unix/unix.c (Ed)
+10. Remove redundant "license" from options table.  zipcloak.c (Ed)
+11. Remove old unix build files.  unix/configure-orig, unix/Makefile-orig
+    (Christian)
+12. Add -O (--output-file) option to ZipCloak.  Fix bug by setting
+    out_path.  zipcloak.c (Ed)
+------------------------ May 8th 2008 version 3.0h09 -----------------------
+ 1. Update copyright.  Add check for NO_UNICODE_SUPPORT.  tailor.h (Ed)
+ 2. Fix bug where Unicode General Purpose Bit Flag 11 should force keeping
+    the old name field but it was being overwritten by the escaped name
+    in the central directory header.  Fixed some ZIPERR() calls in
+    putcentral() that referred to putlocal().  zipfile.c (Ed)
+ 3. Add comment about OCRCU8 and OCRCTB.  unix/configure (Ed)
+ 4. Change line in instructions to note that manuals should be made after
+    Zip is made.  Change OCRTB to OCRCTB.  Add $(OCRCTB) to rule for
+    zipcloak$E so crc32_.o is linked in.  Add comment for NO_UNICODE_SUPPORT
+    flag.  unix/makefile (Ed)
+ 5. Update WhatsNew.  Add additional items to the Zip 3.1 list.  Add note
+    about Zip 2.4.  WHATSNEW (Ed)
+ 6. Update Zip 3.0h announcement.  zip30h.ann (Ed)
+ 7. Update manual pages.  man/zip.1, man/zipsplit.1, man/zipnote.1,
+    man/zipcloak.1 (Ed)
+ 8. Add noted for UTF-8 locale.  zip.c (Ed)
+ 9. Set UTF-8 locale for Unix in utilities if UNICODE_SUPPORT enabled
+    so can display and process paths in archives correctly.  zipsplit.c,
+    zipcloak.c, zipnote.c (Ed)
+------------------------ May 12th 2008 version 3.0h10 ----------------------
+ 1. Add use of new Unix UID/GID extra field and of old Unix 16-bit UID/GID
+    extra field when system uses 16-bit UIDs/GIDs to version information.
+    zip.c (SMS, Ed)
+ 2. Add Unicode Path and Unicode Comment extra fields to extra fields list.
+    Update new Unix extra field revision date.  proginfo/extrafld.txt (Ed)
+ 3. Add Mac hardware platform to version information.  unix/unix.c (SMS)
+------------------------ May 19th 2008 version 3.0h11 ----------------------
+ 1. Initialize f->namew when streaming stdin to fix bug.  fileio.c (Ed)
+ 2. Change force_zip64 to start as -1 as unset, then use 1 for forcing use
+    of Zip64 and 0 for disabling use of Zip64.  Add negation of -fz to
+    prevent use of Zip64 during streaming from stdin to a non-seekable
+    output where data descriptors will be used, which allows creating
+    archives with the old stream format but will fail if a large file is
+    streamed.  Default is still to force Zip64 data descriptors when
+    streaming, which covers all cases but requires a Zip64 compatible
+    unzip.  zip.c, globals.c, zipfile.c (Ed)
+ 3. Handle case of bad Unicode in archive.  zipfile.c (Ed)
+------------------------ May 22nd 2008 version 3.0h12 ----------------------
+ 1. Fix bug introduced last beta that prevented streaming large files.  Use
+    separate error message depending on if -fz- was used.  zipfile.c (Ed)
+ 2. Change non existent to nonexistent.  unix/configure (SMS)
+ 3. Don't output blank line when zipmessage_nl() gets passed an empty
+    string.  This removes blank lines for skipped entries when -FS used.
+    zip.c (Ed)
+------------------------ May 27th 2008 version 3.0h13 ----------------------
+ 1. Change UNICODE_ALLOW_FORCE to UNICODE_SUPPORT, -UN=force to -UN=UTF8,
+    and unicode_force to utf8_force.  This option now standard with Unicode
+    support and forces Zip to save UTF-8 paths and comments, when not ASCII,
+    as if UTF-8 were the native character set.  globals.c, zip.c, zip.h (Ed)
+ 2. Add note to Todo that it's out of date.  TODO (Ed)
+ 3. Update WhatsNew.  WHATSNEW (Ed)
+ 4. Update Unicode help in extended help.  zip.c (Ed)
+ 5. Update announcements.  zip30h.ann, zip30.ann (Ed)
+ 6. Fix bug with -UN=UTF8.  zip.c, zipfile.c (Ed)
+ 7. Update Zip manual.  man/zip.1, zip.txt (Ed)
+ 8. Attempt an update to zip limits document.  proginfo/ziplimit.txt (Ed)
+ 9. Update README regarding forum postings.  README (Ed)
+10. Remove duplicate initialization lines for found and fnxt.  zip.c (SMS)
+------------------------ May 28th 2008 version 3.0h14 ----------------------
+ 1. Remove >= 0 check from wide character check as value is unsigned.
+    fileio.c (SMS)
+ 2. In putlocal(), move nam and use_uname to UNICODE_SUPPORT block.  If
+    no UNICODE_SUPPORT use z->nam instead of nam.  zipfile.c (SMS, Ed)
+ 3. Update announcement date for beta.  zip30h.ann (Ed)
+------------------------ May 31st 2008 version 3.0h ------------------------
+ 1. In putlocal() if using UTF-8 bit then also set UTF-8 bit in z->lflg so
+    is set in local header for streaming.  zipfile.c (Ed)
+ 2. Update announcement date for beta.  zip30h.ann (Ed)
+ 3. Rename lib and dll projects to zip32z64 and update project files so
+    project name is same as lib and dll libraries.  Export make files.
+    windll/visualc/dll/zip32z64.dsp, windll/visualc/dll/zip32z64.dsw,
+    windll/visualc/dll/zip32z64.mak, windll/visualc/libzip32z64.dsp,
+    windll/visualc/libzip32z64.dsw, windll/visualc/libzip32z64.mak (Ed)

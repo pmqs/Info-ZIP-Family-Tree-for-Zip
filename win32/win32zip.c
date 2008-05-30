@@ -258,7 +258,9 @@ local wchar_t *readdw(dw)
     ew = GetNextDirEntryW(dw);
   while (ew &&
          ((!hidden_files && ew->d_fdw.dwFileAttributes & HIDD_SYS_BITS) ||
-          (only_archive_set && !(ew->d_fdw.dwFileAttributes & FILE_ATTRIBUTE_ARCHIVE))));
+          (only_archive_set &&
+           !(ew->d_fdw.dwFileAttributes & FILE_ATTRIBUTE_ARCHIVE) &&
+           !(ew->d_fdw.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))));
   if (ew == NULL)
     return (wchar_t *) NULL;
   return ew->d_fdw.cFileName;
@@ -277,7 +279,9 @@ zDIRSCAN *d;            /* directory stream to read from */
     e = GetNextDirEntry(d);
   while (e &&
          ((!hidden_files && e->d_fd.dwFileAttributes & HIDD_SYS_BITS) ||
-          (only_archive_set && !(e->d_fd.dwFileAttributes & FILE_ATTRIBUTE_ARCHIVE))));
+          (only_archive_set &&
+           !(e->d_fd.dwFileAttributes & FILE_ATTRIBUTE_ARCHIVE) &&
+           !(e->d_fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))));
   /* When a wide character that is not supported by the current character
      set is found, FindFirstFile and FindNextFile return a "?" in that spot.
      A question mark is illegal in file names, so this flags that something

@@ -12,15 +12,67 @@
 # to the declaration of LOC here:
 LOC = $(LOCAL_ZIP)
 
+!IFNDEF debug
+NODEBUG=1
+!ENDIF
+
 # Uncomment the following macro to use the optimized assembler
 # routines in Zip:
 #ASMOBJS = match32.obj
 CRCA_O = crci386c.obj
 CFLG_ASM = -DASM_CRC
 
+!IFDEF BZIP2_SUPPORT
+LOC=$(LOC) -DBZIP2_SUPPORT
+!IFNDEF debug
+EXTLIB=$(EXTLIB) libbz2.lib
+!ELSE
+EXTLIB=$(EXTLIB) libbz2.lib
+!ENDIF
+!ENDIF
+
+!IFDEF USEZLIB
+LOC=$(LOC) -DUSE_ZLIB
+ASMOBJS=
+!IFNDEF debug
+EXTLIB=$(EXTLIB) zlib.lib
+!ELSE
+EXTLIB=$(EXTLIB) zlib.lib
+!ENDIF
+!ENDIF
+
+!IFDEF USEZLIB
+USE_MSVCRT=1
+!ELSE
+!IFDEF USEBZIP2
+USE_MSVCRT=1
+!ELSE
+USE_MSVCRT=0
+!ENDIF
+!ENDIF # USEZLIB
+
+!IF $(USE_MSVCRT) == 1
+CRTLIB=-MD
+!ELSE
+!IF "$(VS80COMNTOOLS)" == ""
+CRTLIB=-ML
+!ELSE
+# no single-threaded CRT static lib, only multi-threaded in VC8
+CRTLIB=-MT
+!ENDIF
+!ENDIF
+
+!IFDEF NODEBUG
+cdebug = -O2
+cdbgsz = -O1
+!ELSE
+cdebug = -Od
+cdbgsz = $(cdebug)
+!ENDIF
+
 # ------------- 32-bit Microsoft Visual C++ -------------
 CC=cl -nologo
-CFLAGS=-W3 -O2 -DWIN32 $(CFLG_ASM) $(LOC) -DNO_ASM
+CFLAGS=-W3 $(cdebug) -DWIN32 $(CFLG_ASM) $(CRTLIB) $(LOC) -DNO_ASM
 UTILFLAGS=$(CFLAGS) -DUTIL -Fo$@
 
 # Remove "-coff" from ASFLAGS if you do not have MASM 6.11.
@@ -33,7 +85,18 @@ ASFLAGS=-c -coff -Cx
 # by passing the -stub switch to the 32-bit linker to specify the 16-bit part.
 
 LD=link -nologo
-LDFLAGS=user32.lib advapi32.lib
+LDFLAGS=user32.lib advapi32.lib /OPT:NOWIN98 /INCREMENTAL:NO /PDB:$*.pdb $(EXTLIB)
+SYMS=/DEBUG:full /DEBUGTYPE:CV
+!IFDEF debug
+LDFLAGS=$(LDFLAGS) $(SYMS)
+CFLAGS=$(CFLAGS) /Zi
+!ELSE
+LDFLAGS=$(LDFLAGS) /RELEASE
+!IFDEF sym
+LDFLAGS=$(LDFLAGS) $(SYMS)
+CFLAGS=$(CFLAGS) /Zi
+!ENDIF
+!ENDIF
 
 # variables
 OBJZ = zip.obj crypt.obj ttyio.obj zipfile.obj zipup.obj fileio.obj util.obj \
