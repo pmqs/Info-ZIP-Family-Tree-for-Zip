@@ -435,128 +435,6 @@ ulg filetime(f, a, n, t)
 
 #ifndef QLZIP /* QLZIP Unix2QDOS cross-Zip supplies an extended variant */
 
-int set_extra_field(z, z_utim)
-  struct zlist far *z;
-  iztimes *z_utim;
-  /* store full data in local header but just modification time stamp info
-     in central header */
-{
-  z_stat s;
-  char *name;
-  int len = strlen(z->name);
-
-  /* For the full sized UT local field including the UID/GID fields, we
-   * have to stat the file again. */
-
-  if ((name = malloc(len + 1)) == NULL) {
-    ZIPERR(ZE_MEM, "set_extra_field");
-  }
-  strcpy(name, z->name);
-  if (name[len - 1] == '/')
-    name[len - 1] = '\0';
-  /* not all systems allow stat'ing a file with / appended */
-  if (LSSTAT(name, &s)) {
-    free(name);
-    return ZE_OPEN;
-  }
-  free(name);
-
-#define EB_L_UT_SIZE    (EB_HEADSIZE + EB_UT_LEN(2))
-#define EB_C_UT_SIZE    (EB_HEADSIZE + EB_UT_LEN(1))
-
-/* The flag UIDGID_NOT_16BIT should be set by the pre-compile configuration
-   script when it detects st_uid or st_gid sizes differing from 16-bit.
- */
-#ifndef UIDGID_NOT_16BIT
-  /* The following "second-level" check for st_uid and st_gid members being
-     16-bit wide is only added as a safety precaution in case the "first-level"
-     check failed to define the UIDGID_NOT_16BIT symbol.
-     The first-level check should have been implemented in the automatic
-     compile configuration process.
-   */
-# ifdef UIDGID_ARE_16B
-#  undef UIDGID_ARE_16B
-# endif
-  /* The following expression is a compile-time constant and should (hopefully)
-     get optimized away by any sufficiently intelligent compiler!
-   */
-# define UIDGID_ARE_16B  (sizeof(s.st_uid) == 2 && sizeof(s.st_gid) == 2)
-
-# define EB_L_UX2_SIZE   (EB_HEADSIZE + EB_UX2_MINLEN)
-# define EB_C_UX2_SIZE   EB_HEADSIZE
-# define EF_L_UNIX_SIZE  (EB_L_UT_SIZE + (UIDGID_ARE_16B ? EB_L_UX2_SIZE : 0))
-# define EF_C_UNIX_SIZE  (EB_C_UT_SIZE + (UIDGID_ARE_16B ? EB_C_UX2_SIZE : 0))
-#else
-# define EF_L_UNIX_SIZE EB_L_UT_SIZE
-# define EF_C_UNIX_SIZE EB_C_UT_SIZE
-#endif /* !UIDGID_NOT_16BIT */
-
-  if ((z->extra = (char *)malloc(EF_L_UNIX_SIZE)) == NULL)
-    return ZE_MEM;
-  if ((z->cextra = (char *)malloc(EF_C_UNIX_SIZE)) == NULL)
-    return ZE_MEM;
-
-  z->extra[0]  = 'U';
-  z->extra[1]  = 'T';
-  z->extra[2]  = (char)EB_UT_LEN(2);    /* length of data part of local e.f. */
-  z->extra[3]  = 0;
-  z->extra[4]  = EB_UT_FL_MTIME | EB_UT_FL_ATIME;    /* st_ctime != creation */
-  z->extra[5]  = (char)(s.st_mtime);
-  z->extra[6]  = (char)(s.st_mtime >> 8);
-  z->extra[7]  = (char)(s.st_mtime >> 16);
-  z->extra[8]  = (char)(s.st_mtime >> 24);
-  z->extra[9]  = (char)(s.st_atime);
-  z->extra[10] = (char)(s.st_atime >> 8);
-  z->extra[11] = (char)(s.st_atime >> 16);
-  z->extra[12] = (char)(s.st_atime >> 24);
-
-#ifndef UIDGID_NOT_16BIT
-  /* Only store the UID and GID in the old Ux extra field if the runtime
-     system provides them in 16-bit wide variables.  */
-  if (UIDGID_ARE_16B) {
-    z->extra[13] = 'U';
-    z->extra[14] = 'x';
-    z->extra[15] = (char)EB_UX2_MINLEN; /* length of data part of local e.f. */
-    z->extra[16] = 0;
-    z->extra[17] = (char)(s.st_uid);
-    z->extra[18] = (char)(s.st_uid >> 8);
-    z->extra[19] = (char)(s.st_gid);
-    z->extra[20] = (char)(s.st_gid >> 8);
-  }
-#endif /* !UIDGID_NOT_16BIT */
-
-  z->ext = EF_L_UNIX_SIZE;
-
-  memcpy(z->cextra, z->extra, EB_C_UT_SIZE);
-  z->cextra[EB_LEN] = (char)EB_UT_LEN(1);
-#ifndef UIDGID_NOT_16BIT
-  if (UIDGID_ARE_16B) {
-    /* Copy header of Ux extra field from local to central */
-    memcpy(z->cextra+EB_C_UT_SIZE, z->extra+EB_L_UT_SIZE, EB_C_UX2_SIZE);
-    z->cextra[EB_LEN+EB_C_UT_SIZE] = 0;
-  }
-#endif
-  z->cext = EF_C_UNIX_SIZE;
-
-#if 0  /* UID/GID presence is now signaled by central EF_IZUNIX2 field ! */
-  /* lower-middle external-attribute byte (unused until now):
-   *   high bit        => (have GMT mod/acc times) >>> NO LONGER USED! <<<
-   *   second-high bit => have Unix UID/GID info
-   * NOTE: The high bit was NEVER used in any official Info-ZIP release,
-   *       but its future use should be avoided (if possible), since it
-   *       was used as "GMT mod/acc times local extra field" flags in Zip beta
-   *       versions 2.0j up to 2.0v, for about 1.5 years.
-   */
-  z->atx |= 0x4000;
-#endif /* never */
-
-  /* new unix extra field */
-  set_new_unix_extra_field(z, &s);
-
-  return ZE_OK;
-}
-
-
 int set_new_unix_extra_field(z, s)
   struct zlist far *z;
   z_stat *s;
@@ -683,6 +561,127 @@ int set_new_unix_extra_field(z, s)
   return ZE_OK;
 }
 
+
+int set_extra_field(z, z_utim)
+  struct zlist far *z;
+  iztimes *z_utim;
+  /* store full data in local header but just modification time stamp info
+     in central header */
+{
+  z_stat s;
+  char *name;
+  int len = strlen(z->name);
+
+  /* For the full sized UT local field including the UID/GID fields, we
+   * have to stat the file again. */
+
+  if ((name = malloc(len + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "set_extra_field");
+  }
+  strcpy(name, z->name);
+  if (name[len - 1] == '/')
+    name[len - 1] = '\0';
+  /* not all systems allow stat'ing a file with / appended */
+  if (LSSTAT(name, &s)) {
+    free(name);
+    return ZE_OPEN;
+  }
+  free(name);
+
+#define EB_L_UT_SIZE    (EB_HEADSIZE + EB_UT_LEN(2))
+#define EB_C_UT_SIZE    (EB_HEADSIZE + EB_UT_LEN(1))
+
+/* The flag UIDGID_NOT_16BIT should be set by the pre-compile configuration
+   script when it detects st_uid or st_gid sizes differing from 16-bit.
+ */
+#ifndef UIDGID_NOT_16BIT
+  /* The following "second-level" check for st_uid and st_gid members being
+     16-bit wide is only added as a safety precaution in case the "first-level"
+     check failed to define the UIDGID_NOT_16BIT symbol.
+     The first-level check should have been implemented in the automatic
+     compile configuration process.
+   */
+# ifdef UIDGID_ARE_16B
+#  undef UIDGID_ARE_16B
+# endif
+  /* The following expression is a compile-time constant and should (hopefully)
+     get optimized away by any sufficiently intelligent compiler!
+   */
+# define UIDGID_ARE_16B  (sizeof(s.st_uid) == 2 && sizeof(s.st_gid) == 2)
+
+# define EB_L_UX2_SIZE   (EB_HEADSIZE + EB_UX2_MINLEN)
+# define EB_C_UX2_SIZE   EB_HEADSIZE
+# define EF_L_UNIX_SIZE  (EB_L_UT_SIZE + (UIDGID_ARE_16B ? EB_L_UX2_SIZE : 0))
+# define EF_C_UNIX_SIZE  (EB_C_UT_SIZE + (UIDGID_ARE_16B ? EB_C_UX2_SIZE : 0))
+#else
+# define EF_L_UNIX_SIZE EB_L_UT_SIZE
+# define EF_C_UNIX_SIZE EB_C_UT_SIZE
+#endif /* !UIDGID_NOT_16BIT */
+
+  if ((z->extra = (char *)malloc(EF_L_UNIX_SIZE)) == NULL)
+    return ZE_MEM;
+  if ((z->cextra = (char *)malloc(EF_C_UNIX_SIZE)) == NULL)
+    return ZE_MEM;
+
+  z->extra[0]  = 'U';
+  z->extra[1]  = 'T';
+  z->extra[2]  = (char)EB_UT_LEN(2);    /* length of data part of local e.f. */
+  z->extra[3]  = 0;
+  z->extra[4]  = EB_UT_FL_MTIME | EB_UT_FL_ATIME;    /* st_ctime != creation */
+  z->extra[5]  = (char)(s.st_mtime);
+  z->extra[6]  = (char)(s.st_mtime >> 8);
+  z->extra[7]  = (char)(s.st_mtime >> 16);
+  z->extra[8]  = (char)(s.st_mtime >> 24);
+  z->extra[9]  = (char)(s.st_atime);
+  z->extra[10] = (char)(s.st_atime >> 8);
+  z->extra[11] = (char)(s.st_atime >> 16);
+  z->extra[12] = (char)(s.st_atime >> 24);
+
+#ifndef UIDGID_NOT_16BIT
+  /* Only store the UID and GID in the old Ux extra field if the runtime
+     system provides them in 16-bit wide variables.  */
+  if (UIDGID_ARE_16B) {
+    z->extra[13] = 'U';
+    z->extra[14] = 'x';
+    z->extra[15] = (char)EB_UX2_MINLEN; /* length of data part of local e.f. */
+    z->extra[16] = 0;
+    z->extra[17] = (char)(s.st_uid);
+    z->extra[18] = (char)(s.st_uid >> 8);
+    z->extra[19] = (char)(s.st_gid);
+    z->extra[20] = (char)(s.st_gid >> 8);
+  }
+#endif /* !UIDGID_NOT_16BIT */
+
+  z->ext = EF_L_UNIX_SIZE;
+
+  memcpy(z->cextra, z->extra, EB_C_UT_SIZE);
+  z->cextra[EB_LEN] = (char)EB_UT_LEN(1);
+#ifndef UIDGID_NOT_16BIT
+  if (UIDGID_ARE_16B) {
+    /* Copy header of Ux extra field from local to central */
+    memcpy(z->cextra+EB_C_UT_SIZE, z->extra+EB_L_UT_SIZE, EB_C_UX2_SIZE);
+    z->cextra[EB_LEN+EB_C_UT_SIZE] = 0;
+  }
+#endif
+  z->cext = EF_C_UNIX_SIZE;
+
+#if 0  /* UID/GID presence is now signaled by central EF_IZUNIX2 field ! */
+  /* lower-middle external-attribute byte (unused until now):
+   *   high bit        => (have GMT mod/acc times) >>> NO LONGER USED! <<<
+   *   second-high bit => have Unix UID/GID info
+   * NOTE: The high bit was NEVER used in any official Info-ZIP release,
+   *       but its future use should be avoided (if possible), since it
+   *       was used as "GMT mod/acc times local extra field" flags in Zip beta
+   *       versions 2.0j up to 2.0v, for about 1.5 years.
+   */
+  z->atx |= 0x4000;
+#endif /* never */
+
+  /* new unix extra field */
+  set_new_unix_extra_field(z, &s);
+
+  return ZE_OK;
+}
 
 #endif /* !QLZIP */
 
