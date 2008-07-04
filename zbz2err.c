@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -19,7 +19,7 @@
   usage for building a monolithic binary of the Windows application "WiZ"
   that supports bzip2 both in compression and decompression operations.
 
-  Contains:  bz_internal_error()      (USE_BZIP2 only)
+  Contains:  bz_internal_error()      (BZIP2_SUPPORT only)
 
   Adapted from UnZip ubz2err.c, with all the DLL fine print stripped
   out.

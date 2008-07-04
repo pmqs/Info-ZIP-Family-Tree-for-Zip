@@ -24,14 +24,14 @@ you got zip.  See the file 'WHERE' for details on ftp sites and mail
 servers.
 
 So far zip has been ported to a wide array of Unix and other mainframes,
-minis, and micros including VMS, OS/2, Minix, MSDOS, Windows,
-Atari, Amiga, BeOS and VM/CMS.  Although highly compatible with PKware's
-PKZIP and PKUNZIP utilities of MSDOS fame, our primary objective has been
-one of portability and other-than-MSDOS functionality.  Features not found
-in the PKWare version include creation of zip files in a pipe or on a
-device; VMS, BeOS and OS/2 extended file attributes; conversion from Unix to
-MSDOS text file format; and, of course, the ability to run on most of your
-favorite operating systems.  And it's free.
+minis, and micros including VMS, OS/2, Minix, MSDOS, Windows, Atari, Amiga,
+BeOS and VM/CMS.  Although highly compatible with PKware's PKZIP and PKUNZIP
+utilities of MSDOS fame, our primary objective has been one of portability
+and other-than-MSDOS functionality.  Features not found in the PKWare version
+include creation of zip files in a pipe or on a device; VMS, BeOS and OS/2
+extended file attributes; conversion from Unix to MSDOS text file format; and,
+of course, the ability to run on most of your favorite operating systems.  And
+it's free.
 
 See the file zip30.ann for a summary of new features in Zip 3.0 and WhatsNew
 for the detailed list of new features and changes since Zip 2.32.  The file
@@ -54,34 +54,38 @@ Zip64 support.  This version supports Zip64 archives as described in the
 PKWare AppNote.  These archives use additional fields to support archives
 greater than 2 GB and files in archives over the 2 GB previous limit (4 GB
 on some ports).  The Zip64 format also allows more than 64k entries in an
-archive.  Use of Zip64 is automatic and the Zip64 fields will only be used
-if needed to maximize backward compatibility.  A Zip64 archive requires a
-pkzip 4.5 compatible unzip, such as UnZip 6.0.
+archive.  Support by the OS for files larger than 4 GB is needed for Zip to
+create and read large files and archives.  On Unix, Win32, and some other
+ports, large file and Zip64 support is automatically checked for and
+compiled in if available.  Use of Zip64 by Zip is automatic and to maximize
+backward compatibility the Zip64 fields will only be used if needed.  A
+Zip64 archive requires a pkzip 4.5 compatible unzip, such as UnZip 6.0.
 
 Unicode support.  This version has initial Unicode support.  This allows
 paths and names of files in other character sets to be accurately recreated
-on OS with sufficient character set support.  On Win32, if wide character
-calls are supported (not Win 9x unless Unicode support has been added) all
-files (including paths with illegal characters in the current character set)
-should now be readable by zip.  Unicode support is provided using a new set
-of UTF-8 path and comment extra fields and a new UTF-8 bit for flagging when
-the current character set is already UTF-8.  Zip 3.0 maintains backward
-compatibility with older archives and is mostly compliant with the new Unicode
-additions in the latest PKWare AppNote.  UTF-8 comments where UTF-8 is not
-the native character set are not yet supported, but should be in Zip 3.1.
+on OS that have sufficient character set support.  On Win32, if wide
+character calls are supported (not Win 9x unless Unicode support has been
+added) all files (including paths with illegal characters in the current
+character set) should now be readable by zip.  Unicode support is provided
+using a new set of UTF-8 path and comment extra fields and a new UTF-8 bit
+for flagging when the current character set is already UTF-8.  Zip 3.0
+maintains backward compatibility with older archives and is mostly compliant
+with the new Unicode additions in the latest PKWare AppNote.  The exception
+is UTF-8 comments, which are not supported if UTF-8 is not the native
+character set, but should be fully implemented in Zip 3.1.
 
-16-bit OS support.  Though Zip 3.0 is being designed to support the latest
-zip standards and modern OS, some effort has been made to maintain some
-support for older and smaller systems.  If you find Zip 3.0 does not fit on
-or otherwise does not work well on a particular OS, send in the details
-and we might be able to help.
+16-bit OS support.  Though Zip 3.0 is designed to support the latest zip
+standards and modern OS, some effort has been made to maintain support
+for older and smaller systems.  If you find Zip 3.0 does not fit on or
+otherwise does not work well on a particular OS, send in the details and
+we might be able to help.
 
 Compression methods.  In addition to the standard store and deflate methods,
-zip now can use the bzip2 compression format using the bzip2 library.  Though
+Zip now can use the bzip2 compression format using the bzip2 library.  Though
 bzip2 compression generally takes longer, in many cases using bzip2 results
 in much better compression.  However, many unzips may not yet support
 bzip2 compressed entries in archives, so test your unzip first before using
-bzip2.
+bzip2 compression.
 
 Installation.  Please read the file INSTALL for information on how to compile
 and install zip, zipsplit, zipcloak, and zipnote and please read the manual
@@ -109,10 +113,11 @@ promise to use all of them).  We also are on SourceForge at
 http://sourceforge.net/projects/infozip/ and now automatically get Bug Reports
 and Feature Requests submitted there.  In addition, a new Info-ZIP discussion
 forum is available as well.  See below.  Though bug reports can be posted there,
-we have not yet set up automatic monitoring of postings there so you may want to
-use the web form or SoureForge for a quicker response.  A good approach may be
-to post the details on the forum so others can benefit from the posting, then
-use the web reply form to let us know you did that.
+we don't have automatic monitoring of all postings set up yet so you may want
+to use the web form or SoureForge for a quicker response.  A good approach may
+be to post the details on the forum so others can benefit from the posting,
+then use the web reply form to let us know you did that if you don't get a
+reply in a reasonable time.
 
 Ports.  If you're considering a port, please check in with zip-bugs FIRST,
 since the code is constantly being updated behind the scenes.  We'll
@@ -130,7 +135,7 @@ http://www.info-zip.org/board/board.pl (thanks again to Hunter Goatley) and
 can be used to discuss issues, request features, and is one place new betas
 and releases are announced.  It also is a place to post bug reports, and
 patches can be submitted as attachments.  However, we don't yet get
-automatic notification of postings there so try one of the other methods
+automatic notification of all postings there so try one of the other methods
 if you don't get a response.  You can also post Bug Reports and Feature
 Requests at Source Forge.  However, the web site contact form remains
 available if you would rather not post on the public forums.
@@ -158,7 +163,8 @@ A. Please make sure that you made the transfer in binary mode.  Check
    of a multi-part archive.  Also note that UnZip 5.x does not and UnZip 6.0
    probably won't have multi-disk (split) archive support.  A work around
    is to use Zip 3.0 to convert the split archive to a single-file archive
-   then use UnZip on that archive.
+   then use UnZip on that archive.  As a last result, if there's something
+   readable in what you have, zip -FF should be able to recover it.
 
 
 Q. When running unzip, I get a message about "End-of-central-directory
@@ -209,14 +215,15 @@ Q. Can I use the executables of zip and unzip to distribute my software?
 A. Yes, so long as it is made clear in the product documentation that
    zip or unzip are not being sold, that the source code is freely
    available, and that there are no extra or hidden charges resulting
-   from its use by or inclusion with the commercial product. Here is
-   an example of a suitable notice:
+   from its use by or inclusion with the commercial product.  See the
+   Info-ZIP license for more.  Here is an example of a suitable notice:
 
      NOTE:  <Product> is packaged on this CD using Info-ZIP's compression
      utility.  The installation program uses UnZip to read zip files from
      the CD.  Info-ZIP's software (Zip, UnZip and related utilities) is
-     free and can be obtained as source code or executables from various
-     anonymous-ftp sites, including ftp://ftp.info-zip.org/pub/infozip.
+     freely distributed under the Info-ZIP license and can be obtained as
+     source code or executables from various anonymous-ftp sites,
+     including ftp://ftp.info-zip.org/pub/infozip.
 
 
 Q. Can I use the source code of zip and unzip in my commercial application?

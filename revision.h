@@ -19,16 +19,20 @@
 #define Z_MAJORVER   3
 #define Z_MINORVER   0
 #define Z_PATCHLEVEL 0
-#define Z_BETALEVEL "h BETA"
+#define Z_BETALEVEL "i BETA"
 
-#define VERSION "3.0h BETA"
-#define REVDATE "May 31st 2008"
+#define VERSION "3.0"
+#define REVDATE "July 5th 2008"
 
 #define DW_MAJORVER    Z_MAJORVER
 #define DW_MINORVER    Z_MINORVER
 #define DW_PATCHLEVEL  Z_PATCHLEVEL
 
-#ifndef WINDLL
+#ifndef IZ_COMPANY_NAME               /* might be already defined... */
+#  define IZ_COMPANY_NAME "Info-ZIP"
+#endif
+
+#if !defined(WINDLL) && !defined(IZ_VERSION_SYMBOLS_ONLY)
 /* Copyright notice for binary executables--this notice only applies to
  * those (zip, zipcloak, zipsplit, and zipnote), not to this file
  * (revision.h).
@@ -63,7 +67,7 @@ ZCONST char * far versinfolines[] = {
 ""
 };
 
-/* new notice - 2/27/2004 */
+/* new notice - 4 March 2007 */
 ZCONST char * far cryptnote[] = {
 "Encryption notice:",
 "\tThe encryption code of this program is not copyrighted and is",
@@ -75,7 +79,7 @@ ZCONST char * far cryptnote[] = {
 };
 
 ZCONST char * far swlicense[] = {
-"Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.",
+"Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.",
 "",
 "For the purposes of this copyright and license, \"Info-ZIP\" is defined as",
 "the following set of individuals:",
@@ -131,5 +135,5 @@ ZCONST char * far swlicense[] = {
 "       own source and binary releases."
 };
 #endif /* DEFCPYRT */
-#endif /* !WINDLL */
+#endif /* !WINDLL && !IZ_VERSION_SYMBOLS_ONLY */
 #endif /* !__revision_h */

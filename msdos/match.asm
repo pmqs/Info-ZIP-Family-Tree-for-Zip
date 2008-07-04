@@ -1,10 +1,10 @@
 ;===========================================================================
-; Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+; Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 ;
-; See the accompanying file LICENSE, version 1999-Oct-05 or later
+; See the accompanying file LICENSE, version 2007-Mar-04 or later
 ; (the contents of which are also included in zip.h) for terms of use.
-; If, for some reason, both of these files are missing, the Info-ZIP license
-; also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+; If, for some reason, all these files are missing, the Info-ZIP license
+; also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 ;===========================================================================
 ;
 ; match.asm by Jean-loup Gailly.
@@ -73,8 +73,12 @@ endif
 
 ifdef __HUGE__
 ; .MODEL Huge
-   @CodeSize  EQU 1
-   @DataSize  EQU 1
+   ifndef @CodeSize
+    @CodeSize  EQU 1
+   endif
+   ifndef @DataSize
+    @DataSize  EQU 1
+   endif
    Save_DS    EQU 1
    if VERBOSE_INFO
     if1
@@ -84,8 +88,12 @@ ifdef __HUGE__
 else
    ifdef __LARGE__
 ;      .MODEL Large
-      @CodeSize  EQU 1
-      @DataSize  EQU 1
+      ifndef @CodeSize
+       @CodeSize  EQU 1
+      endif
+      ifndef @DataSize
+       @DataSize  EQU 1
+      endif
       if VERBOSE_INFO
        if1
          %out Assembling for C, Large memory model
@@ -94,8 +102,12 @@ else
    else
       ifdef __COMPACT__
 ;         .MODEL Compact
-         @CodeSize  EQU 0
-         @DataSize  EQU 1
+         ifndef @CodeSize
+          @CodeSize  EQU 0
+         endif
+         ifndef @DataSize
+          @DataSize  EQU 1
+         endif
          if VERBOSE_INFO
           if1
             %out Assembling for C, Compact memory model
@@ -104,8 +116,12 @@ else
       else
          ifdef __MEDIUM__
 ;            .MODEL Medium
-            @CodeSize  EQU 1
-            @DataSize  EQU 0
+            ifndef @CodeSize
+             @CodeSize  EQU 1
+            endif
+            ifndef @DataSize
+             @DataSize  EQU 0
+            endif
             if VERBOSE_INFO
              if1
                %out Assembling for C, Medium memory model
@@ -113,8 +129,12 @@ else
             endif
          else
 ;            .MODEL Small
-            @CodeSize  EQU 0
-            @DataSize  EQU 0
+            ifndef @CodeSize
+             @CodeSize  EQU 0
+            endif
+            ifndef @DataSize
+             @DataSize  EQU 0
+            endif
             if VERBOSE_INFO
              if1
                %out Assembling for C, Small memory model

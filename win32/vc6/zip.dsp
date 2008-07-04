@@ -188,6 +188,10 @@ SOURCE=..\..\zip.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\zip.rc
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\zipfile.c
 # End Source File
 # Begin Source File

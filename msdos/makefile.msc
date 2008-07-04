@@ -47,7 +47,7 @@ MODEL=-A$(ZIPMODEL)
 FP=
 # With the feature additions of Zip 3, the default data segment gets occupied
 # with too much initialized data to fit into 64k. As a workaround, for some
-# source files with large amount of message strings, -Gt<num> is used to 
+# source files with large amount of message strings, -Gt<num> is used to
 # force data items of size <num> or larger into their own data segments.
 COMMON_CFLAGS=-nologo -I. $(MODEL) $(FP) -DMSC $(LOC) -W3 -G$(CPU_TYP)
 CFLAGS=$(COMMON_CFLAGS) -Ox
@@ -64,7 +64,7 @@ ASFLAGS=-ml -t -D$(ASCPUFLAG) -D$(ASMODEL) $(LOC)
 # Supress -DDYN_ALLOC in ASFLAGS if you have suppressed it in CFLAGS
 
 LD=link
-LDFLAGS=/noi/farcall/packcode/e/st:0x1000/m
+LDFLAGS=/noi/farcall/packcode/e/st:0x1400/m
 #     If you use an exe packer as recommended below, remove /e from LDFLAGS
 
 # ------------- Common declarations:

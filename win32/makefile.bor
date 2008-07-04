@@ -1,7 +1,8 @@
 # Makefile for Zip, ZipCloak, ZipNote and ZipSplit for
 # Borland C++ for Win32.
 # By E-Yen Tan.
-# Last updated on 18 Dec 2005 by Cosmin Truta.
+# Updated on 18 Dec 2005 by Cosmin Truta.
+# Last updated on 22 Jun 2008 by Christian Spieler.
 
 # To use, do "make -fwin32\makefile.bor"
 
@@ -41,7 +42,7 @@ AS=tasm32
 !endif
 ASFLAGS=-ml -t -m2 -D$(ASCPUFLAG) $(LOC)
 
-LD=$(CC)
+LD=ilink32
 LDFLAGS=
 
 # variables
@@ -156,30 +157,33 @@ match32.obj:    win32/match32.asm
 	$(AS) $(ASFLAGS) win32\match32.asm, $@ ;
 !endif
 
-# Cut the command line to fit in the MS-DOS 128 byte limit:
-zip.exe: $(OBJZ)
-	echo $(OBJZ1) > zip.rsp
-	echo $(OBJZ2) >> zip.rsp
-	echo $(OBJZS) >> zip.rsp
-	$(LD) $(LDFLAGS) @zip.rsp
-	del zip.rsp
+zip.res:        win32/zip.rc revision.h
+	$(RC) /l 0x409 /fo$@ /i win32 /d WIN32 win32/zip.rc
+
+# Split the command line to fit in the MS-DOS 128 byte limit by using
+# Borland-Make specific response file syntax:
+zip.exe: $(OBJZ) zip.res
+	$(LD) -Gn -x -c -ap -Tpe @&&|
+c0x32.obj $(OBJZ),$@,,import32.lib cw32.lib,,zip.res
+|
 
 zipcloak.exe: $(OBJC)
-	echo $(OBJC) > zipc.rsp
-	$(LD) $(LDFLAGS) @zipc.rsp
-	del zipc.rsp
+	$(CC) $(LDFLAGS) @&&|
+$(OBJC)
+|
 
 zipnote.exe: $(OBJN)
-	echo $(OBJN) > zipn.rsp
-	$(LD) $(LDFLAGS) @zipn.rsp
-	del zipn.rsp
+	$(CC) $(LDFLAGS) @&&|
+$(OBJN)
+|
 
 zipsplit.exe: $(OBJS)
-	echo $(OBJS) > zips.rsp
-	$(LD) $(LDFLAGS) @zips.rsp
-	del zips.rsp
+	$(CC) $(LDFLAGS) @&&|
+$(OBJS)
+|
 
 clean:
 	-del *.obj
+	-del *.res
 	-del *.exe
 	-del *.tds

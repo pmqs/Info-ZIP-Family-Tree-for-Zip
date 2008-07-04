@@ -3388,3 +3388,73 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     windll/visualc/dll/zip32z64.dsp, windll/visualc/dll/zip32z64.dsw,
     windll/visualc/dll/zip32z64.mak, windll/visualc/libzip32z64.dsp,
     windll/visualc/libzip32z64.dsw, windll/visualc/libzip32z64.mak (Ed)
+------------------------ June 7th 2008 version 3.0i01 ----------------------
+ 1. Update Mac ReadMe to note Mac OS X uses Unix port.  macos/readme.1st (Ed)
+ 2. Change UNIX to Unix in manual.  Update dates in manual and add note
+    about Mac OS X. Change switch to switches.  zip.1 (SMS, Ed)
+ 3. Add version information under Windows by adding a version resource.
+    win32/vc6/zip.dsp, win32/vc6bz2/zip.dsp, win32/zip.rc (Ed)
+------------------------ June 15th 2008 version 3.0i02 ----------------------
+ 1. Update Install instructions.  INSTALL (Ed)
+ 2. Update ReadMe.  README (Ed)
+ 3. Update ToDo list.  TODO (Ed)
+ 4. Update WhatsNew.  WHATSNEW (Ed)
+ 5. Add note to WHERE.  WHERE (Ed)
+ 6. Update announcement.  zip30.ann (Ed)
+ 7. Review man pages and update Zip man page.  Compile text files from man
+    pages.  man/zip.1, zip.txt, zipnote.txt, zipsplit.txt, zipcloak.txt (Ed)
+ 8. Update extended help.  zip.c (Ed)
+------------------------ June 17th 2008 version 3.0i03 ----------------------
+ 1. Fix bug where UTF-8 flag was not being set when using_utf8 was set as
+    result of UTF-8 being current character set.  zipfile.c (Ed)
+ 2. Update man page globbing description.  man/zip.1, zip.txt (SMS, Ed)
+ 3. Update web address to bzip2 package for VMS.  vms/install_vms.txt (SMS)
+------------------------ June 21st 2008 version 3.0i04 ----------------------
+ 1. Update comments.  zbz2err.c (Christian)
+ 2. Put use_uname in UNICODE_SUPPORT block.  zipfile.c (Christian)
+ 3. Increase st to 0x1400.  msdos/makefile.msc (Christian)
+ 4. Update copyright and put @CodeSize and @DataSize into ifndef blocks for
+    Huge, Large, Compact, Medium, and Small.  msdos/match.asm (Christian)
+ 5. Add check to disable symbolic links.  msdos/osdep.h (Christian)
+ 6. Put Mac OS X compiler check into if Mac OS X block to avoid problems on
+    some other Unix ports with the check.  unix/configure (SMS)
+ 7. Move set_extra_field() to fix compile problem.  unix/unix.c (SMS)
+ 8. Update USEBZIP2 to USEBZ2 and -DUSE_BZIP2 to -DBZIP2_SUPPORT.  Drop
+    -DMSDOS compile flag.  win32/makefile.w32 (Christian)
+ 9. Change BZIP2_SUPPORT to USEBZ2.  win32/makenoas.w32 (Christian)
+------------------------ June 23rd 2008 version 3.0i05 ----------------------
+ 1. Update and unify resources.  Remove any MFC dependencies from the resource
+    files zip.rc and windll.rc.  win32/zip.rc and windll/windll.rc now read
+    the version info from revision.h.  windll.rc internal flags modified to
+    "32-bit dll".  zip.rc internal flags liberated from "winnt 32-bit"
+    to "generic 32-bit windows".  Win32 zip.exe also supported on Win9x
+    (32-bit).  Update makefiles for Borland, MSC, GCC(mingw32), Watcom
+    to support inclusion of zip.rc version resources into zip.exe binary.
+    revision.h, msdos/osdep.h, win32/makefile.bor, win32/makefile.gcc,
+    win32/makefile.w10, win32/makefile.w32, win32/makefile.wat,
+    win32/makenoas.w32, win32/zip.rc, windll/windll.rc (Christian)
+ 2. Remove unused files.  win32/resource.h, windll/resource.h,
+    windll/windll.aps, windll/zipver.h, windll/visualc/dll/zip32z64.mak,
+    windll/visualc/lib/zip32z64.mak (Christian)
+ 3. Update VMS.  vms/descrip_deps.mms (SMS)
+------------------------ June 26th 2008 version 3.0i06 ----------------------
+ 1. Update Install and Readme in preparation for release.  Update WhatsNew.
+    INSTALL, README, WHATSNEW (Ed)
+ 2. Update announcement.  zip30.ann (Ed)
+ 3. Update original Visual Basic project comments and documentation.
+    windll/vb/readmevb.txt, windll/vb/vbzip.vbp, windll/vb/vbzip.vbw,
+    windll/vb/vbzipbas.bas, windll/vb/vbzipfrm.frm (Ed)
+ 4. Add bzip2 version of djgpp 2.x makefile thanks to Robert.  Assumes a
+    standard djgpp installation.  msdos/makebz2.dj2 (Robert Riebisch, Ed)
+------------------------ June 27th 2008 version 3.0i07 ----------------------
+ 1. Add DJGPP to bzip2 install instructions.  bzip2/install.txt,
+    msdos/makebz2.dj2 (Robert, Ed)
+------------------------- July 5th 2008 version 3.0 -------------------------
+ 1. Add -sd to extended help.  zip.c (Will, Ed)
+ 2. Fix memory bug when rebuilding Zip64 central directory extra field which
+    can crash MinGW and other ports when processing large files.  zipfile.c
+    (Will)
+ 3. Fix -v bug preventing display of version information when options in
+    environment variables.  zip.c (Ed)
+ 4. Update WhatsNew.  WHATSNEW (Ed)
+ 5. Update announcement.  zip30.ann (Ed)

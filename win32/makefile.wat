@@ -1,5 +1,5 @@
 # WMAKE makefile for Windows 95 and Windows NT (Intel only)
-# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 07 Jan 2007.
+# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 22 Jun 2008.
 # Makes Zip.exe, ZipNote.exe, ZipCloak.exe, and ZipSplit.exe.
 #
 # Invoke from Zip source dir with "WMAKE -F WIN32\MAKEFILE.WAT [targets]"
@@ -72,9 +72,11 @@ ZIP_H = zip.h ziperr.h tailor.h win32\osdep.h
 cc     = wcc386
 link   = wlink
 asm    = wasm
+rc     = wrc
 # Use Pentium Pro timings, register args, static strings in code:
 cflags = -bt=NT -6r -zt -zq
 aflags = -bt=NT -mf -3 -zq
+rcflags= -bt=NT -DWIN32 -iwin32 -q
 lflags = sys NT
 cvars  = $+$(cvars)$- -DWIN32 $(variation)
 avars  = $+$(avars)$- -DWATCOM_DSEG $(variation)
@@ -103,8 +105,9 @@ n:   ZipNote.exe   .SYMBOLIC
 c:   ZipCloak.exe  .SYMBOLIC
 s:   ZipSplit.exe  .SYMBOLIC
 
-Zip.exe:	$(OBDIR) $(OBJZ)
+Zip.exe:	$(OBDIR) $(OBJZ) $(O)zip.res
 	$(link) $(lflags) $(ldebug) name $@ file {$(OBJZ)}
+	$(rc) $(O)zip.res $@
 
 ZipNote.exe:	$(OBDIR) $(OBJN)
 	$(link) $(lflags) $(ldebug) name $@ file {$(OBJN)}
@@ -174,6 +177,9 @@ $(O)win32_.obj:   win32\win32.c $(ZIP_H) win32\win32zip.h
 
 $(O)win32i64_.obj:   win32\win32i64.c $(ZIP_H)
 	$(cc) $(cdebug) $(cflags) $(cvars) -DUTIL win32\win32i64.c -fo=$@
+
+$(O)zip.res:	  win32\zip.rc revision.h
+	$(rc) -r $(rcflags) -fo=$@ win32\zip.rc
 
 # Creation of subdirectory for intermediate files
 $(OBDIR):

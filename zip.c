@@ -886,16 +886,19 @@ local void help_extended()
 "  If no input files and --out, copy all entries in old archive:",
 "    zip old_archive --out new_archive",
 "",
-"Streaming:",
+"Streaming and FIFOs:",
 "  prog1 | zip -ll z -      zip output of prog1 to zipfile z, converting CR LF",
 "  zip - -R \"*.c\" | prog2   zip *.c files in current dir and stream to prog2 ",
 "  prog1 | zip | prog2      zip in pipe with no in or out acts like zip - -",
-"  If Zip is Zip64 enabled, streaming stdin to a non-seekable device creates",
-"   Zip64 archives by default that need PKZip 4.5 unzipper like UnZip 6.0",
+"  If Zip is Zip64 enabled, streaming stdin creates Zip64 archives by default",
+"   that need PKZip 4.5 unzipper like UnZip 6.0",
 "  WARNING:  Some archives created with streaming use data descriptors and",
 "            should work with most unzips but may not work with some",
-"  Zip now can read and write (?) Unix FIFO (named pipes).  Off by default to",
-"  prevent zip from stopping unexpectedly on unfed pipe, use -FI to enable:",
+"  Can use -fz- to turn off Zip64 if input not large (< 4 GB):",
+"    prog_with_small_output | zip archive -fz-",
+"",
+"  Zip now can read Unix FIFO (named pipes).  Off by default to prevent zip",
+"  from stopping unexpectedly on unfed pipe, use -FI to enable:",
 "    zip -FI archive fifo",
 "",
 "Dots, counts:",
@@ -985,12 +988,12 @@ local void help_extended()
 "  to match files in archive.",
 "",
 "  Zip now stores UTF-8 in entry path and comment fields on systems",
-"  where UTF-8 char set is default, such as on most modern Unix systems,",
-"  and UTF-8 in new extra fields, and an escaped version in standard",
-"  path and comment, on other systems for backward compatibility.",
-"  Option -UN=UTF8 will force storing UTF-8 in standard path and comment",
-"  field:",
-"      -UN=UTF8     - force storing UTF-8 for standard path and comment",
+"  where UTF-8 char set is default, such as most modern Unix, and",
+"  and on other systems in new extra fields with escaped versions in",
+"  entry path and comment fields for backward compatibility.",
+"  Option -UN=UTF8 will force storing UTF-8 in entry path and comment",
+"  fields:",
+"      -UN=UTF8     - store UTF-8 in entry path and comment fields",
 "  This option can be useful for multi-byte char sets on Windows where",
 "  escaped paths and comments can be too long to be valid as the UTF-8",
 "  versions tend to be shorter.",
@@ -1016,6 +1019,7 @@ local void help_extended()
 "             are skipped OPEN error (18) returned after archive created)",
 "  -nw       no wildcards (wildcards are like any other character)",
 "  -sc       show command line arguments as processed and exit",
+"  -sd       show debugging as Zip does each step",
 "  -so       show all available options on this system",
 "  -X        default=strip old extra fields, -X- keep old, -X strip most",
 "  -ws       wildcards don't span directory boundaries in paths",
@@ -2540,15 +2544,14 @@ char **argv;            /* command line tokens */
   /* First, check if just the help or version screen should be displayed */
   if (argc == 1 && isatty(1))   /* no arguments, and output screen available */
   {                             /* show help screen */
-#ifdef VMSCLI
+# ifdef VMSCLI
     VMSCLI_help();
-#else
+# else
     help();
-#endif
+# endif
     EXIT(ZE_OK);
   }
-  /* Now do version as normal argument */
-#if 0
+  /* Check -v here as env arg can change argc.  Handle --version in main switch. */
   else if (argc == 2 && strcmp(argv[1], "-v") == 0 &&
            /* only "-v" as argument, and */
            (isatty(1) || isatty(0)))
@@ -2557,7 +2560,6 @@ char **argv;            /* command line tokens */
     version_info();
     EXIT(ZE_OK);
   }
-#endif
 # ifndef VMS
 #   ifndef RISCOS
   envargs(&argc, &argv, "ZIPOPT", "ZIP");  /* get options from environment */
@@ -3124,9 +3126,8 @@ char **argv;            /* command line tokens */
           break;
         case 'v':        /* Either display version information or */
         case o_ve:       /* Mention oddities in zip file structure */
-          if (argcnt == 2 &&
-              (strlen(args[1]) == 2 ||  /* -v only */
-               option == o_ve)) {       /* --version */
+          if (option == o_ve ||      /* --version */
+              (argcnt == 2 && strlen(args[1]) == 2)) { /* -v only */
             /* display version */
 #ifndef WINDLL
             version_info();

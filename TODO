@@ -1,64 +1,63 @@
-This file is out of date, but will take some work to verify what has been done and
-what should still be on the list.  This may be updated by release of Zip 3.0.  See
-WhatsNew for the list of implemented features.  26 May 2008
+Todo list (last updated 12 June 2008).
 
+Features for next official version:
 
-Main features still missing for next official version (last updated 24 March 2008):
+- Extended attributes for Windows, Linux, and Mac OS X.
+- Win32 ACL rewrite to use backup api to create new and more useful extra
+  field (need unzip support) (Kai).
+- Allow -d@ to read in a list of names to delete (11/17/2005).
+- AES encryption (3/19/05).
 
-(Feature set for Zip 3.0 is mostly frozen and ready for release, so this
-is more for Zip 3.1 and later.)
+Features that may make the next release:
 
-- Fix -W option that prevents * from spanning / in paths (done?) (5/9/2005)
-- Verbose -v still needs work (done?) (5/17/2006)
+- Allow reading in list of files using @filename.
 - When -R, -x, or -i pattern ends in a directory add / to the end
-      (11/5/2004 Nehal)
+      (11/5/2004 Nehal).
+- Decide if -R, -i and -x should use external rather than internal patterns.
+      Also, change pattern matching to not do ex2in() and then in2ex() if
+      appropriate.  (12/26/2005 SMS)
+- Though Unicode paths have been implemented and tested, Unicode comments
+      are not yet supported (except for comments on UTF-8 native systems which
+      are supported).
+- Verbose mode -v may still need work.
+
+- Add C# example for Zip 3.0 (need to be converted to new DLLs) - original
+      C# example added with note.
+- Path Prefix maybe, so entries added to an archive can have a directory
+      path string prepended to each path so can zip multiple drives and avoid
+      name conflicts (4/17/2006).
+- UNC paths like \\server\path (4/26/2005).
+- Support for other languages maybe.
+
 - Add About page option similar to -h2 and -v but lists Info-ZIP
-      information (could be -sa) (4/29/2006)
-- Update utilities ZipSplit, ZipNote, and ZipCloak, still more to do (3/16/2006)
-- Update ziperr and finish (could be done)
-- Review memory allocation and fill in memory leaks, mainly for
-      dll (some done)
-- Fix -F and -FF to handle split archives, make more robust (done?)
+      information (could be -sa) (4/29/2006).
+- Update utilities ZipSplit, ZipNote, and ZipCloak to handle split archives.
+- Update ziperr and finish if needed.
+- Review memory allocation and fill in memory leaks if any.
 - Enhance -FF to fix common problems such as archives ftp in text mode
       and fixing checksums so entries can be extracted if that makes
-      sense (6/17/2007)
+      sense (6/17/2007).
 - Add \ to / conversion in zipsplit to fix problem in
-      1/29/2004 email
-- Encryption bug with small stored file (12/27/2005) (fixed?)
+      1/29/2004 email.
+- Encryption bug with small stored file (12/27/2005) (fixed?).
+
 - When updating large archives with few entries being
-  updated maybe display something in large periods of
-  quiet (1/23/2006)
-- Windows OEM comments (5/17/2006)
-- Change pattern matching to not do ex2in() and then in2ex()
-      (12/26/2005 SMS)
-- Example of using MVS zip and unzip (3/30/2004)
+      updated maybe display something in large periods of
+      quiet (1/23/2006).
+- Windows OEM comments (5/17/2006).
+- Example of using MVS zip and unzip (3/30/2004) (Need one).
 - UTF-8 comments need to be implemented (6/17/2007)
-- Maybe way to prefix entries with string so can zip multiple drives
-      and avoid name conflicts (4/17/2006)
-- Maybe convert ../ in archive (5/20/2006)
-- Extended file attributes (1/23/2006)
-- Could turn off [] matching on Windows (done)
-- Per so many buffers dll callback (12/23/2005 Ale)
-- Replace mktemp with mkstemp (some ports like Win32 do not have mkstemp
-      so need to do based on port) but mkstemp returns open file handle
-      (done for Unix)
-- Allow -d@ to read in a list of names to delete (11/17/2005)
-- Allow rename stdin "-" to something else (12/27/2005 gregor)
-- Win32 ACL rewrite to use backup api to create new and more useful extra
-  field (need unzip support) (Kai)
-- Possible buffer overrun weaknesses while reading zip files
-- UNC paths like \\server\path (4/26/2005)
-- Maybe option to allow case insensitive matching of file names (would
-      require handling possible duplicate entries as names are now
-      case sensitive) (1/28/2005) (done, option -ic)
-- Do Active Template Library (ATL) (4/27/2005)
-- AES encryption (3/19/05)
-- Flush Win16 support - to be determined (Mike)
+- Maybe convert ../ in archive (5/20/2006).
+- Per so many buffers dll callback (12/23/2005 Ale).
+- Allow rename stdin "-" to something else (12/27/2005 gregor).
+- Check for possible buffer overrun weaknesses while reading zip files.
+- Do Active Template Library (ATL) (4/27/2005).
+- Flush Win16 support - to be determined (Mike).
 - Way to convert file names on input, converting foo.c to dir/foo_bar.c
-      for instance (4/8/2004, 3/12/2004)
-- French WiZ (not a Zip thing actually but dependent on zip and unzip)
+      for instance (4/8/2004, 3/12/2004).
+- French WiZ (not a Zip thing actually but dependent on zip and unzip).
 - Then there is that wierd ^D being converted to \000 error reported
-      in 6/21/2003 email when Zip is outputted into a pipe on Windows ports
+      in 6/21/2003 email when Zip is outputted into a pipe on Windows ports.
 
 Old list:
 

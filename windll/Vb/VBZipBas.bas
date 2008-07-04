@@ -36,11 +36,13 @@ Option Explicit
 '--
 '---------------------------------------------------------------
 '
-' This is the original example with some small changes. Only
-' use with the original Zip32.dll (Zip 2.3).  Do not use this VB
-' example with Zip32z64.dll (Zip 3.0).
+' This is the original example with some small changes.  Only
+' use with the original Zip32.dll (compiled from Zip 2.31 or
+' later).  Do not use this VB example with Zip32z64.dll
+' (compiled from Zip 3.0).  To check the version of a dll,
+' right click on the file and check properties.
 '
-' 4/29/2004 Ed Gordon
+' 6/24/2008 Ed Gordon
 
 '---------------------------------------------------------------
 ' Usage notes:
@@ -62,9 +64,10 @@ Option Explicit
 ' can result in unpredictable behavior.  A kluge is available
 ' for Zip32.dll, just replacing api.c in Zip 2.3, but better to just
 ' use the new Zip32z64.dll where these bugs are fixed.  However,
-' the kluge has been added to Zip 2.31.  To determine the version
-' of the dll you have right click on it, select the Version tab,
-' and verify the Product Version is at least 2.31.
+' the kluge has been added to Zip 2.31 and later and these are
+' now stable.  To determine the version of the dll you have
+' right click on it, select the Version tab, and verify the
+' Product Version is at least 2.31.
 '
 ' Another bug is where -R is used with some other options and can
 ' crash the dll.  This is a bug in how zip processes the command
@@ -86,7 +89,7 @@ Option Explicit
 ' If you have any questions please contact Info-Zip at
 ' http://www.info-zip.org.
 '
-' 4/29/2004 EG (Updated 3/1/2005 EG)
+' 4/29/2004 EG (Updated 3/1/2005, 6/24/2008 EG)
 '
 '---------------------------------------------------------------
 

@@ -1189,8 +1189,8 @@ local int add_central_zip64_extra_field(pZipListEntry)
         }
         len = (extent)(pExtraFieldPtr - pZipListEntry->cextra);
         memcpy(pTemp, pZipListEntry->cextra, len);
-        len = pZipListEntry->cext - oldefsize - len;
-        memcpy(pTemp + len, pExtraFieldPtr + oldefsize, len);
+        memcpy(pTemp + len, pExtraFieldPtr + oldefsize,
+          pZipListEntry->cext - oldefsize - len);
         pZipListEntry->cext -= oldefsize;
         pExtraFieldPtr = pTemp + pZipListEntry->cext;
         pZipListEntry->cext += efsize;
@@ -5306,7 +5306,7 @@ int putlocal(z, rewrite)
   int was_zip64 = 0;
 
   /* If input is stdin then streaming stdin.  No problem with that.
-  
+
      The problem is updating the local header data in the output once the sizes
      and crc are known.  If the output is not seekable, then need data descriptors
      and also need to assume Zip64 will be needed as don't know yet.  Even if the
@@ -5396,9 +5396,10 @@ int putlocal(z, rewrite)
   z->flg &= ~UTF8_BIT;
   z->lflg &= ~UTF8_BIT;
 # endif
+
   if (z->uname) {
     /* need UTF-8 name */
-    if (utf8_force) {
+    if (utf8_force || using_utf8) {
       z->lflg |= UTF8_BIT;
       z->flg |= UTF8_BIT;
     }
@@ -5630,7 +5631,9 @@ int putcentral(z)
   extent blocksize = 0; /* size of block */
   uzoff_t off = 0;      /* offset to start of local header */
   ush nam = z->nam;     /* size of name to write to header */
+#ifdef UNICODE_SUPPORT
   int use_uname = 0;    /* write uname to header */
+#endif
 
 #ifdef ZIP64_SUPPORT        /* zip64 support 09/02/2003 R.Nausedat */
   int iRes;

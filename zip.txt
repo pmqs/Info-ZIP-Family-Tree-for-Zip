@@ -21,7 +21,7 @@ SYNOPSIS
 DESCRIPTION
        zip  is  a compression and file packaging utility for Unix, VMS, MSDOS,
        OS/2, Windows 9x/NT/XP, Minix, Atari, Macintosh, Amiga, and Acorn  RISC
-       OS.   It  is analogous to a combination of the UNIX commands tar(1) and
+       OS.   It  is analogous to a combination of the Unix commands tar(1) and
        compress(1) and is compatible with PKZIP (Phil  Katz's  ZIP  for  MSDOS
        systems).
 
@@ -46,9 +46,11 @@ DESCRIPTION
        taining  Zip64 entries is updated (if the resulting archive still needs
        Zip64), the size of the archive will exceed 4 GB, or when the number of
        entries  in  the archive will exceed about 64K.  Zip64 is also used for
-       archives streamed to a non-seekable output device.  You must use a  4.5
-       compatible  unzip  to  extract files using the Zip64 extensions such as
-       unzip 6.0 or later.
+       archives streamed from standard input as the size of such archives  are
+       not  known  in advance, but the option -fz- can be used to force zip to
+       create PKZIP 2 compatible archives (as long as Zip64 extensions are not
+       needed).   You must use a PKZIP 4.5 compatible unzip, such as unzip 6.0
+       or later, to extract files using the Zip64 extensions.
 
        In addition, streamed archives, entries encrypted with standard encryp-
        tion,  or  split archives created with the pause option may not be com-
@@ -57,13 +59,19 @@ DESCRIPTION
        in the PKWare published zip standard now include some support  for  the
        data descriptor format zip uses).
 
+       Mac  OS  X.   Though  previous Mac versions had their own zip port, zip
+       supports Mac OS X as part of the  Unix  port  and  most  Unix  features
+       apply.   References  to "MacOS" below generally refer to MacOS versions
+       older than OS X.  Support for some Mac OS features in the Unix Mac OS X
+       port, such as resource forks, is expected in the next zip release.
+
        For  a  brief  help  on  zip and unzip, run each without specifying any
        parameters on the command line.
 
 USE
        The program is useful for packaging a set of  files  for  distribution;
-       for   archiving  files;  and  for  saving  disk  space  by  temporarily
-       compressing unused files or directories.
+       for archiving files; and for saving disk space by temporarily compress-
+       ing unused files or directories.
 
        The zip program puts one or more compressed files  into  a  single  zip
        archive, along with information about the files (name, path, date, time
@@ -108,7 +116,7 @@ USE
 
                file1 file3
 
-       then after the zip command foo.zip will have:
+       then foo.zip will have:
 
                foo/file1 foo/file2 foo/file3
 
@@ -122,7 +130,7 @@ USE
 
        will store the files listed one per line on stdin in foo.zip.
 
-       Under  UNIX,  this option can be used to powerful effect in conjunction
+       Under  Unix,  this option can be used to powerful effect in conjunction
        with the find (1) command.  For example, to archive all  the  C  source
        files in the current directory and its subdirectories:
 
@@ -149,7 +157,7 @@ USE
 
        would compress the output of the tar command for the purpose of backing
        up  the  current  directory. This generally produces better compression
-       than the previous example using the -r option,  because  zip  can  take
+       than the previous example using the -r  option  because  zip  can  take
        advantage of redundancy between files. The backup can be restored using
        the command
 
@@ -170,16 +178,22 @@ USE
        provided in the gzip package (but some gunzip may not support  this  if
        zip used the Zip64 extensions). For example:
 
-       dd if=/dev/nrst0  ibs=16k | funzip | tar xvf -
+              dd if=/dev/nrst0  ibs=16k | funzip | tar xvf -
 
        The stream can also be saved to a file and unzip used.
 
        If  Zip64  support  for  large files and archives is enabled and zip is
        used as a filter, zip creates a Zip64 archive that requires a PKZIP 4.5
        or  later compatible unzip to read it.  This is to avoid amgibuities in
-       the zip file structure as defined.  zip 3 and  unzip 6  and  later  can
-       read  these  archives.   Also,  zip removes the Zip64 extensions if not
-       needed when archive entries are copied (see the -U (--copy) option).
+       the zip file structure as defined in the current zip  standard  (PKWARE
+       AppNote)  where  the decision to use Zip64 needs to be made before data
+       is written for the entry, but for a stream the size of the data is  not
+       known at that point.  If the data is known to be smaller than 4 GB, the
+       option -fz- can be used to prevent use of Zip64, but zip will exit with
+       an  error if Zip64 was in fact needed.  zip 3 and unzip 6 and later can
+       read archives with Zip64 entries.  Also, zip removes the  Zip64  exten-
+       sions  if  not  needed  when  archive  entries  are  copied (see the -U
+       (--copy) option).
 
        When directing the output to another file, note that all options should
        be before the redirection including -x.  For example:
@@ -243,10 +257,10 @@ USE
 
        copy (-U)
               Select entries in an existing archive and copy  them  to  a  new
-              archive.   This new mode is similar to update but entries in the
-              existing archive are selected by command  line  patterns  rather
-              than  files from the file system and it uses the --out option to
-              write the resulting archive to a new file rather than update the
+              archive.   This  new  mode is similar to update but command line
+              patterns select entries in  the  existing  archive  rather  than
+              files from the file system and it uses the --out option to write
+              the resulting archive to a  new  file  rather  than  update  the
               existing archive, leaving the original archive unchanged.
 
        The new File Sync option (-FS) is also considered a new mode, though it
@@ -265,11 +279,10 @@ USE
        Split archives.  zip version 3.0 and later can create  split  archives.
        A  split  archive  is a standard zip archive split over multiple files.
        (Note that split archives are not just archives split in to pieces,  as
-       the  offsets  of  entries  are  now  based  on the start of each split.
-       Concatenating the pieces together will invalidate  these  offsets,  but
-       unzip  can  usually  deal  with it.  zip will usually refuse to process
-       such a spliced archive unless the -FF fix option is  used  to  fix  the
-       offsets.)
+       the  offsets of entries are now based on the start of each split.  Con-
+       catenating the pieces together will invalidate these offsets, but unzip
+       can  usually  deal  with it.  zip will usually refuse to process such a
+       spliced archive unless the -FF fix option is used to fix the  offsets.)
 
        One use of split archives is storing a large archive on multiple remov-
        able media.  For a split archive with 20 split files the files are typ-
@@ -322,7 +335,7 @@ USE
 
        Be aware that console windows on Win32 and Unix, for example, sometimes
        don't  accurately  show all characters due to how each operating system
-       switch in character sets for display.   However,  directory  navigation
+       switches in character sets for display.  However, directory  navigation
        tools should show the correct paths if the needed fonts are loaded.
 
        Command line format.  This version of zip has updated command line pro-
@@ -366,11 +379,11 @@ USE
        can have a value (option argument) specified by preceeding  it  with  =
        (no spaces).  Values can also follow the argument.  So
 
-              --longoption=value
+              --before-date=mmddyyyy
 
        and
 
-              --longoption value
+              --before-date mmddyyyy
 
        both work.
 
@@ -397,7 +410,7 @@ OPTIONS
               ble" data.
 
        Note: self-extracting archives for the Amiga are a  special  case.   At
-       present, only the Amiga port of Zip is capable of adjusting or updating
+       present, only the Amiga port of zip is capable of adjusting or updating
        these without corrupting them. -J can be used to remove the SFX stub if
        other updates need to be made.
 
@@ -566,7 +579,8 @@ OPTIONS
 
        -dv
        --display-volume
-              Display the volume (disk) number each entry is being written to.
+              Display the volume (disk) number each entry is being read  from,
+              if reading an existing archive, and being written to.
 
        -D
        --no-dir-entries
@@ -596,11 +610,10 @@ OPTIONS
 
        -DF
        --difference-archive
-              Create  an  incremental backup of an archive where the resulting
-              archive will contain all new and changed files since the  origi-
-              nal  archive was created.  For this to work, the input file list
-              and current directory must be the same as  during  the  original
-              zip operation.
+              Create  an archive that contains all new and changed files since
+              the original archive was created.  For this to work,  the  input
+              file  list  and current directory must be the same as during the
+              original zip operation.
 
               For example, if the existing archive was created using
 
@@ -611,48 +624,58 @@ OPTIONS
                      zip -r foofull . -DF --out foonew
 
               also from the bar directory creates the archive foonew with just
-              the files not in foofull and the files where the  size  or  file
+              the  files  not  in foofull and the files where the size or file
               time of the files do not match those in foofull.
+
+              Note that the timezone environment variable  TZ  should  be  set
+              according to the local timezone in order for this option to work
+              correctly.  A change in timezone since the original archive  was
+              created  could  result  in no times matching and all files being
+              included.
+
+              A possible approach to backing up a directory might be to create
+              a  normal  archive  of  the  contents of the directory as a full
+              backup, then use this option to create incremental backups.
 
        -e
        --encrypt
-              Encrypt  the  contents of the zip archive using a password which
-              is entered on the terminal in response to a  prompt  (this  will
-              not  be  echoed;  if  standard error is not a tty, zip will exit
-              with an error).  The password prompt is  repeated  to  save  the
+              Encrypt the contents of the zip archive using a  password  which
+              is  entered  on  the terminal in response to a prompt (this will
+              not be echoed; if standard error is not a  tty,  zip  will  exit
+              with  an  error).   The  password prompt is repeated to save the
               user from typing errors.
 
        -E
        --longnames
-              [OS/2]  Use the .LONGNAME Extended Attribute (if found) as file-
+              [OS/2] Use the .LONGNAME Extended Attribute (if found) as  file-
               name.
 
        -f
        --freshen
-              Replace (freshen) an existing entry in the zip archive  only  if
-              it  has  been modified more recently than the version already in
+              Replace  (freshen)  an existing entry in the zip archive only if
+              it has been modified more recently than the version  already  in
               the zip archive; unlike the update option (-u) this will not add
               files that are not already in the zip archive.  For example:
 
                      zip -f foo
 
-              This  command  should  be run from the same directory from which
-              the original zip command was run,  since  paths  stored  in  zip
+              This command should be run from the same  directory  from  which
+              the  original  zip  command  was  run, since paths stored in zip
               archives are always relative.
 
-              Note  that  the  timezone  environment variable TZ should be set
-              according to the local timezone in order for the -f, -u  and  -o
+              Note that the timezone environment variable  TZ  should  be  set
+              according  to  the local timezone in order for the -f, -u and -o
               options to work correctly.
 
-              The  reasons behind this are somewhat subtle but have to do with
-              the differences between the Unix-format file  times  (always  in
+              The reasons behind this are somewhat subtle but have to do  with
+              the  differences  between  the Unix-format file times (always in
               GMT) and most of the other operating systems (always local time)
-              and the necessity to compare the two.  A  typical  TZ  value  is
-              ``MET-1MEST''  (Middle  European  time with automatic adjustment
+              and  the  necessity  to  compare the two.  A typical TZ value is
+              ``MET-1MEST'' (Middle European time  with  automatic  adjustment
               for ``summertime'' or Daylight Savings Time).
 
-              The format is TTThhDDD, where TTT is the time zone such as  MET,
-              hh  is  the  difference  between  GMT  and local time such as -1
+              The  format is TTThhDDD, where TTT is the time zone such as MET,
+              hh is the difference between GMT  and  local  time  such  as  -1
               above, and DDD is the time zone when daylight savings time is in
               effect.  Leave off the DDD if there is no daylight savings time.
               For the US Eastern time zone EST5EDT.
@@ -661,11 +684,16 @@ OPTIONS
        --fix
        -FF
        --fixfix
-              Fix the zip archive. The -F option can be used if some  portions
-              of  the  archive  are  missing, but requires a reasonably intact
-              central directory.  The input archive is scanned as  usual,  but
-              zip  will ignore some problems.  The resulting archive should be
+              Fix  the zip archive. The -F option can be used if some portions
+              of the archive are missing, but  requires  a  reasonably  intact
+              central  directory.   The input archive is scanned as usual, but
+              zip will ignore some problems.  The resulting archive should  be
               valid, but any inconsistent entries will be left out.
+
+              When  doubled  as in -FF, the archive is scanned from the begin-
+              ning and zip scans for special signatures to identify the limits
+              between  the  archive members. The single -F is more reliable if
+              the archive is not too much damaged, so try this option first.
 
               If the archive is too damaged or the end has been truncated, you
               must  use  -FF.   This  is  a change from zip 2.32, where the -F
@@ -674,25 +702,27 @@ OPTIONS
               option is needed to fix archives where -F might have been suffi-
               cient before.
 
-              When  doubled  as in -FF, the archive is scanned from the begin-
-              ning and zip scans for special signatures to identify the limits
-              between  the  archive members. The single -F is more reliable if
-              the archive is not too much damaged, so try this option first.
-
-              Neither option will recover archives that have been  incorrectly
-              transferred  in  ascii mode instead of binary. After the repair,
-              the -t option of unzip may show that some files have a bad  CRC.
-              Such  files  cannot  be  recovered; you can remove them from the
+              Neither  option will recover archives that have been incorrectly
+              transferred in ascii mode instead of binary. After  the  repair,
+              the  -t option of unzip may show that some files have a bad CRC.
+              Such files cannot be recovered; you can  remove  them  from  the
               archive using the -d option of zip.
 
-              The format of the fix commands have changed.   For  example,  to
+              Note  that  -FF may have trouble fixing archives that include an
+              embedded zip archive that was stored  (without  compression)  in
+              the  archive  and,  depending  on  the  damage,  it may find the
+              entries in the embedded archive rather than the archive  itself.
+              Try -F first as it does not have this problem.
+
+              The  format  of  the fix commands have changed.  For example, to
               fix the damaged archive foo.zip,
 
                      zip -F foo --out foofix
 
-              tries  to read the entries normally, copying good entries to the
-              new archive foofix.zip.  If  this  doesn't  work,  as  when  the
-              archive is truncated, or some entries are missed, then try
+              tries to read the entries normally, copying good entries to  the
+              new  archive  foofix.zip.   If  this  doesn't  work, as when the
+              archive is truncated, or if some entries you  know  are  in  the
+              archive are missed, then try
 
                      zip -FF foo --out foofixfix
 
@@ -710,7 +740,7 @@ OPTIONS
               checksum or are otherwise damaged.
 
        -FI
-       --fifo [UNIX]  Normally zip  skips  reading  any  FIFOs  (named  pipes)
+       --fifo [Unix]  Normally zip  skips  reading  any  FIFOs  (named  pipes)
               encountered, as zip can hang if the FIFO is not being fed.  This
               option tells zip to read the contents of any FIFO it finds.
 
@@ -729,38 +759,45 @@ OPTIONS
               is deleted.  Enabling this option should  create  archives  that
               are  the  same  as  new archives, but since existing entries are
               copied instead of compressed, updating an existing archive  with
-              -FS can be much faster than creating a new archive.
+              -FS  can  be much faster than creating a new archive.  Also con-
+              sider using -u for updating an archive.
 
-              For  this option to work, the archive should be updated from the
-              same directory it was created in so the  relative  paths  match.
-              If  few  files  are being copied from the old archive, it may be
+              For this option to work, the archive should be updated from  the
+              same  directory  it  was created in so the relative paths match.
+              If few files are being copied from the old archive,  it  may  be
               faster to create a new archive instead.
 
+              Note  that  the  timezone  environment variable TZ should be set
+              according to the local timezone in order for this option to work
+              correctly.   A change in timezone since the original archive was
+              created could result in no times matching and  recompression  of
+              all files.
+
               This option deletes files from the archive.  If you need to pre-
-              serve  the original archive, make a copy of the archive first or
-              use the --out option to output the  updated  archive  to  a  new
+              serve the original archive, make a copy of the archive first  or
+              use  the  --out  option  to  output the updated archive to a new
               file.  Even though it may be slower, creating a new archive with
-              a new archive name is safer, avoids mismatches  between  archive
+              a  new  archive name is safer, avoids mismatches between archive
               and OS paths, and is preferred.
 
        -g
        --grow
-              Grow  (append to) the specified zip archive, instead of creating
-              a new one. If this operation fails, zip attempts to restore  the
-              archive  to  its  original  state. If the restoration fails, the
-              archive might become corrupted.  This  option  is  ignored  when
-              there's  no existing archive or when at least one archive member
+              Grow (append to) the specified zip archive, instead of  creating
+              a  new one. If this operation fails, zip attempts to restore the
+              archive to its original state. If  the  restoration  fails,  the
+              archive  might  become  corrupted.  This  option is ignored when
+              there's no existing archive or when at least one archive  member
               must be updated or deleted.
 
        -h
        -?
        --help
-              Display the zip help information (this also appears  if  zip  is
+              Display  the  zip  help information (this also appears if zip is
               run with no arguments).
 
        -h2
        --more-help
-              Display  extended  help  including  more on command line format,
+              Display extended help including more  on  command  line  format,
               pattern matching, and more obscure options.
 
        -i files
@@ -769,23 +806,23 @@ OPTIONS
 
                      zip -r foo . -i \*.c
 
-              which will include only the files that end in .c in the  current
-              directory  and  its  subdirectories.  (Note for PKZIP users: the
+              which  will include only the files that end in .c in the current
+              directory and its subdirectories. (Note  for  PKZIP  users:  the
               equivalent command is
 
                      pkzip -rP foo *.c
 
-              PKZIP does not allow recursion in  directories  other  than  the
+              PKZIP  does  not  allow  recursion in directories other than the
               current one.)  The backslash avoids the shell filename substitu-
-              tion, so that the name matching  is  performed  by  zip  at  all
-              directory  levels.   [This is for Unix and other systems where \
-              escapes the next character.  For other systems where  the  shell
+              tion,  so  that  the  name  matching  is performed by zip at all
+              directory levels.  [This is for Unix and other systems  where  \
+              escapes  the  next character.  For other systems where the shell
               does not process * do not use \ and the above is
 
                      zip -r foo . -i *.c
 
-              Examples  are  for  Unix  unless  otherwise  specified.]   So to
-              include dir, a directory directly under the  current  directory,
+              Examples are  for  Unix  unless  otherwise  specified.]   So  to
+              include  dir,  a directory directly under the current directory,
               use
 
                      zip -r foo . -i dir/\*
@@ -794,12 +831,12 @@ OPTIONS
 
                      zip -r foo . -i "dir/*"
 
-              to  match paths such as dir/a and dir/b/file.c [on ports without
+              to match paths such as dir/a and dir/b/file.c [on ports  without
               wildcard expansion in the shell such as MSDOS and Windows
 
                      zip -r foo . -i dir/*
 
-              is used.]  Note that currently the  trailing  /  is  needed  for
+              is  used.]   Note  that  currently  the trailing / is needed for
               directories (as in
 
                      zip -r foo . -i dir/
@@ -812,11 +849,12 @@ OPTIONS
 
               and does the same thing as the short option form.
 
-              Though the command syntax used to require -i or --include at the
-              end of the command line, this version actually allows them  any-
-              where.  The list of files terminates at the next argument start-
-              ing with -, the end of the command line, or the list  terminator
-              @ (an argument that is just @).  So the above can be given as
+              Though the command syntax used to require -i at the end  of  the
+              command  line,  this  version  actually allows -i (or --include)
+              anywhere.  The list of files terminates  at  the  next  argument
+              starting with -, the end of the command line, or the list termi-
+              nator @ (an argument that is just @).  So the above can be given
+              as
 
                      zip -i \*.c @ -r foo .
 
@@ -866,13 +904,13 @@ OPTIONS
               option is only available on systems where the case of  files  is
               ignored.  On systems with case-insensitive file systems, case is
               normally ignored when matching files on the file system  but  is
-              not  ignored  for modes -f (freshen), -d (delete), and -U (copy)
-              when matching against archive entries (currently -f also ignores
-              case  on  VMS) because archive entries can be from systems where
-              case does matter and names that are the same except for case can
-              exist  in  an  archive.   The -ic option makes all matching case
-              insensitive.  This can result in multiple archive entries match-
-              ing a command line pattern.
+              not  ignored for -f (freshen), -d (delete), -U (copy), and simi-
+              lar modes when matching against archive  entries  (currently  -f
+              ignores case on VMS) because archive entries can be from systems
+              where case does matter and names that are the  same  except  for
+              case can exist in an archive.  The -ic option makes all matching
+              case insensitive.  This can result in multiple  archive  entries
+              matching a command line pattern.
 
        -j
        --junk-paths
@@ -894,7 +932,7 @@ OPTIONS
        --DOS-names
               Attempt  to  convert  the  names  and paths to conform to MSDOS,
               store only the MSDOS attribute (just the  user  write  attribute
-              from  UNIX), and mark the entry as made under MSDOS (even though
+              from  Unix), and mark the entry as made under MSDOS (even though
               it was not); for compatibility with PKUNZIP  under  MSDOS  which
               cannot handle certain names such as those with two dots.
 
@@ -1124,8 +1162,8 @@ OPTIONS
               subset of the files in directory foo and its subdirectories, use
               the  -i  option  to specify the pattern of files to be included.
               You should not use -r with the name  ".*",  since  that  matches
-              ".."   which  will  attempt  to  zip  up  the  parent  directory
-              (probably not what was intended).
+              ".."   which will attempt to zip up the parent directory (proba-
+              bly not what was intended).
 
               Multiple source directories are allowed as in
 
@@ -1467,9 +1505,9 @@ OPTIONS
               forces  zip  to store UTF-8 as native in the archive.  Note that
               storing UTF-8 directly is the default on Unix systems that  sup-
               port  it.   This option could be useful on Windows systems where
-              the escaped path is too large and the UTF-8 version of the  path
-              is  smaller, but native UTF-8 is not backward compatible on Win-
-              dows systems.
+              the escaped path is too large to be a valid path and  the  UTF-8
+              version of the path is smaller, but native UTF-8 is not backward
+              compatible on Windows systems.
 
        -v
        --verbose
@@ -1510,14 +1548,15 @@ OPTIONS
        -w
        --VMS-versions
               [VMS] Append the version  number  of  the  files  to  the  name,
-              including  multiple  versions  of files.  (default: use only the
-              most recent version of a specified file).
+              including  multiple  versions  of files.  Default is to use only
+              the most recent version of a specified file.
 
        -ww
        --VMS-dot-versions
               [VMS] Append the version  number  of  the  files  to  the  name,
               including  multiple  versions  of  files, using the .nnn format.
-              (default: use only the most recent version of a specified file).
+              Default is to use only the most recent version  of  a  specified
+              file.
 
        -ws
        --wild-stop-dirs
@@ -1598,29 +1637,31 @@ OPTIONS
 
        -y
        --symlinks
-              Store symbolic links as such in the zip archive, instead of com-
-              pressing  and  storing  the  file  referred to by the link (UNIX
-              only).  This can avoid recursively including multiple copies  of
-              files accessed directly and by links.
+              For UNIX and VMS (V8.3 and later), store symbolic links as  such
+              in  the zip archive, instead of compressing and storing the file
+              referred to by the link.  This  can  avoid  multiple  copies  of
+              files  being  included in the archive as zip recurses the direc-
+              tory trees and accesses files directly and by links.
 
        -z
        --archive-comment
               Prompt for a multi-line comment for the entire zip archive.  The
-              comment is ended by a line containing just a period, or  an  end
-              of file condition (^D on UNIX, ^Z on MSDOS, OS/2, and VMS).  The
+              comment  is  ended by a line containing just a period, or an end
+              of file condition (^D on Unix, ^Z on MSDOS, OS/2, and VMS).  The
               comment can be taken from a file:
 
                      zip -z foo < foowhat
 
        -Z cm
        --compression-method cm
-              Set the default compression method.  Currently the main  methods
-              supported by zip are store and deflate.  Set cm to:
+              Set  the default compression method.  Currently the main methods
+              supported by zip are store and deflate.  Compression method  can
+              be set to:
 
               store  -  Setting  the compression method to store forces zip to
-              only store entries.  This is not recommended  as  such  archives
-              are  less likely to be successfully fixed if they are corrupted.
-              This is the same as using -0 (compression speed zero).
+              store entries with no compression.   This  is  generally  faster
+              than compressing entries, but results in no space savings.  This
+              is the same as using -0 (compression level zero).
 
               deflate - This is the default method for zip.  If zip determines
               that  storing is better than deflation, the entry will be stored
@@ -1679,81 +1720,81 @@ EXAMPLES
 
        creates the archive stuff.zip (assuming it does not exist) and puts all
        the  files in the current directory in it, in compressed form (the .zip
-       suffix is added automatically, unless that archive name given  contains
-       a  dot  already;  this  allows the explicit specification of other suf-
-       fixes).
+       suffix is added automatically, unless the archive name contains  a  dot
+       already; this allows the explicit specification of other suffixes).
 
-       Because of the way the shell does filename substitution, files starting
-       with "." are not included; to include these as well:
+       Because  of the way the shell on Unix does filename substitution, files
+       starting with "." are not included; to include these as well:
 
               zip stuff .* *
 
-       Even  this  will not include any subdirectories from the current direc-
+       Even this will not include any subdirectories from the  current  direc-
        tory.
 
        To zip up an entire directory, the command:
 
               zip -r foo foo
 
-       creates the archive foo.zip, containing all the files  and  directories
+       creates  the  archive foo.zip, containing all the files and directories
        in the directory foo that is contained within the current directory.
 
-       You  may  want  to  make  a zip archive that contains the files in foo,
-       without recording the directory name, foo.  You can use the  -j  option
+       You may want to make a zip archive that  contains  the  files  in  foo,
+       without  recording  the directory name, foo.  You can use the -j option
        to leave off the paths, as in:
 
               zip -j foo foo/*
 
-       If  you are short on disk space, you might not have enough room to hold
-       both the  original  directory  and  the  corresponding  compressed  zip
-       archive.   In  this case, you can create the archive in steps using the
-       -m option.  If foo contains the subdirectories tom,  dick,  and  harry,
+       If you are short on disk space, you might not have enough room to  hold
+       both  the  original  directory  and  the  corresponding  compressed zip
+       archive.  In this case, you can create the archive in steps  using  the
+       -m  option.   If  foo contains the subdirectories tom, dick, and harry,
        you can:
 
               zip -rm foo foo/tom
               zip -rm foo foo/dick
               zip -rm foo foo/harry
 
-       where  the  first  command creates foo.zip, and the next two add to it.
-       At the completion of each zip command,  the  last  created  archive  is
+       where the first command creates foo.zip, and the next two  add  to  it.
+       At  the  completion  of  each  zip command, the last created archive is
        deleted, making room for the next zip command to function.
 
-       Use  -s  to set the split size and create a split archive.  The size is
+       Use -s to set the split size and create a split archive.  The  size  is
        given as a number followed optionally by one of k (kB), m (MB), g (GB),
        or t (TB).  The command
 
               zip -s 2g -r split.zip foo
 
        creates a split archive of the directory foo with splits no bigger than
-       2 GB each.  If foo contained 5 GB of contents  and  the  contents  were
-       stored  in  the split archive without compression (to make this example
-       simple), this would create three splits, split.z01 at  2 GB,  split.z02
+       2 GB  each.   If  foo  contained 5 GB of contents and the contents were
+       stored in the split archive without compression (to make  this  example
+       simple),  this  would create three splits, split.z01 at 2 GB, split.z02
        at 2 GB, and split.zip at a little over 1 GB.
 
-       The  -sp option can be used to pause zip between splits to allow chang-
-       ing removable media, for example, but read the descriptions  and  warn-
+       The -sp option can be used to pause zip between splits to allow  chang-
+       ing  removable  media, for example, but read the descriptions and warn-
        ings for both -s and -sp below.
 
-       Though  zip does not update split archives, zip provides the new option
+       Though zip does not update split archives, zip provides the new  option
        -O (--output-file) to allow split archives to be updated and saved in a
        new archive.  For example,
 
               zip inarchive.zip foo.c bar.c --out outarchive.zip
 
-       reads  archive  inarchive.zip,  even if split, adds the files foo.c and
-       bar.c, and writes the resulting archive to  outarchive.zip.   If  inar-
+       reads archive inarchive.zip, even if split, adds the  files  foo.c  and
+       bar.c,  and  writes  the resulting archive to outarchive.zip.  If inar-
        chive.zip is split then outarchive.zip defaults to the same split size.
-       Be aware that outarchive.zip and any split files that are created  with
-       it  are always overwritten without warning.  This may be changed in the
+       Be  aware that outarchive.zip and any split files that are created with
+       it are always overwritten without warning.  This may be changed in  the
        future.
 
 PATTERN MATCHING
-       This section applies only to UNIX.  Watch this  space  for  details  on
-       MSDOS  and  VMS  operation.  However, the special wildcard characters *
+       This  section  applies  only  to Unix.  Watch this space for details on
+       MSDOS and VMS operation.  However, the special  wildcard  characters  *
        and [] below apply to at least MSDOS also.
 
-       The UNIX shells (sh(1) and csh(1)) do filename substitution on  command
-       arguments.  The special characters are:
+       The  Unix  shells (sh, csh, bash, and others) normally do filename sub-
+       stitution (also called "globbing") on command arguments.  Generally the
+       special characters are:
 
        ?      match any single character
 
@@ -1811,10 +1852,10 @@ PATTERN MATCHING
        the backslash must precede every special character (i.e. ?*[]), or  the
        entire argument must be enclosed in double quotes ("").
 
-       In general, use backslashes or double quotes to make zip do the pattern
-       matching with the -f (freshen) and -d (delete) options,  and  sometimes
-       after  the  -x (exclude) option when used with an appropriate operation
-       (add, -u, -f, or -d).
+       In  general, use backslashes or double quotes for paths that have wild-
+       cards to make zip do the pattern matching for file  paths,  and  always
+       for paths and strings that have spaces or wildcards for -i, -x, -R, -d,
+       and -U and anywhere zip needs to process the wildcards.
 
 ENVIRONMENT
        The following environment  variables  are  read  and  used  by  zip  as
@@ -1851,9 +1892,9 @@ DIAGNOSTICS
               2      unexpected end of zip file.
 
               3      a generic error in the zipfile format was detected.  Pro-
-                     cessing  may  have  completed  successfully  anyway; some
-                     broken zipfiles created by other  archivers  have  simple
-                     work-arounds.
+                     cessing may have completed successfully anyway; some bro-
+                     ken zipfiles created by other archivers have simple work-
+                     arounds.
 
               4      zip was unable to allocate memory for one or more buffers
                      during program initialization.
@@ -1894,48 +1935,48 @@ DIAGNOSTICS
 
        VMS interprets standard Unix (or PC) return values as  other,  scarier-
        looking  things,  so zip instead maps them into VMS-style status codes.
-       The current mapping is as follows:   1 (success) for normal exit,
-        and (0x7fff000? + 16*normal_zip_exit_status) for all errors, where the
-       `?' is 0 (warning) for zip value 12, 2 (error) for the zip values 3, 6,
-       7, 9, 13, 16, 18, and 4 (fatal error) for the remaining ones.
+       In general, zip sets VMS Facility = 1955 (0x07A3), Code = 2*  Unix_sta-
+       tus,  and  an  appropriate  Severity  (as specified in ziperr.h).  More
+       details  are  included  in   the   VMS-specific   documentation.    See
+       [.vms]NOTES.TXT and [.vms]vms_msg_gen.c.
 
 BUGS
        zip 3.0 is not compatible with PKUNZIP 1.10. Use zip 1.1 to produce zip
        files which can be extracted by PKUNZIP 1.10.
 
-       zip  files  produced by zip 3.0 must not be updated by zip 1.1 or PKZIP
-       1.10, if they contain encrypted members or if they have  been  produced
+       zip files produced by zip 3.0 must not be updated by zip 1.1  or  PKZIP
+       1.10,  if  they contain encrypted members or if they have been produced
        in a pipe or on a non-seekable device. The old versions of zip or PKZIP
        would create an archive with an incorrect format.  The old versions can
        list the contents of the zip file but cannot extract it anyway (because
-       of the new compression algorithm).  If you do not  use  encryption  and
+       of  the  new  compression algorithm).  If you do not use encryption and
        use regular disk files, you do not have to care about this problem.
 
-       Under  VMS, not all of the odd file formats are treated properly.  Only
-       stream-LF format zip files are expected to work with zip.   Others  can
-       be  converted  using  Rahul  Dhesi's BILF program.  This version of zip
+       Under VMS, not all of the odd file formats are treated properly.   Only
+       stream-LF  format  zip files are expected to work with zip.  Others can
+       be converted using Rahul Dhesi's BILF program.   This  version  of  zip
        handles some of the conversion internally.  When using Kermit to trans-
-       fer  zip  files  from  VMS to MSDOS, type "set file type block" on VMS.
-       When transfering from MSDOS to VMS, type "set file type fixed" on  VMS.
+       fer zip files from VMS to MSDOS, type "set file  type  block"  on  VMS.
+       When  transfering from MSDOS to VMS, type "set file type fixed" on VMS.
        In both cases, type "set file type binary" on MSDOS.
 
-       Under  VMS,  zip  hangs  for file specification that uses DECnet syntax
-       foo::*.*.
+       Under some older VMS versions, zip may  hang  for  file  specifications
+       that use DECnet syntax foo::*.*.
 
        On OS/2, zip cannot match some names, such as those including an excla-
-       mation  mark  or a hash sign.  This is a bug in OS/2 itself: the 32-bit
-       DosFindFirst/Next don't find such names.  Other programs  such  as  GNU
+       mation mark or a hash sign.  This is a bug in OS/2 itself:  the  32-bit
+       DosFindFirst/Next  don't  find  such names.  Other programs such as GNU
        tar are also affected by this bug.
 
-       Under  OS/2, the amount of Extended Attributes displayed by DIR is (for
-       compatibility) the amount returned by the 16-bit version  of  DosQuery-
-       PathInfo().  Otherwise OS/2 1.3 and 2.0 would report different EA sizes
-       when DIRing a file.  However, the  structure  layout  returned  by  the
-       32-bit  DosQueryPathInfo()  is  a  bit different, it uses extra padding
-       bytes and link pointers (it's a linked list)  to  have  all  fields  on
-       4-byte  boundaries for portability to future RISC OS/2 versions. There-
-       fore the value reported by zip (which uses this 32-bit-mode size)  dif-
-       fers  from  that  reported  by  DIR.   zip stores the 32-bit format for
+       Under OS/2, the amount of Extended Attributes displayed by DIR is  (for
+       compatibility)  the  amount returned by the 16-bit version of DosQuery-
+       PathInfo(). Otherwise OS/2 1.3 and 2.0 would report different EA  sizes
+       when  DIRing  a  file.   However,  the structure layout returned by the
+       32-bit DosQueryPathInfo() is a bit different,  it  uses  extra  padding
+       bytes  and  link  pointers  (it's  a linked list) to have all fields on
+       4-byte boundaries for portability to future RISC OS/2 versions.  There-
+       fore  the value reported by zip (which uses this 32-bit-mode size) dif-
+       fers from that reported by DIR.   zip  stores  the  32-bit  format  for
        portability, even the 16-bit MS-C-compiled version running on OS/2 1.3,
        so even this one shows the 32-bit-mode size.
 
@@ -1945,42 +1986,42 @@ AUTHORS
        Currently distributed under the Info-ZIP license.
 
        Copyright (C) 1990-1997 Mark Adler, Richard B. Wales, Jean-loup Gailly,
-       Onno van der Linden, Kai Uwe Rommel, Igor Mandrichenko, John  Bush  and
+       Onno  van  der Linden, Kai Uwe Rommel, Igor Mandrichenko, John Bush and
        Paul Kienitz.
 
        Original copyright:
 
        Permission is granted to any individual or institution to use, copy, or
-       redistribute this software so long as all of  the  original  files  are
-       included,  that  it  is  not  sold  for profit, and that this copyright
+       redistribute  this  software  so  long as all of the original files are
+       included, that it is not sold  for  profit,  and  that  this  copyright
        notice is retained.
 
-       LIKE ANYTHING ELSE THAT'S FREE, ZIP AND ITS  ASSOCIATED  UTILITIES  ARE
-       PROVIDED  AS IS AND COME WITH NO WARRANTY OF ANY KIND, EITHER EXPRESSED
-       OR IMPLIED. IN NO EVENT WILL THE COPYRIGHT HOLDERS BE  LIABLE  FOR  ANY
+       LIKE  ANYTHING  ELSE  THAT'S FREE, ZIP AND ITS ASSOCIATED UTILITIES ARE
+       PROVIDED AS IS AND COME WITH NO WARRANTY OF ANY KIND, EITHER  EXPRESSED
+       OR  IMPLIED.  IN  NO EVENT WILL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
        DAMAGES RESULTING FROM THE USE OF THIS SOFTWARE.
 
-       Please  send  bug reports and comments using the web page at: www.info-
-       zip.org.  For bug reports, please  include  the  version  of  zip  (see
-       zip -h),  the make options used to compile it (see zip -v), the machine
+       Please send bug reports and comments using the web page  at:  www.info-
+       zip.org.   For  bug  reports,  please  include  the version of zip (see
+       zip -h), the make options used to compile it (see zip -v), the  machine
        and operating system in use, and as much additional information as pos-
        sible.
 
 ACKNOWLEDGEMENTS
-       Thanks  to  R. P. Byrne for his Shrink.Pas program, which inspired this
-       project, and from which the shrink algorithm was stolen; to  Phil  Katz
-       for  placing in the public domain the zip file format, compression for-
-       mat, and .ZIP filename extension, and for accepting  minor  changes  to
-       the  file  format; to Steve Burg for clarifications on the deflate for-
-       mat; to Haruhiko Okumura and Leonid Broukhis for providing some  useful
-       ideas  for  the  compression  algorithm; to Keith Petersen, Rich Wales,
+       Thanks to R. P. Byrne for his Shrink.Pas program, which  inspired  this
+       project,  and  from which the shrink algorithm was stolen; to Phil Katz
+       for placing in the public domain the zip file format, compression  for-
+       mat,  and  .ZIP  filename extension, and for accepting minor changes to
+       the file format; to Steve Burg for clarifications on the  deflate  for-
+       mat;  to Haruhiko Okumura and Leonid Broukhis for providing some useful
+       ideas for the compression algorithm; to  Keith  Petersen,  Rich  Wales,
        Hunter Goatley and Mark Adler for providing a mailing list and ftp site
-       for  the  Info-ZIP  group to use; and most importantly, to the Info-ZIP
-       group itself (listed in the file infozip.who)  without  whose  tireless
-       testing  and bug-fixing efforts a portable zip would not have been pos-
-       sible.  Finally we should thank (blame) the first  Info-ZIP  moderator,
-       David  Kirschbaum,  for  getting  us into this mess in the first place.
-       The manual page was rewritten for UNIX by R. P. C. Rodgers and  updated
+       for the Info-ZIP group to use; and most importantly,  to  the  Info-ZIP
+       group  itself  (listed  in the file infozip.who) without whose tireless
+       testing and bug-fixing efforts a portable zip would not have been  pos-
+       sible.   Finally  we should thank (blame) the first Info-ZIP moderator,
+       David Kirschbaum, for getting us into this mess  in  the  first  place.
+       The  manual page was rewritten for Unix by R. P. C. Rodgers and updated
        by E. Gordon for zip 3.0.
 
-Info-ZIP                      27 May 2008 (v3.0)                       ZIP(1L)
+Info-ZIP                      16 June 2008 (v3.0)                      ZIP(1L)

@@ -2,7 +2,7 @@
 # native Win32-Intel binaries. Derived from makefile.w32.
 # Currently supported implementations: Cygwin and MinGW.
 # Authors: Cosmin Truta, Christian Spieler, and possibly others.
-# Last updated: 2007-Jan-14.
+# Last updated: 2008-Jun-22.
 #
 # To use, do "make -f win32/makefile.gcc".
 
@@ -29,6 +29,8 @@ else
 ASDEFS=-DUSE_ZLIB
 endif
 ASFLAGS=-c $(ASDEFS) $(LOC)
+
+RC=windres
 
 LD=$(CC)
 LDFLAGS=-o$@ -s
@@ -138,8 +140,11 @@ crc_i386.o: crc_i386.S
 crci386_.o: crc_i386.S
 	$(AS) $(ASFLAGS) -DUTIL -o$@ crc_i386.S
 
-zip.exe: $(OBJZ)
-	$(LD) $(LDFLAGS) $(OBJZ) $(LIBS)
+ziprc.o: win32/zip.rc revision.h
+	- $(RC) -o $@ win32/zip.rc
+
+zip.exe: $(OBJZ) ziprc.o
+	$(LD) $(LDFLAGS) $(OBJZ) ziprc.o $(LIBS)
 
 zipcloak.exe: $(OBJC)
 	$(LD) $(LDFLAGS) $(OBJC) $(LIBS)

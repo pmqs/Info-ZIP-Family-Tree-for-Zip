@@ -1,3 +1,7 @@
+This port is for Mac versions before Mac OS X.  As Mac OS X is build on Unix,
+use the Unix port for Mac OS X. - 7 June 2008
+
+
 Before you start:
 
 Extract "*.hqx" and "source:*.hqx" first and read the Readme.txt.

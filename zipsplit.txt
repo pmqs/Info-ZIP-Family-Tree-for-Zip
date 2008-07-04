@@ -50,4 +50,4 @@ SEE ALSO
 AUTHOR
        Info-ZIP
 
-                           v3.0 of 12 November 2004                 zipnote(1)
+                              v3.0 of 8 May 2008                    zipnote(1)

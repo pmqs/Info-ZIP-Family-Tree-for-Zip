@@ -2,14 +2,14 @@ HOW TO ADD BZIP2 SUPPORT TO ZIP
 
 This document describes how to add bzip2 support to Zip.
 
-Adding bzip2 support by compiling or linking in the bzip2 library
-adds the additional bzip2 compression method, which can be selected
-instead of the Zip traditional compression method deflation, to
-compress files and often gives a better compression ratio (perhaps
-at the cost of greater CPU time).  The compression method is specified
-using the "-Z method" command-line option, where "method" may be
-either "deflate" (the default), or "bzip2" (if Zip is built with bzip2
-support).  Tested with bzip2 library 1.0.5 and earlier.
+Compiling or linking in the bzip2 library adds an additional bzip2
+compression method to Zip.  This new method can be selected instead
+of the Zip traditional compression method deflation to compress files
+and often gives a better compression ratio (perhaps at the cost of
+greater CPU time).  The compression method is specified using the
+"-Z method" command-line option, where "method" may be either "deflate"
+(the default), or "bzip2" (if Zip is built with bzip2 support).  Zip
+has been tested with bzip2 library 1.0.5 and earlier.
 
 Notes
 
@@ -19,9 +19,9 @@ will be used to read the resulting zip archive so that entries compressed
 with bzip2 (compression method 12) can be read.  Older unzips probably
 won't recognize the compression method and will skip those entries.
 
-Note that the Zip source kit does not include the bzip2 library or source
-files, but these can be found at "http://www.bzip.org/" for example.  See
-below for how to add bzip2 to Zip for various operating systems.
+The Zip source kit does not include the bzip2 library or source files, but
+these can be found at "http://www.bzip.org/" for example.  See below for
+how to add bzip2 to Zip for various operating systems.
 
 Zip using bzip2 compression is not compatible with the bzip2 application,
 but instead provides an additional way to compress files before adding
@@ -44,7 +44,7 @@ file, "bzlib.h", and the object library, typically "libbz2.a", except
 in cases where the source files are compiled in directly.  If you
 are either compiling the bzip2 library or compiling in the bzip2
 source files, we recommend defining the C macro BZ_NO_STDIO, which
-excludes alot of standalone error code (not used when bzip2 is
+excludes a lot of standalone error code (not used when bzip2 is
 used as a library and makes the library smaller) and provides hooks
 that Zip can use to provide better error handling.  However, a
 standard bzip2 object library will work, though any errors that bzip2
@@ -153,7 +153,20 @@ Installation on other systems
 
   MSDOS:
 
-  Nothing yet.
+  Thanks to Robert Riebisch, the DJGPP 2.x Zip port now supports bzip2.
+  To include bzip2, first install bzip2.  The new msdos/makebz2.dj2
+  makefile then looks in the standard bzip2 installation directories
+  for the needed files.  As he says:
+    It doesn't try to be clever about finding libbz2.a. It just
+    expects bzip2 stuff installed to the default include and library
+    folders, e.g., "C:\DJGPP\include" and "C:\DJGPP\lib" on DOS.
+
+  Given a standard DJGPP 2.x installation, this should create a
+  version of Zip 3.0 with bzip2 support.
+
+  The bzip2 library for DJGPP can be found on any DJGPP mirror in
+  "current/v2apps" (or "beta/v2apps/" for the latest beta). This
+  library has been ported to MSDOS/DJGPP by Juan Manuel Guerrero.
 
 
   WIN32 (Windows NT/2K/XP/2K3/... and Windows 95/98/ME):
@@ -241,4 +254,5 @@ Installation on other systems
   See [.vms]install_vms.txt for how to enable bzip2 support on VMS.
 
 
-Last updated 26 March 2007, 15 July 2007, 9 April 2008 S. Schweda, E. Gordon
+Last updated 26 March 2007, 15 July 2007, 9 April 2008, 27 June 2008
+S. Schweda, E. Gordon

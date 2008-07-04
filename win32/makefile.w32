@@ -19,7 +19,7 @@ NODEBUG=1
 # routines in Zip:
 !IFDEF NOASM
 ASMOBJS =
-CRCA_O = 
+CRCA_O =
 CFLG_ASM = -DNO_ASM
 !ELSE
 ASMOBJS = match32.obj
@@ -27,8 +27,8 @@ CRCA_O = crci386c.obj
 CFLG_ASM = -DASM_CRC
 !ENDIF
 
-!IFDEF USEBZIP2
-LOC=$(LOC) -DUSE_BZIP2
+!IFDEF USEBZ2
+LOC=$(LOC) -DBZIP2_SUPPORT
 !IFNDEF debug
 EXTLIB=$(EXTLIB) libbz2.lib
 !ELSE
@@ -77,13 +77,15 @@ cdbgsz = $(cdebug)
 
 # ------------- 32-bit Microsoft Visual C++ -------------
 CC=cl -nologo
-CFLAGS=-W3 $(cdebug) -DWIN32 -DMSDOS $(CFLG_ASM) $(CRTLIB) $(LOC)
+CFLAGS=-W3 $(cdebug) -DWIN32 $(CFLG_ASM) $(CRTLIB) $(LOC)
 UTILFLAGS=$(CFLAGS) -DUTIL -Fo$@
 
 # Remove "-coff" from ASFLAGS if you do not have MASM 6.11.
 
 AS=ml -nologo
 ASFLAGS=-c -coff -Cx
+
+RC=rc
 
 # If you build 16-bit executables with MS Visual C++ v1.0/1.5 and link them
 # with the /KNOWEAS switch, you can build dual-mode MS-DOS/Win32 executables
@@ -202,8 +204,11 @@ crc_i386.obj:   win32/crc_i386.asm
 match32.obj:    win32/match32.asm
  $(AS) $(ASFLAGS) win32\match32.asm
 
-zip.exe: $(OBJZ) $(OBJI)
- $(LD) $(LDFLAGS) $(OBJZ) $(OBJI)
+zip.res:        win32/zip.rc revision.h
+	$(RC) /l 0x409 /fo$@ /i win32 /d WIN32 win32/zip.rc
+
+zip.exe: $(OBJZ) $(OBJI) zip.res
+ $(LD) $(LDFLAGS) $(OBJZ) $(OBJI) zip.res
 
 zipcloak.exe: $(OBJC)
  $(LD) $(LDFLAGS) $(OBJC)

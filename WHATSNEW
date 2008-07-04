@@ -1,35 +1,51 @@
 What's New
 
-Last updated 25 May 2008
+Last updated 1 July 2008
 
-This file is the full list of features and major changes for Zip 3.0.  See
-the announcement file zip30.ann for a quick summary of features and changes
-for Zip 3.0.  Also see the file ReadMe for release information and the
-manual pages zip.txt, zipsplit.txt, zipcloak.txt, and zipnote.txt for how
-to use the new features.
+This file is the full list of new features and major changes for Zip 3.0
+by beta release.  See the announcement file zip30.ann for a quick summary
+of all features and changes in Zip 3.0.  Also see the file README for
+release information, INSTALL for installation procedures, and the manual
+pages zip.txt, zipsplit.txt, zipcloak.txt, and zipnote.txt for how to use
+the new features.  The file CHANGES has all the day-to-day changes made
+during development.
 
-Postponed until Zip 3.1
 
-- Decide if -R, -i and -x should use external rather than internal patterns
-- When pattern is directory add end / automatically
+Below are some of the more significant items on the list for Zip 3.1
+(see ToDo for a more complete list):
+
+- AES encryption.
+- Extended attributes for Windows, Linux, and Mac OS X.
+- Support -d@ for deleting list of files.
+- Decide if -R, -i and -x should use external rather than internal patterns.
 - Though Unicode paths have been implemented and tested, Unicode comments
   are not yet supported (except for comments on UTF-8 native systems which
-  are supported)
-- Verbose mode -v may still need work
-
-Maybe planned for Zip 3.1
-
-- Extended attributes for Windows, Linux, and Mac OS X
+  are supported).
+- Verbose mode -v may still need work.
+- When pattern is directory add end / automatically.
 - Add C# example for Zip 3.0 (need to be converted to new DLLs) - original
-  C# example added with note
-- Support -d@ for deleting list of files
-- AES encryption maybe
+  C# example added with note.
 - Path Prefix maybe, so entries added to an archive can have a directory
-  path string prepended to each path
-- UNC path support maybe
-- Support for other languages maybe
-- Send in your suggestions
+  path string prepended to each path.
+- UNC path support maybe.
+- Support for other languages maybe.
+- Send in your suggestions.
 - ...
+
+
+MAJOR CHANGES BY BETA VERSION
+-----------------------------
+
+New things in Zip 3.0 since Zip 3.0h:
+
+- Unicode fixes.
+- Test and fix various ports as needed.
+- Update Win32 resource to support more Windows ports.
+- Add djgpp 2.x makefile that includes bzip2.
+- Add Win32 version resource to Win32 executable.
+- Bug fixes.
+- Documentation updates.
+- Package for release.
 
 
 New things in Zip 3.0h
