@@ -13,7 +13,7 @@
 .\" 30 August 2007, 27 April 2008, 25 May 2008, 27 May 2008 by EG,
 .\" 7 June 2008 by SMS and EG; 12 June 2008 by EG)
 .\"
-.TH ZIP 1L "16 June 2008 (v3.0)" Info-ZIP
+.TH ZIP 1L "18 August 2008 (v3.1a01)" Info-ZIP
 .SH NAME
 zip \- package and compress (archive) files
 .SH SYNOPSIS
@@ -103,11 +103,19 @@ and PKZIP at the time of this writing does not support data descriptors
 support for the data descriptor format \fIzip\fP uses).
 
 .PP
-\fBMac OS X.\fP  Though previous Mac versions had their own \fIzip\fP port,
-\fIzip\fP supports Mac OS X as part of the Unix port and most Unix features
-apply.  References to "MacOS" below generally refer to MacOS versions older
-than OS X.  Support for some Mac OS features in the Unix Mac OS X port, such
-as resource forks, is expected in the next \fIzip\fP release.
+\fBMac OS X.\fP  Mac OS versions before Mac OS X had their own \fIzip\fP
+port, but beginning with version 3.0, \fIzip\fP supports Mac OS X as
+part of the Unix port and most Unix features apply.  References to
+"Mac OS" below generally refer to Mac OS versions older than Mac OS X.
+Beginning with version 3.1, \fIzip\fP will, by default, include resource
+forks and HFS meta-data (Finder info) in an archive as AppleDouble
+files.  This scheme is intended to be compatible with that used by
+Apple's "ditto" program (with options like "-c -k -rsrc").  The
+\fB\-as\fP option will cause \fIzip\fP to create a "sequestered"
+archive, with the AppleDouble files archived under an "__MACOSX"
+directory (as with the "ditto" option "--sequesterRsrc").  The \fB\-df\fP
+option will cause \fIzip\fP to archive only data forks, as \fIzip\fP
+version 3.0 did (and as with the "ditto" option "--norsrc").
 
 .PP
 For a brief help on \fIzip\fP and \fIunzip\fP,
@@ -214,7 +222,7 @@ where \fIfoo/file1\fP is replaced and
 .LP
 \fB\-@\ file\ lists.\fP  If a file list is specified as
 \fB\-@\fP
-[Not on MacOS],
+[Not on Mac OS],
 .I zip
 takes the list of input files from standard input instead of from
 the command line.  For example,
@@ -587,6 +595,23 @@ and \fB\-DF\fP to create a differential archive.
 
 .TP
 .PD 0
+.B \-as
+.TP
+.PD
+.B \-\-sequester
+[Mac OS X]  Archive an AppleDouble file "sequestered" under an
+"__MACOSX" pseudo-directory, instead of in the same directory as the
+primary file.
+
+For example, by default, a file "dir/file" would be archived as the
+primary (data fork) file, "dir/file", and its AppleDouble file,
+"dir/._file".  With \fB\-as\fP, "dir/file" would be archived as
+"dir/file" and "__MACOSX/dir/._file".  Info-ZIP \fIunzip\fP (and Apple
+"ditto") should be able to restore the file from either archive type,
+but some other programs might require a "sequestered" archive.
+
+.TP
+.PD 0
 .B \-B
 .TP
 .PD
@@ -770,9 +795,13 @@ also defaults to 10 MB) and this rate is also controlled by \fB-ds\fR.
 .TP
 .PD
 .B \-\-datafork
-[MacOS] Include only data-fork of files zipped into the archive.
-Good for exporting files to foreign operating-systems.
-Resource-forks will be ignored at all.
+[Mac OS, Mac OS X]  Only the data fork of a file will be archived. 
+The resource fork and HFS meta-data (Finder info) will be ignored.  This
+can be useful when exporting files to non-Mac file/operating systems,
+where the Mac-specific data can't be used.  (But on Mac OS X, the
+non-data-fork data are archived in separate "._" AppleDouble files, so
+they should be relatively harmless, even on non-Mac file/operating
+systems.)
 
 .TP
 .PD 0
@@ -1302,7 +1331,7 @@ will store the full path (relative to the current directory).
 .TP
 .PD
 .B \-\-absolute-path
-[MacOS] record Fullpath (+ Volname). The complete path including
+[Mac OS] record Fullpath (+ Volname). The complete path including
 volume will be stored. By default the relative path will be stored.
 
 .TP
@@ -1516,7 +1545,7 @@ read and no wildcard substitution is desired.
 .TP
 .PD
 .B \-\-notes
-[Amiga, MacOS] Save Amiga or MacOS filenotes as zipfile comments. They can be
+[Amiga, Mac OS] Save Amiga or Mac OS filenotes as zipfile comments. They can be
 restored by using the -N option of \fIunzip\fP. If -c is used also, you are
 prompted for comments only for those files that do not have filenotes.
 .TP
@@ -1890,7 +1919,7 @@ done.
 .B \-\-system-hidden
 [MSDOS, OS/2, WIN32 and ATARI] Include system and hidden files.
 .RS
-[MacOS] Includes finder invisible files, which are ignored otherwise.
+[Mac OS] Includes finder invisible files, which are ignored otherwise.
 .RE
 .TP
 .PD 0

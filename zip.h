@@ -143,6 +143,10 @@ typedef struct iztimes {
 #define EC64LOC 16
 #define EC64REC 52
 
+/* flist, zlist flags bit masks. */
+#define FLAGS_DIR    0x00000001
+#define FLAGS_APLDBL 0x00000002
+
 /* Structures for in-memory file information */
 struct zlist {
   /* See central header in zipfile.c for what vem..off are */
@@ -183,6 +187,9 @@ struct zlist {
   int trash;                    /* Marker for files to delete */
   int current;                  /* Marker for files that are current to what is on OS (filesync) */
   int dosflag;                  /* Set to force MSDOS file attributes */
+#if defined( UNIX) && defined( __APPLE__)
+  int flags;
+#endif /* defined( UNIX) && defined( __APPLE__) */
   struct zlist far *nxt;        /* Pointer to next header in list */
 };
 struct flist {
@@ -202,6 +209,9 @@ struct flist {
   uzoff_t usize;                /* usize from initial scan */
   struct flist far *far *lst;   /* Pointer to link pointing here */
   struct flist far *nxt;        /* Link to next name */
+#if defined( UNIX) && defined( __APPLE__)
+  int flags;
+#endif /* defined( UNIX) && defined( __APPLE__) */
 };
 struct plist {
   char *zname;                  /* External version of internal name */
@@ -320,6 +330,11 @@ extern char errbuf[FNMAX+4081]; /* Handy place to build error messages */
 extern int recurse;             /* Recurse into directories encountered */
 extern int dispose;             /* Remove files after put in zip file */
 extern int pathput;             /* Store path with name */
+
+#if defined( UNIX) && defined( __APPLE__)
+extern int data_fork_only;
+extern int sequester;
+#endif /* defined( UNIX) && defined( __APPLE__) */
 
 #ifdef RISCOS
 extern int scanimage;           /* Scan through image files */

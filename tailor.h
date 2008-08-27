@@ -844,6 +844,9 @@ typedef struct ztimbuf {
 #ifdef THEOS
 #  define OS_CODE  0x1200
 #endif
+#if defined( UNIX) && defined( __APPLE__)
+#  define OS_CODE  0x1300
+#endif
 /* Yes, there is a gap here. */
 #ifdef __ATHEOS__
 #  define OS_CODE  0x1E00
