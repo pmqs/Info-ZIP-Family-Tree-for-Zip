@@ -17,12 +17,12 @@
 
 /* For api version checking */
 #define Z_MAJORVER   3
-#define Z_MINORVER   0
+#define Z_MINORVER   1
 #define Z_PATCHLEVEL 0
-#define Z_BETALEVEL "i BETA"
+#define Z_BETALEVEL "a BETA"
 
-#define VERSION "3.0"
-#define REVDATE "July 5th 2008"
+#define VERSION "3.1a BETA"
+#define REVDATE "Sep 21st 2008"
 
 #define DW_MAJORVER    Z_MAJORVER
 #define DW_MINORVER    Z_MINORVER
@@ -30,6 +30,9 @@
 
 #ifndef IZ_COMPANY_NAME               /* might be already defined... */
 #  define IZ_COMPANY_NAME "Info-ZIP"
+#endif
+#ifndef ZIP_DLL_VERSION
+#  define ZIP_DLL_VERSION VERSION
 #endif
 
 #if !defined(WINDLL) && !defined(IZ_VERSION_SYMBOLS_ONLY)

@@ -1,4 +1,4 @@
-/* 2007-01-13 SMS.
+/* 2007-01-02 SMS.
  * VMS-specific BZLIB.H jacket header file to ensure compatibility with
  * BZIP2 code compiled using /NAMES = AS_IS.
  *
@@ -16,6 +16,6 @@
 
 #include "INCL_BZIP2:BZLIB.H"
 
-extern void bz_internal_error ( int errcode );
+extern void bz_internal_error ( int bzerrcode );
 
 #pragma names restore

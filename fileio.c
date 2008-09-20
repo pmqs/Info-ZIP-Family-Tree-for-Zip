@@ -3025,7 +3025,7 @@ local int utf8_char_bytes(utf8)
  * up to the current 21-bit mappings) changed this to signed to allow -1 to
  * be returned.
  */
-local long ucs4_char_from_utf8(utf8)
+long ucs4_char_from_utf8(utf8)
   ZCONST char **utf8;
 {
   ulg  ret;

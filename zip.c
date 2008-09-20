@@ -1980,7 +1980,7 @@ struct option_struct far options[] = {
 #endif
 #if defined( UNIX) && defined( __APPLE__)
     {"as", "sequester",   o_NO_VALUE,       o_NEGATABLE,     o_as, "sequester AppleDouble files in __MACOSX"},
-#endif /* defined( MACOS) || (defined( UNIX) && defined( __APPLE__)) */
+#endif /* defined( UNIX) && defined( __APPLE__) */
     {"b",  "temp-path",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'b',  "dir to use for temp archive"},
     {"c",  "entry-comments", o_NO_VALUE,    o_NOT_NEGATABLE, 'c',  "add comments for each entry"},
 #ifdef VMS
@@ -2687,6 +2687,7 @@ char **argv;            /* command line tokens */
 #endif /* defined(WIN32) */
 #if defined( UNIX) && defined( __APPLE__)
         case o_as:
+          /* sequester Apple Double resource files */
           if (negated)
             sequester = 0;
           else

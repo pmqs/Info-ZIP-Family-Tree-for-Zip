@@ -1,4 +1,4 @@
-#                                               21 January 2009.  SMS.
+#                                               26 July 2008.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -21,7 +21,7 @@
 #    IM=1           Use the old "IM" scheme for storing VMS/RMS file
 #                   atributes, instead of the newer "PK" scheme.
 #
-#    IZ_BZIP2=dev:[dir]  Add optional BZIP2 support.  The value of the
+#    IZ_BZIP2=dev:[dir]  Add optional BZIP2 support.  The valus of the
 #                        MMS macro IZ_BZIP2 ("dev:[dir]", or a suitable
 #                   logical name) tells where to find "bzlib.h".  The
 #                   BZIP2 object library (LIBBZ2_NS.OLB) is expected to
@@ -47,13 +47,6 @@
 #
 #    "LOCAL_ZIP=c_macro_1=value1 [, c_macro_2=value2 [...]]"
 #                   Compile with these additional C macros defined.
-#
-#    PROD=subdir    Use [.subdir] as the destination for
-#                   architecture-specific product files (.EXE, .OBJ,
-#                   .OLB, and so on).  The default is a name
-#                   automatically generated using rules defined in
-#                   [.VMS]DESCRIP_SRC.MMS.  Note that using this option
-#                   carelessly can confound the CLEAN* targets.
 #
 # VAX-specific optional macros:
 #
@@ -155,7 +148,7 @@ CLEAN :
 # Also mention:
 #    Comprehensive dependency file.
 
-CLEAN_ALL : CLEAN
+CLEAN_ALL :
 	if (f$search( "[.ALPHA*]*.*") .nes. "") then -
 	 delete /noconfirm [.ALPHA*]*.*;*
 	if (f$search( "ALPHA*.DIR", 1) .nes. "") then -

@@ -88,15 +88,6 @@ FILE *fp;
 }
 #endif /* HAVE_FSEEKABLE */
 
-/* 2008-10-07 SMS.
- * VMS uses "^" as an escape character in ODS5 extended file names, and
- * "\" is not special.
- */
-#ifdef VMS
-# define ESCAPE_CHR '^'
-#else /* def VMS */
-# define ESCAPE_CHR '\\'
-#endif /* def VMS [else] */
 
 char *isshexp(p)
 char *p;                /* candidate sh expression */
@@ -104,7 +95,7 @@ char *p;                /* candidate sh expression */
    returned.  Otherwise, NULL is returned. */
 {
   for (; *p; INCSTR(p))
-    if (*p == ESCAPE_CHR && *(p+1))
+    if (*p == '\\' && *(p+1))
       p++;
 #ifdef VMS
     else if (*p == WILDCHR_SINGLE || *p == WILDCHR_MULTI)

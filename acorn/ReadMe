@@ -1,15 +1,6 @@
 Acorn-specific compile instructions
 -----------------------------------
 
-Use the "RunMe1st" file (it is an Obey file) to convert all the files from
-"filename/[chs]" to "[chs].filename" (so that zip could be easily compiled
-under RISC OS). It will also set the correct makefile.
-
-To compile just set the CSD to the main zip directory and run 'amu'.
-
-Currently only the Acorn C V5 compiler has been tested but probably also
-Acorn C V4 and the Acorn Assembler V2 will be able to compile zip.
-
 The default makefile is configured without the support for the
 Extended Timestamp Extra Field. If you wan to enable it you have to
 add "-DUSE_EF_UT_TIME" to CFLAGS (see makefile). Without the Extended
@@ -25,6 +16,51 @@ The executables-only distributions will be compiled without the support for
 the Extended Timestamp Extra Field. If you need it but you can't compile zip
 yourself, you can contact the authors at the Info-ZIP address who will do it
 for you.
+
+
+Compilation under GCC
+---------------------
+
+It is recommended that you use gcc 3.4.6 release 3 or higher and the corresponding
+'make' utility. Both are available from
+<URL:http://www.riscos.info/index.php/GCCSDK>.
+
+As a minimum you will need the files gcc.zip, cc1.zip and system.zip for the C
+compiler. Compiler documentation is available in the gccdoc.zip archive. GNU make
+can be found in the utils.zip archive.
+
+Use the "RunMe1st" file (it is an Obey file) to convert all the files from
+"filename/[chs]" to "[chs].filename" (so that zip could be easily compiled
+under RISC OS). It will also set the correct makefile.
+
+To compile just set the CSD to the main zip directory and run 'make'.
+
+Compilation under Acorn C/C++
+-----------------------------
+
+Currently only the Acorn C V5 compiler has been tested but probably also
+Acorn C V4 and the Acorn Assembler V2 will be able to compile zip.
+
+First check RunMe1st for a few lines that need uncommenting, in order to install
+the Acorn C/C++ makefile as opposed to the GCC one. Then run RunMe1st as normal
+(i.e. set type to 'Obey' and then double-click). The source tree should then be
+renamed and the makefile installed in the right place.
+
+To compile just set the CSD to the main zip directory and run 'amu'.
+
+Cross-compilation under GCCSDK
+------------------------------
+
+Use of RunMe1st is not required when using GCCSDK. Instead copy the GCC makefile
+to the right place (e.g. 'cp acorn/GMakefile makefile') and then start the cross
+compiler (e.g. '/home/riscos/env/ro-make NOASM=true').
+
+The 'NOASM=true' option disables use of the RISC OS assembler code in the zip
+utilities. This is currently required for cross-compilation since the version of
+'as' in the cross-compiler uses a different assembler syntax to the native RISC OS
+version. Cross-compiled versions of zip may therefore be slower when compressing
+files, although on modern machines the difference seems to be negligible, even
+when compressing lots of data.
 
 
 Acorn-specific usage instructions
@@ -53,7 +89,7 @@ exactly as named; in this example:
 *zip new/zip newfile
 *zip new/zip NewFile
 *zip new/zip NEWFILE
-will create an archive containing 3 copies of the same Risc OS file 'newfile'
+will create an archive containing 3 copies of the same RISC OS file 'newfile'
 called 'newfile', 'NewFile' and 'NEWFILE'. Please be careful.
 
 The Acorn port conserves file attributes, including filetype, so if you
@@ -83,3 +119,5 @@ of suffixes, this list of suffixes is actually considered as a list of
 filetypes (3 hex digit format). By default, zip doesn't compress filetypes
 DDC (Archive, Spark or Zip), D96 (CFS files) and 68E (PackDir).
 
+
+Last updated 22 July 2008 by Jeffrey Lee

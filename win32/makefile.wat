@@ -1,10 +1,19 @@
 # WMAKE makefile for Windows 95 and Windows NT (Intel only)
-# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 22 Jun 2008.
+# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 09 Aug 2008.
 # Makes Zip.exe, ZipNote.exe, ZipCloak.exe, and ZipSplit.exe.
 #
-# Invoke from Zip source dir with "WMAKE -F WIN32\MAKEFILE.WAT [targets]"
-# To build with debug info use "WMAKE DEBUG=1 ..."
-# To build without any assembly modules use "WMAKE NOASM=1 ..."
+# Invoke from Zip source dir with
+#   "WMAKE -F WIN32\MAKEFILE.WAT [configuration switches] [targets]"
+#
+# Configuration switches supported:
+#   DEBUG=1     build with debug info.
+#   NOASMCRC=1  disable assembler crc32 code, the generic C source code
+#               is used instead.
+#   NOASMATCH=1 disable assembler match code for deflate.
+#   NOASM=1     disable crc32 and match assembler code.
+#   NOCRC_OPT=1 disable "unfolding CRC tables" optimization.
+#
+# For example, to build with debug info use "WMAKE DEBUG=1 ..."
 #
 # Other options to be fed to the compiler can be specified in an environment
 # variable called LOCAL_ZIP.  One possibility "-DDYN_ALLOC", but currently
@@ -35,13 +44,31 @@ O = $(OBDIR)\   # comment here so backslash won't continue the line
 # This section controls its usage.
 
 !ifdef NOASM
-asmob =
+NOASMATCH=1
+NOASMCRC=1
+!endif
+
+!ifdef NOASMCRC
 asmco =
-cvars = $+$(cvars)$- -DNO_ASM   # otherwise ASM_CRC might default on!
+cvars = $+$(cvars)$- -DNO_ASM_CRC       # otherwise ASM_CRC might default on!
 # "$+$(foo)$-" means expand foo as it has been defined up to now; normally,
 # this make defers inner expansion until the outer macro is expanded.
-!else  # !NOASM
+!else
 asmco = $(O)crc_i386.obj
+cvars = $+$(cvars)$- -DASM_CRC
+!endif
+
+!ifdef NOASMATCH
+asmob = $(asmco)
+cvars = $+$(cvars)$- -DASMV
+!endif
+
+# Apply the "unfolding CRC tables" optimization unless explicitly disabled.
+# (This optimization might have negative effects on old CPU designs with a
+# small first-level data cache.)
+!ifndef NOCRC_OPT
+variation = -DIZ_CRCOPTIM_UNFOLDTBL $+$(variation)$-
+!else  # !NOASMATCH
 asmob = $(asmco) $(O)match32.obj
 cvars = $+$(cvars)$- -DASMV -DASM_CRC
 !endif

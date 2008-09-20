@@ -3458,3 +3458,117 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     environment variables.  zip.c (Ed)
  4. Update WhatsNew.  WHATSNEW (Ed)
  5. Update announcement.  zip30.ann (Ed)
+---------------------- August 16th 2008 version 3.1a01 ----------------------
+ 1. Add support for -UN=N (no Unicode) and -UN=U (store Unicode as native
+    UTF-8) options to dll interface as fUTF8_No and fUTF8_Native in ZPOPT.
+    api.c, api.h (Ed)
+ 2. Add support for Mac OS X file resource data to Unix port used for Mac OS
+    X with changes in #if defined(UNIX) && defined(__APPLE__) blocks.
+    Change parameter in newname() from isdir to flags.  Define isdir as
+    (flags & FLAGS_DIR).  Define archive name and file system name pointers
+    for AppleDouble.  Change ex2in() to use name_archv.  Add data_fork_only
+    global.  Add check of f->flags and store f->flags in z->flags for UNIX
+    APPLE.  Add FLAGS_DIR and FLAGS_APLDBL constants for AppleDouble.
+    fileio.c, globals.c, zip.c, zip.h (SMS)
+ 3. Remove \t escapes for tabs from messages.  fileio.c, zip.c, zipcloak.c,
+    zipfile.c, zipnote.c, zipsplit.c, zipup.c (SMS)
+ 4. Define ZIP_DLL_VERSION as VERSION.  revision.h (Christian)
+ 5. Add -FF bug to ToDo list.  TODO (Ed)
+ 6. Only include bzlib.h header file for VMS.  Provide prototype
+    bz_internal_error() to avoid potential compiler warnings.  Change
+    parameter for bz_internal_error() from errcode to bzerrcode to
+    avoid conflict.  zbz2err.c (Christian)
+ 7. Add -df to help for UNIX APPLE.  Update -df option description.
+    zip.c (SMS)
+ 8. Uncomment WINDLL retcode.  Use setjmp() only for WINDLL.
+    zip.c (Christian)
+ 9. Fix bug where using native UTF-8 setting created a wrong central
+    directory size in the End Of Central Directory record because
+    tempzn was not updated when the standard name is replaced by
+    the UTF-8 name.  zipfile.c (Ed)
+10. Remove extra errbuf[] buffer to save 5000 bytes and help low
+    memory ports.  zipsplit.c (Christian)
+11. Include unix/macosx.h for UNIX APPLE.  Add buffer for
+    AppleDouble header.  Define TRANSLATE_EOL that is defined as
+    translate_eol_lcl for UNIX APPLE and translate_eol otherwise.
+    Add AppleDouble header size to Appledouble resource fork file
+    size.  Data for header and resource stored in "._" file.
+    Always set AppleDouble files as binary.  Never translate
+    AppleDouble files.  Use getattrlist() to get resource data.
+    For file_read() supply fake file buffer data for AppleDouble
+    to real buffer.  zipup.c (SMS)
+12. Change filesize64 from _int64 to uzoff_t for WINDLL.  Set zipfile
+    to y for ZLIB.  Delete unused unsigned u.  Add cast to zstrm.next_in
+    and EOF.  zipup.c (Christian)
+13. Update Acorn port.  Change 31 and 32 to MAXFILENAMELEN.  Update and
+    fix gmakefile.  Update compilation instructions for gcc.  Remove
+    instructions and add note referring to acorn/ReadMe to
+    readme.gmakefile.  Remove MAXEXT.  Use MAXFILENAMELEN in setting
+    dimension of canon and size.  In setfiletype() use MAXFILENAMELEN
+    + 32 as dimension.  Initialize pref.  acorn/acornzip.c,
+    acorn/gmakefile, acorn/readme, acorn/readme.gmakefile,
+    acorn/riscos.c (Jeffrey Lee)
+14. Define MAXFILENAMELEN as 1024.  Define DIR_BUFSIZE as MAXFILENAMELEN.
+    Remove riscos_direntry structure.  acorn/riscos.h (Jeffrey Lee)
+15. Update Obey file that sets up compilation.  acorn/runme1st (Jeffrey
+    Lee)
+16. Replace srcrename file with readable version.  acorn/srcrename
+    (Jeffrey Lee)
+17. Add support for no assembler and for tuning.  Add clean target.  Add
+    zbz2err.o.  msdos/makebz2.dj2 (Christian)
+18. Add support for no assembler and for tuning.  Add clean target.  Add
+    zbz2err.o.  Update bzip2 support.  Use $<.  msdos/makefile.dj2
+    (Christian)
+19. Add support for no assembler and for tuning.  Add clean target.  Add
+    zbz2err.o.  Update bzip2 support.  Use $<.  win32/makefile.dj
+    (Christian)
+20. Add support for no assembler and for tuning.  Add zbz2err.o.  Update
+    bzip2 support.  Use $<.  Add targets for zipl.o, zipfilel.o,
+    zipupl.o, fileiol.o, utill.o, globalsl.o, deflatel.o, treesl.o,
+    crc32l.o, cryptl.o, ttyiol.o, zbz2errl.o, win32zpl.o, win32l.o,
+    win32i64l.o, ntl.o, crci386l.o, matchl.o, api.o, windll.o,
+    windllrc.o, example.o, and zip.exe.  Add compilation of example.c.
+    Add compiling bzip2.  win32/makefile.gcc (Christian)
+21. Add control of MATCH and CRC assembly.  Apply unfolding optimization
+    as default.  win32/makefile.wat (Christian)
+22. Add dependency on unix/macosx.h.  unix/makefile (SMS)
+23. Include unix/macosx.h.  Add get_apl_dbl_info() for getting APPLE
+    resource fork.  Process AppleDouble Finder info and resource fork.
+    Use uname() for APPLE if available.  unix/unix.c (SMS)
+24. Add note for ZLIB.  Add support for ZLIB for VMS.  Define IZ_ZLIB.
+    Update say message.  Add code to find the ZLIB library.  Change cc
+    from using /include to using /object.  Move logical name removal
+    section.  vms/build_zip.com (SMS)
+25. Instead of errcode use bzerrcode to avoid conflict.
+    vms/bzlib.h (SMS)
+26. Add note for ZLIB.  Add support for ZLIB.  vms/descrip.mms (SMS)
+27. Update SEEK_BZ.  Update bzip2 and add zlib processing.
+    vms/descrip_src.mms (SMS)
+28. Better handle VMS dots.  vms/vmszip.c (SMS)
+29. Update WINDLL C example.  Instead of including zipver.h include
+    revision.h.  Change DLL name from ZIP32.DLL to ZIP32Z64.DLL.
+    Remove ZIPSETOPTIONS as ZipSetOptions is no longer used.  Add
+    usage message if less than 3 arguments.  Change COMPANY_NAME to
+    IZ_COMPANY_NAME.  Remove check of ZipSetOptions.  Add memset for
+    ZpOpt.  Set default compression level to 6.  Add ZpOpt as
+    parameter to ZipArchive.  Drop BOOL cast from dwPlatformId.
+    windll/example.c (Christian)
+--------------------- September 7th 2008 version 3.1a02 ---------------------
+ 1. Debian patch 844_003 to fix spelling in manual.  man/zip.1, zip.txt
+    (sanvila)
+ 2. Debian patch 5988_006 to change INSTALL_PROGRAM define to INSTALL for
+    manuals.  unix/Makefile (sanvila)
+ 3. Unix Apple changes for Mac OS X to support Apple Double format including
+    sequestered format.  Default is to save data fork and resources.  Add
+    support for -df option to Unix Apple (as in Mac OS port) to only save
+    data fork.  Allow -df to be negated.  Add new option -as to save in
+    Apple sequestered format.  Add warning if use -df and -as together.  Add
+    define for APL_DBL_PFX_SQR for sequester directory __MACOSX/.  fileio.c,
+    globals.c, zip.c, zip.h, unix/macosx.h (SMS)
+ 4. Add note in manual that Mac OS X features are referred to as UNIX APPLE
+    features.  Update -df and add -as.    man/zip.1 (EG)
+--------------------- September 21st 2008 version 3.1a -----------------------
+ 1. Update README.  README (Ed)
+ 2. Update INSTALL.  INSTALL (Ed)
+ 3. Add Zip 3.1a announcement.  zip31a.ann (Ed)
+ 4. Update WHATSNEW.  WHATSNEW (Ed)

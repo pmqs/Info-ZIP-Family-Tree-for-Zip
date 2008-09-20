@@ -1696,7 +1696,7 @@ OPTIONS
 
        -!
        --use-privileges
-              [WIN32]  Use  priviliges  (if  granted) to obtain all aspects of
+              [WIN32]  Use  privileges  (if  granted) to obtain all aspects of
               WinNT security.
 
        -@

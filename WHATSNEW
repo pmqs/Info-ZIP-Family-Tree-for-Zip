@@ -1,10 +1,10 @@
 What's New
 
-Last updated 1 July 2008
+Last updated 21 September 2008
 
-This file is the full list of new features and major changes for Zip 3.0
-by beta release.  See the announcement file zip30.ann for a quick summary
-of all features and changes in Zip 3.0.  Also see the file README for
+This file is the full list of new features and major changes for Zip 3.x
+by beta release.  See the announcement file zip31a.ann for a quick summary
+of all features and changes in Zip 3.1a.  Also see the file README for
 release information, INSTALL for installation procedures, and the manual
 pages zip.txt, zipsplit.txt, zipcloak.txt, and zipnote.txt for how to use
 the new features.  The file CHANGES has all the day-to-day changes made
@@ -23,7 +23,7 @@ Below are some of the more significant items on the list for Zip 3.1
   are supported).
 - Verbose mode -v may still need work.
 - When pattern is directory add end / automatically.
-- Add C# example for Zip 3.0 (need to be converted to new DLLs) - original
+- Add C# example for Zip 3.1 (need to be converted to new DLLs) - original
   C# example added with note.
 - Path Prefix maybe, so entries added to an archive can have a directory
   path string prepended to each path.
@@ -36,7 +36,29 @@ Below are some of the more significant items on the list for Zip 3.1
 MAJOR CHANGES BY BETA VERSION
 -----------------------------
 
-New things in Zip 3.0 since Zip 3.0h:
+New things in Zip 3.1a
+
+- Add support for -UN=N (no Unicode) and -UN=U (store Unicode as native
+  UTF-8) options to dll interface.
+- Add preliminary support for Mac OS X file resource data (uses Unix port).
+- Add support for -df option to Unix Apple (Mac OS X) to only save data
+  fork.  Add new option -as to save in Apple sequestered format.
+- Remove tabs from some messages.
+- VMS bzip2 fixes.
+- WINDLL fixes.
+- Fix UTF-8 bug where using native UTF-8 setting created a wrong central
+  directory size in the End Of Central Directory.
+- Update Acorn port.  (Thanks to Jeffrey Lee.)
+- Compiler makefile updates for MSDOS and WIN32 ports.
+- Add support for ZLIB for VMS.
+- Better handling of VMS dots.
+- Update WINDLL C example.
+- Debian patch 844_003 with fixes for manual text.
+- Debian patch 5988_006 to change INSTALL_PROGRAM to INSTALL in makefile
+  for manuals.
+
+
+New things in Zip 3.0 since Zip 3.0h
 
 - Unicode fixes.
 - Test and fix various ports as needed.

@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2000-Apr-09 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -23,9 +23,8 @@ typedef struct {
 #  include "swiven.h"
 #endif
 
-#define MAXPATHLEN 256
-#define MAXFILENAMELEN 64  /* should be 11 for ADFS, 13 for DOS, 64 seems a sensible value... */
-#define DIR_BUFSIZE 1024   /* this should be enough to read a whole E-Format directory */
+#define MAXFILENAMELEN 1024  /* RISC OS 4 has 1024 limit. 1024 is also the same as FNMAX in zip.h */
+#define DIR_BUFSIZE MAXFILENAMELEN   /* Ensure we can read at least one full-length RISC OS 4 filename */
 
 struct stat {
   unsigned int st_dev;
@@ -60,15 +59,6 @@ struct dirent {
   size_t d_namlen;             /* length of d_name */
   char d_name[MAXFILENAMELEN]; /* name */
 };
-
-typedef struct {
-  unsigned int load_addr;
-  unsigned int exec_addr;
-  int lenght;
-  int attrib;
-  int objtype;
-  char name[13];
-} riscos_direntry;
 
 #define SPARKID   0x4341        /* = "AC" */
 #define SPARKID_2 0x30435241    /* = "ARC0" */

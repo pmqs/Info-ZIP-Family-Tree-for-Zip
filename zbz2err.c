@@ -32,16 +32,30 @@
 #include "zip.h"
 
 #ifdef BZIP2_SUPPORT
-# ifdef BZIP2_USEBZIP2DIR
-#   include "bzip2/bzlib.h"
-# else
-    /* If IZ_BZIP2 is defined as the location of the bzip2 files then
-       assume the location has been added to include path.  For Unix
-       this is done by the configure script. */
-    /* Also do not need path for bzip2 include if OS includes support
-       for bzip2 library. */
-#   include "bzlib.h"
+  /* It is useless to include the normal bzlib.h header from the bzip2 library,
+     because it does not provide a prototype for the bz_internal_error()
+     callback.
+     However, on VMS, a special wrapper header is supplied by the Info-ZIP
+     sources to support mixing of object modules compiled with case-sensitive
+     and case-insensitive external names.  This wrapper provides a prototype
+     for the callback using the correct case-mapping mode, which MUST be
+     read before defining the function.
+   */
+# ifdef VMS
+#   ifdef BZIP2_USEBZIP2DIR
+#     include "bzip2/bzlib.h"
+#   else
+      /* If IZ_BZIP2 is defined as the location of the bzip2 files then
+         assume the location has been added to include path.  For Unix
+         this is done by the configure script. */
+      /* Also do not need path for bzip2 include if OS includes support
+         for bzip2 library. */
+#     include "bzlib.h"
+#   endif
 # endif
+
+/* Provide a prototype locally, to shut up potential compiler warnings. */
+extern void bz_internal_error OF((int bzerrcode));
 
 /**********************************/
 /*  Function bz_internal_error()  */
@@ -51,10 +65,10 @@
  * BZ_NO_STDIO), required to handle fatal internal bug-type errors of
  * the bzip2 library.
  */
-void bz_internal_error(errcode)
-    int errcode;
+void bz_internal_error(bzerrcode)
+    int bzerrcode;
 {
-    sprintf(errbuf, "fatal error (code %d) in bzip2 library", errcode);
+    sprintf(errbuf, "fatal error (code %d) in bzip2 library", bzerrcode);
     ziperr(ZE_LOGIC, errbuf);
 } /* end function bz_internal_error() */
 

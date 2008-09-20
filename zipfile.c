@@ -1837,7 +1837,7 @@ struct zlist far *z;
           sprintf(errbuf,
                   "local extra (%ld bytes) != central extra (%ld bytes): ",
                   (ulg)z->ext, (ulg)z->cext);
-          if (noisy) fprintf(mesg, "\tzip info: %s%s\n", errbuf, z->oname);
+          if (noisy) fprintf(mesg, "        zip info: %s%s\n", errbuf, z->oname);
         }
 #   if (!defined(RISCOS) && !defined(CMS_MVS))
         /* in noisy mode, extra field sizes are always reported */
@@ -5406,7 +5406,9 @@ int putlocal(z, rewrite)
     if (z->flg & UTF8_BIT) {
       /* If this flag is set, then restore UTF-8 as path name */
       use_uname = 1;
+      tempzn -= nam;
       nam = strlen(z->uname);
+      tempzn += nam;
     } else {
       /* use extra field */
       add_Unicode_Path_local_extra_field(z);
@@ -5647,7 +5649,9 @@ int putcentral(z)
     if (z->flg & UTF8_BIT) {
       /* If this flag is set, then restore UTF-8 as path name */
       use_uname = 1;
+      tempzn -= nam;
       nam = strlen(z->uname);
+      tempzn += nam;
     } else {
       add_Unicode_Path_cen_extra_field(z);
     }
