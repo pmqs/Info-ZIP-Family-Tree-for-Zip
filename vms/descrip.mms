@@ -1,4 +1,4 @@
-#                                               23 February 2007.  SMS.
+#                                               21 January 2009.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -21,13 +21,21 @@
 #    IM=1           Use the old "IM" scheme for storing VMS/RMS file
 #                   atributes, instead of the newer "PK" scheme.
 #
-#    IZ_BZIP2=dev:[dir]  Add optional BZIP2 support.  The valus of the
+#    IZ_BZIP2=dev:[dir]  Add optional BZIP2 support.  The value of the
 #                        MMS macro IZ_BZIP2 ("dev:[dir]", or a suitable
 #                   logical name) tells where to find "bzlib.h".  The
 #                   BZIP2 object library (LIBBZ2_NS.OLB) is expected to
 #                   be in a "[.dest]" directory under that one
 #                   ("dev:[dir.ALPHAL]", for example), or in that
 #                   directory itself.
+#
+#    IZ_ZLIB=dev:[dir]  Use ZLIB compression library instead of internal
+#                       compression routines.  The value of the MMS
+#                   macro IZ_ZLIB ("dev:[dir]", or a suitable logical
+#                   name) tells where to find "zlib.h".  The ZLIB object
+#                   library (LIBZ.OLB) is expected to be in a "[.dest]"
+#                   directory under that one ("dev:[dir.ALPHAL]", for
+#                   example), or in that directory itself.
 #
 #    LARGE=1        Enable large-file (>2GB) support.  Non-VAX only.
 #
@@ -39,6 +47,13 @@
 #
 #    "LOCAL_ZIP=c_macro_1=value1 [, c_macro_2=value2 [...]]"
 #                   Compile with these additional C macros defined.
+#
+#    PROD=subdir    Use [.subdir] as the destination for
+#                   architecture-specific product files (.EXE, .OBJ,
+#                   .OLB, and so on).  The default is a name
+#                   automatically generated using rules defined in
+#                   [.VMS]DESCRIP_SRC.MMS.  Note that using this option
+#                   carelessly can confound the CLEAN* targets.
 #
 # VAX-specific optional macros:
 #
@@ -140,7 +155,7 @@ CLEAN :
 # Also mention:
 #    Comprehensive dependency file.
 
-CLEAN_ALL :
+CLEAN_ALL : CLEAN
 	if (f$search( "[.ALPHA*]*.*") .nes. "") then -
 	 delete /noconfirm [.ALPHA*]*.*;*
 	if (f$search( "ALPHA*.DIR", 1) .nes. "") then -
@@ -278,6 +293,7 @@ $(ZIP) : [.$(DEST)]ZIP.OBJ $(LIB_ZIP) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIP) /include = (GLOBALS $(INCL_BZIP2_M)) /library,  -
 	 $(LIB_BZIP2_OPTS) -
+	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
@@ -289,6 +305,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
 	 $(LIB_ZIPCLI) /library, -
 	 $(LIB_ZIP) /include = (GLOBALS $(INCL_BZIP2_M)) /library, -
 	 $(LIB_BZIP2_OPTS) -
+	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
@@ -299,6 +316,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
                          $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
+	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 

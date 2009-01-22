@@ -36,6 +36,8 @@
 .!              Zip 3.0.
 .!      01-007          Ed Gordon               15-MAY-2007
 .!              Minor updates to Zip 3.0 help.
+.!      01-008          Steven Schweda          12-DEC-2008
+.!              Minor tidying for version 3.1.
 .!
 <INIT>
 <MAIN>
@@ -202,16 +204,21 @@ relative paths, so some care is needed when creating an archive so that
 it will create the intended directory structure when UnZip is used to
 unpack it.
 
-To use /RECURSE with a specific directory, the name of the directory
-file itself must be specified:
+To use /RECURSE with a specific directory on VMS, the name and type of
+the directory file itself ("name.DIR") must be specified:
 
 <LITERAL>
 |  zip /recurse foo.zip [000000]www.dir, ftp.dir
 <LARETIL>
 
-You may want to make an archive that contains the files in [.foo], but
-not record the directory name, "foo".  You can use the /JUNK (junk path)
-option to leave off the path:
+(Note that only the name part of the directory specification, here,
+"www" or "ftp", is recorded in the archive.  When UnZip re-creates a
+directory on a VMS system, it will regain the usual ".DIR;1" type and
+version.)
+
+You may want to make an archive ("foo.zip") that contains the files in
+[.foo], but not record the directory name, "foo".  You can use the /JUNK
+(junk path) option to leave off the path:
 
 <LITERAL>
 |  zip /junk foo [.foo]*.*
@@ -254,8 +261,8 @@ command procedure is used, the names can be specified in the procedure:
 
 The file specifications can also be put into a separate file, and fed
 into Zip by specifying that file as "/BATCH = list_file", or by
-explicitly defining SYS$INPUT, or by using PIPE.  For example, with the
-list in foo.zfl:
+explicitly defining SYS$INPUT, or by using PIPE.  For example, creating
+(or updating) foo.zip, with the list in foo.zfl:
 <LITERAL>
 |  zip foo /batch = foo.zfl
 <LARETIL>
@@ -497,7 +504,7 @@ archive unchanged.
   /DIFFERENCE
 <LARETIL>
 
-Create an incremental backup-style archive, where the resulting archive
+Create an incremental-backup-style archive, where the resulting archive
 will contain all new and changed files since the original archive was
 created.  For this to work, the input file list and current directory
 must be the same as during the original Zip operation.
@@ -541,7 +548,7 @@ as when the archive was created, but this is not a strict requirement.
 <TOPIC>
 Self_Extracting_Archives
 
-A self-extracting archive (SFX) comprises a normal Zip archive appended
+A self-extracting (SFX) archive comprises a normal Zip archive appended
 to a special UnZip program (such as UNZIPSFX_CLI.EXE) for the intended
 target system.
 
@@ -1136,8 +1143,8 @@ preserves the case of all file names.
 
 Quiet mode.  Eliminates informational messages and comment prompts.
 This mode may be useful in command procedures, or if the Zip operation
-is being performed as a background task ("$ spawn/nowait zip /quiet foo
-*.c").
+is being performed as a background task ("$ spawn/nowait zip /quiet
+src.zip *.c").
 <QUALIFIER>
 /RECURSE
 
@@ -1191,23 +1198,23 @@ other related behavior.
 SIZE=size  specifies the split size.  The size is given as a number
 followed optionally by a multiplier suffix of k (KB), m (MB, the default
 if no suffix is specified), g (GB), or t (TB).  (All are powers of 1024,
-not 1000).  64K is the minimum split size.  For example, the following
+not 1000.)  64K is the minimum split size.  For example, the following
 command could be used to create a split archive called "foo" from the
-contents of the "bar" directory with splits of 670MB, which might be
-useful for burning on CDs:
+contents of the "[.foo]" directory with splits of 670MB, which might be
+useful for burning onto CDs:
 
 <LITERAL>
-|  zip /split = size = 670m foo [.bar...]*.*
+|  zip /split = size = 670m foo [.foo...]*.*
 <LARETIL>
 
 Using /SPLIT without PAUSE as above creates all the splits in the
-directory
-specified by "foo", in this case the current default directory.  This
-split mode updates the splits as the archive is being created, requiring
-all splits to remain writable, but creates split archives that are
-readable by any UnZip that supports split archives.  See PAUSE below for
-enabling split pause mode which allows splits to be written directly to
-removable media.
+directory specified by the archive name.  In this case, "foo", that
+would be the current default directory.  This split mode updates the
+splits as the archive is being created, requiring all splits to remain
+writable, but the resulting split archives should be readable by any
+UnZip that supports split archives.  See PAUSE below for enabling split
+pause mode which allows splits to be written directly to removable
+media.
 
 PAUSE  causes Zip to pause between splits to allow
 changing removable media, for example.  PAUSE uses stream mode to
@@ -1271,10 +1278,11 @@ built on VMS V7.3-2.
 
 When creating a new archive or normally when changing an existing
 archive, Zip will write a temporary file in the archive destination
-directory ("ZIxxxxxxxx", where "xxxxxxxx" is the hexadecimal process ID)
-with the new contents.  Then, if and when the Zip job has completed with
-no errors, it will rename the temporary file to the specified archive
-name (replacing the old archive, if any).
+directory with the new contents.  (On VMS, the temporary archive file
+name is "ZIxxxxxxxx.", where "xxxxxxxx" is the hexadecimal process ID.)
+Then, if and when the Zip job has completed with no errors, it will
+rename the temporary file to the specified archive name (replacing the
+old archive, if any).
 
 /TEMP_PATH=temp_dir specifies an alternate device:[directory],
 "temp_dir", for the temporary file, but specifying a different device
@@ -1295,8 +1303,8 @@ directory as stuff.zip when it's complete.
 /TEST[=UNZIP=unzip_cmd]
 
 Test the integrity of a Zip archive (the new one, if /OUTPUT is
-specified).  If the check fails, the old archive is unchanged  and
-(with the /MOVE option) no input files are removed.
+specified).  If the check fails, the old archive is unchanged, and,
+with the /MOVE option, no input files are removed.
 
 Implementation
 "zip /TEST" actually runs an "unzip -t" command to do the testing, so
@@ -1327,6 +1335,23 @@ recognized are:
 
 The CRLF option may be useful when a DOS text file has been transfered
 to a VMS disk in stream (or stream_lf) format.
+
+If the input files already contain CR-LF, /TRANSLATE_EOL=LF adds an
+extra CR.  This ensures that "unzip -a" on Unix will get back an exact
+copy of the original file, to undo the effect of "ZIP
+/TRANSLATE_EOL=LF".
+
+For either /TRANSLATE_EOL option, if a file is converted and the file
+is later determined to be binary, a warning is issued and the file is
+probably corrupted.  If Zip with /TRANSLATE_EOL detects binary
+(non-text) in the first buffer read from a file, it issues a warning and
+skips line-ending conversion on the file, avoiding corruption.  This
+check seems to catch all binary files tested, but the original check
+remains, and if a converted file is later determined to be binary, that
+warning is still issued.  The algorithm now being used for binary
+detection should allow line-ending conversion of text files in UTF-8 and
+similar encodings.
+
 <QUALIFIER>
 /UNSFX
 
@@ -1411,6 +1436,9 @@ With /VMS=ALL, Zip processes all allocated blocks for the file
 original file should be reproduced with as much fidelity as possible,
 but on a non-VMS system, most files will be seen as corrupt because of
 the data from beyond EOF.
+
+With /VMS[=ALL], the VMS-specific extra field includes a file's access
+control list (ACL).
 <QUALIFIER>
 /WILDCARD
 
@@ -1577,7 +1605,7 @@ at http://www.info-zip.org/pub/infozip/license.html.
 
 --------------------------------------------------------
 <LITERAL0>
-|Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+|Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 |
 |For the purposes of this copyright and license, "Info-ZIP" is defined as
 |the following set of individuals:

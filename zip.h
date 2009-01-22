@@ -373,6 +373,7 @@ extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
 
 /* Accomodation for /NAMES = AS_IS with old header files. */
 # define cma$tis_errno_get_addr CMA$TIS_ERRNO_GET_ADDR
+# define cma$tis_vmserrno_get_addr CMA$TIS_VMSERRNO_GET_ADDR
 # define lib$establish LIB$ESTABLISH
 # define lib$get_foreign LIB$GET_FOREIGN
 # define lib$get_input LIB$GET_INPUT
