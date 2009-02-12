@@ -89,13 +89,23 @@ FILE *fp;
 #endif /* HAVE_FSEEKABLE */
 
 
+/* 2008-10-07 SMS.
+ * VMS uses "^" as an escape character in ODS5 extended file names, and
+ * "\" is not special.
+ */
+#ifdef VMS
+# define ESCAPE_CHR '^'
+#else /* def VMS */
+# define ESCAPE_CHR '\\'
+#endif /* def VMS [else] */
+
 char *isshexp(p)
 char *p;                /* candidate sh expression */
 /* If p is a sh expression, a pointer to the first special character is
    returned.  Otherwise, NULL is returned. */
 {
   for (; *p; INCSTR(p))
-    if (*p == '\\' && *(p+1))
+    if (*p == ESCAPE_CHR && *(p+1))
       p++;
 #ifdef VMS
     else if (*p == WILDCHR_SINGLE || *p == WILDCHR_MULTI)
@@ -1028,11 +1038,21 @@ int is_text_buf(buf_ptr, buf_size)
     for (i = 0; i < buf_size; ++i)
     {
         c = (unsigned char)buf_ptr[i];
+        /* Changes from Lutz (see forum) 2008-10-17 */
+#ifdef EBCDIC
+        if (c > 63)     /* some text and control character found in */
+            result = 1; /* "z/Architecture Principles of Operation", */
+        else            /* appendix "EBCDIC and ISO-8 Codes" (SA22-7832) */
+        if ((c != 0) && (c != 5) && (c < 11 || c > 13) &&
+            (c != 21) && (c != 37) && (c != 47))
+            return 0;
+#else
         if (c >= 32)    /* speed up the loop by checking this first */
             result = 1; /* white-listed character found; keep looping */
         else            /* speed up the loop by inlining the following check */
         if ((c <= 6) || (c >= 14 && c <= 25) || (c >= 28 && c <= 31))
             return 0;   /* black-listed character found; stop */
+#endif
     }
 
     return result;

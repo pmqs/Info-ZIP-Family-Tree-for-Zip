@@ -331,7 +331,8 @@ IZ_IMP char *mktemp();
  */
 #ifdef UNICODE_SUPPORT
 # if defined( UNIX) || defined( VMS)
-#   include <locale.h>
+#  include <locale.h>
+#  include <langinfo.h>
 # endif /* defined( UNIX) || defined( VMS) */
 # include <wchar.h>
 # include <wctype.h>
@@ -668,13 +669,19 @@ typedef struct ztimbuf {
 #     define zfstat _fstati64
 #     define zlstat lstat
 
+/* The internal functions _fseeki64 and _ftelli64
+   may not exist on a version of Win32.  If not,
+   use the Info-ZIP versions in win32.c. */
+
       /* 64-bit fseeko */
       /* function in win32.c */
       int zfseeko OF((FILE *, zoff_t, int));
+/* # define zfseeko _fseeki64 */
 
       /* 64-bit ftello */
       /* function in win32.c */
       zoff_t zftello OF((FILE *));
+/* # define zftello _ftelli64 */
 
       /* 64-bit fopen */
 #     define zfopen fopen

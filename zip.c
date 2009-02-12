@@ -1,7 +1,7 @@
 /*
   zip.c - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -2020,6 +2020,7 @@ struct option_struct far options[] = {
     {"H",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     {"?",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     {"h2", "more-help",   o_NO_VALUE,       o_NOT_NEGATABLE, o_h2, "extended help"},
+    {"hh", "more-help",   o_NO_VALUE,       o_NOT_NEGATABLE, o_h2, "extended help"},
 #endif /* !WINDLL */
     {"i",  "include",     o_VALUE_LIST,     o_NOT_NEGATABLE, 'i',  "include only files matching patterns"},
 #if defined(VMS) || defined(WIN32)
@@ -2091,8 +2092,8 @@ struct option_struct far options[] = {
     {"v",  "verbose",     o_NO_VALUE,       o_NOT_NEGATABLE, 'v',  "display additional information"},
     {"",   "version",     o_NO_VALUE,       o_NOT_NEGATABLE, o_ve, "(if no other args) show version information"},
 #ifdef VMS
-    {"V",  "VMS-portable", o_NO_VALUE,      o_NOT_NEGATABLE, 'V',  "Store VMS attributes, portable file format"},
-    {"VV", "VMS-specific", o_NO_VALUE,      o_NOT_NEGATABLE, o_VV, "Store VMS attributes, VMS specific format"},
+    {"V",  "VMS-portable", o_NO_VALUE,      o_NOT_NEGATABLE, 'V',  "store VMS attributes, portable file format"},
+    {"VV", "VMS-specific", o_NO_VALUE,      o_NOT_NEGATABLE, o_VV, "store VMS attributes, VMS specific format"},
     {"w",  "VMS-versions", o_NO_VALUE,      o_NOT_NEGATABLE, 'w',  "store VMS versions"},
     {"ww", "VMS-dot-versions", o_NO_VALUE,  o_NOT_NEGATABLE, o_ww, "store VMS versions as \".nnn\""},
 #endif /* VMS */
@@ -2104,6 +2105,7 @@ struct option_struct far options[] = {
 #ifdef S_IFLNK
     {"y",  "symlinks",    o_NO_VALUE,       o_NOT_NEGATABLE, 'y',  "store symbolic links"},
 #endif /* S_IFLNK */
+    {"Y", "encryption-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Y', "set encryption method"},
     {"z",  "archive-comment", o_NO_VALUE,   o_NOT_NEGATABLE, 'z',  "ask for archive comment"},
     {"Z",  "compression-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Z', "compression method"},
 #if defined(MSDOS) || defined(OS2)
@@ -2204,20 +2206,50 @@ char **argv;            /* command line tokens */
 #endif
 
 #ifdef UNICODE_SUPPORT
-# ifdef UNIX
+# if defined( UNIX) || defined( VMS)
   /* For Unix, set the locale to UTF-8.  Any UTF-8 locale is
      OK and they should all be the same.  This allows seeing,
      writing, and displaying (if the fonts are loaded) all
      characters in UTF-8. */
   {
     char *loc;
+    char *codeset;
 
     /*
       loc = setlocale(LC_CTYPE, NULL);
       printf("  Initial language locale = '%s'\n", loc);
     */
 
+    /* New check provided by Danny Milosavljevic (SourceForge) */
+
+    /* Tell base library that we support locales.  This
+       will load the locale the user has selected.  Before
+       setlocale() is called, a minimal "C" locale is the
+       default. */
+    setlocale(LC_CTYPE, "");
+
+    /* get the codeset (character set encoding) currently used,
+       for example "UTF-8". */
+    codeset = nl_langinfo(CODESET);
+
+    if (strcmp(codeset, "UTF-8") == 0) {
+      /* already using UTF-8 */
+      using_utf8 = 1;
+    } else {
+      /* try setting UTF-8 */
+      if (setlocale(LC_CTYPE, "en_US.UTF-8") != NULL) {
+        using_utf8 = 1;
+      }
+    }
+
+
+    /* Alternative fix for just MAEMO. */
+#  if 0
+#  ifdef MAEMO
+    loc = setlocale(LC_CTYPE, "");
+#  else
     loc = setlocale(LC_CTYPE, "en_US.UTF-8");
+#  endif
 
     /*
       printf("langinfo %s\n", nl_langinfo(CODESET));
@@ -2234,9 +2266,10 @@ char **argv;            /* command line tokens */
         printf("  Could not set Unicode UTF-8 locale\n");
       */
     }
+#  endif /* 0 */
   }
-# endif
-#endif
+# endif /* defined( UNIX) || defined( VMS) */
+#endif /* def UNICODE_SUPPORT */
 
 #if defined(__IBMC__) && defined(__DEBUG_ALLOC__)
   {
@@ -3247,6 +3280,8 @@ char **argv;            /* command line tokens */
         case 'y':   /* Store symbolic links as such */
           linkput = 1;  break;
 #endif /* S_IFLNK */
+        case 'Y':   /* Encryption method */
+            ZIPERR(ZE_PARMS, "Option -Y (--encryption-method):  not yet implemented");
         case 'z':   /* Edit zip file comment */
           zipedit = 1;  break;
         case 'Z':   /* Compression method */
@@ -4344,7 +4379,7 @@ char **argv;            /* command line tokens */
       } else {
         int isdirname = 0;
 
-        if (z->name && (z->name)[strlen(z->name) - 1] == '/') {
+        if (z->iname && (z->iname)[strlen(z->iname) - 1] == '/') {
           isdirname = 1;
         }
 

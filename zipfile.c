@@ -243,10 +243,11 @@ local int scanzipf_regnew OF((void));
 local int zqcmp(a, b)
 ZCONST zvoid *a, *b;          /* pointers to pointers to zip entries */
 /* Used by qsort() to compare entries in the zfile list.
- * Compares the internal names z->iname */
+ * Compares the external names, z->zname, to agree with zsearch().
+ */
 {
-  char *aname = (*(struct zlist far **)a)->iname;
-  char *bname = (*(struct zlist far **)b)->iname;
+  char *aname = (*(struct zlist far **)a)->zname;
+  char *bname = (*(struct zlist far **)b)->zname;
 
   return namecmp(aname, bname);
 }
@@ -255,10 +256,12 @@ ZCONST zvoid *a, *b;          /* pointers to pointers to zip entries */
 local int zuqcmp(a, b)
 ZCONST zvoid *a, *b;          /* pointers to pointers to zip entries */
 /* Used by qsort() to compare entries in the zfile list.
- * Compares the internal names z->zuname */
+ * Compares the external names z->zuname (fallback: z->zname), to agree
+ * with zsearch().
+ */
 {
-  char *aname = (*(struct zlist far **)a)->iname;
-  char *bname = (*(struct zlist far **)b)->iname;
+  char *aname = (*(struct zlist far **)a)->zname;
+  char *bname = (*(struct zlist far **)b)->zname;
 
   /* zuname could be NULL */
   if ((*(struct zlist far **)a)->zuname)
@@ -444,7 +447,9 @@ char *ziptyp(s)
       strcat(t, "_zip");
   }
 #    endif /* QDOS */
-#  endif /* !RISCOS */
+#  else /* !ndef RISCOS */
+  q = q;
+#  endif /* ndef RISCOS */
   return t;
 }
 #endif  /* ndef VMS */

@@ -5,13 +5,13 @@
 
 Info-ZIP Licence
 
-This is version 2007-Mar-4 of the Info-ZIP license.
+This is version 2009-Jan-02 of the Info-ZIP license.
 The definitive version of this document should be available at
 ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
 a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 
-Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -41,11 +41,13 @@ freely, subject to the above disclaimer and the following restrictions:
     2. Redistributions in binary form (compiled executables and libraries)
        must reproduce the above copyright notice, definition, disclaimer,
        and this list of conditions in documentation and/or other materials
-       provided with the distribution.  The sole exception to this condition
-       is redistribution of a standard UnZipSFX binary (including SFXWiz) as
-       part of a self-extracting archive; that is permitted without inclusion
-       of this license, as long as the normal SFX banner has not been removed
-       from the binary or disabled.
+       provided with the distribution.  Additional documentation is not needed
+       for executables where a command line license option provides these and
+       a note regarding this option is in the executable's startup banner.  The
+       sole exception to this condition is redistribution of a standard
+       UnZipSFX binary (including SFXWiz) as part of a self-extracting archive;
+       that is permitted without inclusion of this license, as long as the
+       normal SFX banner has not been removed from the binary or disabled.
 
     3. Altered versions--including, but not limited to, ports to new operating
        systems, existing ports with new graphical interfaces, versions with
@@ -83,6 +85,9 @@ freely, subject to the above disclaimer and the following restrictions:
 typedef unsigned char uch;      /* unsigned 8-bit value */
 typedef unsigned short ush;     /* unsigned 16-bit value */
 typedef unsigned long ulg;      /* unsigned 32-bit value */
+
+/* This seems needed here for MVS - see forum posting, Lutz, 2008-10-14 */
+#define __EBCDIC 2
 
 /* Set up portability */
 #include "tailor.h"
@@ -222,7 +227,6 @@ struct plist {
 #define UNKNOWN (-1)
 #define BINARY  0
 #define ASCII   1
-#define __EBCDIC 2
 
 /* extra field definitions */
 #define EF_VMCMS     0x4704   /* VM/CMS Extra Field ID ("G")*/
@@ -373,6 +377,7 @@ extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
 
 /* Accomodation for /NAMES = AS_IS with old header files. */
 # define cma$tis_errno_get_addr CMA$TIS_ERRNO_GET_ADDR
+# define cma$tis_vmserrno_get_addr CMA$TIS_VMSERRNO_GET_ADDR
 # define lib$establish LIB$ESTABLISH
 # define lib$get_foreign LIB$GET_FOREIGN
 # define lib$get_input LIB$GET_INPUT
