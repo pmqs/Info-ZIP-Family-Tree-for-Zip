@@ -69,7 +69,7 @@ char hex_digit[ 16] = {
  */
 
 /* Character property table for (re-)escaping ODS5 extended file names.
-   Note that this table ignore Unicode, and does not identify invalid
+   Note that this table ignores Unicode, and does not identify invalid
    characters.
 
    ODS2 valid characters: 0-9 A-Z a-z $ - _
