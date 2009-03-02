@@ -1,4 +1,4 @@
-#                                               21 January 2009.  SMS.
+#                                               1 March 2009.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -115,9 +115,9 @@ INCL_DESCRIP_SRC = 1
 
 # Object library names.
 
-LIB_ZIP = [.$(DEST)]ZIP.OLB
-LIB_ZIPCLI = [.$(DEST)]ZIPCLI.OLB
-LIB_ZIPUTILS = [.$(DEST)]ZIPUTILS.OLB
+LIB_ZIP = SYS$DISK:[.$(DEST)]ZIP.OLB
+LIB_ZIPCLI = SYS$DISK:[.$(DEST)]ZIPCLI.OLB
+LIB_ZIPUTILS = SYS$DISK:[.$(DEST)]ZIPUTILS.OLB
 
 # Help file names.
 
@@ -291,8 +291,9 @@ $(OPT_FILE) :
 
 $(ZIP) : [.$(DEST)]ZIP.OBJ $(LIB_ZIP) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
-	 $(LIB_ZIP) /include = (GLOBALS $(INCL_BZIP2_M)) /library,  -
+	 $(LIB_ZIP) /library,  -
 	 $(LIB_BZIP2_OPTS) -
+	 $(LIB_ZIP) /library,  -
 	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
@@ -303,8 +304,9 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
              $(LIB_ZIPCLI) $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPCLI) /library, -
-	 $(LIB_ZIP) /include = (GLOBALS $(INCL_BZIP2_M)) /library, -
+	 $(LIB_ZIP) /library, -
 	 $(LIB_BZIP2_OPTS) -
+	 $(LIB_ZIP) /library, -
 	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
@@ -315,7 +317,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
                          $(LIB_ZIPUTILS) \
                          $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
-	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
+	 $(LIB_ZIPUTILS) /library, -
 	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
@@ -324,7 +326,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
                         $(LIB_ZIPUTILS) \
                         $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
-	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
+	 $(LIB_ZIPUTILS) /library, -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
@@ -332,7 +334,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
                          $(LIB_ZIPUTILS) \
                          $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
-	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
+	 $(LIB_ZIPUTILS) /library, -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 

@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2009-01-20  SMS.
+$!     Last revised:  2009-03-01  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -620,9 +620,10 @@ $!
 $! Link the executable.
 $!
 $     link /executable = [.'dest']'ZIPX_UNX'.EXE -
-       [.'dest']ZIP.OBJ, -
-       [.'dest']ZIP.OLB /include = (GLOBALS 'incl_bzip2_m') /library, -
+       SYS$DISK:[.'dest']ZIP.OBJ, -
+       SYS$DISK:[.'dest']ZIP.OLB /library, -
        'lib_bzip2_opts' -
+       SYS$DISK:[.'dest']ZIP.OLB /library, -
        'lib_zlib_opts' -
        'opts' -
        SYS$DISK:[.VMS]ZIP.OPT /options
@@ -671,10 +672,11 @@ $ if (MAKE_EXE)
 $ then
 $!
 $     link /executable = [.'dest']'ZIPX_CLI'.EXE -
-       [.'dest']ZIPCLI.OBJ, -
-       [.'dest']ZIPCLI.OLB /library, -
-       [.'dest']ZIP.OLB /include = (GLOBALS 'incl_bzip2_m') /library, -
+       SYS$DISK:[.'dest']ZIPCLI.OBJ, -
+       SYS$DISK:[.'dest']ZIPCLI.OLB /library, -
+       SYS$DISK:[.'dest']ZIP.OLB /library, -
        'lib_bzip2_opts' -
+       SYS$DISK:[.'dest']ZIP.OLB /library, -
        'lib_zlib_opts' -
        'opts' -
        SYS$DISK:[.VMS]ZIP.OPT /options
@@ -725,21 +727,21 @@ $ if (MAKE_EXE)
 $ then
 $!
 $     link /executable = [.'dest']ZIPCLOAK.EXE -
-       [.'dest']ZIPCLOAK.OBJ, -
-       [.'dest']ZIPUTILS.OLB /include = (GLOBALS) /library, -
+       SYS$DISK:[.'dest']ZIPCLOAK.OBJ, -
+       SYS$DISK:[.'dest']ZIPUTILS.OLB /library, -
        'lib_zlib_opts' -
        'opts' -
        SYS$DISK:[.VMS]ZIP.OPT /options
 $!
 $     link /executable = [.'dest']ZIPNOTE.EXE -
-       [.'dest']ZIPNOTE.OBJ, -
-       [.'dest']ZIPUTILS.OLB /include = (GLOBALS) /library, -
+       SYS$DISK:[.'dest']ZIPNOTE.OBJ, -
+       SYS$DISK:[.'dest']ZIPUTILS.OLB /library, -
        'opts' -
        SYS$DISK:[.VMS]ZIP.OPT /OPTIONS
 $!
 $     LINK /EXECUTABLE = [.'DEST']ZIPSPLIT.EXE -
-       [.'DEST']ZIPSPLIT.OBJ, -
-       [.'DEST']ZIPUTILS.OLB /INCLUDE = (globals) /LIBRARY, -
+       SYS$DISK:[.'DEST']ZIPSPLIT.OBJ, -
+       SYS$DISK:[.'DEST']ZIPUTILS.OLB /LIBRARY, -
        'opts' -
        SYS$DISK:[.VMS]ZIP.OPT /options
 $!
