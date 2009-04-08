@@ -3,9 +3,10 @@ HOW TO INSTALL ZIP
      Zip is distributed as C source code that can be compiled on a
      wide range of systems:  Unix, VMS, MSDOS, OS/2, NT, Amiga, Atari,
      BeOS, VM/CMS, ...  You will need Unzip 5.0p1 or later (under any
-     system) or PKUNZIP 2.04g or later (under MSDOS) to unpack the
-     distribution file, in this case zip31.zip.  But since you read this,
-     you have unpacked it already, or you cheated and got a tar.Z file...
+     system), PKUNZIP 2.04g or later (under MSDOS), or some other unzip
+     utility to unpack the distribution file, in this case zip31.zip.
+     But since you read this, you have unpacked it already, or you
+     cheated and got a tar.Z or tar.gz file...
 
      Note:  Zip 3.x distribution kits (unlike previously distributed
      Zip 2.x kits) are created with a top-level directory ("zip31") in
@@ -14,8 +15,7 @@ HOW TO INSTALL ZIP
 Installation on Unix (see below for installation on other systems)
 
      Let's assume that you start from scratch and have not yet unpacked
-     the sources.  First step, then, is to unpack Zip.  The following
-     assumes that you have zip31.zip in the current directory.
+     the sources.  First step, then, is to unpack Zip.
 
      For example, to extract to a new zipsrc directory (assuming
      zip31.zip is in the current directory):
@@ -28,15 +28,15 @@ Installation on Unix (see below for installation on other systems)
 
      To extract in an existing directory, such as /usr/local/src/zip:
 
+          copy zip31.zip /usr/local/src/zip
           cd /usr/local/src/zip
-          (copy zip31.zip here)
           unzip zip31.zip
           cd zip31
 
      The first extracts all source files and documentation to the
      directory "zipsrc/zip31".  The second places the zip31 directory
-     in the "/usr/local/src/zip" directory.  Both then cd in to the
-     zip31 directory where Zip will be built.
+     in the "/usr/local/src/zip" directory.  In both cases, you then
+     cd into the zip31 directory where Zip will be built.
 
      Note:  This release now includes the standard encryption code
      previously in the separate package zcrypt29.zip, but you still
@@ -91,9 +91,13 @@ Installation on Unix (see below for installation on other systems)
      requirements we did not account for.  See the file README for how
      to get help.
 
-     If the appropriate system was selected, then the executables zip,
-     zipnote, zipcloak, and zipsplit will be created.  You can copy
-     them to an appropriate directory in the search path using:
+     If a compatible system was selected, the executables zip, zipnote,
+     zipcloak, and zipsplit will be created.  (Note that there is much
+     commonality between various system builds, so more than one might
+     work for your system.  However, the best results are generally
+     achieved using either the generic build or the system build that
+     best matches your system.)  You can then copy the executables
+     to an appropriate directory in the search path using:
 
           make -f unix/Makefile install
 
@@ -235,14 +239,14 @@ Mac OS:
      Mac OS X is part of the Unix port, so use the Unix installation above.
 
      Mac OS before Mac OS X use the Mac OS port, though little testing has
-     been done for that port recently.  See macos/README.TXT for more on
+     been done on that port recently.  See macos/README.TXT for more on
      this port.
 
 
 Compiler Flags
 
   Zip should compile fine out of the box for your port.  In particular,
-  for Unix the command
+  for Unix the command:
     make -f unix/Makefile generic
   should automatically detect the features available on your system and
   set the flags appropriately.  In some cases, however, you may need to

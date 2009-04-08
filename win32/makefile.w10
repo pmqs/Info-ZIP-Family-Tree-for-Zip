@@ -1,9 +1,7 @@
 # WMAKE makefile for Windows 95 and Windows NT (Intel only)
-# using Watcom C/C++ v10.5+, by Paul Kienitz, last revised 09 Aug 2008.
+# using Watcom C/C++ v10.5+, by Paul Kienitz, last revised 21 Feb 2009.
 # Makes Zip.exe, ZipNote.exe, ZipCloak.exe, and ZipSplit.exe.
 #
-# Invoke from Zip source dir with "WMAKE -F WIN32\MAKEFILE.WAT [targets]"
-# To build without any assembly modules use "WMAKE NOASM=1 ..."
 # Invoke from Zip source dir with
 #   "WMAKE -F WIN32\MAKEFILE.WAT [configuration switches] [targets]"
 #
@@ -68,7 +66,7 @@ asmob = $(asmco) $(O)match32.obj
 cvars = $+$(cvars)$- -DASMV
 !endif
 
-# Apply the "CRC unfolding tables" optimization unless explicitly disabled.
+# Apply the "unfolding CRC tables" optimization unless explicitly disabled.
 # (This optimization might have negative effects on old CPU designs with a
 # small first-level data cache.)
 !ifndef NOCRC_OPT
@@ -218,6 +216,7 @@ $(OBDIR):
 
 clean:     .SYMBOLIC
 	del $(O)*.obj
+	del $(O)*.res
 
 cleaner:   clean  .SYMBOLIC
 	del Zip.exe

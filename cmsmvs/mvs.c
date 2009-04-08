@@ -147,6 +147,9 @@ int caseflag;           /* true to force case-sensitive match */
         memset(&s, '\0', sizeof(s));   /* stat data is unreliable for externals */
         s.st_mode = S_IFREG;           /* fudge it */
       }
+    } else { /* Lutz 2008-10-9 */
+      zipwarn("STAT failure: ", strerror(errno));
+      return ZE_MISS;
     }
 #endif /* MVS */
   }

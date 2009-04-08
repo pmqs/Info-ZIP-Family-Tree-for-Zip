@@ -574,6 +574,16 @@ _EOF_
 $CC -o conftest conftest.c >/dev/null 2>/dev/null
 [ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNEED_STRERROR"
 
+
+echo Check for nl_langinfo
+cat > conftest.c << _EOF_
+#include <langinfo.h>
+int main() { char *codeset;  codeset = nl_langinfo(CODESET); return codeset; }
+_EOF_
+$CC -o conftest conftest.c >/dev/null 2>/dev/null
+[ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_NL_LANGINFO"
+
+
 echo Check for errno declaration
 cat > conftest.c << _EOF_
 #include <errno.h>

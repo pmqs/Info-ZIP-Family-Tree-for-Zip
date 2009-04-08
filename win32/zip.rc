@@ -36,7 +36,7 @@ BEGIN
             VALUE "FileDescription", "Info-ZIP Zip for Win32 console\0"
             VALUE "FileVersion", VERSION "\0"
             VALUE "InternalName", "zip\0"
-            VALUE "LegalCopyright", "Copyright © Info-ZIP 1997 - 2008\0"
+            VALUE "LegalCopyright", "Copyright © Info-ZIP 1997 - 2009\0"
             VALUE "OriginalFilename", "zip.exe\0"
             VALUE "ProductName", "Zip\0"
             VALUE "ProductVersion", VERSION "\0"

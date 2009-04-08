@@ -1,9 +1,9 @@
 /*
   globals.c - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -145,11 +145,19 @@ char *key = NULL;       /* Scramble password if scrambling */
 char *tempath = NULL;   /* Path for temporary files */
 FILE *mesg;             /* stdout by default, stderr for piping */
 
+char **args = NULL;     /* Copy of argv that can be updated and freed */
+
+char *path_prefix = NULL; /* Prefix to add to all new archive entries */
+
+int all_ascii = 0;      /* Skip binary check and handle all files as text */
+
 #ifdef UNICODE_SUPPORT
  int utf8_force = 0;    /* 1=force storing UTF-8 as standard per AppNote bit 11 */
 #endif
 int unicode_escape_all = 0; /* 1=escape all non-ASCII characters in paths */
 int unicode_mismatch = 1; /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
+
+int mvs_mode = 0;       /* 0=lastdot (default), 1=dots, 2=slashes */
 
 time_t scan_delay = 5;  /* seconds before display Scanning files message */
 time_t scan_dot_time = 2; /* time in seconds between Scanning files dots */

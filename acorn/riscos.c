@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -92,7 +92,6 @@ DIR *opendir(char *dirname)
  DIR *thisdir;
  int type;
  int attr;
- os_error *er;
 
  thisdir=(DIR *)malloc(sizeof(DIR));
  if (thisdir==NULL)
@@ -108,7 +107,7 @@ DIR *opendir(char *dirname)
  if (thisdir->dirname[strlen(thisdir->dirname)-1]=='.')
    thisdir->dirname[strlen(thisdir->dirname)-1]=0;
 
- if (er=SWI_OS_File_5(thisdir->dirname,&type,NULL,NULL,NULL,&attr),er!=NULL ||
+ if (SWI_OS_File_5(thisdir->dirname,&type,NULL,NULL,NULL,&attr) != NULL ||
      type<=1 || (type==3 && !scanimage))
  {
    free(thisdir->dirname);
@@ -170,11 +169,10 @@ void closedir(DIR *d)
  free(d);
 }
 
-int unlink(f)
-char *f;                /* file to delete */
+int unlink(char *f)
 /* Delete the file *f, returning non-zero on failure. */
 {
- os_error *er;
+ _kernel_oserror *er;
  char canon[MAXFILENAMELEN];
  int size=MAXFILENAMELEN-1;
 
@@ -193,7 +191,6 @@ int deletedir(char *d)
  int objtype;
  char *s;
  int len;
- os_error *er;
 
  len = strlen(d);
  if ((s = malloc(len + 1)) == NULL)
@@ -203,7 +200,7 @@ int deletedir(char *d)
  if (s[len-1]=='.')
    s[len-1]=0;
 
- if (er=SWI_OS_File_5(s,&objtype,NULL,NULL,NULL,NULL),er!=NULL) {
+ if (SWI_OS_File_5(s,&objtype,NULL,NULL,NULL,NULL) != NULL) {
    free(s);
    return -1;
  }
@@ -213,16 +210,13 @@ int deletedir(char *d)
    return -1;
  }
 
- if (er=SWI_OS_File_6(s),er!=NULL) {
+ if (SWI_OS_File_6(s) != NULL) {
    /* maybe this is a problem with the DDEUtils module, try to canonicalise the path */
    char canon[MAXFILENAMELEN];
    int size=MAXFILENAMELEN-1;
 
-   if (er=SWI_OS_FSControl_37(s,canon,&size),er!=NULL) {
-     free(s);
-     return -1;
-   }
-   if (er=SWI_OS_File_6(canon),er!=NULL) {
+   if (SWI_OS_FSControl_37(s,canon,&size) != NULL
+       || SWI_OS_File_6(canon) != NULL) {
      free(s);
      return -1;
    }

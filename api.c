@@ -1,9 +1,9 @@
 /*
   api.c - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -28,6 +28,8 @@
   ---------------------------------------------------------------------------*/
 #define __API_C
 
+#include "api.h"                /* this includes zip.h */
+
 #include <malloc.h>
 #ifdef WINDLL
 #  include <windows.h>
@@ -44,7 +46,6 @@
 #endif
 #include <direct.h>
 #include <ctype.h>
-#include "api.h"                /* this includes zip.h */
 #include "crypt.h"
 #include "revision.h"
 #ifdef USE_ZLIB
@@ -378,11 +379,18 @@ if (Options.fJunkDir) /* Junk directory names -j */
    if (AllocMemory(argCee, "-j", "Junk Dir Names", FALSE) != ZE_OK)
         return ZE_MEM;
    }
-if (Options.fEncrypt) /* encrypt -e */
+
+/* fEncrypt */
+if (Options.fEncrypt > 1) {
+        fprintf(stdout,
+          "Only Encrypt method 1 currently supported, ignoring %d\n", Options.fEncrypt);
+} else
+if (Options.fEncrypt == 1) /* encrypt -e */
    {
    if (AllocMemory(argCee, "-e", "Encrypt", FALSE) != ZE_OK)
         return ZE_MEM;
    }
+
 if (Options.fJunkSFX) /* Junk sfx prefix */
    {
    if (AllocMemory(argCee, "-J", "Junk SFX", FALSE) != ZE_OK)
@@ -470,16 +478,19 @@ if (Options.fUpdate) /* Update zip file--overwrite only if newer -u */
     if (AllocMemory(argCee, "-u", "Update", FALSE) != ZE_OK)
         return ZE_MEM;
     }
-if (Options.fUTF8_No) /* No UTF-8 */
+
+/* fMisc */
+if (Options.fMisc | 2) /* No UTF-8 */
     {
     if (AllocMemory(argCee, "-UN=N", "UTF-8 No", FALSE) != ZE_OK)
         return ZE_MEM;
     }
-if (Options.fUTF8_Native) /* Native UTF-8 */
+if (Options.fMisc | 4) /* Native UTF-8 */
     {
     if (AllocMemory(argCee, "-UN=U", "UTF-8 Native", FALSE) != ZE_OK)
         return ZE_MEM;
     }
+
 if (Options.fVerbose)  /* Mention oddities in zip file structure -v */
     {
     if (AllocMemory(argCee, "-v", "Verbose", FALSE) != ZE_OK)

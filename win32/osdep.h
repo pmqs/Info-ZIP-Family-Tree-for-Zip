@@ -1,9 +1,9 @@
 /*
   win32/osdep.h
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -291,9 +291,6 @@
 #endif
 
 #ifdef WINDLL
-# ifndef NO_ASM
-#   define NO_ASM
-# endif
 # ifndef MSWIN
 #   define MSWIN
 # endif

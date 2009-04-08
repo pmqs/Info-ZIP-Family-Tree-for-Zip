@@ -483,6 +483,8 @@ extern FILE *y;                 /* output file now global for splits */
 extern int unicode_escape_all;  /* 1=escape all non-ASCII characters in paths */
 extern int unicode_mismatch;    /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
 
+extern int mvs_mode;            /* 0=lastdot (default), 1=dots, 2=slashes */
+
 extern time_t scan_delay;       /* seconds before display Scanning files message */
 extern time_t scan_dot_time;    /* time in seconds between Scanning files dots */
 extern time_t scan_start;       /* start of file scan */
@@ -531,6 +533,11 @@ extern int logfile_line_started; /* 1=started writing a line to logfile */
 extern char *key;               /* Scramble password or NULL */
 extern char *tempath;           /* Path for temporary files */
 extern FILE *mesg;              /* Where informational output goes */
+
+extern char **args;             /* Copy of argv that can be updated and freed */
+
+extern char *path_prefix;       /* Prefix to add to all new archive entries */
+extern int all_ascii;           /* Skip binary check and handle all files as text */
 extern char *zipfile;           /* New or existing zip archive (zip file) */
 extern FILE *in_file;           /* Current input file for spits */
 extern char *in_path;           /* Name of input archive, used to track reading splits */
@@ -788,10 +795,10 @@ void version_local OF((void));
         /* in util.c */
 #ifndef UTIL
 int   fseekable    OF((FILE *));
-char *isshexp      OF((char *));
+char *isshexp      OF((ZCONST char *));
 #ifdef UNICODE_SUPPORT
 # ifdef WIN32
-   wchar_t *isshexpw     OF((wchar_t *));
+   wchar_t *isshexpw     OF((ZCONST wchar_t *));
    int dosmatchw   OF((ZCONST wchar_t *, ZCONST wchar_t *, int));
 # endif
 #endif

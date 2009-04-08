@@ -885,7 +885,7 @@ int newname(name, flags, casesensitive)
   int pad_name;         /* Pad for name (may include APL_DBL_xxx). */
 
 #if defined( UNIX) && defined( __APPLE__)
-  /* Create special names for an AppleDouble file. */ 
+  /* Create special names for an AppleDouble file. */
   if (isapldbl)
   {
     char *name_archv_p;
@@ -3628,7 +3628,8 @@ zwchar *local_to_wide_string(local_string)
   if ((wc_string = (wchar_t *)malloc((wsize + 1) * sizeof(wchar_t))) == NULL) {
     ZIPERR(ZE_MEM, "local_to_wide_string");
   }
-  wsize = mbstowcs(wc_string, local_string, strlen(local_string) + 1);
+  /* Fix by kellner, from forum, 12 Feb 2009 */ 
+  wsize = mbstowcs(wc_string, local_string, wsize + 1);
   wc_string[wsize] = (wchar_t) 0;
 
   /* in case wchar_t is not zwchar */

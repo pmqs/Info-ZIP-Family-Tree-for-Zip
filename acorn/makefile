@@ -15,9 +15,8 @@ E    =
 #   LFLAGS2   flags after obj file list (libraries, etc)
 #
 LIB      =
-CBASE    = -throwback -wn -DASMV -apcs 3/26
-CFLAGS   = $(CBASE) -IC:,@.
-ASMFLAGS = -Throwback -Stamp -NoCache -CloseExec -quit -apcs 3/26
+CFLAGS   = -throwback -wn -wd -DASMV -IC:,@.
+ASMFLAGS = -Throwback -Stamp -NoCache -CloseExec -quit
 LFLAGS1  =
 LFLAGS2  = $(LIB) C:o.Stubs
 
@@ -43,20 +42,20 @@ all:      zip zipnote zipsplit zipcloak
 
 install:  %.zip %.zipnote %.zipsplit %.zipcloak %.zipsfx \
           zip zipnote zipsplit zipcloak zipsfx
-        $(SQUEEZE) zip %.zip
-        $(SQUEEZE) zipnote %.zipnote
-        $(SQUEEZE) zipsplit %.zipsplit
-        $(SQUEEZE) zipcloak %.zipcloak
-        copy acorn.zipsfx %.zipsfx ~CVF
+	$(SQUEEZE) zip %.zip
+	$(SQUEEZE) zipnote %.zipnote
+	$(SQUEEZE) zipsplit %.zipsplit
+	$(SQUEEZE) zipcloak %.zipcloak
+	copy acorn.zipsfx %.zipsfx ~CVF
 
 # suffix rules
 .SUFFIXES:      _.o .o .c
 .c_.o:
-        $(CC) $(CFLAGS) -DUTIL -c $*.c -o $*_.o
+	$(CC) $(CFLAGS) -DUTIL -c $*.c -o $*_.o
 .c.o:
-        $(CC) $(CFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $<
 .s.o:
-        $(ASM) $(ASMFLAGS) -from @*.s -to @*.o
+	$(ASM) $(ASMFLAGS) -from @*.s -to @*.o
 
 # rules for zip, zipnote, zipcloak and zipsplit
 $(OBJZ): $(ZIP_H)
@@ -71,45 +70,48 @@ zip.o zipup.o zipnote.o zipcloak.o zipsplit.o: revision.h
 zip.o crypt.o ttyio.o zipcloak.o crypt_.o: ttyio.h
 
 crc32_.o: crc32.c
-        $(CC) $(CFLAGS) -DUTIL -c c.crc32 -o o.crc32_
+	$(CC) $(CFLAGS) -DUTIL -c crc32.c -o crc32_.o
 crypt_.o: crypt.c
-        $(CC) $(CFLAGS) -DUTIL -c c.crypt -o o.crypt_
+	$(CC) $(CFLAGS) -DUTIL -c crypt.c -o crypt_.o
 util_.o: util.c
-        $(CC) $(CFLAGS) -DUTIL -c c.util -o o.util_
+	$(CC) $(CFLAGS) -DUTIL -c util.c -o util_.o
 fileio_.o: fileio.c
-        $(CC) $(CFLAGS) -DUTIL -c c.fileio -o o.fileio_
+	$(CC) $(CFLAGS) -DUTIL -c fileio.c -o fileio_.o
 zipfile_.o: zipfile.c
-        $(CC) $(CFLAGS) -DUTIL -c c.zipfile -o o.zipfile_
+	$(CC) $(CFLAGS) -DUTIL -c zipfile.c -o zipfile_.o
 acornzip_.o: acorn/acornzip.c $(ZIP_H)
-        $(CC) $(CFLAGS) -DUTIL -c acorn/acornzip.c -o o.acornzip_
+	$(CC) $(CFLAGS) -DUTIL -c acorn/acornzip.c -o acornzip_.o
 
 riscos.o: acorn/riscos.c acorn/riscos.h
-        $(CC) $(CFLAGS) -c acorn/riscos.c
+	$(CC) $(CFLAGS) -c acorn/riscos.c
 
 acornzip.o: acorn/acornzip.c $(ZIP_H)
-        $(CC) $(CFLAGS) -c acorn/acornzip.c
+	$(CC) $(CFLAGS) -c acorn/acornzip.c
+
+swiven.o: acorn/swiven.c acorn/swiven.h
+	$(CC) $(CFLAGS) -c acorn/swiven.c
 
 match.o: acorn/match.s
-        $(ASM) $(ASMFLAGS) -from acorn.s.match -to o.match
+	$(ASM) $(ASMFLAGS) -from acorn.s.match -to match.o
 
 sendbits.o: acorn/sendbits.s
-        $(ASM) $(ASMFLAGS) -from acorn.s.sendbits -to o.sendbits
+	$(ASM) $(ASMFLAGS) -from acorn.s.sendbits -to sendbits.o
 
-swiven.o: acorn/swiven.s
-        $(ASM) $(ASMFLAGS) -from acorn.s.swiven -to o.swiven
-
-zip:      $(OBJZ) $(OBJI) $(OBJA)
-          $(BIND) -o zip$(E) $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) $(LFLAGS2)
+zip:	$(OBJZ) $(OBJI) $(OBJA)
+	$(BIND) -o zip$(E) $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) $(LFLAGS2)
 zipnote:  $(OBJN)
-          $(BIND) -o zipnote$(E) $(LFLAGS1) $(OBJN) $(LFLAGS2)
+	$(BIND) -o zipnote$(E) $(LFLAGS1) $(OBJN) $(LFLAGS2)
 zipcloak: $(OBJC)
-          $(BIND) -o zipcloak$(E) $(LFLAGS1) $(OBJC) $(LFLAGS2)
+	$(BIND) -o zipcloak$(E) $(LFLAGS1) $(OBJC) $(LFLAGS2)
 zipsplit: $(OBJS)
-          $(BIND) -o zipsplit$(E) $(LFLAGS1) $(OBJS) $(LFLAGS2)
+	$(BIND) -o zipsplit$(E) $(LFLAGS1) $(OBJS) $(LFLAGS2)
 
-clean:  ;remove zip; remove zipcloak;
-        remove zipsplit; remove zipnote;
-        create o.!fake! 0
-        wipe o.* ~cf
+clean:
+	remove zip
+	remove zipcloak
+	remove zipsplit
+	remove zipnote
+	create o.!fake! 0
+	wipe o.* ~cf
 
 # end of Makefile

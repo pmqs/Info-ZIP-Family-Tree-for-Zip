@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -11,17 +11,11 @@
 #ifndef __riscos_h
 #define __riscos_h
 
+#include <limits.h>
 #include <time.h>
 #include <stdio.h>
 
-typedef struct {
-  int errnum;
-  char errmess[252];
-} os_error;
-
-#ifndef __swiven_h
-#  include "swiven.h"
-#endif
+#include "swiven.h"
 
 #define MAXFILENAMELEN 1024  /* RISC OS 4 has 1024 limit. 1024 is also the same as FNMAX in zip.h */
 #define DIR_BUFSIZE MAXFILENAMELEN   /* Ensure we can read at least one full-length RISC OS 4 filename */

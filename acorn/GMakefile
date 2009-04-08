@@ -2,36 +2,38 @@
 
 # add -g to CC to debug
 # add -d to BIND to debug
-CC   = gcc -mlibscl
+CC   = gcc
 BIND = $(CC)
-AS   = $(CC) -c
-ASM  = $(CC) -c
-SQUEEZE = squeeze -v
-E    =
+ASM  = $(CC) -mhard-float -xassembler-with-cpp -c
+E    = 
 
 # flags
 #   CFLAGS    flags for C compile
 #   LFLAGS1   flags after output file spec, before obj file list
 #   LFLAGS2   flags after obj file list (libraries, etc)
+#   ASMFLAGS  flags for assembler
 #
-LIB      =
-CFLAGS   = -O2 -Wall -mthrowback
-ASMFLAGS = -mthrowback -objasm -Wa,-upper
-LFLAGS1  = 
-LFLAGS2  = $(LIB)
+CFLAGS   = -mthrowback -mlibscl -I. -O2 -Wall
+LFLAGS1  = -mlibscl
+LFLAGS2  =
+ASMFLAGS = -mthrowback
 
 # Uncomment the following line to enable support for Unix
 # Extra Field (Timezone)
 #CFLAGS  = $(CFLAGS) -DUSE_EF_UT_TIME
 
 # object file lists
-OBJZ = zip.o zipfile.o zipup.o fileio.o util.o globals.o crc32.o \
-       crypt.o ttyio.o riscos.o acornzip.o swiven.o
+OBJZ = zip.o zipfile.o zipup.o fileio.o util.o globals.o crypt.o ttyio.o \
+	crc32.o riscos.o acornzip.o swiven.o
 
 OBJI = deflate.o trees.o
-OBJU = zipfile_.o fileio_.o util_.o globals.o riscos.o acornzip_.o swiven.o
+OBJA = 
+OCRCU8 = 
+OCRCTB = crc32_.o
+OBJU = zipfile_.o fileio_.o util_.o globals.o riscos.o acornzip_.o swiven.o \
+	$(OCRCUB)
 OBJN = zipnote.o  $(OBJU)
-OBJC = zipcloak.o $(OBJU) crc32_.o crypt_.o ttyio.o
+OBJC = zipcloak.o $(OBJU) $(OCRCTB) crypt_.o ttyio.o
 OBJS = zipsplit.o $(OBJU)
 
 ifndef NOASM
@@ -41,8 +43,49 @@ endif
 
 ZIP_H = zip.h ziperr.h tailor.h acorn/osdep.h acorn/riscos.h acorn/swiven.h
 
-all:      zip zipnote zipsplit zipcloak
+all:      zips
 
+VPATH = .:acorn
+
+# suffix rules
+.SUFFIXES:
+.SUFFIXES: _.o .o .c .s
+.c_.o:
+	$(CC) -c $(CFLAGS) -DUTIL -o $@ $<
+
+.c.o:
+	$(CC) -c $(CFLAGS) $<
+
+.s.o:
+	$(ASM) $(ASMFLAGS) -o $@ $<
+
+# rules for zip, zipnote, zipcloak, zipsplit, and the Zip MANUALs.
+$(OBJZ): $(ZIP_H)
+$(OBJI): $(ZIP_H)
+$(OBJN): $(ZIP_H)
+$(OBJS): $(ZIP_H)
+$(OBJC): $(ZIP_H)
+zip.o zipup.o zipfile.o fileio.o crc32.o crypt.o: crc32.h
+zipcloak.o zipfile_.o fileio_.o crc32_.o crypt_.o: crc32.h
+zip.o zipup.o crypt.o ttyio.o zipcloak.o crypt_.o: crypt.h
+zip.o zipup.o zipnote.o zipcloak.o zipsplit.o: revision.h
+zip.o crypt.o ttyio.o zipcloak.o crypt_.o: ttyio.h
+zipup.o: unix/zipup.h
+
+ZIPS = zip$E zipcloak$E zipnote$E zipsplit$E
+
+zips: $(ZIPS)
+
+zip$E: $(OBJZ) $(OBJI) $(OBJA) $(LIB_BZ)
+	$(BIND) -o zip$E $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) $(LFLAGS2)
+zipnote$E: $(OBJN)
+	$(BIND) -o zipnote$E $(LFLAGS1) $(OBJN) $(LFLAGS2)
+zipcloak$E: $(OBJC) $(OCRCTB)
+	$(BIND) -o zipcloak$E $(LFLAGS1) $(OBJC) $(LFLAGS2)
+zipsplit$E: $(OBJS)
+	$(BIND) -o zipsplit$E $(LFLAGS1) $(OBJS) $(LFLAGS2)
+
+# install
 install:  %.zip %.zipnote %.zipsplit %.zipcloak \
           zip zipnote zipsplit zipcloak acorn/zipsfx
 	$(SQUEEZE) zip %.zip
@@ -51,81 +94,10 @@ install:  %.zip %.zipnote %.zipsplit %.zipcloak \
 	$(SQUEEZE) zipcloak %.zipcloak
 	copy acorn.zipsfx %.zipsfx ~CVF
 
-# rules for zip, zipnote, zipcloak and zipsplit
-
-api.o:		api.c
-	$(CC) $(CFLAGS) -c api.c -o api.o
-crc32.o:	crc32.c $(ZIP_H) crc32.h
-	$(CC) $(CFLAGS) -c crc32.c -o crc32.o
-crypt.o:	crypt.c $(ZIP_H) crypt.h crc32.h ttyio.h
-	$(CC) $(CFLAGS) -c crypt.c -o crypt.o
-deflate.o:	deflate.c $(ZIP_H)
-	$(CC) $(CFLAGS) -c deflate.c -o deflate.o
-fileio.o:	fileio.c $(ZIP_H) crc32.h
-	$(CC) $(CFLAGS) -c fileio.c -o fileio.o
-globals.o:	globals.c $(ZIP_H)
-	$(CC) $(CFLAGS) -c globals.c -o globals.o
-mktime.o:	mktime.c
-	$(CC) $(CFLAGS) -c mktime.c -o mktime.o
-trees.o:	trees.c $(ZIP_H)
-	$(CC) $(CFLAGS) -c trees.c -o trees.o
-ttyio.o:	ttyio.c $(ZIP_H) crypt.h
-	$(CC) $(CFLAGS) -c ttyio.c -o ttyio.o
-util.o:		util.c $(ZIP_H)
-	$(CC) $(CFLAGS) -c util.c -o util.o
-zip.o:		zip.c $(ZIP_H) crc32.h crypt.h revision.h ttyio.h
-	$(CC) $(CFLAGS) -c zip.c -o zip.o
-zipcloak.o:	zipcloak.c $(ZIP_H) crc32.h crypt.h revision.h ttyio.h
-	$(CC) $(CFLAGS) -c zipcloak.c -o zipcloak.o
-zipfile.o:	zipfile.c $(ZIP_H) crc32.h
-	$(CC) $(CFLAGS) -c zipfile.c -o zipfile.o
-zipnote.o:	zipnote.c $(ZIP_H) revision.h
-	$(CC) $(CFLAGS) -c zipnote.c -o zipnote.o
-zipsplit.o:	zipsplit.c $(ZIP_H) revision.h
-	$(CC) $(CFLAGS) -c zipsplit.c -o zipsplit.o
-zipup.o:	zipup.c $(ZIP_H) crc32.h crypt.h revision.h
-	$(CC) $(CFLAGS) -c zipup.c -o zipup.o
-
-crc32_.o: crc32.c $(ZIP_H) crc32.h
-	$(CC) $(CFLAGS) -DUTIL -c crc32.c -o crc32_.o
-crypt_.o: crypt.c $(ZIP_H) crypt.h crc32.h ttyio.h
-	$(CC) $(CFLAGS) -DUTIL -c crypt.c -o crypt_.o
-util_.o: util.c $(ZIP_H)
-	$(CC) $(CFLAGS) -DUTIL -c util.c -o util_.o
-fileio_.o: fileio.c $(ZIP_H) crc32.h
-	$(CC) $(CFLAGS) -DUTIL -c fileio.c -o fileio_.o
-zipfile_.o: zipfile.c $(ZIP_H) crc32.h
-	$(CC) $(CFLAGS) -DUTIL -c zipfile.c -o zipfile_.o
-acornzip_.o: acorn/acornzip.c $(ZIP_H)
-	$(CC) $(CFLAGS) -I. -DUTIL -c acorn/acornzip.c -o acornzip_.o
-
-riscos.o: acorn/riscos.c acorn/riscos.h $(ZIP_H)
-	$(CC) $(CFLAGS) -I. -c acorn/riscos.c -o riscos.o
-
-acornzip.o: acorn/acornzip.c $(ZIP_H)
-	$(CC) $(CFLAGS) -I. -c acorn/acornzip.c -o acornzip.o
-
-match.o: acorn/match.s
-	$(ASM) $(ASMFLAGS) -I. acorn/match.s -o match.o
-
-sendbits.o: acorn/sendbits.s
-	$(ASM) $(ASMFLAGS) -I. acorn/sendbits.s -o sendbits.o
-
-swiven.o: acorn/swiven.c acorn/swiven.h
-	$(ASM) $(CFLAGS) -I. acorn/swiven.c -o swiven.o
-
-zip:	$(OBJZ) $(OBJI) $(OBJA)
-	$(BIND) -o zip$(E) $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) $(LFLAGS2)
-zipnote:  $(OBJN)
-	$(BIND) -o zipnote$(E) $(LFLAGS1) $(OBJN) $(LFLAGS2)
-zipcloak: $(OBJC)
-	$(BIND) -o zipcloak$(E) $(LFLAGS1) $(OBJC) $(LFLAGS2)
-zipsplit: $(OBJS)
-	$(BIND) -o zipsplit$(E) $(LFLAGS1) $(OBJS) $(LFLAGS2)
-
-clean:	
+# clean up after making stuff and installing it
+clean:
 	remove zip
-	remove zipcloak	
+	remove zipcloak
 	remove zipsplit
 	remove zipnote
 	create o.!fake! 0

@@ -1,5 +1,5 @@
 # WMAKE makefile for Windows 95 and Windows NT (Intel only)
-# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 09 Aug 2008.
+# using Watcom C/C++ v11.0+, by Paul Kienitz, last revised 21 Feb 2009.
 # Makes Zip.exe, ZipNote.exe, ZipCloak.exe, and ZipSplit.exe.
 #
 # Invoke from Zip source dir with
@@ -60,6 +60,9 @@ cvars = $+$(cvars)$- -DASM_CRC
 
 !ifdef NOASMATCH
 asmob = $(asmco)
+cvars = $+$(cvars)$- -DNO_ASM           # otherwise ASMV might default on!
+!else  # !NOASMATCH
+asmob = $(asmco) $(O)match32.obj
 cvars = $+$(cvars)$- -DASMV
 !endif
 
@@ -68,9 +71,6 @@ cvars = $+$(cvars)$- -DASMV
 # small first-level data cache.)
 !ifndef NOCRC_OPT
 variation = -DIZ_CRCOPTIM_UNFOLDTBL $+$(variation)$-
-!else  # !NOASMATCH
-asmob = $(asmco) $(O)match32.obj
-cvars = $+$(cvars)$- -DASMV -DASM_CRC
 !endif
 
 # Our object files.  OBJZ is for Zip, OBJC is for ZipCloak, OBJN is for
@@ -216,6 +216,7 @@ $(OBDIR):
 
 clean:     .SYMBOLIC
 	del $(O)*.obj
+	del $(O)*.res
 
 cleaner:   clean  .SYMBOLIC
 	del Zip.exe

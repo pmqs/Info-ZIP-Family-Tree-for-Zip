@@ -1,14 +1,14 @@
 What's New
 
-Last updated 21 September 2008
+Last updated 2 April 2009
 
 This file is the full list of new features and major changes for Zip 3.x
-by beta release.  See the announcement file zip31a.ann for a quick summary
-of all features and changes in Zip 3.1a.  Also see the file README for
-release information, INSTALL for installation procedures, and the manual
-pages zip.txt, zipsplit.txt, zipcloak.txt, and zipnote.txt for how to use
-the new features.  The file CHANGES has all the day-to-day changes made
-during development.
+by beta release.  See the announcement file zip31b.ann for a quick summary
+of all features and changes in Zip 3.1b (this beta).  Also see the file
+README for release information, INSTALL for installation procedures, and
+the manual pages zip.txt, zipsplit.txt, zipcloak.txt, and zipnote.txt, as
+well as the extended help in Zip, for how to use the new features.  The
+file CHANGES has all the day-to-day changes made during development.
 
 
 Below are some of the more significant items on the list for Zip 3.1
@@ -25,8 +25,7 @@ Below are some of the more significant items on the list for Zip 3.1
 - When pattern is directory add end / automatically.
 - Add C# example for Zip 3.1 (need to be converted to new DLLs) - original
   C# example added with note.
-- Path Prefix maybe, so entries added to an archive can have a directory
-  path string prepended to each path.
+- A way to rename paths in an archive (like ZipNote, but as creating archive).
 - UNC path support maybe.
 - Support for other languages maybe.
 - Send in your suggestions.
@@ -35,6 +34,58 @@ Below are some of the more significant items on the list for Zip 3.1
 
 MAJOR CHANGES BY BETA VERSION
 -----------------------------
+
+New things in Zip 3.1b
+
+- EBCDIC and MVS fixes for file includes, tty detection, better error
+  reporting for file opens, and character exceptions for binary detection.
+- File close bug in ZipNote fixed.
+- Fixes and structure enhancements for DLL.  Update DLL build parts of
+  makefiles.  Do not force NO_ASM for DLL to allow build scripts to
+  determine setting.
+- License update that removes requirement for additional documentation
+  when binary includes option to display license.
+- VB example update.
+- Static library fixes.
+- Use Windows 64-bit fseek and ftell as available to more modern compilers.
+- Update to local character set detection and UTF-8 activation.  Fixes
+  for MAEMO OS.
+- Additional Acorn/RISCOS fixes.  Use APCS-32 build and C swiven code.
+  Add GAS versions for GCCSDK 4 (ELF).  Simplified indirect variable
+  loading.  Update Acorn ReadMe.  Change to kernel OS error calls.
+  Change from binary srcrename to BASIC version.
+- Fix bug in character set conversions causing illegal memory access.
+- Fixes and updates to character set handling for VMS.  Change from
+  \ to ^ for default escape character for VMS.  Update handling of
+  escapes.
+- Change matching of command line arguments to file and archive paths
+  to use internal format paths instead of local OS format paths for
+  consistent matching.
+- Update Unix configure and makefile to add additional parameters for
+  ZLIB and PROD destination directory.
+- Add choosing of output directory to VMS build.
+- Fix VMS ACL buffer overrun problem.  Update VMS command descriptions.
+- Header file include updates for WinDLL.
+- Add compatibility defines for VC++ 8 and newer.
+- Change settings to compile LIB library for multithreading projects
+  as DLL already did.
+- Add examples directory to source tree and organize examples in
+  directory tree.  Add LIB examples.  Fix example.exe build rules.
+- Add new -pp option to allow adding a prefix to archive paths.
+- Add optional bzip2 support for DLL build.
+- Add missing "delete resource binaries" (*.res) command to clean
+    target.
+- Update WinDLL tree to be more consistent.
+- Link updates for VMS.
+- Remove old borland dll and lib from WinDLL contents list.
+- Fix a few memory leaks.
+- Add -MV option to control how MVS paths are stored.
+- Add -aa option to force all files to be processed as text files
+  (including EBCDIC and line end translations).  Useful for moving
+  EBCDIC files (as from Z/OS) to ASCII systems.
+- Minor updates to logging.
+- Pass Zip password (from -e or -P) to unzip when testing archive.
+
 
 New things in Zip 3.1a
 

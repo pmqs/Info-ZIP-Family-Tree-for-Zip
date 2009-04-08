@@ -1,17 +1,18 @@
-Zip 3.1a is a BETA version.  Do not distribute.
+Zip 3.1b is a BETA version.  Do not distribute.
 
 Zip 3.1 is the latest Zip update of Zip 3.x with large file and split archive
 support.  For now Zip 2.3x remains available and supported, but users should
 switch to Zip 3.x at some point.
 
 Testing for Zip 3.x so far has focused mainly on Unix, VMS, Max OS X, and
-Win32, and some other ports may not be fully supported yet.  If you find your
-favorite port is broke, send us the details or, better, send bug fixes.  It's
-possible that support for some older ports may be dropped in the future.
+Win32, though some recent updates have been made for z/OS and MVS.  Even so,
+some ports may not be fully supported.  If you find your favorite port is
+partially or completely broke, send us the details or, better, send bug fixes.
+It's possible that unsupported ports may be dropped in the future.
 
 
 
-Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
 See the accompanying file LICENSE (the contents of which are also included
 in unzip.h, zip.h and wiz.h) for terms of use.  If, for some reason, all
@@ -24,7 +25,8 @@ Zip 3.1 is a compression and file packaging utility.  It is compatible with
 PKZIP 2.04g (Phil Katz ZIP) for MSDOS systems.  There is a companion to zip
 called unzip (of course) which you should be able to find in the same place
 you got zip.  See the file 'WHERE' for details on ftp sites and mail
-servers.
+servers.  Also check online at http://www.info-zip.org/ and
+http://sourceforge.net/projects/infozip/.
 
 So far zip has been ported to a wide array of Unix and other mainframes,
 minis, and micros including VMS, OS/2, Minix, MSDOS, Windows, Atari, Amiga,
@@ -36,9 +38,9 @@ extended file attributes; conversion from Unix to MSDOS text file format; and,
 of course, the ability to run on most of your favorite operating systems.  And
 it's free.
 
-See the file zip31a.ann for a summary of new features in Zip 3.1a and WhatsNew
-for the detailed list of new features and changes since Zip 2.32.  The file
-CHANGES details all day-to-day changes during development.
+See the file zip31b.ann for a summary of new features in Zip 3.1b and WhatsNew
+for the full list of new features and changes.  The file CHANGES details all
+day-to-day changes during development.
 
 Notes:
 
@@ -75,7 +77,8 @@ for flagging when the current character set is already UTF-8.  Zip 3.1
 maintains backward compatibility with older archives and is mostly compliant
 with the new Unicode additions in the latest PKWare AppNote.  The exception
 is UTF-8 comments, which are not supported if UTF-8 is not the native
-character set, but should be fully implemented in Zip 3.1.
+character set, but should be fully implemented by the time Zip 3.1 is
+released.
 
 16-bit OS support.  Though Zip 3.1 is designed to support the latest zip
 standards and modern OS, some effort has been made to maintain support
@@ -86,10 +89,17 @@ we might be able to help.
 Compression methods.  In addition to the standard store and deflate methods,
 Zip now can use the bzip2 compression format using the bzip2 library.  Though
 bzip2 compression generally takes longer, in many cases using bzip2 results
-in much better compression.  However, many unzips may not yet support
+in much better compression.  However, some unzips may not yet support
 bzip2 compressed entries in archives, so test your unzip first before using
-bzip2 compression.  We may add additional compression methods if there is
-interest.
+bzip2 compression.  We are considering adding LZMA (from 7-Zip) and PPMd
+compression methods before Zip 3.1 is released.  Let us know if there's
+interest in these or other compression methods.
+
+Encryption.  This version supports standard zip encryption.  Until recently
+the encryption code was distributed separately because of the US export
+regulations but now is part of the main distribution.  See crypt.c for
+details.  Decryption can be made with unzip 5.0p1 or later, or with zipcloak.
+We plan to add AES strong encryption to Zip 3.1 before release.
 
 Installation.  Please read the file INSTALL for information on how to compile
 and install zip, zipsplit, zipcloak, and zipnote and please read the manual
@@ -105,21 +115,15 @@ is to use zip to convert a split archive to a single file archive and then use
 the utilities on that archive.  We hope to look at adding split archive
 support to the utilities in Zip 3.1 as appropriate.
 
-Encryption.  This version supports standard zip encryption.  Until recently
-the encryption code was distributed separately because of the US export
-regulations but now is part of the main distribution.  See crypt.c for
-details.  Decryption can be made with unzip 5.0p1 or later, or with zipcloak.
-We plan to add AES strong encryption to Zip 3.1 before release.
-
 Bug reports.  All bug reports or patches should go to zip-bugs via the web
 site contact form at http://www.info-zip.org/zip-bug.html (we have discontinued
 the old email address zip-bugs@lists.wku.edu because of too much spam lately)
 and suggestions for new features can be submitted there also (although we don't
 promise to use all of them).  We also are on SourceForge at
-http://sourceforge.net/projects/infozip/ and now automatically get Bug Reports
+http://sourceforge.net/projects/infozip/ and should automatically get Bug Reports
 and Feature Requests submitted there.  In addition, a new Info-ZIP discussion
 forum is available as well.  See below.  Bug reports can also be posted there,
-and we now get automatic notification of new threads created.  A good approach
+and we should get automatic notification of new threads created.  A good approach
 may be to post the details on the forum so others can benefit from the posting,
 then use the web reply form to let us know you did that if you don't get a
 reply in a reasonable time.
@@ -167,9 +171,9 @@ A. Please make sure that you made the transfer in binary mode.  Check
    Note that the above message also may actually mean you have only part
    of a multi-part archive.  Also note that UnZip 5.x does not and UnZip 6.0
    probably won't have multi-disk (split) archive support.  A work around
-   is to use Zip 3.1 to convert the split archive to a single-file archive
-   then use UnZip on that archive.  As a last result, if there's something
-   readable in what you have, zip -FF should be able to recover it.
+   is to use Zip 3.0 or later to convert the split archive to a single-file
+   archive then use UnZip on that archive.  As a last result, if there's
+   something readable in what you have, zip -FF should be able to recover it.
 
 
 Q. When running unzip, I get a message about "End-of-central-directory
@@ -210,7 +214,12 @@ A. You may redistribute the latest official distributions without any
    modification, without even asking us for permission. You can charge
    for the cost of the media (CDROM, diskettes, etc...) and a small copying
    fee.  If you want to distribute modified versions please contact us at
-   www.Info-ZIP.org first. You must not distribute beta versions.
+   www.Info-ZIP.org first. You must not distribute beta versions.  A
+   partial exception are betas designated by Info-ZIP as "public betas."
+   Public betas should not be distributed as well as all features may not
+   be fully implemented and full testing may not have been done, but it's 
+   understood that public betas may include features immediately useful to
+   some users and so distribution is not recommended but not prohibited.
    The latest official distributions are always on ftp.Info-ZIP.org in
    directory /pub/infozip and subdirectories and at SourceForge.
 

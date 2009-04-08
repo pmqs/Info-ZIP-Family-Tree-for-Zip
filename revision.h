@@ -1,9 +1,9 @@
 /*
   revision.h - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -19,10 +19,10 @@
 #define Z_MAJORVER   3
 #define Z_MINORVER   1
 #define Z_PATCHLEVEL 0
-#define Z_BETALEVEL "a BETA"
+#define Z_BETALEVEL "b BETA"
 
-#define VERSION "3.1a BETA"
-#define REVDATE "Sep 21st 2008"
+#define VERSION "3.1b BETA"
+#define REVDATE "Apr 9th 2009"
 
 #define DW_MAJORVER    Z_MAJORVER
 #define DW_MINORVER    Z_MINORVER
@@ -53,7 +53,7 @@ extern ZCONST char * far cryptnote[7];
 #else /* DEFCPYRT */
 
 ZCONST char *copyright[] = {
-"Copyright (c) 1990-2008 Info-ZIP - Type '%s \"-L\"' for software license."
+"Copyright (c) 1990-2009 Info-ZIP - Type '%s \"-L\"' for software license."
 /* XXX still necessary ???? */
 #ifdef AZTEC_C
 ,        /* extremely lame compiler bug workaround */
@@ -82,7 +82,7 @@ ZCONST char * far cryptnote[] = {
 };
 
 ZCONST char * far swlicense[] = {
-"Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.",
+"Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.",
 "",
 "For the purposes of this copyright and license, \"Info-ZIP\" is defined as",
 "the following set of individuals:",
@@ -112,11 +112,13 @@ ZCONST char * far swlicense[] = {
 "    2. Redistributions in binary form (compiled executables and libraries)",
 "       must reproduce the above copyright notice, definition, disclaimer,",
 "       and this list of conditions in documentation and/or other materials",
-"       provided with the distribution.  The sole exception to this condition",
-"       is redistribution of a standard UnZipSFX binary (including SFXWiz) as",
-"       part of a self-extracting archive; that is permitted without inclusion",
-"       of this license, as long as the normal SFX banner has not been removed",
-"       from the binary or disabled.",
+"       provided with the distribution.  Additional documentation is not needed",
+"       for executables where a command line license option provides these and",
+"       a note regarding this option is in the executable's startup banner.  The",
+"       sole exception to this condition is redistribution of a standard",
+"       UnZipSFX binary (including SFXWiz) as part of a self-extracting archive;",
+"       that is permitted without inclusion of this license, as long as the",
+"       normal SFX banner has not been removed from the binary or disabled.",
 "",
 "    3. Altered versions--including, but not limited to, ports to new operating",
 "       systems, existing ports with new graphical interfaces, versions with",

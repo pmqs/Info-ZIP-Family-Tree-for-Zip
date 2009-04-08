@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /* Include file for VM/CMS and MVS */
 
@@ -65,7 +65,6 @@
 #define NO_RMDIR
 #define NO_MKTEMP
 #define USE_CASE_MAP
-#define isatty(t) 1
 
 #ifndef MVS  /* MVS has perfectly good definitions for the following */
 #  define fileno(x) (char *)(x)
@@ -73,6 +72,7 @@
 #  define unlink remove
 #  define link rename
 #  define utime(f,t)
+#  define isatty(t) 1
 #endif /*MVS */
 #ifdef ZCRYPT_INTERNAL
 #  define ZCR_SEED2     (unsigned)3141592654L   /* use PI as seed pattern */
