@@ -1944,7 +1944,8 @@ local int scanzipf_fix(f)
         break;
       */
       /* back up */
-      if (zfseeko(f, -3L, SEEK_CUR))
+      /*  RBW  --  2009/06/21  --  large file suppt, z/OS needs cast */
+      if (zfseeko(f, (zoff_t) -3L, SEEK_CUR))
         return ferror(f) ? ZE_READ : ZE_EOF;
       /* move 1 byte forward */
       p++;
@@ -2060,7 +2061,8 @@ local int scanzipf_fix(f)
             b[0] = (char) m;
             if (fread(b+1, 15, 1, f) != 1 || LG(b) == EXTLOCSIG)
               break;
-            if (zfseeko(f, -15L, SEEK_CUR))
+            /*  RBW  --  2009/06/21  --  large file suppt, z/OS needs cast */
+            if (zfseeko(f, (zoff_t) -15L, SEEK_CUR))
               return ferror(f) ? ZE_READ : ZE_EOF;
           }
 # ifdef ZIP64_SUPPORT
@@ -2111,7 +2113,8 @@ local int scanzipf_fix(f)
           b[0] = (char) m;
           if (fread(b+1, 3, 1, f) != 1 || (s = LG(b)) == LOCSIG || s == CENSIG)
             break;
-          if (zfseeko(f, -3L, SEEK_CUR))
+          /*  RBW  --  2009/06/21  --  large file suppt, z/OS needs cast */
+          if (zfseeko(f, (zoff_t) -3L, SEEK_CUR))
             return ferror(f) ? ZE_READ : ZE_EOF;
           p++;
         }
@@ -2175,7 +2178,7 @@ int readlocal(localz, z)
 #ifndef UTIL
   ulg start_disk = 0;
   uzoff_t start_offset = 0;
-  char *split_path;
+  char *split_path = NULL;
 
   start_disk = z->dsk;
   start_offset = z->off;
@@ -2206,6 +2209,7 @@ int readlocal(localz, z)
       split_path = get_in_split_path(in_path, start_disk);
     }
   }
+  if (split_path) free(split_path);
 #endif
 
   /* For utilities assume archive is on one disk for now */
@@ -2385,7 +2389,8 @@ local int scanzipf_reg(f)
     t[3] = '\0';
     /* back up as much as 4k from end */
     /* zip64 support 08/31/2003 R.Nausedat */
-    if (zfseeko(f, -4096L, SEEK_END) == 0) {
+    /*  RBW  --  2009/06/21  --  large file suppt, z/OS needs cast */
+    if (zfseeko(f, (zoff_t) -4096L, SEEK_END) == 0) {
       zipbeg = (uzoff_t) (zftello(f) + 4096L);
       /* back up 4k blocks and look for End Of CD signature */
       while (!found && zipbeg >= 4096) {
@@ -2397,7 +2402,8 @@ local int scanzipf_reg(f)
  * XXX error check ??
  */
         fread(buf, 1, 4096, f);
-        zfseeko(f, -8192L, SEEK_CUR);
+        /*  RBW  --  2009/06/21  --  large file suppt, z/OS needs cast */
+        zfseeko(f, (zoff_t) -8192L, SEEK_CUR);
         t = &buf[4095];
 /*
  * XXX far pointer arithmetic in DOS
@@ -2427,7 +2433,8 @@ local int scanzipf_reg(f)
     if (!found && zipbeg > 0) {
       size_t s;
 
-      zfseeko(f, 0L, SEEK_SET);
+      /*  RBW  --  2009/06/21  --  large file suppt, z/OS needs cast */
+      zfseeko(f, (zoff_t) 0L, SEEK_SET);
       clearerr(f);
       s = fread(buf, 1, (size_t) zipbeg, f);
       /* add 0 bytes at end */
@@ -2465,7 +2472,8 @@ local int scanzipf_reg(f)
 #ifndef ZIP64_SUPPORT
     /* If Zip64 not enabled check if archive being read is Zip64 */
     /* back up 24 bytes (size of Z64 EOCDL and ENDSIG) */
-    if (zfseeko(f, -24, SEEK_CUR) != 0) {
+    /*  RBW  --  2009/06/21  --  large file suppt, z/OS needs cast */
+    if (zfseeko(f, (zoff_t) -24, SEEK_CUR) != 0) {
         perror("fseek");
         return ZE_FORM; /* XXX */
     }
@@ -3283,12 +3291,17 @@ local int scanzipf_fixnew()
     /* look for End Of Central Directory Record */
 
     /* back up 64k (the max size of the EOCDR) from end */
-    if (zfseeko(in_file, -0x40000L, SEEK_END) != 0) {
+    /*
+      RBW  --  2009/06/21  --  
+      All these literals with an L (long) suffix need coercing to a
+      zoff_t under z/OS. This should be harmless in other environments.
+    */
+    if (zfseeko(in_file, (zoff_t) -0x40000L, SEEK_END) != 0) {
       /* assume file is less than 64 KB so backup to beginning */
-      if (zfseeko(in_file, 0L, SEEK_SET) != 0) {
+      if (zfseeko(in_file, (zoff_t) 0L, SEEK_SET) != 0) {
         fclose(in_file);
         in_file = NULL;
-        zipwarn("unable to seek in input file ", in_path);
+        zipwarn("unable to seek in input file (zf-01):  ", in_path);
         return ZE_READ;
       }
     }
@@ -3340,7 +3353,7 @@ local int scanzipf_fixnew()
       if (zfseeko(in_file, eocdr_offset, SEEK_SET) != 0) {
         fclose(in_file);
         in_file = NULL;
-        zipwarn("unable to seek in input file ", in_path);
+        zipwarn("unable to seek in input file (zf-02):  ", in_path);
         return ZE_READ;
       }
 
@@ -3420,7 +3433,7 @@ local int scanzipf_fixnew()
       if (zfseeko(in_file, 0, SEEK_SET) != 0) {
         fclose(in_file);
         in_file = NULL;
-        zipwarn("unable to seek in input file ", in_path);
+        zipwarn("unable to seek in input file (zf-03):  ", in_path);
         return ZE_READ;
       }
       /* get next signature */
@@ -4083,7 +4096,8 @@ local int scanzipf_regnew()
      bytes (=65557 bytes) from the end of the file.
      We back up 128k, to allow some junk being appended to a Zip file.
    */
-  if ((zfseeko(in_file, -0x20000L, SEEK_END) != 0) ||
+  /*  RBW  --  2009/06/21  --  large file suppt, z/OS needs cast */
+  if ((zfseeko(in_file, (zoff_t) -0x20000L, SEEK_END) != 0) ||
       /* Some fseek() implementations (e.g. MSC 8.0 16-bit) fail to signal
          an error when seeking before the beginning of the file.
          As work-around, we check the position returned by zftello()
@@ -4091,10 +4105,11 @@ local int scanzipf_regnew()
        */
       (zftello(in_file) == (zoff_t)-1L)) {
     /* file is less than 128 KB so back up to beginning */
-    if (zfseeko(in_file, 0L, SEEK_SET) != 0) {
+    /*  RBW  --  2009/06/21  --  large file suppt, z/OS needs cast */
+    if (zfseeko(in_file, (zoff_t) 0L, SEEK_SET) != 0) {
       fclose(in_file);
       in_file = NULL;
-      zipwarn("unable to seek in input file ", in_path);
+      zipwarn("unable to seek in input file (zf-04):  ", in_path);
       return ZE_READ;
     }
   }
@@ -4153,7 +4168,7 @@ local int scanzipf_regnew()
   if (zfseeko(in_file, eocdr_offset, SEEK_SET) != 0) {
     fclose(in_file);
     in_file = NULL;
-    zipwarn("unable to seek in input file ", in_path);
+    zipwarn("unable to seek in input file (zf-05):  ", in_path);
     return ZE_READ;
   }
 
@@ -4694,7 +4709,7 @@ local int scanzipf_regnew()
         if (zfseeko(in_file, in_cd_start_offset, SEEK_SET) != 0) {
           fclose(in_file);
           in_file = NULL;
-          zipwarn("unable to seek in input file ", split_path);
+          zipwarn("unable to seek in input file (zf-06):  ", split_path);
           return ZE_READ;
         }
         first_CD = 0;
@@ -5087,7 +5102,12 @@ local int scanzipf_regnew()
       zip_fzofft(cd_total_entries, NULL, "u"),
       zip_fzofft(zcount, NULL, "u"));
     zipwarn(errbuf, "");
-    return ZE_FORM;
+    if (zcount % 0x10000 == cd_total_entries) {
+      /* could be old zip not counting higher than 64KB */
+      zipwarn("Off by mod 64KB - assume archive from old zip, continuing ...", "");
+    } else {
+      return ZE_FORM;
+    }
   }
 
   return ZE_OK;
@@ -5990,13 +6010,13 @@ int putend( OFT( uzoff_t) n,
     append_ushort_to_mem((ush)total_cd_entries, &block, &offset, &blocksize);
   else
     append_ushort_to_mem((ush)0xFFFF, &block, &offset, &blocksize);
-  if( s > ZIP_UWORD32_MAX )
+  if (s > ZIP_UWORD32_MAX)
     /* instead of s */
     append_ulong_to_mem(ZIP_UWORD32_MAX, &block, &offset, &blocksize);
   else
     /* 4 bytes    size of the central directory */
     append_ulong_to_mem((ulg)s, &block, &offset, &blocksize);
-  if(force_zip64 == 1 || cd_start_offset > ZIP_UWORD32_MAX)
+  if (force_zip64 == 1 || cd_start_offset > ZIP_UWORD32_MAX)
     /* instead of cd_start_offset */
     append_ulong_to_mem(ZIP_UWORD32_MAX, &block, &offset, &blocksize);
   else
@@ -6080,7 +6100,7 @@ int zipcopy(z)
   ulg e = 0;            /* extended local header size */
   ulg start_disk = 0;
   uzoff_t start_offset = 0;
-  char *split_path;
+  char *split_path = NULL;
   char buf[LOCHEAD + 1];
   struct zlist far *localz;
   int r;
@@ -6129,6 +6149,7 @@ int zipcopy(z)
         split_path = get_in_split_path(in_path, start_disk);
       }
     }
+    if (split_path) free(split_path);
 
     if (zfseeko(in_file, start_offset, SEEK_SET) != 0) {
       fclose(in_file);
