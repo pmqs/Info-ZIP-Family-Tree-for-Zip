@@ -1490,6 +1490,13 @@ char *tempname(zip)
   strcat(t, "ziXXXXXX"); /* must use lowercase for Linux dos file system */
 #     if defined(UNIX) && !defined(NO_MKSTEMP)
   /* tempname should not be called */
+  {
+    int fd;
+
+    if ((fd = mkstemp(t)) < 0)
+      return NULL;
+    close(fd);
+  }
   return t;
 #     else
   return mktemp(t);
