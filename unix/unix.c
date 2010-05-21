@@ -267,8 +267,13 @@ int *pdosflag;          /* output: force MSDOS file attributes? */
     return NULL;
   strcpy(n, t);
 
-  if (dosify)
+  if ((dosify) && (!winify))
     msname(n);
+
+#ifdef IZ_ISO2OEM_ARRAY
+  if (dosify)
+    str_iso_to_oem(n, n);
+#endif
 
 #ifdef EBCDIC
   strtoasc(n, n);       /* here because msname() needs native coding */

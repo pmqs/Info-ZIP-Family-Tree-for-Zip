@@ -725,7 +725,10 @@ char *str_iso_to_oem(dst, src)
   char *dst;
 {
   char *dest_start = dst;
-  while (*dst++ = (char)iso2oem[(uch)(*src++)]);
+  if (!iso8859_2)
+    while (*src) { *dst++ = (*src & 0x80) ? iso2oem[*src++ & 0x7f] : *src++; }
+  else
+    while (*src) { *dst++ = (*src & 0x80) ? iso2oem_2[*src++ & 0x7f] : *src++; }
   return dest_start;
 }
 #endif
@@ -736,7 +739,10 @@ char *str_oem_to_iso(dst, src)
   char *dst;
 {
   char *dest_start = dst;
-  while (*dst++ = (char)oem2iso[(uch)(*src++)]);
+  if (!iso8859_2)
+    while (*src) { *dst++ = (*src & 0x80) ? oem2iso[*src++ & 0x7f] : *src++; }
+  else
+    while (*src) { *dst++ = (*src & 0x80) ? oem2iso_2[*src++ & 0x7f] : *src++; }
   return dest_start;
 }
 #endif

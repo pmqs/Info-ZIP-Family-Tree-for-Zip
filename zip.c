@@ -1943,7 +1943,7 @@ int set_filetype(out_path)
 #ifdef UNICODE_TEST
 #define o_sC            0x146
 #endif
-
+#define o_OO            0x147
 
 /* the below is mainly from the old main command line
    switch with a few changes */
@@ -2026,6 +2026,7 @@ struct option_struct far options[] = {
 #endif /* ?MACOS */
     {"J",  "junk-sfx",    o_NO_VALUE,       o_NOT_NEGATABLE, 'J',  "strip self extractor from archive"},
     {"k",  "DOS-names",   o_NO_VALUE,       o_NOT_NEGATABLE, 'k',  "force use of 8.3 DOS names"},
+    {"K",  "latin1-entries", o_NO_VALUE,    o_NOT_NEGATABLE, 'K',  "convert file names from CP850 to ISO8859-1"},
     {"l",  "to-crlf",     o_NO_VALUE,       o_NOT_NEGATABLE, 'l',  "convert text file line ends - LF->CRLF"},
     {"ll", "from-crlf",   o_NO_VALUE,       o_NOT_NEGATABLE, o_ll, "convert text file line ends - CRLF->LF"},
     {"lf", "logfile-path",o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_lf, "log to log file at path (default overwrite)"},
@@ -2044,6 +2045,7 @@ struct option_struct far options[] = {
 #endif
     {"o",  "latest-time", o_NO_VALUE,       o_NOT_NEGATABLE, 'o',  "use latest entry time as archive time"},
     {"O",  "output-file", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'O',  "set out zipfile different than in zipfile"},
+    {"OO", "iso8859-2",   o_NO_VALUE,       o_NOT_NEGATABLE, o_OO, "Use ISO8859-2 instead of ISO8859-1"},
     {"p",  "paths",       o_NO_VALUE,       o_NOT_NEGATABLE, 'p',  "store paths"},
     {"P",  "password",    o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'P',  "encrypt entries, option value is password"},
 #if defined(QDOS) || defined(QLZIP)
@@ -2290,6 +2292,8 @@ char **argv;            /* command line tokens */
   dispose = 0;         /* 1=remove files after put in zip file */
   pathput = 1;         /* 1=store path with name */
   method = BEST;       /* one of BEST, DEFLATE (only), or STORE (only) */
+  winify = 0;          /* 1=file names will be converted from IBM PC CP 850 to ISO8859-1 */
+  iso8859_2 = 0;       /* 1=ISO8859-2 will be used instead of ISO8859-1 */
   dosify = 0;          /* 1=make new entries look like MSDOS */
   verbose = 0;         /* 1=report oddities in zip file structure */
   fix = 0;             /* 1=fix the zip file */
@@ -2860,6 +2864,8 @@ char **argv;            /* command line tokens */
           junk_sfx = 1;  break;
         case 'k':   /* Make entries using DOS names (k for Katz) */
           dosify = 1;  break;
+        case 'K':   /* file names will be converted from IBM PC CP 850 to ISO8859-1 */
+          winify = dosify = 1;  break;
         case 'l':   /* Translate end-of-line */
           translate_eol = 1; break;
         case o_ll:
@@ -2916,6 +2922,8 @@ char **argv;            /* command line tokens */
           free(value);
           have_out = 1;
           break;
+        case o_OO:   /* ISO8859-2 will be used instead of ISO8859-1 */
+          iso8859_2 = 1;  break;
         case 'p':   /* Store path with name */
           break;            /* (do nothing as annoyance avoidance) */
         case 'P':   /* password for encryption */

@@ -18,7 +18,7 @@
 zip \- package and compress (archive) files
 .SH SYNOPSIS
 .B zip
-.RB [\- aABcdDeEfFghjklLmoqrRSTuvVwXyz!@$ ]
+.RB [\- aABcdDeEfFghjklLmoOqrRSTuvVwXyz!@$ ]
 [\-\-longoption ...]
 .RB [\- b " path]"
 .RB [\- n " suffixes]"
@@ -1322,7 +1322,15 @@ Attempt to convert the names and paths to conform to MSDOS,
 store only the MSDOS attribute (just the user write attribute from Unix),
 and mark the entry as made under MSDOS (even though it was not);
 for compatibility with PKUNZIP under MSDOS which cannot handle certain
-names such as those with two dots.
+names such as those with two dots. Conversion from ISO8859-1 to
+IBM PC CP 852 is used. See also
+.B \-OO
+.TP
+.B \-K
+Attempt to convert the names and paths to conform to MS Windows. Behaviour
+similar to
+.B \-k
+but long names are used.
 .TP
 .PD 0
 .B \-l
@@ -1576,6 +1584,12 @@ be compatible
 with all unzips), except if standard encryption was used.  For archives
 with encrypted entries, \fIzipcloak\fP will decrypt the entries and convert
 them to normal entries.
+.TP
+.PD 0
+.B \-OO
+File names will be converted from ISO8859-2 instead of from ISO8859-1. See
+.B \-k
+for details.
 .TP
 .PD 0
 .B \-p
