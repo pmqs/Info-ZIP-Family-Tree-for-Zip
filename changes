@@ -3858,7 +3858,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  2. Update WhatsNew.  WHATSNEW (Ed)
  3. Update announcement.  zip31b.ann (Ed)
  4. Update TODO.  TODO (Ed)
------------------------- July 20th 2009 version 3.1c01 -------------------------
+------------------------ July 20th 2009 version 3.1c01 --------------------------
  1. Add -aa option to skip binary check.  Add global all_ascii. (Ed)
  2. Fixes to -aa and -MV options.  cmsmvs/cmsmvs.c, zip.c (Lutz)
  3. Use 64-bit zfseeko + zftello functions for large file support.
@@ -3922,7 +3922,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     where these archives were rejected as bad.  zipfile.c (Ed)
 31. In zipcopy(), initialize split_path to NULL and free later if
     not NULL to fix memory leak.  zipfile.c (Ed, Kamers)
------------------------ August 15th 2009 version 3.1c02 ------------------------
+----------------------- August 15th 2009 version 3.1c02 -------------------------
  1. Update EXPENTRY entries for DLL to fix compiler problem in VC6.
     api.h (Ed)
  2. Add get_time_in_usec() to time zipping rate in microseconds.  Calls system
@@ -3947,10 +3947,67 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     out unimplemented fSuffix.  windll/examples/vbz64/vbzipbas.bas,
     windll/examples/vbz64/vbzip.vbw, windll/examples/vb/vbzip.vbw (Ed)
 10. Add api.h and windll.h to dll project.  windll/vc6/dll/zip32z64.dsp (Ed)
------------------------ November 28th 2009 version 3.1c02+ ---------------------
- 1. Changed vms/vmszip.c:wild() to avoid saving a user-specified version
-    (";1") when the user-specified file is a directory.  (SMS)
- 2. Changed vms/vmszip.c:deletedir() to use (complex) $QIOW code instead
+----------------------- April 14th 2010 version 3.1c03 -------------------------
+ 1. Add Fedora stack markings patch (exec-shield.patch) to prevent stack from
+    being executable, patch forwarded from Debian bug system.  See
+    http://cvs.fedoraproject.org/viewvc//devel/zip/exec-shield.patch?view=markup.
+    crc_i386.S, match.S (sanvila on forum, Kees Cook)
+ 2. Changed VMS wild() to avoid saving a user-specified version
+    (";1") when the user-specified file is a directory.  vms/vmszip.c (SMS)
+ 3. Changed VMS deletedir() to use (complex) $QIOW code instead
     of (simple) system() with a "SET PROT" command, to eliminate annoying
     %SET-E-PRONOTCHG messages when SET PROT failed during "zip -m"
-    directory deletions.  (SMS)
+    directory deletions.  vms/vmszip.c (SMS)
+ 4. Add CRYPT defines around password code.  zip.c (SMS)
+ 5. Change instances of k used for comments to new comment_size with type
+    extent.  zip.c (SMS, Ed)
+ 6. Remove extra comment introducer.  zipfile.c (SMS)
+ 7. Add wchar.h and wctype.h includes to wide character check code.
+    unix/configure (SMS)
+ 8. Add checks for uname -m, uname -o, uname -p, uname -r, uname -s,
+    and uname -v and pass back to main code for version information.
+    unix/configure (SMS)
+ 9. Move __APPLE__ define.  Use UNAME defines.  unix.c (SMS)
+10. Add include for incl_bzip2_m to link executable.  Include (GLOBALS).
+    vms/build_zip.com, vms/descript.mms, vms/descript_src.mms (SMS)
+11. Update handling of exit codes for VMS.  vms/notes.txt, vms/vms.c (SMS)
+12. Define VAX Type-Cast to avoid compiler warnings.  vms/vmszip.c (SMS)
+13. Comment out sys/time.h include because prevents compiling on Windows
+    MSVS that does not have it.  fileio.c (Ed)
+14. Update some copyrights to 2010.  revision.h (Ed)
+----------------------- May 14th 2010 version 3.1c04 ---------------------------
+ 1. Format #if blocks to verify all blocks close in response to user question.
+    zipfile.c (Ed)
+ 2. Update structure _ZpVer to include option structure ZPOPT size and a new
+    string to provide a comma separated list of enabled features to the user,
+    currently set to NULL.  Add comments.  Add DLL support for -Z compression
+    method, by adding compression method name string to ZPOPT.  In ZPOPT change
+    fMisc to fUnicode in ZPOPT structure, removing unused suffix flag.  Add 8
+    long words of fluff at end of ZPOPT for future expansion.  All this makes
+    this ZPOPT not backward compatible, but will allow backward compatible
+    expansion in the future.  api.c, api.h (Ed)
+ 3. As Zip version is provided through Z_MAJORVER, Z_MINORVER, and Z_PATCHLEVEL,
+    starting with Zip 3.1c, DW_MAJORVER, DW_MINORVER, and DW_PATCHLEVEL defines
+    are frozen at 3, 1, and 0 (this version) unless the DLL interface changes
+    in a way that is not backward compatible.  api.c, api.h, revision.h (Ed)
+ 3. If logfile is specified as "-", send log output to stdout.  Forces -q to
+    avoid duplicate output to stdout.  Options -la (append to existing log)
+    and -v (verbose) are not allowed, as output is determined by the logging
+    code and the -li option.  Update -lf extended help.  zip.c (Ed)
+ 4. Update copyright date.  zip.h (Ed)
+ 5. If display_globaldots (-dg) is set, do not output a newline after each
+    file in DisplayRunningStats().  This newline kept the dots from staying
+    on the same line as intended.  zip.c (Ed)
+ 6. Clean up indentation of #if blocks.  zipfile.c
+ 7. Add Ignore_Export_Lib 0 for consistency.  win32/vc6bz2/zip.dsp (Ed)
+ 8. Add bzip2 enabled Windows DLL and LIB MSVS 6 projects.
+    windll/vc6bz2/readmev6bz2.txt, windll/vc6bz2/dll/zip32z64.dsp,
+    windll/vc6bz2/dll/zip32z64.dsw, windll/vc6bz2/lib/zip32z64.dsp,
+    windll/vc6bz2/lib/zip32z64.dsw (Ed)
+ 9. Update install.txt to note added bzip2 DLL and LIB capability for
+    Windows.  bzip2/install.txt (Ed)
+
+ X. Made the "-j" option negatable.  Changed the VMS CLI to make /JUNK
+    negatable (like /[NO]FULL_PATHS), and to generate "-j-" instead of
+    (the no-op) "-p".  [Need to deprecate/remove "-p" from zip.c and the
+    Zip "man" page.]

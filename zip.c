@@ -1,7 +1,7 @@
 /*
   zip.c - Zip 3
 
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -923,6 +923,12 @@ local void help_extended()
 "",
 "Logging:",
 "  -lf path  open file at path as logfile (overwrite existing file)",
+"             If path is \"-\" send log output to stdout, replacing normal",
+"             output (implies -q).  Without -li, only end summary and any",
+"             errors reported.  Cannot use with -la or -v.",
+"    zip -lf - -dg -ds 10m -r archive.zip foo",
+"             will zip up directory foo, displaying just dots every 10 MB",
+"             and an end summary.",
 "  -la       append to existing logfile",
 "  -li       include info messages (default just warnings and errors)",
 "",
@@ -1831,7 +1837,7 @@ local int DisplayRunningStats()
 {
   char tempstrg[100];
 
-  if (mesg_line_started) {
+  if (mesg_line_started && !display_globaldots) {
     fprintf(mesg, "\n");
     mesg_line_started = 0;
   }
@@ -2335,7 +2341,7 @@ struct option_struct far options[] = {
 #ifdef RISCOS
     {"I",  "no-image",    o_NO_VALUE,       o_NOT_NEGATABLE, 'I',  "no image"},
 #endif
-    {"j",  "junk-paths",  o_NO_VALUE,       o_NOT_NEGATABLE, 'j',  "strip paths and just store file names"},
+    {"j",  "junk-paths",  o_NO_VALUE,       o_NEGATABLE,     'j',  "strip paths and just store file names"},
 #ifdef MACOS
     {"jj", "absolute-path", o_NO_VALUE,     o_NOT_NEGATABLE, o_jj, "MAC absolute path"},
 #endif /* ?MACOS */
@@ -2455,9 +2461,9 @@ char **argv;            /* command line tokens */
   /* zip64 support 09/05/2003 R.Nausedat */
   uzoff_t c;            /* start of central directory */
   uzoff_t t;            /* length of central directory */
-  uzoff_t ent_cnt;      /* Marked entry count, generic entry count. */
+  zoff_t k;             /* marked counter, entry count */
+  extent comment_size;  /* comment size */
   uzoff_t n;            /* total of entry len's */
-  extent cmnt_size;     /* Comment size. */
 
   int o;                /* true if there were any ZE_OPEN errors */
   char *p;              /* steps through option arguments */
@@ -3278,7 +3284,11 @@ char **argv;            /* command line tokens */
             break;
 #endif /* ?MACOS */
         case 'j':   /* Junk directory names */
-          pathput = 0;  break;
+          if (negated)
+            pathput = 1;
+          else
+            pathput = 0;
+          break;
         case 'J':   /* Junk sfx prefix */
           junk_sfx = 1;  break;
         case 'k':   /* Make entries using DOS names (k for Katz) */
@@ -3970,36 +3980,55 @@ char **argv;            /* command line tokens */
     char *p;
     char *lastp;
 
-    /* if no extension add .log */
-    p = logfile_path;
-    /* find last / */
-    lastp = NULL;
-    for (p = logfile_path; (p = MBSRCHR(p, '/')) != NULL; p++) {
-      lastp = p;
-    }
-    if (lastp == NULL)
-      lastp = logfile_path;
-    if (MBSRCHR(lastp, '.') == NULL) {
-      /* add .log */
-      if ((p = malloc(strlen(logfile_path) + 5)) == NULL) {
-        ZIPERR(ZE_MEM, "logpath");
+    if (strlen(logfile_path) == 1 && logfile_path[0] == '-') {
+      /* log to stdout */
+      if (zip_to_stdout) {
+        ZIPERR(ZE_PARMS, "cannot send both zip and log output to stdout");
       }
-      strcpy(p, logfile_path);
-      strcat(p, ".log");
-      free(logfile_path);
-      logfile_path = p;
-    }
+      if (logfile_append) {
+        ZIPERR(ZE_PARMS, "cannot use -la when logging to stdout");
+      }
+      if (verbose) {
+        ZIPERR(ZE_PARMS, "cannot use -v when logging to stdout");
+      }
+      /* to avoid duplicate output, turn off normal messages to stdout */
+      noisy = 0;
+      /* send output to stdout */
+      logfile = stdout;
 
-    if (logfile_append) {
-      sprintf(mode, "a");
     } else {
-      sprintf(mode, "w");
+      /* not stdout */
+      /* if no extension add .log */
+      p = logfile_path;
+      /* find last / */
+      lastp = NULL;
+      for (p = logfile_path; (p = MBSRCHR(p, '/')) != NULL; p++) {
+        lastp = p;
+      }
+      if (lastp == NULL)
+        lastp = logfile_path;
+      if (MBSRCHR(lastp, '.') == NULL) {
+        /* add .log */
+        if ((p = malloc(strlen(logfile_path) + 5)) == NULL) {
+          ZIPERR(ZE_MEM, "logpath");
+        }
+        strcpy(p, logfile_path);
+        strcat(p, ".log");
+        free(logfile_path);
+        logfile_path = p;
+      }
+
+      if (logfile_append) {
+        sprintf(mode, "a");
+      } else {
+        sprintf(mode, "w");
+      }
+      if ((logfile = zfopen(logfile_path, mode)) == NULL) {
+        sprintf(errbuf, "could not open logfile '%s'", logfile_path);
+        ZIPERR(ZE_PARMS, errbuf);
+      }
     }
-    if ((logfile = zfopen(logfile_path, mode)) == NULL) {
-      sprintf(errbuf, "could not open logfile '%s'", logfile_path);
-      ZIPERR(ZE_PARMS, errbuf);
-    }
-    {
+    if (logfile != stdout) {
       /* At top put start time and command line */
 
       /* get current time */
@@ -4428,7 +4457,7 @@ char **argv;            /* command line tokens */
       fflush(mesg);
     }
     diag("writing central directory");
-    ent_cnt = 0;                  /* keep count for end header */
+    k = 0;                        /* keep count for end header */
     c = tempzn;                   /* get start of central */
     n = t = 0;
     for (z = zfiles; z != NULL; z = z->nxt)
@@ -4439,13 +4468,13 @@ char **argv;            /* command line tokens */
       tempzn += 4 + CENHEAD + z->nam + z->cext + z->com;
       n += z->len;
       t += z->siz;
-      ent_cnt++;
+      k++;
     }
     if (zcount == 0)
       zipwarn("zip file empty", "");
     t = tempzn - c;               /* compute length of central */
     diag("writing end of central directory");
-    if ((r = putend(ent_cnt, t, c, zcomlen, zcomment)) != ZE_OK) {
+    if ((r = putend(k, t, c, zcomlen, zcomment)) != ZE_OK) {
       ZIPERR(r, tempzip);
     }
     if (fclose(y)) {
@@ -4726,7 +4755,7 @@ char **argv;            /* command line tokens */
   PrintStatProgress("Getting file information ...");
 #endif
   diag("stating marked entries");
-  ent_cnt = 0;                  /* Initialize marked count */
+  k = 0;                        /* Initialize marked count */
   scan_started = 0;
   scan_count = 0;
   all_current = 1;
@@ -4781,7 +4810,7 @@ char **argv;            /* command line tokens */
           z->len = usize;
           if (csize != (uzoff_t) -1 && csize != (uzoff_t) -2)
             bytes_total += csize;
-          ent_cnt++;
+          k++;
         }
       } else if (action == ARCHIVE) {
         /* only keep files in date range */
@@ -4801,7 +4830,7 @@ char **argv;            /* command line tokens */
           z->len = usize;
           if (csize != (uzoff_t) -1 && csize != (uzoff_t) -2)
             bytes_total += csize;
-          ent_cnt++;
+          k++;
         }
       } else {
         int isdirname = 0;
@@ -4891,7 +4920,7 @@ char **argv;            /* command line tokens */
             z->len = 0;
           if (usize != (uzoff_t) -1 && usize != (uzoff_t) -2)
             bytes_total += usize;
-          ent_cnt++;
+          k++;
         }
       }
     }
@@ -5191,7 +5220,7 @@ char **argv;            /* command line tokens */
   }
 
   /* Make sure there's something left to do */
-  if (ent_cnt == 0 && found == NULL && !diff_mode &&
+  if (k == 0 && found == NULL && !diff_mode &&
       !(zfiles == NULL && allow_empty_archive) &&
       !(zfiles != NULL &&
         (latest || fix || adjust || junk_sfx || comadd || zipedit))) {
@@ -5240,7 +5269,7 @@ char **argv;            /* command line tokens */
   }
 
   /* d true if appending */
-  d = (d && (ent_cnt == 0) && (zipbeg || (zfiles != NULL)));
+  d = (d && k == 0 && (zipbeg || zfiles != NULL));
 
 #if CRYPT
   /* Initialize the crc_32_tab pointer, when encryption was requested. */
@@ -6244,17 +6273,17 @@ char **argv;            /* command line tokens */
             fprintf(mesg, "Enter comment for %s:\n", z->oname);
           if (fgets(e, MAXCOM+1, comment_stream) != NULL)
           {
-            if ((p = malloc((cmnt_size = strlen(e))+1)) == NULL)
+            if ((p = malloc((comment_size = strlen(e))+1)) == NULL)
             {
               free((zvoid *)e);
               ZIPERR(ZE_MEM, "was reading comment lines");
             }
             strcpy(p, e);
-            if (p[cmnt_size-1] == '\n')
-              p[--cmnt_size] = 0;
+            if (p[comment_size - 1] == '\n')
+              p[--comment_size] = 0;
             z->comment = p;
             /* zip64 support 09/05/2003 R.Nausedat */
-            z->com = cmnt_size;
+            z->com = comment_size;
           }
         }
 #ifdef MACOS
@@ -6364,7 +6393,7 @@ char **argv;            /* command line tokens */
     fflush(mesg);
   }
   diag("writing central directory");
-  ent_cnt = 0;                  /* keep count for end header */
+  k = 0;                        /* keep count for end header */
   c = tempzn;                   /* get start of central */
   n = t = 0;
   for (z = zfiles; z != NULL; z = z->nxt)
@@ -6376,11 +6405,11 @@ char **argv;            /* command line tokens */
       tempzn += 4 + CENHEAD + z->nam + z->cext + z->com;
       n += z->len;
       t += z->siz;
-      ent_cnt++;
+      k++;
     }
   }
 
-  if (ent_cnt == 0)
+  if (k == 0)
     zipwarn("zip file empty", "");
   if (verbose) {
     fprintf(mesg, "total bytes=%s, compressed=%s -> %d%% savings\n",
@@ -6399,7 +6428,7 @@ char **argv;            /* command line tokens */
     fflush(mesg);
   }
 
-  if ((r = putend(ent_cnt, t, c, zcomlen, zcomment)) != ZE_OK) {
+  if ((r = putend(k, t, c, zcomlen, zcomment)) != ZE_OK) {
     ZIPERR(r, tempzip);
   }
 
