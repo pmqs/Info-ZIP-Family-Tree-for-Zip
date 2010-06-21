@@ -1,7 +1,7 @@
 /*
   zipup.c - Zip 3
 
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -450,13 +450,19 @@ struct zlist far *z;    /* zip entry to compress */
   char *tempextra = NULL;
   char *tempcextra = NULL;
 
+#ifdef ENABLE_DLL_PROGRESS
+    long percent_all_entries_processed;
+    long percent_this_entry_processed;
+    uzoff_t bytetotal;
+#endif
+
 
 #ifdef WINDLL
 # ifdef ZIP64_SUPPORT
   extern uzoff_t filesize64;
   extern unsigned long low;
   extern unsigned long high;
-#  endif
+# endif
 #endif
 
   z->nam = strlen(z->iname);
@@ -464,6 +470,52 @@ struct zlist far *z;    /* zip entry to compress */
 
   file_binary = -1;      /* not set, set after first read */
   file_binary_final = 0; /* not set, set after first read */
+
+  /* used for progress tracking */
+  bytes_read_this_entry = 0;
+  entry_name = z->zname;
+
+#ifdef ENABLE_DLL_PROGRESS
+  last_progress_chunk = 0;
+
+  /* Initial progress callback.  Updates in file_read(). */
+/*  if (progress_chunk_size > 0) { */
+  if (progress_chunk_size > 0 && lpZipUserFunctions->ProgressReport != NULL) {
+    /* Callback parameters:
+          name, total bytes so far, estimated total bytes to be read,
+          this entry bytes so far, total bytes this entry
+    */
+    if (bytes_total > 0) {
+      if (bytes_total < ((uzoff_t)1 << (sizeof(uzoff_t) * 8 - 15))) {
+        percent_all_entries_processed = (long)((10000 * bytes_so_far) / bytes_total);
+      } else {
+        /* avoid overflow, but this is inaccurate for small numbers */
+        bytetotal = bytes_total / 10000;
+        if (bytetotal == 0) bytetotal = 1;
+        percent_all_entries_processed = (long)(bytes_so_far / bytetotal);
+      }
+    } else{
+      percent_all_entries_processed = 0;
+    }
+    percent_this_entry_processed = 0;
+    /* This is a kluge.  The numbers should add up. */
+    if (percent_all_entries_processed > 10000) {
+      percent_all_entries_processed = 10000;
+    }
+
+/*
+    printf("\n  progress %5.2f%% all  %5.2f%%  %s\n", (float)percent_all_entries_processed/100,
+                                                      (float)percent_this_entry_processed/100,
+                                                       entry_name);
+*/
+
+    if ((*lpZipUserFunctions->ProgressReport)(entry_name,
+                                              percent_all_entries_processed,
+                                              percent_this_entry_processed)) {
+      ZIPERR(ZE_ABORT, "User terminated operation");
+    }
+  }
+#endif
 
 #if defined(UNICODE_SUPPORT) && defined(WIN32)
   if (!no_win32_wide)
@@ -526,6 +578,7 @@ struct zlist far *z;    /* zip entry to compress */
 
   /* initial z->len so if error later have something */
   z->len = uq;
+  bytes_expected_this_entry = z->len;
 
 #if defined( UNIX) && defined( __APPLE__)
   if (z->flags& FLAGS_APLDBL) {
@@ -1285,6 +1338,48 @@ struct zlist far *z;    /* zip entry to compress */
 # endif
 #endif
 
+#ifdef ENABLE_DLL_PROGRESS
+  /* Final progress callback. */
+/*  if (progress_chunk_size > 0) { */
+  if (progress_chunk_size > 0 && lpZipUserFunctions->ProgressReport != NULL) {
+    /* Callback parameters:
+          name, total bytes so far, estimated total bytes to be read,
+          this entry bytes so far, total bytes this entry
+    */
+    if (bytes_total > 0) {
+      if (bytes_total < ((uzoff_t)1 << (sizeof(uzoff_t) * 8 - 15))) {
+        percent_all_entries_processed
+          = (long)((10000 * (bytes_so_far + bytes_expected_this_entry)) / bytes_total);
+      } else {
+        /* avoid overflow, but this is inaccurate for small numbers */
+        bytetotal = bytes_total / 10000;
+        if (bytetotal == 0) bytetotal = 1;
+        percent_all_entries_processed
+          = (long)((bytes_so_far + bytes_expected_this_entry) / bytetotal);
+      }
+    } else{
+      percent_all_entries_processed = 0;
+    }
+    percent_this_entry_processed = 10000;
+    /* This is a kluge.  The numbers should add up. */
+    if (percent_all_entries_processed > 10000) {
+      percent_all_entries_processed = 10000;
+    }
+
+/*
+    printf("\n  progress %5.2f%% all  %5.2f%%  %s\n", (float)percent_all_entries_processed/100,
+                                                      (float)percent_this_entry_processed/100,
+                                                       entry_name);
+*/
+
+    if ((*lpZipUserFunctions->ProgressReport)(entry_name,
+                                              percent_all_entries_processed,
+                                              percent_this_entry_processed)) {
+      ZIPERR(ZE_ABORT, "User terminated operation");
+    }
+  }
+#endif
+
   return ZE_OK;
 }
 
@@ -1302,6 +1397,12 @@ local unsigned file_read(buf, size)
   unsigned len;
   char *b;
   zoff_t isize_prev;    /* Previous isize.  Used for overflow check. */
+#ifdef ENABLE_DLL_PROGRESS
+  uzoff_t current_progress_chunk;
+  long percent_all_entries_processed;
+  long percent_this_entry_processed;
+  uzoff_t bytetotal;
+#endif
 
 #if defined( UNIX) && defined( __APPLE__)
   /* Supply data from fake file buffer, if available.
@@ -1332,6 +1433,7 @@ local unsigned file_read(buf, size)
 #endif /* MMAP || BIG_MEM */
   if (TRANSLATE_EOL == 0) {
     len = zread(ifile, buf, size);
+    bytes_read_this_entry += len;
     if (len == (unsigned)EOF || len == 0) return len;
 #ifdef OS390
     b = buf;
@@ -1348,6 +1450,7 @@ local unsigned file_read(buf, size)
     size >>= 1;
     b = buf+size;
     size = len = zread(ifile, b, size);
+    bytes_read_this_entry += len;
     if (len == (unsigned)EOF || len == 0) return len;
 
     /* check buf for binary - 12/16/04 */
@@ -1387,6 +1490,7 @@ local unsigned file_read(buf, size)
     /* Transform CR LF to LF and suppress final ^Z */
     b = buf;
     size = len = zread(ifile, buf, size-1);
+    bytes_read_this_entry += len;
     if (len == (unsigned)EOF || len == 0) return len;
 
     /* check buf for binary - 12/16/04 */
@@ -1419,6 +1523,7 @@ local unsigned file_read(buf, size)
       }
       if (len == 0) {
          zread(ifile, buf, 1); len = 1; /* keep single \r if EOF */
+         bytes_read_this_entry += len;
 #ifdef EBCDIC
          if (aflag == ASCII) {
             *buf = (char)(*buf == '\n' ? LF : ascii[(uch)(*buf)]);
@@ -1441,6 +1546,69 @@ local unsigned file_read(buf, size)
   if (isize < isize_prev) {
     ZIPERR(ZE_BIG, "overflow in byte count");
   }
+
+#ifdef ENABLE_DLL_PROGRESS
+  /* If progress_chunk_size is defined and ProgressReport() exists,
+     see if time to send user progress information. */
+/*  if (progress_chunk_size > 0) { */
+  if (progress_chunk_size > 0 && lpZipUserFunctions->ProgressReport != NULL) {
+    current_progress_chunk = bytes_read_this_entry / progress_chunk_size;
+    if (current_progress_chunk > last_progress_chunk) {
+      /* Send progress report to application */
+      last_progress_chunk = current_progress_chunk;
+      /* Callback parameters:
+            name, total bytes so far, estimated total bytes to be read,
+            this entry bytes so far, total bytes this entry
+      */
+      if (bytes_total > 0) {
+        if (bytes_total < ((uzoff_t)1 << (sizeof(uzoff_t) * 8 - 15))) {
+          percent_all_entries_processed
+            = (long)((10000 * (bytes_so_far + bytes_read_this_entry)) / bytes_total);
+        } else {
+          /* avoid overflow, but this is inaccurate for small numbers */
+          bytetotal = bytes_total / 10000;
+          if (bytetotal == 0) bytetotal = 1;
+          percent_all_entries_processed
+            = (long)((bytes_so_far + bytes_read_this_entry) / bytetotal);
+        }
+      } else{
+        percent_all_entries_processed = 0;
+      }
+      if (bytes_expected_this_entry > 0) {
+        if (bytes_expected_this_entry < ((uzoff_t)1 << (sizeof(uzoff_t) * 8 - 15))) {
+          percent_this_entry_processed
+            = (long)((10000 * bytes_read_this_entry) / bytes_expected_this_entry);
+        } else {
+          /* avoid overflow, but this is inaccurate for small numbers */
+          bytetotal = bytes_expected_this_entry / 10000;
+          if (bytetotal == 0) bytetotal = 1;
+          percent_this_entry_processed = (long)(bytes_read_this_entry / bytetotal);
+        }
+      }
+      else {
+        percent_this_entry_processed = 0;
+      }
+
+      /* This is a kluge.  The numbers should add up. */
+      if (percent_all_entries_processed > 10000) {
+        percent_all_entries_processed = 10000;
+      }
+
+/*
+      printf("\n  progress %5.2f%% all  %5.2f%%  %s\n", (float)percent_all_entries_processed/100,
+                                                        (float)percent_this_entry_processed/100,
+                                                         entry_name);
+*/
+
+      if ((*lpZipUserFunctions->ProgressReport)(entry_name,
+                                                percent_all_entries_processed,
+                                                percent_this_entry_processed)) {
+        ZIPERR(ZE_ABORT, "User terminated operation");
+      }
+    }
+  }
+#endif
+
   return len;
 }
 
@@ -1634,6 +1802,7 @@ local zoff_t filecompress(z_entry, cmpr_method)
             zstrm.avail_in += more;
         }
     }
+    bytes_so_far += zstrm.avail_in;
     zstrm.next_out = (Bytef *)f_obuf;
     zstrm.avail_out = OBUF_SZ;
 
@@ -1688,6 +1857,7 @@ local zoff_t filecompress(z_entry, cmpr_method)
             zstrm.next_in = (Bytef *)f_ibuf;
 #endif
             zstrm.avail_in = file_read((char *)zstrm.next_in, ibuf_sz);
+            bytes_so_far += zstrm.avail_in;
         }
     }
 
@@ -1940,6 +2110,8 @@ int *cmpr_method;
             bstrm.avail_in += more;
         }
     }
+    bytes_so_far += bstrm.avail_in;
+
     bstrm.next_out = (char *)f_obuf;
     bstrm.avail_out = OBUF_SZ;
 
@@ -2001,6 +2173,7 @@ int *cmpr_method;
             bstrm.next_in = (char *)f_ibuf;
 #endif
             bstrm.avail_in = file_read(bstrm.next_in, ibuf_sz);
+            bytes_so_far += bstrm.avail_in;
             if (file_binary_final == 0) {
               /* check for binary as library does not */
               if (!is_text_buf(bstrm.next_in, ibuf_sz))

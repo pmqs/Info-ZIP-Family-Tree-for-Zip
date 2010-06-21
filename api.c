@@ -1,7 +1,7 @@
 /*
   api.c - Zip 3
 
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -57,6 +57,9 @@ DLLPRNT *lpZipPrint;
 DLLPASSWORD *lpZipPassword;
 extern DLLCOMMENT *lpComment;
 ZIPUSERFUNCTIONS ZipUserFunctions, far * lpZipUserFunctions;
+#ifdef ENABLE_DLL_PROGRESS
+ DLLPROGRESS *lpProgressReport;
+#endif
 
 int ZipRet;
 char szOrigDir[PATH_MAX];
@@ -257,6 +260,9 @@ setdisk(toupper(szOrigDir[0]) - 'A');
     Documented API entry points
   ---------------------------------------------------------------------------*/
 
+
+/* ZpInit - Call first to initialize the DLL */
+
 int EXPENTRY ZpInit(LPZIPUSERFUNCTIONS lpZipUserFunc)
 {
 ZipUserFunctions = *lpZipUserFunc;
@@ -268,6 +274,9 @@ if (!lpZipUserFunctions->print ||
 
 return TRUE;
 }
+
+
+/* ZpArchive - Call to pass in options and actually do work */
 
 int EXPENTRY ZpArchive(ZCL C, LPZPOPT Opts)
 /* Add, update, freshen, or delete zip entries in a zip file.  See the
@@ -320,6 +329,8 @@ strcpy( argVee[argCee], "wiz.exe" );
 argCee++;
 
 
+/* Process options */
+
 /* Set compression level efficacy -0...-9 */
 if (AllocMemory(argCee, "-0", "Compression", FALSE) != ZE_OK)
     return ZE_MEM;
@@ -329,12 +340,34 @@ if (AllocMemory(argCee, "-0", "Compression", FALSE) != ZE_OK)
 */
 if ((Options.fLevel < '0') || (Options.fLevel > '9'))
     {
+    int level = Options.fLevel;
     Options.fLevel = '6';
     if (!Options.fDeleteEntries)
-        fprintf(stdout, "Compression level set to invalid value. Setting to default\n");
+        fprintf(stdout, "Compression level set to invalid value:  ASCII hex %02x.\n", level);
+        fprintf(stdout, "Setting to default\n");
     }
 
 argVee[argCee-1][1] = Options.fLevel;
+
+/* this is klugy - should find out why -0 for deflate generates packing error */
+if (Options.fLevel == '0')
+    {
+    if (AllocMemory(argCee, "-4", "Compression level command", FALSE) != ZE_OK)
+        return ZE_MEM;
+    if (AllocMemory(argCee, "-Z", "Compression method command", FALSE) != ZE_OK)
+        return ZE_MEM;
+    if (AllocMemory(argCee, "store", "Compression method string", FALSE) != ZE_OK)
+        return ZE_MEM;
+    fprintf(stdout, "Compression method set to STORE.\n");
+    }
+
+if ((Options.szCompMethod != NULL) && (Options.szCompMethod[0] != '\0'))
+    {
+    if (AllocMemory(argCee, "-Z", "Compression method command", FALSE) != ZE_OK)
+        return ZE_MEM;
+    if (AllocMemory(argCee, Options.szCompMethod, "Compression method string", FALSE) != ZE_OK)
+        return ZE_MEM;
+    }
 
 if (Options.fOffsets)    /* Update offsets for SFX prefix */
    {
@@ -381,7 +414,7 @@ if (Options.fJunkDir) /* Junk directory names -j */
    }
 
 /* fEncrypt */
-if (Options.fEncrypt > 1) {
+if ((Options.fEncrypt < 0) || (Options.fEncrypt > 1)) {
         fprintf(stdout,
           "Only Encrypt method 1 currently supported, ignoring %d\n", Options.fEncrypt);
 } else
@@ -451,24 +484,26 @@ if (Options.fSystem)  /* include system and hidden files -S */
    if (AllocMemory(argCee, "-S", "System", FALSE) != ZE_OK)
         return ZE_MEM;
    }
-if (Options.fExcludeDate)    /* Exclude files newer than specified date -tt */
+if ((Options.ExcludeBeforeDate) &&
+     (Options.ExcludeBeforeDate[0] != '\0'))    /* Exclude files newer than specified date -tt */
    {
-     if ((Options.Date != NULL) && (Options.Date[0] != '\0'))
+     if (Options.ExcludeBeforeDate[0] != '\0')
         {
         if (AllocMemory(argCee, "-tt", "Date", FALSE) != ZE_OK)
             return ZE_MEM;
-        if (AllocMemory(argCee, Options.Date, "Date", FALSE) != ZE_OK)
+        if (AllocMemory(argCee, Options.ExcludeBeforeDate, "Date", FALSE) != ZE_OK)
             return ZE_MEM;
         }
    }
 
-if (Options.fIncludeDate)    /* include files newer than specified date -t */
+if ((Options.IncludeBeforeDate) &&
+     (Options.IncludeBeforeDate[0] != '\0'))    /* Include files newer than specified date -t */
    {
-     if ((Options.Date != NULL) && (Options.Date[0] != '\0'))
+     if (Options.IncludeBeforeDate[0] != '\0')
         {
         if (AllocMemory(argCee, "-t", "Date", FALSE) != ZE_OK)
             return ZE_MEM;
-       if (AllocMemory(argCee, Options.Date, "Date", FALSE) != ZE_OK)
+       if (AllocMemory(argCee, Options.IncludeBeforeDate, "Date", FALSE) != ZE_OK)
             return ZE_MEM;
         }
    }
@@ -479,13 +514,13 @@ if (Options.fUpdate) /* Update zip file--overwrite only if newer -u */
         return ZE_MEM;
     }
 
-/* fMisc */
-if (Options.fMisc | 2) /* No UTF-8 */
+/* fUnicode (was fMisc) */
+if (Options.fUnicode & 2) /* No UTF-8 */
     {
     if (AllocMemory(argCee, "-UN=N", "UTF-8 No", FALSE) != ZE_OK)
         return ZE_MEM;
     }
-if (Options.fMisc | 4) /* Native UTF-8 */
+if (Options.fUnicode & 4) /* Native UTF-8 */
     {
     if (AllocMemory(argCee, "-UN=U", "UTF-8 Native", FALSE) != ZE_OK)
         return ZE_MEM;
@@ -622,13 +657,21 @@ if (szExcludeList != NULL && szExcludeList[0] != '\0')  /* Exclude file list -x 
         return ZE_MEM;
     }
 
-if ((szTempDir != NULL) && (szTempDir[0] != '\0')
-     && Options.fTemp) /* Use temporary directory -b */
+if ((szTempDir != NULL) && (szTempDir[0] != '\0')) /* Use temporary directory -b */
     {
     if (AllocMemory(argCee, "-b", "Temp dir switch command", FALSE) != ZE_OK)
         return ZE_MEM;
     if (AllocMemory(argCee, szTempDir, "Temporary directory", FALSE) != ZE_OK)
         return ZE_MEM;
+    }
+
+if ((Options.szProgressSize != NULL) && (Options.szProgressSize[0] != '\0')) /* Progress chunk size */
+    {
+      progress_chunk_size = ReadNumString(Options.szProgressSize);
+    }
+    else
+    {
+      progress_chunk_size = 0;
     }
 
 if (AllocMemory(argCee, C.lpszZipFN, "Zip file name", FALSE) != ZE_OK)
@@ -695,8 +738,13 @@ int encr_passwd(int modeflag, char *pwbuf, int size, const char *zfn)
 #endif /* CRYPT */
 
 void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
-    {
+{
+    char tempstring[100];       /* size of biggest entry */
+    char featurelist[1000];     /* make sure this is big enough to hold everything */
+
     p->structlen = ZPVER_LEN;
+
+    strcpy(tempstring, "");     /* avoid compiler not used warning */
 
 #ifdef BETA
     p->flag = 1;
@@ -736,4 +784,60 @@ void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
     p->windll.minor = DW_MINORVER;
     p->windll.patchlevel = DW_PATCHLEVEL;
 #endif
+    p->opt_struct_size = sizeof(ZPOPT);
+
+    /* feature list */
+    /* all features start and end with a semicolon for easy parsing */
+    strcpy(featurelist, ";");
+#ifdef CRYPT
+    strcat(featurelist, "crypt;");
+#endif
+#ifdef ZIP64_SUPPORT
+    strcat(featurelist, "zip64;");
+#endif
+#ifdef ASM_CRC
+    strcat(featurelist, "asm_crc;");
+#endif
+#ifdef ASMV
+    strcat(featurelist, "asmv;");
+#endif
+#ifdef DEBUG
+    strcat(featurelist, "debug;");
+#endif
+#ifdef USE_EF_UT_TIME
+    strcat(featurelist, "ef_ut_time;");
+#endif
+#ifdef NTSD_EAS
+    strcat(featurelist, "ntsd_eas;");
+#endif
+#if defined(WIN32) && defined(NO_W32TIMES_IZFIX)
+    strcat(featurelist, "no_w32times_izfix;");
+#endif
+#ifdef WILD_STOP_AT_DIR
+    strcat(featurelist, "wild_stop_at_dir;");
+#endif
+#ifdef WIN32_OEM
+    strcat(featurelist, "win32_oem;");
+#endif
+#ifdef LARGE_FILE_SUPPORT
+    strcat(featurelist, "large_file;");
+#endif
+#ifdef UNICODE_SUPPORT
+    strcat(featurelist, "unicode;");
+#endif
+#ifdef USE_ZLIB
+    strcat(featurelist, "zlib;");
+    sprintf(tempstring, "zlib_version:%s,%s;", ZLIB_VERSION, zlibVersion());
+    strcat(featurelist, tempstring);
+#endif
+#ifdef BZIP2_SUPPORT
+    strcat(featurelist, "bzip2;");
+    strcat(featurelist, "compmethods:store,deflate,bzip2;");
+#else
+    strcat(featurelist, "compmethods:store,deflate;");
+#endif
+    p->szFeatures = malloc(strlen(featurelist) + 1);
+    if (p->szFeatures != NULL) {
+      strcpy(p->szFeatures, featurelist);
     }
+}

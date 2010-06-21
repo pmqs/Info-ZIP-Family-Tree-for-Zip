@@ -232,7 +232,15 @@ Installation on other systems
 
   Windows DLL (WIN32):
 
-  Nothing yet.
+    Working on it.  The new directory windll/vc6bz2 has new MSVS 6
+    projects for the DLL and LIB libraries that include bzip2.  These
+    use the compiling in from the bzip2 source method described above.
+
+    Also, the api now can pass a compression method.
+
+    The examples still need updating however, and then some testing,
+    but that should be done by Zip 3.1c release.  The VB6z64 example
+    seems to be working.
 
 
   Mac OS X:
@@ -254,5 +262,6 @@ Installation on other systems
   See [.vms]install_vms.txt for how to enable bzip2 support on VMS.
 
 
-Last updated 26 March 2007, 15 July 2007, 9 April 2008, 27 June 2008
+Updated 26 March 2007, 15 July 2007, 9 April 2008, 27 June 2008,
+12 May 2010
 S. Schweda, E. Gordon

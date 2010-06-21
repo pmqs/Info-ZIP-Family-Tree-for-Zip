@@ -1,3 +1,6 @@
+This file is in need of update.  See api.h and api.c for the current details.
+22 May 2010 EG
+
 The code set out below is not intended to be compiled, but is only intended as
 a very simplistic pointer to how to load and call the dll. You will have to
 look in the files referenced below for actual, working code.

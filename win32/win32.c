@@ -1,9 +1,9 @@
 /*
   win32/win32.c - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -1261,6 +1261,96 @@ void version_local()
 
 } /* end function version_local() */
 #endif /* !WINDLL */
+
+
+
+#ifdef ENABLE_ENTRY_TIMING
+
+/* A replacement for the Unix gettimeofday() function for Windows.
+   This is used for timing the rate that entries are zipped
+   with usec resolution.  Apparently the timezone parameter
+   is now never used (there's better ways to handle time zone),
+   so NULL is always passed as the second parameter.  Could
+   therefore simplify this, but it works as is.  2009 Aug 12 EG.
+   Apparently free to use from
+   http://www.openasthra.com/c-tidbits/gettimeofday-function-for-windows/ */
+
+# if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
+#   define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64
+# else
+#   define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
+# endif
+ 
+struct timezonestruct
+{
+  int  tz_minuteswest; /* minutes W of Greenwich */
+  int  tz_dsttime;     /* type of dst correction */
+};
+
+struct timevalstruct {
+        long    tv_sec;         /* seconds */
+        long    tv_usec;        /* and microseconds */
+};
+
+int gettimeofday(struct timevalstruct *tv, struct timezonestruct *tz)
+{
+  FILETIME ft;
+  unsigned __int64 tmpres = 0;
+  static int tzflag = 0;
+
+  if (NULL != tv)
+  {
+    GetSystemTimeAsFileTime(&ft);
+
+    tmpres |= ft.dwHighDateTime;
+    tmpres <<= 32;
+    tmpres |= ft.dwLowDateTime;
+
+    tmpres /= 10;  /*convert into microseconds*/
+    /*converting file time to unix epoch*/
+    tmpres -= DELTA_EPOCH_IN_MICROSECS; 
+    tv->tv_sec = (long)(tmpres / 1000000UL);
+    tv->tv_usec = (long)(tmpres % 1000000UL);
+  }
+
+  if (NULL != tz)
+  {
+    if (!tzflag)
+    {
+      _tzset();
+      tzflag++;
+    }
+    tz->tz_minuteswest = _timezone / 60;
+    tz->tz_dsttime = _daylight;
+  }
+
+  return 0;
+}
+
+// #define TEST
+// #ifdef TEST
+// int main()
+// {
+//   struct timeval now; 
+//   struct timezone tzone;
+// 
+//   gettimeofday(&now, NULL);
+//   gettimeofday(&now, &tzone);
+// }
+// #endif
+
+/* This is used by -de and -dr to get more accurate
+   rate timing. */
+uzoff_t get_time_in_usec()
+{
+  struct timevalstruct now; 
+
+  gettimeofday(&now, NULL);
+  return now.tv_sec * 1000000 + now.tv_usec;
+}
+
+#endif
+
 
 
 /* --------------------------------------------------- */

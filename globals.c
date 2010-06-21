@@ -83,6 +83,10 @@ int display_bytes = 0;        /* display running bytes remaining */
 int display_globaldots = 0;   /* display dots for archive instead of each file */
 int display_volume = 0;       /* display current input and output volume (disk) numbers */
 int display_usize = 0;        /* display uncompressed bytes */
+int display_time = 0;         /* display time start each entry */
+int display_est_to_go = 0;    /* display estimated time to go */
+int display_zip_rate = 0;     /* display bytes per second rate */
+
 ulg files_so_far = 0;         /* files processed so far */
 ulg bad_files_so_far = 0;     /* bad files skipped so far */
 ulg files_total = 0;          /* files total to process */
@@ -90,6 +94,13 @@ uzoff_t bytes_so_far = 0;     /* bytes processed so far (from initial scan) */
 uzoff_t good_bytes_so_far = 0;/* good bytes read so far */
 uzoff_t bad_bytes_so_far = 0; /* bad bytes skipped so far */
 uzoff_t bytes_total = 0;      /* total bytes to process (from initial scan) */
+
+time_t clocktime;             /* current time */
+#ifdef ENABLE_ENTRY_TIMING
+  uzoff_t start_zip_time = 0; /* when start zipping files (after scan) in usec */
+  uzoff_t current_time = 0;   /* current time in usec */
+#endif
+
 
 /* logfile 6/5/05 */
 int logall = 0;               /* 0 = warnings/errors, 1 = all */
@@ -103,8 +114,8 @@ int dirnames = 1;             /* include directory entries by default */
 int filter_match_case = 1;    /* 1=match case when filter() */
 int diff_mode = 0;            /* 1=require --out and only store changed and add */
 #if defined(WIN32)
-int only_archive_set = 0;     /* include only files with DOS archive bit set */
-int clear_archive_bits = 0;   /* clear DOS archive bit of included files */
+  int only_archive_set = 0;   /* include only files with DOS archive bit set */
+  int clear_archive_bits = 0; /* clear DOS archive bit of included files */
 #endif
 int linkput = 0;              /* 1=store symbolic links as such */
 int noisy = 1;                /* 0=quiet operation */
@@ -223,6 +234,15 @@ uzoff_t bytes_this_entry = 0;     /* bytes written for this entry across all spl
 int noisy_splits = 0;             /* note when splits are being created */
 int mesg_line_started = 0;        /* 1=started writing a line to mesg */
 int logfile_line_started = 0;     /* 1=started writing a line to logfile */
+
+/* for progress reports */
+uzoff_t bytes_read_this_entry = 0; /* bytes read from current input file */
+uzoff_t bytes_expected_this_entry = 0; /* scanned uncompressed size */
+char *entry_name = NULL;           /* used by DLL to pass z->zname to file_read() */
+#ifdef ENABLE_DLL_PROGRESS
+ uzoff_t progress_chunk_size = 0;  /* how many bytes before next progress report */
+ uzoff_t last_progress_chunk = 0;  /* used to determine when to send next report */
+#endif
 
 #ifdef WIN32
   int nonlocal_name = 0;          /* Name has non-local characters */

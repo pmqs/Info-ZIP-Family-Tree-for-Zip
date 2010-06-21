@@ -1,7 +1,7 @@
 /*
   win32/osdep.h
 
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -89,7 +89,16 @@
 #  define WIN32_OEM
 #endif
 
-/* Large File Support
+
+/* callback that DLL caller can use to get progress reports */
+# ifdef WINDLL
+#   ifndef NO_ENABLE_DLL_PROGRESS 
+#     define ENABLE_DLL_PROGRESS
+#   endif
+# endif
+
+ 
+ /* Large File Support
  *
  *  If this is set it is assumed that the port
  *  supports 64-bit file calls.  The types are
@@ -217,6 +226,18 @@
 #     endif
 #   endif
 # endif
+#endif
+
+
+/* Entry timing involves calculating the rate that entries
+   are being zipped (or stored) in bytes / second.  To allow
+   more accurate counts, times are resolved to 1 usec and
+   the calculation uses time resolution of 10 msec.  The
+   calculations are done using a 64-bit count of usec since
+   the epoch (to avoid rollover), so we need long long variables
+   to do entry timing. - 2009 Aug 9 EG */
+#ifdef LARGE_FILE_SUPPORT
+# define ENABLE_ENTRY_TIMING
 #endif
 
 

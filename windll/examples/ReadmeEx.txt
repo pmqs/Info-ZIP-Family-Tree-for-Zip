@@ -8,5 +8,10 @@ such as for Visual Basic and C# have their own code.
 These are more or less minimum examples showing the basics.  They
 probably need some work before use in any real situation.
 
+As of this Zip 3.1c beta, only the VBz64 example in the
+windll/examples/VBz64
+directory incorporates the latest API structures and callbacks.
+The other examples should be updated before Zip 3.1 is released.
+
 Ed Gordon
-27 February 2009
+19 June 2010

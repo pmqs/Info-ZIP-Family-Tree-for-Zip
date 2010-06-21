@@ -1,7 +1,7 @@
 /*
   revision.h - Zip 3
 
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -19,14 +19,20 @@
 #define Z_MAJORVER   3
 #define Z_MINORVER   1
 #define Z_PATCHLEVEL 0
-#define Z_BETALEVEL "b BETA"
+#define Z_BETALEVEL "c BETA"
 
-#define VERSION "3.1b BETA"
-#define REVDATE "Apr 9th 2009"
+#define VERSION "3.1c BETA"
+#define REVDATE "Jun 22nd 2010"
 
-#define DW_MAJORVER    Z_MAJORVER
-#define DW_MINORVER    Z_MINORVER
-#define DW_PATCHLEVEL  Z_PATCHLEVEL
+/* Setting these to the Zip version seems a waste, as the version
+   structure already tells the user the Zip version through Z_MAJORVER,
+   Z_MINORVER, and Z_PATCHLEVEL.  Starting with Zip 3.1c, these are now
+   only updated when the DLL interface changes.  This means that these
+   numbers might stay at 3, 1, 0 for awhile if the DLL interface stays
+   backward compatible. */
+#define DW_MAJORVER    3
+#define DW_MINORVER    1
+#define DW_PATCHLEVEL  0
 
 #ifndef IZ_COMPANY_NAME               /* might be already defined... */
 #  define IZ_COMPANY_NAME "Info-ZIP"
@@ -53,7 +59,7 @@ extern ZCONST char * far cryptnote[7];
 #else /* DEFCPYRT */
 
 ZCONST char *copyright[] = {
-"Copyright (c) 1990-2009 Info-ZIP - Type '%s \"-L\"' for software license."
+"Copyright (c) 1990-2010 Info-ZIP - Type '%s \"-L\"' for software license."
 /* XXX still necessary ???? */
 #ifdef AZTEC_C
 ,        /* extremely lame compiler bug workaround */
@@ -82,7 +88,9 @@ ZCONST char * far cryptnote[] = {
 };
 
 ZCONST char * far swlicense[] = {
-"Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.",
+"Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.",
+"",
+"This is version 2009-Jan-02 of the Info-ZIP license.",
 "",
 "For the purposes of this copyright and license, \"Info-ZIP\" is defined as",
 "the following set of individuals:",

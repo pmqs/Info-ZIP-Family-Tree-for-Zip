@@ -27,13 +27,10 @@ Option Explicit
 
 '---------------------------------------------------------------
 ' This example is redesigned to work with Zip32z64.dll compiled from
-' Zip 3.1 with Zip64 enabled.  This allows for archives with more
-' and larger files than allowed using the Zip 2.3x versions.  The dll
-' from Zip 3.1 is not backward compatible with the Zip 3.0 dll.  The
-' interface has changed and trying to use the Zip 3.0 version most
-' likely won't work.
+' Zip 3.0 with Zip64 enabled.  This allows for archives with more
+' and larger files than allowed in previous versions.
 '
-' Modified 4/24/2004, 12/4/2007, 5/22/2010 by Ed Gordon
+' Modified 4/24/2004, 12/4/2007 by Ed Gordon
 '---------------------------------------------------------------
 
 '---------------------------------------------------------------
@@ -70,13 +67,6 @@ Public Type ZIPnames
   zFiles(1 To 100) As String
 End Type
 
-
-' This is the version of the DLL interface this program is meant to work with
-' Even though the Zip version may increase, the DLL version will remain this
-' unless the DLL interface changes in a way that is not backward compatible.
-Public Const Compatible_DLL_Version As String = "3.1.0"
-
-
 '-- Call Back "String"
 Public Type ZipCBChar
   ch(4096) As Byte
@@ -96,35 +86,30 @@ Public Type ZipVerType
   date            As String * 20  ' e.g., "4 Sep 95" (beta) or "4 September 1995"
   ZLIB            As String * 10  ' e.g., "1.0.5" or NULL
   encryption      As Long         ' 0 if encryption not available
-  ZipVersion      As VerType      ' the version of Zip the dll is compiled from
-  os2dllVersion   As VerType      ' for Windows apps ignore this
-  windllVersion   As VerType      ' backward compatible to this Zip version
-  OptStrucSize    As Long         ' the expected size of the ZpOpt structure
-  FeatureList     As String       ' a list of features enabled in this dll
+  ZipVersion      As VerType
+  os2dllVersion   As VerType
+  windllVersion   As VerType
 End Type
-' see the version check code below for how to use these
 
 '-- ZPOPT Is Used To Set The Options In The ZIP32z64.DLL
 Public Type ZpOpt
-  ExcludeBeforeDate As String ' Date in either US 12/31/98 or ISO 1998-12-31 format
-  IncludeBeforeDate As String ' Date in either US 12/31/98 or ISO 1998-12-31 format
+  date           As String ' Date in either US 12/31/98 or 1998-12-31 format
   szRootDir      As String ' Root Directory Pathname (Up To 256 Bytes Long)
   szTempDir      As String ' Temp Directory Pathname (Up To 256 Bytes Long)
+  fTemp          As Long   ' 1 If Temp dir Wanted, Else 0
 '  fSuffix        As Long   ' Include Suffixes (Not Yet Implemented!)
-  fUnicode       As Long   ' was Misc flags and before that "Include Suffixes"
-    ' fUnicode flags (add values together)
-    '  1 = No longer used - was Include Suffixes (Not Yet Implemented!)
+  fMisc          As Long   ' Misc flags (was "Include Suffixes")
+    ' fMisc flags (add values together)
+    '  1 = Include Suffixes (Not Yet Implemented!)
     '  2 = No UTF8 (ignore UTF8 information in existing entries)
     '  4 = Native UTF8 (store UTF8 as native character set)
-    '  fUnicode = 2 is probably the most backward compatible
-    '  fUnicode = 0 should create entries that old and new unzips can handle
-    '  fUnicode = 4 should only be used if the unzip is known to have UTF8 support
-    '               but produces the most efficient UTF8 encoding
   fEncrypt       As Long   ' 1 for standard Encryp, Else 0 (Other methods soon!)
   fSystem        As Long   ' 1 To Include System/Hidden Files, Else 0
   fVolume        As Long   ' 1 If Storing Volume Label, Else 0
   fExtra         As Long   ' 1 If Excluding Extra Attributes, Else 0
   fNoDirEntries  As Long   ' 1 If Ignoring Directory Entries (end with /), Else 0
+  fExcludeDate   As Long   ' 1 If Excluding Files After Specified Date, Else 0
+  fIncludeDate   As Long   ' 1 If Including Files After Specified Date, Else 0
   fVerbose       As Long   ' 1 If Full Messages Wanted, Else 0
   fQuiet         As Long   ' 1 If Minimum Messages Wanted, Else 0
   fCRLF_LF       As Long   ' 1 If Translate CR/LF To LF, Else 0
@@ -160,11 +145,6 @@ Public Type ZpOpt
   fRecurse       As Long   ' 1 (-r), 2 (-R) If Recursing Into Sub-Directories, Else 0
   fRepair        As Long   ' 1 = Fix Archive, 2 = Try Harder To Fix, Else 0
   flevel         As Byte   ' Compression Level - 0 = Stored 6 = Default 9 = Max
-  szCompMethod   As String ' compression method string (e.g. "bzip2") or NULL
-  szProgressSize As String ' bytes between progress report callbacks (in nm form,
-                           ' where n is an integer and m is a multiplier letter
-                           ' such as 10k for 10 killobytes (k, m, g, t are valid)
-  fluff(8)       As Long   ' not used, for later expansion (set to all zeroes)
 End Type
 
 
@@ -207,10 +187,11 @@ Public Enum RecurseType
     r_RecurseIntoSubdirectories = 1
     R_RecurseUsingPatterns = 2
 End Enum
-Public Enum UnicodeType
-    Unicode_Backward_Compatible = 0
-    Unicode_No_UTF8 = 2
-    Unicode_Native_UTF8 = 4
+Public Enum MiscType
+    Misc_None = 0
+    Misc_Suffixes = 1
+    Misc_No_UTF8 = 2
+    Misc_Native_UTF8 = 4
 End Enum
 Public Enum EncryptType
     Encrypt_No = 0
@@ -228,9 +209,7 @@ Public Type ZIPUSERFUNCTIONS
   ' There are 2 versions of SERVICE, we use one does not need 64-bit data type
   ZDLLSERVICE  As Long           ' Callback ZIP32z64.DLL Service Function
   ZDLLSERVICE_NO_INT64  As Long  ' Callback ZIP32z64.DLL Service Function
-  ZDLLPROGRESS As Long           ' Callback ZIP32z64.DLL Progress Function
 End Type
-
 
 '-- Default encryption password (used in callback if not empty string)
 Public EncryptionPassword As String
@@ -298,9 +277,6 @@ Public Const ZE_WRITE = 14          ' Error Writing To A File
 Public Const ZE_CREAT = 15          ' Could't Open To Write Error
 Public Const ZE_PARMS = 16          ' Bad Command Line Argument Error
 Public Const ZE_OPEN = 18           ' Could Not Open A Specified File To Read Error
-Public Const ZE_COMPERR = 19        ' Error in compilation options
-Public Const ZE_ZIP64 = 20          ' Zip64 not supported
-
 
 '-- These Functions Are For The ZIP32z64.DLL
 '--
@@ -382,7 +358,7 @@ End Function
 '-- Callback For ZIP32z64.DLL - DLL Password Function
 Public Function ZDLLPass(ByRef p As ZipCBChar, _
   ByVal n As Long, ByRef m As ZipCBChar, _
-  ByRef name As ZipCBChar) As Integer
+  ByRef Name As ZipCBChar) As Integer
   
   Dim filename   As String
   Dim prompt     As String
@@ -471,51 +447,16 @@ Public Function ZDLLComm(ByRef s1 As ZipCBChar) As Integer
 
 End Function
 
-'-- Callback For ZIP32z64.DLL - DLL Progress Function
-Public Function ZDLLProg(ByRef mname As ZipCBChar, _
-                         ByVal PercentAllDone100 As Long, _
-                         ByVal PercentEntryDone100 As Long) As Long
-
-    Dim name As String
-    Dim xx As Long
-    Dim PercentAllDone As Double
-    Dim PercentEntryDone As Double
-        
-    '-- Always Put This In Callback Routines!
-    On Error Resume Next
-    
-    PercentAllDone = PercentAllDone100 / 100#
-    PercentEntryDone = PercentEntryDone100 / 100#
-    
-    name = ""
-    '-- Get Zip32.DLL Message For processing
-    For xx = 0 To 4096 ' x
-    If mname.ch(xx) = 0 Then
-        Exit For
-    Else
-        name = name + Chr(mname.ch(xx))
-    End If
-    Next
-    
-    Form1.Caption = "Zip32z64.DLL Example - " & _
-                    "  " & PercentAllDone & "% overall" & _
-                    "  " & PercentEntryDone & "% " & name
-    
-    
-    ' At this point, name contains the message passed from the DLL
-    ' It is up to the developer to code something useful here :)
-    ZDLLProg = 0 ' Setting this to 1 will abort the zip!
-    
-End Function
-
 ' This function can be used to set options in VB
 Public Function SetZipOptions(ByRef ZipOpts As ZpOpt, _
-  Optional ByVal ZipMode As ZipModeType = Add, Optional ByVal RootDirToZipFrom As String = "", _
+  Optional ByVal ZipMode As ZipModeType = Add, _
+  Optional ByVal RootDirToZipFrom As String = "", _
   Optional ByVal CompressionLevel As CompressionLevelType = c6_Default, _
   Optional ByVal RecurseSubdirectories As RecurseType = NoRecurse, _
   Optional ByVal Verboseness As VerbosenessType = Normal, _
-  Optional ByVal i_IncludeFiles As String = "", Optional ByVal x_ExcludeFiles As String = "", _
-  Optional ByVal fUnicode As UnicodeType = Unicode_Backward_Compatible, _
+  Optional ByVal i_IncludeFiles As String = "", _
+  Optional ByVal x_ExcludeFiles As String = "", _
+  Optional ByVal fMisc As Long = Misc_Native_UTF8, _
   Optional ByVal UpdateSFXOffsets As Boolean = False, Optional ByVal JunkDirNames As Boolean = False, _
   Optional ByVal Encrypt As EncryptType = Encrypt_No, Optional ByVal Password As String = "", _
   Optional ByVal Repair As RepairType = NoRepair, Optional ByVal NoDirEntries As Boolean = False, _
@@ -525,30 +466,31 @@ Public Function SetZipOptions(ByRef ZipOpts As ZpOpt, _
   Optional ByVal Move_DeleteAfterAddedOrUpdated As Boolean = False, _
   Optional ByVal SetZipTimeToLatestTime As Boolean = False, _
   Optional ByVal IncludeSystemAndHiddenFiles As Boolean = False, _
-  Optional ByVal ProgressReportChunkSize As String = "", _
-  Optional ByVal ExcludeBeforeDate As String = "", Optional ByVal IncludeBeforeDate As String = "", _
+  Optional ByVal ExcludeEarlierThanDate As String = "", Optional ByVal IncludeEarlierThanDate As String = "", _
+  Optional ByVal UTF8_Enabled = False, Optional UTF8_Native = False, _
   Optional ByVal IncludeVolumeLabel As Boolean = False, _
   Optional ByVal ArchiveComment As Boolean = False, Optional ByVal ArchiveCommentTextString = Empty, _
   Optional ByVal UsePrivileges As Boolean = False, _
   Optional ByVal ExcludeExtraAttributes As Boolean = False, Optional ByVal SplitSize As String = "", _
-  Optional ByVal TempDirPath As String = "", Optional ByVal CompMethod As String = "") As Boolean
+  Optional ByVal TempDirPath As String = "") As Boolean
 
   Dim SplitNum As Long
   Dim SplitMultS As String
   Dim SplitMult As Long
-  Dim i As Integer
   
   ' set some defaults
-  ZipOpts.ExcludeBeforeDate = vbNullString
-  ZipOpts.IncludeBeforeDate = vbNullString
+  ZipOpts.date = vbNullString
   ZipOpts.szRootDir = vbNullString
   ZipOpts.szTempDir = vbNullString
+  ZipOpts.fTemp = 0
   'ZipOpts.fSuffix = 0
   ZipOpts.fEncrypt = 0
   ZipOpts.fSystem = 0
   ZipOpts.fVolume = 0
   ZipOpts.fExtra = 0
   ZipOpts.fNoDirEntries = 0
+  ZipOpts.fExcludeDate = 0
+  ZipOpts.fIncludeDate = 0
   ZipOpts.fVerbose = 0
   ZipOpts.fQuiet = 0
   ZipOpts.fCRLF_LF = 0
@@ -573,14 +515,8 @@ Public Function SetZipOptions(ByRef ZipOpts As ZpOpt, _
   ZipOpts.fRecurse = 0
   ZipOpts.fRepair = 0
   ZipOpts.flevel = 0
-  ZipOpts.fUnicode = Unicode_Backward_Compatible
-  ZipOpts.szCompMethod = vbNullString
-  ZipOpts.szProgressSize = vbNullString
-  ' for future expansion
-  For i = 1 To 8
-    ZipOpts.fluff(i) = 0
-  Next
-
+  ZipOpts.fMisc = Misc_None
+  
   If RootDirToZipFrom <> "" Then
     ZipOpts.szRootDir = RootDirToZipFrom
   End If
@@ -627,31 +563,34 @@ Public Function SetZipOptions(ByRef ZipOpts As ZpOpt, _
   If NoDirEntries Then ZipOpts.fNoDirEntries = 1
   If JunkDirNames Then ZipOpts.fJunkDir = 1
   If Encrypt Then ZipOpts.fEncrypt = 1
-  If Password <> "" Then
-    ZipOpts.fEncrypt = 1
-    EncryptionPassword = Password
-  End If
+  EncryptionPassword = Password
   If JunkSFXPrefix Then ZipOpts.fJunkSFX = 1
   If ForceUseOfDOSNames Then ZipOpts.fForce = 1
   If Translate_LF = LF_To_CRLF Then ZipOpts.fLF_CRLF = 1
   If Translate_LF = CRLF_To_LF Then ZipOpts.fCRLF_LF = 1
   ZipOpts.fRecurse = RecurseSubdirectories
   If IncludeSystemAndHiddenFiles Then ZipOpts.fSystem = 1
+  If Not UTF8_Enabled Then ZipOpts.fMisc = ZipOpts.fMisc + Misc_No_UTF8
+  If Not UTF8_Native Then ZipOpts.fMisc = ZipOpts.fMisc + Misc_Native_UTF8
   
   If SetZipTimeToLatestTime Then ZipOpts.fLatestTime = 1
-  If ExcludeBeforeDate <> "" Then
-    ZipOpts.ExcludeBeforeDate = ExcludeBeforeDate
+  If ExcludeEarlierThanDate <> "" And IncludeEarlierThanDate <> "" Then
+    MsgBox "Both ExcludeEarlierThanDate and IncludeEarlierThanDate not " & Chr(10) & _
+           "supported at same time"
+    Exit Function
   End If
-  If IncludeBeforeDate <> "" Then
-    ZipOpts.IncludeBeforeDate = IncludeBeforeDate
+  If ExcludeEarlierThanDate <> "" Then
+    ZipOpts.fIncludeDate = 1
+    ZipOpts.date = ExcludeEarlierThanDate
+  End If
+  If IncludeEarlierThanDate <> "" Then
+    ZipOpts.fExcludeDate = 1
+    ZipOpts.date = IncludeEarlierThanDate
   End If
   
   If TempDirPath <> "" Then
     ZipOpts.szTempDir = TempDirPath
-  End If
-  
-  If CompMethod <> "" Then
-    ZipOpts.szCompMethod = CompMethod
+    ZipOpts.fTemp = 1
   End If
   
   If SplitSize <> "" Then
@@ -680,10 +619,6 @@ Public Function SetZipOptions(ByRef ZipOpts As ZpOpt, _
         Exit Function
     End If
     ZipOpts.szSplitSize = SplitSize
-  End If
-  
-  If ProgressReportChunkSize <> "" Then
-    ZipOpts.szProgressSize = ProgressReportChunkSize
   End If
   
   If IncludeVolumeLabel Then ZipOpts.fVolume = 1
@@ -715,7 +650,6 @@ Sub DisplayVersion()
   Dim Zip64 As Boolean
   Dim Flags As String
   Dim A As Integer
-  Dim DLLVersion As String
   
   ZipVersion.structlen = Len(ZipVersion)
   ZpVersion ZipVersion
@@ -744,39 +678,15 @@ Sub DisplayVersion()
     Flags = Flags & " No encryption"
   End If
   
-  Form1.Caption = "Zip32z64.DLL Example"
-                  
-  Form1.Print "Using Zip32z64.DLL [" & ChopNulls(ZipVersion.date) & "]  ";
-  Form1.Print "Zip Version:  " & ZipVersion.ZipVersion.Major & "." & _
-                                   ZipVersion.ZipVersion.Minor & "." & _
-                                   ZipVersion.ZipVersion.PatchLevel & " ";
-  Form1.Print ChopNulls(ZipVersion.Beta)
-  Form1.Print "Expected DLL Version " & Compatible_DLL_Version & "    ";
-  Form1.Print "Found DLL Version:  " & ZipVersion.windllVersion.Major & "." & _
-                                   ZipVersion.windllVersion.Minor & "." & _
-                                   ZipVersion.windllVersion.PatchLevel
-'  Form1.Print "FLAGS:  " & Flags
-'  Form1.Print "Feature List:  " & ChopNulls(ZipVersion.FeatureList)
-  Form1.Print
+  Form1.Caption = "Using Zip32z64.DLL Version " & _
+                  ZipVersion.ZipVersion.Major & "." & ZipVersion.ZipVersion.Minor & " " & _
+                  ChopNulls(ZipVersion.Beta) & "  [" & ChopNulls(ZipVersion.date) & "]" & _
+                  " - FLAGS: " & Flags
 
   If Not Zip64 Then
     A = MsgBox("Zip32z64.dll not compiled with Zip64 enabled - continue?", _
                vbOKCancel, _
                "Wrong dll")
-    If A = vbCancel Then
-        End
-    End If
-  End If
-  
-  ' Check if this DLL is compatible with our program
-  DLLVersion = ZipVersion.windllVersion.Major & "." & _
-               ZipVersion.windllVersion.Minor & "." & _
-               ZipVersion.windllVersion.PatchLevel
-  If DLLVersion <> Compatible_DLL_Version Then
-    A = MsgBox("Zip32z64.dll version is " & DLLVersion & " but program needs " & _
-               Compatible_DLL_Version & " - continue?", _
-               vbOKCancel, _
-               "Possibly incompatible dll")
     If A = vbCancel Then
         End
     End If
@@ -805,7 +715,6 @@ Public Function VBZip32() As Long
   ZUSER.ZDLLPASSWORD = FnPtr(AddressOf ZDLLPass)
   ZUSER.ZDLLCOMMENT = FnPtr(AddressOf ZDLLComm)
   ZUSER.ZDLLSERVICE_NO_INT64 = FnPtr(AddressOf ZDLLServ)
-  ZUSER.ZDLLPROGRESS = FnPtr(AddressOf ZDLLProg)
   
   ' If you need to set destination of each split set this
   'ZUSER.ZDLLSPLIT = FnPtr(AddressOf ZDLLSplitSelect)

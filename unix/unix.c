@@ -1,7 +1,7 @@
 /*
   unix/unix.c - Zip 3
 
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -807,12 +807,11 @@ char *d;                /* directory to delete */
 
 #if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__386BSD__) || \
     defined(__OpenBSD__) || defined(__bsdi__)
-
 #include <sys/param.h> /* for the BSD define */
 /* if we have something newer than NET/2 we'll use uname(3) */
 #if (BSD > 199103)
 #include <sys/utsname.h>
-#endif /* (BSD > 199103) */
+#endif /* BSD > 199103 */
 #endif /* __{Net,Free,Open,386}BSD__ || __bsdi__ */
 
 void version_local()

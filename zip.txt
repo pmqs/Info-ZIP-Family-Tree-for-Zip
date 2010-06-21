@@ -555,21 +555,37 @@ OPTIONS
               higher  rate  than  this  but now -v also defaults to 10 MB) and
               this rate is also controlled by -ds.
 
+       -de
+       --display-est-to-go
+              Display an estimate of the time to finish the  archiving  opera-
+              tion.   The  estimate is based on the calculated rate of bytes /
+              second, so the estimated times can vary as  system  loading  and
+              execution speed changes.  zip does not display an estimate until
+              enough entries are processed to get a reasonable bytes /  second
+              rate.
+
        -df
        --datafork
-              [MacOS, UNIX APPLE] Include only the data-forks of files  zipped
-              into  the  archive.   Resource  forks  and  Finder  info will be
-              ignored.  This is useful for exporting files to foreign  operat-
+              [MacOS,  UNIX APPLE] Include only the data-forks of files zipped
+              into the archive.   Resource  forks  and  Finder  info  will  be
+              ignored.   This is useful for exporting files to foreign operat-
               ing systems where the resource information is not useful.
 
        -dg
        --display-globaldots
-              Display  progress dots for the archive instead of for each file.
+              Display progress dots for the archive instead of for each  file.
               The command
 
                          zip -qdgds 10m
 
               will turn off most output except dots every 10 MB.
+
+       -dr
+       --display-rate
+              Display  an  estimate  of  the  rate entries are being zipped in
+              bytes / second.  The estimate can vary  as  system  loading  and
+              execution  speed  changes.  zip does not display a rate estimate
+              until enough entries are processed to get a reasonable rate.
 
        -ds size
        --dot-size size
@@ -588,6 +604,10 @@ OPTIONS
               message as zip scans for input files.  The dot size for that  is
               fixed  at  2  seconds or a fixed number of entries, whichever is
               longer.
+
+       -dt
+       --display-time
+              Display the current time as each entry is started.
 
        -du
        --display-usize
@@ -1318,10 +1338,10 @@ OPTIONS
               archives.   See  -sp  below  for enabling split pause mode which
               allows splits to be written directly to removable media.
 
-              The option -sv can be used to enable verbose splitting and  pro-
-              vide details of how the splitting is being done.  The -sb option
-              can be used to ring the bell when zip pauses for the next  split
-              destination.
+              The option -sv can be  used  to  enable  verbose  splitting  and
+              provide  details  of  how  the splitting is being done.  The -sb
+              option can be used to ring the bell when zip pauses for the next
+              split destination.
 
               Split  archives cannot be updated, but see the -O (--out) option
               for how a split archive can be updated as it is copied to a  new
@@ -1404,8 +1424,8 @@ OPTIONS
        -S
        --system-hidden
               [MSDOS,  OS/2, WIN32 and ATARI] Include system and hidden files.
-              [MacOS] Includes  finder  invisible  files,  which  are  ignored
-              otherwise.
+              [MacOS] Includes finder invisible files, which are ignored  oth-
+              erwise.
 
        -t mmddyyyy
        --from-date mmddyyyy
@@ -1444,6 +1464,33 @@ OPTIONS
               files  are  removed.   If  a  password  is provided to zip using
               options -e or -P, that password is now used  while  testing  the
               archive.
+
+              The  -T option actually spawns the command "unzip -tqq tempname"
+              to test the temporary archive (where tempname is replaced by zip
+              with  the  path to the temporary archive being tested).  Usually
+              this uses the default unzip on your system.  If this isn't doing
+              it  (such  as when you create a 5 GB archive and your system has
+              an old unzip that can't test it), either  update  the  unzip  on
+              your  system or use the -TT option to specify what unzip to run.
+
+              The -T option actually causes zip to spawn a command like "unzip
+              -tqq tempname" to test the temporary archive, where zip replaces
+              tempname with the path to the temporary  archive  being  tested,
+              and  a "v" option on the zip command causes the "qq" to be omit-
+              ted.  If multiple unzip programs are installed  on  the  system,
+              then  a  plain  unzip  command like this may not run the desired
+              one.  (For example, "unzip" might lead  to  an  old,  small-file
+              unzip  program, which can't handle your 5GB archive.)  One solu-
+              tion would be to change something like the (Unix) PATH or  (VMS)
+              symbol (or DCL$PATH) so that "unzip" runs the right program.  If
+              this is not convenient, then use the zip  option  "-TT  cmd"  to
+              specify the exact unzip command to be used.  For example:
+                    zip -T -TT "unzipl -tqq" big_archive.zip
+                    zip  -T  -TT  '/usr/local/bin/unzip6 -tqq' big_archive.zip
+              Note that -TT specifies the whole unzip command  (including  the
+              "-tqq" options), not simply the unzip program itself.  Careless-
+              ness here can cause "zip -T" to extract files from  the  archive
+              instead of merely testing it.
 
        -TT cmd
        --unzip-command cmd
@@ -1925,7 +1972,7 @@ PATTERN MATCHING
        names that end in ".o", no matter what the path prefix is.   Note  that
        the  backslash must precede every special character (i.e. ?*[]), or the
        entire argument must be enclosed in double quotes ("").  (Some  systems
-       also  permit  quoting  using single quotes ('') as well as quoting just
+       also  permit  quoting  using single quotes (') as well as quoting just
        the special characters, as in foo"*"bar.c, which matches all paths that
        start with "foo" and end with "bar.c".)
 
@@ -2102,4 +2149,4 @@ ACKNOWLEDGEMENTS
        The manual page was rewritten for Unix by R. P. C. Rodgers and  updated
        by E. Gordon for zip 3.0.
 
-Info-ZIP                      3 April 2009 (v3.1)                      ZIP(1L)
+Info-ZIP                     12 August 2009 (v3.1)                     ZIP(1L)

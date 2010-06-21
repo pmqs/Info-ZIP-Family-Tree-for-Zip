@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -444,8 +444,10 @@ int zipbare(z, passwd)
 #else /* !UTIL */
 
 /***********************************************************************
- * If requested, encrypt the data in buf, and in any case call fwrite()
- * with the arguments to zfwrite().  Return what fwrite() returns.
+ * If requested, encrypt the data in buf, and in any case call bfwrite()
+ * with the arguments to zfwrite().  Return what bfwrite() returns.
+ * bfwrite() keeps byte counts, does splits, and calls fwrite() to
+ * write out the data.
  *
  * now write to global y
  *

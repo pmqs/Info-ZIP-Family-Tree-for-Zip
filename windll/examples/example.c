@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -264,38 +264,53 @@ if (!(*ZipInit)(lpZipUserFunctions))
 
 /* Here is where the action starts */
 memset(&ZpOpt, 0, sizeof(ZpOpt));
-#if 0
-ZpOpt.fSuffix = FALSE;        /* include suffixes (not yet implemented) */
-#endif
-ZpOpt.fEncrypt = FALSE;       /* true if encryption wanted */
-ZpOpt.fSystem = FALSE;        /* true to include system/hidden files */
-ZpOpt.fVolume = FALSE;        /* true if storing volume label */
-ZpOpt.fExtra = FALSE;         /* true if including extra attributes */
-ZpOpt.fNoDirEntries = FALSE;  /* true if ignoring directory entries */
-ZpOpt.fVerbose = FALSE;       /* true if full messages wanted */
-ZpOpt.fQuiet = FALSE;         /* true if minimum messages wanted */
-ZpOpt.fCRLF_LF = FALSE;       /* true if translate CR/LF to LF */
-ZpOpt.fLF_CRLF = FALSE;       /* true if translate LF to CR/LF */
-ZpOpt.fJunkDir = FALSE;       /* true if junking directory names */
-ZpOpt.fGrow = FALSE;          /* true if allow appending to zip file */
-ZpOpt.fForce = FALSE;         /* true if making entries using DOS names */
-ZpOpt.fMove = FALSE;          /* true if deleting files added or updated */
-ZpOpt.fUpdate = FALSE;        /* true if updating zip file--overwrite only
-                                  if newer */
-ZpOpt.fFreshen = FALSE;       /* true if freshening zip file--overwrite only */
-ZpOpt.fJunkSFX = FALSE;       /* true if junking sfx prefix*/
-ZpOpt.fLatestTime = FALSE;    /* true if setting zip file time to time of
-                                  latest file in archive */
-ZpOpt.fComment = FALSE;       /* true if putting comment in zip file */
-ZpOpt.fOffsets = FALSE;       /* true if updating archive offsets for sfx
-                                  files */
-ZpOpt.fDeleteEntries = FALSE; /* true if deleting files from archive */
+ZpOpt.ExcludeBeforeDate = NULL;    /* set to valid Zip date, or NULL */
+ZpOpt.IncludeBeforeDate = NULL;    /* set to valid Zip date, or NULL */
+ZpOpt.szRootDir = szFullPath;      /* set to root dir (will cd to), or NULL */
+ZpOpt.szTempDir = NULL;            /* set to dir for temp files, or NULL */
+ZpOpt.fUnicode = 0;                /* Unicode flag */
+ZpOpt.fEncrypt = FALSE;            /* Encrytion flag */
+ZpOpt.fSystem = FALSE;             /* true to include system/hidden files */
+ZpOpt.fVolume = FALSE;             /* true if storing volume label */
+ZpOpt.fExtra = FALSE;              /* true if including extra attributes */
+ZpOpt.fNoDirEntries = FALSE;       /* true if ignoring directory entries */
+ZpOpt.fVerbose = FALSE;            /* true if full messages wanted */
+ZpOpt.fQuiet = FALSE;              /* true if minimum messages wanted */
+ZpOpt.fCRLF_LF = FALSE;            /* true if translate CR/LF to LF */
+ZpOpt.fLF_CRLF = FALSE;            /* true if translate LF to CR/LF */
+ZpOpt.fJunkDir = FALSE;            /* true if junking directory names */
+ZpOpt.fGrow = FALSE;               /* true if allow appending to zip file */
+ZpOpt.fForce = FALSE;              /* true if making entries using DOS names */
+ZpOpt.fMove = FALSE;               /* true if deleting files added or updated */
+ZpOpt.fDeleteEntries = FALSE;      /* true if deleting files from archive */
+ZpOpt.fUpdate = FALSE;             /* true if updating zip file--overwrite only
+                                        if newer */
+ZpOpt.fFreshen = FALSE;            /* true if freshening zip file--overwrite only */
+ZpOpt.fJunkSFX = FALSE;            /* true if junking sfx prefix*/
+ZpOpt.fLatestTime = FALSE;         /* true if setting zip file time to time of
+                                       latest file in archive */
+ZpOpt.fComment = FALSE;            /* true if putting comment in zip file */
+ZpOpt.fOffsets = FALSE;            /* true if updating archive offsets for sfx
+                                       files */
+ZpOpt.fPrivilege = 0;
+ZpOpt.fEncryption = 0;
+ZpOpt.szSplitSize = NULL;
+
+ZpOpt.szIncludeList = NULL;
+ZpOpt.IncludeListCount = 0;
+ZpOpt.IncludeList = NULL;
+ZpOpt.szExcludeList = NULL;
+ZpOpt.ExcludeListCount = 0;
+ZpOpt.ExcludeList = NULL;
+
 ZpOpt.fRecurse = 0;           /* subdir recursing mode: 1 = "-r", 2 = "-R" */
 ZpOpt.fRepair = 0;            /* archive repair mode: 1 = "-F", 2 = "-FF" */
-ZpOpt.Date = NULL;            /* Not using, set to NULL pointer */
 ZpOpt.fLevel = '6';           /* Default deflate compression level */
+ZpOpt.szCompMethod = NULL;
+for (i = 0; i < 8; i++) {
+  ZpOpt.fluff[i] = 0;
+}
 getcwd(szFullPath, PATH_MAX); /* Set directory to current directory */
-ZpOpt.szRootDir = szFullPath;
 
 ZpZCL.argc = argc - 2;        /* number of files to archive - adjust for the
                                   actual number of file names to be added */

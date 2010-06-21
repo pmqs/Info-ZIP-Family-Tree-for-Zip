@@ -249,9 +249,24 @@ minix:
 # the following, but it shouldn't be needed:
 #MAKE = gmake
 
-os390:
-	$(MAKE) $(MAKEF) zips CFLAGS="$(CF) -I. -DUNIX -DOS390 -DEBCDIC \
-	 -DSYSV -DNO_PARAM_H" LFLAGS2=""
+#os390:
+#	$(MAKE) $(MAKEF) zips CFLAGS="$(CF) -I. -DUNIX -DOS390 -DEBCDIC \
+#	 -DSYSV -DNO_PARAM_H" LFLAGS2=""
+
+#  RBW  --  2009/06/10  --
+#  It's way past time to bring the mainframe setup into the 21st 
+#  century - it's been about a decade now, I think.
+#  The configure script has fixes to set -DSYSV  -DOS390  -DEBCDIC 
+#  and -DNO_PARAM_H.
+#  os390 is effectively just an alias for zos - the z/OS kernel still
+#  identifies itself as OS/390 - remind anyone of Solaris?
+#  This is really the same technique as the generic target, which
+#  should also work now for z/OS systems.
+os390:    zos
+
+zos:    flags
+	eval $(MAKE) $(MAKEF) zips `cat flags`
+
 
 # QNX is "special" because out /bin/sh is ksh and it doesn't grok the
 # configure script properly, generating a bad flags file.  D'oh! [cjh]

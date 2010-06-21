@@ -1,11 +1,11 @@
 /*
   unix/osdep.h - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 
@@ -24,7 +24,9 @@
 # define _LARGEFILE_SOURCE      /* some OSes need this for fseeko */
 # define _LARGEFILE64_SOURCE
 # define _FILE_OFFSET_BITS 64   /* select default interface as 64 bit */
-# define _LARGE_FILES           /* some OSes need this for 64-bit off_t */
+# ifndef _LARGE_FILES
+#   define _LARGE_FILES         /* some OSes need this for 64-bit off_t */
+# endif
 #endif
 
 #include <sys/types.h>

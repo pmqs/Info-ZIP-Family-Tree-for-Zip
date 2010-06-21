@@ -541,6 +541,14 @@ extern int logfile_line_started; /* 1=started writing a line to logfile */
 extern char *key;               /* Scramble password or NULL */
 extern char *tempath;           /* Path for temporary files */
 extern FILE *mesg;              /* Where informational output goes */
+/* dll progress */
+extern uzoff_t bytes_read_this_entry; /* bytes read from current input file */
+extern uzoff_t bytes_expected_this_entry; /* uncompressed size from scan */
+extern char *entry_name;        /* used by DLL to pass z->zname to file_read() */
+#ifdef ENABLE_DLL_PROGRESS
+ extern uzoff_t progress_chunk_size;  /* how many bytes before next progress report */
+ extern uzoff_t last_progress_chunk;  /* used to determine when to send next report */
+#endif
 
 extern char **args;             /* Copy of argv that can be updated and freed */
 

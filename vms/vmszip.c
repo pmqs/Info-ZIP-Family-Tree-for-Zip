@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -1502,7 +1502,6 @@ ulg filetime( char *f, ulg *a, zoff_t *n, iztimes *t)
 #endif
 }
 
-
 int deletedir( char *dir_name)
 /* char *dir_name;              directory to delete */
 
@@ -1511,13 +1510,28 @@ int deletedir( char *dir_name)
    For VMS, dir_name must be in format [x.y]z.dir;1  (not [x.y.z]).
  */
 
-/* 2009-11-28 SMS.
-   Changed to use $QIOW instead of system( "set prot=(o:rwed) <dir>"),
-   to eliminate annoying %SET-E-PRONOTCHG messages when SET PROTECTION
-   failed.  The new scheme adds (S:D, O:D, G:D, W:D) if the original
-   protection can be read.  Otherwise, it attempts to set the protection
-   to (S:D, O:D, G:D, W:D), which will probably fail (but quietly).
- */
+ /* original code from Greg Roelofs, who horked it from Mark Edwards (unzip) */
+ /*
+   int r, len;
+   char *s;
+
+   len = strlen(d);
+   if ((s = malloc(len + 34)) == NULL)
+     return 127;
+
+   system(strcat(strcpy(s, "set prot=(o:rwed) "), d));
+   r = delete(d);
+   free(s);
+   return r;
+  */
+
+  /* 2009-11-28 SMS.
+    Changed to use $QIOW instead of system( "set prot=(o:rwed) <dir>"),
+    to eliminate annoying %SET-E-PRONOTCHG messages when SET PROTECTION
+    failed.  The new scheme adds (S:D, O:D, G:D, W:D) if the original
+    protection can be read.  Otherwise, it attempts to set the protection
+    to (S:D, O:D, G:D, W:D), which will probably fail (but quietly).
+  */
 
 {
     int i;
@@ -1544,7 +1558,7 @@ int deletedir( char *dir_name)
     struct dsc$descriptor_s atr_fnam =
      { 0, DSC$K_DTYPE_T, DSC$K_CLASS_S, NULL };
 
-/* IOSB for QIO[W] miscellaneous ACP operations. */
+    /* IOSB for QIO[W] miscellaneous ACP operations. */
     struct
     {
         unsigned short  status;
