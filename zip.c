@@ -730,6 +730,7 @@ local void help_extended()
 "  -r        recurse into directories (see Recursion below)",
 "  -m        after archive created, delete original files (move into archive)",
 "  -j        junk directory names (store just file names)",
+"  -p        include relative dir path (deprecated) - use -j- instead (default)",
 "  -q        quiet operation",
 "  -v        verbose operation (just \"zip -v\" shows version information)",
 "  -c        prompt for one-line comment for each entry",
@@ -1899,7 +1900,11 @@ local int DisplayRunningStats()
     struct tm *now;
 
     now = localtime(&clocktime);
-    strftime(errbuf, 50, "%d/%X", now);
+
+    /* avoid strftime() to keep old systems (like old VMS) happy */
+    sprintf(errbuf, "%02d/%02d:%02d:%02d", now->tm_mday, now->tm_hour,
+                                           now->tm_min, now->tm_sec);
+    /* strftime(errbuf, 50, "%d/%X", now); */
     /* strcpy(errbuf, asctime(now)); */
 
     if (noisy) {
@@ -3369,6 +3374,7 @@ char **argv;            /* command line tokens */
           have_out = 1;
           break;
         case 'p':   /* Store path with name */
+          zipwarn("-p (include path) is deprecated.  Use -j- instead", "");
           break;            /* (do nothing as annoyance avoidance) */
         case o_pp:  /* Set prefix for paths of new entries in archive */
           if (path_prefix)
