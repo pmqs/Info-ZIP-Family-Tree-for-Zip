@@ -20,6 +20,10 @@
 #  define __32BIT__
 #endif
 
+#if defined(__KLIBC__ )|| defined(__INNOTEK_LIBC__)
+#include <dirent.h>
+#endif
+
 #include "zip.h"
 
 #include <stdlib.h>
@@ -66,6 +70,7 @@
 
 #ifndef UTIL
 
+#ifndef __KLIBC__ 
 extern int noisy;
 
 #ifndef S_IFMT
@@ -270,6 +275,7 @@ static char *getdirent(char *dir)
     return NULL;
   }
 }
+#endif /* __KLIBC__ */
 
 /* FAT / HPFS detection */
 
@@ -387,7 +393,11 @@ char *getVolumeLabel(int drive, unsigned long *vtime, unsigned long *vmode,
 
   time(utim);
   *vtime = unix2dostime(utim);
+#ifndef __KLIBC__
   *vmode = _A_VOLID | _A_ARCHIVE;
+#else
+  *vmode = A_LABEL | A_ARCHIVE;
+#endif
 
   return (fi.vol.cch > 0) ? fi.vol.szVolLabel : NULL;
 }

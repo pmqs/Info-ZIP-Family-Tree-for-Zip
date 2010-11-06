@@ -11,6 +11,8 @@
  */
 
 
+#ifndef __KLIBC__
+
 #define MAXNAMLEN  256
 #define MAXPATHLEN 256
 
@@ -20,7 +22,6 @@
 #define _A_VOLID    0x08
 #define _A_DIR      0x10
 #define _A_ARCHIVE  0x20
-
 
 struct dirent
 {
@@ -65,6 +66,7 @@ extern void seekdir(DIR *, long);
 extern long telldir(DIR *);
 extern void closedir(DIR *);
 #define rewinddir(dirp) seekdir(dirp, 0L)
+#endif /* __KLIBC__ */
 
 int GetFileMode(char *name);
 ulg GetFileTime(char *name);
