@@ -416,6 +416,12 @@ extern int wild_stop_at_dir;    /* wildcards do not include / in matches */
    extern int no_win32_wide;    /* 1 = no wide functions, like GetFileAttributesW() */
 # endif
 #endif
+
+/* New General Purpose Bit Flag bit 11 flags when entry path and
+   comment are in UTF-8 */
+#define UTF8_BIT (1 << 11)
+
+
 /* 10/20/04 */
 extern zoff_t dot_size;         /* if not 0 then display dots every size buffers */
 extern zoff_t dot_count;        /* if dot_size not 0 counts buffers */
@@ -441,10 +447,11 @@ extern uzoff_t bytes_total;     /* total bytes to process (from initial scan) */
 #endif
 extern time_t clocktime;        /* current time */
 /* logfile 6/5/05 */
-extern int logall;          /* 0 = warnings/errors, 1 = all */
+extern int logall;              /* 0 = warnings/errors, 1 = all */
 extern FILE *logfile;           /* pointer to open logfile or NULL */
 extern int logfile_append;      /* append to existing logfile */
 extern char *logfile_path;      /* pointer to path of logfile */
+extern int log_utf8;            /* log names as UTF-8 */
 #ifdef WIN32
 extern int nonlocal_name;       /* Name has non-local characters */
 extern int nonlocal_path;       /* Path has non-local characters */
@@ -486,7 +493,7 @@ extern char *tempzip;           /* temp file name */
 extern FILE *y;                 /* output file now global for splits */
 
 #ifdef UNICODE_SUPPORT
-  extern int utf8_force;         /* 1=store UTF-8 as standard per AppNote bit 11 */
+  extern int utf8_native;       /* 1=store UTF-8 as standard per AppNote bit 11 */
 #endif
 extern int unicode_escape_all;  /* 1=escape all non-ASCII characters in paths */
 extern int unicode_mismatch;    /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
@@ -632,6 +639,8 @@ extern int zipstate;            /* flag "zipfile has been stat()'ed */
 #ifdef DEBUGNAMES
 #  define free(x) { int *v;Free(x); v=x;*v=0xdeadbeef;x=(void *)0xdeadbeef; }
 #endif
+
+extern int show_what_doing;
 
 /* Public function prototypes */
 

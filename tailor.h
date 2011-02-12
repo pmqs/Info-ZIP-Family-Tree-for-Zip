@@ -114,6 +114,11 @@
 #endif
 
 
+#ifdef NEED_STRERROR
+   char *strerror();
+#endif /* def NEED_STRERROR */
+
+
 /* generic LARGE_FILE_SUPPORT defines
    These get used if not defined above.
    7/21/2004 EG
@@ -392,15 +397,15 @@ typedef struct ztimbuf {
 
 #ifndef Z_UINT4_DEFINED
 #  if !defined(NO_LIMITS_H)
-#    if (defined(UINT_MAX) && (UINT_MAX == 0xffffffffUL))
+#    if (defined(UINT_MAX) && (UINT_MAX == 0xffffffff))
        typedef unsigned int     z_uint4;
 #      define Z_UINT4_DEFINED
 #    else
-#      if (defined(ULONG_MAX) && (ULONG_MAX == 0xffffffffUL))
+#      if (defined(ULONG_MAX) && (ULONG_MAX == 0xffffffff))
          typedef unsigned long    z_uint4;
 #        define Z_UINT4_DEFINED
 #      else
-#        if (defined(USHRT_MAX) && (USHRT_MAX == 0xffffffffUL))
+#        if (defined(USHRT_MAX) && (USHRT_MAX == 0xffffffff))
            typedef unsigned short   z_uint4;
 #          define Z_UINT4_DEFINED
 #        endif

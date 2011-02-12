@@ -398,6 +398,14 @@ void version_local()
  *    "ZIxxxxxxxx", where "xxxxxxxx" is the (whole) eight-digit
  *    hexadecimal representation of the process ID.  More important, it
  *    actually uses the directory part of the argument or "tempath".
+ *
+ * 2010-09-29 SMS.
+ *    Well, duh.  Split archives need more than one temporary file name,
+ *    and a PID-only method can't achieve that.  The new method retains
+ *    the PID base, but adds a (hexadecimal) serial number as the
+ *    ".type", producing "ZIxxxxxxxx.yyyyyyyy;", where "xxxxxxxx" is the
+ *    hexadecimal PID, and "yyyyyyyy" is the hexadecimal serial number.
+ *    This should still be safe on ODS2 or ODS5.
  */
 
 
@@ -409,6 +417,7 @@ char *tempname( char *zip)
 
     static int pid;             /* Process ID. */
     static int pid_len;         /* Returned size of process ID. */
+    static int serial = 0;      /* Serial number, for certain uniqueness. */
 
     struct                      /* Item list for GETJPIW. */
     {
@@ -420,7 +429,7 @@ char *tempname( char *zip)
     } jpi_itm_lst = { sizeof( pid), JPI$_PID, &pid, &pid_len };
 
     /* ZI<UNIQUE> name storage. */
-    static char zip_tmp_nam[ 16] = "ZI<unique>.;";
+    static char zip_tmp_nam[ 24] = "ZI<pid|time>.<serial>;";
 
     struct FAB fab;             /* FAB structure. */
     struct NAM_STRUCT nam;      /* NAM[L] structure. */
@@ -430,19 +439,21 @@ char *tempname( char *zip)
 #ifdef VMS_UNIQUE_TEMP_BY_TIME
 
     /* Use alternate time-based scheme to generate a unique temporary name. */
-    sprintf( &zip_tmp_nam[ 2], "%08X", time( NULL));
+    sprintf( &zip_tmp_nam[ 2], "%08X.%08X", time( NULL), serial);
 
 #else /* def VMS_UNIQUE_TEMP_BY_TIME */
 
     /* Use the process ID to generate a unique temporary name. */
     sts = sys$getjpiw( 0, 0, 0, &jpi_itm_lst, 0, 0, 0);
-    sprintf( &zip_tmp_nam[ 2], "%08X", pid);
+    sprintf( &zip_tmp_nam[ 2], "%08X.%08X", pid, serial);
 
 #endif /* def VMS_UNIQUE_TEMP_BY_TIME */
 
+    /* Increment the serial number. */
+    serial++;
+
     /* Smoosh the unique temporary name against the actual Zip archive
        name (or "tempath") to create the full temporary path name.
-       (Truncate it at the file type to remove any file type.)
     */
     if (tempath != NULL)        /* Use "tempath", if it's been specified. */
         zip = tempath;
@@ -465,7 +476,7 @@ char *tempname( char *zip)
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_DNA = zip;
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_DNS = strlen( zip);
 
-    /* File name = "ZI<unique>,;". */
+    /* File name = "ZI<unique>.<serial>;". */
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = zip_tmp_nam;
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen( zip_tmp_nam);
 
@@ -479,11 +490,17 @@ char *tempname( char *zip)
 
     if ((sts& STS$M_SEVERITY) == STS$M_SUCCESS)
     {
-        /* Overlay any resulting file type (typically ".ZIP") with none. */
-        strcpy( nam.NAM_L_TYPE, ".;");
+        /* Truncate/NUL-terminate the resulting file spec. */
+        /* 2010-09-29 SMS.
+         * Truncate at version, with ".<serial>"; at type, without.
+         * Was:
+         * strcpy( nam.NAM_L_TYPE, ".;");
+         * Now:
+         */
+        *(nam.NAM_L_VER+ 1) = '\0';
 
         /* Allocate temp name storage (as caller expects), and copy the
-           (truncated) temp name into the new location.
+           (truncated/terminated) temp name into the new location.
         */
         temp_name = malloc( strlen( nam.NAM_ESA)+ 1);
 

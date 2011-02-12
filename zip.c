@@ -932,10 +932,17 @@ local void help_extended()
 "             and an end summary.",
 "  -la       append to existing logfile",
 "  -li       include info messages (default just warnings and errors)",
+"  -lu       log names using UTF-8.  Instead of character set converted or",
+"             escaped paths, put file paths in log as UTF-8.  Need an",
+"             application that can understand UTF-8 to accurately read the",
+"             log file, such as Notepad on Windows XP.  Since most consoles",
+"             are not UTF-8 aware, sending log output to stdout to see",
+"             UTF-8 probably won't do it.",
 "",
 "Testing archives:",
 "  -T        test completed temp archive with unzip before updating archive",
-"             If zip given password, it gets passed to unzip.",
+"             If zip given password, it gets passed to unzip.  Uses",
+"             the default \"unzip\" on the system.",
 "  -TT cmd   use command cmd instead of 'unzip -tqq' to test archive",
 "             On Unix, to use unzip in current directory, could use:",
 "               zip archive file1 file2 -T -TT \"./unzip -tqq\"",
@@ -1004,15 +1011,17 @@ local void help_extended()
 "  to match files in archive.",
 "",
 "  Zip now stores UTF-8 in entry path and comment fields on systems",
-"  where UTF-8 char set is default, such as most modern Unix, and",
-"  and on other systems in new extra fields with escaped versions in",
-"  entry path and comment fields for backward compatibility.",
-"  Option -UN=UTF8 will force storing UTF-8 in entry path and comment",
-"  fields:",
-"      -UN=UTF8     - store UTF-8 in entry path and comment fields",
+"  where UTF-8 char set is default, such as on most modern Unix, and",
+"  and on other systems in new extra fields (with escaped versions of",
+"  entry path and comment in main fields for backward compatibility).",
+"  Option -UN=UTF8 will for new entries force storing UTF-8 in main",
+"  path and comment fields on any system:",
+"      -UN=UTF8     - store UTF-8 in main path and comment fields",
 "  This option can be useful for multi-byte char sets on Windows where",
 "  escaped paths and comments can be too long to be valid as the UTF-8",
-"  versions tend to be shorter.",
+"  versions tend to be shorter.  Need current unzip to display and",
+"  process the UTF-8, even on local system if UTF-8 not native.  THIS",
+"  OPTION CAN MAKE FILE PATHS UNREADABLE TO OLDER UTILITIES.",
 "",
 "  Only UTF-8 comments on UTF-8 native systems supported.  UTF-8 comments",
 "  for other systems planned in next release.",
@@ -2229,32 +2238,33 @@ int set_filetype(out_path)
 #define o_lf            0x128
 #define o_li            0x129
 #define o_ll            0x130
-#define o_mm            0x131
-#define o_MM            0x132
-#define o_MV            0x133
-#define o_nw            0x134
-#define o_pp            0x135
-#define o_RE            0x136
-#define o_sb            0x137
-#define o_sc            0x138
+#define o_lu            0x131
+#define o_mm            0x132
+#define o_MM            0x133
+#define o_MV            0x134
+#define o_nw            0x135
+#define o_pp            0x136
+#define o_RE            0x137
+#define o_sb            0x138
+#define o_sc            0x139
 #ifdef UNICODE_TEST
-#define o_sC            0x139
+#define o_sC            0x140
 #endif
-#define o_sd            0x140
-#define o_sf            0x141
-#define o_so            0x142
-#define o_sp            0x143
-#define o_su            0x144
-#define o_sU            0x145
-#define o_sv            0x146
-#define o_tt            0x147
-#define o_TT            0x148
-#define o_UN            0x149
-#define o_ve            0x150
-#define o_VV            0x151
-#define o_ws            0x152
-#define o_ww            0x153
-#define o_z64           0x154
+#define o_sd            0x141
+#define o_sf            0x142
+#define o_so            0x143
+#define o_sp            0x144
+#define o_su            0x145
+#define o_sU            0x146
+#define o_sv            0x147
+#define o_tt            0x148
+#define o_TT            0x149
+#define o_UN            0x150
+#define o_ve            0x151
+#define o_VV            0x152
+#define o_ws            0x153
+#define o_ww            0x154
+#define o_z64           0x155
 
 
 /* the below is mainly from the old main command line
@@ -2357,6 +2367,7 @@ struct option_struct far options[] = {
     {"lf", "logfile-path",o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_lf, "log to log file at path (default overwrite)"},
     {"la", "log-append",  o_NO_VALUE,       o_NEGATABLE,     o_la, "append to existing log file"},
     {"li", "log-info",    o_NO_VALUE,       o_NEGATABLE,     o_li, "include informational messages in log"},
+    {"lu", "log-utf8",    o_NO_VALUE,       o_NEGATABLE,     o_lu, "log names as UTF-8"},
 #ifndef WINDLL
     {"L",  "license",     o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "display license"},
 #endif
@@ -2506,7 +2517,6 @@ char **argv;            /* command line tokens */
   int optnum = 0;       /* index in table */
 
   int show_options = 0; /* show options */
-  int show_what_doing = 0; /* show what doing */
   int show_args = 0;    /* show command line */
   int seen_doubledash = 0; /* seen -- argument */
   int key_needed = 0;   /* prompt for encryption key */
@@ -2746,7 +2756,7 @@ char **argv;            /* command line tokens */
 #endif
 
 #ifdef UNICODE_SUPPORT
-  utf8_force = 0;         /* 1=force storing UTF-8 as standard per AppNote bit 11 */
+  utf8_native = 0;        /* 1=force storing UTF-8 as standard per AppNote bit 11 */
 #endif
 
   unicode_escape_all = 0; /* 1=escape all non-ASCII characters in paths */
@@ -3324,6 +3334,15 @@ char **argv;            /* command line tokens */
           else
             logall = 1;
           break;
+#ifdef UNICODE_SUPPORT
+        case o_lu:
+          /* log all including informational messages */
+          if (negated)
+            log_utf8 = 0;
+          else
+            log_utf8 = 1;
+          break;
+#endif
 #ifndef WINDLL
         case 'L':   /* Show license */
           license();
@@ -3571,7 +3590,7 @@ char **argv;            /* command line tokens */
 
           } else if (abbrevmatch("UTF8", value, 0, 1)) {
             /* force storing UTF-8 as standard per AppNote bit 11 */
-            utf8_force = 1;
+            utf8_native = 1;
 
           } else {
             zipwarn("-UN must be Quit, Warn, Ignore, No, Escape, or UTF8: ", value);
@@ -4407,11 +4426,11 @@ char **argv;            /* command line tokens */
       else
       {
         /* create path by stripping name and appending template */
-        if ((tempzip = malloc(strlen(zipfile) + 12)) == NULL) {
+        if ((tempzip = malloc(strlen(out_path) + 12)) == NULL) {
         ZIPERR(ZE_MEM, "allocating temp filename");
         }
-        strcpy(tempzip, zipfile);
-        for(i = strlen(tempzip); i > 0; i--) {
+        strcpy(tempzip, out_path);
+        for (i = strlen(tempzip); i > 0; i--) {
           if (tempzip[i - 1] == '/')
             break;
         }
@@ -4422,13 +4441,21 @@ char **argv;            /* command line tokens */
       if ((yd = mkstemp(tempzip)) == EOF) {
         ZIPERR(ZE_TEMP, tempzip);
       }
+      if (show_what_doing) {
+        fprintf(mesg, "sd: Temp file (1u): %s\n", tempzip);
+        fflush(mesg);
+      }
       if ((y = fdopen(yd, FOPW_TMP)) == NULL) {
         ZIPERR(ZE_TEMP, tempzip);
       }
     }
 #else
-    if ((tempzip = tempname(zipfile)) == NULL) {
+    if ((tempzip = tempname(out_path)) == NULL) {
       ZIPERR(ZE_MEM, "allocating temp filename");
+    }
+    if (show_what_doing) {
+      fprintf(mesg, "sd: Temp file (1n): %s\n", tempzip);
+      fflush(mesg);
     }
     if ((y = zfopen(tempzip, FOPW_TMP)) == NULL) {
       ZIPERR(ZE_TEMP, tempzip);
@@ -4705,6 +4732,12 @@ char **argv;            /* command line tokens */
     free((zvoid *)zsort);
 
 
+/* 2010-10-01 SMS.
+ * Disabled the following stuff, to let the real temporary name code do
+ * its job.
+ */
+#if 0
+
 /*
  * XXX make some kind of mktemppath() function for each OS.
  */
@@ -4712,29 +4745,29 @@ char **argv;            /* command line tokens */
 #ifndef VM_CMS
 /* For CMS, leave tempath NULL.  A-disk will be used as default. */
   /* If -b not specified, make temporary path the same as the zip file */
-#if defined(MSDOS) || defined(__human68k__) || defined(AMIGA)
+# if defined(MSDOS) || defined(__human68k__) || defined(AMIGA)
   if (tempath == NULL && ((p = MBSRCHR(zipfile, '/')) != NULL ||
 #  ifdef MSDOS
                           (p = MBSRCHR(zipfile, '\\')) != NULL ||
-#  endif /* MSDOS */
+#  endif /* def MSDOS */
                           (p = MBSRCHR(zipfile, ':')) != NULL))
   {
     if (*p == ':')
       p++;
-#else
-#ifdef RISCOS
+# else /* defined(MSDOS) || defined(__human68k__) || defined(AMIGA) */
+#  ifdef RISCOS
   if (tempath == NULL && (p = MBSRCHR(zipfile, '.')) != NULL)
   {
-#else
-#ifdef QDOS
+#  else /* def RISCOS */
+#   ifdef QDOS
   if (tempath == NULL && (p = LastDir(zipfile)) != NULL)
   {
-#else
+#   else /* def QDOS */
   if (tempath == NULL && (p = MBSRCHR(zipfile, '/')) != NULL)
   {
-#endif /* QDOS */
-#endif /* RISCOS */
-#endif /* MSDOS || __human68k__ || AMIGA */
+#   endif /* def QDOS [else] */
+#  endif /* def RISCOS [else] */
+# endif  /* defined(MSDOS) || defined(__human68k__) || defined(AMIGA) [else] */
     if ((tempath = (char *)malloc((int)(p - zipfile) + 1)) == NULL) {
       ZIPERR(ZE_MEM, "was processing arguments");
     }
@@ -4742,7 +4775,9 @@ char **argv;            /* command line tokens */
     strcpy(tempath, zipfile);
     *p = (char)r;
   }
-#endif /* VM_CMS */
+#endif /* ndef VM_CMS */
+
+#endif /* 0 */
 
 #if (defined(IZ_CHECK_TZ) && defined(USE_EF_UT_TIME))
   if (!zp_tz_is_valid) {
@@ -5080,7 +5115,12 @@ char **argv;            /* command line tokens */
           fprintf(mesg, "  %s\n", z->oname);
         if (logfile && !(show_files == 5 || show_files == 6))
           /* not sU or sU- show normal name in log */
-          fprintf(logfile, "  %s\n", z->oname);
+#ifdef UNICODE_SUPPORT
+          if (log_utf8 && z->uname)
+            fprintf(logfile, "  %s\n", z->uname);
+          else
+#endif
+            fprintf(logfile, "  %s\n", z->oname);
 
 #ifdef UNICODE_TEST
         if (create_files) {
@@ -5157,12 +5197,15 @@ char **argv;            /* command line tokens */
 #ifdef UNICODE_SUPPORT
         if (show_files == 3 || show_files == 4) {
           /* su, su- */
-          /* Include escaped Unicode name if exists under standard name */
+          /* Include escaped Unicode name (if exists) under standard name */
           if (z->ouname) {
             if (noisy && show_files == 3)
               fprintf(mesg, "     Escaped Unicode:  %s\n", z->ouname);
             if (logfile)
-              fprintf(logfile, "     Escaped Unicode:  %s\n", z->ouname);
+              if (log_utf8)
+                fprintf(logfile, "     Unicode:  %s\n", z->uname);
+              else
+                fprintf(logfile, "     Escaped Unicode:  %s\n", z->ouname);
           }
         }
         if (show_files == 5 || show_files == 6) {
@@ -5174,7 +5217,10 @@ char **argv;            /* command line tokens */
               fprintf(mesg, "  %s\n", z->ouname);
             }
             if (logfile) {
-              fprintf(logfile, "  %s\n", z->ouname);
+              if (log_utf8)
+                fprintf(logfile, "  %s\n", z->uname);
+              else
+                fprintf(logfile, "  %s\n", z->ouname);
             }
           } else {
             /* No Unicode name so use standard name */
@@ -5182,7 +5228,10 @@ char **argv;            /* command line tokens */
               fprintf(mesg, "  %s\n", z->oname);
             }
             if (logfile) {
-              fprintf(logfile, "  %s\n", z->oname);
+              if (log_utf8 && z->uname)
+                fprintf(logfile, "  %s\n", z->uname);
+              else
+                fprintf(logfile, "  %s\n", z->oname);
             }
           }
         }
@@ -5201,7 +5250,10 @@ char **argv;            /* command line tokens */
           /* sf, su, sU */
           fprintf(mesg, "  %s\n", escaped_unicode);
         if (logfile)
-          fprintf(logfile, "  %s\n", escaped_unicode);
+          if (log_utf8 && f->uname)
+            fprintf(logfile, "  %s\n", f->uname);
+          else
+            fprintf(logfile, "  %s\n", escaped_unicode);
         free(escaped_unicode);
       } else {
 #endif
@@ -5209,7 +5261,12 @@ char **argv;            /* command line tokens */
           /* sf, su, sU */
           fprintf(mesg, "  %s\n", f->oname);
         if (logfile)
-          fprintf(logfile, "  %s\n", f->oname);
+#ifdef UNICODE_SUPPORT
+          if (log_utf8 && f->uname)
+            fprintf(logfile, "  %s\n", f->uname);
+          else
+#endif
+            fprintf(logfile, "  %s\n", f->oname);
 #ifdef UNICODE_SUPPORT
       }
 #endif
@@ -5423,11 +5480,11 @@ char **argv;            /* command line tokens */
       else
       {
         /* create path by stripping name and appending template */
-        if ((tempzip = malloc(strlen(zipfile) + 12)) == NULL) {
+        if ((tempzip = malloc(strlen(out_path) + 12)) == NULL) {
         ZIPERR(ZE_MEM, "allocating temp filename");
         }
-        strcpy(tempzip, zipfile);
-        for(i = strlen(tempzip); i > 0; i--) {
+        strcpy(tempzip, out_path);
+        for (i = strlen(tempzip); i > 0; i--) {
           if (tempzip[i - 1] == '/')
             break;
         }
@@ -5438,13 +5495,21 @@ char **argv;            /* command line tokens */
       if ((yd = mkstemp(tempzip)) == EOF) {
         ZIPERR(ZE_TEMP, tempzip);
       }
+      if (show_what_doing) {
+        fprintf(mesg, "sd: Temp file (2u): %s\n", tempzip);
+        fflush(mesg);
+      }
       if ((y = fdopen(yd, FOPW_TMP)) == NULL) {
         ZIPERR(ZE_TEMP, tempzip);
       }
     }
 #else
-    if ((tempzip = tempname(zipfile)) == NULL) {
+    if ((tempzip = tempname(out_path)) == NULL) {
       ZIPERR(ZE_MEM, "allocating temp filename");
+    }
+    if (show_what_doing) {
+      fprintf(mesg, "sd: Temp file (2n): %s\n", tempzip);
+      fflush(mesg);
     }
     if ((y = zfopen(tempzip, FOPW_TMP)) == NULL) {
       ZIPERR(ZE_TEMP, tempzip);
@@ -5569,17 +5634,32 @@ char **argv;            /* command line tokens */
         if (logall)
         {
           if (action == FRESHEN) {
-            fprintf(logfile, "freshening: %s", z->oname);
+#ifdef UNICODE_SUPPORT
+	          if (log_utf8 && z->uname)
+              fprintf(logfile, "freshening: %s", z->uname);
+            else
+#endif
+              fprintf(logfile, "freshening: %s", z->oname);
             logfile_line_started = 1;
             fflush(logfile);
           } else if (filesync && z->current) {
             if (verbose) {
-              fprintf(logfile, " current: %s", z->oname);
+#ifdef UNICODE_SUPPORT
+              if (log_utf8 && z->uname)
+                fprintf(logfile, " current: %s", z->uname);
+              else
+#endif
+                fprintf(logfile, " current: %s", z->oname);
               logfile_line_started = 1;
               fflush(logfile);
             }
           } else {
-            fprintf(logfile, "updating: %s", z->oname);
+#ifdef UNICODE_SUPPORT
+            if (log_utf8 && z->uname)
+              fprintf(logfile, "updating: %s", z->uname);
+            else
+#endif
+              fprintf(logfile, "updating: %s", z->oname);
             logfile_line_started = 1;
             fflush(logfile);
           }
@@ -5725,7 +5805,12 @@ char **argv;            /* command line tokens */
             fflush(mesg);
           }
           if (logall) {
-            fprintf(logfile, " skipping: %s", z->oname);
+#ifdef UNICODE_SUPPORT
+            if (log_utf8 && z->uname)
+              fprintf(logfile, " skipping: %s", z->uname);
+            else
+#endif
+              fprintf(logfile, " skipping: %s", z->oname);
             logfile_line_started = 1;
             fflush(logfile);
           }
@@ -5743,7 +5828,12 @@ char **argv;            /* command line tokens */
           }
           if (logall)
           {
-            fprintf(logfile, " copying: %s", z->oname);
+#ifdef UNICODE_SUPPORT
+            if (log_utf8 && z->uname)
+              fprintf(logfile, " copying: %s", z->uname);
+            else
+#endif
+              fprintf(logfile, " copying: %s", z->oname);
             if (display_usize) {
               fprintf(logfile, " (");
               DisplayNumString(logfile, z->len );
@@ -5873,7 +5963,12 @@ char **argv;            /* command line tokens */
         }
         if (logall)
         {
-          fprintf(logfile, "deleting: %s", z->oname);
+#ifdef UNICODE_SUPPORT
+          if (log_utf8 && z->uname)
+            fprintf(logfile, "deleting: %s", z->uname);
+          else
+#endif
+            fprintf(logfile, "deleting: %s", z->oname);
           if (display_usize) {
             fprintf(logfile, " (");
             DisplayNumString(logfile, z->len );
@@ -5973,7 +6068,12 @@ char **argv;            /* command line tokens */
           }
           if (logall)
           {
-            fprintf(logfile, "deleting: %s", z->oname);
+#ifdef UNICODE_SUPPORT
+            if (log_utf8 && z->uname)
+              fprintf(logfile, "deleting: %s", z->uname);
+            else
+#endif
+              fprintf(logfile, "deleting: %s", z->oname);
             if (display_usize) {
               fprintf(logfile, " (");
               DisplayNumString(logfile, z->len );
@@ -6018,21 +6118,21 @@ char **argv;            /* command line tokens */
     z->zuname = NULL;         /* externalized UTF-8 name for matching */
     z->ouname = NULL;         /* display version of UTF-8 name with OEM */
 
-#if 0
+# if 0
     /* New AppNote bit 11 allowing storing UTF-8 in path */
-    if (utf8_force && f->uname) {
+    if (utf8_native && f->uname) {
       if (f->iname)
         free(f->iname);
       if ((f->iname = malloc(strlen(f->uname) + 1)) == NULL)
         ZIPERR(ZE_MEM, "Unicode bit 11");
       strcpy(f->iname, f->uname);
-# ifdef WIN32
+#  ifdef WIN32
       if (f->inamew)
         free(f->inamew);
       f->inamew = utf8_to_wchar_string(f->iname);
-# endif
+#  endif
     }
-#endif
+# endif
 
     /* Only set z->uname if have a non-ASCII Unicode name */
     /* The Unicode path extra field is created if z->uname is not NULL,
@@ -6061,7 +6161,8 @@ char **argv;            /* command line tokens */
     }
     f->uname = NULL;
 
-#endif
+#endif /* UNICODE_SUPPORT */
+
     z->iname = f->iname;
     f->iname = NULL;
     z->zname = f->zname;
@@ -6080,6 +6181,12 @@ char **argv;            /* command line tokens */
     z->flags = f->flags;
 #endif /* defined( UNIX) && defined( __APPLE__) */
 
+    z->flg = 0;
+#ifdef UNICODE_SUPPORT
+    if (z->uname && utf8_native)
+      z->flg |= UTF8_BIT;
+#endif
+
     z->ext = z->cext = z->com = 0;
     z->extra = z->cextra = NULL;
     z->mark = 1;
@@ -6094,7 +6201,12 @@ char **argv;            /* command line tokens */
     }
     if (logall)
     {
-      fprintf(logfile, "  adding: %s", z->oname);
+#ifdef UNICODE_SUPPORT
+      if (log_utf8 && z->uname)
+        fprintf(logfile, "  adding: %s", z->uname);
+      else
+#endif
+        fprintf(logfile, "  adding: %s", z->oname);
       logfile_line_started = 1;
       fflush(logfile);
     }

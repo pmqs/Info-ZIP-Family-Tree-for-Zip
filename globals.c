@@ -1,7 +1,7 @@
 /*
   globals.c - Zip 3
 
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -64,15 +64,15 @@ int allow_regex = 0;         /* 1 = allow [list] matching */
 #ifdef UNICODE_SUPPORT
    int using_utf8 = 0;       /* 1 if current character set UTF-8 */
 # ifdef WIN32
-   int no_win32_wide = -1; /* 1 = no wide functions, like GetFileAttributesW() */
+   int no_win32_wide = -1;   /* 1 = no wide functions, like GetFileAttributesW() */
 # endif
 #endif
 
 ulg skip_this_disk = 0;
-int des_good = 0;       /* Good data descriptor found */
-ulg des_crc = 0;        /* Data descriptor CRC */
-uzoff_t des_csize = 0;  /* Data descriptor csize */
-uzoff_t des_usize = 0;  /* Data descriptor usize */
+int des_good = 0;             /* Good data descriptor found */
+ulg des_crc = 0;              /* Data descriptor CRC */
+uzoff_t des_csize = 0;        /* Data descriptor csize */
+uzoff_t des_usize = 0;        /* Data descriptor usize */
 
 /* dots 10/20/04 */
 zoff_t dot_size = 0;          /* bytes processed in deflate per dot, 0 = no dots */
@@ -107,6 +107,7 @@ int logall = 0;               /* 0 = warnings/errors, 1 = all */
 FILE *logfile = NULL;         /* pointer to open logfile or NULL */
 int logfile_append = 0;       /* append to existing logfile */
 char *logfile_path = NULL;    /* pointer to path of logfile */
+int log_utf8 = 0;             /* log names as UTF-8 */
 
 int hidden_files = 0;         /* process hidden and system files */
 int volume_label = 0;         /* add volume label */
@@ -163,7 +164,7 @@ char *path_prefix = NULL; /* Prefix to add to all new archive entries */
 int all_ascii = 0;      /* Skip binary check and handle all files as text */
 
 #ifdef UNICODE_SUPPORT
- int utf8_force = 0;    /* 1=force storing UTF-8 as standard per AppNote bit 11 */
+ int utf8_native = 0;   /* 1=force storing UTF-8 as standard per AppNote bit 11 */
 #endif
 int unicode_escape_all = 0; /* 1=escape all non-ASCII characters in paths */
 int unicode_mismatch = 1; /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
@@ -243,6 +244,7 @@ char *entry_name = NULL;           /* used by DLL to pass z->zname to file_read(
  uzoff_t progress_chunk_size = 0;  /* how many bytes before next progress report */
  uzoff_t last_progress_chunk = 0;  /* used to determine when to send next report */
 #endif
+int show_what_doing = 0;           /* show what doing */
 
 #ifdef WIN32
   int nonlocal_name = 0;          /* Name has non-local characters */

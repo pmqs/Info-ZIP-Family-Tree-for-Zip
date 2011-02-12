@@ -1082,6 +1082,9 @@ void version_local()
 #  define OS_NAME "QNX Neutrino"
 #else
 #ifdef __APPLE__
+#  if defined(UNAME_P) && defined(UNAME_R) && defined(UNAME_S)
+#    define OS_NAME UNAME_S" "UNAME_R" "UNAME_P
+#  else
 #  ifdef __i386__
 #    define OS_NAME "Mac OS X Intel"
 #  else /* __i386__ */
@@ -1095,6 +1098,7 @@ void version_local()
 #      endif /* __ppc64__ */
 #    endif /* __ppc__ */
 #  endif /* __i386__ */
+#  endif
 #else
 #  define OS_NAME "Unknown"
 #endif /* Apple */

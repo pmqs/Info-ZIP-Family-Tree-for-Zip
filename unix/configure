@@ -1,11 +1,11 @@
 :
 #!/bin/sh -x
-# The above : is necessary on some buggy systems.
+# The above ":" is necessary on some buggy systems.
 
-# configure: Guess values for system-dependent variables
+# configure: Test to determine values for system-dependent variables.
 # Output the flag definitions to the file "$PROD/flags".
 #
-# Parameters: $1 = $CC, $2 = $CFLAGS, $3 = $IZ_BZIP2, $4 = IZ_ZLIB,
+# Parameters: $1 = $CC, $2 = $CFLAGS, $3 = $IZ_BZIP2, $4 = $IZ_ZLIB,
 #             $5 = $PROD
 #
 # This file is typically called from Makefile rather than executed
@@ -17,7 +17,7 @@
 
 trap "rm -f conftest* core a.out; exit 1" 1 2 3 15
 
-CC=${1-cc}
+CC=${1:-cc}
 CFLAGS=${2-"-I. -DUNIX"}
 LFLAGS1=''
 LFLAGS2=''
@@ -32,7 +32,7 @@ CFLAGS_BZ=''
 # zlib
 IZ_ZLIB=${4-}
 
-PROD=${5-.}
+PROD=${5:-.}
 
 
 echo "Check C compiler operation"
@@ -51,6 +51,31 @@ if test $status -ne 0; then
   exit $status
 else
   echo '  Ok'
+fi
+
+echo "Check C compiler+linker operation"
+cat > conftest.c << _EOF_
+#include <stdio.h>
+int main()
+{
+   printf( "  Ok\n");
+   return 0;
+}
+_EOF_
+$CC $CFLAGS -o conftest conftest.c
+status=$?
+if test $status -ne 0; then
+  echo ''
+  echo "C compiler+linker \"${CC}\" does not work as expected."
+  echo "Failing command was: $CC $CFLAGS -o conftest conftest.c"
+  exit $status
+else
+  ./conftest
+  status=$?
+  if test $status -ne 0; then
+    echo "Test executable exited with bad status: ${status}."
+    exit $status
+  fi
 fi
 
 echo 'Check C compiler type (optimization options)'
@@ -389,7 +414,7 @@ if [ $r -ne 0 ]; then
   echo "-- returned $r - usec timing using gettimeofday() not supported"
 else
   echo "-- enabling usec timing using gettimeofday()"
-  CFLAGS="${CFLAGS} -DENABLE_ENTRY_TIMING"
+  CFLAGS="${CFLAGS} -DENABLE_ENTRY_TIMING -DHAVE_SYS_TIME_H"
 fi
 
 

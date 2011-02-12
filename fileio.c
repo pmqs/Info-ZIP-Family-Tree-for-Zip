@@ -30,10 +30,10 @@
 
 #include <time.h>
 
-/* Tru64 needs <sys/time.h> to get timeval. */
-#if defined(__alpha) && defined(__osf__)
+/* Tru64 and SunOS 4.x need <sys/time.h> to get timeval. */
+#ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
-#endif /* defined(__alpha) && defined(__osf__) */
+#endif /* def HAVE_SYS_TIME_H */
 
 #ifdef NO_MKTIME
 time_t mktime OF((struct tm *));
@@ -2838,7 +2838,7 @@ size_t bfwrite(buffer, size, count, mode)
             if ((tempzip = malloc(strlen(zipfile) + 12)) == NULL) {
             ZIPERR(ZE_MEM, "allocating temp filename");
             }
-            strcpy(tempzip, zipfile);
+            strcpy(tempzip, out_path);
             for(i = strlen(tempzip); i > 0; i--) {
               if (tempzip[i - 1] == '/')
                 break;
@@ -2850,13 +2850,21 @@ size_t bfwrite(buffer, size, count, mode)
           if ((yd = mkstemp(tempzip)) == EOF) {
             ZIPERR(ZE_TEMP, tempzip);
           }
+          if (show_what_doing) {
+            fprintf(mesg, "sd: Temp file (0u): %s\n", tempzip);
+            fflush(mesg);
+          }
           if ((y = fdopen(yd, FOPW_TMP)) == NULL) {
             ZIPERR(ZE_TEMP, tempzip);
           }
         }
 #else
-        if ((tempzip = tempname(zipfile)) == NULL) {
+        if ((tempzip = tempname(out_path)) == NULL) {
           ZIPERR(ZE_MEM, "allocating temp filename");
+        }
+        if (show_what_doing) {
+          fprintf(mesg, "sd: Temp file (0n): %s\n", tempzip);
+          fflush(mesg);
         }
         if ((y = zfopen(tempzip, FOPW_TMP)) == NULL) {
           ZIPERR(ZE_TEMP, tempzip);

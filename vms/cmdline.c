@@ -7,22 +7,17 @@
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 
-/*
-   Test procedure:
 
-   Compile and link (in [.VMS] directory):
+/*    Stand-alone test procedure:
+ *
+ * set command /object = [.vms]zip_cli.obj [.vms]zip_cli.cld
+ * define /user_mode vms SYS$DISK:[.vms]
+ * cc /define = (TEST, VMSCLI) /include = [] /object = [.vms] [.vms]cmdline.c
+ * link /executable = [] [.vms]cmdline.obj, [.vms]zip_cli.obj
+ * EXEC*UTE == "$SYS$DISK:[]'"
+ * exec cmdline [ /qualifiers ...] [parameters ...]
+ */
 
-      define vms SYS$DISK:[]
-      set command /object ZIP_CLI.CLD
-      cc /define = (TEST, VMSCLI) /include = [-] CMDLINE
-      link link CMDLINE.OBJ, ZIP_CLI.OBJ
-
-   Run:
-
-      exec*ute == "$SYS$DISK:[]'"
-      exec cmdline [options ...]
-
-*/
 
 /* 2004-12-13 SMS.
  * Disabled the module name macro to accommodate old GNU C which didn't
@@ -313,9 +308,9 @@ static int verbose_command = 0;
 
 #ifdef TEST
 
-char errbuf[ FNMAX+ 81];        /* Error message buffer. */
+char errbuf[FNMAX+4081]; /* Handy place to build error messages */
 
-void ziperr( int c, char *h)    /* Error message display function. */
+void ziperr( int c, ZCONST char *h)    /* Error message display function. */
 {
 /* int c: error code from the ZE_ class */
 /* char *h: message about how it happened */
