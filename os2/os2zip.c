@@ -366,7 +366,7 @@ ulg GetFileTime(char *name)
 
 void SetFileTime(char *path, ulg stamp)
 {
-  FILESTATUS fs;
+  FILESTATUS3 fs;
   USHORT fd, ft;
 
   if (DosQueryPathInfo(path, FIL_STANDARD, (PBYTE) &fs, sizeof(fs)))
