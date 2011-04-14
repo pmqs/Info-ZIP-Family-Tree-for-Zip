@@ -1,7 +1,7 @@
 /*
   globals.c - Zip 3
 
-  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -107,6 +107,7 @@ int logall = 0;               /* 0 = warnings/errors, 1 = all */
 FILE *logfile = NULL;         /* pointer to open logfile or NULL */
 int logfile_append = 0;       /* append to existing logfile */
 char *logfile_path = NULL;    /* pointer to path of logfile */
+int use_outpath_for_log = 0;  /* 1 = use output archive path for log */
 int log_utf8 = 0;             /* log names as UTF-8 */
 
 int hidden_files = 0;         /* process hidden and system files */
@@ -137,6 +138,25 @@ int output_seekable = 1;      /* 1 = output seekable 3/13/05 EG */
   int zip64_archive = 0;      /* if 1 then at least 1 entry needs zip64 */
 #endif
 
+/* encryption */
+char *key = NULL;             /* Scramble password if scrambling */
+int encryption_method = 0;    /* See definitions in zip.h */
+ush aes_vendor_version;
+uch aes_strength;
+ush comp_method = 0;          /* Compression method */
+int force_ansi_key = 1;       /* Only ANSI characters for password (32 - 126) */
+#ifdef CRYPT_AES
+  int key_size = 0;
+  fcrypt_ctx zctx;
+  unsigned char *zpwd;
+  int zpwd_len;
+  unsigned char *zsalt;
+  unsigned char zpwd_verifier[PWD_VER_LENGTH];
+
+  prng_ctx aes_rnp;           /* the context for the random number pool */
+  unsigned char auth_code[20]; /* returned authentication code */
+#endif
+
 #ifdef NTSD_EAS
   int use_privileges = 0;     /* 1=use security privilege overrides */
 #endif
@@ -153,7 +173,6 @@ char *special = "_Z:_zip:_zoo:_arc:_lzh:_arj"; /* List of special suffixes */
 #else /* RISCOS */
 char *special = "DDC:D96:68E";
 #endif /* ?RISCOS */
-char *key = NULL;       /* Scramble password if scrambling */
 char *tempath = NULL;   /* Path for temporary files */
 FILE *mesg;             /* stdout by default, stderr for piping */
 

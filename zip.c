@@ -1,7 +1,7 @@
 /*
   zip.c - Zip 3
 
-  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -117,6 +117,10 @@ ZCONST ulg near *crc_32_tab;
 ZCONST uLongf *crc_32_tab;
 # endif
 #endif /* CRYPT */
+
+#ifdef CRYPT_AES
+# include "aes/prng.h"
+#endif
 
 /* Local functions */
 
@@ -850,8 +854,14 @@ local void help_extended()
 "              bzip2 - use bzip2 compression (need modern unzip)",
 "",
 "Encryption:",
-"  -e        use standard (weak) PKZip 2.0 encryption, prompt for password",
-"  -P pswd   use standard encryption, password is pswd (NOT SECURE! See man.)",
+"  -e        use encryption, prompt for password",
+"  -P pswd   use encryption, password is pswd (NOT SECURE!  See manual.)",
+"",
+"  Default is standard (weak) PKZip 2.0, unless -Y is used to set another",
+"  encryption method.",
+"",
+"  -Y mthd   set encryption method (standard, AES128, or AES256)",
+"  -pn       allow non-ANSI characters in password",
 "",
 "Splits (archives created as a set of split files):",
 "  -s ssize  create split archive with splits of size ssize, where ssize nm",
@@ -898,7 +908,7 @@ local void help_extended()
 "   that need PKZip 4.5 unzipper like UnZip 6.0",
 "  WARNING:  Some archives created with streaming use data descriptors and",
 "            should work with most unzips but may not work with some",
-"  Can use -fz- to turn off Zip64 if input not large (< 4 GB):",
+"  Can use -fz- to turn off Zip64 if input not large (< 4 GiB):",
 "    prog_with_small_output | zip archive -fz-",
 "",
 "  Zip now can read Unix FIFO (named pipes).  Off by default to prevent zip",
@@ -909,28 +919,33 @@ local void help_extended()
 "  -db       display running count of bytes processed and bytes to go",
 "              (uncompressed size, except delete and copy show stored size)",
 "  -dc       display running count of entries done and entries to go",
-"  -dd       display dots every 10 MB (or dot size) while processing files",
+"  -dd       display dots every 10 MiB (or dot size) while processing files",
 "  -de       display estimated time to go",
 "  -dg       display dots globally for archive instead of for each file",
-"    zip -qdgds 10m   will turn off most output except dots every 10 MB",
+"    zip -qdgds 10m   will turn off most output except dots every 10 MiB",
 "  -dr       display estimated zipping rate in bytes/sec",
 "  -ds siz   each dot is siz processed where siz is nm as splits (0 no dots)",
 "  -dt       display time started zipping entry in day/hr:min:sec format",
 "  -du       display original uncompressed size for each entry as added",
 "  -dv       display volume (disk) number in format in_disk>out_disk",
-"  Dot size is approximate, especially for dot sizes less than 1 MB",
+"  Dot size is approximate, especially for dot sizes less than 1 MiB",
 "  Dot options don't apply to Scanning files dots (dot/2sec) (-q turns off)",
 "  Options -de and -dr do not display for first few entries as calc rate",
 "",
 "Logging:",
 "  -lf path  open file at path as logfile (overwrite existing file)",
-"             If path is \"-\" send log output to stdout, replacing normal",
-"             output (implies -q).  Without -li, only end summary and any",
-"             errors reported.  Cannot use with -la or -v.",
+"             Without -li, only end summary and any errors reported.",
+"",
+"            If path is \"-\" send log output to stdout, replacing normal",
+"            output (implies -q).  Cannot use with -la or -v.",
+"",
 "    zip -lf - -dg -ds 10m -r archive.zip foo",
-"             will zip up directory foo, displaying just dots every 10 MB",
+"             will zip up directory foo, displaying just dots every 10 MiB",
 "             and an end summary.",
+"",
 "  -la       append to existing logfile",
+"  -lF       open log file named ARCHIVE.log, where ARCHIVE is the name of",
+"             the output archive.  Shortcut for -lf ARCHIVE.log.",
 "  -li       include info messages (default just warnings and errors)",
 "  -lu       log names using UTF-8.  Instead of character set converted or",
 "             escaped paths, put file paths in log as UTF-8.  Need an",
@@ -958,6 +973,7 @@ local void help_extended()
 "  -FF tries to salvage what can and may result in incomplete entries.",
 "  Must use --out option to specify output archive:",
 "    zip -F bad.zip --out fixed.zip",
+"  As -FF only does one pass, may need to run -F on result to fix offsets",
 "  Use -v (verbose) with -FF to see details:",
 "    zip reallybad.zip -FF -v --out fixed.zip",
 "  Currently neither option fixes bad entries, as from text mode ftp get.",
@@ -1175,6 +1191,10 @@ local void version_info()
 # endif
 #endif
 
+#if CRYPT_AES
+    "CRYPT_AES            (AES strong encryption (WinZip/Gladman))",
+#endif
+
 #if CRYPT && defined(PASSWD_FROM_STDIN)
     "PASSWD_FROM_STDIN",
 #endif /* CRYPT & PASSWD_FROM_STDIN */
@@ -1273,6 +1293,7 @@ local void version_info()
   {
     printf("        %s\n",comp_opts[i]);
   }
+
 #ifdef USE_ZLIB
   if (strcmp(ZLIB_VERSION, zlibVersion()) == 0)
     printf("        USE_ZLIB             (zlib version %s)\n", ZLIB_VERSION);
@@ -1281,8 +1302,9 @@ local void version_info()
       ZLIB_VERSION, zlibVersion());
   i++;  /* zlib use means there IS at least one compilation option */
 #endif
-#if CRYPT
-  printf("        [encryption, version %d.%d%s of %s] (modified for Zip 3)\n\n",
+
+#ifdef CRYPT
+  printf("        [zip standard encryption, version %d.%d%s of %s] (mod for Zip 3)\n\n",
             CR_MAJORVER, CR_MINORVER, CR_BETA_VER, CR_VERSION_DATE);
   for (i = 0; i < sizeof(cryptnote)/sizeof(char *); i++)
   {
@@ -1291,6 +1313,17 @@ local void version_info()
   }
   ++i;  /* crypt support means there IS at least one compilation option */
 #endif /* CRYPT */
+
+#ifdef CRYPT_AES
+  putchar('\n');
+  for (i = 0; i < sizeof(cryptAESnote)/sizeof(char *); i++)
+  {
+    printf(cryptAESnote[i]);
+    putchar('\n');
+  }
+  ++i;  /* crypt support means there IS at least one compilation option */
+#endif /* CRYPT */
+
   if (i == 0)
       puts("        [none]");
 
@@ -1929,15 +1962,25 @@ local int DisplayRunningStats()
   if (display_est_to_go || display_zip_rate) {
     /* get estimated time to go */
     uzoff_t bytes_to_go = bytes_total - bytes_so_far;
-    uzoff_t elapsed_time_in_usec;
+    zoff_t elapsed_time_in_usec;
     uzoff_t elapsed_time_in_10msec;
     uzoff_t bytes_per_second = 0;
     uzoff_t time_to_go = 0;
-    int secs;
-    int mins;
-    int hours;
+    uzoff_t secs;
+    uzoff_t mins;
+    uzoff_t hours;
+    static uzoff_t lasttime = 0;
+    uzoff_t files_to_go = files_total - files_so_far;
+
 
     current_time = get_time_in_usec();
+    lasttime = current_time;
+    secs = current_time / 1000000;
+    mins = secs / 60;
+    secs = secs % 60;
+    hours = mins / 60;
+    mins = mins % 60;
+
 
     /* First time through we just finished the file scan and
        are starting to actually zip entries.  Use that time
@@ -1948,6 +1991,9 @@ local int DisplayRunningStats()
     elapsed_time_in_usec = current_time - start_zip_time;
     elapsed_time_in_10msec = elapsed_time_in_usec / 10000;
 
+    if (bytes_to_go < 1)
+      bytes_to_go = 1;
+
     /* Seems best to wait about 90 msec for counts to stablize
        before displaying estimates of time to go. */
     if (display_est_to_go && elapsed_time_in_10msec > 8) {
@@ -1957,31 +2003,37 @@ local int DisplayRunningStats()
       if (bytes_per_second < 1) {
         bytes_per_second = 1;
       }
+
       /* calculate estimated time to go based on rate */
       time_to_go = bytes_to_go / bytes_per_second;
-      secs = (int)(time_to_go % 60);
+
+      /* add estimate for console listing of entries */
+      if (files_to_go < 0) files_to_go = 0;
+      time_to_go += files_to_go / 40;
+
+      secs = (time_to_go % 60);
       time_to_go /= 60;
-      mins = (int)(time_to_go % 60);
+      mins = (time_to_go % 60);
       time_to_go /= 60;
-      hours = (int)time_to_go;
+      hours = time_to_go;
 
       if (hours > 10) {
         /* show hours */
-        sprintf(errbuf, "<%3dh to go>", hours);
+        sprintf(errbuf, "<%3dh to go>", (int)hours);
       } else if (hours > 0) {
         /* show hours */
-        float h = (float)(hours + mins / 60.0);
+        float h = (float)((int)hours + (int)mins / 60.0);
         sprintf(errbuf, "<%3.1fh to go>", h);
       } else if (mins > 10) {
         /* show minutes */
-        sprintf(errbuf, "<%3dm to go>", mins);
+        sprintf(errbuf, "<%3dm to go>", (int)mins);
       } else if (mins > 0) {
         /* show minutes */
-        float m = (float)(mins + secs / 60.0);
+        float m = (float)((int)mins + (int)secs / 60.0);
         sprintf(errbuf, "<%3.1fm to go>", m);
       } else {
         /* show seconds */
-        int s = mins * 60 + secs;
+        int s = (int)mins * 60 + (int)secs;
         sprintf(errbuf, "<%3ds to go>", s);
       }
       /* sprintf(errbuf, "<%02d:%02d:%02d to go> ", hours, mins, secs); */
@@ -2236,35 +2288,37 @@ int set_filetype(out_path)
 #define o_jj            0x126
 #define o_la            0x127
 #define o_lf            0x128
-#define o_li            0x129
-#define o_ll            0x130
-#define o_lu            0x131
-#define o_mm            0x132
-#define o_MM            0x133
-#define o_MV            0x134
-#define o_nw            0x135
-#define o_pp            0x136
-#define o_RE            0x137
-#define o_sb            0x138
-#define o_sc            0x139
+#define o_lF            0x129
+#define o_li            0x130
+#define o_ll            0x131
+#define o_lu            0x132
+#define o_mm            0x133
+#define o_MM            0x134
+#define o_MV            0x135
+#define o_nw            0x136
+#define o_pn            0x137
+#define o_pp            0x138
+#define o_RE            0x139
+#define o_sb            0x140
+#define o_sc            0x141
 #ifdef UNICODE_TEST
-#define o_sC            0x140
+#define o_sC            0x142
 #endif
-#define o_sd            0x141
-#define o_sf            0x142
-#define o_so            0x143
-#define o_sp            0x144
-#define o_su            0x145
-#define o_sU            0x146
-#define o_sv            0x147
-#define o_tt            0x148
-#define o_TT            0x149
-#define o_UN            0x150
-#define o_ve            0x151
-#define o_VV            0x152
-#define o_ws            0x153
-#define o_ww            0x154
-#define o_z64           0x155
+#define o_sd            0x143
+#define o_sf            0x144
+#define o_so            0x145
+#define o_sp            0x146
+#define o_su            0x147
+#define o_sU            0x148
+#define o_sv            0x149
+#define o_tt            0x150
+#define o_TT            0x151
+#define o_UN            0x152
+#define o_ve            0x153
+#define o_VV            0x154
+#define o_ws            0x155
+#define o_ww            0x156
+#define o_z64           0x157
 
 
 /* the below is mainly from the old main command line
@@ -2365,6 +2419,7 @@ struct option_struct far options[] = {
     {"l",  "to-crlf",     o_NO_VALUE,       o_NOT_NEGATABLE, 'l',  "convert text file line ends - LF->CRLF"},
     {"ll", "from-crlf",   o_NO_VALUE,       o_NOT_NEGATABLE, o_ll, "convert text file line ends - CRLF->LF"},
     {"lf", "logfile-path",o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_lf, "log to log file at path (default overwrite)"},
+    {"lF", "log-output",  o_NO_VALUE,       o_NEGATABLE,     o_lF, "log to OUTARCNAME.log (default overwrite)"},
     {"la", "log-append",  o_NO_VALUE,       o_NEGATABLE,     o_la, "append to existing log file"},
     {"li", "log-info",    o_NO_VALUE,       o_NEGATABLE,     o_li, "include informational messages in log"},
     {"lu", "log-utf8",    o_NO_VALUE,       o_NEGATABLE,     o_lu, "log names as UTF-8"},
@@ -2385,6 +2440,7 @@ struct option_struct far options[] = {
     {"o",  "latest-time", o_NO_VALUE,       o_NOT_NEGATABLE, 'o',  "use latest entry time as archive time"},
     {"O",  "output-file", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'O',  "set out zipfile different than in zipfile"},
     {"p",  "paths",       o_NO_VALUE,       o_NOT_NEGATABLE, 'p',  "store paths"},
+    {"pn", "non-ansi-password", o_NO_VALUE, o_NEGATABLE,     o_pn, "allow non-ANSI password"},
     {"pp", "prefix-path", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_pp, "prefix all paths in archive with this"},
     {"P",  "password",    o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'P',  "encrypt entries, option value is password"},
 #if defined(QDOS) || defined(QLZIP)
@@ -3142,7 +3198,7 @@ char **argv;            /* command line tokens */
           } else {
             /* set default dot size if dot_size not set (dot_count = 0) */
             if (dot_count == 0)
-              /* default to 10 MB */
+              /* default to 10 MiB */
               dot_size = 10 * 0x100000;
             dot_count = -1;
           }
@@ -3181,7 +3237,7 @@ char **argv;            /* command line tokens */
           if (value == NULL)
             dot_size = 10 * 0x100000;
           else if (value[0] == '\0') {
-            /* default to 10 MB */
+            /* default to 10 MiB */
             dot_size = 10 * 0x100000;
             free(value);
           } else {
@@ -3193,7 +3249,7 @@ char **argv;            /* command line tokens */
               ZIPERR(ZE_PARMS, errbuf);
             }
             if (dot_size < 0x400) {
-              /* < 1 KB so there is no multiplier, assume MB */
+              /* < 1 KB so there is no multiplier, assume MiB */
               dot_size *= 0x100000;
 
             } else if (dot_size < 0x400L * 32) {
@@ -3320,6 +3376,19 @@ char **argv;            /* command line tokens */
           }
           logfile_path = value;
           break;
+        case o_lF:
+          /* open a logfile */
+          /* allow multiple use of option but only last used */
+          if (logfile_path) {
+            free(logfile_path);
+          }
+          logfile_path = NULL;
+          if (negated) {
+            use_outpath_for_log = 0;
+          } else {
+            use_outpath_for_log = 1;
+          }
+          break;
         case o_la:
           /* append to existing logfile */
           if (negated)
@@ -3395,6 +3464,13 @@ char **argv;            /* command line tokens */
         case 'p':   /* Store path with name */
           zipwarn("-p (include path) is deprecated.  Use -j- instead", "");
           break;            /* (do nothing as annoyance avoidance) */
+        case o_pn:  /* Allow non-ANSI password */
+          if (negated) {
+            force_ansi_key = 1;
+          } else {
+            force_ansi_key = 0;
+          }
+          break;
         case o_pp:  /* Set prefix for paths of new entries in archive */
           if (path_prefix)
             free(path_prefix);
@@ -3492,7 +3568,7 @@ char **argv;            /* command line tokens */
                 split_method = 1;
               }
               if (split_size < 0x400) {
-                /* < 1 KB there is no multiplier, assume MB */
+                /* < 1 KB there is no multiplier, assume MiB */
                 split_size *= 0x100000;
               }
               /* By setting the minimum split size to 64 KB we avoid
@@ -3707,8 +3783,30 @@ char **argv;            /* command line tokens */
         case 'y':   /* Store symbolic links as such */
           linkput = 1;  break;
 #endif /* S_IFLNK */
+
+#ifdef CRYPT_AES
         case 'Y':   /* Encryption method */
-            ZIPERR(ZE_PARMS, "Option -Y (--encryption-method):  not yet implemented");
+          if (abbrevmatch("standard", value, 0, 1)) {
+            encryption_method = STANDARD_ENCRYPTION;
+
+          } else if (abbrevmatch("AES128", value, 0, 5)) {
+            encryption_method = AES_128_ENCRYPTION;
+#if 0
+          } else if (abbrevmatch("AES192", value, 0, 5)) {
+            encryption_method = AES_192_ENCRYPTION;
+#endif
+          } else if (abbrevmatch("AES256", value, 0, 4)) {
+            encryption_method = AES_256_ENCRYPTION;
+
+          } else {
+            zipwarn("valid encryption methods are:  standard, AES128 and AES256", "");
+            free(value);
+            ZIPERR(ZE_PARMS, "Option -Y (--encryption-method):  unknown method");
+          }
+          free(value);
+          break;
+#endif
+
         case 'z':   /* Edit zip file comment */
           zipedit = 1;  break;
         case 'Z':   /* Compression method */
@@ -3998,6 +4096,35 @@ char **argv;            /* command line tokens */
     RETURN(finish(ZE_OK));
   }
 
+  if (use_outpath_for_log) {
+    if (logfile_path) {
+      zipwarn("both -lf and -lF used, -lF ignored", "");
+    } else {
+      int out_path_len;
+
+      if (out_path == NULL) {
+        ZIPERR(ZE_PARMS, "-lF but no out path");
+      }
+      out_path_len = strlen(out_path);
+      if ((logfile_path = malloc(out_path_len + 5)) == NULL) {
+        ZIPERR(ZE_MEM, "logfile path");
+      }
+      if (out_path_len > 4) {
+        char *ext = out_path + out_path_len - 4;
+        if (strcasecmp(ext, ".zip") == 0) {
+          /* remove .zip before adding .log */
+          strncpy(logfile_path, out_path, out_path_len - 4);
+          logfile_path[out_path_len - 4] = '\0';
+        } else {
+          /* just append .log */
+          strcpy(logfile_path, out_path);
+        }
+      } else {
+        strcpy(logfile_path, out_path);
+      }
+      strcat(logfile_path, ".log");
+    }
+  }
 
   /* open log file */
   if (logfile_path) {
@@ -4092,8 +4219,14 @@ char **argv;            /* command line tokens */
   /* process command line options */
 
 #if CRYPT
-  /* Key not yet specified.  If needed, get/verify it now. */
+
+# ifdef CRYPT_AES
+  if (key == NULL && encryption_method != 0) {
+    key_needed = 1;
+  }
+# endif
   if (key_needed) {
+    int i;
     if ((key = malloc(IZ_PWLEN+1)) == NULL) {
       ZIPERR(ZE_MEM, "was getting encryption password");
     }
@@ -4105,6 +4238,18 @@ char **argv;            /* command line tokens */
     }
     if (*key == '\0') {
       ZIPERR(ZE_PARMS, "zero length password not allowed");
+    }
+    if (force_ansi_key) {
+      for (i = 0; key[i]; i++) {
+        if (key[i] < 32 || key[i] > 126) {
+          zipwarn("password must be ANSI (unless use --non-ansi-password)", "");
+          ZIPERR(ZE_PARMS, "non-ANSI character in password");
+        }
+      }
+    }
+    if ((encryption_method > STANDARD_ENCRYPTION) && (strlen(key) < 16)) {
+      zipwarn("AES password must be at least 16 chars (longer is better)", "");
+      ZIPERR(ZE_PARMS, "AES password too short");
     }
     if ((e = malloc(IZ_PWLEN+1)) == NULL) {
       ZIPERR(ZE_MEM, "was verifying encryption password");
@@ -4138,7 +4283,7 @@ char **argv;            /* command line tokens */
 
     for (i = 0; c = path_prefix[i]; i++) {
       if (!isprint(c)) {
-        ZIPERR(ZE_PARMS, "option -pp (--prefix_path), non-print char in prefix");
+        ZIPERR(ZE_PARMS, "option -pp (--prefix_path): non-print char in prefix");
       }
 #if (defined(MSDOS) || defined(OS2)) && !defined(WIN32)
       if (c == '\\') {
@@ -4153,7 +4298,7 @@ char **argv;            /* command line tokens */
         ZIPERR(ZE_PARMS, errbuf);
       }
       if (last_c == '.' && c == '.') {
-        ZIPERR(ZE_PARMS, "option -pp (--prefix_path), \"..\" not allowed");
+        ZIPERR(ZE_PARMS, "option -pp (--prefix_path): \"..\" not allowed");
       }
       last_c = c;
     }
@@ -4182,7 +4327,7 @@ char **argv;            /* command line tokens */
 
 
   if (verbose && (dot_size == 0) && (dot_count == 0)) {
-    /* now default to default 10 MB dot size */
+    /* now default to default 10 MiB dot size */
     dot_size = 10 * 0x100000;
     /* show all dots as before if verbose set and dot_size not set (dot_count = 0) */
     /* maybe should turn off dots in default verbose mode */
@@ -4678,6 +4823,23 @@ char **argv;            /* command line tokens */
     }
   }
 
+#ifdef CRYPT_AES
+  if (encryption_method > 1) {
+    if (show_what_doing) {
+        fprintf(mesg, "sd: Initializing AES encryption random number pool\n");
+        fflush(mesg);
+    }
+    /* initialize the random number pool */
+    aes_rnp.entropy = entropy_fun;
+    prng_init(aes_rnp.entropy, &aes_rnp);
+    /* and the salt */
+    if ((zsalt = malloc(32)) == NULL) {
+      ZIPERR(ZE_MEM, "Getting memory for salt");
+    }
+    prng_rand(zsalt, SALT_LENGTH(1), &aes_rnp);
+  }
+#endif
+
   /* recurse from current directory for -R */
   if (recurse == 2) {
 #ifdef AMIGA
@@ -4767,7 +4929,7 @@ char **argv;            /* command line tokens */
   {
 #   endif /* def QDOS [else] */
 #  endif /* def RISCOS [else] */
-# endif  /* defined(MSDOS) || defined(__human68k__) || defined(AMIGA) [else] */
+# endif /* defined(MSDOS) || defined(__human68k__) || defined(AMIGA) [else] */
     if ((tempath = (char *)malloc((int)(p - zipfile) + 1)) == NULL) {
       ZIPERR(ZE_MEM, "was processing arguments");
     }
@@ -5541,7 +5703,7 @@ char **argv;            /* command line tokens */
     use_descriptors = 1;
   }
 
-  /* Not needed.  Only need Zip64 when input file is larger than 2 GB or reading
+  /* Not needed.  Only need Zip64 when input file is larger than 2 GiB or reading
      stdin and writing stdout.  This is set in putlocal() for each file. */
 #if 0
   /* If using descriptors and Zip64 enabled force Zip64 3/13/05 EG */
@@ -6641,6 +6803,18 @@ char **argv;            /* command line tokens */
       }
 # endif
     }
+  }
+#endif
+
+#ifdef CRYPT_AES
+  /* close random pool */
+  if (encryption_method > 1) {
+    if (show_what_doing) {
+      fprintf(mesg, "sd: Closing AES random pool\n");
+      fflush(mesg);
+    }
+    prng_end(&aes_rnp);
+    free(zsalt);
   }
 #endif
 

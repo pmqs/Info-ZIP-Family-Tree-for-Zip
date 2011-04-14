@@ -34,25 +34,6 @@ IZ_ZLIB=${4-}
 
 PROD=${5:-.}
 
-
-echo "Check C compiler operation"
-cat > conftest.c << _EOF_
-int main()
-{
-   return 0;
-}
-_EOF_
-$CC $CFLAGS -c conftest.c
-status=$?
-if test $status -ne 0; then
-  echo ''
-  echo "C compiler \"${CC}\" does not work as expected."
-  echo "Failing command was: $CC $CFLAGS -c conftest.c"
-  exit $status
-else
-  echo '  Ok'
-fi
-
 echo "Check C compiler+linker operation"
 cat > conftest.c << _EOF_
 #include <stdio.h>

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -170,14 +170,14 @@ char *file;
 {
     static struct atrdef        Atr[VMS_MAX_ATRCNT+1];
     static struct atrdef        Atr_readacl[ 2];
-    static struct NAM_STRUCT    Nam;
+    static struct NAMX_STRUCT   Nam;
     static struct fibdef        Fib;
     static struct dsc$descriptor FibDesc =
         {sizeof(Fib),DSC$K_DTYPE_Z,DSC$K_CLASS_S,(char *)&Fib};
     static struct dsc$descriptor_s DevDesc =
-        {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,&Nam.NAM_DVI[1]};
-    static char EName[NAM_MAXRSS];
-    static char RName[NAM_MAXRSS];
+        {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,&Nam.NAMX_DVI[1]};
+    static char EName[NAMX_MAXRSS];
+    static char RName[NAMX_MAXRSS];
 
     struct FAB Fab;
     register ioctx_t *ctx;
@@ -226,22 +226,16 @@ char *file;
 
     /* Initialize RMS structures.  We need a NAM[L] to retrieve the FID. */
     Fab = cc$rms_fab;
-    Nam = CC_RMS_NAM;
-    Fab.FAB_NAM = &Nam; /* FAB has an associated NAM[L]. */
+    Nam = CC_RMS_NAMX;
+    Fab.FAB_NAMX = &Nam; /* FAB has an associated NAM[L]. */
 
-#ifdef NAML$C_MAXRSS
-
-    Fab.fab$l_dna =(char *) -1;         /* Using NAML for default name. */
-    Fab.fab$l_fna = (char *) -1;        /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
-
+    NAMX_DNA_FNA_SET( Fab)
     FAB_OR_NAML( Fab, Nam).FAB_OR_NAML_FNA = file ;     /* File name. */
     FAB_OR_NAML( Fab, Nam).FAB_OR_NAML_FNS = strlen(file);
-    Nam.NAM_ESA = EName; /* expanded filename */
-    Nam.NAM_ESS = sizeof(EName);
-    Nam.NAM_RSA = RName; /* resultant filename */
-    Nam.NAM_RSS = sizeof(RName);
+    Nam.NAMX_ESA = EName; /* expanded filename */
+    Nam.NAMX_ESS = sizeof(EName);
+    Nam.NAMX_RSA = RName; /* resultant filename */
+    Nam.NAMX_RSS = sizeof(RName);
 
     /* Do $PARSE and $SEARCH here. */
     status = sys$parse(&Fab);
@@ -288,7 +282,7 @@ char *file;
        NAM[L] to get the device name filled in by the $PARSE, $SEARCH
        services.
     */
-    DevDesc.dsc$w_length = Nam.NAM_DVI[0];
+    DevDesc.dsc$w_length = Nam.NAMX_DVI[0];
 
     status = sys$assign(&DevDesc,&ctx->chan,0,0);
 
@@ -313,7 +307,7 @@ char *file;
 
     for (i = 0; i < 3; i++)
     {
-        Fib.FIB$W_FID[ i] = Nam.NAM_FID[ i];
+        Fib.FIB$W_FID[ i] = Nam.NAMX_FID[ i];
         Fib.FIB$W_DID[ i] = 0;
     }
 

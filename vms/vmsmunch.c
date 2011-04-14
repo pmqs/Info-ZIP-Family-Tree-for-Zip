@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -202,13 +202,13 @@ int VMSmunch(
     /* original file.c variables */
 
     static struct FAB Fab;
-    static struct NAM_STRUCT Nam;
+    static struct NAMX_STRUCT Nam;
     static struct fibdef Fib; /* short fib */
 
     static struct dsc$descriptor FibDesc =
       {sizeof(Fib),DSC$K_DTYPE_Z,DSC$K_CLASS_S,(char *)&Fib};
     static struct dsc$descriptor_s DevDesc =
-      {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,&Nam.NAM_DVI[1]};
+      {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,&Nam.NAMX_DVI[1]};
     static struct fatdef Fat;
     static union {
       struct fchdef fch;
@@ -249,8 +249,8 @@ int VMSmunch(
       {0,0,0}
     } ;
 
-    static char EName[NAM_MAXRSS];
-    static char RName[NAM_MAXRSS];
+    static char EName[NAMX_MAXRSS];
+    static char RName[NAMX_MAXRSS];
     static struct dsc$descriptor_s FileName =
       {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,0};
     static struct dsc$descriptor_s string = {0,DSC$K_DTYPE_T,DSC$K_CLASS_S,0};
@@ -274,14 +274,19 @@ int VMSmunch(
 
     /* Initialize RMS structures.  We need a NAM[L] to retrieve the FID. */
     Fab = cc$rms_fab;
-    Fab.fab$l_fna = filename;
-    Fab.fab$b_fns = strlen(filename);
-    Fab.FAB_NAM = &Nam; /* FAB has an associated NAM[L]. */
-    Nam = CC_RMS_NAM;
-    Nam.NAM_ESA = EName; /* expanded filename */
-    Nam.NAM_ESS = sizeof(EName);
-    Nam.NAM_RSA = RName; /* resultant filename */
-    Nam.NAM_RSS = sizeof(RName);
+    Nam = CC_RMS_NAMX;
+    Fab.FAB_NAMX = &Nam; /* FAB has an associated NAM[L]. */
+
+    /* Point the FAB/NAM[L] fields to the actual name. */
+    NAMX_DNA_FNA_SET( Fab)
+    FAB_OR_NAML( Fab, Nam).FAB_OR_NAML_FNA = filename;
+    FAB_OR_NAML( Fab, Nam).FAB_OR_NAML_FNS = strlen(filename);
+
+    /* Expanded and Resultant file name storage. */
+    Nam.NAMX_ESA = EName; /* expanded filename */
+    Nam.NAMX_ESS = sizeof(EName);
+    Nam.NAMX_RSA = RName; /* resultant filename */
+    Nam.NAMX_RSS = sizeof(RName);
 
     /* do $PARSE and $SEARCH here */
     status = sys$parse(&Fab);
@@ -294,18 +299,18 @@ int VMSmunch(
     while (status & 1) {
         /* initialize Device name length, note that this points into the NAM[L]
            to get the device name filled in by the $PARSE, $SEARCH services */
-        DevDesc.dsc$w_length = Nam.NAM_DVI[0];
+        DevDesc.dsc$w_length = Nam.NAMX_DVI[0];
 
         status = sys$assign(&DevDesc,&DevChan,0,0);
         if (!(status & 1)) return(status);
 
-        FileName.dsc$a_pointer = Nam.NAM_L_NAME;
-        FileName.dsc$w_length = Nam.NAM_B_NAME+Nam.NAM_B_TYPE+Nam.NAM_B_VER;
+        FileName.dsc$a_pointer = Nam.NAMX_L_NAME;
+        FileName.dsc$w_length = Nam.NAMX_B_NAME+Nam.NAMX_B_TYPE+Nam.NAMX_B_VER;
 
         /* Initialize the FIB */
         for (i=0;i<3;i++) {
-            Fib.FIB$W_FID[i]=Nam.NAM_FID[i];
-            Fib.FIB$W_DID[i]=Nam.NAM_DID[i];
+            Fib.FIB$W_FID[i]=Nam.NAMX_FID[i];
+            Fib.FIB$W_DID[i]=Nam.NAMX_DID[i];
         }
 
         /* Use the IO$_ACCESS function to return info about the file */
@@ -370,8 +375,8 @@ int VMSmunch(
         /* note, part of the FIB was cleared by earlier QIOW, so reset it */
         Fib.FIB$L_ACCTL = FIB$M_NORECORD;
         for (i=0;i<3;i++) {
-            Fib.FIB$W_FID[i]=Nam.NAM_FID[i];
-            Fib.FIB$W_DID[i]=Nam.NAM_DID[i];
+            Fib.FIB$W_FID[i]=Nam.NAMX_FID[i];
+            Fib.FIB$W_DID[i]=Nam.NAMX_DID[i];
         }
 
         /* Use the IO$_MODIFY function to change info about the file */

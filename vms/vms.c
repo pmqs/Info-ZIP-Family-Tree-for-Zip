@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -101,7 +101,7 @@ int vms_stat( char *file, stat_t *s)
     int status;
     int staterr;
     struct FAB fab;
-    struct NAM_STRUCT nam;
+    struct NAMX_STRUCT nam;
     struct XABFHC fhc;
 
     /*
@@ -110,8 +110,8 @@ int vms_stat( char *file, stat_t *s)
      */
 
     if( (staterr=stat(file,s)) == 0
-        && ( s->st_size >= 0                      /* Size - ok */
-             || (s->st_mode & S_IFREG) == 0       /* Not a plain file */
+        && ( s->st_size >= 0                    /* Size - ok */
+             || (s->st_mode & S_IFREG) == 0     /* Not a plain file */
            )
     ) return staterr;
 
@@ -124,18 +124,12 @@ int vms_stat( char *file, stat_t *s)
      */
 
     fab = cc$rms_fab;
-    nam = CC_RMS_NAM;
+    nam = CC_RMS_NAMX;
     fhc = cc$rms_xabfhc;
-    fab.FAB_NAM = &nam;
+    fab.FAB_NAMX = &nam;
     fab.fab$l_xab = (char*)(&fhc);
 
-#ifdef NAML$C_MAXRSS
-
-    fab.fab$l_dna = (char *) -1;    /* Using NAML for default name. */
-    fab.fab$l_fna = (char *) -1;    /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
-
+    NAMX_DNA_FNA_SET(fab)
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = file;
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen( file);
 
@@ -432,9 +426,9 @@ char *tempname( char *zip)
     static char zip_tmp_nam[ 24] = "ZI<pid|time>.<serial>;";
 
     struct FAB fab;             /* FAB structure. */
-    struct NAM_STRUCT nam;      /* NAM[L] structure. */
+    struct NAMX_STRUCT nam;     /* NAM[L] structure. */
 
-    char exp_str[ NAM_MAXRSS+ 1];   /* Expanded name storage. */
+    char exp_str[ NAMX_MAXRSS+ 1];      /* Expanded name storage. */
 
 #ifdef VMS_UNIQUE_TEMP_BY_TIME
 
@@ -460,17 +454,11 @@ char *tempname( char *zip)
 
     /* Initialize the FAB and NAM[L], and link the NAM[L] to the FAB. */
     fab = cc$rms_fab;
-    nam = CC_RMS_NAM;
-    fab.FAB_NAM = &nam;
+    nam = CC_RMS_NAMX;
+    fab.FAB_NAMX = &nam;
 
     /* Point the FAB/NAM[L] fields to the actual name and default name. */
-
-#ifdef NAML$C_MAXRSS
-
-    fab.fab$l_dna = (char *) -1;    /* Using NAML for default name. */
-    fab.fab$l_fna = (char *) -1;    /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
+    NAMX_DNA_FNA_SET(fab)
 
     /* Default name = Zip archive name. */
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_DNA = zip;
@@ -480,10 +468,10 @@ char *tempname( char *zip)
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = zip_tmp_nam;
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen( zip_tmp_nam);
 
-    nam.NAM_ESA = exp_str;      /* Expanded name (result) storage. */
-    nam.NAM_ESS = NAM_MAXRSS;   /* Size of expanded name storage. */
+    nam.NAMX_ESA = exp_str;     /* Expanded name (result) storage. */
+    nam.NAMX_ESS = NAMX_MAXRSS; /* Size of expanded name storage. */
 
-    nam.NAM_NOP = NAM_M_SYNCHK; /* Syntax-only analysis. */
+    nam.NAMX_NOP = NAMX_M_SYNCHK; /* Syntax-only analysis. */
 
     temp_name = NULL;           /* Prepare for failure (unlikely). */
     sts = sys$parse( &fab, 0, 0);       /* Parse the name(s). */
@@ -494,19 +482,19 @@ char *tempname( char *zip)
         /* 2010-09-29 SMS.
          * Truncate at version, with ".<serial>"; at type, without.
          * Was:
-         * strcpy( nam.NAM_L_TYPE, ".;");
+         * strcpy( nam.NAMX_L_TYPE, ".;");
          * Now:
          */
-        *(nam.NAM_L_VER+ 1) = '\0';
+        *(nam.NAMX_L_VER+ 1) = '\0';
 
         /* Allocate temp name storage (as caller expects), and copy the
            (truncated/terminated) temp name into the new location.
         */
-        temp_name = malloc( strlen( nam.NAM_ESA)+ 1);
+        temp_name = malloc( strlen( nam.NAMX_ESA)+ 1);
 
         if (temp_name != NULL)
         {
-            strcpy( temp_name, nam.NAM_ESA);
+            strcpy( temp_name, nam.NAMX_ESA);
         }
     }
     return temp_name;
@@ -553,21 +541,17 @@ char *ziptyp( char *s)
     int status;
     int exp_len;
     struct FAB fab;
-    struct NAM_STRUCT nam;
-    char result[ NAM_MAXRSS+ 1];
-    char exp[ NAM_MAXRSS+ 1];
+    struct NAMX_STRUCT nam;
+    char result[ NAMX_MAXRSS+ 1];
+    char exp[ NAMX_MAXRSS+ 1];
     char *p;
 
-    fab = cc$rms_fab;                           /* Initialize FAB. */
-    nam = CC_RMS_NAM;                           /* Initialize NAM[L]. */
-    fab.FAB_NAM = &nam;                         /* FAB -> NAM[L] */
+    fab = cc$rms_fab;                   /* Initialize FAB. */
+    nam = CC_RMS_NAMX;                  /* Initialize NAM[L]. */
+    fab.FAB_NAMX = &nam;                /* FAB -> NAM[L] */
 
-#ifdef NAML$C_MAXRSS
-
-    fab.fab$l_dna =(char *) -1;         /* Using NAML for default name. */
-    fab.fab$l_fna = (char *) -1;        /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
+    /* Point the FAB/NAM[L] fields to the actual name and default name. */
+    NAMX_DNA_FNA_SET(fab)
 
     /* Argument file name and length. */
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = s;
@@ -577,10 +561,10 @@ char *ziptyp( char *s)
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_DNA = DEF_DEVDIRNAM;
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_DNS = sizeof( DEF_DEVDIRNAM)- 1;
 
-    nam.NAM_ESA = exp;                 /* Expanded name, */
-    nam.NAM_ESS = NAM_MAXRSS;          /* storage size. */
-    nam.NAM_RSA = result;              /* Resultant name, */
-    nam.NAM_RSS = NAM_MAXRSS;          /* storage size. */
+    nam.NAMX_ESA = exp;                 /* Expanded name, */
+    nam.NAMX_ESS = NAMX_MAXRSS;         /* storage size. */
+    nam.NAMX_RSA = result;              /* Resultant name, */
+    nam.NAMX_RSS = NAMX_MAXRSS;         /* storage size. */
 
     status = sys$parse(&fab);
     if ((status & 1) == 0)
@@ -596,18 +580,18 @@ char *ziptyp( char *s)
     }
 
     /* Save expanded name length from sys$parse(). */
-    exp_len = nam.NAM_ESL;
+    exp_len = nam.NAMX_ESL;
 
     /* Leave expanded name as-is, in case of search failure. */
-    nam.NAM_ESA = NULL;                 /* Expanded name, */
-    nam.NAM_ESS = 0;                    /* storage size. */
+    nam.NAMX_ESA = NULL;                /* Expanded name, */
+    nam.NAMX_ESS = 0;                   /* storage size. */
 
     status = sys$search(&fab);
     if (status & 1)
     {   /* Zip file exists.  Use resultant (complete, exact) name. */
-        if ((p = malloc( nam.NAM_RSL+ 1)) != NULL )
+        if ((p = malloc( nam.NAMX_RSL+ 1)) != NULL )
         {
-            result[ nam.NAM_RSL] = '\0';
+            result[ nam.NAMX_RSL] = '\0';
             strcpy( p, result);
         }
     }
@@ -634,31 +618,27 @@ char *vms_file_version( char *s)
 {
     int status;
     struct FAB fab;
-    struct NAM_STRUCT nam;
+    struct NAMX_STRUCT nam;
     char *p;
 
-    static char exp[ NAM_MAXRSS+ 1];    /* Expanded name storage. */
+    static char exp[ NAMX_MAXRSS+ 1];   /* Expanded name storage. */
 
 
     fab = cc$rms_fab;                   /* Initialize FAB. */
-    nam = CC_RMS_NAM;                   /* Initialize NAM[L]. */
-    fab.FAB_NAM = &nam;                 /* FAB -> NAM[L] */
+    nam = CC_RMS_NAMX;                  /* Initialize NAM[L]. */
+    fab.FAB_NAMX = &nam;                /* FAB -> NAM[L] */
 
-#ifdef NAML$C_MAXRSS
-
-    fab.fab$l_dna =(char *) -1;         /* Using NAML for default name. */
-    fab.fab$l_fna = (char *) -1;        /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
+    /* Point the FAB/NAM[L] fields to the actual name and default name. */
+    NAMX_DNA_FNA_SET(fab)
 
     /* Argument file name and length. */
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = s;
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen( s);
 
-    nam.NAM_ESA = exp;                 /* Expanded name, */
-    nam.NAM_ESS = NAM_MAXRSS;          /* storage size. */
+    nam.NAMX_ESA = exp;                 /* Expanded name, */
+    nam.NAMX_ESS = NAMX_MAXRSS;         /* storage size. */
 
-    nam.NAM_NOP = NAM_M_SYNCHK;        /* Syntax-only analysis. */
+    nam.NAMX_NOP = NAMX_M_SYNCHK;       /* Syntax-only analysis. */
 
     status = sys$parse(&fab);
 
@@ -673,8 +653,8 @@ char *vms_file_version( char *s)
         /* Success.  NUL-terminate, and return a pointer to the ";" in
            the expanded name storage buffer.
         */
-        p = nam.NAM_L_VER;
-        p[ nam.NAM_B_VER] = '\0';
+        p = nam.NAMX_L_VER;
+        p[ nam.NAMX_B_VER] = '\0';
     }
     return p;
 } /* vms_file_version(). */

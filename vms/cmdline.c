@@ -14,7 +14,7 @@
  * define /user_mode vms SYS$DISK:[.vms]
  * cc /define = (TEST, VMSCLI) /include = [] /object = [.vms] [.vms]cmdline.c
  * link /executable = [] [.vms]cmdline.obj, [.vms]zip_cli.obj
- * EXEC*UTE == "$SYS$DISK:[]'"
+ * EXEC*UTE == "$ SYS$DISK:[]'"
  * exec cmdline [ /qualifiers ...] [parameters ...]
  */
 

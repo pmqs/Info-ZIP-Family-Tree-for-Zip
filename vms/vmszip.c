@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -176,9 +176,9 @@ unsigned char char_prop[ 256] = {
 typedef struct zdirent {
   int d_wild;                /* flag for wildcard vs. non-wild */
   struct FAB fab;
-  struct NAM_STRUCT nam;
-  char d_qualwildname[ NAM_MAXRSS+ 1];
-  char d_name[ NAM_MAXRSS+ 1];
+  struct NAMX_STRUCT nam;
+  char d_qualwildname[ NAMX_MAXRSS+ 1];
+  char d_name[ NAMX_MAXRSS+ 1];
 } zDIR;
 
 extern char *label;
@@ -346,32 +346,26 @@ local int explicit_dev( char *file_spec)
 {
   int sts;
   struct FAB fab;               /* FAB. */
-  struct NAM_STRUCT nam;        /* NAM[L]. */
+  struct NAMX_STRUCT nam;       /* NAM[L]. */
 
   /* Initialize the FAB and NAM[L], and link the NAM[L] to the FAB. */
-  nam = CC_RMS_NAM;
+  nam = CC_RMS_NAMX;
   fab = cc$rms_fab;
-  fab.FAB_NAM = &nam;
+  fab.FAB_NAMX = &nam;
 
   /* Point the FAB/NAM[L] fields to the actual name and default name. */
-
-#ifdef NAML$C_MAXRSS
-
-  fab.fab$l_dna = (char *) -1;  /* Using NAML for default name. */
-  fab.fab$l_fna = (char *) -1;  /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
+  NAMX_DNA_FNA_SET( fab)
 
   /* File name. */
   FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = file_spec;
   FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen( file_spec);
 
-  nam.NAM_NOP = NAM_M_SYNCHK;   /* Syntax-only analysis. */
+  nam.NAMX_NOP = NAMX_M_SYNCHK; /* Syntax-only analysis. */
   sts = sys$parse( &fab, 0, 0); /* Parse the file spec. */
 
   /* Device found = $PARSE success and "device was explicit" flag. */
   return (((sts& STS$M_SEVERITY) == STS$M_SUCCESS) &&
-   ((nam.NAM_FNB& NAM_M_EXP_DEV) != 0));
+   ((nam.NAMX_FNB& NAMX_M_EXP_DEV) != 0));
 }
 
 
@@ -591,16 +585,12 @@ local void vms_wild( char *p, zDIR *d)
    */
   /* Set up the FAB and NAM[L] blocks. */
   d->fab = cc$rms_fab;                  /* Initialize FAB. */
-  d->nam = CC_RMS_NAM;                  /* Initialize NAM[L]. */
+  d->nam = CC_RMS_NAMX;                 /* Initialize NAM[L]. */
 
-  d->fab.FAB_NAM = &d->nam;             /* FAB -> NAM[L] */
+  d->fab.FAB_NAMX = &d->nam;            /* FAB -> NAM[L] */
 
-#ifdef NAML$C_MAXRSS
-
-  d->fab.fab$l_dna =(char *) -1;        /* Using NAML for default name. */
-  d->fab.fab$l_fna = (char *) -1;       /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
+  /* Point the FAB/NAM[L] fields to the actual name and default name. */
+  NAMX_DNA_FNA_SET( d->fab)
 
   /* Argument file name and length. */
   d->FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = p;
@@ -612,10 +602,10 @@ local void vms_wild( char *p, zDIR *d)
   d->FAB_OR_NAML( fab, nam).FAB_OR_NAML_DNA = DEF_DEVDIR;
   d->FAB_OR_NAML( fab, nam).FAB_OR_NAML_DNS = sizeof( DEF_DEVDIR)- 1;
 
-  d->nam.NAM_ESA = d->d_qualwildname;   /* qualified wild name */
-  d->nam.NAM_ESS = NAM_MAXRSS;          /* max length */
-  d->nam.NAM_RSA = d->d_name;           /* matching file name */
-  d->nam.NAM_RSS = NAM_MAXRSS;          /* max length */
+  d->nam.NAMX_ESA = d->d_qualwildname;  /* qualified wild name */
+  d->nam.NAMX_ESS = NAMX_MAXRSS;        /* max length */
+  d->nam.NAMX_RSA = d->d_name;          /* matching file name */
+  d->nam.NAMX_RSS = NAMX_MAXRSS;        /* max length */
 
   /* parse the file name */
   if (sys$parse(&d->fab) != RMS$_NORMAL)
@@ -625,8 +615,8 @@ local void vms_wild( char *p, zDIR *d)
 
   /* have qualified wild name (i.e., disk:[dir.subdir]*.*); null-terminate
    * and set wild-flag */
-  d->d_qualwildname[d->nam.NAM_ESL] = '\0';
-  d->d_wild = (d->nam.NAM_FNB & NAM$M_WILDCARD)? 1 : 0;   /* not used... */
+  d->d_qualwildname[d->nam.NAMX_ESL] = '\0';
+  d->d_wild = (d->nam.NAMX_FNB & NAM$M_WILDCARD)? 1 : 0;   /* not used... */
 #ifdef DEBUG
   fprintf(mesg, "  incoming wildname:  %s\n", p);
   fprintf(mesg, "  qualified wildname:  %s\n", d->d_qualwildname);
@@ -704,7 +694,7 @@ local char *readd( zDIR *d)
     /* get next match to possible wildcard */
     if ((r = sys$search(&d->fab)) == RMS$_NORMAL)
     {
-        d->d_name[d->nam.NAM_RSL] = '\0';   /* null terminate */
+        d->d_name[d->nam.NAMX_RSL] = '\0';   /* null terminate */
         return (char *)d->d_name;   /* OK */
     }
   } while (r == RMS$_PRV);
@@ -749,15 +739,15 @@ int wild( char *p)
    * specifies "-r fred.dir;1", then we don't want to save the ";1".)
    */
 
-  if (((d->nam.NAM_B_TYPE+ d->nam.NAM_B_VER) == DIR_TYPE_VER_LEN) &&
-   strncasecmp( d->nam.NAM_L_TYPE, DIR_TYPE_VER, DIR_TYPE_VER_LEN) == 0)
+  if (((d->nam.NAMX_B_TYPE+ d->nam.NAMX_B_VER) == DIR_TYPE_VER_LEN) &&
+   strncasecmp( d->nam.NAMX_L_TYPE, DIR_TYPE_VER, DIR_TYPE_VER_LEN) == 0)
   {
     wild_version_part[ 0] = '\0';
   }
   else
   {
-    strncpy(wild_version_part, d->nam.NAM_L_VER, d->nam.NAM_B_VER);
-    wild_version_part[d->nam.NAM_B_VER] = '\0';
+    strncpy(wild_version_part, d->nam.NAMX_L_VER, d->nam.NAMX_B_VER);
+    wild_version_part[d->nam.NAMX_B_VER] = '\0';
   }
 
   f = 0;
@@ -985,7 +975,7 @@ char *ex2in( char *x, int isdir, int *pdosflag)
   /* If relative path, then strip off the current directory. */
   if (relative_dir_s)
   {
-    char cwd[ NAM_MAXRSS+ 1];
+    char cwd[ NAMX_MAXRSS+ 1];
     char *cwd_dir_only;
     char *q;
     int cwd_dir_only_len;
@@ -1540,7 +1530,7 @@ int deletedir( char *dir_name)
 
     struct FAB        fab;           /* File Access Block */
     struct RAB        rab;           /* Record Access Block */
-    struct NAM_STRUCT nam;           /* Name Block */
+    struct NAMX_STRUCT nam;          /* Name Block */
 
     int atr_devchn;                  /* Disk device channel. */
 
@@ -1575,7 +1565,7 @@ int deletedir( char *dir_name)
     unsigned short atr_prot;
 
     /* Expanded name storage. */
-    char exp_nam[ NAM_MAXRSS];
+    char exp_nam[ NAMX_MAXRSS];
 
     /* Special ODS5-QIO-compatible name storage. */
 #ifdef NAML$C_MAXRSS
@@ -1584,15 +1574,15 @@ int deletedir( char *dir_name)
 
     fab = cc$rms_fab;                   /* Initialize FAB. */
     rab = cc$rms_rab;                   /* Initialize RAB. */
-    nam = CC_RMS_NAM;                   /* Initialize NAM[L]. */
+    nam = CC_RMS_NAMX;                  /* Initialize NAM[L]. */
 
     rab.rab$l_fab = &fab;               /* Point RAB to FAB. */
-    fab.FAB_NAM = &nam;                 /* Point FAB to NAM[L]. */
+    fab.FAB_NAMX = &nam;                /* Point FAB to NAM[L]. */
 
+  /* Point the FAB/NAM[L] fields to the actual name and default name. */
 #ifdef NAML$C_MAXRSS
 
-    fab.fab$l_dna = (char *) -1;        /* Using NAML for default name. */
-    fab.fab$l_fna = (char *) -1;        /* Using NAML for file name. */
+    NAMX_DNA_FNA_SET( fab)
 
     /* Special ODS5-QIO-compatible name storage. */
     nam.naml$l_filesys_name = sys_nam;
@@ -1605,17 +1595,17 @@ int deletedir( char *dir_name)
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen( dir_name);
 
     /* Expanded name storage. */
-    nam.NAM_ESA = exp_nam;
-    nam.NAM_ESS = sizeof(exp_nam);
+    nam.NAMX_ESA = exp_nam;
+    nam.NAMX_ESS = sizeof(exp_nam);
 
     sts = sys$parse( &fab);
     if ((sts& STS$M_SEVERITY) == STS$M_SUCCESS)
     {
         /* Set the address in the device name descriptor. */
-        atr_devdsc.dsc$a_pointer = &nam.NAM_DVI[ 1];
+        atr_devdsc.dsc$a_pointer = &nam.NAMX_DVI[ 1];
 
         /* Set the length in the device name descriptor. */
-        atr_devdsc.dsc$w_length = (unsigned short) nam.NAM_DVI[ 0];
+        atr_devdsc.dsc$w_length = (unsigned short) nam.NAMX_DVI[ 0];
 
         /* Open a channel to the disk device. */
         sts = sys$assign( &atr_devdsc, &atr_devchn, 0, 0);
@@ -1626,7 +1616,7 @@ int deletedir( char *dir_name)
             */
             for (i = 0; i < 3; i++)
             {
-                atr_fib.FIB$W_DID[i] = nam.NAM_DID[i];
+                atr_fib.FIB$W_DID[i] = nam.NAMX_DID[i];
                 atr_fib.FIB$W_FID[i] = 0;
             }
 
@@ -1649,9 +1639,9 @@ int deletedir( char *dir_name)
 #else /* def NAML$C_MAXRSS */
 
             /* ODS2-only: Use the whole name. */
-            atr_fnam.dsc$a_pointer = nam.NAM_L_NAME;
+            atr_fnam.dsc$a_pointer = nam.NAMX_L_NAME;
             atr_fnam.dsc$w_length =
-             nam.NAM_B_NAME+ nam.NAM_B_TYPE+ nam.NAM_B_VER;
+             nam.NAMX_B_NAME+ nam.NAMX_B_TYPE+ nam.NAMX_B_VER;
 
 #endif /* def NAML$C_MAXRSS [else] */
 

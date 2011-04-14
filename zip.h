@@ -11,7 +11,7 @@ ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
 a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 
-Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -94,6 +94,12 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 
 #ifdef USE_ZLIB
 #  include "zlib.h"
+#endif
+
+#ifdef CRYPT_AES
+#  include "aes/aes.h"
+#  include "aes/fileenc.h"
+#  include "aes/prng.h"
 #endif
 
 /* In the utilities, the crc32() function is only used for UNICODE_SUPPORT. */
@@ -451,6 +457,7 @@ extern int logall;              /* 0 = warnings/errors, 1 = all */
 extern FILE *logfile;           /* pointer to open logfile or NULL */
 extern int logfile_append;      /* append to existing logfile */
 extern char *logfile_path;      /* pointer to path of logfile */
+extern int use_outpath_for_log; /* 1 = use output archive path for log */
 extern int log_utf8;            /* log names as UTF-8 */
 #ifdef WIN32
 extern int nonlocal_name;       /* Name has non-local characters */
@@ -545,7 +552,6 @@ extern uzoff_t bytes_this_entry; /* bytes written for this entry across all spli
 extern int noisy_splits;         /* note when splits are being created */
 extern int mesg_line_started;    /* 1=started writing a line to mesg */
 extern int logfile_line_started; /* 1=started writing a line to logfile */
-extern char *key;               /* Scramble password or NULL */
 extern char *tempath;           /* Path for temporary files */
 extern FILE *mesg;              /* Where informational output goes */
 /* dll progress */
@@ -556,6 +562,34 @@ extern char *entry_name;        /* used by DLL to pass z->zname to file_read() *
  extern uzoff_t progress_chunk_size;  /* how many bytes before next progress report */
  extern uzoff_t last_progress_chunk;  /* used to determine when to send next report */
 #endif
+
+
+/* encryption */
+
+/* values for encryption_method */
+#define STANDARD_ENCRYPTION      1
+#define AES_128_ENCRYPTION       2
+#define AES_192_ENCRYPTION       3
+#define AES_256_ENCRYPTION       4
+
+extern char *key;               /* Scramble password or NULL */
+extern int force_ansi_key;      /* Only ANSI characters for password (32 - 126) */
+extern int encryption_method;   /* See above defines */
+extern ush aes_vendor_version;
+extern uch aes_strength;
+extern ush comp_method;         /* Compression method */
+
+#ifdef CRYPT_AES
+ extern int key_size;                 /* Size of strong encryption key */
+ extern fcrypt_ctx zctx;
+ extern unsigned char *zpwd;
+ extern int zpwd_len;
+ extern unsigned char *zsalt;
+ extern unsigned char zpwd_verifier[PWD_VER_LENGTH];
+ extern prng_ctx aes_rnp;
+ extern unsigned char auth_code[20]; /* returned authentication code */
+#endif
+
 
 extern char **args;             /* Copy of argv that can be updated and freed */
 
@@ -605,6 +639,8 @@ extern int zp_tz_is_valid;      /* signals "timezone info is available" */
 extern int zipstate;            /* flag "zipfile has been stat()'ed */
 #endif
 
+extern int show_what_doing;     /* Diagnostic message flag. */
+
 /* Diagnostic functions */
 #ifdef DEBUG
 # ifdef MSDOS
@@ -639,8 +675,6 @@ extern int zipstate;            /* flag "zipfile has been stat()'ed */
 #ifdef DEBUGNAMES
 #  define free(x) { int *v;Free(x); v=x;*v=0xdeadbeef;x=(void *)0xdeadbeef; }
 #endif
-
-extern int show_what_doing;
 
 /* Public function prototypes */
 
@@ -957,9 +991,13 @@ void     bi_init      OF((char *, unsigned int, int));
 #endif
 
 #ifdef ENABLE_ENTRY_TIMING
-uzoff_t get_time_in_usec OF(());
+ uzoff_t get_time_in_usec OF(());
 #endif
 
+#ifdef CRYPT_AES
+ void aes_crypthead OF((ZCONST uch *, uch, ZCONST uch *));
+ int entropy_fun OF((unsigned char buf[], unsigned int len));
+#endif
 
 
 /*---------------------------------------------------------------------

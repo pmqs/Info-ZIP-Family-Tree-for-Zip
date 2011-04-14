@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -113,7 +113,7 @@ int set_extra_field(z, z_utim)
     uch *scan;
     extent extra_l;
     static struct FAB fab;
-    static struct NAM_STRUCT nam;
+    static struct NAMX_STRUCT nam;
     static struct XABSUM xabsum;
     static struct XABFHC xabfhc;
     static struct XABDAT xabdat;
@@ -174,26 +174,20 @@ int set_extra_field(z, z_utim)
      */
 
     fab =    cc$rms_fab;
-    nam =    CC_RMS_NAM;
+    nam =    CC_RMS_NAMX;
     xabsum = cc$rms_xabsum;
     xabdat = cc$rms_xabdat;
     xabfhc = cc$rms_xabfhc;
     xabpro = cc$rms_xabpro;
     xabrdt = cc$rms_xabrdt;
 
-    fab.FAB_NAM = &nam;
+    fab.FAB_NAMX = &nam;
     fab.fab$l_xab = (char*)&xabsum;
     /*
      *  Open the file and read summary information.
      */
 
-#ifdef NAML$C_MAXRSS
-
-    fab.fab$l_dna = (char *) -1;    /* Using NAML for default name. */
-    fab.fab$l_fna = (char *) -1;    /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
-
+    NAMX_DNA_FNA_SET( fab)
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = z->name;
     FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen( z->name);
 
@@ -465,7 +459,7 @@ typedef struct user_context
 {
     ulg sig;
     struct FAB *fab;
-    struct NAM_STRUCT *nam;
+    struct NAMX_STRUCT *nam;
     struct RAB *rab;
     uzoff_t size;
     uzoff_t rest;
@@ -500,7 +494,7 @@ struct RAB *vms_open(name)
     char *name;
 {
     struct FAB *fab;
-    struct NAM_STRUCT *nam;
+    struct NAMX_STRUCT *nam;
     struct RAB *rab;
     struct XABFHC *fhc;
     Ctxptr ctx;
@@ -509,7 +503,7 @@ struct RAB *vms_open(name)
         return NULL;
 
     if ((nam =
-     (struct NAM_STRUCT *) malloc( sizeof( struct NAM_STRUCT))) == NULL)
+     (struct NAMX_STRUCT *) malloc( sizeof( struct NAMX_STRUCT))) == NULL)
     {
         free(fab);
         return NULL;
@@ -538,19 +532,13 @@ struct RAB *vms_open(name)
         return (struct RAB *)NULL;
     }
     *fab = cc$rms_fab;
-    *nam = CC_RMS_NAM;
+    *nam = CC_RMS_NAMX;
     *rab = cc$rms_rab;
     *fhc = cc$rms_xabfhc;
 
-    fab->FAB_NAM = nam;
+    fab->FAB_NAMX = nam;
 
-#ifdef NAML$C_MAXRSS
-
-    fab->fab$l_dna = (char *) -1;   /* Using NAML for default name. */
-    fab->fab$l_fna = (char *) -1;   /* Using NAML for file name. */
-
-#endif /* def NAML$C_MAXRSS */
-
+    NAMX_DNA_FNA_SET( fab)
     FAB_OR_NAML( fab, nam)->FAB_OR_NAML_FNA = name;
     FAB_OR_NAML( fab, nam)->FAB_OR_NAML_FNS = strlen( name);
 
@@ -633,7 +621,7 @@ int vms_close(rab)
     struct RAB *rab;
 {
     struct FAB *fab;
-    struct NAM_STRUCT *nam;
+    struct NAMX_STRUCT *nam;
     Ctxptr ctx;
 
     if (!CHECK_RAB(rab))
