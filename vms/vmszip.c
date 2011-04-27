@@ -26,21 +26,6 @@
 #include <time.h>
 #include <unixlib.h>
 
-/* Judge availability of str[n]casecmp() in C RTL.
-   (Note: This must follow a "#include <decc$types.h>" in something to
-   ensure that __CRTL_VER is as defined as it will ever be.  DEC C on
-   VAX may not define it itself.)
-*/
-#ifdef __CRTL_VER
-#if __CRTL_VER >= 70000000
-#define HAVE_STRCASECMP
-#endif /* __CRTL_VER >= 70000000 */
-#endif /* def __CRTL_VER */
-
-#ifdef HAVE_STRCASECMP
-#include <strings.h>    /* str[n]casecmp() */
-#endif /* def HAVE_STRCASECMP */
-
 #include <dvidef.h>
 #include <lib$routines.h>
 #include <ssdef.h>

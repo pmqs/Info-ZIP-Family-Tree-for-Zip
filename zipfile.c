@@ -1,7 +1,7 @@
 /*
   zipfile.c - Zip 3
 
-  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -158,15 +158,26 @@
  local int add_central_zip64_extra_field OF((struct zlist far *));
  local int add_local_zip64_extra_field OF((struct zlist far *));
 #endif /* ZIP64_SUPPORT */
+
 #ifdef UNICODE_SUPPORT
 # define UTF8_PATH_EF_TAG                0x7075                        /* ID for Unicode path (up) extra field */
  local int add_Unicode_Path_local_extra_field OF((struct zlist far *));
  local int add_Unicode_Path_cen_extra_field OF((struct zlist far *));
 #endif
 
+#ifdef CRYPT_AES				
+# define CRYPT_AES_EF_TAG       0x9901  /* ID for AES encryption extra field */
+ local int add_crypt_aes_local_extra_field OF((struct zlist far *, ush,
+  uch, ush));
+ local int add_crypt_aes_cen_extra_field OF((struct zlist far *, ush,
+  uch, ush));
+#endif
+
 /* New General Purpose Bit Flag bit 11 flags when entry path and
    comment are in UTF-8 */
+/* moved to zip.h
 #define UTF8_BIT (1 << 11)
+*/
 
 /* moved out of ZIP64_SUPPORT - 2/6/2005 EG */
 local void write_ushort_to_mem OF((ush, char *));                      /* little endian conversions */
@@ -174,12 +185,12 @@ local void write_ulong_to_mem OF((ulg, char *));
 #ifdef ZIP64_SUPPORT
  local void write_int64_to_mem OF((uzoff_t, char *));
 #endif /* def ZIP64_SUPPORT */
-#ifdef UNICODE_SUPPORT
- local void write_string_to_mem OF((char *, char *));
-#endif
+local void write_string_to_mem OF((char *, char *));
+
 #if 0
  local char *get_extra_field OF((ush, char *, unsigned));           /* zip64 */
 #endif
+
 #ifdef UNICODE_SUPPORT
  local void read_Unicode_Path_entry OF((struct zlist far *));
  local void read_Unicode_Path_local_entry OF((struct zlist far *));
@@ -495,8 +506,6 @@ local void write_int64_to_mem(l64Value,pPtr)
 
 #endif /* def ZIP64_SUPPORT */
 
-#ifdef UNICODE_SUPPORT
-
 /* Write a string to memory */
 local void write_string_to_mem(strValue, pPtr)
   char *strValue;
@@ -511,8 +520,6 @@ local void write_string_to_mem(strValue, pPtr)
     }
   }
 }
-
-#endif /* def UNICODE_SUPPORT */
 
 
 
@@ -1418,6 +1425,9 @@ local int add_local_zip64_extra_field(pZEntry)
 
 #endif /* ZIP64_SUPPORT */
 
+
+
+
 #ifdef UNICODE_SUPPORT
 /* Add UTF-8 path extra field
  * 10/11/05
@@ -1691,6 +1701,273 @@ local int add_Unicode_Path_cen_extra_field(pZEntry)
 #endif /* def UNICODE_SUPPORT */
 
 
+
+
+#ifdef CRYPT_AES
+/* Add WinZip AES extra field
+ * 2011-1-2
+ *
+ * EF structure:
+ *
+ * offset   size     content
+ * 0        2        Extra field header ID (0x9901)
+ * 2        2        Data size (currently 7, but subject to possible increase in the future)
+ * 4        2        Integer version number specific to the zip vendor
+ * 6        2        2-character vendor ID
+ * 8        1        Integer mode value indicating AES encryption strength
+ * 9        2        The actual compression method used to compress the file
+ *
+ * Data size: this value is currently 7, but vendors should not assume that it will always remain 7.
+ * Vendor ID: the vendor ID field should always be set to the two ASCII characters "AE".
+ * Vendor version: the vendor version for AE-1 is 0x0001. The vendor version for AE-2 is 0x0002.
+ *       (The handling of the CRC value is the only difference between the AE-1 and AE-2 formats.)
+ * Encryption strength: the mode values (encryption strength) for AE-1 and AE-2 are:
+      Value 	Strength
+      0x01 	128-bit encryption key
+      0x02 	192-bit encryption key
+      0x03 	256-bit encryption key
+ * Compression method: the compression method is the one that would otherwise have been stored.
+
+ */
+local int add_crypt_aes_local_extra_field( OFT( struct zlist far *)pZEntry,
+                                           OFT( ush) aes_vendor_version,
+                                           OFT( uch) aes_strength,
+                                           OFT( ush) comp_method)
+#ifdef NO_PROTO
+  struct zlist far *pZEntry;
+  ush aes_vendor_version;
+  uch aes_strength;
+  ush comp_method;
+#endif /* def NO_PROTO */
+{
+  char  *pExtra;
+  char  *pOldExtra;
+  char  *pOldTemp;
+  char  *pTemp;
+  ush   newEFSize;
+  ush   usTemp;
+  ush   blocksize;
+  ush   aes_ef_len = ZIP_EF_HEADER_SIZE +  /* tag + EF Data Len */
+                     2 +                   /* version */
+                     2 +                   /* vendor ID */
+                     1 +                   /* AES mode */
+                     2;                    /* actual compression method */
+
+  /* find start of AES extra field */
+  if (pZEntry->ext == 0 || pZEntry->extra == NULL)
+  {
+    /* get new extra field */
+    pExtra = pZEntry->extra = (char *) malloc(aes_ef_len);
+    if (pZEntry->extra == NULL) {
+      ziperr( ZE_MEM, "AES local extra field" );
+    }
+    pZEntry->ext = aes_ef_len;
+  }
+  else
+  {
+    /* check if we have existing AES extra field ... */
+    pOldExtra = get_extra_field( CRYPT_AES_EF_TAG, pZEntry->extra, pZEntry->ext );
+    if (pOldExtra == NULL)
+    {
+      /* ... we don't, so make space for it */
+      pExtra = (char *) malloc( aes_ef_len + pZEntry->ext );
+      if (pExtra == NULL)
+        ziperr( ZE_MEM, "AES local extra field" );
+      /* move old extra field and update pointer and length */
+      memmove( pExtra, pZEntry->extra, pZEntry->ext);
+      free( pZEntry->extra );
+      pZEntry->extra = pExtra;
+      pExtra += pZEntry->ext;
+      pZEntry->ext += aes_ef_len;
+    }
+    else
+    {
+      /* ... we have. Sort out existing AES extra field and remove it
+       * from pZEntry->extra, re-malloc enough memory for the old extra data
+       * left plus the size of the AES extra field */
+      blocksize = SH( pOldExtra + 2 );
+      /* If the right length then go with it, else get rid of it and add a new extra field
+       * to existing block. */
+      if (blocksize == aes_ef_len - ZIP_EF_HEADER_SIZE)
+      {
+        /* looks good */
+        pExtra = pOldExtra;
+      }
+      else
+      {
+        newEFSize = pZEntry->ext - (blocksize + ZIP_EF_HEADER_SIZE) + aes_ef_len;
+        pExtra = (char *) malloc( newEFSize );
+        if( pExtra == NULL )
+          ziperr(ZE_MEM, "AES local extra field");
+        /* move all before AES EF */
+        usTemp = (extent) (pOldExtra - pZEntry->extra);
+        pTemp = pExtra;
+        memcpy( pTemp, pZEntry->extra, usTemp );
+        /* move all after old AES EF */
+        pTemp = pExtra + usTemp;
+        pOldTemp = pOldExtra + ZIP_EF_HEADER_SIZE + blocksize;
+        usTemp = pZEntry->ext - usTemp - blocksize;
+        memcpy( pTemp, pOldTemp, usTemp);
+        /* replace extra fields */
+        pZEntry->ext = newEFSize;
+        free(pZEntry->extra);
+        pZEntry->extra = pExtra;
+        pExtra = pTemp + usTemp;
+      }
+    }
+  }
+
+  /* set/update AES extra field members
+   *
+   * offset   size     content
+   * 0        2        Extra field header ID (0x9901)
+   * 2        2        Data size (currently 7, but subject to possible increase in the future)
+   * 4        2        Integer version number specific to the zip vendor
+   * 6        2        2-character vendor ID
+   * 8        1        Integer mode value indicating AES encryption strength
+   * 9        2        The actual compression method used to compress the file
+ */
+  
+  /* tag header */
+  write_ushort_to_mem(CRYPT_AES_EF_TAG, pExtra);
+  /* data size */
+  write_ushort_to_mem((ush) (aes_ef_len - ZIP_EF_HEADER_SIZE), pExtra + 2);
+  /* version */
+  write_ushort_to_mem((ush) aes_vendor_version, pExtra + 4);
+  /* vendor ID */
+  write_string_to_mem("AE", pExtra + 6);
+  /* mode */
+  *(pExtra + 8) = aes_strength;
+  /* actual compression method */
+  write_ushort_to_mem((ush) comp_method, pExtra + 9);
+
+  return ZE_OK;
+}
+
+
+local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
+                                         OFT( ush) aes_vendor_version,
+                                         OFT( uch) aes_strength,
+                                         OFT( ush) comp_method)
+#ifdef NO_PROTO
+  struct zlist far *pZEntry;
+  ush aes_vendor_version;
+  uch aes_strength;
+  ush comp_method;
+#endif /* def NO_PROTO */
+{
+  char  *pExtra;
+  char  *pOldExtra;
+  char  *pOldTemp;
+  char  *pTemp;
+  ush   newEFSize;
+  ush   usTemp;
+  ush   blocksize;
+  ush   aes_ef_len = ZIP_EF_HEADER_SIZE +  /* tag + EF Data Len */
+                     2 +                   /* version */
+                     2 +                   /* vendor ID */
+                     1 +                   /* AES mode */
+                     2;                    /* actual compression method */
+
+  /* find start of AES extra field */
+  if (pZEntry->cext == 0 || pZEntry->cextra == NULL)
+  {
+    /* get new extra field */
+    pExtra = pZEntry->cextra = (char *) malloc(aes_ef_len);
+    if (pZEntry->cextra == NULL) {
+      ziperr( ZE_MEM, "AES local extra field" );
+    }
+    pZEntry->cext = aes_ef_len;
+  }
+  else
+  {
+    /* check if we have existing AES extra field ... */
+    pOldExtra = get_extra_field( CRYPT_AES_EF_TAG, pZEntry->cextra, pZEntry->cext );
+    if (pOldExtra == NULL)
+    {
+      /* ... we don't, so make space for it */
+      pExtra = (char *) malloc( aes_ef_len + pZEntry->cext );
+      if (pExtra == NULL)
+        ziperr( ZE_MEM, "AES local extra field" );
+      /* move old extra field and update pointer and length */
+      memmove( pExtra, pZEntry->cextra, pZEntry->cext);
+      free( pZEntry->cextra );
+      pZEntry->cextra = pExtra;
+      pExtra += pZEntry->cext;
+      pZEntry->cext += aes_ef_len;
+    }
+    else
+    {
+      /* ... we have. Sort out existing AES extra field and remove it
+       * from pZEntry->extra, re-malloc enough memory for the old extra data
+       * left plus the size of the AES extra field */
+      blocksize = SH( pOldExtra + 2 );
+      /* If the right length then go with it, else get rid of it and add a new extra field
+       * to existing block. */
+      if (blocksize == aes_ef_len - ZIP_EF_HEADER_SIZE)
+      {
+        /* looks good */
+        pExtra = pOldExtra;
+      }
+      else
+      {
+        newEFSize = pZEntry->cext - (blocksize + ZIP_EF_HEADER_SIZE) + aes_ef_len;
+        pExtra = (char *) malloc( newEFSize );
+        if( pExtra == NULL )
+          ziperr(ZE_MEM, "AES local extra field");
+        /* move all before AES EF */
+        usTemp = (extent) (pOldExtra - pZEntry->cextra);
+        pTemp = pExtra;
+        memcpy( pTemp, pZEntry->cextra, usTemp );
+        /* move all after old AES EF */
+        pTemp = pExtra + usTemp;
+        pOldTemp = pOldExtra + ZIP_EF_HEADER_SIZE + blocksize;
+        usTemp = pZEntry->cext - usTemp - blocksize;
+        memcpy( pTemp, pOldTemp, usTemp);
+        /* replace extra fields */
+        pZEntry->cext = newEFSize;
+        free(pZEntry->cextra);
+        pZEntry->cextra = pExtra;
+        pExtra = pTemp + usTemp;
+      }
+    }
+  }
+
+  /* set/update AES extra field members
+   *
+   * offset   size     content
+   * 0        2        Extra field header ID (0x9901)
+   * 2        2        Data size (currently 7, but subject to possible increase in the future)
+   * 4        2        Integer version number specific to the zip vendor
+   * 6        2        2-character vendor ID
+   * 8        1        Integer mode value indicating AES encryption strength
+   * 9        2        The actual compression method used to compress the file
+ */
+  
+  /* tag header */
+  write_ushort_to_mem(CRYPT_AES_EF_TAG, pExtra);
+  /* data size */
+  write_ushort_to_mem((ush) (aes_ef_len - ZIP_EF_HEADER_SIZE), pExtra + 2);
+  /* version */
+  write_ushort_to_mem((ush) aes_vendor_version, pExtra + 4);
+  /* vendor ID */
+  write_string_to_mem("AE", pExtra + 6);
+  /* mode */
+  *(pExtra + 8) = aes_strength;
+  /* actual compression method */
+  write_ushort_to_mem((ush) comp_method, pExtra + 9);
+
+  return ZE_OK;
+}
+
+
+#endif /* CRYPT_AES */
+
+
+
+
+
+
 zoff_t ffile_size OF((FILE *));
 
 
@@ -1782,7 +2059,7 @@ struct zlist far *z;
                 z->vem >> 8);
         zipwarn(errbuf, z->oname);
     }
-    if (z->ver != 10 && z->ver != 11 && z->ver != 20)
+    if (z->ver != 10 && z->ver != 11 && z->ver != 20 && z->ver != 45)
     {
         sprintf(errbuf, "needs unzip %d.%d on system type %d: ",
                 (ush)(z->ver & 0xff) / (ush)10,
@@ -4295,6 +4572,7 @@ local int scanzipf_regnew()
         }
         return ZE_FORM;
       }
+      clearerr(in_file);  /* clear EOF and error flags (may not be needed) */
       if (find_signature(in_file, "PK\01\02")) {
         /* Should now be after first central directory header signature in archive */
         adjust_offset = zftello(in_file) - 4 - in_cd_start_offset;
@@ -5318,6 +5596,11 @@ int putlocal(z, rewrite)
      This assumes that for large entries the compressed size won't need a
      Zip64 extra field if the uncompressed size did not.  This assumption should
      only fail for a large file of nearly totally uncompressable data.
+     
+     There is a tradeoff here.  A margin could be added to the uncompressed size
+     to account for any bad compression expansion, plus meta information, but this
+     would force Zip64 for files that would otherwise be under the limit.  When
+     this assumption fails, the force Zip64 option should be used.
 
      If streaming stdin in and use_descriptors is set then always create a Zip64
      extra field flagging the data descriptor as being in Zip64 format.  This is
@@ -5331,6 +5614,7 @@ int putlocal(z, rewrite)
   extent blocksize = 0; /* size of block */
   ush nam = z->nam;     /* size of name to write to header */
   char *iname = NULL;   /* name to write to header */
+  ush how = z->how;
 #ifdef UNICODE_SUPPORT
   int use_uname = 0;    /* write uname to header */
 #endif
@@ -5431,11 +5715,14 @@ int putlocal(z, rewrite)
 # endif
 
   if (z->uname) {
+    /* This bit should be already set now */
     /* need UTF-8 name */
-    if (utf8_force || using_utf8) {
+    /*
+    if (utf8_native || using_utf8) {
       z->lflg |= UTF8_BIT;
       z->flg |= UTF8_BIT;
     }
+    */
     if (z->flg & UTF8_BIT) {
       /* If this flag is set, then restore UTF-8 as path name */
       use_uname = 1;
@@ -5446,11 +5733,14 @@ int putlocal(z, rewrite)
       /* use extra field */
       add_Unicode_Path_local_extra_field(z);
     }
-  } else {
+  }
+# if 0
+  else {
     /* clear UTF-8 bit as not needed */
     z->flg &= ~UTF8_BIT;
     z->lflg &= ~UTF8_BIT;
   }
+# endif
 #endif
 
   /* determine name to write */
@@ -5477,10 +5767,21 @@ int putlocal(z, rewrite)
     nam = new_path_len;
   }
 
+#ifdef CRYPT_AES
+  if (encryption_method > 1) {
+      if (add_crypt_aes_local_extra_field(z, aes_vendor_version, aes_strength, comp_method) != ZE_OK) {
+          ZIPERR(ZE_MEM, "AES local ef");
+      }
+
+      /* set compression method to WinZip AES encryption */
+      how = 99;
+  }
+#endif
+
   append_ulong_to_mem(LOCSIG, &block, &offset, &blocksize);     /* local file header signature */
   append_ushort_to_mem(z->ver, &block, &offset, &blocksize);    /* version needed to extract */
   append_ushort_to_mem(z->lflg, &block, &offset, &blocksize);   /* general purpose bit flag */
-  append_ushort_to_mem(z->how, &block, &offset, &blocksize);    /* compression method */
+  append_ushort_to_mem(how, &block, &offset, &blocksize);       /* compression method */
   append_ulong_to_mem(z->tim, &block, &offset, &blocksize);     /* last mod file date time */
   append_ulong_to_mem(z->crc, &block, &offset, &blocksize);     /* crc-32 */
 #ifdef ZIP64_SUPPORT        /* zip64 support 09/02/2003 R.Nausedat */
@@ -5697,12 +5998,17 @@ int putcentral(z)
 #ifdef ZIP64_SUPPORT        /* zip64 support 09/02/2003 R.Nausedat */
   int iRes;
 #endif
+  ush how = z->how;
+
 
 #ifdef UNICODE_SUPPORT
   if (z->uname) {
-    if (utf8_force) {
+    /* this bit should already be set */
+    /*
+    if (utf8_native) {
       z->flg |= UTF8_BIT;
     }
+    */
     if (z->flg & UTF8_BIT) {
       /* If this flag is set, then restore UTF-8 as path name */
       use_uname = 1;
@@ -5712,11 +6018,14 @@ int putcentral(z)
     } else {
       add_Unicode_Path_cen_extra_field(z);
     }
-  } else {
+  }
+# if 0
+  else {
     /* clear UTF-8 bit as not needed */
     z->flg &= ~UTF8_BIT;
     z->lflg &= ~UTF8_BIT;
   }
+# endif
 #endif
 
   /* determine name to write */
@@ -5745,6 +6054,18 @@ int putcentral(z)
 
   off = z->off;
 
+#ifdef CRYPT_AES
+  if (encryption_method > 1) {
+      if (add_crypt_aes_cen_extra_field(z, aes_vendor_version, aes_strength, comp_method) != ZE_OK) {
+          ZIPERR(ZE_MEM, "AES local ef");
+      }
+
+      /* set compression method to WinZip AES encryption */
+      how = 99;
+  }
+#endif
+
+
 #ifdef ZIP64_SUPPORT        /* zip64 support 09/02/2003 R.Nausedat */
   if (z->siz > ZIP_UWORD32_MAX || z->len > ZIP_UWORD32_MAX ||
       z->off > ZIP_UWORD32_MAX || z->dsk > ZIP_UWORD16_MAX || (force_zip64 == 1))
@@ -5758,7 +6079,7 @@ int putcentral(z)
   append_ushort_to_mem(z->vem, &block, &offset, &blocksize);    /* version made by */
   append_ushort_to_mem(z->ver, &block, &offset, &blocksize);    /* version needed to extract */
   append_ushort_to_mem(z->flg, &block, &offset, &blocksize);    /* general purpose bit flag */
-  append_ushort_to_mem(z->how, &block, &offset, &blocksize);    /* compression method */
+  append_ushort_to_mem(how, &block, &offset, &blocksize);       /* compression method */
   append_ulong_to_mem(z->tim, &block, &offset, &blocksize);     /* last mod file date time */
   append_ulong_to_mem(z->crc, &block, &offset, &blocksize);     /* crc-32 */
   if (z->siz > ZIP_UWORD32_MAX)
@@ -6335,7 +6656,7 @@ int zipcopy(z)
   } else {
     /* Compare localz to z */
     if (localz->ver != z->ver) {
-      zipwarn("Local Version Needed To Extract does not match CD: ", z->iname);
+      zipwarn("Local Version Needed To Extract does not match CD VNTE: ", z->iname);
     }
     if (localz->lflg != z->flg) {
       zipwarn("Local Entry Flag does not match CD: ", z->iname);

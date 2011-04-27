@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -31,6 +31,7 @@
 #define PROCNAME(n) \
  (((action == ADD) || (action == UPDATE) || (action == FRESHEN)) ? \
  wild(n) : procname(n, filter_match_case))
+
 
 /* 2004-11-09 SMS.
    Large file support.
@@ -137,6 +138,62 @@ typedef struct stat z_stat;
 #define SSTAT vms_stat
 #define EXIT(exit_code) vms_exit(exit_code)
 #define RETURN(exit_code) return (vms_exit(exit_code), 1)
+
+/* 2011-04-21 SMS.
+ * Moved strcasecmp() stuff from vmszip.c to here.
+ * (This must follow the large-file stuff so that _LARGEFILE is defined
+ * before <decc$types.h> gets read, and <decc$types.h> does get read
+ * before this.)
+ */
+
+/* Judge availability of str[n]casecmp() in C RTL.
+ * (Note: This must follow a "#include <decc$types.h>" in something to
+ * ensure that __CRTL_VER is as defined as it will ever be.  DEC C on
+ * VAX may not define it itself.)
+ */
+#if __CRTL_VER >= 70000000
+# define HAVE_STRCASECMP
+#endif /* __CRTL_VER >= 70000000 */
+
+#ifdef HAVE_STRCASECMP
+# include <strings.h>    /* str[n]casecmp() */
+#else /* def HAVE_STRCASECMP */
+# include <limits.h>
+# ifndef UINT_MAX
+#  define UINT_MAX 4294967295U
+# endif
+# define strcasecmp( s1, s2) strncasecmp( s1, s2, UINT_MAX)
+extern int strncasecmp( char *, char *, size_t);
+#endif /* def HAVE_STRCASECMP [else] */
+
+
+/* Accommodation for /NAMES = AS_IS with old header files. */
+
+# define cma$tis_errno_get_addr CMA$TIS_ERRNO_GET_ADDR
+# define cma$tis_vmserrno_get_addr CMA$TIS_VMSERRNO_GET_ADDR
+# define lib$establish LIB$ESTABLISH
+# define lib$getdvi LIB$GETDVI
+# define lib$get_foreign LIB$GET_FOREIGN
+# define lib$get_input LIB$GET_INPUT
+# define lib$sig_to_ret LIB$SIG_TO_RET
+# define ots$cvt_tu_l OTS$CVT_TU_L
+# define str$concat STR$CONCAT
+# define str$find_first_substring STR$FIND_FIRST_SUBSTRING
+# define str$free1_dx STR$FREE1_DX
+# define sys$asctim SYS$ASCTIM
+# define sys$assign SYS$ASSIGN
+# define sys$bintim SYS$BINTIM
+# define sys$close SYS$CLOSE
+# define sys$connect SYS$CONNECT
+# define sys$dassgn SYS$DASSGN
+# define sys$display SYS$DISPLAY
+# define sys$getjpiw SYS$GETJPIW
+# define sys$gettim SYS$GETTIM
+# define sys$open SYS$OPEN
+# define sys$parse SYS$PARSE
+# define sys$qiow SYS$QIOW
+# define sys$read SYS$READ
+# define sys$search SYS$SEARCH
 
 
 #ifdef __DECC

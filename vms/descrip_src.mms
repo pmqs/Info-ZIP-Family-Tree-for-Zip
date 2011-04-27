@@ -1,4 +1,4 @@
-#                                               30 November 2009.  SMS.
+#                                               21 April 2011.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Source Description File.
 #
@@ -103,10 +103,18 @@ GCC_ =
 LARGE_VAX = 1
 .ENDIF                              # LARGE
 .IFDEF VAXC_OR_FORCE_VAXC           # VAXC_OR_FORCE_VAXC
+.IFDEF AES                              # AES
+VAXC_AES = 1
+.ENDIF                                  # AES
 .IFDEF GNUC                             # GNUC
 VAX_MULTI_CMPL = 1
 .ENDIF                                  # GNUC
 .ENDIF                              # VAXC_OR_FORCE_VAXC
+.IFDEF GNUC                         # GNUC
+.IFDEF AES                              # AES
+GNUC_AES = 1
+.ENDIF                                  # AES
+.ENDIF                              # GNUC
 .ELSE                           # __VAX__
 .IFDEF VAXC_OR_FORCE_VAXC           # VAXC_OR_FORCE_VAXC
 NON_VAX_CMPL = 1
@@ -184,6 +192,20 @@ NON_VAX_CMPL = 1
 	@ write sys$output "   ZLIB dir:  ''f$trnlnm( "lib_zlib")'"
 	@ write sys$output ""
 	@ define incl_zlib $(IZ_ZLIB)
+.ELSE                                           # IZ_ZLIB
+.IFDEF VAXC_AES                                     # VAXC_AES
+	@ write sys$output -
+ "   Macro ""AES"" is incompatible with ""VAXC"" or ""FORCE_VAXC""."
+	@ write sys$output ""
+	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
+.ELSE                                               # VAXC_AES
+.IFDEF GNUC_AES                                         # GNU_AES
+	@ write sys$output -
+ "   Macro ""AES"" is incompatible with ""GNUC""."
+	@ write sys$output ""
+	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
+.ENDIF                                                  # GNUC_AES
+.ENDIF                                              # VAXC_AES
 .ENDIF                                          # IZ_ZLIB
 	@ write sys$output "   Destination: [.$(DEST)]"
 	@ write sys$output ""
@@ -194,11 +216,16 @@ NON_VAX_CMPL = 1
 .ENDIF                              # VAX_MULTI_CMPL
 .ENDIF                          # UNK_DEST
 
+# AES options.
+
+.IFDEF AES                      # AES
+CDEFS_AES = , CRYPT_AES, _ENDIAN_H="""endian.h"""
+.ENDIF                          # AES
+
 # BZIP2 options.
 
 .IFDEF IZ_BZIP2                 # IZ_BZIP2
 CDEFS_BZ = , BZIP2_SUPPORT
-CFLAGS_INCL = /INCLUDE = ([], [.VMS])
 INCL_BZIP2_M = , ZBZ2ERR
 LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2_NS.OLB /library,
 .ENDIF                          # IZ_BZIP2
@@ -207,17 +234,10 @@ LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2_NS.OLB /library,
 
 .IFDEF IZ_ZLIB                  # IZ_ZLIB
 CDEFS_ZL = , USE_ZLIB
-.IFDEF CFLAGS_INCL                  # CFLAGS_INCL
-.ELSE                               # CFLAGS_INCL
-CFLAGS_INCL = /include = ([], [.VMS])
-.ENDIF                              # CFLAGS_INCL
 LIB_ZLIB_OPTS = LIB_ZLIB:LIBZ.OLB /library,
-.ELSE                           # IZ_ZLIB
-.IFDEF CFLAGS_INCL                  # CFLAGS_INCL
-.ELSE                               # CFLAGS_INCL
-CFLAGS_INCL = /include = []
-.ENDIF                              # CFLAGS_INCL
 .ENDIF                          # IZ_ZLIB
+
+CFLAGS_INCL = /INCLUDE = ([], [.VMS])
 
 # DBG options.
 
@@ -246,7 +266,8 @@ CDEFS_LARGE = , LARGE_FILE_SUPPORT
 C_LOCAL_ZIP = , $(LOCAL_ZIP)
 .ENDIF
 
-CDEFS = VMS $(CDEFS_BZ) $(CDEFS_IM) $(CDEFS_LARGE) $(CDEFS_ZL) $(C_LOCAL_ZIP)
+CDEFS = VMS $(CDEFS_AES) $(CDEFS_BZ) $(CDEFS_IM) $(CDEFS_LARGE) \
+ $(CDEFS_ZL) $(C_LOCAL_ZIP)
 
 CDEFS_UNX = /define = ($(CDEFS))
 
@@ -306,6 +327,8 @@ CFLAGS = \
  $(CFLAGS_ARCH) $(CFLAGS_DBG) $(CFLAGS_INCL) $(CFLAGS_LIST) $(CCOPTS) \
  /object = $(MMS$TARGET)
 
+CFLAGS_DEP = $(CFLAGS_ARCH) $(CFLAGS_INCL) $(CCOPTS)
+
 LINKFLAGS = \
  $(LINKFLAGS_DBG) $(LINKFLAGS_LIST) $(LINKOPTS) \
  /executable = $(MMS$TARGET)
@@ -334,7 +357,22 @@ MODS_OBJS_LIB_ZIP_V = \
  VMSMUNCH=[.$(DEST)]VMSMUNCH.OBJ \
  VMSZIP=[.$(DEST)]VMSZIP.OBJ
 
-MODS_OBJS_LIB_ZIP = $(MODS_OBJS_LIB_ZIP_N) $(MODS_OBJS_LIB_ZIP_V)
+#    Primary object library, [.AES].
+
+.IFDEF AES                      # AES
+MODS_OBJS_LIB_ZIP_AES = \
+ AESCRYPT=[.$(DEST)]AESCRYPT.OBJ \
+ AESKEY=[.$(DEST)]AESKEY.OBJ \
+ AESTAB=[.$(DEST)]AESTAB.OBJ \
+ FILEENC=[.$(DEST)]FILEENC.OBJ \
+ HMAC=[.$(DEST)]HMAC.OBJ \
+ PRNG=[.$(DEST)]PRNG.OBJ \
+ PWD2KEY=[.$(DEST)]PWD2KEY.OBJ \
+ SHA1=[.$(DEST)]SHA1.OBJ
+.ENDIF                          # AES
+
+MODS_OBJS_LIB_ZIP = $(MODS_OBJS_LIB_ZIP_N) $(MODS_OBJS_LIB_ZIP_V) \
+ $(MODS_OBJS_LIB_ZIP_AES)
 
 #    Utility object library, normal, [].
 

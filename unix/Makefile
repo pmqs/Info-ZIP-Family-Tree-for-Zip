@@ -23,10 +23,13 @@ LN = ln -s
 
 # (to use the GNU compiler, change cc to gcc in CC)
 CC = cc
-BIND = $(CC)
+AR = ar
 AS = $(CC) -c
+BIND = $(CC)
 CPP = /lib/cpp
 E =
+RANLIB = ranlib
+RM = rm -f
 
 # probably can change this to 'install' if you have it
 INSTALL = cp
@@ -67,6 +70,8 @@ LFLAGS2 = -s
 OBJZ = zip.o zipfile.o zipup.o fileio.o util.o globals.o crypt.o ttyio.o \
        unix.o crc32.o zbz2err.o
 OBJI = deflate.o trees.o
+OBJAES = aescrypt.o aeskey.o aestab.o fileenc.o hmac.o prng.o pwd2key.o \
+         sha1.o
 OBJA =
 OCRCU8 =
 OCRCTB = crc32_.o
@@ -76,6 +81,8 @@ OBJC = zipcloak.o $(OBJU) $(OCRCTB) crypt_.o ttyio.o
 OBJS = zipsplit.o $(OBJU)
 
 ZIP_H = zip.h ziperr.h tailor.h unix/osdep.h
+AES_H = aes/aes.h aes/aesopt.h aes/fileenc.h aes/hmac.h aes/prng.h \
+        aes/pwd2key.h aes/sha1.h
 
 # suffix rules
 .SUFFIXES:
@@ -92,6 +99,7 @@ ZIP_H = zip.h ziperr.h tailor.h unix/osdep.h
 # rules for zip, zipnote, zipcloak, zipsplit, and the Zip MANUALs.
 $(OBJZ): $(ZIP_H)
 $(OBJI): $(ZIP_H)
+$(OBJAES): $(AES_H)
 $(OBJN): $(ZIP_H)
 $(OBJS): $(ZIP_H)
 $(OBJC): $(ZIP_H)
@@ -121,13 +129,47 @@ unix.o: unix/unix.c
 unix_.o: unix/unix.c
 	$(CC) -c $(CFLAGS) -DUTIL -o $@ unix/unix.c
 
+
+# AES object library.
+
+libaes.a : $(OBJAES)
+	-@$(RM) libaes.a
+	$(AR) cq libaes.a $(OBJAES)
+	-$(RANLIB) libaes.a
+
+aescrypt.o: aes/aescrypt.c
+	$(CC) -c $(CFLAGS) aes/aescrypt.c
+
+aeskey.o: aes/aeskey.c
+	$(CC) -c $(CFLAGS) aes/aeskey.c
+
+aestab.o: aes/aestab.c
+	$(CC) -c $(CFLAGS) aes/aestab.c
+
+fileenc.o: aes/fileenc.c
+	$(CC) -c $(CFLAGS) aes/fileenc.c
+
+hmac.o: aes/hmac.c
+	$(CC) -c $(CFLAGS) aes/hmac.c
+
+prng.o: aes/prng.c
+	$(CC) -c $(CFLAGS) aes/prng.c
+
+pwd2key.o: aes/pwd2key.c
+	$(CC) -c $(CFLAGS) aes/pwd2key.c
+
+sha1.o: aes/sha1.c
+	$(CC) -c $(CFLAGS) aes/sha1.c
+
+
 ZIPS = zip$E zipcloak$E zipnote$E zipsplit$E
 
 zips: $(ZIPS)
 zipsman: $(ZIPS) $(ZIPMANUALs)
 
-zip$E: $(OBJZ) $(OBJI) $(OBJA) $(LIB_BZ)
-	$(BIND) -o zip$E $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) $(LFLAGS2)
+zip$E: $(OBJZ) $(OBJI) $(OBJA) $(LIB_AES) $(LIB_BZ)
+	$(BIND) -o zip$E $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) \
+	 $(LFLAGS2)
 zipnote$E: $(OBJN)
 	$(BIND) -o zipnote$E $(LFLAGS1) $(OBJN) $(LFLAGS2)
 zipcloak$E: $(OBJC) $(OCRCTB)

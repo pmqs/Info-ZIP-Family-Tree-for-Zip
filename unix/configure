@@ -173,6 +173,31 @@ if test -n "${CFLAGS_OPT}"; then
 fi
 
 
+# AES encryption.
+
+echo "Check AES encryption support"
+
+LIB_AES=''
+cat > conftest.c << _EOF_
+int main()
+{
+#include <aes/aes.h>
+#ifndef CRYPT_AES
+   forget it
+#endif
+   return 0;
+}
+_EOF_
+$CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
+if [ $? -eq 0 ]; then
+  LIB_AES="libaes.a"
+  LFLAGS2="${LFLAGS2} -L. -laes"
+  echo "  Including AES encryption support"
+else
+  echo "  Not including AES encryption support"
+fi
+
+
 # bzip2
 
 echo "Check bzip2 support"
@@ -825,5 +850,6 @@ echo CC=\"${CC}\" CFLAGS=\"${CFLAGS}\"  CPP=\"${CPP}\" OBJA=\"${OBJA}\" \
        BINDIR=${BINDIR} MANDIR=${MANDIR} LFLAGS1=\"${LFLAGS1}\" \
        LFLAGS2=\"${LFLAGS2}\" LN=\"${LN}\" \
        CC_BZ=\"${CC_BZ}\" CFLAGS_BZ=\"${CFLAGS_BZ}\" \
-       IZ_BZIP2=\"${IZ_BZIP2}\" LIB_BZ=\"${LIB_BZ}\" > "$PROD"/flags
+       IZ_BZIP2=\"${IZ_BZIP2}\" LIB_BZ=\"${LIB_BZ}\" \
+       LIB_AES=\"${LIB_AES}\" > "$PROD"/flags
 

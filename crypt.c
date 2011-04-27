@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -29,10 +29,22 @@
   version without encryption capabilities).
  */
 
+/*
+  Now includes part of the AES encryption implementation in CRYPT_AES
+  blocks.  This code is provided under the Info-ZIP license, though it
+  calls the Gladman AES code which needs to be added to the aes directory.
+ */
+
 #define ZCRYPT_INTERNAL
 #include "zip.h"
 #include "crypt.h"
 #include "ttyio.h"
+
+#ifdef CRYPT_AES
+# ifdef WIN32
+#  include <windows.h>
+# endif
+#endif
 
 #if CRYPT
 
@@ -465,6 +477,14 @@ unsigned zfwrite(buf, item_size, nb)
     int t;                      /* temporary */
 
     if (key != (char *)NULL) {  /* key is the global password pointer */
+#ifdef CRYPT_AES
+      if (encryption_method > 1) {
+        /* assume all items are bytes */
+        fcrypt_encrypt(buf, item_size * nb, &zctx);
+      }
+      else
+#endif
+      {
         ulg size;               /* buffer size */
         char *p = (char *)buf;  /* steps through buffer */
 
@@ -472,6 +492,7 @@ unsigned zfwrite(buf, item_size, nb)
         for (size = item_size*(ulg)nb; size != 0; p++, size--) {
             *p = (char)zencode(*p, t);
         }
+      }
     }
     /* Write the buffer out */
     return bfwrite(buf, item_size, nb, BFWRITE_DATA);
@@ -690,3 +711,94 @@ local int testkey(__G__ h, key)
 int zcr_dummy;
 
 #endif /* ?CRYPT */
+
+
+#ifdef CRYPT_AES
+# if defined(DOS) || defined(WIN32)
+
+/* Below is more or less the entropy function provided by WinZip and
+   now suggested by Gladman.  This function is for use on Win32
+   systems.  Other OS probably need to modify this function or
+   provide their own.
+ */
+
+/* simple entropy collection function that uses the fast timer      */
+/* since we are not using the random pool for generating secret     */
+/* keys we don't need to be too worried about the entropy quality   */
+
+/* Modified in 2008 to add revised entropy generation courtesy of   */
+/* WinZip Inc. This code now performs the following sequence of     */
+/* entropy generation operations on sequential calls:               */ 
+/*                                                                  */
+/*      - the current 8-byte Windows performance counter value      */
+/*      - an 8-byte representation of the current date/time         */
+/*      - an 8-byte value built from the current process ID         */
+/*        and thread ID                                             */
+/*      - all subsequent calls return the then-current 8-byte       */
+/*        performance counter value                                 */
+
+int entropy_fun(unsigned char buf[], unsigned int len)
+{   unsigned __int64    pentium_tsc[1];
+    unsigned int        i;
+    static unsigned int num = 0;
+
+    switch(num)
+    {
+    /* use a value that is unlikely to repeat across system reboots         */
+    case 1: 
+        ++num;
+         GetSystemTimeAsFileTime((FILETIME *)pentium_tsc);
+        break;
+    /* use a value that distinguishes between different instances of this   */
+    /* code that might be running on different processors at the same time  */
+    case 2: 
+        ++num;
+        {   
+          unsigned __int32 processtest = GetCurrentProcessId();
+          unsigned __int32 threadtest  = GetCurrentThreadId();
+
+            pentium_tsc[0] = processtest;
+            pentium_tsc[0] = (pentium_tsc[0] << 32) + threadtest;
+        }
+        break;
+    
+    /* use a rapidly-changing value -- check QueryPerformanceFrequency()    */
+    /* to ensure that QueryPerformanceCounter() will work                   */
+    case 0: 
+        ++num;
+    default:
+        QueryPerformanceCounter((LARGE_INTEGER *)pentium_tsc);
+        break;
+    }
+
+    for(i = 0; i < 8 && i < len; ++i)
+        buf[i] = ((unsigned char*)pentium_tsc)[i];
+    return i;
+}
+# endif /* defined(DOS) || defined(WIN32) */
+
+/***********************************************************************
+ * Write encryption header to file zfile.
+ *
+ * Size (bytes)    Content
+ * Variable        Salt value
+ * 2               Password verification value
+ * Variable        Encrypted file data
+ * 10              Authentication code
+ *
+ * Here, writing salt and password verification.
+ */
+void aes_crypthead( OFT( ZCONST uch *)salt,
+                    OFT( uch) salt_len,
+                    OFT( ZCONST uch *)pwd_verifier)
+#ifdef NO_PROTO
+    ZCONST uch *salt;
+    uch salt_len;
+    ZCONST uch *pwd_verifier;
+#endif /* def NO_PROTO */
+{
+    bfwrite(salt, 1, salt_len, BFWRITE_DATA);
+    bfwrite(pwd_verifier, 1, 2, BFWRITE_DATA);
+}
+
+#endif /* CRYPT_AES */

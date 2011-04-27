@@ -39,6 +39,8 @@
 .!      01-008          Steven Schweda          21-MAY-2010
 .!              Minor tidying for version 3.1.
 .!              Adjusted /[NO]FULL_PATH and /[NO]JUNK usage.
+.!      01-009          Steven Schweda          22-APR-2011
+.!              Added /ENCRYPT options.
 .!
 <INIT>
 <MAIN>
@@ -766,13 +768,22 @@ See also /KEEP_VERSION.
 <QUALIFIER>
 /ENCRYPT
 
-/ENCRYPT[="password"]
+/ENCRYPT=(KEYWORD[,KEYWORD[...]])
 
-Encrypt new or updated archive entries using a password which is
-supplied by the user interactively on the terminal in response to a
-prompt.  (The password will not be echoed.)  If SYS$COMMAND is not a
-terminal, Zip will exit with an error.  The password is verified before
-being accepted.
+Encrypt new or updated archive entries.
+<LITERAL>
+|  ANSI_PASSWORD     Allow only ANSI characters in password (default).
+|  NOANSI_PASSWORD   Allow any characters in password.
+|  METHOD = mthd     Encryption method: STANDARD (default), AES128,
+|                    AES256.
+|  PASSWORD = "pwd"  Use specified password instead of interactive
+|                    inquiry.  INSECURE.
+<LARETIL>
+
+The encryption password is normally supplied by the user interactively
+on the terminal in response to a prompt.  (The password will not be
+echoed, and must be entered twice for verification.)  If SYS$COMMAND is
+not a terminal, Zip will exit with an error.
 
 You may specify the password on the command line, although we do not
 recommend it because THIS IS INSECURE.  Remember to enclose the password
@@ -780,11 +791,10 @@ string with quotation marks ("pass word"), to prevent automatic
 conversion to upper case or misinterpretation of punctuation characters
 by DCL.
 
-Because standard Zip encryption is weak, where security is truly
-important, use a strong encryption program, such as Pretty Good Privacy
-(PGP) or GNU Privacy Guard (GnuPG), on an archive instead of standard
-Zip encryption.  A stronger encryption method, such as AES, is planned
-for Zip 3.1.
+Zip standard encryption is weak, so where security is truly important,
+use AES encryption, or use an external strong encryption program, such
+as Pretty Good Privacy (PGP) or GNU Privacy Guard (GnuPG), on an archive
+instead of standard Zip encryption.
 <QUALIFIER>
 /EXCLUDE
 

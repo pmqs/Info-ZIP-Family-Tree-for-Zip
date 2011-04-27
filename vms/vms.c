@@ -24,6 +24,10 @@
  *      after the long fight with RMS.)
  *      Moved the VMS_PK_EXTRA test(s) into VMS_IM.C and VMS_PK.C to
  *      allow more general automatic dependency generation.
+ *
+ *  3.1         23-apr-2011     SMS
+ *      Added entropy_fun() for AES encryption.
+ *
  */
 
 #ifdef VMS                      /* For VMS only ! */
@@ -35,10 +39,14 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <unixlib.h>            /* getpid().  (<unistd.h> is too new.) */
 
-#include <jpidef.h>
+#include <descrip.h>
+#include <dvidef.h>
 #include <fab.h>                /* Needed only in old environments. */
 #include <nam.h>                /* Needed only in old environments. */
+#include <jpidef.h>
+#include <lib$routines.h>
 #include <starlet.h>
 #include <ssdef.h>
 #include <stsdef.h>
@@ -83,8 +91,76 @@
  * tested there) to allow more general automatic dependency generation.
  */
 
-#include "vms_pk.c"
-#include "vms_im.c"
+# include "vms_pk.c"
+# include "vms_im.c"
+
+
+# ifdef CRYPT_AES
+
+/* 2011-04-21 SMS.
+ *
+ *       entropy_fun().
+ *
+ *    Fill the user's buffer with up to 8 bytes of stuff.
+ */
+
+#  define EF_MIN( a, b) ((a) < (b) ? (a) : (b))
+
+int entropy_fun( unsigned char *buf, unsigned int len)
+{
+    union
+    {
+        unsigned char b[ 8];
+        unsigned int i[ 2];
+    } my_buf;                   /* Main buffer.  sys$gettim() results. */
+
+    union
+    {
+        unsigned char b[ 4];
+        unsigned int i;
+    } op_cnt;                   /* sys$getdvi() results. */
+
+    int i;
+    int sts;                    /* System service/RTL status, */
+    unsigned char bt;           /* Temporary byte. */
+
+    /* Descriptor for known-to-exist (and active) disk name. */
+    $DESCRIPTOR( dev_descr, "SYS$SYSDEVICE:");
+
+    /* Get the 64-bit VMS system time (100ns units). */
+    sts = sys$gettim( &my_buf);
+
+    /* A 64-bit system time should have rapidly changing low bits, but
+     * old (VAX) systems may increment by a big number (100000?) seldom,
+     * instead of by one every 100ns, so stir the process ID into the
+     * low half of the time.
+     */
+    my_buf.i[ 0] ^= getpid();
+
+    /* Get the 32-bit operation count on the system disk.
+     * (Should have rapidly changing low bits.)
+     */
+    sts = lib$getdvi( &((int) DVI$_OPCNT), 0, &dev_descr, &op_cnt, 0, 0);
+
+    /* Swap the bytes, to get some changing high bits. */
+    bt = op_cnt.b[ 0]; op_cnt.b[ 0] = op_cnt.b[ 3]; op_cnt.b[ 3] = bt;
+    bt = op_cnt.b[ 1]; op_cnt.b[ 1] = op_cnt.b[ 2]; op_cnt.b[ 2] = bt;
+
+    /* Stir the byte-swapped system disk op-count into the high half of
+     * the time.
+     */
+    my_buf.i[ 1] ^= op_cnt.i;
+
+    /* Move the results into the user's buffer. */
+    i = EF_MIN( 8, len);
+    memcpy( buf, &my_buf, i);
+
+    /* Return the byte count. */
+    return i;
+
+} /* entropy_fun(). */
+
+# endif /* def CRYPT_AES */
 
 #endif /* not UTIL [else] */
 
@@ -401,7 +477,6 @@ void version_local()
  *    hexadecimal PID, and "yyyyyyyy" is the hexadecimal serial number.
  *    This should still be safe on ODS2 or ODS5.
  */
-
 
 char *tempname( char *zip)
 /* char *zip; */                /* Path name of Zip archive. */
@@ -895,8 +970,6 @@ return 0;
 #ifdef __CRTL_VER
 
 #if !defined( __VAX) && (__CRTL_VER >= 70301000)
-
-#include <unixlib.h>
 
 /*--------------------------------------------------------------------*/
 

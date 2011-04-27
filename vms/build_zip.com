@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2009-11-30  SMS.
+$!     Last revised:  2011-04-21  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -10,7 +10,8 @@ $!     - suppress linking executables: "NOLINK"
 $!     - suppress help file processing: "NOHELP"
 $!     - suppress message file processing: "NOMSG"
 $!     - select compiler environment: "VAXC", "DECC", "GNUC"
-$!     - select large-file support: "LARGE"
+$!     - select AES encryption support: "AES" (DECC only)
+$!     - select large-file support: "LARGE" (Non-VAX only)
 $!     - select compiler listings: "LIST"  Note that the whole argument
 $!       is added to the compiler command, so more elaborate options
 $!       like "LIST/SHOW=ALL" (quoted or space-free) may be specified.
@@ -139,6 +140,7 @@ $!
 $ zipx_unx = "ZIP"
 $ zipx_cli = "ZIP_CLI"
 $!
+$ AES = ""
 $ CCOPTS = ""
 $ IZ_BZIP2 = ""
 $ IZ_ZLIB = ""
@@ -160,6 +162,12 @@ $ argloop:
 $     current_arg_name = "P''arg_cnt'"
 $     curr_arg = f$edit( 'current_arg_name', "UPCASE")
 $     if (curr_arg .eqs. "") then goto argloop_out
+$!
+$     if (f$extract( 0, 3, curr_arg) .eqs. "AES")
+$     then
+$         AES = 1
+$         goto argloop_end
+$     endif
 $!
 $     if (f$extract( 0, 5, curr_arg) .eqs. "CCOPT")
 $     then
@@ -371,6 +379,11 @@ $             destm = "''destm'V"
 $             cmpl = "VAC C"
 $         endif
 $         opts = "VAXC"
+$         if (AES .ne. 0)
+$         then
+$            say "AES is not available with GNU C or VAX C."
+$            AES = 0
+$         endif
 $     endif
 $ endif
 $!
@@ -402,7 +415,7 @@ $!
 $! If BZIP2 support was selected, find the object library.
 $! Complain if things fail.
 $!
-$ cc_incl = "[]"
+$ cc_incl = "[], [.VMS]"
 $ incl_bzip2_m = ""
 $ lib_bzip2_opts = ""
 $ if (IZ_BZIP2 .nes. "")
@@ -419,7 +432,6 @@ $     else
 $         say "BZIP2 dir: ''f$trnlnm( "lib_bzip2")'"
 $         incl_bzip2_m = ", ZBZ2ERR"
 $         lib_bzip2_opts = "lib_bzip2:''bz2_olb' /library, "
-$         cc_incl = cc_incl+ ", [.VMS]"
 $     endif
 $ endif
 $!
@@ -440,11 +452,14 @@ $         goto error
 $     else
 $         say "ZLIB dir:  ''f$trnlnm( "lib_zlib")'"
 $         lib_zlib_opts = "lib_zlib:''zlib_olb' /library, "
-$         if (f$locate( "[.VMS]", cc_incl) .ge. f$length( cc_incl))
-$         then
-$             cc_incl = cc_incl+ ", [.VMS]"
-$         endif
 $     endif
+$ endif
+$!
+$! Set AES-related data.  (Last, to avoid even crazier quotation.)
+$!
+$ if (AES .ne. 0)
+$ then
+$     defs = defs+ ", CRYPT_AES, _ENDIAN_H=""""""""""""endian.h"""""""""""""
 $ endif
 $!
 $! Reveal the plan.  If compiling, set some compiler options.
@@ -591,6 +606,18 @@ $     cc 'DEF_UNX' /object = [.'dest']VMS.OBJ [.VMS]VMS.C
 $     cc 'DEF_UNX' /object = [.'dest']VMSMUNCH.OBJ [.VMS]VMSMUNCH.C
 $     cc 'DEF_UNX' /object = [.'dest']VMSZIP.OBJ [.VMS]VMSZIP.C
 $!
+$     if (AES .ne. 0)
+$     then
+$         cc 'DEF_UNX' /object = [.'dest']AESCRYPT.OBJ [.AES]AESCRYPT.C
+$         cc 'DEF_UNX' /object = [.'dest']AESKEY.OBJ [.AES]AESKEY.C
+$         cc 'DEF_UNX' /object = [.'dest']AESTAB.OBJ [.AES]AESTAB.C
+$         cc 'DEF_UNX' /object = [.'dest']FILEENC.OBJ [.AES]FILEENC.C
+$         cc 'DEF_UNX' /object = [.'dest']HMAC.OBJ [.AES]HMAC.C
+$         cc 'DEF_UNX' /object = [.'dest']PRNG.OBJ [.AES]PRNG.C
+$         cc 'DEF_UNX' /object = [.'dest']PWD2KEY.OBJ [.AES]PWD2KEY.C
+$         cc 'DEF_UNX' /object = [.'dest']SHA1.OBJ [.AES]SHA1.C
+$     endif
+$!
 $! Create the object library.
 $!
 $     if (f$search( "[.''dest']ZIP.OLB") .eqs. "") then -
@@ -611,6 +638,19 @@ $     libr /object /replace [.'dest']ZIP.OLB -
        [.'dest']VMS.OBJ, -
        [.'dest']VMSMUNCH.OBJ, -
        [.'dest']VMSZIP.OBJ
+$!
+$     if (AES .ne. 0)
+$     then
+$         libr /object /replace [.'dest']ZIP.OLB -
+           [.'dest']AESCRYPT.OBJ, -
+           [.'dest']AESKEY.OBJ, -
+           [.'dest']AESTAB.OBJ, -
+           [.'dest']FILEENC.OBJ, -
+           [.'dest']HMAC.OBJ, -
+           [.'dest']PRNG.OBJ, -
+           [.'dest']PWD2KEY.OBJ, -
+           [.'dest']SHA1.OBJ
+$     endif
 $!
 $ endif
 $!

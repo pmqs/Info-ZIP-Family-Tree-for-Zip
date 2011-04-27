@@ -1,6 +1,6 @@
-#                                               28 November 2009.  SMS.
+#                                               21 April 2011.  SMS.
 #
-#    Zip 3.0 for VMS - MMS (or MMK) Description File.
+#    Zip 3.1 for VMS - MMS (or MMK) Description File.
 #
 # Usage:
 #
@@ -10,6 +10,8 @@
 # distribution directory, not from the [.VMS] subdirectory.
 #
 # Optional macros:
+#
+#    AES=1          Enable AES encryption support.  DEC C only.
 #
 #    CCOPTS=xxx     Compile with CC options xxx.  For example:
 #                   CCOPTS=/ARCH=HOST

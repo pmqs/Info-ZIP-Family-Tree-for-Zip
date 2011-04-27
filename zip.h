@@ -380,31 +380,6 @@ extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
    extern int vms_native;       /* Store in VMS format */
    extern int vms_case_2;       /* ODS2 file name case in VMS. -1: down. */
    extern int vms_case_5;       /* ODS5 file name case in VMS. +1: preserve. */
-
-/* Accomodation for /NAMES = AS_IS with old header files. */
-# define cma$tis_errno_get_addr CMA$TIS_ERRNO_GET_ADDR
-# define cma$tis_vmserrno_get_addr CMA$TIS_VMSERRNO_GET_ADDR
-# define lib$establish LIB$ESTABLISH
-# define lib$get_foreign LIB$GET_FOREIGN
-# define lib$get_input LIB$GET_INPUT
-# define lib$sig_to_ret LIB$SIG_TO_RET
-# define ots$cvt_tu_l OTS$CVT_TU_L
-# define str$concat STR$CONCAT
-# define str$find_first_substring STR$FIND_FIRST_SUBSTRING
-# define str$free1_dx STR$FREE1_DX
-# define sys$asctim SYS$ASCTIM
-# define sys$assign SYS$ASSIGN
-# define sys$bintim SYS$BINTIM
-# define sys$close SYS$CLOSE
-# define sys$connect SYS$CONNECT
-# define sys$dassgn SYS$DASSGN
-# define sys$display SYS$DISPLAY
-# define sys$getjpiw SYS$GETJPIW
-# define sys$open SYS$OPEN
-# define sys$parse SYS$PARSE
-# define sys$qiow SYS$QIOW
-# define sys$read SYS$READ
-# define sys$search SYS$SEARCH
 #endif /* VMS */
 #if defined(OS2) || defined(WIN32)
    extern int use_longname_ea;   /* use the .LONGNAME EA as the file's name */

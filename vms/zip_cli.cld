@@ -1,5 +1,5 @@
 	Module		ZIP_CLITABLE
-	Ident		"03-001"
+	Ident		"03-101"
 
 Define	Verb		ZIP
 	Parameter	P1, Label=ZIPFILE, Prompt="Zip file"
@@ -17,16 +17,16 @@ Define	Verb		ZIP
 	Qualifier	BATCH, NonNegatable, VALUE(type=$FILE)
 	Qualifier	BEFORE, NonNegatable, VALUE(type=$DATETIME)
 	Qualifier	COMMENTS, NonNegatable,
-			VALUE(list,type=COMMENTS_KEYWORDS)
+			VALUE(list,type=COMMENTS_OPTS)
 	Qualifier	COMPRESSION, NonNegatable, VALUE(type=COMPRESS_OPTS)
 	Qualifier	COPY_ENTRIES, NonNegatable
 	Qualifier	DESCRIPTORS, NonNegatable
 	Qualifier	DIFFERENCE, NonNegatable
 	Qualifier	DIRNAMES, Negatable, Default
 	Qualifier	DISPLAY, NonNegatable,
-			 VALUE(type=DISPLAY_KEYWORDS, required, list)
+			 VALUE(type=DISPLAY_OPTS, required, list)
 	Qualifier	DOT_VERSION, NonNegatable
-	Qualifier	ENCRYPT, Negatable, VALUE
+	Qualifier	ENCRYPT, Negatable, VALUE(type=ENCRYPT_OPTS, list)
 	Qualifier	EXTRA_FIELDS, Negatable, VALUE(type=EXTRA_OPTS)
 	Qualifier	FILESYNC, NonNegatable
 	Qualifier	FIX_ARCHIVE, NonNegatable, VALUE(type=FIX_OPTS)
@@ -50,7 +50,7 @@ Define	Verb		ZIP
 	Qualifier	QUIET, NonNegatable
 	Qualifier	RECURSE, Negatable, VALUE(type=RECURSE_OPTS)
 	Qualifier	SHOW, NonNegatable,
-			 VALUE(type=SHOW_KEYWORDS, required, list)
+			 VALUE(type=SHOW_OPTS, required, list)
 	Qualifier	SINCE, NonNegatable, VALUE(type=$DATETIME)
 	Qualifier	SPLIT, NonNegatable,
 			VALUE(list, required, type=SPLIT_OPTS)
@@ -59,7 +59,7 @@ Define	Verb		ZIP
 	Qualifier	TEMP_PATH, VALUE(required,type=$FILE)
 	Qualifier	TEST, NonNegatable, VALUE(type=TEST_OPTS)
 	Qualifier	TRANSLATE_EOL, NonNegatable,
-			VALUE(type=EOL_KEYWORDS)
+			VALUE(type=EOL_OPTS)
 	Qualifier	UNSFX, NonNegatable
 	Qualifier	VERBOSE, NonNegatable,
 			 VALUE(type=VERBOSE_OPTS, list)
@@ -90,7 +90,7 @@ Define	Type		PATT_CASE_OPTS
 	Keyword		BLIND
 	Keyword		SENSITIVE, DEFAULT
 
-Define	Type		COMMENTS_KEYWORDS
+Define	Type		COMMENTS_OPTS
 	Keyword		ARCHIVE, DEFAULT
 	Keyword		FILES
 	Keyword		ZIP_FILE
@@ -100,7 +100,7 @@ Define	Type		COMPRESS_OPTS
 	Keyword		DEFLATE, DEFAULT
 	Keyword		STORE
 
-Define	Type		DISPLAY_KEYWORDS
+Define	Type		DISPLAY_OPTS
 	Keyword		BYTES
 	Keyword		COUNTS
 	Keyword		DOTS, VALUE
@@ -108,7 +108,17 @@ Define	Type		DISPLAY_KEYWORDS
 	Keyword		USIZE
 	Keyword		VOLUME
 
-Define	Type		EOL_KEYWORDS
+Define	Type		ENCRYPT_METHOD_OPTS
+	Keyword		STANDARD, DEFAULT
+	Keyword		AES128
+	Keyword		AES256
+
+Define	Type		ENCRYPT_OPTS
+	Keyword		ANSI_PASSWORD, Negatable
+	Keyword		METHOD, VALUE(type=ENCRYPT_METHOD_OPTS)
+	Keyword		PASSWORD, VALUE(required)
+
+Define	Type		EOL_OPTS
 	Keyword		LF, DEFAULT
 	Keyword		CRLF
 
@@ -139,7 +149,7 @@ Define	Type		RECURSE_OPTS
 	Keyword		PATH, DEFAULT
 	Keyword		FILENAMES
 
-Define	Type		SHOW_KEYWORDS
+Define	Type		SHOW_OPTS
 	Keyword		COMMAND
 	Keyword		DEBUG
 	Keyword		FILES

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -26,7 +26,7 @@
  */
 #if 0
 # define module_name VMS_ZIP_CMDLINE
-# define module_ident "02-008"
+# define module_ident "02-009"
 #endif /* 0 */
 
 /*
@@ -45,6 +45,10 @@
 **
 **  Modified by:
 **
+**      02-009          Steven Schweda          22-APR-2011
+**              Added /ENCRYPT options: [NO]ANSI_PASSWORD, METHOD,
+**              PASSWORD.  Sadly, old /ENCRYPT = passwd syntax is now
+**              invalid.
 **      02-008          Steven Schweda          21-MAY-2010
 **              Changed /JUNK to /[NO]JUNK, combined its code with that
 **              for /[NO]FULL_PATH, and replaced (no-op) "-p" with "-j-
@@ -94,7 +98,7 @@
 # endif
 #endif /* 0 */
 
-/* Accomodation for /NAMES = AS_IS with old header files. */
+/* Accommodation for /NAMES = AS_IS with old header files. */
 
 #define lib$establish LIB$ESTABLISH
 #define lib$get_foreign LIB$GET_FOREIGN
@@ -186,7 +190,12 @@ $DESCRIPTOR(cli_display_globaldots, "DISPLAY.GLOBALDOTS"); /* -dg */
 $DESCRIPTOR(cli_display_usize,  "DISPLAY.USIZE");       /* -du */
 $DESCRIPTOR(cli_display_volume, "DISPLAY.VOLUME");      /* -dv */
 $DESCRIPTOR(cli_dot_version,    "DOT_VERSION");         /* -ww */
-$DESCRIPTOR(cli_encrypt,        "ENCRYPT");             /* -e,-P */
+$DESCRIPTOR(cli_encrypt,        "ENCRYPT");             /* -e,-P,-pn,-Y */
+$DESCRIPTOR(cli_encrypt_ansi,   "ENCRYPT.ANSI_PASSWORD"); /* -pn */
+$DESCRIPTOR(cli_encrypt_mthd,   "ENCRYPT.METHOD");      /* -Y */
+$DESCRIPTOR(cli_encrypt_mthd_aes1, "ENCRYPT.METHOD.AES128"); /* -Y aes128 */
+$DESCRIPTOR(cli_encrypt_mthd_aes2, "ENCRYPT.METHOD.AES256"); /* -Y aes256 */
+$DESCRIPTOR(cli_encrypt_pass,   "ENCRYPT.PASSWORD");    /* -P */
 $DESCRIPTOR(cli_extra_fields,   "EXTRA_FIELDS");        /* -X [/NO] */
 $DESCRIPTOR(cli_extra_fields_normal, "EXTRA_FIELDS.NORMAL"); /* no -X */
 $DESCRIPTOR(cli_extra_fields_keep, "EXTRA_FIELDS.KEEP_EXISTING"); /* -X- */
@@ -194,12 +203,12 @@ $DESCRIPTOR(cli_filesync,       "FILESYNC");            /* -FS */
 $DESCRIPTOR(cli_fix_archive,    "FIX_ARCHIVE");         /* -F[F] */
 $DESCRIPTOR(cli_fix_normal,     "FIX_ARCHIVE.NORMAL");  /* -F */
 $DESCRIPTOR(cli_fix_full,       "FIX_ARCHIVE.FULL");    /* -FF */
-$DESCRIPTOR(cli_full_path,      "FULL_PATH");           /* -j-, -j */
+$DESCRIPTOR(cli_full_path,      "FULL_PATH");           /* -j-,-j */
 $DESCRIPTOR(cli_grow,           "GROW");                /* -g */
 $DESCRIPTOR(cli_help,           "HELP");                /* -h */
 $DESCRIPTOR(cli_help_normal,    "HELP.NORMAL");         /* -h */
 $DESCRIPTOR(cli_help_extended,  "HELP.EXTENDED");       /* -h2 */
-$DESCRIPTOR(cli_junk,           "JUNK");                /* -j, -j- */
+$DESCRIPTOR(cli_junk,           "JUNK");                /* -j,-j- */
 $DESCRIPTOR(cli_keep_version,   "KEEP_VERSION");        /* -w */
 $DESCRIPTOR(cli_latest,         "LATEST");              /* -o */
 $DESCRIPTOR(cli_level,          "LEVEL");               /* -[0-9] */
@@ -668,21 +677,94 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     /*
     **  Encrypt?
     */
-    status = cli$present(&cli_encrypt);
+#define OPT_E    "-e"           /* Encrypt. */
+#define OPT_P    "-P"           /* Password. */
+#define OPT_PN   "-pn"          /* Permit non-ANSI chars in password. */
+#define OPT_PNN  "-pn-"         /* Permit only ANSI chars in password. */
+#define OPT_Y    "-Y"           /* Method. */
+#define OPT_YA1  "aes128"       /* Method AES128. */
+#define OPT_YA2  "aes256"       /* Method AES128. */
+#define OPT_YS   "standard"     /* Method standard. */
+
+    status = cli$present( &cli_encrypt);
     if (status & 1)
-        if ((status = cli$get_value(&cli_encrypt, &work_str)) & 1) {
-            /* /ENCRYPT = value */
+    {
+        char *opt;
+
+        /* /ENCRYPT. */
+        if (cli$present( &cli_encrypt_pass) & 1)
+        {
+            /* /ENCRYPT = PASSWORD = "pwd". */
             x = cmdl_len;
-            cmdl_len += work_str.dsc$w_length + 4;
-            CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
-            strcpy(&the_cmd_line[x], "-P");
-            strncpy(&the_cmd_line[x+3], work_str.dsc$a_pointer,
-                    work_str.dsc$w_length);
-            the_cmd_line[cmdl_len-1] = '\0';
-        } else {
-            /* /ENCRYPT */
-            *ptr++ = 'e';
+            cmdl_len += strlen( OPT_P)+ 1;
+            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            strcpy( &the_cmd_line[ x], OPT_P);
+
+            if (cli$get_value( &cli_encrypt_pass, &work_str) & 1)
+            {
+                x = cmdl_len;
+                cmdl_len += work_str.dsc$w_length+ 1;
+                CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+                strncpy( &the_cmd_line[ x], work_str.dsc$a_pointer,
+                 work_str.dsc$w_length);
+                the_cmd_line[ cmdl_len- 1] = '\0';
+            }
         }
+        else
+        {
+            /* /ENCRYPT (no password). */
+            x = cmdl_len;
+            cmdl_len += strlen( OPT_E)+ 1;
+            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            strcpy( &the_cmd_line[ x], OPT_E);
+        }
+
+        status = cli$present( &cli_encrypt_ansi);
+        if ((status & 1) || (status == CLI$_NEGATED))
+        {
+            /* /ENCRYPT = [NO]ANSI_PASSWORD */
+            if (status == CLI$_NEGATED)
+            {
+                /* /ENCRYPT = NOANSI_PASSWORD */
+                opt = OPT_PN;
+            }
+            else
+            {
+                /* /ENCRYPT = ANSI_PASSWORD */
+                opt = OPT_PNN;
+            }
+            x = cmdl_len;
+            cmdl_len += strlen( opt)+ 1;
+            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            strcpy( &the_cmd_line[ x], opt);
+        }
+
+        if (cli$present( &cli_encrypt_mthd) & 1)
+        {
+            /* /ENCRYPT = METHOD = mthd. */
+            x = cmdl_len;
+            cmdl_len += strlen( OPT_Y)+ 1;
+            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            strcpy( &the_cmd_line[ x], OPT_Y);
+
+            if (cli$present( &cli_encrypt_mthd_aes1) & 1)
+            {
+                opt = OPT_YA1;
+            }
+            else if (cli$present( &cli_encrypt_mthd_aes2) & 1)
+            {
+                opt = OPT_YA2;
+            }
+            else
+            {
+                opt = OPT_YS;
+            }
+            x = cmdl_len;
+            cmdl_len += strlen( opt)+ 1;
+            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            strcpy( &the_cmd_line[ x], opt);
+        }
+    }
 
     /*
     **  Fix the zip archive structure.

@@ -1,12 +1,12 @@
-$!                                              1 December 2006.  SMS.
+$!                                              21 April 2011.  SMS.
 $!
 $! Info-ZIP VMS accessory procedure.
 $!
 $!    For the product named by P1,
-$!    collect all source file dependencies specified by P3,
-$!    and add P4 prefix.
-$!    Convert absolute dependencies to relative from one level above P5.
 $!    P2 = output file specification.
+$!    Collect all source file dependencies specified by P3,
+$!    and add P4 prefix to the object file.
+$!    Convert absolute dependencies to relative from one level above P5.
 $!
 $! MMS /EXTENDED_SYNTAX can't easily pass a macro invocation for P4, so
 $! we remove any internal spaces which might have been added to prevent
@@ -39,7 +39,7 @@ $! Include proper-inclusion-check preface.
 $!
 $ incl_macro = "INCL_"+ f$parse( p2, , , "NAME", "SYNTAX_ONLY")
 $ write deps_out "#"
-$ write deps_out "# ''p1' for VMS - MMS (or MMK) Source Dependency File."
+$ write deps_out "# ''p1' - MMS (or MMK) Source Dependency File."
 $ write deps_out "#"
 $ write deps_out ""
 $ write deps_out -
@@ -73,8 +73,8 @@ $          front = f$extract( 0, (colon+ 3), line_reduced)
 $          back = f$extract( (colon+ 3+ f$length( dev_dir_lose)), -
             1000, line_reduced)
 $          line = front+ "["+ back
+$          write deps_out "''prefix'"+ "''line'"
 $       endif
-$       write deps_out "''prefix'"+ "''line'"
 $    goto loop_subs_top
 $!
 $    loop_subs_end:
