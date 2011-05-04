@@ -201,6 +201,7 @@ struct zlist {
 #if defined( UNIX) && defined( __APPLE__)
   int flags;
 #endif /* defined( UNIX) && defined( __APPLE__) */
+  int encrypt_method;
   struct zlist far *nxt;        /* Pointer to next header in list */
 };
 struct flist {

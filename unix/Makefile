@@ -3,13 +3,15 @@
 # what you can make ...
 all:
 	@echo ''
-	@echo 'Make what?  You must say what system to make Zip for--e.g.'
-	@echo '"make generic".'
-	@echo 'Choices: generic, generic_gcc, att6300nodir,'
-	@echo 'coherent, cray_v3, cygwin, lynx, minix, os390,'
-	@echo 'qnx, qnxnto, solaris, solaris_gcc'
-	@echo 'Try first "make -f unix/Makefile generic" as'
-	@echo 'it should autodetect and set the proper flags.'
+	@echo 'Make what?  You must specify which system to make Zip for.'
+	@echo 'For example: "make generic" (cc) or "make generic CC=gcc" (gcc).'
+	@echo 'The "make" target choices are:'
+	@echo '    generic, att6300nodir, coherent, cray_v3, cygwin,'
+	@echo '    lynx, minix, os390, qnx, qnxnto, solaris'
+	@echo 'Add "CC=gcc" to the "make" command to use "gcc" instead of "cc".'
+	@echo 'First try "make -f unix/Makefile generic" (to use "cc")'
+	@echo '(or "make -f unix/Makefile generic CC=gcc" (to use "gcc")), as'
+	@echo '"generic" should autodetect and set the proper flags.'
 	@echo 'To make the manuals use "make zipsman" after Zip is made.'
 	@echo 'See the files INSTALL and zip.txt for more information.'
 	@echo ''
@@ -221,7 +223,9 @@ uninstall:
 
 
 flags:  unix/configure
-	sh unix/configure "${CC}" "${CFLAGS_NOOPT}" "${IZ_BZIP2}" "${IZ_ZLIB}"
+	sh unix/configure "AES=${AES}" \
+         "CC=${CC}" "CFLAGS=${CFLAGS_NOOPT}" \
+         "IZ_BZIP2=${IZ_BZIP2}" "IZ_ZLIB=${IZ_ZLIB}"
 
 # These symbols, when #defined using -D have these effects on compilation:
 # ZMEM                  - includes C language versions of memset(), memcpy(),
@@ -240,13 +244,10 @@ flags:  unix/configure
 # NO_UNICODE_SUPPORT    - do not enable Unicode support even if available.
 # NO_BZIP2_SUPPORT      - do not compile in bzip2 code even if available.
 
-#               Generic targets:
+#               Generic target:
 
 generic: flags
 	eval $(MAKE) $(MAKEF) zips `cat flags`
-
-generic_gcc:
-	$(MAKE) $(MAKEF) generic CC=gcc CPP="gcc -E"
 
 # AT&T 6300 PLUS (don't know yet how to allocate 64K bytes):
 att6300nodir:
@@ -338,9 +339,6 @@ qnxnto:
 
 # Solaris:  Generic, plus generation of installable package.
 solaris:	generic svr4package
-
-# Solaris with GCC: generic_gcc, plus generation of installable package
-solaris_gcc:	generic_gcc svr4package
 
 # Package generation interface (by JBush). Originally tested under Sun Solaris.
 # Other SVr4s may be very similar, and could possibly use this.

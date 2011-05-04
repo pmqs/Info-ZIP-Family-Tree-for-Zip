@@ -2919,6 +2919,7 @@ char **argv;            /* command line tokens */
 #ifdef ENABLE_ENTRY_TIMING
   start_zip_time = 0;         /* after scan, when start zipping files */
 #endif
+  encryption_method = 0;
 
 #if defined(WINDLL)
   retcode = setjmp(zipdll_error_return);
@@ -2970,7 +2971,7 @@ char **argv;            /* command line tokens */
 #endif /* IZ_CHECK_TZ && USE_EF_UT_TIME */
 
 /* For systems that do not have tzset() but supply this function using another
-   name (_tzset() or something similar), an appropiate "#define tzset ..."
+   name (_tzset() or something similar), an appropriate "#define tzset ..."
    should be added to the system specifc configuration section.  */
 #if (!defined(TOPS20) && !defined(VMS))
 #if (!defined(RISCOS) && !defined(MACOS) && !defined(QDOS))
@@ -3296,6 +3297,9 @@ char **argv;            /* command line tokens */
           if (key)
             free(key);
           key_needed = 1;
+          if (encryption_method == 0) {
+            encryption_method = 1;
+          }
 #endif /* !CRYPT */
           break;
         case 'F':   /* fix the zip file */
@@ -3483,6 +3487,9 @@ char **argv;            /* command line tokens */
 #if CRYPT
           key = value;
           key_needed = 0;
+          if (encryption_method == 0) {
+            encryption_method = 1;
+          }
 #else
           ZIPERR(ZE_PARMS, "encryption not supported");
 #endif /* CRYPT */
@@ -4111,7 +4118,7 @@ char **argv;            /* command line tokens */
       }
       if (out_path_len > 4) {
         char *ext = out_path + out_path_len - 4;
-        if (strcasecmp(ext, ".zip") == 0) {
+        if (STRCASECMP(ext, ".zip") == 0) {
           /* remove .zip before adding .log */
           strncpy(logfile_path, out_path, out_path_len - 4);
           logfile_path[out_path_len - 4] = '\0';
@@ -4448,7 +4455,7 @@ char **argv;            /* command line tokens */
   }
   if (action == ARCHIVE && (method != BEST || dispose || recurse ||
       comadd || zipedit)) {
-    zipwarn("can't set method, move, recurse, or comments with copy mode.","");
+    zipwarn("can't set method, move, recurse, or comments with copy mode","");
     /* reset flags - needed? */
     method  = BEST;
     dispose = 0;

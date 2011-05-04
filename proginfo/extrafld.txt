@@ -59,7 +59,7 @@ Ed Gordon, 20060819, 20070607, 20070909, 20080426, 20080509
           0x4453        Windows NT security descriptor (binary ACL)
           0x4704        VM/CMS
           0x470f        MVS
-          0x4854        Theos, old inofficial port
+          0x4854        Theos, old unofficial port
           0x4b46        FWKCS MD5 (see below)
           0x4c41        OS/2 access control list (text ACL)
           0x4d49        Info-ZIP OpenVMS (obsolete)
@@ -1185,10 +1185,10 @@ The following are detailed descriptions of the known extra-field block types:
             0x80  not hidden
 
 
-         -THEOS old inofficial Extra Field:
+         -THEOS old unofficial Extra Field:
           ================================
 
-          The following is the layout of an inoffical former version of a
+          The following is the layout of an unofficial former version of a
           Theos file-attributes extra blocks.  This layout was never published
           and is no longer created. However, UnZip can optionally support it
           when compiling with the option flag OLD_THEOS_EXTRA defined.

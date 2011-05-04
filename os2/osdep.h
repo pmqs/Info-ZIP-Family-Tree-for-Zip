@@ -38,7 +38,7 @@
 /* #  define ASM_CRC */
 #endif
 
-/* enable creation of UTC time fields unless explicitely suppressed */
+/* enable creation of UTC time fields unless explicitly suppressed */
 #if (!defined(NO_EF_UT_TIME) && !defined(USE_EF_UT_TIME))
 #  define USE_EF_UT_TIME
 #endif

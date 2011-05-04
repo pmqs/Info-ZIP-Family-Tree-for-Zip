@@ -5,11 +5,11 @@
 # configure: Test to determine values for system-dependent variables.
 # Output the flag definitions to the file "$PROD/flags".
 #
-# Parameters: $1 = $CC, $2 = $CFLAGS, $3 = $IZ_BZIP2, $4 = $IZ_ZLIB,
-#             $5 = $PROD
+# Parameters: Specify "var=value" for "var" names like:
+#   CC, CFLAGS, IZ_BZIP2, IZ_ZLIB, PROD
 #
-# This file is typically called from Makefile rather than executed
-# from the command line.
+# This shell script is typically run from Makefile rather than executed
+# directly by the user.
 #
 # To construct zip automatically using this file, type
 # "make -f unix/Makefile generic".
@@ -17,22 +17,41 @@
 
 trap "rm -f conftest* core a.out; exit 1" 1 2 3 15
 
-CC=${1:-cc}
-CFLAGS=${2-"-I. -DUNIX"}
-LFLAGS1=''
-LFLAGS2=''
+# Evaluate command-line "make"-macro-like var=value expressions.
+
+# Evaluate only variables in this list.  Complain about others, but continue.
+valid_vars="|AES|CC|CFLAGS|IZ_BZIP2|IZ_ZLIB|LFLAGS1|LFLAGS2|PROD|"
+
+argc=$#
+while test ${argc} -gt 0 ; do
+  var=` echo "${1}" | sed -e 's/=.*//' `
+  val=` echo "${1}" | sed -e 's/^[^=]*=//' `
+  if echo "${valid_vars}" | grep "|${var}|" > /dev/null 2>&1 ; then
+    eval ${arg}
+  else
+    echo "   Unrecognized variable name \"${var}\" in \"${1}\"."
+  fi
+  shift
+  argc=` expr ${argc} - 1 `
+done
+
+# Command-line option variables, default values.
+
+CC=${CC:-cc}
+CFLAGS=${CFLAGS-"-I. -DUNIX"}
+LFLAGS1=${LFLAGS1-}
+LFLAGS2=${LFLAGS2-}
+PROD=${PROD:-.}
+
+# Miscellaneous command macros.
+
 LN="ln -s"
 
-CFLAGS_OPT=''
+# Special-purpose CFLAGS_xxx variables.
 
-# bzip2
-IZ_BZIP2=${3-}
+CFLAGS_OPT=''
 CFLAGS_BZ=''
 
-# zlib
-IZ_ZLIB=${4-}
-
-PROD=${5:-.}
 
 echo "Check C compiler+linker operation"
 cat > conftest.c << _EOF_
@@ -173,12 +192,12 @@ if test -n "${CFLAGS_OPT}"; then
 fi
 
 
-# AES encryption.
-
-echo "Check AES encryption support"
+# AES encryption.  (User must request: "AES=1".)
 
 LIB_AES=''
-cat > conftest.c << _EOF_
+if test "${AES}" -ne 0 ; then
+  echo "Check AES encryption support"
+  cat > conftest.c << _EOF_
 int main()
 {
 #include <aes/aes.h>
@@ -188,13 +207,15 @@ int main()
    return 0;
 }
 _EOF_
-$CC $CFLAGS -c conftest.c > /dev/null 2>/dev/null
-if [ $? -eq 0 ]; then
-  LIB_AES="libaes.a"
-  LFLAGS2="${LFLAGS2} -L. -laes"
-  echo "  Including AES encryption support"
-else
-  echo "  Not including AES encryption support"
+  $CC $CFLAGS -DCRYPT_AES -c conftest.c > /dev/null 2>/dev/null
+  if [ $? -eq 0 ]; then
+    CFLAGS="${CFLAGS} -DCRYPT_AES"
+    LIB_AES="libaes.a"
+    LFLAGS2="${LFLAGS2} -L. -laes"
+    echo "  Including AES encryption support"
+  else
+    echo "  Not including AES encryption support  (Check \"aes\" directory?)"
+  fi
 fi
 
 

@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -274,7 +274,7 @@ struct iosb
  *  to unaligned fields in the PK_info structure representing the
  *  extra field layout.  When compiled for Alpha AXP, this results in
  *  some performance (and code size) penalty.  It is not allowed to
- *  apply structure padding, since this is explicitely forbidden in
+ *  apply structure padding, since this is explicitly forbidden in
  *  the specification (APPNOTE.TXT) for the PK VMS extra field.
  */
 typedef struct

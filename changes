@@ -2714,7 +2714,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  1. Modify configure and Makefile to only allow compiling bzip2 in the Zip bzip2
     source directory.  unix/Makefile, unix/configure (SMS, Ed)
  2. Update bzip2 installation instructions.  bzip2/install.txt (SMS, Ed)
- 3. Remove need for BZIP2_USEBZIP2DIR define by using an appropiate include dir
+ 3. Remove need for BZIP2_USEBZIP2DIR define by using an appropriate include dir
     specification (-I ../../bzip2) when needed.  zip.c, win32/vc6bz2/zip.dsp,
     unix/configure (SMS, Ed, Christian)
  4. Update VC6 readme.  win32/readmeVC.txt (Christian, Ed)
@@ -4137,24 +4137,44 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 11. Add tradeoff comment for files that don't compress.  zipfile.c (EG)
 12. Fix Win32 bytes security message so goes to console and log as requested.
     win32/win32zip.c (EG)
-13. Added install file to aes directory.  aes/installaes.txt (EG)
--------------------- xxxxxx xxth 2011 version 3.1d04 -----------------------
+13. Added install readme to aes directory.  aes/installaes.txt (EG)
+-------------------- April 20th 2011 version 3.1d04 -----------------------
  1. SunOS 4.x (like Tru64) needed <sys/time.h>.  New C macro HAVE_SYS_TIME_H
     replaces old Tru64 condition.  fileio.c, unix/configure (SMS)
  2. For operations with both input and output archives, temporary archive
     files could be created on the file system with the input archive instead
     of on that of the output archive, wasting time when the temporary archive
     needed to be copied (not renamed) to its destination, or causing I/O
-    errors if the input archive was on a read-only file system.  New -sd
+    errors if the input archive was on a read-only file system.  Now instead
+    of zipfile (input archive path) use out_path (output archive path) as
+    base of temp path when out_path is different than zipfile.  New -sd
     diagnostic messages reveal more info on temporary files.  fileio.c,
     globals.c, zip.c, zip.h (SMS)
  3. GCC 2.8.1 on SunOS 4.1.4 wanted a declaration of strerror() when using
-    our replacement strerror() function.  tailor.h (SMS)
+    our replacement strerror() function.  Changed UINT_MAX, ULONG_INT, and
+    USHRT_MAX checks to drop UL on constants.  tailor.h (SMS)
  4. Use "uname" output for more system names.  unix/unix.c  (SMS)
  5. Expanded the VMS-specific errbuf[] buffer to accommodate longer messages
     or file names.  vms/cmdline.c (SMS).
- 6. Added a ZCONST to the VMS-specific ziperr() declaration, to agree with
+ 6. Add a ZCONST to the VMS-specific ziperr() declaration, to agree with
     the prototype in "zip.h".  vms/cmdline.c (SMS).
  7. VMS-specific tempname() improperly reused temporary archive names for
     split archives.  "ZI<process_id>.<serial>" replaces "ZI<process_id>.",
     providing multiple unique names when needed.  vms/vms.c (SMS)
+ 8. Replace stricmp() with strcasecmp().  zip.c (SMS)
+ 9. Renamed NAM[L]-related macros from NAM_* to more suggestive NAMX_*.
+    Added NAMX_DNA_FNA_SET macro to simplify some NAML-only code.
+    vms/vms.c, vms/vms.h, vms/vms_im.c, vms/vms_pk.c, vms/vmsmunch.c,
+    vms/vmszip.c (SMS)
+10. Disable the old "make some kind of mktemppath()" code, allowing temp path
+    code later in file to do its job.  zip.c (SMS)
+11. Move definition of variable how outside of ZIP64_SUPPORT block as needed
+    by AES encryption even if not using ZIP64_SUPPORT.  zipfile.c (EG)
+12. Define STRCASECMP() that resolves to stricmp() on Windows and strcasecmp()
+    for other ports.  tailor.h, zip.c (EG)
+-------------------- April 27th 2011 version 3.1d05 -----------------------
+ 1. Fix bug where standard encrypted entries were being marked as AES when
+    AES entries were added.  Add encrypt_method to zlist structure.  zip.c,
+    zip.h, zipfile.c, zipup.c (EG)
+ 2. Fix endian problems in AES source.  Need to report back the fixes to
+    Gladman.  aes/aesopt.h, aes/sha1.c (SMS)

@@ -165,9 +165,9 @@
  local int add_Unicode_Path_cen_extra_field OF((struct zlist far *));
 #endif
 
-#ifdef CRYPT_AES				
+#ifdef CRYPT_AES
 # define CRYPT_AES_EF_TAG       0x9901  /* ID for AES encryption extra field */
- local int add_crypt_aes_local_extra_field OF((struct zlist far *, ush,
+ local int add_crypt_aes_local_extra_field OF((struct zlist far *, ush, 
   uch, ush));
  local int add_crypt_aes_cen_extra_field OF((struct zlist far *, ush,
   uch, ush));
@@ -5120,6 +5120,17 @@ local int scanzipf_regnew()
       z->uname = z->zuname = z->ouname = NULL;
 #endif
 
+      z->encrypt_method = 0;
+      if (z->flg & 1) {
+        if (z->how == 99) {
+          /* WinZip AES */
+          z->encrypt_method = 2;
+        } else if (!(z->flg & 32)) {
+          /* if Bit 6 not set, assume standard encryption */
+          z->encrypt_method = 1;
+        }
+      }
+
       /* Read file name, extra field and comment field */
       if (z->nam == 0)
       {
@@ -5622,6 +5633,7 @@ int putlocal(z, rewrite)
   int streaming_in = 0; /* streaming stdin */
   int was_zip64 = 0;
 
+
   /* If input is stdin then streaming stdin.  No problem with that.
 
      The problem is updating the local header data in the output once the sizes
@@ -5768,7 +5780,7 @@ int putlocal(z, rewrite)
   }
 
 #ifdef CRYPT_AES
-  if (encryption_method > 1) {
+  if (z->encrypt_method > 1) {
       if (add_crypt_aes_local_extra_field(z, aes_vendor_version, aes_strength, comp_method) != ZE_OK) {
           ZIPERR(ZE_MEM, "AES local ef");
       }
@@ -6055,7 +6067,7 @@ int putcentral(z)
   off = z->off;
 
 #ifdef CRYPT_AES
-  if (encryption_method > 1) {
+  if (z->encrypt_method > 1) {
       if (add_crypt_aes_cen_extra_field(z, aes_vendor_version, aes_strength, comp_method) != ZE_OK) {
           ZIPERR(ZE_MEM, "AES local ef");
       }
@@ -6775,6 +6787,8 @@ int zipcopy(z)
     z->crc = localz->crc;
   else
     localz->crc = z->crc;
+
+  localz->encrypt_method = z->encrypt_method;
 
   if (putlocal(localz, PUTLOCAL_WRITE) != ZE_OK)
       return ZE_TEMP;
