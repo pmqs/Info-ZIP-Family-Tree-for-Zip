@@ -201,20 +201,21 @@ if test "${AES}" -ne 0 ; then
 int main()
 {
 #include <aes/aes.h>
-#ifndef CRYPT_AES
+#ifndef CRYPT_AES_WG
    forget it
 #endif
    return 0;
 }
 _EOF_
-  $CC $CFLAGS -DCRYPT_AES -c conftest.c > /dev/null 2>/dev/null
+  $CC $CFLAGS -DCRYPT_AES_WG -c conftest.c > /dev/null 2>/dev/null
   if [ $? -eq 0 ]; then
-    CFLAGS="${CFLAGS} -DCRYPT_AES"
+    CFLAGS="${CFLAGS} -DCRYPT_AES_WG"
     LIB_AES="libaes.a"
     LFLAGS2="${LFLAGS2} -L. -laes"
-    echo "  Including AES encryption support"
+    echo "-- Including AES encryption"
   else
-    echo "  Not including AES encryption support  (Check \"aes\" directory?)"
+    echo "-- AES code not found  (Check \"aes\" directory?)"
+    echo "-- Unable to include AES encryption"
   fi
 fi
 

@@ -1,4 +1,4 @@
-#                                               21 April 2011.  SMS.
+#                                               12 May 2011.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Description File.
 #
@@ -16,9 +16,9 @@
 #    CCOPTS=xxx     Compile with CC options xxx.  For example:
 #                   CCOPTS=/ARCH=HOST
 #
-#    DBG=1          Compile with /DEBUG /NOOPTIMIZE.
-#                   Link with /DEBUG /TRACEBACK.
-#                   (Default is /NOTRACEBACK.)
+#    DBG=1          Compile /DEBUG /NOOPTIMIZE.  Link /DEBUG /TRACEBACK.
+#    TRC=1          Default is /NOTRACEBACK, but TRC=1 enables link with
+#                   /TRACEBACK without compiling for debug.
 #
 #    IM=1           Use the old "IM" scheme for storing VMS/RMS file
 #                   atributes, instead of the newer "PK" scheme.

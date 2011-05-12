@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2011-04-21  SMS.
+$!     Last revised:  2011-05-11  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -459,7 +459,8 @@ $! Set AES-related data.  (Last, to avoid even crazier quotation.)
 $!
 $ if (AES .ne. 0)
 $ then
-$     defs = defs+ ", CRYPT_AES, _ENDIAN_H=""""""""""""endian.h"""""""""""""
+$     defs = defs+ -
+       ", CRYPT_AES_WG, _ENDIAN_H=""""""""""""endian.h"""""""""""""
 $ endif
 $!
 $! Reveal the plan.  If compiling, set some compiler options.

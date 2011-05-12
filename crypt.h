@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -55,6 +55,10 @@
 
 #if CRYPT
 /* full version */
+
+#ifdef USE_AES_WG
+#  include "aes/fileenc.h"
+#endif /* def USE_AES_WG */
 
 #ifdef CR_BETA
 #  undef CR_BETA    /* this is not a beta release */
@@ -115,11 +119,32 @@
 #  endif
 #endif /* ?ZIP */
 
-#define IZ_PWLEN  80    /* input buffer size for reading encryption key */
+#define IZ_PWLEN  256   /* input buffer size for reading encryption key */
 #ifndef PWLEN           /* for compatibility with previous zcrypt release... */
 #  define PWLEN IZ_PWLEN
 #endif
 #define RAND_HEAD_LEN  12       /* length of encryption random header */
+
+/* Encrypted data header and password check buffer sizes.
+ * (One buffer accommodates both types.)
+ */
+#ifdef USE_AES_WG
+   /* All data from extra field block. */
+#  if (MAX_SALT_LENGTH+ 2 > RAND_HEAD_LEN)
+#    define ENCR_HEAD_LEN (MAX_SALT_LENGTH+ 2)
+#  endif
+    /* Data required for password check. */
+#  if (PWD_VER_LENGTH > RAND_HEAD_LEN)
+#    define ENCR_PW_CHK_LEN PWD_VER_LENGTH
+#  endif
+#endif /* def USE_AES_WG */
+
+#ifndef ENCR_HEAD_LEN
+#  define ENCR_HEAD_LEN RAND_HEAD_LEN
+#endif
+#ifndef ENCR_PW_CHK_LEN
+#  define ENCR_PW_CHK_LEN RAND_HEAD_LEN
+#endif
 
 /* the crc_32_tab array has to be provided externally for the crypt calculus */
 

@@ -1,4 +1,4 @@
-#                                               21 April 2011.  SMS.
+#                                               12 May 2011.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Source Description File.
 #
@@ -239,13 +239,18 @@ LIB_ZLIB_OPTS = LIB_ZLIB:LIBZ.OLB /library,
 
 CFLAGS_INCL = /INCLUDE = ([], [.VMS])
 
-# DBG options.
+# DBG, TRC options.
 
 .IFDEF DBG                      # DBG
 CFLAGS_DBG = /debug /nooptimize
 LINKFLAGS_DBG = /debug /traceback
 .ELSE                           # DBG
+CFLAGS_DBG =
+.IFDEF TRC                          # TRC
+LINKFLAGS_DBG = /traceback
+.ELSE                               # TRC
 LINKFLAGS_DBG = /notraceback
+.ENDIF                              # TRC
 .ENDIF                          # DBG
 
 # "IM" scheme for storing VMS/RMS file attributes.

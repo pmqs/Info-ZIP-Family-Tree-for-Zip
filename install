@@ -38,33 +38,35 @@ Installation on Unix (see below for installation on other systems)
      in the "/usr/local/src/zip" directory.  In both cases, you then
      cd into the zip31 directory where Zip will be built.
 
-     Note:  This release now includes the standard encryption code
-     previously in the separate package zcrypt29.zip, but you still
-     can decide whether to activate the crypt code or not.  Crypt is
-     enabled by default, but you may disable it by specifying the
-     option -DNO_CRYPT in the LOCAL_ZIP environment variable (or by
-     adding this option to the compilation options in the appropriate
-     makefile).  See README.CR for more on crypt.
+     Note:  Beginning with Zip version 3.0, Zip source kits include the
+     traditional (weak) encryption code.  In earlier versions, this code
+     was distributed in a separate package, zcrypt29.zip.  You still can
+     decide whether to activate the crypt code or not.  Crypt is enabled
+     by default, but you may disable it by specifying the option
+     -DNO_CRYPT in the LOCAL_ZIP environment variable (or by adding this
+     option to the compilation options in the appropriate makefile). 
+     See README.CR for more on crypt.
 
-     You then do:
+     To build using "cc" as the C compiler, you then do:
 
           make -f unix/Makefile system
 
-     where "system" is one of:  generic, generic_gcc,
-     att6300, coherent, cray_v3, minix, sco_x286, xenix, zilog.
+     where the "make" target, "system", is one of:  generic, att6300,
+     coherent, cray_v3, minix, sco_x286, xenix, zilog.  We recommend
+     using "generic" on most systems.
 
-     For Unix systems where "cc" is the preferred C compiler command,
-     try
+     To build using "gcc" as the C compiler, try:
 
-          make -f unix/Makefile generic
+          make -f unix/Makefile CC=gcc generic
 
-     first.  If "gcc" is preferred, specify "generic_gcc" instead of
-     "generic".  These should work on most systems and automatically
-     select compilation options based on a set of tests (in
-     unix/configure), including detection of large file support
-     sufficient to enable Zip64 large archive features.  If "generic"
-     (or "generic_gcc" if that is used) fail, then one of the special
-     targets given above may work.
+     With the "generic" target, the unix/configure script automatically
+     selects compilation options based on user-specified "make" macros
+     (like "CC=gcc", for example) and a set of tests which include
+     detection of large file support sufficient to enable Zip64 large
+     archive features.  If a "generic" build fails, then one of the
+     special system-specific targets listed above may work better, but,
+     without use of the unix/configure script, any customization will
+     require more work by the user.
 
      Among other special systems are Cray Unicos, Zilog Zeus and MINIX.
      (See unix/Makefile for the complete list of targets.)
@@ -78,6 +80,11 @@ Installation on Unix (see below for installation on other systems)
      bzip2/install.txt.  Note that bzip2 support is provided by
      compiling or linking in the bzip2 library.  See the bzip2 site
      (http://www.bzip.org/) for more on bzip2.
+
+     To add the additional AES strong (WinZip/Gladman) encryption
+     method add "AES=1" to the "make" command.  This requires the
+     installation of a separate AES encryption source kit in the "aes"
+     subdirectory.
 
      If you get error messages such as "constant expected" in
      deflate.c, add -DDYN_ALLOC to CFLAGS in your makefile entry.
@@ -323,6 +330,12 @@ Compiler Flags
     restoring the descriptors (file ACL's, etc.).
 
     This is on by default for Win32.  Use NO_NTSD_EAS to turn this off.
+
+  CRYPT_AES_WG
+    Enable AES strong encryption (WinZip/Goldman).  A suitable AES
+    source kit must be installed in the "aes" subdirectory.  Enables new
+    encryption method options, AES128 and AES256, that can be used
+    instead of the default traditional (weak) Zip encryption method.
 
   BZIP2_SUPPORT
     Enable compressing zip entries using the bzip2 library.  You must get

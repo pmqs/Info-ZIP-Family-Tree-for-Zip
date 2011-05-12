@@ -40,9 +40,11 @@
 #include "crypt.h"
 #include "ttyio.h"
 
-#ifdef CRYPT_AES
-# ifdef WIN32
-#  include <windows.h>
+#ifdef ZIP
+# ifdef CRYPT_AES
+#  ifdef WIN32
+#   include <windows.h>
+#  endif
 # endif
 #endif
 
@@ -103,8 +105,9 @@
 #ifdef UNZIP
    /* char *key = (char *)NULL; moved to globals.h */
 #  ifndef FUNZIP
-     local int testp OF((__GPRO__ ZCONST uch *h));
-     local int testkey OF((__GPRO__ ZCONST uch *h, ZCONST char *key));
+     local int testp OF((__GPRO__ int hd_len, ZCONST uch *h));
+     local int testkey OF((__GPRO__ int hd_len, ZCONST uch *h,
+                           ZCONST char *key));
 #  endif
 #else /* def UNZIP */           /* moved to globals.h for UnZip */
    local z_uint4 keys[3];       /* keys defining the pseudo-random sequence */
@@ -177,9 +180,9 @@ void init_keys(__G__ passwd)
         cry_crctb_p = crytab_init(__G);
     }
 #endif
-    GLOBAL(keys[0]) = 305419896L;
-    GLOBAL(keys[1]) = 591751049L;
-    GLOBAL(keys[2]) = 878082192L;
+    GLOBAL(keys[0]) = 305419896L;       /* 0x12345678. */
+    GLOBAL(keys[1]) = 591751049L;       /* 0x23456789. */
+    GLOBAL(keys[2]) = 878082192L;       /* 0x34567890. */
     while (*passwd != '\0') {
         update_keys(__G__ (int)*passwd);
         passwd++;
@@ -513,16 +516,40 @@ int decrypt(__G__ passwrd)
     ZCONST char *passwrd;
 {
     ush b;
-    int n, r;
-    uch h[RAND_HEAD_LEN];
+    int head_len;
+    int n;
+    int r;
+    uch h[ ENCR_HEAD_LEN];
 
     Trace((stdout, "\n[incnt = %d]: ", GLOBAL(incnt)));
+
+#ifdef USE_AES_WG
+    if (GLOBAL( lrec.compression_method) == AESENCRED)
+    {
+        if ((GLOBAL( pInfo->cmpr_mode_aes) > 0) &&
+         (GLOBAL( pInfo->cmpr_mode_aes) <= 3))
+        {
+            /* AES header size depends on (variable) salt length. */
+            head_len = SALT_LENGTH( GLOBAL( pInfo->cmpr_mode_aes))+
+             PWD_VER_LENGTH;
+        }
+        else
+        {
+            /* Unexpected/invalid AES mode value. */
+            return PK_ERR;
+        }
+    }
+    else
+#endif /* def USE_AES_WG */
+    {
+        head_len = RAND_HEAD_LEN;
+    }
 
     /* get header once (turn off "encrypted" flag temporarily so we don't
      * try to decrypt the same data twice) */
     GLOBAL(pInfo->encrypted) = FALSE;
     defer_leftover_input(__G);
-    for (n = 0; n < RAND_HEAD_LEN; n++) {
+    for (n = 0; n < head_len; n++) {
         b = NEXTBYTE;
         h[n] = (uch)b;
         Trace((stdout, " (%02x)", h[n]));
@@ -548,7 +575,7 @@ int decrypt(__G__ passwrd)
 
     /* if have key already, test it; else allocate memory for it */
     if (GLOBAL(key)) {
-        if (!testp(__G__ h))
+        if (!testp(__G__ head_len, h))
             return PK_COOL;   /* existing password OK (else prompt for new) */
         else if (GLOBAL(nopwd))
             return PK_WARN;   /* user indicated no more prompting */
@@ -569,7 +596,7 @@ int decrypt(__G__ passwrd)
             *GLOBAL(key) = '\0';        /*   We try the NIL password, ... */
             n = 0;                      /*   and cancel fetch for this item. */
         }
-        if (!testp(__G__ h))
+        if (!testp(__G__ head_len, h))
             return PK_COOL;
         if (r == IZ_PW_CANCELALL)       /* User replied "Skip all" */
             GLOBAL(nopwd) = TRUE;       /*   inhibit any further PW prompt! */
@@ -584,8 +611,9 @@ int decrypt(__G__ passwrd)
 /***********************************************************************
  * Test the password.  Return -1 if bad, 0 if OK.
  */
-local int testp(__G__ h)
+local int testp(__G__ hd_len, h)
     __GDEF
+    int hd_len;
     ZCONST uch *h;
 {
     int r;
@@ -600,10 +628,10 @@ local int testp(__G__ h)
     if ((key_translated = malloc(strlen(GLOBAL(key)) + 1)) == (char *)NULL)
         return -1;
     /* first try, test password translated "standard" charset */
-    r = testkey(__G__ h, STR_TO_CP1(key_translated, GLOBAL(key)));
+    r = testkey(__G__ hd_len, h, STR_TO_CP1(key_translated, GLOBAL(key)));
 #else /* !STR_TO_CP1 */
     /* first try, test password as supplied on the extractor's host */
-    r = testkey(__G__ h, GLOBAL(key));
+    r = testkey(__G__ hd_len, h, GLOBAL(key));
 #endif /* ?STR_TO_CP1 */
 
 #ifdef STR_TO_CP2
@@ -614,11 +642,11 @@ local int testp(__G__ h)
             return -1;
 #endif
         /* second try, password translated to alternate ("standard") charset */
-        r = testkey(__G__ h, STR_TO_CP2(key_translated, GLOBAL(key)));
+        r = testkey(__G__ hd_len, h, STR_TO_CP2(key_translated, GLOBAL(key)));
 #ifdef STR_TO_CP3
         if (r != 0)
             /* third try, password translated to another "standard" charset */
-            r = testkey(__G__ h, STR_TO_CP3(key_translated, GLOBAL(key)));
+            r = testkey(__G__ hd_len, h, STR_TO_CP3(key_translated, GLOBAL(key)));
 #endif
 #ifndef STR_TO_CP1
         free(key_translated);
@@ -630,7 +658,7 @@ local int testp(__G__ h)
     free(key_translated);
     if (r != 0) {
         /* last resort, test password as supplied on the extractor's host */
-        r = testkey(__G__ h, GLOBAL(key));
+        r = testkey(__G__ hd_len, h, GLOBAL(key));
     }
 #endif /* STR_TO_CP1 */
 
@@ -639,10 +667,11 @@ local int testp(__G__ h)
 } /* end function testp() */
 
 
-local int testkey(__G__ h, key)
+local int testkey(__G__ hd_len, h, key)
     __GDEF
-    ZCONST uch *h;      /* decrypted header */
-    ZCONST char *key;   /* decryption password to test */
+    int hd_len;         /* Encryption header length. */
+    ZCONST uch *h;      /* Decrypted header. */
+    ZCONST char *key;   /* Decryption password to test. */
 {
     ush b;
 #ifdef ZIP10
@@ -650,27 +679,52 @@ local int testkey(__G__ h, key)
 #endif
     int n;
     uch *p;
-    uch hh[RAND_HEAD_LEN]; /* decrypted header */
+    uch hh[ ENCR_PW_CHK_LEN];   /* Password check buffer. */
+
+#ifdef USE_AES_WG
+    if (GLOBAL( lrec.compression_method) == AESENCRED)
+    {
+        fcrypt_init( GLOBAL( pInfo->cmpr_mode_aes),     /* AES mode. */
+                     (unsigned char*) key,      /* Password. */
+                     strlen( key),              /* Password length. */
+                     h,                         /* Salt. */
+                     hh,                        /* PASSWORD_VERIFIER. */
+                     GLOBAL( zcx));             /* AES context. */
+
+        /* Check password verifier. */
+        if (memcmp( (h+ hd_len- PWD_VER_LENGTH), hh, PWD_VER_LENGTH))
+        {
+            return -1;  /* Bad password. */
+        }
+        /* Password OK.  Decrypt current buffer contents before leaving. */
+        n = (GLOBAL( incnt) > GLOBAL( csize)) ?
+         GLOBAL( csize) : GLOBAL( incnt);
+        fcrypt_decrypt( GLOBAL( inptr), n, GLOBAL( zcx));
+        return 0;       /* OK */
+    }
+    else
+    {
+#endif /* def USE_AES_WG */
+
+    /* Standard encryption. */
 
     /* set keys and save the encrypted header */
     init_keys(__G__ key);
-    memcpy(hh, h, RAND_HEAD_LEN);
+    memcpy(hh, h, hd_len);
 
     /* check password */
-    for (n = 0; n < RAND_HEAD_LEN; n++) {
+    for (n = 0; n < hd_len; n++) {
         zdecode(hh[n]);
         Trace((stdout, " %02x", hh[n]));
     }
 
-    /* use fzofft to format zoff_t as strings - 10/19/04 from SMS */
     Trace((stdout,
       "\n  lrec.crc= %08lx  crec.crc= %08lx  pInfo->ExtLocHdr= %s\n",
       GLOBAL(lrec.crc32), GLOBAL(pInfo->crc),
       GLOBAL(pInfo->ExtLocHdr) ? "true":"false"));
-    Trace((stdout, "  incnt = %d  unzip offset into zipfile = %s\n",
+    Trace((stdout, "  incnt = %d  unzip offset into zipfile = %ld\n",
       GLOBAL(incnt),
-      fzofft(GLOBAL(cur_zipfile_bufstart)+(GLOBAL(inptr)-GLOBAL(inbuf)),
-             NULL, NULL)));
+      GLOBAL(cur_zipfile_bufstart)+(GLOBAL(inptr)-GLOBAL(inbuf))));
 
     /* same test as in zipbare(): */
 
@@ -695,11 +749,15 @@ local int testkey(__G__ h, key)
         return -1;  /* bad */
 #endif
     /* password OK:  decrypt current buffer contents before leaving */
-    for (n = (zoff_t)GLOBAL(incnt) > GLOBAL(csize) ?
+    for (n = (long)GLOBAL(incnt) > GLOBAL(csize) ?
              (int)GLOBAL(csize) : GLOBAL(incnt),
          p = GLOBAL(inptr); n--; p++)
         zdecode(*p);
     return 0;       /* OK */
+
+#ifdef USE_AES_WG
+    } /* (GLOBAL( lrec.compression_method) == AESENCRED) [else] */
+#endif /* def USE_AES_WG */
 
 } /* end function testkey() */
 
@@ -713,8 +771,11 @@ int zcr_dummy;
 #endif /* ?CRYPT */
 
 
-#ifdef CRYPT_AES
-# if defined(DOS) || defined(WIN32)
+#ifdef ZIP
+
+# ifdef CRYPT_AES
+
+#  ifdef WIN32
 
 /* Below is more or less the entropy function provided by WinZip and
    now suggested by Gladman.  This function is for use on Win32
@@ -747,7 +808,7 @@ int entropy_fun(unsigned char buf[], unsigned int len)
     /* use a value that is unlikely to repeat across system reboots         */
     case 1: 
         ++num;
-         GetSystemTimeAsFileTime((FILETIME *)pentium_tsc);
+        GetSystemTimeAsFileTime((FILETIME *)pentium_tsc);
         break;
     /* use a value that distinguishes between different instances of this   */
     /* code that might be running on different processors at the same time  */
@@ -757,8 +818,8 @@ int entropy_fun(unsigned char buf[], unsigned int len)
           unsigned __int32 processtest = GetCurrentProcessId();
           unsigned __int32 threadtest  = GetCurrentThreadId();
 
-            pentium_tsc[0] = processtest;
-            pentium_tsc[0] = (pentium_tsc[0] << 32) + threadtest;
+          pentium_tsc[0] = processtest;
+          pentium_tsc[0] = (pentium_tsc[0] << 32) + threadtest;
         }
         break;
     
@@ -771,11 +832,13 @@ int entropy_fun(unsigned char buf[], unsigned int len)
         break;
     }
 
-    for(i = 0; i < 8 && i < len; ++i)
+    for(i = 0; i < 8 && i < len; ++i) {
         buf[i] = ((unsigned char*)pentium_tsc)[i];
+    }
     return i;
 }
-# endif /* defined(DOS) || defined(WIN32) */
+
+#  endif /* WIN32 */
 
 /***********************************************************************
  * Write encryption header to file zfile.
@@ -798,7 +861,9 @@ void aes_crypthead( OFT( ZCONST uch *)salt,
 #endif /* def NO_PROTO */
 {
     bfwrite(salt, 1, salt_len, BFWRITE_DATA);
-    bfwrite(pwd_verifier, 1, 2, BFWRITE_DATA);
+    bfwrite(pwd_verifier, 1, PWD_VER_LENGTH, BFWRITE_DATA);
 }
 
-#endif /* CRYPT_AES */
+# endif /* CRYPT_AES */
+
+#endif /* def ZIP */

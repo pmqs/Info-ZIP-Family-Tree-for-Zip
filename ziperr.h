@@ -19,7 +19,7 @@
  * version.)  Used only when generating the VMS message source file, but
  * that can be done on a non-VMS system.
  */
-#define VMS_MSG_IDENT "V3.0-000"
+#define VMS_MSG_IDENT "V3.1-000"
 
 /* VMS-compatible "severity" values (bits 2:0): */
 #define ZE_S_WARNING 0x00
@@ -56,8 +56,9 @@
 #define ZE_OPEN         18      /* could not open a specified file to read */
 #define ZE_COMPERR      19      /* error in compilation options */
 #define ZE_ZIP64        20      /* Zip64 not supported */
+#define ZE_CRYPT        21      /* encryption error */
 
-#define ZE_MAXERR       20      /* the highest error number */
+#define ZE_MAXERR       21      /* the highest error number */
 
 
 /* Error messages for the ziperr() function in the zip programs. */
@@ -91,9 +92,10 @@ struct
 /* 17 */ { "",        "",                             ZE_S_UNUSED },
 /* 18 */ { "OPEN",    "File not found or no read permission",
                                                       ZE_S_ERROR | ZE_S_PERR },
-/* 19 */ { "COMPERR", "Not supported",                ZE_S_SEVERE },
+/* 19 */ { "COMPERR", "Error in compilation options", ZE_S_SEVERE },
 /* 20 */ { "ZIP64",   "Attempt to read unsupported Zip64 archive",
-                                                      ZE_S_SEVERE }
+                                                      ZE_S_SEVERE },
+/* 21 */ { "CRYPT",   "Encryption error",             ZE_S_ERROR }
 #  ifdef AZTEC_C
           ,     /* extremely lame compiler bug workaround */
 #  endif

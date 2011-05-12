@@ -119,7 +119,8 @@ ZCONST uLongf *crc_32_tab;
 #endif /* CRYPT */
 
 #ifdef CRYPT_AES
-# include "aes/prng.h"
+# include "aes/aes.h"
+# include "aes/aesopt.h"
 #endif
 
 /* Local functions */
@@ -2259,9 +2260,7 @@ int set_filetype(out_path)
    multichar short options set to arbitrary unused constant (like
    o_aa). */
 #define o_aa            0x101
-#if defined( UNIX) && defined( __APPLE__)
 #define o_as            0x102
-#endif /* defined( UNIX) && defined( __APPLE__) */
 #define o_AC            0x103
 #define o_AS            0x104
 #define o_cd            0x105
@@ -2301,9 +2300,7 @@ int set_filetype(out_path)
 #define o_RE            0x139
 #define o_sb            0x140
 #define o_sc            0x141
-#ifdef UNICODE_TEST
 #define o_sC            0x142
-#endif
 #define o_sd            0x143
 #define o_sf            0x144
 #define o_so            0x145
@@ -2919,6 +2916,7 @@ char **argv;            /* command line tokens */
 #ifdef ENABLE_ENTRY_TIMING
   start_zip_time = 0;         /* after scan, when start zipping files */
 #endif
+
   encryption_method = 0;
 
 #if defined(WINDLL)
@@ -2950,6 +2948,36 @@ char **argv;            /* command line tokens */
   if (sizeof(uzoff_t) != sizeof(zoff_t)){
     ZIPERR(ZE_COMPERR, "uzoff_t not same size as zoff_t");
   }
+
+#ifdef CRYPT_AES
+  /* Verify the AES compile-time endian decision. */
+  {
+    union {
+      int i;
+      char b[ 4];
+    } bi;
+
+# ifndef PLATFORM_BYTE_ORDER
+#  define ENDI_BYTE 0x00
+#  define ENDI_PROB "(Undefined)"
+# elif PLATFORM_BYTE_ORDER == AES_LITTLE_ENDIAN
+#  define ENDI_BYTE 0x78
+#  define ENDI_PROB "Little"
+# elif PLATFORM_BYTE_ORDER == AES_BIG_ENDIAN
+#  define ENDI_BYTE 0x12
+#  define ENDI_PROB "Big"
+# else
+#  define ENDI_BYTE 0xff
+#  define ENDI_PROB "(Unknown)"
+# endif
+
+    bi.i = 0x12345678;
+    if (bi.b[ 0] != ENDI_BYTE) {
+      sprintf( errbuf, "Bad AES compile-time endian: %s", ENDI_PROB);
+      ZIPERR( ZE_COMPERR, errbuf);
+    }
+  }
+#endif /* def CRYPT_AES */
 
 #if (defined(WIN32) && defined(USE_EF_UT_TIME))
   /* For the Win32 environment, we may have to "prepare" the environment
@@ -4832,10 +4860,16 @@ char **argv;            /* command line tokens */
 
 #ifdef CRYPT_AES
   if (encryption_method > 1) {
+    time_t pool_init_start;
+    time_t pool_init_time;
+
     if (show_what_doing) {
         fprintf(mesg, "sd: Initializing AES encryption random number pool\n");
         fflush(mesg);
     }
+    
+    pool_init_start = time(NULL);
+
     /* initialize the random number pool */
     aes_rnp.entropy = entropy_fun;
     prng_init(aes_rnp.entropy, &aes_rnp);
@@ -4844,6 +4878,13 @@ char **argv;            /* command line tokens */
       ZIPERR(ZE_MEM, "Getting memory for salt");
     }
     prng_rand(zsalt, SALT_LENGTH(1), &aes_rnp);
+
+    pool_init_time = time(NULL) - pool_init_start;
+
+    if (show_what_doing) {
+        fprintf(mesg, "sd: AES random number pool initialized in %d s\n", pool_init_time);
+        fflush(mesg);
+    }
   }
 #endif
 

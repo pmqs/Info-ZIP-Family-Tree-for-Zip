@@ -799,7 +799,7 @@ char *d;                /* directory to delete */
 }
 
 
-# ifdef CRYPT_AES
+# ifdef CRYPT_AES_WG
 
 /* 2011-04-24 SMS.
  *
@@ -855,7 +855,7 @@ int entropy_fun( unsigned char *buf, unsigned int len)
     return len_ret;
 }
 
-# endif /* def CRYPT_AES */
+# endif /* def CRYPT_AES_WG */
 
 #endif /* !UTIL */
 
