@@ -56,7 +56,7 @@ char *getp(m, p, n)
                     fputs("\b \b", stderr);
                 }
             }
-            else if (i < n) {
+            else if (i <= n) {
                 p[i++] = c;     /* truncate past n */
                 if(c != '\n') putc('*', stderr);
             }

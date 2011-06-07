@@ -31,6 +31,9 @@
 #ifndef NO_STDLIB_H
 #  include <stdlib.h>
 #endif
+#ifdef CRYPT_AES_WG
+#  include <time.h>
+#endif
 
 #if CRYPT       /* defined (as TRUE or FALSE) in crypt.h */
 
@@ -163,16 +166,18 @@ void zipwarn(msg1, msg2)
  * Upon getting a user interrupt, turn echo back on for tty and abort
  * cleanly using ziperr().
  */
+#ifndef NO_EXCEPT_SIGNALS
 local void handler(sig)
     int sig;                  /* signal number (ignored) */
 {
-#if (!defined(MSDOS) && !defined(__human68k__) && !defined(RISCOS))
+# if (!defined(MSDOS) && !defined(__human68k__) && !defined(RISCOS))
     echon();
     putc('\n', mesg);
-#endif
+# endif
     ziperr(ZE_ABORT +sig-sig, "aborting");
     /* dummy usage of sig to avoid compiler warnings */
 }
+#endif /* ndef NO_EXCEPT_SIGNALS */
 
 
 static ZCONST char *public[] = {
@@ -281,6 +286,7 @@ local void version_info()
             CR_MAJORVER, CR_MINORVER, CR_BETA_VER, CR_VERSION_DATE);
 }
 
+
 /* options for zipcloak - 3/5/2004 EG */
 struct option_struct far options[] = {
   /* short longopt        value_type        negatable        ID    name */
@@ -295,6 +301,9 @@ struct option_struct far options[] = {
     {"l",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
     {"O",  "output-file", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'O',  "output to new archive"},
     {"v",  "version",     o_NO_VALUE,       o_NOT_NEGATABLE, 'v',  "version"},
+#ifdef CRYPT_AES_WG
+    {"Y", "encryption-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Y', "set encryption method"},
+#endif /* def CRYPT_AES_WG */
     /* the end of the list */
     {NULL, NULL,          o_NO_VALUE,       o_NOT_NEGATABLE, 0,    NULL} /* end has option_ID = 0 */
   };
@@ -311,6 +320,7 @@ int main(argc, argv)
 {
     int attr;                   /* attributes of zip file */
     zoff_t start_offset;        /* start of central directory */
+    zoff_t entry_offset;        /* Local header offset. */
     int decrypt;                /* decryption flag */
     int temp_path;              /* 1 if next argument is path for temp files */
     char passwd[IZ_PWLEN+1];    /* password for encryption or decryption */
@@ -334,6 +344,16 @@ int main(argc, argv)
     int optnum = 0;       /* index in table */
 
     char **args;               /* copy of argv that can be freed */
+
+
+#define IS_A_DIR (z->iname[ z->nam- 1] == (char)0x2f) /* ".". */
+
+#ifdef CRYPT_AES_WG
+# define REAL_PWLEN temp_pwlen
+    int temp_pwlen;
+#else /* def CRYPT_AES_WG */
+# define REAL_PWLEN IZ_PWLEN
+#endif /* def CRYPT_AES_WG [else] */
 
 #ifdef THEOS
     setlocale(LC_CTYPE, "I");
@@ -391,28 +411,33 @@ int main(argc, argv)
     /* Go through args */
     zipfile = tempzip = NULL;
     tempzf = NULL;
-#ifdef SIGINT
+
+#ifndef NO_EXCEPT_SIGNALS
+# ifdef SIGINT
     signal(SIGINT, handler);
-#endif
-#ifdef SIGTERM                  /* Some don't have SIGTERM */
+# endif
+# ifdef SIGTERM                  /* Some don't have SIGTERM */
     signal(SIGTERM, handler);
-#endif
-#ifdef SIGABRT
+# endif
+# ifdef SIGABRT
     signal(SIGABRT, handler);
-#endif
-#ifdef SIGBREAK
+# endif
+# ifdef SIGBREAK
     signal(SIGBREAK, handler);
-#endif
-#ifdef SIGBUS
+# endif
+# ifdef SIGBUS
     signal(SIGBUS, handler);
-#endif
-#ifdef SIGILL
+# endif
+# ifdef SIGILL
     signal(SIGILL, handler);
-#endif
-#ifdef SIGSEGV
+# endif
+# ifdef SIGSEGV
     signal(SIGSEGV, handler);
-#endif
+# endif
+#endif /* ndef NO_EXCEPT_SIGNALS */
+
     temp_path = decrypt = 0;
+    encryption_method = STANDARD_ENCRYPTION;    /* Default method = Trad. */
 #if 0
     /* old command line */
     for (r = 1; r < argc; r++) {
@@ -521,6 +546,31 @@ int main(argc, argv)
         case 'v':   /* Show version info */
           version_info();
           EXIT(ZE_OK);
+
+#ifdef CRYPT_AES_WG
+        case 'Y':   /* Encryption method */
+          if (abbrevmatch("standard", value, 0, 1)) {
+            encryption_method = STANDARD_ENCRYPTION;
+
+          } else if (abbrevmatch("AES128", value, 0, 5)) {
+            encryption_method = AES_128_ENCRYPTION;
+#ifdef AES192_OK
+          } else if (abbrevmatch("AES192", value, 0, 5)) {
+            encryption_method = AES_192_ENCRYPTION;
+#endif
+          } else if (abbrevmatch("AES256", value, 0, 4)) {
+            encryption_method = AES_256_ENCRYPTION;
+
+          } else {
+            zipwarn(
+             "valid encryption methods are:  standard, AES128 and AES256", "");
+            free(value);
+            ZIPERR(ZE_PARMS,
+             "Option -Y (--encryption-method):  unknown method");
+          }
+          free(value);
+          break;
+#endif
         case o_NON_OPTION_ARG:
           /* not an option */
           /* no more options as permuting */
@@ -562,6 +612,39 @@ int main(argc, argv)
       }
       strcpy(out_path, zipfile);
     }
+
+    /* Initialize the AES random pool, if needed.
+     * Note: Code common to zip.c: main().  Should be modularized?
+     *
+     * if ((zsalt = malloc(32)) == NULL) {
+     * Why "32" instead of, say, MAX_SALT_LENGTH or SALT_LENGTH(mode)?
+     *
+     * prng_rand(zsalt, SALT_LENGTH(1), &aes_rnp);  Why "1"?
+     */
+#ifdef CRYPT_AES_WG
+    if ((encryption_method >= AES_MIN_ENCRYPTION) &&
+     (encryption_method <= AES_MAX_ENCRYPTION))
+    {
+        time_t pool_init_start;
+        time_t pool_init_time;
+
+        pool_init_start = time(NULL);
+
+        /* initialize the random number pool */
+        aes_rnp.entropy = entropy_fun;
+        prng_init( aes_rnp.entropy, &aes_rnp);
+        /* and the salt */
+        if ((zsalt = malloc( MAX_SALT_LENGTH)) == NULL)
+        {
+            ZIPERR( ZE_MEM, "Getting memory for AES salt");
+        }
+        prng_rand( zsalt,
+         SALT_LENGTH( encryption_method- (AES_MIN_ENCRYPTION- 1)),
+         &aes_rnp);
+
+        pool_init_time = time(NULL) - pool_init_start;
+    }
+#endif
 
     /* Read zip file */
     if ((res = readzipfile()) != ZE_OK) ziperr(res, zipfile);
@@ -628,12 +711,19 @@ int main(argc, argv)
 #endif
 
     /* Get password */
-    if (getp("Enter password: ", passwd, IZ_PWLEN+1) == NULL)
+#ifdef CRYPT_AES_WG
+    if (encryption_method <= STANDARD_ENCRYPTION)
+        REAL_PWLEN = IZ_PWLEN;
+    else
+        REAL_PWLEN = MAX_PWD_LENGTH;
+#endif /* def CRYPT_AES_WG */
+
+    if (getp("Enter password: ", passwd, REAL_PWLEN) == NULL)
         ziperr(ZE_PARMS,
                "stderr is not a tty (you may never see this message!)");
 
     if (decrypt == 0) {
-        if (getp("Verify password: ", verify, IZ_PWLEN+1) == NULL)
+        if (getp("Verify password: ", verify, REAL_PWLEN) == NULL)
                ziperr(ZE_PARMS,
                       "stderr is not a tty (you may never see this message!)");
 
@@ -653,8 +743,26 @@ int main(argc, argv)
     }
     tempzn = zipbeg;
 
+#ifdef CRYPT_AES_WG
+    if ((encryption_method >= AES_MIN_ENCRYPTION) &&
+     (encryption_method <= AES_MAX_ENCRYPTION))
+    {
+        /* Set some AES-related globals which are used by
+         * zipfile.c:putlocal() and putcentral().  See zipup.c:zipup().
+         */
+        aes_vendor_version = 0x0001;
+        aes_strength = encryption_method- (AES_MIN_ENCRYPTION- 1);
+    }
+#endif /* def CRYPT_AES_WG */
+
     /* Go through local entries, copying, encrypting, or decrypting */
-    for (z = zfiles; z != NULL; z = z->nxt) {
+    for (z = zfiles; z != NULL; z = z->nxt)
+    {
+        /* Save the current offset in the output file for later use as
+         * the central directory offset to the local header.
+         */
+        entry_offset = zftello( y);
+
         if (decrypt && (z->flg & 1)) {
             printf("decrypting: %s", z->zname);
             fflush(stdout);
@@ -666,7 +774,7 @@ int main(argc, argv)
             }
             putchar('\n');
 
-        } else if ((!decrypt) && !(z->flg & 1)) {
+        } else if ((!decrypt) && !(z->flg & 1) && (!IS_A_DIR)) {
             printf("encrypting: %s\n", z->zname);
             fflush(stdout);
             if ((res = zipcloak(z, passwd)) != ZE_OK)
@@ -681,6 +789,10 @@ int main(argc, argv)
                 ziperr(res, "was copying an entry");
             }
         } /* if */
+
+        /* Update the (eventual) central directory offset to local header. */
+        z->off = entry_offset;
+
     } /* for */
 
     fclose(in_file);

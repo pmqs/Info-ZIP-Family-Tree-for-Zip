@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2011-05-11  SMS.
+$!     Last revised:  2011-05-21  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -753,6 +753,19 @@ $     libr /object /replace [.'dest']ZIPUTILS.OLB -
        [.'dest']ZIPFILE_.OBJ, -
        [.'dest']VMS_.OBJ, -
        [.'dest']VMSMUNCH.OBJ
+$!
+$     if (AES .ne. 0)
+$     then
+$         libr /object /replace [.'dest']ZIPUTILS.OLB -
+           [.'dest']AESCRYPT.OBJ, -
+           [.'dest']AESKEY.OBJ, -
+           [.'dest']AESTAB.OBJ, -
+           [.'dest']FILEENC.OBJ, -
+           [.'dest']HMAC.OBJ, -
+           [.'dest']PRNG.OBJ, -
+           [.'dest']PWD2KEY.OBJ, -
+           [.'dest']SHA1.OBJ
+$     endif
 $!
 $! Compile the Zip utilities main program sources.
 $!

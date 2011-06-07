@@ -2714,7 +2714,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  1. Modify configure and Makefile to only allow compiling bzip2 in the Zip bzip2
     source directory.  unix/Makefile, unix/configure (SMS, Ed)
  2. Update bzip2 installation instructions.  bzip2/install.txt (SMS, Ed)
- 3. Remove need for BZIP2_USEBZIP2DIR define by using an appropriate include dir
+ 3. Remove need for BZIP2_USEBZIP2DIR define by using an appropiate include dir
     specification (-I ../../bzip2) when needed.  zip.c, win32/vc6bz2/zip.dsp,
     unix/configure (SMS, Ed, Christian)
  4. Update VC6 readme.  win32/readmeVC.txt (Christian, Ed)
@@ -4162,8 +4162,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     split archives.  "ZI<process_id>.<serial>" replaces "ZI<process_id>.",
     providing multiple unique names when needed.  vms/vms.c (SMS)
  8. Replace stricmp() with strcasecmp().  zip.c (SMS)
- 9. Renamed NAM[L]-related macros from NAM_* to more suggestive NAMX_*.
-    Added NAMX_DNA_FNA_SET macro to simplify some NAML-only code.
+ 9. Change from NAM_STRUCT to NAMX_STRUCT.  Use NAMX_DNA_FNA_SET(fab).
     vms/vms.c, vms/vms.h, vms/vms_im.c, vms/vms_pk.c, vms/vmsmunch.c,
     vms/vmszip.c (SMS)
 10. Disable the old "make some kind of mktemppath()" code, allowing temp path
@@ -4178,3 +4177,110 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     zip.h, zipfile.c, zipup.c (EG)
  2. Fix endian problems in AES source.  Need to report back the fixes to
     Gladman.  aes/aesopt.h, aes/sha1.c (SMS)
+-------------------- May 5th 2011 version 3.1d06 -----------------------
+ 1. Make entropy_fun() in crypt.c (perhaps an example for other ports to
+    reference) only applicable for WIN32 as some of the calls may only exist
+    in WIN32, though similar calls exist on some other ports.  crypt.c (EG)
+ 2. Add PROTO and NO_PROTO support to aes_crypthead(),
+    add_crypt_aes_local_extra_field(), add_crypt_aes_cen_extra_field().
+    Split long prototypes on multiple lines.  crypt.c, zipfile.c (SMS)
+ 3. Fix spelling.  INSTALL, tailor.h, zip.c, macos/history.txt,
+    msdos/osdep.h, novell/osdep.h, os2/osdep.h, proginfo/extrafld.txt,
+    vms/vms.h (SMS)
+ 4. Remove #ifdefs from o_xx option definitions as it makes the list easier
+    to read and they really don't do much.  zip.c (EG)
+ 5. Add -sd message after AES pool is initialized.  Keep track of how long
+    AES random number pool takes to initialize and output time in message.
+    zip.c (EG)
+ 6. Move VMS sys$ defines from zip.h to vms/osdep.h.  zip.h, vms/osdep.h (SMS)
+ 7. Change comp_method to z->how in AES extra field calls to fix bug where
+    the wrong method was sometimes being stored in the extra field when the
+    method changed from entry to entry.  Remove now unused comp_method.
+    zipfile.c, globals.c, zip.h (EG)
+ 8. Comment out fflush(y) in zipup() as not sure why there.  zipup.c (EG)
+ 9. Update manual for Zip to list archive operation modes alphabetically.
+    Clarify modes of operation.  Add --version option description.
+    man/zip.1 (jaalto (from SourceForge Patch ID 3295707, et al.), EG)
+10. Modify configure script to accept "var=value" parameters where var are
+    CC, CFLAGS, AES, and so on in valid_vars list.  This replaces the
+    positional parameters.  Add AES encryption support.  unix/configure (SMS)
+11. Minor message wording changes.  unix/configure (EG)
+12. Add compilation support for AES.  Add support for new configure
+    parameters.  Remove generic_gcc target as now "generic CC=gcc" covers
+    that.  unix/Makefile (SMS)
+13. Add initial Unix version of entropy_fun() for AES encryption that tries
+    to use the /dev/random or /dev/urandom devices or, failing that, uses
+    a simple time and PID seed.  The random devices have not been tested
+    for enough randomness on enough systems yet and the PID fallback
+    should probably include some thread ID.  unix/unix.c (SMS)
+14. Add VMS AES compile support.  vms/build_zip.com (SMS)
+15. Add VMS AES options.  vms/cmdline.c, vms/zip_cli.cld (SMS)
+16. Minor dependency updates.  vms/collect_deps.com (SMS)
+17. Update for AES.  vms/descrip.mms, vms/descrip_deps.mms,
+    vms/descrip_mkdeps.mms, vms/descrip_src.mms (SMS)
+18. Add file to handle endian for AES.  vms/endian.h (SMS)
+19. Add file to fix missing string.h include in AES source.
+    vms/memory.h (SMS)
+20. Add VMS version of entropy_fun(), with device_opcnt_bits()
+    and device_opcnt_32().  vms.c (SMS)
+21. Remove STRCASECMP code.  vms/vmszip.c (SMS)
+22. Add VMS help for AES encryption.  vms/zip_cli.help (SMS)
+-------------------- May 14th 2011 version 3.1d07 -----------------------
+ 1. Update encryption comments.  crypt.c (EG)
+ 2. Change CRYPT_AES define to CRYPT_AES_WG (AES WinZip/Gladman
+    encryption.  crypt.c, globals.c, revision.h, zip.c, zip.h, zipfile.c
+    zipup.c, unix/unix.cvms/build_zip.com, vms/vms.c (SMS, EG)
+ 3. Update note.  vms/descrip.mms (SMS)
+ 4. Isolate entropy_fun() for Win32 to just Zip (for now).  crypt.c (SMS)
+ 5. Update testp() and testkey() to be compatible with UnZip version.
+    Add AES decryption.  crypt.c (SMS)
+ 6. Add some hex translations for GLOBAL keys.  crypt.c (SMS)
+ 7. Update decrypt() for UnZip to include AES.  crypt.c (SMS)
+ 8. Change RAND_HEAD_LEN constant to head_len variable to handle AES
+    variable length header.  crypt.c (SMS)
+ 9. Change zoff_t to long in Trace() calls and remove fzofft formatting.
+    crypt.c (SMS)
+10. Change constant 2 to PWD_VER_LENGTH.  crypt.c (SMS)
+11. Include aes/fileenc.h when USE_AES_WG set (for UnZip).  Add buffer
+    size checks (for UnZip).  crypt.h (SMS)
+12. Add new -pa (--prefix-added) option that works like -pp but only
+    adds the prefix to new or updated entries.  Add global
+    path_prefix_mode.  Add -pa to extended help.  globals.c, zip.c,
+    zipfile.c (EG)
+13. Remove aes/prng.h include and include aes/aes.h and aes/aesopt.h instead.
+    zip.c (SMS)
+14. Change version information standard encryption listing from "zip standard
+    encryption" to CRYPT    (traditional (weak) encryption).  Drop crypt version
+    date.  zip.c (SMS, EG)
+15. Add new option -DI (--incremental-list) for a list of incremental archives
+    that the entries of are to be skipped when creating a differential archive.
+    Not yet implemented.  zip.c (EG)
+16. Add AES Encryption endian check.  zip.c (SMS)
+17. Add AES 256 minimum password length check.  zip.c (EG)
+18. Add incompatible options check for AES and -X-.  Update -X and -V check
+    warning to -X- and -V.
+19. Update force_ansi_key comment.  zip.h (EG)
+20. Update VMS_MSG_IDENT to V3.1-000.  Change COMPERR error message from
+    "Not supported" to "Error in compilation options".  ziperr.h (SMS)
+21. Change CRYPT_AES_EF_TAG to CRYPT_AES_WG_EF_TAG.  Don't set encryption
+    method from read entries, just rely on copying AES extra field and
+    header settings.  zipfile. (EG)
+22. Always set z->encrypt_method for new entries.  zipup.c (SMS)
+23. Add TRC flags.  vms/descrip_src.mms (SMS)
+-------------------- May xxth 2011 version 3.1d08? -----------------------
+ 1. Re-sync crypt.c with UnZip.  (SMS)
+ 2. Change CRYPT_AES_WG_EF_TAG to EF_AES_WG for UnZip-shared crypt.c.
+    crypt.c, zipfile.c (SMS)
+ 3. Add AES encryption to ZipCloak.  crypt.c, zipcloak.c, unix/Makefile,
+    vms/build_zip.com, vms/descrip_src.mms (SMS)
+ 4. Add line-length limit to password "line too long" error messages.
+    ttyio.c (SMS)
+ 5. Add NO_EXCEPT_SIGNALS macro to allow easy disablement of the signal
+    handler.  (Matches UnZip.)  zip.c (SMS).
+ 6. Change some explicit numeric constants for AES encryption to (named)
+    macros.  Add AES192_OK to enable AES192 mode.  zip.c, zip.h, zipfile.c
+    (SMS).
+ 7. Accurate password length check for all encryption methods.  ttyio.c,
+    zip.c, qdos/qdos.c (SMS).
+ 8. Make UNIX- and VMS-specific entropy_fun() available for Zip and Zip
+    utilities (for ZipCloak).  unix/unix.c, vms/vms.c (SMS)

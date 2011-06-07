@@ -75,7 +75,7 @@
 
 # include "vms.h"
 
-#else /* not UTIL */
+#else /* def UTIL */
 
 /* Include the `VMS attributes' preserving file-io code. We distinguish
    between two incompatible flavours of storing VMS attributes in the
@@ -95,254 +95,7 @@
 # include "vms_pk.c"
 # include "vms_im.c"
 
-
-# ifdef CRYPT_AES_WG
-
-/* Entropy gathering for VMS.  We use the system time, some memory usage
- * and process I/O statistics, the process CPU time, the process ID, and
- * then we smoosh together bits from operation counts of every device on
- * the system.
- */
-
-/* $DEVICE_SCAN parameters. */			
-static unsigned short dev_name_ret_len;         /* Returned name length. */
-static unsigned int dev_scan_ctx[ 2] =          /* Context. */
-     { 0, 0 };
-static char dev_name_ret[ 65];                  /* Returned name storage. */
-static struct dsc$descriptor_s                  /* Returned name descriptor. */
- dev_name_ret_descr =
- { ((sizeof dev_name_ret)- 1), DSC$K_DTYPE_T, DSC$K_CLASS_S, dev_name_ret };
-
-/* Devices to consider.  (That is, all of them.) */
-static $DESCRIPTOR( dev_name_descr, "*");
-
-/* 2011-05-01 SMS.
- *
- *       device_opcnt_bits().
- *
- *    Fill the user's (32-bit) buffer with a non-tiny operation-count
- *    value from each device on the system, in turn.
- *    Return the number of bits.  If negative, then we've run out of
- *    devices to check, and the next call will begin a new scan (of the
- *    same old devices, most likely).
- */
-
-int device_opcnt_bits( unsigned int *ui)
-{
-    unsigned int os_info;
-    unsigned int os_infos;
-    int bits;
-    int shft;
-    int sts;
-
-    sts = SS$_NORMAL;
-    bits = -1;
-    while (((sts& STS$M_SEVERITY) == STS$K_SUCCESS) && (bits < 0))
-    {
-        /* Get the next device name. */
-        sts = sys$device_scan( &dev_name_ret_descr, /* Returned name. */
-                               &dev_name_ret_len,   /* Returned name length. */
-                               &dev_name_descr,     /* Search name. */
-                               0,                   /* Selection item list. */
-                               dev_scan_ctx);       /* Search context. */
-
-        if ((sts& STS$M_SEVERITY) == STS$K_SUCCESS)
-        {
-            /* Get the device operation count. */
-            sts = lib$getdvi( &((int) DVI$_OPCNT),  /* Item code. */
-                              0,                    /* Channel. */
-                              &dev_name_ret_descr,  /* Device name. */
-                              &os_info,             /* Result buffer. */
-                              0,                    /* Result length. */
-                              0);                   /* Path name. */
-
-            if ((sts& STS$M_SEVERITY) == STS$K_SUCCESS)
-            {
-                /* Ignore tiny values. */
-                if (os_info > 15)
-                {
-                    /* Count the useful bits. */
-                    os_infos = os_info;
-                    for (bits = 2; (os_infos >>= 2) != 0; bits += 2);
-                    shft = 32- bits;
-                }
-            }
-        }
-        else
-        {
-            /* DEBICE_SCAN failed.  Reset the context for the next round. */
-            dev_scan_ctx[ 0] = 0;
-            dev_scan_ctx[ 1] = 0;
-        }
-    }
-
-    if (ui != NULL)
-    {
-        /* Store the result in the user's buffer. */
-        *ui = os_info;
-    }
-
-    /* Return the number of good bits. */
-    return bits;
-}
-
-
-/* 2011-05-01 SMS.
- *
- *       device_opcnt_32().
- *
- *    Fill the user's (32-bit) buffer with device-operation-count
- *    values, smooshed together.
- *    Return the number of bits.  If less than 32, then we've run out of
- *    devices to check, and the next call will begin a new scan (of the
- *    same old devices, most likely).
- */
-
-static unsigned int junk_acc = 0;       /* 32-bit junk accumulator. */
-static int junk_acc_bit_cnt = 0;        /* Good (high) bits in the j_acc. */
-
-int device_opcnt_32( unsigned int *ui)
-{
-    int junk_bit_cnt;
-    unsigned int junk;
-    unsigned int out_buf;
-    int shft;
-    int sts;
-
-    junk_bit_cnt = 0;
-    int ret_bits = -1;
-
-    while ((junk_acc_bit_cnt < 32) && (junk_bit_cnt >= 0))
-    {
-        junk_bit_cnt = device_opcnt_bits( &junk);
-        if (junk_bit_cnt > 0)
-        {
-            shft = 32- junk_acc_bit_cnt- junk_bit_cnt;
-            if (shft > 0)
-            {   /* Too few bits.  Shift and OR in what's available. */
-                junk_acc |= (junk << shft);
-            }
-            else
-            {
-                /* Enough bits.  Or in what's needed.  Keep residue. */
-                out_buf = junk_acc| (junk >> (-shft));
-                junk_acc = junk << (32+ shft);
-            }
-            junk_acc_bit_cnt += junk_bit_cnt;
-        }
-    }
-
-    /* Reduce junk_acc_bit_cnt after filling 32 bits. */
-    if (junk_acc_bit_cnt >= 32)
-    {
-        ret_bits = 32;
-        junk_acc_bit_cnt -= 32;
-    }
-    else
-    {
-        /* Ran out of bits. */
-        ret_bits = junk_acc_bit_cnt;
-    }
-
-    if (ui != NULL)
-    {
-        /* Store the result in the user's buffer. */
-        *ui = out_buf;
-    }
-
-    /* Return the number of good bits. */
-    return ret_bits;
-}
-
-
-/* 2011-04-21 SMS.
- *
- *       entropy_fun().
- *
- *    Fill the user's buffer with up to 8 bytes of stuff.
- */
-
-#  define EF_MIN( a, b) ((a) < (b) ? (a) : (b))
-
-int entropy_fun( unsigned char *buf, unsigned int len)
-{
-    union
-    {
-        unsigned char b[ 8];
-        unsigned int i[ 2];
-    } my_buf;                   /* Main buffer.  sys$gettim() results. */
-
-    union
-    {
-        unsigned char b[ 4];
-        unsigned int i;
-    } os_info;                  /* sys$getXXX() results. */
-
-    int i;
-    int sts;                    /* System service/RTL status, */
-    unsigned char bt;           /* Temporary byte. */
-    static int num = 0;         /* Use count (method choice). */
-
-    /* Get the 64-bit VMS system time (100ns units).
-     * Note: A 64-bit system time should have rapidly changing low bits,
-     * but old (VAX) systems may increment by a big number (100000?)
-     * seldom, instead of by one every 100ns.
-     */
-    sts = sys$gettim( &my_buf);
-
-    /* Mix in additional, invocation-dependent junk. */
-    switch (num)
-    {
-      case 0:   /* First invocation. */
-        /* Mix in process login time (high), and process ID (low). */
-        sts = lib$getjpi( &((int) JPI$_LOGINTIM), 0, 0, &os_info, 0, 0);
-        my_buf.i[ 1] ^= os_info.i;
-        sts = lib$getjpi( &((int) JPI$_PID), 0, 0, &os_info, 0, 0);
-        my_buf.i[ 0] ^= os_info.i;
-        num++;
-        break;
-      case 1:   /* Second invocation. */
-        /* Mix in process page fault count (high),
-         * system free pagefile count (low).
-         */
-        sts = lib$getjpi( &((int) JPI$_PAGEFLTS), 0, 0, &os_info, 0, 0);
-        my_buf.i[ 1] ^= os_info.i;
-        sts = lib$getsyi( &((int) SYI$_PAGEFILE_FREE), &os_info, 0, 0, 0, 0);
-        my_buf.i[ 0] ^= os_info.i;
-        num++;
-        break;
-      case 2:   /* Third invocation. */
-        /* Mix in process CPU time (high),
-         * and process buffered and direct IO counts (low).
-         */
-        sts = lib$getjpi( &((int) JPI$_CPUTIM), 0, 0, &os_info, 0, 0);
-        my_buf.i[ 1] ^= os_info.i;
-        sts = lib$getjpi( &((int) JPI$_BUFIO), 0, 0, &os_info, 0, 0);
-        my_buf.i[ 0] ^= (os_info.i << 16);
-        sts = lib$getjpi( &((int) JPI$_DIRIO), 0, 0, &os_info, 0, 0);
-        my_buf.i[ 0] ^= os_info.i;
-        num++;
-        break;
-      default:  /* After the third invocation. */
-        /* Mix in device operation count bits. */
-        device_opcnt_32( &os_info.i);
-        my_buf.i[ 1] ^= os_info.i;
-        device_opcnt_32( &os_info.i);
-        my_buf.i[ 0] ^= os_info.i;
-    }
-
-    /* Move the results into the user's buffer. */
-    i = EF_MIN( 8, len);
-    memcpy( buf, &my_buf, i);
-
-    /* Return the byte count. */
-    return i;
-
-} /* entropy_fun(). */
-
-# endif /* def CRYPT_AES_WG */
-
-#endif /* not UTIL [else] */
+#endif /* def UTIL [else] */
 
 #ifndef ERR
 #define ERR(x) (((x)&1)==0)
@@ -913,6 +666,253 @@ char *vms_file_version( char *s)
     }
     return p;
 } /* vms_file_version(). */
+
+
+# ifdef CRYPT_AES_WG
+
+/* Entropy gathering for VMS.  We use the system time, some memory usage
+ * and process I/O statistics, the process CPU time, the process ID, and
+ * then we smoosh together bits from operation counts of every device on
+ * the system.
+ */
+
+/* $DEVICE_SCAN parameters. */			
+static unsigned short dev_name_ret_len;         /* Returned name length. */
+static unsigned int dev_scan_ctx[ 2] =          /* Context. */
+     { 0, 0 };
+static char dev_name_ret[ 65];                  /* Returned name storage. */
+static struct dsc$descriptor_s                  /* Returned name descriptor. */
+ dev_name_ret_descr =
+ { ((sizeof dev_name_ret)- 1), DSC$K_DTYPE_T, DSC$K_CLASS_S, dev_name_ret };
+
+/* Devices to consider.  (That is, all of them.) */
+static $DESCRIPTOR( dev_name_descr, "*");
+
+/* 2011-05-01 SMS.
+ *
+ *       device_opcnt_bits().
+ *
+ *    Fill the user's (32-bit) buffer with a non-tiny operation-count
+ *    value from each device on the system, in turn.
+ *    Return the number of bits.  If negative, then we've run out of
+ *    devices to check, and the next call will begin a new scan (of the
+ *    same old devices, most likely).
+ */
+
+int device_opcnt_bits( unsigned int *ui)
+{
+    unsigned int os_info;
+    unsigned int os_infos;
+    int bits;
+    int shft;
+    int sts;
+
+    sts = SS$_NORMAL;
+    bits = -1;
+    while (((sts& STS$M_SEVERITY) == STS$K_SUCCESS) && (bits < 0))
+    {
+        /* Get the next device name. */
+        sts = sys$device_scan( &dev_name_ret_descr, /* Returned name. */
+                               &dev_name_ret_len,   /* Returned name length. */
+                               &dev_name_descr,     /* Search name. */
+                               0,                   /* Selection item list. */
+                               dev_scan_ctx);       /* Search context. */
+
+        if ((sts& STS$M_SEVERITY) == STS$K_SUCCESS)
+        {
+            /* Get the device operation count. */
+            sts = lib$getdvi( &((int) DVI$_OPCNT),  /* Item code. */
+                              0,                    /* Channel. */
+                              &dev_name_ret_descr,  /* Device name. */
+                              &os_info,             /* Result buffer. */
+                              0,                    /* Result length. */
+                              0);                   /* Path name. */
+
+            if ((sts& STS$M_SEVERITY) == STS$K_SUCCESS)
+            {
+                /* Ignore tiny values. */
+                if (os_info > 15)
+                {
+                    /* Count the useful bits. */
+                    os_infos = os_info;
+                    for (bits = 2; (os_infos >>= 2) != 0; bits += 2);
+                    shft = 32- bits;
+                }
+            }
+        }
+        else
+        {
+            /* DEBICE_SCAN failed.  Reset the context for the next round. */
+            dev_scan_ctx[ 0] = 0;
+            dev_scan_ctx[ 1] = 0;
+        }
+    }
+
+    if (ui != NULL)
+    {
+        /* Store the result in the user's buffer. */
+        *ui = os_info;
+    }
+
+    /* Return the number of good bits. */
+    return bits;
+}
+
+
+/* 2011-05-01 SMS.
+ *
+ *       device_opcnt_32().
+ *
+ *    Fill the user's (32-bit) buffer with device-operation-count
+ *    values, smooshed together.
+ *    Return the number of bits.  If less than 32, then we've run out of
+ *    devices to check, and the next call will begin a new scan (of the
+ *    same old devices, most likely).
+ */
+
+static unsigned int junk_acc = 0;       /* 32-bit junk accumulator. */
+static int junk_acc_bit_cnt = 0;        /* Good (high) bits in the j_acc. */
+
+int device_opcnt_32( unsigned int *ui)
+{
+    int junk_bit_cnt;
+    unsigned int junk;
+    unsigned int out_buf;
+    int shft;
+    int sts;
+
+    junk_bit_cnt = 0;
+    int ret_bits = -1;
+
+    while ((junk_acc_bit_cnt < 32) && (junk_bit_cnt >= 0))
+    {
+        junk_bit_cnt = device_opcnt_bits( &junk);
+        if (junk_bit_cnt > 0)
+        {
+            shft = 32- junk_acc_bit_cnt- junk_bit_cnt;
+            if (shft > 0)
+            {   /* Too few bits.  Shift and OR in what's available. */
+                junk_acc |= (junk << shft);
+            }
+            else
+            {
+                /* Enough bits.  Or in what's needed.  Keep residue. */
+                out_buf = junk_acc| (junk >> (-shft));
+                junk_acc = junk << (32+ shft);
+            }
+            junk_acc_bit_cnt += junk_bit_cnt;
+        }
+    }
+
+    /* Reduce junk_acc_bit_cnt after filling 32 bits. */
+    if (junk_acc_bit_cnt >= 32)
+    {
+        ret_bits = 32;
+        junk_acc_bit_cnt -= 32;
+    }
+    else
+    {
+        /* Ran out of bits. */
+        ret_bits = junk_acc_bit_cnt;
+    }
+
+    if (ui != NULL)
+    {
+        /* Store the result in the user's buffer. */
+        *ui = out_buf;
+    }
+
+    /* Return the number of good bits. */
+    return ret_bits;
+}
+
+
+/* 2011-04-21 SMS.
+ *
+ *       entropy_fun().
+ *
+ *    Fill the user's buffer with up to 8 bytes of stuff.
+ */
+
+#  define EF_MIN( a, b) ((a) < (b) ? (a) : (b))
+
+int entropy_fun( unsigned char *buf, unsigned int len)
+{
+    union
+    {
+        unsigned char b[ 8];
+        unsigned int i[ 2];
+    } my_buf;                   /* Main buffer.  sys$gettim() results. */
+
+    union
+    {
+        unsigned char b[ 4];
+        unsigned int i;
+    } os_info;                  /* sys$getXXX() results. */
+
+    int i;
+    int sts;                    /* System service/RTL status, */
+    unsigned char bt;           /* Temporary byte. */
+    static int num = 0;         /* Use count (method choice). */
+
+    /* Get the 64-bit VMS system time (100ns units).
+     * Note: A 64-bit system time should have rapidly changing low bits,
+     * but old (VAX) systems may increment by a big number (100000?)
+     * seldom, instead of by one every 100ns.
+     */
+    sts = sys$gettim( &my_buf);
+
+    /* Mix in additional, invocation-dependent junk. */
+    switch (num)
+    {
+      case 0:   /* First invocation. */
+        /* Mix in process login time (high), and process ID (low). */
+        sts = lib$getjpi( &((int) JPI$_LOGINTIM), 0, 0, &os_info, 0, 0);
+        my_buf.i[ 1] ^= os_info.i;
+        sts = lib$getjpi( &((int) JPI$_PID), 0, 0, &os_info, 0, 0);
+        my_buf.i[ 0] ^= os_info.i;
+        num++;
+        break;
+      case 1:   /* Second invocation. */
+        /* Mix in process page fault count (high),
+         * system free pagefile count (low).
+         */
+        sts = lib$getjpi( &((int) JPI$_PAGEFLTS), 0, 0, &os_info, 0, 0);
+        my_buf.i[ 1] ^= os_info.i;
+        sts = lib$getsyi( &((int) SYI$_PAGEFILE_FREE), &os_info, 0, 0, 0, 0);
+        my_buf.i[ 0] ^= os_info.i;
+        num++;
+        break;
+      case 2:   /* Third invocation. */
+        /* Mix in process CPU time (high),
+         * and process buffered and direct IO counts (low).
+         */
+        sts = lib$getjpi( &((int) JPI$_CPUTIM), 0, 0, &os_info, 0, 0);
+        my_buf.i[ 1] ^= os_info.i;
+        sts = lib$getjpi( &((int) JPI$_BUFIO), 0, 0, &os_info, 0, 0);
+        my_buf.i[ 0] ^= (os_info.i << 16);
+        sts = lib$getjpi( &((int) JPI$_DIRIO), 0, 0, &os_info, 0, 0);
+        my_buf.i[ 0] ^= os_info.i;
+        num++;
+        break;
+      default:  /* After the third invocation. */
+        /* Mix in device operation count bits. */
+        device_opcnt_32( &os_info.i);
+        my_buf.i[ 1] ^= os_info.i;
+        device_opcnt_32( &os_info.i);
+        my_buf.i[ 0] ^= os_info.i;
+    }
+
+    /* Move the results into the user's buffer. */
+    i = EF_MIN( 8, len);
+    memcpy( buf, &my_buf, i);
+
+    /* Return the byte count. */
+    return i;
+
+} /* entropy_fun(). */
+
+# endif /* def CRYPT_AES_WG */
 
 
 /* 2004-11-23 SMS.

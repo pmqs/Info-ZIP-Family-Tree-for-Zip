@@ -1,4 +1,4 @@
-#                                               12 May 2011.  SMS.
+#                                               15 May 2011.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Source Description File.
 #
@@ -219,7 +219,7 @@ NON_VAX_CMPL = 1
 # AES options.
 
 .IFDEF AES                      # AES
-CDEFS_AES = , CRYPT_AES, _ENDIAN_H="""endian.h"""
+CDEFS_AES = , CRYPT_AES_WG, _ENDIAN_H="""endian.h"""
 .ENDIF                          # AES
 
 # BZIP2 options.
@@ -408,6 +408,7 @@ MODS_OBJS_LIB_ZIPUTILS = $(MODS_OBJS_LIB_ZIPUTILS_N) \
  $(MODS_OBJS_LIB_ZIPUTILS_U) \
  $(MODS_OBJS_LIB_ZIPUTILS_N_V) \
  $(MODS_OBJS_LIB_ZIPUTILS_U_V) \
+ $(MODS_OBJS_LIB_ZIP_AES)
 
 #    CLI object library, [.VMS].
 

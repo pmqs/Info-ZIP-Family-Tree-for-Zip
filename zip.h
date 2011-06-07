@@ -96,7 +96,7 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #  include "zlib.h"
 #endif
 
-#ifdef CRYPT_AES
+#ifdef CRYPT_AES_WG
 #  include "aes/aes.h"
 #  include "aes/fileenc.h"
 #  include "aes/prng.h"
@@ -251,6 +251,7 @@ struct plist {
 #define EF_SPARK     0x4341   /* David Pilling's Acorn/SparkFS ("AC") */
 #define EF_THEOS     0x6854   /* THEOS ("Th") */
 #define EF_TANDEM    0x4154   /* Tandem NSK ("TA") */
+#define EF_AES_WG    0x9901   /* AES (WinZip/Gladman) encryption ("c^!") */
 
 /* Definitions for extra field handling: */
 #define EF_SIZE_MAX  ((unsigned)0xFFFF) /* hard limit of total e.f. length */
@@ -259,6 +260,12 @@ struct plist {
 #define EB_LEN            2     /* offset of data length field in header */
 #define EB_MEMCMPR_HSIZ   6     /* header length for memcompressed data */
 #define EB_DEFLAT_EXTRA  10     /* overhead for 64kByte "undeflatable" data */
+
+#define EB_AES_VERS       0     /* AES encryption version. */
+#define EB_AES_VEND       2     /* AES encryption vendor. */
+#define EB_AES_MODE       4     /* AES encryption mode. */
+#define EB_AES_MTHD       5     /* AES encryption real compression method. */
+#define EB_AES_HLEN       7     /* AES encryption extra block size. */
 
 #define EB_UX_MINLEN      8     /* minimal "UX" field contains atime, mtime */
 #define EB_UX_ATIME       0     /* offset of atime in "UX" extra field data */
@@ -360,6 +367,7 @@ extern int scanimage;           /* Scan through image files */
 #else
 #define LAST_KNOWN_COMPMETHOD   DEFLATE
 #endif
+#define AESENCRED 99            /* AES (WG) encrypted */
 
 extern int method;              /* Restriction on compression method */
 
@@ -543,19 +551,22 @@ extern char *entry_name;        /* used by DLL to pass z->zname to file_read() *
 /* encryption */
 
 /* values for encryption_method */
-#define STANDARD_ENCRYPTION      1
-#define AES_128_ENCRYPTION       2
-#define AES_192_ENCRYPTION       3
-#define AES_256_ENCRYPTION       4
+#define NO_ENCRYPTION            0      /* None. */
+#define STANDARD_ENCRYPTION      1      /* Traditional (weak). */
+#define AES_128_ENCRYPTION       2      /* AES (WG) mode 1. */
+#define AES_192_ENCRYPTION       3      /* AES (WG) mode 2. */
+#define AES_256_ENCRYPTION       4      /* AES (WG) mode 3. */
 
+#define AES_MAX_ENCRYPTION      AES_256_ENCRYPTION      /* AES upper bound. */
+#define AES_MIN_ENCRYPTION      AES_128_ENCRYPTION      /* AES lower bound. */
+							
 extern char *key;               /* Scramble password or NULL */
-extern int force_ansi_key;      /* Only ANSI characters for password (32 - 126) */
+extern int force_ansi_key;      /* Only ANSI characters for password (char codes 32 - 126) */
 extern int encryption_method;   /* See above defines */
 extern ush aes_vendor_version;
 extern uch aes_strength;
-extern ush comp_method;         /* Compression method */
 
-#ifdef CRYPT_AES
+#ifdef CRYPT_AES_WG
  extern int key_size;                 /* Size of strong encryption key */
  extern fcrypt_ctx zctx;
  extern unsigned char *zpwd;
@@ -570,6 +581,7 @@ extern ush comp_method;         /* Compression method */
 extern char **args;             /* Copy of argv that can be updated and freed */
 
 extern char *path_prefix;       /* Prefix to add to all new archive entries */
+extern int path_prefix_mode;    /* 0=Prefix all paths, 1=Prefix only added/updated paths */
 extern int all_ascii;           /* Skip binary check and handle all files as text */
 extern char *zipfile;           /* New or existing zip archive (zip file) */
 extern FILE *in_file;           /* Current input file for spits */
@@ -970,7 +982,7 @@ void     bi_init      OF((char *, unsigned int, int));
  uzoff_t get_time_in_usec OF(());
 #endif
 
-#ifdef CRYPT_AES
+#ifdef CRYPT_AES_WG
  void aes_crypthead OF((ZCONST uch *, uch, ZCONST uch *));
  int entropy_fun OF((unsigned char buf[], unsigned int len));
 #endif

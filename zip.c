@@ -118,9 +118,10 @@ ZCONST uLongf *crc_32_tab;
 # endif
 #endif /* CRYPT */
 
-#ifdef CRYPT_AES
+#ifdef CRYPT_AES_WG
 # include "aes/aes.h"
 # include "aes/aesopt.h"
+/* # include "aes/prng.h" */
 #endif
 
 /* Local functions */
@@ -445,24 +446,24 @@ void error(h)
   ziperr(ZE_LOGIC, h);
 }
 
-#if (!defined(MACOS) && !defined(WINDLL))
+#if (!defined(MACOS) && !defined(WINDLL) && !defined(NO_EXCEPT_SIGNALS))
 local void handler(s)
 int s;                  /* signal number (ignored) */
 /* Upon getting a user interrupt, turn echo back on for tty and abort
    cleanly using ziperr(). */
 {
-#if defined(AMIGA) && defined(__SASC)
+# if defined(AMIGA) && defined(__SASC)
    _abort();
-#else
-#if !defined(MSDOS) && !defined(__human68k__) && !defined(RISCOS)
+# else
+#  if !defined(MSDOS) && !defined(__human68k__) && !defined(RISCOS)
   echon();
   putc('\n', mesg);
-#endif /* !MSDOS */
-#endif /* AMIGA && __SASC */
+#  endif /* !MSDOS */
+# endif /* AMIGA && __SASC */
   ziperr(ZE_ABORT, "aborting");
   s++;                                  /* keep some compilers happy */
 }
-#endif /* !MACOS && !WINDLL */
+#endif /* !defined(MACOS) && !defined(WINDLL) && !defined(NO_EXCEPT_SIGNALS) */
 
 void zipmessage_nl(a, nl)
 ZCONST char *a;     /* message string to output */
@@ -1054,8 +1055,14 @@ local void help_extended()
 "  -a        Translate from EBCDIC to ASCII",
 "  -aa       Handle all files as text files, do EBCDIC/ASCII conversions",
 "",
-"More option highlights (see manual for additional options and details):",
+"Modifying paths:",
+"  Currently there are two options that allow modifying paths as they are",
+"  stored in the archive.  At some point a more general path modifying",
+"  feature similar to the ZipNote capability is planned.",
 "  -pp prfx  prefix string prfx to all paths in archive",
+"  -pa prfx  prefix prfx to just added/updated entries in the archive",
+"",
+"More option highlights (see manual for additional options and details):",
 "  -b dir    when creating or updating archive, create the temp archive in",
 "             dir, which allows using seekable temp file when writing to a",
 "             write once CD, such archives compatible with more unzips",
@@ -1192,8 +1199,8 @@ local void version_info()
 # endif
 #endif
 
-#if CRYPT_AES
-    "CRYPT_AES            (AES strong encryption (WinZip/Gladman))",
+#if CRYPT_AES_WG
+    "CRYPT_AES_WG         (AES strong encryption (WinZip/Gladman))",
 #endif
 
 #if CRYPT && defined(PASSWD_FROM_STDIN)
@@ -1305,8 +1312,8 @@ local void version_info()
 #endif
 
 #ifdef CRYPT
-  printf("        [zip standard encryption, version %d.%d%s of %s] (mod for Zip 3)\n\n",
-            CR_MAJORVER, CR_MINORVER, CR_BETA_VER, CR_VERSION_DATE);
+  printf("        CRYPT                (traditional (weak) encryption, ver %d.%d%s)\n\n",
+            CR_MAJORVER, CR_MINORVER, CR_BETA_VER);
   for (i = 0; i < sizeof(cryptnote)/sizeof(char *); i++)
   {
     printf(cryptnote[i]);
@@ -1315,7 +1322,7 @@ local void version_info()
   ++i;  /* crypt support means there IS at least one compilation option */
 #endif /* CRYPT */
 
-#ifdef CRYPT_AES
+#ifdef CRYPT_AES_WG
   putchar('\n');
   for (i = 0; i < sizeof(cryptAESnote)/sizeof(char *); i++)
   {
@@ -2273,49 +2280,51 @@ int set_filetype(out_path)
 #define o_des           0x112
 #define o_df            0x113
 #define o_DF            0x114
-#define o_dg            0x115
-#define o_dr            0x116
-#define o_ds            0x117
-#define o_dt            0x118
-#define o_du            0x119
-#define o_dv            0x120
-#define o_FF            0x121
-#define o_FI            0x122
-#define o_FS            0x123
-#define o_h2            0x124
-#define o_ic            0x125
-#define o_jj            0x126
-#define o_la            0x127
-#define o_lf            0x128
-#define o_lF            0x129
-#define o_li            0x130
-#define o_ll            0x131
-#define o_lu            0x132
-#define o_mm            0x133
-#define o_MM            0x134
-#define o_MV            0x135
-#define o_nw            0x136
-#define o_pn            0x137
-#define o_pp            0x138
-#define o_RE            0x139
-#define o_sb            0x140
-#define o_sc            0x141
-#define o_sC            0x142
-#define o_sd            0x143
-#define o_sf            0x144
-#define o_so            0x145
-#define o_sp            0x146
-#define o_su            0x147
-#define o_sU            0x148
-#define o_sv            0x149
-#define o_tt            0x150
-#define o_TT            0x151
-#define o_UN            0x152
-#define o_ve            0x153
-#define o_VV            0x154
-#define o_ws            0x155
-#define o_ww            0x156
-#define o_z64           0x157
+#define o_DI            0x115
+#define o_dg            0x116
+#define o_dr            0x117
+#define o_ds            0x118
+#define o_dt            0x119
+#define o_du            0x120
+#define o_dv            0x121
+#define o_FF            0x122
+#define o_FI            0x123
+#define o_FS            0x124
+#define o_h2            0x125
+#define o_ic            0x126
+#define o_jj            0x127
+#define o_la            0x128
+#define o_lf            0x129
+#define o_lF            0x130
+#define o_li            0x131
+#define o_ll            0x132
+#define o_lu            0x133
+#define o_mm            0x134
+#define o_MM            0x135
+#define o_MV            0x136
+#define o_nw            0x137
+#define o_pa            0x138
+#define o_pn            0x139
+#define o_pp            0x140
+#define o_RE            0x141
+#define o_sb            0x142
+#define o_sc            0x143
+#define o_sC            0x144
+#define o_sd            0x145
+#define o_sf            0x146
+#define o_so            0x147
+#define o_sp            0x148
+#define o_su            0x149
+#define o_sU            0x150
+#define o_sv            0x151
+#define o_tt            0x152
+#define o_TT            0x153
+#define o_UN            0x154
+#define o_ve            0x155
+#define o_VV            0x156
+#define o_ws            0x157
+#define o_ww            0x158
+#define o_z64           0x159
 
 
 /* the below is mainly from the old main command line
@@ -2378,6 +2387,7 @@ struct option_struct far options[] = {
 #endif /* defined( MACOS) || (defined( UNIX) && defined( __APPLE__)) */
     {"D",  "no-dir-entries", o_NO_VALUE,    o_NOT_NEGATABLE, 'D',  "no entries for dirs themselves (-x */)"},
     {"DF", "difference-archive",o_NO_VALUE, o_NOT_NEGATABLE, o_DF, "create diff archive with changed/new files"},
+    {"DI", "incremental-list",o_VALUE_LIST, o_NOT_NEGATABLE, o_DI, "archive list to exclude from -DF archive"},
     {"e",  "encrypt",     o_NO_VALUE,       o_NOT_NEGATABLE, 'e',  "encrypt entries, ask for password"},
 #ifdef OS2
     {"E",  "longnames",   o_NO_VALUE,       o_NOT_NEGATABLE, 'E',  "use OS2 longnames"},
@@ -2437,6 +2447,7 @@ struct option_struct far options[] = {
     {"o",  "latest-time", o_NO_VALUE,       o_NOT_NEGATABLE, 'o',  "use latest entry time as archive time"},
     {"O",  "output-file", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'O',  "set out zipfile different than in zipfile"},
     {"p",  "paths",       o_NO_VALUE,       o_NOT_NEGATABLE, 'p',  "store paths"},
+    {"pa", "prefix-added",o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_pa, "prefix only added/updated paths with this"},
     {"pn", "non-ansi-password", o_NO_VALUE, o_NEGATABLE,     o_pn, "allow non-ANSI password"},
     {"pp", "prefix-path", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_pp, "prefix all paths in archive with this"},
     {"P",  "password",    o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'P',  "encrypt entries, option value is password"},
@@ -2917,7 +2928,7 @@ char **argv;            /* command line tokens */
   start_zip_time = 0;         /* after scan, when start zipping files */
 #endif
 
-  encryption_method = 0;
+  encryption_method = NO_ENCRYPTION;
 
 #if defined(WINDLL)
   retcode = setjmp(zipdll_error_return);
@@ -2949,7 +2960,7 @@ char **argv;            /* command line tokens */
     ZIPERR(ZE_COMPERR, "uzoff_t not same size as zoff_t");
   }
 
-#ifdef CRYPT_AES
+#ifdef CRYPT_AES_WG
   /* Verify the AES compile-time endian decision. */
   {
     union {
@@ -2977,7 +2988,7 @@ char **argv;            /* command line tokens */
       ZIPERR( ZE_COMPERR, errbuf);
     }
   }
-#endif /* def CRYPT_AES */
+#endif /* def CRYPT_AES_WG */
 
 #if (defined(WIN32) && defined(USE_EF_UT_TIME))
   /* For the Win32 environment, we may have to "prepare" the environment
@@ -3061,30 +3072,33 @@ char **argv;            /* command line tokens */
   zipfile = tempzip = NULL;
   y = NULL;
   d = 0;                        /* disallow adding to a zip file */
-#if (!defined(MACOS) && !defined(WINDLL) && !defined(NLM))
+
+#ifndef NO_EXCEPT_SIGNALS
+# if (!defined(MACOS) && !defined(WINDLL) && !defined(NLM))
   signal(SIGINT, handler);
-#ifdef SIGTERM                  /* AMIGADOS and others have no SIGTERM */
+#  ifdef SIGTERM                  /* AMIGADOS and others have no SIGTERM */
   signal(SIGTERM, handler);
-#endif
-# if defined(SIGABRT) && !(defined(AMIGA) && defined(__SASC))
+#  endif
+#  if defined(SIGABRT) && !(defined(AMIGA) && defined(__SASC))
    signal(SIGABRT, handler);
-# endif
-# ifdef SIGBREAK
+#  endif
+#  ifdef SIGBREAK
    signal(SIGBREAK, handler);
-# endif
-# ifdef SIGBUS
+#  endif
+#  ifdef SIGBUS
    signal(SIGBUS, handler);
-# endif
-# ifdef SIGILL
+#  endif
+#  ifdef SIGILL
    signal(SIGILL, handler);
-# endif
-# ifdef SIGSEGV
+#  endif
+#  ifdef SIGSEGV
    signal(SIGSEGV, handler);
-# endif
-#endif /* !MACOS && !WINDLL && !NLM */
-#ifdef NLM
+#  endif
+# endif /* !MACOS && !WINDLL && !NLM */
+# ifdef NLM
   NLMsignals();
-#endif
+# endif
+#endif /* ndef NO_EXCEPT_SIGNALS */
 
 
 #if defined(UNICODE_SUPPORT) && defined(WIN32)
@@ -3325,8 +3339,8 @@ char **argv;            /* command line tokens */
           if (key)
             free(key);
           key_needed = 1;
-          if (encryption_method == 0) {
-            encryption_method = 1;
+          if (encryption_method == NO_ENCRYPTION) {
+            encryption_method = STANDARD_ENCRYPTION;
           }
 #endif /* !CRYPT */
           break;
@@ -3496,6 +3510,12 @@ char **argv;            /* command line tokens */
         case 'p':   /* Store path with name */
           zipwarn("-p (include path) is deprecated.  Use -j- instead", "");
           break;            /* (do nothing as annoyance avoidance) */
+        case o_pa:  /* Set prefix for paths of new entries in archive */
+          if (path_prefix)
+            free(path_prefix);
+          path_prefix = value;
+          path_prefix_mode = 1;
+          break;
         case o_pn:  /* Allow non-ANSI password */
           if (negated) {
             force_ansi_key = 1;
@@ -3507,6 +3527,7 @@ char **argv;            /* command line tokens */
           if (path_prefix)
             free(path_prefix);
           path_prefix = value;
+          path_prefix_mode = 0;
           break;
         case 'P':   /* password for encryption */
           if (key != NULL) {
@@ -3515,8 +3536,8 @@ char **argv;            /* command line tokens */
 #if CRYPT
           key = value;
           key_needed = 0;
-          if (encryption_method == 0) {
-            encryption_method = 1;
+          if (encryption_method == NO_ENCRYPTION) {
+            encryption_method = STANDARD_ENCRYPTION;
           }
 #else
           ZIPERR(ZE_PARMS, "encryption not supported");
@@ -3819,14 +3840,14 @@ char **argv;            /* command line tokens */
           linkput = 1;  break;
 #endif /* S_IFLNK */
 
-#ifdef CRYPT_AES
+#ifdef CRYPT_AES_WG
         case 'Y':   /* Encryption method */
           if (abbrevmatch("standard", value, 0, 1)) {
             encryption_method = STANDARD_ENCRYPTION;
 
           } else if (abbrevmatch("AES128", value, 0, 5)) {
             encryption_method = AES_128_ENCRYPTION;
-#if 0
+#ifdef AES192_OK
           } else if (abbrevmatch("AES192", value, 0, 5)) {
             encryption_method = AES_192_ENCRYPTION;
 #endif
@@ -4255,17 +4276,28 @@ char **argv;            /* command line tokens */
 
 #if CRYPT
 
-# ifdef CRYPT_AES
-  if (key == NULL && encryption_method != 0) {
+# ifdef CRYPT_AES_WG
+  if (key == NULL && encryption_method != NO_ENCRYPTION) {
     key_needed = 1;
   }
 # endif
   if (key_needed) {
     int i;
-    if ((key = malloc(IZ_PWLEN+1)) == NULL) {
+# ifdef CRYPT_AES_WG
+#  define REAL_PWLEN temp_pwlen
+    int temp_pwlen;
+
+    if (encryption_method <= STANDARD_ENCRYPTION)
+        REAL_PWLEN = IZ_PWLEN;
+    else
+        REAL_PWLEN = MAX_PWD_LENGTH;
+# else /* def CRYPT_AES_WG */
+#  define REAL_PWLEN IZ_PWLEN
+# endif /* def CRYPT_AES_WG [else] */
+    if ((key = malloc(REAL_PWLEN+1)) == NULL) {
       ZIPERR(ZE_MEM, "was getting encryption password");
     }
-    r = encr_passwd(ZP_PW_ENTER, key, IZ_PWLEN+1, zipfile);
+    r = encr_passwd(ZP_PW_ENTER, key, REAL_PWLEN, zipfile);
     if (r != IZ_PW_ENTERED) {
       if (r < IZ_PW_ENTERED)
         r = ZE_PARMS;
@@ -4286,10 +4318,14 @@ char **argv;            /* command line tokens */
       zipwarn("AES password must be at least 16 chars (longer is better)", "");
       ZIPERR(ZE_PARMS, "AES password too short");
     }
-    if ((e = malloc(IZ_PWLEN+1)) == NULL) {
+    if ((encryption_method == AES_256_ENCRYPTION) && (strlen(key) < 24)) {
+      zipwarn("AES 256 password must be at least 24 chars (longer is better)", "");
+      ZIPERR(ZE_PARMS, "AES password too short");
+    }
+    if ((e = malloc(REAL_PWLEN+1)) == NULL) {
       ZIPERR(ZE_MEM, "was verifying encryption password");
     }
-    r = encr_passwd(ZP_PW_VERIFY, e, IZ_PWLEN+1, zipfile);
+    r = encr_passwd(ZP_PW_VERIFY, e, REAL_PWLEN, zipfile);
     if (r != IZ_PW_ENTERED && r != IZ_PW_SKIPVERIFY) {
       free((zvoid *)e);
       if (r < ZE_OK) r = ZE_PARMS;
@@ -4318,7 +4354,10 @@ char **argv;            /* command line tokens */
 
     for (i = 0; c = path_prefix[i]; i++) {
       if (!isprint(c)) {
-        ZIPERR(ZE_PARMS, "option -pp (--prefix_path): non-print char in prefix");
+        if (path_prefix_mode == 1)
+          ZIPERR(ZE_PARMS, "option -pa (--prefix_added): non-print char in prefix");
+        else
+          ZIPERR(ZE_PARMS, "option -pp (--prefix_path): non-print char in prefix");
       }
 #if (defined(MSDOS) || defined(OS2)) && !defined(WIN32)
       if (c == '\\') {
@@ -4327,13 +4366,19 @@ char **argv;            /* command line tokens */
       }
 #endif
       if (!isalnum(c) && !strchr(allowed_other_chars, c)) {
-        strcpy(errbuf, "option -pp (--prefix_path), only alphanum and \"");
+        if (path_prefix_mode == 1)
+          strcpy(errbuf, "option -pa (--prefix_added), only alphanum and \"");
+        else
+          strcpy(errbuf, "option -pp (--prefix_path), only alphanum and \"");
         strcat(errbuf, allowed_other_chars);
         strcat(errbuf, "\" allowed");
         ZIPERR(ZE_PARMS, errbuf);
       }
       if (last_c == '.' && c == '.') {
-        ZIPERR(ZE_PARMS, "option -pp (--prefix_path): \"..\" not allowed");
+        if (path_prefix_mode == 1)
+          ZIPERR(ZE_PARMS, "option -pa (--prefix_added): \"..\" not allowed");
+        else
+          ZIPERR(ZE_PARMS, "option -pp (--prefix_path): \"..\" not allowed");
       }
       last_c = c;
     }
@@ -4542,12 +4587,17 @@ char **argv;            /* command line tokens */
       sequester = 0;
     }
 #endif /* defined( UNIX) && defined( __APPLE__) */
+#if CRYPT_AES_WG
+  if (!extra_fields && encryption_method >= AES_MIN_ENCRYPTION) {
+    zipwarn("can't use -X- with -Y AES encryption, -X- ignored", "");
+    extra_fields = 1;
+  }
+#endif
 #ifdef VMS
-  if (!extra_fields && vms_native)
-    {
-      zipwarn("can't use -V with -X, -V ignored", "");
-      vms_native = 0;
-    }
+  if (!extra_fields && vms_native) {
+    zipwarn("can't use -V with -X-, -V ignored", "");
+    vms_native = 0;
+  }
   if (vms_native && translate_eol)
     ZIPERR(ZE_PARMS, "can't use -V with -l or -ll");
 #endif
@@ -4858,8 +4908,8 @@ char **argv;            /* command line tokens */
     }
   }
 
-#ifdef CRYPT_AES
-  if (encryption_method > 1) {
+#ifdef CRYPT_AES_WG
+  if (encryption_method >= AES_MIN_ENCRYPTION) {
     time_t pool_init_start;
     time_t pool_init_time;
 
@@ -6854,9 +6904,9 @@ char **argv;            /* command line tokens */
   }
 #endif
 
-#ifdef CRYPT_AES
+#ifdef CRYPT_AES_WG
   /* close random pool */
-  if (encryption_method > 1) {
+  if (encryption_method >= AES_MIN_ENCRYPTION) {
     if (show_what_doing) {
       fprintf(mesg, "sd: Closing AES random pool\n");
       fflush(mesg);

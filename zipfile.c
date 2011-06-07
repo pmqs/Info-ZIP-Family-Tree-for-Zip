@@ -165,8 +165,7 @@
  local int add_Unicode_Path_cen_extra_field OF((struct zlist far *));
 #endif
 
-#ifdef CRYPT_AES
-# define CRYPT_AES_EF_TAG       0x9901  /* ID for AES encryption extra field */
+#ifdef CRYPT_AES_WG
  local int add_crypt_aes_local_extra_field OF((struct zlist far *, ush, 
   uch, ush));
  local int add_crypt_aes_cen_extra_field OF((struct zlist far *, ush,
@@ -1703,7 +1702,7 @@ local int add_Unicode_Path_cen_extra_field(pZEntry)
 
 
 
-#ifdef CRYPT_AES
+#ifdef CRYPT_AES_WG
 /* Add WinZip AES extra field
  * 2011-1-2
  *
@@ -1766,7 +1765,7 @@ local int add_crypt_aes_local_extra_field( OFT( struct zlist far *)pZEntry,
   else
   {
     /* check if we have existing AES extra field ... */
-    pOldExtra = get_extra_field( CRYPT_AES_EF_TAG, pZEntry->extra, pZEntry->ext );
+    pOldExtra = get_extra_field( EF_AES_WG, pZEntry->extra, pZEntry->ext );
     if (pOldExtra == NULL)
     {
       /* ... we don't, so make space for it */
@@ -1786,8 +1785,8 @@ local int add_crypt_aes_local_extra_field( OFT( struct zlist far *)pZEntry,
        * from pZEntry->extra, re-malloc enough memory for the old extra data
        * left plus the size of the AES extra field */
       blocksize = SH( pOldExtra + 2 );
-      /* If the right length then go with it, else get rid of it and add a new extra field
-       * to existing block. */
+      /* If the right length then go with it, else get rid of it and add
+       * a new extra field to existing block. */
       if (blocksize == aes_ef_len - ZIP_EF_HEADER_SIZE)
       {
         /* looks good */
@@ -1795,7 +1794,8 @@ local int add_crypt_aes_local_extra_field( OFT( struct zlist far *)pZEntry,
       }
       else
       {
-        newEFSize = pZEntry->ext - (blocksize + ZIP_EF_HEADER_SIZE) + aes_ef_len;
+        newEFSize =
+         pZEntry->ext - (blocksize + ZIP_EF_HEADER_SIZE) + aes_ef_len;
         pExtra = (char *) malloc( newEFSize );
         if( pExtra == NULL )
           ziperr(ZE_MEM, "AES local extra field");
@@ -1829,7 +1829,7 @@ local int add_crypt_aes_local_extra_field( OFT( struct zlist far *)pZEntry,
  */
   
   /* tag header */
-  write_ushort_to_mem(CRYPT_AES_EF_TAG, pExtra);
+  write_ushort_to_mem(EF_AES_WG, pExtra);
   /* data size */
   write_ushort_to_mem((ush) (aes_ef_len - ZIP_EF_HEADER_SIZE), pExtra + 2);
   /* version */
@@ -1882,7 +1882,7 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
   else
   {
     /* check if we have existing AES extra field ... */
-    pOldExtra = get_extra_field( CRYPT_AES_EF_TAG, pZEntry->cextra, pZEntry->cext );
+    pOldExtra = get_extra_field( EF_AES_WG, pZEntry->cextra, pZEntry->cext );
     if (pOldExtra == NULL)
     {
       /* ... we don't, so make space for it */
@@ -1945,7 +1945,7 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
  */
   
   /* tag header */
-  write_ushort_to_mem(CRYPT_AES_EF_TAG, pExtra);
+  write_ushort_to_mem(EF_AES_WG, pExtra);
   /* data size */
   write_ushort_to_mem((ush) (aes_ef_len - ZIP_EF_HEADER_SIZE), pExtra + 2);
   /* version */
@@ -1961,7 +1961,7 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
 }
 
 
-#endif /* CRYPT_AES */
+#endif /* CRYPT_AES_WG */
 
 
 
@@ -2436,7 +2436,7 @@ local int scanzipf_fix(f)
 #endif /* !UTIL */
 
 /*
- * read_local
+ * readlocal
  *
  * Read the local header assumed at in_file file pointer.
  * localz is the returned local header, z is the central directory entry.
@@ -5120,7 +5120,15 @@ local int scanzipf_regnew()
       z->uname = z->zuname = z->ouname = NULL;
 #endif
 
-      z->encrypt_method = 0;
+      z->encrypt_method = NO_ENCRYPTION;
+
+      /* Don't worry about the encryption status of existing entries for now.
+         Later we may want to support changing the encryption status of entries,
+         but currently Zip does not support decryption and so can't do anything
+         with encrypted entries.  For consistency, leave unencrypted entries
+         alone also. */
+
+#if 0
       if (z->flg & 1) {
         if (z->how == 99) {
           /* WinZip AES */
@@ -5130,6 +5138,7 @@ local int scanzipf_regnew()
           z->encrypt_method = 1;
         }
       }
+#endif
 
       /* Read file name, extra field and comment field */
       if (z->nam == 0)
@@ -5764,7 +5773,7 @@ int putlocal(z, rewrite)
   }
 #endif
 
-  if (path_prefix) {
+  if (path_prefix && !(path_prefix_mode == 1 && z->mark == 0)) {
     int path_prefix_len = strlen(path_prefix);
     int new_path_len = path_prefix_len + nam;
     char *new_path;
@@ -5779,9 +5788,9 @@ int putlocal(z, rewrite)
     nam = new_path_len;
   }
 
-#ifdef CRYPT_AES
-  if (z->encrypt_method > 1) {
-      if (add_crypt_aes_local_extra_field(z, aes_vendor_version, aes_strength, comp_method) != ZE_OK) {
+#ifdef CRYPT_AES_WG
+  if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
+      if (add_crypt_aes_local_extra_field(z, aes_vendor_version, aes_strength, z->how) != ZE_OK) {
           ZIPERR(ZE_MEM, "AES local ef");
       }
 
@@ -6049,7 +6058,7 @@ int putcentral(z)
   }
 #endif
 
-  if (path_prefix) {
+  if (path_prefix && !(path_prefix_mode == 1 && z->mark == 0)) {
     int path_prefix_len = strlen(path_prefix);
     int new_path_len = path_prefix_len + nam;
     char *new_path;
@@ -6066,9 +6075,9 @@ int putcentral(z)
 
   off = z->off;
 
-#ifdef CRYPT_AES
-  if (z->encrypt_method > 1) {
-      if (add_crypt_aes_cen_extra_field(z, aes_vendor_version, aes_strength, comp_method) != ZE_OK) {
+#ifdef CRYPT_AES_WG
+  if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
+      if (add_crypt_aes_cen_extra_field(z, aes_vendor_version, aes_strength, z->how) != ZE_OK) {
           ZIPERR(ZE_MEM, "AES local ef");
       }
 

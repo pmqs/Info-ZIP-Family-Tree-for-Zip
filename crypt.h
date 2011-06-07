@@ -56,9 +56,9 @@
 #if CRYPT
 /* full version */
 
-#ifdef USE_AES_WG
+#ifdef CRYPT_AES_WG
 #  include "aes/fileenc.h"
-#endif /* def USE_AES_WG */
+#endif /* def CRYPT_AES_WG */
 
 #ifdef CR_BETA
 #  undef CR_BETA    /* this is not a beta release */
@@ -128,7 +128,7 @@
 /* Encrypted data header and password check buffer sizes.
  * (One buffer accommodates both types.)
  */
-#ifdef USE_AES_WG
+#ifdef CRYPT_AES_WG
    /* All data from extra field block. */
 #  if (MAX_SALT_LENGTH+ 2 > RAND_HEAD_LEN)
 #    define ENCR_HEAD_LEN (MAX_SALT_LENGTH+ 2)
@@ -137,7 +137,7 @@
 #  if (PWD_VER_LENGTH > RAND_HEAD_LEN)
 #    define ENCR_PW_CHK_LEN PWD_VER_LENGTH
 #  endif
-#endif /* def USE_AES_WG */
+#endif /* def CRYPT_AES_WG */
 
 #ifndef ENCR_HEAD_LEN
 #  define ENCR_HEAD_LEN RAND_HEAD_LEN

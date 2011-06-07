@@ -798,65 +798,6 @@ char *d;                /* directory to delete */
 # endif /* ?NO_RMDIR */
 }
 
-
-# ifdef CRYPT_AES_WG
-
-/* 2011-04-24 SMS.
- *
- *       entropy_fun().
- *
- *    Fill the user's buffer with stuff.
- */
-
-#  define EF_MIN( a, b) ((a) < (b) ? (a) : (b))
-
-int entropy_fun( unsigned char *buf, unsigned int len)
-{
-    int fd;
-    int len_ret;
-
-    static int i = -1;
-    char *rnd_dev_names[] = { "/dev/urandom", "/dev/random", NULL };
-
-    if (i < 0)
-    {
-        fd = -1;
-        while ((fd < 0) && (rnd_dev_names[ ++i] != NULL))
-        {
-            fd = open( rnd_dev_names[ i], O_RDONLY);
-        }
-    }
-    else
-    {
-        fd = open( rnd_dev_names[ i], O_RDONLY);
-    }
-
-    len_ret = 0;
-    if (fd >= 0)
-    {
-        len_ret = read( fd, buf, len);
-        close( fd);
-    }
-    else
-    {
-        /* Good sources failed us.  Fall back to a lame source, namely
-         * rand(), using time()^ getpid() as a seed.
-         */
-        int tbuf;
-
-        srand( time( NULL)^ getpid());
-        tbuf = rand();
-
-        /* Move the results into the user's buffer. */
-        len_ret = EF_MIN( 4, len);
-        memcpy( buf, &tbuf, len_ret);
-    }
-
-    return len_ret;
-}
-
-# endif /* def CRYPT_AES_WG */
-
 #endif /* !UTIL */
 
 
@@ -1201,6 +1142,65 @@ void version_local()
            COMPILER_NAME, OS_NAME, COMPILE_DATE);
 
 } /* end function version_local() */
+
+
+# ifdef CRYPT_AES_WG
+
+/* 2011-04-24 SMS.
+ *
+ *       entropy_fun().
+ *
+ *    Fill the user's buffer with stuff.
+ */
+
+#  define EF_MIN( a, b) ((a) < (b) ? (a) : (b))
+
+int entropy_fun( unsigned char *buf, unsigned int len)
+{
+    int fd;
+    int len_ret;
+
+    static int i = -1;
+    char *rnd_dev_names[] = { "/dev/urandom", "/dev/random", NULL };
+
+    if (i < 0)
+    {
+        fd = -1;
+        while ((fd < 0) && (rnd_dev_names[ ++i] != NULL))
+        {
+            fd = open( rnd_dev_names[ i], O_RDONLY);
+        }
+    }
+    else
+    {
+        fd = open( rnd_dev_names[ i], O_RDONLY);
+    }
+
+    len_ret = 0;
+    if (fd >= 0)
+    {
+        len_ret = read( fd, buf, len);
+        close( fd);
+    }
+    else
+    {
+        /* Good sources failed us.  Fall back to a lame source, namely
+         * rand(), using time()^ getpid() as a seed.
+         */
+        int tbuf;
+
+        srand( time( NULL)^ getpid());
+        tbuf = rand();
+
+        /* Move the results into the user's buffer. */
+        len_ret = EF_MIN( 4, len);
+        memcpy( buf, &tbuf, len_ret);
+    }
+
+    return len_ret;
+}
+
+# endif /* def CRYPT_AES_WG */
 
 
 /* 2006-03-23 SMS.
