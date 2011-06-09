@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2011-05-21  SMS.
+$!     Last revised:  2011-06-09  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -10,7 +10,8 @@ $!     - suppress linking executables: "NOLINK"
 $!     - suppress help file processing: "NOHELP"
 $!     - suppress message file processing: "NOMSG"
 $!     - select compiler environment: "VAXC", "DECC", "GNUC"
-$!     - select AES encryption support: "AES" (DECC only)
+$!     - select AES (WinZip/Gladman) encryption support: "AES_WG" (DECC
+$!       only)
 $!     - select large-file support: "LARGE" (Non-VAX only)
 $!     - select compiler listings: "LIST"  Note that the whole argument
 $!       is added to the compiler command, so more elaborate options
@@ -140,7 +141,7 @@ $!
 $ zipx_unx = "ZIP"
 $ zipx_cli = "ZIP_CLI"
 $!
-$ AES = ""
+$ AES_WG = ""
 $ CCOPTS = ""
 $ IZ_BZIP2 = ""
 $ IZ_ZLIB = ""
@@ -163,9 +164,9 @@ $     current_arg_name = "P''arg_cnt'"
 $     curr_arg = f$edit( 'current_arg_name', "UPCASE")
 $     if (curr_arg .eqs. "") then goto argloop_out
 $!
-$     if (f$extract( 0, 3, curr_arg) .eqs. "AES")
+$     if (f$extract( 0, 6, curr_arg) .eqs. "AES_WG")
 $     then
-$         AES = 1
+$         AES_WG = 1
 $         goto argloop_end
 $     endif
 $!
@@ -379,10 +380,10 @@ $             destm = "''destm'V"
 $             cmpl = "VAC C"
 $         endif
 $         opts = "VAXC"
-$         if (AES .ne. 0)
+$         if (AES_WG .ne. 0)
 $         then
-$            say "AES is not available with GNU C or VAX C."
-$            AES = 0
+$            say "AES_WG is not available with GNU C or VAX C."
+$            AES_WG = 0
 $         endif
 $     endif
 $ endif
@@ -455,9 +456,9 @@ $         lib_zlib_opts = "lib_zlib:''zlib_olb' /library, "
 $     endif
 $ endif
 $!
-$! Set AES-related data.  (Last, to avoid even crazier quotation.)
+$! Set AES_WG-related data.  (Last, to avoid even crazier quotation.)
 $!
-$ if (AES .ne. 0)
+$ if (AES_WG .ne. 0)
 $ then
 $     defs = defs+ -
        ", CRYPT_AES_WG, _ENDIAN_H=""""""""""""endian.h"""""""""""""
@@ -607,7 +608,7 @@ $     cc 'DEF_UNX' /object = [.'dest']VMS.OBJ [.VMS]VMS.C
 $     cc 'DEF_UNX' /object = [.'dest']VMSMUNCH.OBJ [.VMS]VMSMUNCH.C
 $     cc 'DEF_UNX' /object = [.'dest']VMSZIP.OBJ [.VMS]VMSZIP.C
 $!
-$     if (AES .ne. 0)
+$     if (AES_WG .ne. 0)
 $     then
 $         cc 'DEF_UNX' /object = [.'dest']AESCRYPT.OBJ [.AES]AESCRYPT.C
 $         cc 'DEF_UNX' /object = [.'dest']AESKEY.OBJ [.AES]AESKEY.C
@@ -640,7 +641,7 @@ $     libr /object /replace [.'dest']ZIP.OLB -
        [.'dest']VMSMUNCH.OBJ, -
        [.'dest']VMSZIP.OBJ
 $!
-$     if (AES .ne. 0)
+$     if (AES_WG .ne. 0)
 $     then
 $         libr /object /replace [.'dest']ZIP.OLB -
            [.'dest']AESCRYPT.OBJ, -
@@ -754,7 +755,7 @@ $     libr /object /replace [.'dest']ZIPUTILS.OLB -
        [.'dest']VMS_.OBJ, -
        [.'dest']VMSMUNCH.OBJ
 $!
-$     if (AES .ne. 0)
+$     if (AES_WG .ne. 0)
 $     then
 $         libr /object /replace [.'dest']ZIPUTILS.OLB -
            [.'dest']AESCRYPT.OBJ, -

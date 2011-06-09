@@ -125,9 +125,7 @@
     */
 
     int  fEncrypt;          /* encrypt method (was "encrypt files") */
-    /*  Currently only one encryption method
-          1 = standard encryption
-    */
+                            /* See zip.h for xxx_ENCRYPTION macros. */
 
     BOOL fSystem;           /* include system and hidden files */
     BOOL fVolume;           /* Include volume label */

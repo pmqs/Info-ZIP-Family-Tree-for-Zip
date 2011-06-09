@@ -859,10 +859,14 @@ local void help_extended()
 "  -e        use encryption, prompt for password",
 "  -P pswd   use encryption, password is pswd (NOT SECURE!  See manual.)",
 "",
-"  Default is standard (weak) PKZip 2.0, unless -Y is used to set another",
+"  Default is Traditional (weak) PKZip 2.0, unless -Y is used to set another",
 "  encryption method.",
 "",
-"  -Y mthd   set encryption method (standard, AES128, or AES256)",
+#ifdef AES192_OK
+"  -Y mthd   set encryption method (Traditional, AES128, AES192, or AES256)",
+#else /* def AES192_OK */
+"  -Y mthd   set encryption method (Traditional, AES128, or AES256)",
+#endif /* def AES192_OK [else] */
 "  -pn       allow non-ANSI characters in password",
 "",
 "Splits (archives created as a set of split files):",
@@ -3340,7 +3344,7 @@ char **argv;            /* command line tokens */
             free(key);
           key_needed = 1;
           if (encryption_method == NO_ENCRYPTION) {
-            encryption_method = STANDARD_ENCRYPTION;
+            encryption_method = TRADITIONAL_ENCRYPTION;
           }
 #endif /* !CRYPT */
           break;
@@ -3537,7 +3541,7 @@ char **argv;            /* command line tokens */
           key = value;
           key_needed = 0;
           if (encryption_method == NO_ENCRYPTION) {
-            encryption_method = STANDARD_ENCRYPTION;
+            encryption_method = TRADITIONAL_ENCRYPTION;
           }
 #else
           ZIPERR(ZE_PARMS, "encryption not supported");
@@ -3842,22 +3846,27 @@ char **argv;            /* command line tokens */
 
 #ifdef CRYPT_AES_WG
         case 'Y':   /* Encryption method */
-          if (abbrevmatch("standard", value, 0, 1)) {
-            encryption_method = STANDARD_ENCRYPTION;
-
+          if (abbrevmatch("traditional", value, 0, 1)) {
+            encryption_method = TRADITIONAL_ENCRYPTION;
           } else if (abbrevmatch("AES128", value, 0, 5)) {
             encryption_method = AES_128_ENCRYPTION;
 #ifdef AES192_OK
           } else if (abbrevmatch("AES192", value, 0, 5)) {
             encryption_method = AES_192_ENCRYPTION;
-#endif
+#endif /* def AES192_OK */
           } else if (abbrevmatch("AES256", value, 0, 4)) {
             encryption_method = AES_256_ENCRYPTION;
 
           } else {
-            zipwarn("valid encryption methods are:  standard, AES128 and AES256", "");
+            zipwarn(
+#ifdef AES192_OK
+ "valid encryption methods are:  Traditional, AES128, AES192, and AES256", "");
+#else /* def AES192_OK */
+ "valid encryption methods are:  Traditional, AES128, and AES256", "");
+#endif /* def AES192_OK [else] */
             free(value);
-            ZIPERR(ZE_PARMS, "Option -Y (--encryption-method):  unknown method");
+            ZIPERR(ZE_PARMS,
+ "Option -Y (--encryption-method):  unknown method");
           }
           free(value);
           break;
@@ -4277,7 +4286,7 @@ char **argv;            /* command line tokens */
 #if CRYPT
 
 # ifdef CRYPT_AES_WG
-  if (key == NULL && encryption_method != NO_ENCRYPTION) {
+  if ((key == NULL) && (encryption_method != NO_ENCRYPTION)) {
     key_needed = 1;
   }
 # endif
@@ -4287,7 +4296,7 @@ char **argv;            /* command line tokens */
 #  define REAL_PWLEN temp_pwlen
     int temp_pwlen;
 
-    if (encryption_method <= STANDARD_ENCRYPTION)
+    if (encryption_method <= TRADITIONAL_ENCRYPTION)
         REAL_PWLEN = IZ_PWLEN;
     else
         REAL_PWLEN = MAX_PWD_LENGTH;
@@ -4314,14 +4323,24 @@ char **argv;            /* command line tokens */
         }
       }
     }
-    if ((encryption_method > STANDARD_ENCRYPTION) && (strlen(key) < 16)) {
-      zipwarn("AES password must be at least 16 chars (longer is better)", "");
-      ZIPERR(ZE_PARMS, "AES password too short");
-    }
     if ((encryption_method == AES_256_ENCRYPTION) && (strlen(key) < 24)) {
-      zipwarn("AES 256 password must be at least 24 chars (longer is better)", "");
-      ZIPERR(ZE_PARMS, "AES password too short");
+      zipwarn(
+       "AES256 password must be at least 24 chars (longer is better)", "");
+      ZIPERR(ZE_PARMS, "AES256 password too short");
     }
+#ifdef AES192_OK
+    if ((encryption_method == AES_192_ENCRYPTION) && (strlen(key) < 20)) {
+      zipwarn(
+       "AES192 password must be at least 20 chars (longer is better)", "");
+      ZIPERR(ZE_PARMS, "AES192 password too short");
+    }
+#endif /* def AES192_OK */
+    if ((encryption_method == AES_128_ENCRYPTION) && (strlen(key) < 16)) {
+      zipwarn(
+       "AES128 password must be at least 16 chars (longer is better)", "");
+      ZIPERR(ZE_PARMS, "AES128 password too short");
+    }
+
     if ((e = malloc(REAL_PWLEN+1)) == NULL) {
       ZIPERR(ZE_MEM, "was verifying encryption password");
     }

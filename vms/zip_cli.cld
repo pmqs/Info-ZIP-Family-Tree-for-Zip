@@ -111,6 +111,7 @@ Define	Type		DISPLAY_OPTS
 Define	Type		ENCRYPT_METHOD_OPTS
 	Keyword		STANDARD, DEFAULT
 	Keyword		AES128
+	Keyword		AES192
 	Keyword		AES256
 
 Define	Type		ENCRYPT_OPTS

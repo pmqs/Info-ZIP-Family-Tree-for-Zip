@@ -36,27 +36,16 @@
   directory.
  */
 
-#define ZCRYPT_INTERNAL
 #include "zip.h"
-#include "crypt.h"
-#include "ttyio.h"
-
-#ifdef ZIP
-# ifdef CRYPT_AES_WG
-#  ifdef WIN32
-#   include <windows.h>
-#  endif
-# endif
-#endif
+#include "crypt.h"      /* Get CRYPT defined as desired. */
 
 #if CRYPT
 
+# define ZCRYPT_INTERNAL
+# include "ttyio.h"
+
 # ifndef FALSE
 #  define FALSE 0
-# endif
-
-# ifndef IZ_MIN                 /* Should be in a header file? */
-#  define IZ_MIN( a, b) (((a) < (b)) ? (a) : (b))
 # endif
 
 # ifdef ZIP
@@ -99,16 +88,16 @@
     */
 
 #  include <time.h>     /* time() function supplies first part of crypt seed */
-               /* "last resort" source for second part of crypt seed pattern */
+   /* "last resort" source for second part of crypt seed pattern */
 #  ifndef ZCR_SEED2
-#   define ZCR_SEED2 (unsigned)3141592654L      /* use PI as default pattern */
+#   define ZCR_SEED2 3141592654UL       /* use PI as default pattern */
 #  endif
 #  ifdef GLOBAL         /* used in Amiga system headers, maybe others too */
 #   undef GLOBAL
 #  endif
-#  define GLOBAL(g) g
+#  define GLOBAL(g) g           /* Zip global reference. */
 # else /* def ZIP */
-#  define GLOBAL(g) G.g
+#  define GLOBAL(g) G.g         /* UnZip global reference. */
 # endif /* def ZIP [else] */
 
 
@@ -306,6 +295,34 @@ unsigned zfwrite(buf, item_size, nb)
     return bfwrite(buf, item_size, nb, BFWRITE_DATA);
 }
 
+#  ifdef CRYPT_AES_WG
+
+/***********************************************************************
+ * Write encryption header to file zfile.
+ *
+ * Size (bytes)    Content
+ * Variable        Salt value
+ * 2               Password verification value
+ * Variable        Encrypted file data
+ * 10              Authentication code
+ *
+ * Here, writing salt and password verification.
+ */
+void aes_crypthead( OFT( ZCONST uch *)salt,
+                    OFT( uch) salt_len,
+                    OFT( ZCONST uch *)pwd_verifier)
+#  ifdef NO_PROTO
+    ZCONST uch *salt;
+    uch salt_len;
+    ZCONST uch *pwd_verifier;
+#  endif /* def NO_PROTO */
+{
+    bfwrite(salt, 1, salt_len, BFWRITE_DATA);
+    bfwrite(pwd_verifier, 1, PWD_VER_LENGTH, BFWRITE_DATA);
+}
+
+#  endif /* def CRYPT_AES_WG */
+
 # endif /* def ZIP */
 
 
@@ -333,7 +350,7 @@ ush SH(uch* p) { return ((ush)(uch)((p)[0]) | ((ush)(uch)((p)[1]) << 8)); }
 /******************************/
 
 int ef_scan_for_aes( ef_buf, ef_len, vers, vend, mode, mthd)
-    ZCONST char *ef_buf;        /* Buffer containing extra field */
+    ZCONST uch *ef_buf;         /* Buffer containing extra field */
     unsigned ef_len;            /* Total length of extra field */
     ush *vers;                  /* Return storage: AES encryption version. */
     ush *vend;                  /* Return storage: AES encryption vendor. */
@@ -348,8 +365,8 @@ int ef_scan_for_aes( ef_buf, ef_len, vers, vend, mode, mthd)
     This function scans the extra field for an EF_AES_WG block
     containing the AES encryption mode (which determines key length and
     salt length) and the actual compression method used.
-    The return value is 0 if EF_AES was not found, 1 if a good EF_AES_WG
-    was found, and negative if an error occurred.
+    The return value is 0 if EF_AES_WG was not found, 1 if a good
+    EF_AES_WG was found, and negative if an error occurred.
   ---------------------------------------------------------------------------*/
 
     /* Exit early, if there are no extra field data. */
@@ -419,7 +436,6 @@ int ef_scan_for_aes( ef_buf, ef_len, vers, vend, mode, mthd)
 # endif /* defined( UNZIP) || defined( UTIL) */
 
 # ifdef ZIP
-
 #  ifdef UTIL
 
 #   ifdef CRYPT_AES_WG
@@ -429,14 +445,14 @@ int ef_scan_for_aes( ef_buf, ef_len, vers, vend, mode, mthd)
 /***************************/
 
 int ef_strip_aes( ef_buf, ef_len)
-    ZCONST char *ef_buf;        /* Buffer containing extra field */
+    ZCONST uch *ef_buf;         /* Buffer containing extra field */
     unsigned ef_len;            /* Total length of extra field */
 {
     int ret = -1;               /* Return value. */
     unsigned eb_id;             /* Extra block ID. */
     unsigned eb_len;            /* Extra block length. */
-    char *eb_aes;               /* Start of AES block. */
-    char *ef_buf_d;             /* Sliding extra field pointer. */
+    uch *eb_aes;                /* Start of AES block. */
+    uch *ef_buf_d;              /* Sliding extra field pointer. */
     unsigned ef_len_d;          /* Remaining extra field length. */
 
 /*---------------------------------------------------------------------------
@@ -454,7 +470,7 @@ int ef_strip_aes( ef_buf, ef_len)
      ef_len));
 
     eb_aes == NULL;             /* Start of AES block. */
-    ef_buf_d = (char *)ef_buf;  /* Sliding extra field pointer. */
+    ef_buf_d = (uch *)ef_buf;   /* Sliding extra field pointer. */
     ef_len_d = ef_len;          /* Remaining extra field length. */
 
     /* Scan the extra field blocks. */
@@ -562,7 +578,7 @@ int zipcloak(z, passwd)
     z->encrypt_method = encryption_method;
 
 #   ifdef CRYPT_AES_WG
-    if (encryption_method == STANDARD_ENCRYPTION)
+    if (encryption_method == TRADITIONAL_ENCRYPTION)
     {
         HEAD_LEN = RAND_HEAD_LEN;
     }
@@ -733,7 +749,7 @@ int zipbare(z, passwd)
     if (how_orig == AESENCRED)
     {
         /* Extract the AES encryption details from the local extra field. */
-        ef_scan_for_aes( localz->extra, localz->ext,
+        ef_scan_for_aes( (uch *)localz->extra, localz->ext,
          NULL, NULL, &aes_mode, &aes_mthd);
 
         if ((aes_mode > 0) && (aes_mode <= 3))
@@ -842,7 +858,7 @@ int zipbare(z, passwd)
         /* Strip the AES extra block out of the local extra field. */
         if (localz->extra != NULL)
         {
-            r = ef_strip_aes( localz->extra, localz->ext);
+            r = ef_strip_aes( (uch *)localz->extra, localz->ext);
             if (r >= 0)
             {
                 localz->ext = r;
@@ -856,7 +872,7 @@ int zipbare(z, passwd)
             }
         }
         /* Strip the AES extra block out of the central extra field. */
-        r = ef_strip_aes( z->cextra, z->cext);
+        r = ef_strip_aes( (uch *)z->cextra, z->cext);
         if (r >= 0)
         {
             z->cext = r;
@@ -1209,7 +1225,7 @@ local int testkey(__G__ hd_len, h, key)
 
 } /* end function testkey() */
 
-# endif /* UNZIP && !FUNZIP */
+# endif /* (defined(UNZIP) && !defined(FUNZIP)) */
 
 #else /* CRYPT */
 
@@ -1217,101 +1233,3 @@ local int testkey(__G__ hd_len, h, key)
 int zcr_dummy;
 
 #endif /* CRYPT [else] */
-
-
-#ifdef ZIP
-
-# ifdef CRYPT_AES_WG
-
-#  ifdef WIN32
-
-/* Below is more or less the entropy function provided by WinZip and
-   now suggested by Gladman.  This function is for use on Win32
-   systems.  Other OS probably need to modify this function or
-   provide their own.
- */
-
-/* simple entropy collection function that uses the fast timer      */
-/* since we are not using the random pool for generating secret     */
-/* keys we don't need to be too worried about the entropy quality   */
-
-/* Modified in 2008 to add revised entropy generation courtesy of   */
-/* WinZip Inc. This code now performs the following sequence of     */
-/* entropy generation operations on sequential calls:               */ 
-/*                                                                  */
-/*      - the current 8-byte Windows performance counter value      */
-/*      - an 8-byte representation of the current date/time         */
-/*      - an 8-byte value built from the current process ID         */
-/*        and thread ID                                             */
-/*      - all subsequent calls return the then-current 8-byte       */
-/*        performance counter value                                 */
-
-int entropy_fun(unsigned char buf[], unsigned int len)
-{   unsigned __int64    pentium_tsc[1];
-    unsigned int        i;
-    static unsigned int num = 0;
-
-    switch(num)
-    {
-    /* use a value that is unlikely to repeat across system reboots         */
-    case 1: 
-        ++num;
-        GetSystemTimeAsFileTime((FILETIME *)pentium_tsc);
-        break;
-    /* use a value that distinguishes between different instances of this   */
-    /* code that might be running on different processors at the same time  */
-    case 2: 
-        ++num;
-        {   
-          unsigned __int32 processtest = GetCurrentProcessId();
-          unsigned __int32 threadtest  = GetCurrentThreadId();
-
-          pentium_tsc[0] = processtest;
-          pentium_tsc[0] = (pentium_tsc[0] << 32) + threadtest;
-        }
-        break;
-    
-    /* use a rapidly-changing value -- check QueryPerformanceFrequency()    */
-    /* to ensure that QueryPerformanceCounter() will work                   */
-    case 0: 
-        ++num;
-    default:
-        QueryPerformanceCounter((LARGE_INTEGER *)pentium_tsc);
-        break;
-    }
-
-    for(i = 0; i < 8 && i < len; ++i) {
-        buf[i] = ((unsigned char*)pentium_tsc)[i];
-    }
-    return i;
-}
-
-#  endif /* WIN32 */
-
-/***********************************************************************
- * Write encryption header to file zfile.
- *
- * Size (bytes)    Content
- * Variable        Salt value
- * 2               Password verification value
- * Variable        Encrypted file data
- * 10              Authentication code
- *
- * Here, writing salt and password verification.
- */
-void aes_crypthead( OFT( ZCONST uch *)salt,
-                    OFT( uch) salt_len,
-                    OFT( ZCONST uch *)pwd_verifier)
-#  ifdef NO_PROTO
-    ZCONST uch *salt;
-    uch salt_len;
-    ZCONST uch *pwd_verifier;
-#  endif /* def NO_PROTO */
-{
-    bfwrite(salt, 1, salt_len, BFWRITE_DATA);
-    bfwrite(pwd_verifier, 1, PWD_VER_LENGTH, BFWRITE_DATA);
-}
-
-# endif /* def CRYPT_AES_WG */
-
-#endif /* def ZIP */

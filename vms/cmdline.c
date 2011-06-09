@@ -193,8 +193,12 @@ $DESCRIPTOR(cli_dot_version,    "DOT_VERSION");         /* -ww */
 $DESCRIPTOR(cli_encrypt,        "ENCRYPT");             /* -e,-P,-pn,-Y */
 $DESCRIPTOR(cli_encrypt_ansi,   "ENCRYPT.ANSI_PASSWORD"); /* -pn */
 $DESCRIPTOR(cli_encrypt_mthd,   "ENCRYPT.METHOD");      /* -Y */
-$DESCRIPTOR(cli_encrypt_mthd_aes1, "ENCRYPT.METHOD.AES128"); /* -Y aes128 */
-$DESCRIPTOR(cli_encrypt_mthd_aes2, "ENCRYPT.METHOD.AES256"); /* -Y aes256 */
+$DESCRIPTOR(cli_encrypt_mthd_aes128, "ENCRYPT.METHOD.AES128"); /* -Y AES128 */
+#ifdef AES192_OK
+$DESCRIPTOR(cli_encrypt_mthd_aes192, "ENCRYPT.METHOD.AES192"); /* -Y AES192 */
+#endif /* def AES192_OK */
+$DESCRIPTOR(cli_encrypt_mthd_aes256, "ENCRYPT.METHOD.AES256"); /* -Y AES256 */
+$DESCRIPTOR(cli_encrypt_mthd_trad, "ENCRYPT.METHOD.TRAD"); /* -Y Traditional */
 $DESCRIPTOR(cli_encrypt_pass,   "ENCRYPT.PASSWORD");    /* -P */
 $DESCRIPTOR(cli_extra_fields,   "EXTRA_FIELDS");        /* -X [/NO] */
 $DESCRIPTOR(cli_extra_fields_normal, "EXTRA_FIELDS.NORMAL"); /* no -X */
@@ -677,14 +681,15 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     /*
     **  Encrypt?
     */
-#define OPT_E    "-e"           /* Encrypt. */
-#define OPT_P    "-P"           /* Password. */
-#define OPT_PN   "-pn"          /* Permit non-ANSI chars in password. */
-#define OPT_PNN  "-pn-"         /* Permit only ANSI chars in password. */
-#define OPT_Y    "-Y"           /* Method. */
-#define OPT_YA1  "aes128"       /* Method AES128. */
-#define OPT_YA2  "aes256"       /* Method AES128. */
-#define OPT_YS   "standard"     /* Method standard. */
+#define OPT_E     "-e"          /* Encrypt. */
+#define OPT_P     "-P"          /* Password. */
+#define OPT_PN    "-pn"         /* Permit non-ANSI chars in password. */
+#define OPT_PNN   "-pn-"        /* Permit only ANSI chars in password. */
+#define OPT_Y     "-Y"          /* Method. */
+#define OPT_YA128 "AES128"      /* Method AES128. */
+#define OPT_YA192 "AES192"      /* Method AES192. */
+#define OPT_YA256 "AES256"      /* Method AES256. */
+#define OPT_YTRAD "Traditional" /* Method Traditional. */
 
     status = cli$present( &cli_encrypt);
     if (status & 1)
@@ -747,17 +752,23 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_Y);
 
-            if (cli$present( &cli_encrypt_mthd_aes1) & 1)
-            {
-                opt = OPT_YA1;
+            if (cli$present( &cli_encrypt_mthd_aes128) & 1)
+            {   /* AES128. */
+                opt = OPT_YA128;
             }
-            else if (cli$present( &cli_encrypt_mthd_aes2) & 1)
-            {
-                opt = OPT_YA2;
+#ifdef AES192_OK
+            else if (cli$present( &cli_encrypt_mthd_aes192) & 1)
+            {  /* AES192. */
+                opt = OPT_YA192;
+            }
+#endif /* def AES192_OK */
+            else if (cli$present( &cli_encrypt_mthd_aes256) & 1)
+            {   /* AES256. */
+                opt = OPT_YA256;
             }
             else
-            {
-                opt = OPT_YS;
+            {   /* Traditional. */
+                opt = OPT_YTRAD;
             }
             x = cmdl_len;
             cmdl_len += strlen( opt)+ 1;

@@ -20,7 +20,7 @@ trap "rm -f conftest* core a.out; exit 1" 1 2 3 15
 # Evaluate command-line "make"-macro-like var=value expressions.
 
 # Evaluate only variables in this list.  Complain about others, but continue.
-valid_vars="|AES|CC|CFLAGS|IZ_BZIP2|IZ_ZLIB|LFLAGS1|LFLAGS2|PROD|"
+valid_vars="|AES_WG|CC|CFLAGS|IZ_BZIP2|IZ_ZLIB|LFLAGS1|LFLAGS2|PROD|"
 
 argc=$#
 while test ${argc} -gt 0 ; do
@@ -193,11 +193,11 @@ if test -n "${CFLAGS_OPT}"; then
 fi
 
 
-# AES encryption.  (User must request: "AES=1".)
+# AES (WinZip/Gladman) encryption.  (User must request: "AES_WG=1".)
 
-LIB_AES=''
-if test "${AES}" -ne 0 ; then
-  echo "Check AES encryption support"
+LIB_AES_WG=''
+if test "${AES_WG}" -ne 0 ; then
+  echo "Check AES_WG encryption support"
   cat > conftest.c << _EOF_
 int main()
 {
@@ -211,12 +211,12 @@ _EOF_
   $CC $CFLAGS -DCRYPT_AES_WG -c conftest.c > /dev/null 2>/dev/null
   if [ $? -eq 0 ]; then
     CFLAGS="${CFLAGS} -DCRYPT_AES_WG"
-    LIB_AES="libaes.a"
+    LIB_AES_WG="libaes.a"
     LFLAGS2="${LFLAGS2} -L. -laes"
-    echo "-- Including AES encryption"
+    echo "-- Including AES_WG encryption"
   else
-    echo "-- AES code not found  (Check \"aes\" directory?)"
-    echo "-- Unable to include AES encryption"
+    echo "-- AES_WG code not found  (Check \"aes\" directory?)"
+    echo "-- Unable to include AES_WG encryption"
   fi
 fi
 
@@ -874,5 +874,5 @@ echo CC=\"${CC}\" CFLAGS=\"${CFLAGS}\"  CPP=\"${CPP}\" OBJA=\"${OBJA}\" \
        LFLAGS2=\"${LFLAGS2}\" LN=\"${LN}\" \
        CC_BZ=\"${CC_BZ}\" CFLAGS_BZ=\"${CFLAGS_BZ}\" \
        IZ_BZIP2=\"${IZ_BZIP2}\" LIB_BZ=\"${LIB_BZ}\" \
-       LIB_AES=\"${LIB_AES}\" > "$PROD"/flags
+       LIB_AES_WG=\"${LIB_AES_WG}\" > "$PROD"/flags
 

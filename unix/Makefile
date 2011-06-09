@@ -169,12 +169,12 @@ ZIPS = zip$E zipcloak$E zipnote$E zipsplit$E
 zips: $(ZIPS)
 zipsman: $(ZIPS) $(ZIPMANUALs)
 
-zip$E: $(OBJZ) $(OBJI) $(OBJA) $(LIB_AES) $(LIB_BZ)
+zip$E: $(OBJZ) $(OBJI) $(OBJA) $(LIB_AES_WG) $(LIB_BZ)
 	$(BIND) -o zip$E $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) \
 	 $(LFLAGS2)
 zipnote$E: $(OBJN)
 	$(BIND) -o zipnote$E $(LFLAGS1) $(OBJN) $(LFLAGS2)
-zipcloak$E: $(OBJC) $(LIB_AES)
+zipcloak$E: $(OBJC) $(LIB_AES_WG)
 	$(BIND) -o zipcloak$E $(LFLAGS1) $(OBJC) $(LFLAGS2)
 zipsplit$E: $(OBJS)
 	$(BIND) -o zipsplit$E $(LFLAGS1) $(OBJS) $(LFLAGS2)
@@ -223,7 +223,7 @@ uninstall:
 
 
 flags:  unix/configure
-	sh unix/configure "AES=${AES}" \
+	sh unix/configure "AES_WG=${AES_WG}" \
          "CC=${CC}" "CFLAGS=${CFLAGS_NOOPT}" \
          "IZ_BZIP2=${IZ_BZIP2}" "IZ_ZLIB=${IZ_ZLIB}"
 

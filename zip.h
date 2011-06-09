@@ -80,6 +80,9 @@ freely, subject to the above disclaimer and the following restrictions:
 
 #define ZIP   /* for crypt.c:  include zip password functions, not unzip */
 
+/* General-purpose MIN macro. */
+#  define IZ_MIN( a, b) (((a) < (b)) ? (a) : (b))
+
 /* Types centralized here for easy modification */
 #define local static            /* More meaningful outside functions */
 typedef unsigned char uch;      /* unsigned 8-bit value */
@@ -552,7 +555,7 @@ extern char *entry_name;        /* used by DLL to pass z->zname to file_read() *
 
 /* values for encryption_method */
 #define NO_ENCRYPTION            0      /* None. */
-#define STANDARD_ENCRYPTION      1      /* Traditional (weak). */
+#define TRADITIONAL_ENCRYPTION   1      /* Traditional (weak). */
 #define AES_128_ENCRYPTION       2      /* AES (WG) mode 1. */
 #define AES_192_ENCRYPTION       3      /* AES (WG) mode 2. */
 #define AES_256_ENCRYPTION       4      /* AES (WG) mode 3. */
@@ -560,7 +563,7 @@ extern char *entry_name;        /* used by DLL to pass z->zname to file_read() *
 #define AES_MAX_ENCRYPTION      AES_256_ENCRYPTION      /* AES upper bound. */
 #define AES_MIN_ENCRYPTION      AES_128_ENCRYPTION      /* AES lower bound. */
 							
-extern char *key;               /* Scramble password or NULL */
+extern char *key;               /* Encryption password.  (NULL, if none.) */
 extern int force_ansi_key;      /* Only ANSI characters for password (char codes 32 - 126) */
 extern int encryption_method;   /* See above defines */
 extern ush aes_vendor_version;

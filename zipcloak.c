@@ -437,7 +437,7 @@ int main(argc, argv)
 #endif /* ndef NO_EXCEPT_SIGNALS */
 
     temp_path = decrypt = 0;
-    encryption_method = STANDARD_ENCRYPTION;    /* Default method = Trad. */
+    encryption_method = TRADITIONAL_ENCRYPTION; /* Default method = Trad. */
 #if 0
     /* old command line */
     for (r = 1; r < argc; r++) {
@@ -549,21 +549,23 @@ int main(argc, argv)
 
 #ifdef CRYPT_AES_WG
         case 'Y':   /* Encryption method */
-          if (abbrevmatch("standard", value, 0, 1)) {
-            encryption_method = STANDARD_ENCRYPTION;
-
+          if (abbrevmatch("Traditional", value, 0, 1)) {
+            encryption_method = TRADITIONAL_ENCRYPTION;
           } else if (abbrevmatch("AES128", value, 0, 5)) {
             encryption_method = AES_128_ENCRYPTION;
 #ifdef AES192_OK
           } else if (abbrevmatch("AES192", value, 0, 5)) {
             encryption_method = AES_192_ENCRYPTION;
-#endif
+#endif /* def AES192_OK */
           } else if (abbrevmatch("AES256", value, 0, 4)) {
             encryption_method = AES_256_ENCRYPTION;
-
           } else {
             zipwarn(
-             "valid encryption methods are:  standard, AES128 and AES256", "");
+#ifdef AES192_OK
+ "valid encryption methods are:  Traditional, AES128, AES192, and AES256", "");
+#else /* def AES192_OK */
+ "valid encryption methods are:  Traditional, AES128, and AES256", "");
+#endif /* def AES192_OK [else] */
             free(value);
             ZIPERR(ZE_PARMS,
              "Option -Y (--encryption-method):  unknown method");
@@ -712,7 +714,7 @@ int main(argc, argv)
 
     /* Get password */
 #ifdef CRYPT_AES_WG
-    if (encryption_method <= STANDARD_ENCRYPTION)
+    if (encryption_method <= TRADITIONAL_ENCRYPTION)
         REAL_PWLEN = IZ_PWLEN;
     else
         REAL_PWLEN = MAX_PWD_LENGTH;

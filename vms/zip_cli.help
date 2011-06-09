@@ -774,8 +774,8 @@ Encrypt new or updated archive entries.
 <LITERAL>
 |  ANSI_PASSWORD     Allow only ANSI characters in password (default).
 |  NOANSI_PASSWORD   Allow any characters in password.
-|  METHOD = mthd     Encryption method: STANDARD (default), AES128,
-|                    AES256.
+|  METHOD = mthd     Encryption method: Traditional (default), AES128,
+|                    AES192 (optional), AES256.
 |  PASSWORD = "pwd"  Use specified password instead of interactive
 |                    inquiry.  INSECURE.
 <LARETIL>
@@ -791,10 +791,11 @@ string with quotation marks ("pass word"), to prevent automatic
 conversion to upper case or misinterpretation of punctuation characters
 by DCL.
 
-Zip standard encryption is weak, so where security is truly important,
-use AES encryption, or use an external strong encryption program, such
-as Pretty Good Privacy (PGP) or GNU Privacy Guard (GnuPG), on an archive
-instead of standard Zip encryption.
+Zip Traditional encryption is weak, so where security is truly
+important, use AES encryption, or use an external strong encryption
+program, such as GNU Privacy Guard (GnuPG, gpg), on an archive instead
+of Traditional Zip encryption.  Support for AES192 is optional, and must
+be enabled at build time.
 <QUALIFIER>
 /EXCLUDE
 

@@ -1,7 +1,7 @@
 /*
   zipup.c - Zip 3
 
-  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -150,6 +150,10 @@ local unsigned file_read OF((char *buf, unsigned size));
     local unsigned mem_read OF((char *buf, unsigned size));
 # endif
 #endif /* ?USE_ZLIB */
+
+#ifdef CRYPT_AES_WG
+# include "aes/prng.h"
+#endif
 
 /* zip64 support 08/29/2003 R.Nausedat */
 local zoff_t filecompress OF((struct zlist far *z_entry, int *cmpr_method));
@@ -450,6 +454,12 @@ struct zlist far *z;    /* zip entry to compress */
   char *tempextra = NULL;
   char *tempcextra = NULL;
 
+#ifdef CRYPT_AES_WG
+  uch salt_len;
+  uch auth_len;
+#endif
+
+
 #ifdef ENABLE_DLL_PROGRESS
     long percent_all_entries_processed;
     long percent_this_entry_processed;
@@ -464,6 +474,9 @@ struct zlist far *z;    /* zip entry to compress */
   extern unsigned long high;
 # endif
 #endif
+
+  /* local variable may be updated later */
+  z->encrypt_method = encryption_method;
 
   z->nam = strlen(z->iname);
   isdir = z->iname[z->nam-1] == (char)0x2f; /* ascii[(unsigned)('/')] */
@@ -944,17 +957,25 @@ struct zlist far *z;    /* zip entry to compress */
 #endif /* ?(OS2 || WIN32) */
 
   z->ver = (ush)(m == STORE ? 10 : 20); /* Need PKUNZIP 2.0 except for store */
+
+  /* standard says directories need minimum version 20 */
+  if (isdir && z->ver == 10)
+    z->ver = 20;
+
 #ifdef BZIP2_SUPPORT
   if (method == BZIP2)
       z->ver = (ush)(m == STORE ? 10 : 46);
+  if (isdir && z->ver == 10)
+    z->ver = 20;
 #endif
   z->crc = 0;  /* to be updated later */
   /* Assume first that we will need an extended local header: */
+  /* z->flg is now zeroed in zip.c */
   if (isdir)
     /* If dir then q = 0 and extended header not needed */
-    z->flg = 0;
+    z->flg &= ~8;
   else
-    z->flg = 8;  /* to be updated later */
+    z->flg |= 8;  /* to be updated later */
 #if CRYPT
   if (!isdir && key != NULL) {
     z->flg |= 1;
@@ -980,6 +1001,83 @@ struct zlist far *z;    /* zip entry to compress */
   z->atx = dosify ? a & 0xff : a | (z->atx & 0x0000ff00);
 #endif /* DOS || OS2 || WIN32 */
 
+#ifdef CRYPT_AES_WG
+  /* Initialize AES encryption
+   *
+   * Data size: this value is currently 7, but vendors should not assume that it will always remain 7.
+   * Vendor ID: the vendor ID field should always be set to the two ASCII characters "AE".
+   * Vendor version: the vendor version for AE-1 is 0x0001. The vendor version for AE-2 is 0x0002.
+   *       (The handling of the CRC value is the only difference between the AE-1 and AE-2 formats.)
+   * Encryption strength: the mode values (encryption strength) for AE-1 and AE-2 are:
+   *     Value 	Strength
+   *     0x01 	128-bit encryption key
+   *     0x02 	192-bit encryption key
+   *     0x03 	256-bit encryption key
+   * Compression method: the compression method is the one that would otherwise have been stored.
+   */
+
+  {
+    if (encryption_method > 1)
+    {
+      if (q <= 0) {
+        /* don't encrypt empty files */
+        z->encrypt_method = 0;
+      }
+      else
+      {
+        int ret;
+
+        zpwd = (unsigned char *)key;
+        zpwd_len = strlen(key);
+
+        /* AE-1 for now */
+        aes_vendor_version = 0x0001;
+
+        /* these values probably need tweeking */
+
+        /* check if password length supports requested encryption strength */
+        if (encryption_method == AES_192_ENCRYPTION && zpwd_len < 20) {
+            ZIPERR(ZE_CRYPT, "AES 192 requires minimum 20 character password");
+        } else if (encryption_method == AES_256_ENCRYPTION && zpwd_len < 24) {
+            ZIPERR(ZE_CRYPT, "AES 256 requires minimum 24 character password");
+        }
+        if (encryption_method == AES_128_ENCRYPTION) {
+            aes_strength = 0x01;
+            key_size = 128;
+        } else if (encryption_method == AES_192_ENCRYPTION) {
+            aes_strength = 0x02;
+            key_size = 192;
+        } else if (encryption_method == AES_256_ENCRYPTION) {
+            aes_strength = 0x03;
+            key_size = 256;
+        } else {
+            ZIPERR(ZE_CRYPT, "Bad encryption method");
+        }
+
+        salt_len = SALT_LENGTH(aes_strength);
+        auth_len = MAC_LENGTH(aes_strength);
+
+        /* get the salt */
+        prng_rand(zsalt, salt_len, &aes_rnp);
+
+        /* initialize encryption context for this file */
+        ret = fcrypt_init(
+          aes_strength,           /* extra data value indicating key size */
+          zpwd,                   /* the password */
+          zpwd_len,               /* number of bytes in password */
+          zsalt,                  /* the salt */
+          zpwd_verifier,          /* on return contains password verifier */
+          &zctx);                 /* encryption context */
+        if (ret == PASSWORD_TOO_LONG) {
+            ZIPERR(ZE_CRYPT, "Password too long");
+        } else if (ret == BAD_MODE) {
+            ZIPERR(ZE_CRYPT, "Bad mode");
+        }
+      }
+    }
+  }
+#endif
+
   if ((r = putlocal(z, PUTLOCAL_WRITE)) != ZE_OK) {
     if (ifile != fbad)
       zclose(ifile);
@@ -996,10 +1094,22 @@ struct zlist far *z;    /* zip entry to compress */
 
 
 #if CRYPT
-  if (!isdir && key != NULL) {
-    crypthead(key, z->crc);
-    z->siz += RAND_HEAD_LEN;  /* to be updated later */
-    tempzn += RAND_HEAD_LEN;
+  /* write out encryption header at top of file data */
+  if (!isdir && key != NULL && z->encrypt_method) {
+# ifdef CRYPT_AES_WG
+    if (z->encrypt_method > 1) {
+      aes_crypthead(zsalt, salt_len, zpwd_verifier);
+
+      z->siz += salt_len + 2 + auth_len;  /* to be updated later */
+      tempzn += salt_len + 2;
+    } else {
+# endif
+      crypthead(key, z->crc);
+      z->siz += RAND_HEAD_LEN;  /* to be updated later */
+      tempzn += RAND_HEAD_LEN;
+# ifdef CRYPT_AES_WG
+    }
+# endif
   }
 #endif /* CRYPT */
   if (ferror(y)) {
@@ -1038,6 +1148,8 @@ struct zlist far *z;    /* zip entry to compress */
     {
       s = filecompress(z, &m);
     }
+    /* not sure why this is here */
+    /* fflush(y); */
 #ifndef PGP
     if (z->att == (ush)BINARY && TRANSLATE_EOL && file_binary) {
       if (TRANSLATE_EOL == 1)
@@ -1155,7 +1267,7 @@ struct zlist far *z;    /* zip entry to compress */
     z->siz = 0;
     z->len = 0;
     z->how = STORE;
-    z->ver = 10;
+    z->ver = 20;  /* AppNote requires version 2.0 for a directory */
     /* never encrypt directory so don't need extended local header */
     z->flg &= ~8;
     z->lflg &= ~8;
@@ -1166,10 +1278,33 @@ struct zlist far *z;    /* zip entry to compress */
     z->crc = crc;
     z->siz = s;
 #if CRYPT
-    if (!isdir && key != NULL)
-      z->siz += RAND_HEAD_LEN;
+    if (!isdir && key != NULL && z->encrypt_method > 0)
+# ifdef CRYPT_AES_WG
+      if (z->encrypt_method > 1) {
+        z->siz += salt_len + 2 + auth_len;
+      } else {
+# endif
+        z->siz += RAND_HEAD_LEN;
+# ifdef CRYPT_AES_WG
+      }
+# endif
 #endif /* CRYPT */
     z->len = isize;
+
+#ifdef CRYPT_AES_WG
+    /* close encryption for this file */
+    if (z->encrypt_method > 1)
+    {
+      int ret;
+  
+      ret = fcrypt_end( auth_code,   /* on return contains the authentication code */
+                        &zctx);      /* encryption context */
+      bfwrite(auth_code, 1, ret, BFWRITE_DATA);
+      tempzn += ret;
+    }
+#endif
+
+
     /* if can seek back to local header */
 #ifdef BROKEN_FSEEK
     if (use_descriptors || !fseekable(y) || zfseeko(y, z->off, SEEK_SET))
@@ -1191,8 +1326,23 @@ struct zlist far *z;    /* zip entry to compress */
 #endif
       z->flg = z->lflg; /* if z->flg modified by deflate */
     } else {
+      uzoff_t expected_size = (uzoff_t)s;
+#ifdef CRYPT
+      if (key && z->encrypt_method > 0) {
+# ifdef CRYPT_AES_WG
+        if (z->encrypt_method > 1) {
+          expected_size += salt_len + 2 + auth_len;
+        } else {
+# endif
+          expected_size += 12;
+# ifdef CRYPT_AES_WG
+        }
+# endif
+      }
+#endif
+
       /* ftell() not as useful across splits */
-      if (bytes_this_entry != (uzoff_t)(key ? s + 12 : s)) {
+      if (bytes_this_entry != expected_size) {
         fprintf(mesg, " s=%s, actual=%s ",
                 zip_fzofft(s, NULL, NULL), zip_fzofft(bytes_this_entry, NULL, NULL));
         error("incorrect compressed size");
@@ -1211,7 +1361,11 @@ struct zlist far *z;    /* zip entry to compress */
       switch (m)
       {
       case STORE:
-        z->ver = 10; break;
+        if (isdir)
+          z->ver = 20;
+        else
+          z->ver = 10;
+        break;
       /* Need PKUNZIP 2.0 for DEFLATE */
       case DEFLATE:
         z->ver = 20; break;
@@ -1232,6 +1386,13 @@ struct zlist far *z;    /* zip entry to compress */
         /* not encrypting so don't need extended local header */
         z->flg &= ~8;
       }
+
+#ifdef CRYPT_AES_WG
+      if (z->encrypt_method > 1) {
+        z->flg &= ~8;
+      }
+#endif
+
       /* deflate may have set compression level bit markers in z->flg,
          and we can't think of any reason central and local flags should
          be different. */
@@ -1251,9 +1412,14 @@ struct zlist far *z;    /* zip entry to compress */
         return ZE_READ;
 
       if ((z->flg & 1) != 0) {
-        /* encrypted file, extended header still required */
-        if ((r = putextended(z)) != ZE_OK)
-          return r;
+#ifdef CRYPT_AES_WG
+        if (z->encrypt_method == 1)
+#endif
+        {
+          /* encrypted file, extended header still required */
+          if ((r = putextended(z)) != ZE_OK)
+            return r;
+        }
 #ifdef ZIP64_SUPPORT
         if (zip64_entry)
           tempzn += 24L;
@@ -1408,7 +1574,6 @@ local unsigned file_read(buf, size)
   /* Supply data from fake file buffer, if available.
    * Always binary, never translated.
    */
-#  define IZ_MIN( a, b) (((a) < (b)) ? (a) : (b))
   if (file_read_fake_len > 0) {
     len = IZ_MIN( file_read_fake_len, size);
     memcpy( buf, file_read_fake_buf, len);
@@ -1748,28 +1913,28 @@ local zoff_t filecompress(z_entry, cmpr_method)
     unsigned mrk_cnt = 1;
     int maybe_stored = FALSE;
     ulg cmpr_size;
-#if defined(MMAP) || defined(BIG_MEM)
+# if defined(MMAP) || defined(BIG_MEM)
     unsigned ibuf_sz = (unsigned)SBSZ;
-#else
+# else
 #   define ibuf_sz ((unsigned)SBSZ)
-#endif
-#ifndef OBUF_SZ
+# endif
+# ifndef OBUF_SZ
 #  define OBUF_SZ ZBSZ
-#endif
+# endif
 
-#if defined(MMAP) || defined(BIG_MEM)
+# if defined(MMAP) || defined(BIG_MEM)
     if (remain == (ulg)-1L && f_ibuf == NULL)
-#else /* !(MMAP || BIG_MEM */
+# else /* !(MMAP || BIG_MEM */
     if (f_ibuf == NULL)
-#endif /* MMAP || BIG_MEM */
+# endif /* MMAP || BIG_MEM */
         f_ibuf = (char *)malloc(SBSZ);
     if (f_obuf == NULL)
         f_obuf = (char *)malloc(OBUF_SZ);
-#if defined(MMAP) || defined(BIG_MEM)
+# if defined(MMAP) || defined(BIG_MEM)
     if ((remain == (ulg)-1L && f_ibuf == NULL) || f_obuf == NULL)
-#else /* !(MMAP || BIG_MEM */
+# else /* !(MMAP || BIG_MEM */
     if (f_ibuf == NULL || f_obuf == NULL)
-#endif /* MMAP || BIG_MEM */
+# endif /* MMAP || BIG_MEM */
         ziperr(ZE_MEM, "allocating zlib file-I/O buffers");
 
     if (!deflInit) {
@@ -1783,12 +1948,12 @@ local zoff_t filecompress(z_entry, cmpr_method)
     } else if (level >= 8) {
         z_entry->flg |= 2;
     }
-#if defined(MMAP) || defined(BIG_MEM)
+# if defined(MMAP) || defined(BIG_MEM)
     if (remain != (ulg)-1L) {
         zstrm.next_in = (Bytef *)window;
         ibuf_sz = (unsigned)WSIZE;
     } else
-#endif /* MMAP || BIG_MEM */
+# endif /* MMAP || BIG_MEM */
     {
         zstrm.next_in = (Bytef *)f_ibuf;
     }
@@ -1828,34 +1993,34 @@ local zoff_t filecompress(z_entry, cmpr_method)
                       if (dot_size > 0) {
                         /* initial space */
                         if (noisy && dot_count == -1) {
-#ifndef WINDLL
+# ifndef WINDLL
                           putc(' ', mesg);
                           fflush(mesg);
-#else
+# else
                           fprintf(stdout,"%c",' ');
-#endif
+# endif
                           dot_count++;
                         }
                         dot_count++;
                         if (dot_size <= (dot_count + 1) * WSIZE) dot_count = 0;
                       }
                       if (noisy && dot_size && !dot_count) {
-#ifndef WINDLL
+# ifndef WINDLL
                         putc('.', mesg);
                         fflush(mesg);
-#else
+# else
                         fprintf(stdout,"%c",'.');
-#endif
+# endif
                         mesg_line_started = 1;
                       }
                     }
                 }
-#if defined(MMAP) || defined(BIG_MEM)
+# if defined(MMAP) || defined(BIG_MEM)
             if (remain == (ulg)-1L)
                 zstrm.next_in = (Bytef *)f_ibuf;
-#else
+# else
             zstrm.next_in = (Bytef *)f_ibuf;
-#endif
+# endif
             zstrm.avail_in = file_read((char *)zstrm.next_in, ibuf_sz);
             bytes_so_far += zstrm.avail_in;
         }
