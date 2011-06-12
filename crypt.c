@@ -469,7 +469,7 @@ int ef_strip_aes( ef_buf, ef_len)
      "\nef_strip_aes: scanning extra field of length %u\n",
      ef_len));
 
-    eb_aes == NULL;             /* Start of AES block. */
+    eb_aes = NULL;              /* Start of AES block. */
     ef_buf_d = (uch *)ef_buf;   /* Sliding extra field pointer. */
     ef_len_d = ef_len;          /* Remaining extra field length. */
 
@@ -532,14 +532,12 @@ int zipcloak(z, passwd)
     struct zlist far *z;        /* zip entry to encrypt */
     ZCONST char *passwd;        /* password string */
 {
-    int c;                      /* input byte */
     int res;                    /* result code */
+#if 0
     zoff_t n;                   /* holds offset and counts size */
-    zoff_t nn;
-    int t;                      /* temporary */
+#endif /* 0 */
     struct zlist far *localz;   /* local header */
     uch buf[1024];              /* write buffer */
-    int b;                      /* bytes in buffer */
     zoff_t size;                /* size of input data */
 #   ifdef CRYPT_AES_WG
 #    define HEAD_LEN head_len   /* Variable header length. */

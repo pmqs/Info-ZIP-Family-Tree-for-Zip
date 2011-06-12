@@ -1,5 +1,5 @@
 .\" =========================================================================
-.\" Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+.\" Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 .\"
 .\" See the accompanying file LICENSE, version 2009-Jan-2 or later
 .\" (the contents of which are also included in zip.h) for terms of use.
@@ -14,7 +14,7 @@
 .\" 7 June 2008 by SMS and EG; 12 June 2008 by EG; 7 September 2008 by EG;
 .\" 3 April 2009 by EG; 11 August 2009 by EG)
 .\"
-.TH ZIP 1L "12 August 2009 (v3.1)" Info-ZIP
+.TH ZIP 1L "2 May 2011 (v3.1)" Info-ZIP
 .SH NAME
 zip \- package and compress (archive) files
 .SH SYNOPSIS
@@ -98,14 +98,14 @@ compatible unzip, such as \fIunzip\ 6.0\fP or later, to extract files
 using the Zip64 extensions.
 .PP
 \fBStreamed\ archives.\fP
-Streamed archives, entries encrypted with standard encryption,
+Streamed archives, entries encrypted with Traditional encryption,
 or split archives created with the pause option may not be compatible with
 some utilities as data descriptors are used and they do not yet support
 them, though the latest PKWare published zip standard now includes the data
 descriptor format \fIzip\fP uses.  Other utilities do support these archives,
 however.  If you run into problems, \fIzip\fP provides a way to strip data
 descriptors from an existing archive using the \fB\-\-copy\fP option (if
-standard encryption was not used).
+Traditional encryption was not used).
 
 .PP
 \fBMac OS X.\fP  Though previous Mac versions had their own \fIzip\fP port,
@@ -365,25 +365,30 @@ were read and how many skipped.
 .PP
 \fBCommand\ modes.\fP  \fIzip\fP now supports two distinct types of command
 modes, \fBexternal\fP and \fBinternal\fP.  The \fBexternal\fP modes
-(add, update, and freshen) read files from the file system (as well as from an
-existing archive) while the \fBinternal\fP modes (delete and copy) operate
+(add, freshen, and update) read files from the file system (as well as from an
+existing archive) while the \fBinternal\fP modes (copy and delete) operate
 exclusively on entries in an existing archive.
 .LP
+
+.TP
+External modes:
+
 .TP
 .BI add\ \ \ \ \ \ 
 Update existing entries and add new files.  If the archive does not exist
 create it.  This is the default mode.
 .TP
-.BI update\ \fP(\fB\-u\fP)
-Update existing entries if newer on the file system and add new files.  If
-the archive does not exist, issue a warning and then create a new archive.
-.TP
 .BI freshen\ \fP(\fB\-f\fP)
 Update existing entries of an archive if newer on the file system.
 Does not add new files to the archive.
 .TP
-.BI delete\ \fP(\fB\-d\fP)
-Select entries in an existing archive and delete them.
+.BI update\ \fP(\fB\-u\fP)
+Update existing entries if newer on the file system and add new files.  If
+the archive does not exist, issue a warning and then create a new archive.
+
+.TP
+Internal modes:
+
 .TP
 .BI copy\ \fP(\fB\-U\fP)
 Select entries in an existing archive and copy them to a new archive.
@@ -392,6 +397,9 @@ select entries in the existing archive rather than files from
 the file system and it uses the \fB\-\-out\fP option to write the
 resulting archive to a new file rather than update the existing
 archive, leaving the original archive unchanged.
+.TP
+.BI delete\ \fP(\fB\-d\fP)
+Select entries in an existing archive and delete them.
 .LP
 The new File Sync option (\fB\-FS\fP) is also considered a new mode,
 though it is similar to \fBupdate\fP.  This mode synchronizes the
@@ -969,10 +977,11 @@ backup, then use this option to create incremental backups.
 Encrypt the contents of the
 .I zip
 archive using a password which is entered on the terminal in response
-to a prompt
-(this will not be echoed; if standard error is not a tty,
+to a prompt.  The password will not be echoed at the user's terminal. 
+If standard input is not a tty, or /dev/tty or SYS$COMMAND (depending on
+the operating system) is not available,
 .I zip
-will exit with an error).
+will exit with an error.
 The password is requested twice to save the user from typing errors.
 
 .TP
@@ -1670,9 +1679,9 @@ will convert a split archive to a single-file archive.
 Copy mode will convert stream entries (using data descriptors and which
 should be compatible with most unzips) to normal entries (which should
 be compatible
-with all unzips), except if standard encryption was used.  For archives
-with encrypted entries, \fIzipcloak\fP will decrypt the entries and convert
-them to normal entries.
+with all unzips), except if Traditional encryption was used.  For
+archives with encrypted entries, \fIzipcloak\fP can be used to decrypt
+the entries and convert them to normal entries.
 
 .TP
 .PD 0
@@ -1707,9 +1716,9 @@ see the current command line of any other user; even on stand-alone systems
 there is always the threat of over-the-shoulder peeking.  Storing the plaintext
 password as part of a command line in an automated script is even worse.
 Whenever possible, use the non-echoing, interactive prompt to enter passwords.
-(And where security is truly important, use strong encryption such as Pretty
-Good Privacy instead of the relatively weak standard encryption provided by
-zipfile utilities.)
+(And where security is truly important, use AES encryption, or an external
+encryption program such as GNU Privacy Guard (GnuPG, gpg) instead of the
+relatively weak Traditional encryption provided by zipfile utilities.)
 .TP
 .PD 0
 .B \-q
@@ -2288,21 +2297,37 @@ Windows systems.
 .B \-\-verbose
 Verbose mode or print diagnostic version info.
 .IP
-Normally, when applied to real operations, this option enables the display of a
-progress indicator during compression (see \fB-dd\fR for more on dots) and
-requests verbose diagnostic info about zipfile structure oddities.
+Normally, when applied to real operations, the \fB\-v\fR option enables the
+display of a progress indicator during compression (see \fB\-dd\fR for more
+on dots) and requests verbose diagnostic info about zipfile structure oddities.
 .IP
 However, when
 .B \-v
-is the only command line argument a diagnostic screen is printed instead.  This
-should now work even if stdout is redirected to a file, allowing easy saving
-of the information for sending with bug reports to Info-ZIP.  The version
-screen provides the help screen header with program name, version, and release
-date, some pointers to the Info-ZIP home and distribution sites, and shows
-information about the target environment (compiler type and version, OS
-version, compilation date and the enabled optional features used to create the
-.I zip
-executable).
+is the only command line argument the \fB\-\-version\fR command is executed
+instead.
+.IP
+The long option form \fB\-\-verbose\fR always executes the verbose option.
+
+.TP
+.PD 0
+.B \-v
+.TP
+.PD
+.B \-\-version
+When
+.B \-v
+is the only command line argument, or the long option form \fB\-\-version\fR is
+used, a diagnostic screen is printed.  This should now work even if stdout is
+redirected to a file, allowing easy saving of the information for sending with
+bug reports to Info-ZIP.  The version screen provides the help screen header
+with program name, version, and release date, some pointers to the Info-ZIP
+home and distribution sites, and shows information about the target environment
+(compiler type and version, OS version, compilation date and the enabled optional
+features used to create the \fIzip\fR executable).
+.IP
+When \-v is not the only option given, the \fB\-\-verbose\fR command is executed
+instead.
+
 .TP
 .PD 0
 .B \-V
@@ -2484,6 +2509,19 @@ the archive as \fIzip\fP recurses the directory trees and accesses
 files directly and by links.
 .TP
 .PD 0
+.B \-Y\ \fRcm
+.TP
+.PD
+.B \-\-encryption\-method\ \fRem
+Set the encryption method.  Supported methods are \fBTraditional\fP
+(weak), and WinZip-compatible AES (strong) with various key lengths:
+\fBAES128\fP, \fBAES192\fP, and \fBAES256\fP.  AES encryption must be
+enabled at build time, and requires a compatible AES library kit.  An
+AES-capable UnZip program is needed to extract AES-encrypted entries.
+.PD 0
+.B \-Z\ \fRcm
+.TP
+.PD 0
 .B \-z
 .TP
 .PD
@@ -2498,9 +2536,6 @@ The comment can be taken from a file:
 .IP
 \fCzip -z foo < foowhat\fP
 .RE
-.TP
-.PD 0
-.B \-Z\ \fRcm
 .TP
 .PD
 .B \-\-compression\-method\ \fRcm

@@ -7,7 +7,7 @@ all:
 	@echo 'For example: "make generic" (cc) or "make generic CC=gcc" (gcc).'
 	@echo 'The "make" target choices are:'
 	@echo '    generic, att6300nodir, coherent, cray_v3, cygwin,'
-	@echo '    lynx, minix, os390, qnx, qnxnto, solaris'
+	@echo '    lynx, minix, qnx, qnxnto, solaris'
 	@echo 'Add "CC=gcc" to the "make" command to use "gcc" instead of "cc".'
 	@echo 'First try "make -f unix/Makefile generic" (to use "cc")'
 	@echo '(or "make -f unix/Makefile generic CC=gcc" (to use "gcc")), as'
@@ -89,7 +89,11 @@ AES_H = aes/aes.h aes/aesopt.h aes/fileenc.h aes/hmac.h aes/prng.h \
 # suffix rules
 .SUFFIXES:
 .SUFFIXES: _.o .o .c .doc .1
+
 .c_.o:
+	$(CC) -c $(CFLAGS) -DUTIL -o $@ $<
+
+%_.o: %.c
 	$(CC) -c $(CFLAGS) -DUTIL -o $@ $<
 
 .c.o:
@@ -283,33 +287,6 @@ lynx:
 minix:
 	$(MAKE) $(MAKEF) zips CFLAGS="-DUNIX -I. -O -DDIRENT -DMINIX" CC=gcc
 	chmem =262144 zip
-
-# IBM OS/390 (formerly MVS) compiled under "OpenEdition" shell
-# You can make the zip executable with IBM's make, but you will
-# get errors dealing with the _.o targets for the other executables
-# (zipcloak, etc).  GNU make will build all the executables.
-# If you have GNU make in your path as gmake, you can uncomment
-# the following, but it shouldn't be needed:
-#MAKE = gmake
-
-#os390:
-#	$(MAKE) $(MAKEF) zips CFLAGS="$(CF) -I. -DUNIX -DOS390 -DEBCDIC \
-#	 -DSYSV -DNO_PARAM_H" LFLAGS2=""
-
-#  RBW  --  2009/06/10  --
-#  It's way past time to bring the mainframe setup into the 21st 
-#  century - it's been about a decade now, I think.
-#  The configure script has fixes to set -DSYSV  -DOS390  -DEBCDIC 
-#  and -DNO_PARAM_H.
-#  os390 is effectively just an alias for zos - the z/OS kernel still
-#  identifies itself as OS/390 - remind anyone of Solaris?
-#  This is really the same technique as the generic target, which
-#  should also work now for z/OS systems.
-os390:    zos
-
-zos:    flags
-	eval $(MAKE) $(MAKEF) zips `cat flags`
-
 
 # QNX is "special" because out /bin/sh is ksh and it doesn't grok the
 # configure script properly, generating a bad flags file.  D'oh! [cjh]

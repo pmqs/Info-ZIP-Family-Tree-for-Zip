@@ -220,11 +220,19 @@ static ZCONST char *help_info[] = {
 "",
 "  -d  --decrypt      decrypt encrypted entries (copy if given wrong password)",
 #ifdef VM_CMS
-"  -b  --temp-mode    use \"fm\" as the filemode for the temporary zip file",
+"  -b  --temp-mode fm  use \"fm\" as the filemode for the temporary zip file",
 #else
-"  -b  --temp-path    use \"path\" for the temporary zip file",
+"  -b  --temp-path path  use \"path\" for the temporary zip file",
 #endif
-"  -O  --output-file  write output to new zip file",
+"  -O  --output-file file  write output to new zip file, \"file\"",
+#ifdef CRYPT_AES_WG
+"  -Y  --encryption-method mthd  use encryption method \"mthd\"",
+# ifdef AES192_OK
+"                     Methods: Traditional, AES128, AES192, AES256",
+# else /* def AES192_OK */
+"                     Methods: Traditional, AES128, AES256",
+# endif /* def AES192_OK [else] */
+#endif /* def CRYPT_AES_WG */
 "  -q  --quiet        quiet operation, suppress some informational messages",
 "  -h  --help         show this help",
 "  -v  --version      show version info",

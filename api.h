@@ -223,9 +223,9 @@
 #  endif
 
 #  ifndef USE_STATIC_LIB
-#   define printf	ZPprintf
+#   define printf  ZPprintf
 #   define fprintf ZPfprintf
-#   define perror	ZPperror
+#   define perror  ZPperror
 
     extern int __far __cdecl printf(const char *format, ...);
     extern int __far __cdecl fprintf(FILE *file, const char *format, ...);

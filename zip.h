@@ -103,7 +103,10 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #  include "aes/aes.h"
 #  include "aes/fileenc.h"
 #  include "aes/prng.h"
-#endif
+#  ifndef NO_AES192
+#    define AES192_OK 1         /* Enable (non-standard?) AES192 mode. */
+#  endif /* ndef NO_AES192 */
+#endif /* def CRYPT_AES_WG */
 
 /* In the utilities, the crc32() function is only used for UNICODE_SUPPORT. */
 #if defined(UTIL) && !defined(UNICODE_SUPPORT)
@@ -562,7 +565,7 @@ extern char *entry_name;        /* used by DLL to pass z->zname to file_read() *
 
 #define AES_MAX_ENCRYPTION      AES_256_ENCRYPTION      /* AES upper bound. */
 #define AES_MIN_ENCRYPTION      AES_128_ENCRYPTION      /* AES lower bound. */
-							
+
 extern char *key;               /* Encryption password.  (NULL, if none.) */
 extern int force_ansi_key;      /* Only ANSI characters for password (char codes 32 - 126) */
 extern int encryption_method;   /* See above defines */
