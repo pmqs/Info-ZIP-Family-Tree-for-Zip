@@ -83,8 +83,8 @@ OBJC = zipcloak.o $(OBJU) $(OCRCTB) crypt_.o ttyio.o
 OBJS = zipsplit.o $(OBJU)
 
 ZIP_H = zip.h ziperr.h tailor.h unix/osdep.h
-AES_H = aes/aes.h aes/aesopt.h aes/fileenc.h aes/hmac.h aes/prng.h \
-        aes/pwd2key.h aes/sha1.h
+AES_H = aes_wg/aes.h aes_wg/aesopt.h aes_wg/fileenc.h aes_wg/hmac.h \
+        aes_wg/prng.h aes_wg/pwd2key.h aes_wg/sha1.h
 
 # suffix rules
 .SUFFIXES:
@@ -143,29 +143,29 @@ libaes.a : $(OBJAES)
 	$(AR) cq libaes.a $(OBJAES)
 	-$(RANLIB) libaes.a
 
-aescrypt.o: aes/aescrypt.c
-	$(CC) -c $(CFLAGS) aes/aescrypt.c
+aescrypt.o: aes_wg/aescrypt.c
+	$(CC) -c $(CFLAGS) aes_wg/aescrypt.c
 
-aeskey.o: aes/aeskey.c
-	$(CC) -c $(CFLAGS) aes/aeskey.c
+aeskey.o: aes_wg/aeskey.c
+	$(CC) -c $(CFLAGS) aes_wg/aeskey.c
 
-aestab.o: aes/aestab.c
-	$(CC) -c $(CFLAGS) aes/aestab.c
+aestab.o: aes_wg/aestab.c
+	$(CC) -c $(CFLAGS) aes_wg/aestab.c
 
-fileenc.o: aes/fileenc.c
-	$(CC) -c $(CFLAGS) aes/fileenc.c
+fileenc.o: aes_wg/fileenc.c
+	$(CC) -c $(CFLAGS) aes_wg/fileenc.c
 
-hmac.o: aes/hmac.c
-	$(CC) -c $(CFLAGS) aes/hmac.c
+hmac.o: aes_wg/hmac.c
+	$(CC) -c $(CFLAGS) aes_wg/hmac.c
 
-prng.o: aes/prng.c
-	$(CC) -c $(CFLAGS) aes/prng.c
+prng.o: aes_wg/prng.c
+	$(CC) -c $(CFLAGS) aes_wg/prng.c
 
-pwd2key.o: aes/pwd2key.c
-	$(CC) -c $(CFLAGS) aes/pwd2key.c
+pwd2key.o: aes_wg/pwd2key.c
+	$(CC) -c $(CFLAGS) aes_wg/pwd2key.c
 
-sha1.o: aes/sha1.c
-	$(CC) -c $(CFLAGS) aes/sha1.c
+sha1.o: aes_wg/sha1.c
+	$(CC) -c $(CFLAGS) aes_wg/sha1.c
 
 
 ZIPS = zip$E zipcloak$E zipnote$E zipsplit$E

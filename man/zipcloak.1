@@ -1,4 +1,4 @@
-.TH zipcloak 1 "v3.0 of 8 May 2008"
+.TH zipcloak 1 "v3.1 of 14 Jun 2011"
 .SH NAME
 zipcloak \- encrypt entries in a zipfile
 
@@ -6,6 +6,8 @@ zipcloak \- encrypt entries in a zipfile
 .I zipcloak
 .RB [ \-d ]
 .RB [ \-b\ path ]
+.RB [ \-O file ]
+.RB [ \-Y em ]
 .RB [ \-h ]
 .RB [ \-v ]
 .RB [ \-L ]
@@ -72,6 +74,18 @@ Quiet operation.  Suppresses some informational messages.
 .PD
 .B \-\-version
 Show version information.
+
+.TP
+.PD 0
+.B \-Y\ \fPem
+.TP
+.PD
+.B \-\-encryption\-method\ \fPem
+Set the encryption method.  Supported methods are \fBTraditional\fP
+(weak), and WinZip-compatible AES (strong) with various key lengths:
+\fBAES128\fP, \fBAES192\fP, and \fBAES256\fP.  AES encryption must be
+enabled at build time, and requires a compatible AES library kit.  An
+AES-capable UnZip program is needed to extract AES-encrypted entries.
 
 .SH DESCRIPTION
 .I zipcloak

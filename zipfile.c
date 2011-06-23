@@ -1758,20 +1758,20 @@ local int add_crypt_aes_local_extra_field( OFT( struct zlist far *)pZEntry,
     /* get new extra field */
     pExtra = pZEntry->extra = (char *) malloc(aes_ef_len);
     if (pZEntry->extra == NULL) {
-      ziperr( ZE_MEM, "AES local extra field" );
+      ziperr( ZE_MEM, "AES_WG local extra field" );
     }
     pZEntry->ext = aes_ef_len;
   }
   else
   {
-    /* check if we have existing AES extra field ... */
+    /* check if we have existing AES_WG extra field ... */
     pOldExtra = get_extra_field( EF_AES_WG, pZEntry->extra, pZEntry->ext );
     if (pOldExtra == NULL)
     {
       /* ... we don't, so make space for it */
       pExtra = (char *) malloc( aes_ef_len + pZEntry->ext );
       if (pExtra == NULL)
-        ziperr( ZE_MEM, "AES local extra field" );
+        ziperr( ZE_MEM, "AES_WG local extra field" );
       /* move old extra field and update pointer and length */
       memmove( pExtra, pZEntry->extra, pZEntry->ext);
       free( pZEntry->extra );
@@ -1781,9 +1781,9 @@ local int add_crypt_aes_local_extra_field( OFT( struct zlist far *)pZEntry,
     }
     else
     {
-      /* ... we have. Sort out existing AES extra field and remove it
+      /* ... we have. Sort out existing AES_WG extra field and remove it
        * from pZEntry->extra, re-malloc enough memory for the old extra data
-       * left plus the size of the AES extra field */
+       * left plus the size of the AES_WG extra field */
       blocksize = SH( pOldExtra + 2 );
       /* If the right length then go with it, else get rid of it and add
        * a new extra field to existing block. */
@@ -1798,12 +1798,12 @@ local int add_crypt_aes_local_extra_field( OFT( struct zlist far *)pZEntry,
          pZEntry->ext - (blocksize + ZIP_EF_HEADER_SIZE) + aes_ef_len;
         pExtra = (char *) malloc( newEFSize );
         if( pExtra == NULL )
-          ziperr(ZE_MEM, "AES local extra field");
-        /* move all before AES EF */
+          ziperr(ZE_MEM, "AES_WG local extra field");
+        /* move all before AES_WG EF */
         usTemp = (extent) (pOldExtra - pZEntry->extra);
         pTemp = pExtra;
         memcpy( pTemp, pZEntry->extra, usTemp );
-        /* move all after old AES EF */
+        /* move all after old AES_WG EF */
         pTemp = pExtra + usTemp;
         pOldTemp = pOldExtra + ZIP_EF_HEADER_SIZE + blocksize;
         usTemp = pZEntry->ext - usTemp - blocksize;
@@ -1817,7 +1817,7 @@ local int add_crypt_aes_local_extra_field( OFT( struct zlist far *)pZEntry,
     }
   }
 
-  /* set/update AES extra field members
+  /* set/update AES_WG extra field members
    *
    * offset   size     content
    * 0        2        Extra field header ID (0x9901)
@@ -1869,26 +1869,26 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
                      1 +                   /* AES mode */
                      2;                    /* actual compression method */
 
-  /* find start of AES extra field */
+  /* find start of AES_WG extra field */
   if (pZEntry->cext == 0 || pZEntry->cextra == NULL)
   {
     /* get new extra field */
     pExtra = pZEntry->cextra = (char *) malloc(aes_ef_len);
     if (pZEntry->cextra == NULL) {
-      ziperr( ZE_MEM, "AES local extra field" );
+      ziperr( ZE_MEM, "AES_WG local extra field" );
     }
     pZEntry->cext = aes_ef_len;
   }
   else
   {
-    /* check if we have existing AES extra field ... */
+    /* check if we have existing AES_WG extra field ... */
     pOldExtra = get_extra_field( EF_AES_WG, pZEntry->cextra, pZEntry->cext );
     if (pOldExtra == NULL)
     {
       /* ... we don't, so make space for it */
       pExtra = (char *) malloc( aes_ef_len + pZEntry->cext );
       if (pExtra == NULL)
-        ziperr( ZE_MEM, "AES local extra field" );
+        ziperr( ZE_MEM, "AES_WG local extra field" );
       /* move old extra field and update pointer and length */
       memmove( pExtra, pZEntry->cextra, pZEntry->cext);
       free( pZEntry->cextra );
@@ -1898,9 +1898,9 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
     }
     else
     {
-      /* ... we have. Sort out existing AES extra field and remove it
+      /* ... we have. Sort out existing AES_WG extra field and remove it
        * from pZEntry->extra, re-malloc enough memory for the old extra data
-       * left plus the size of the AES extra field */
+       * left plus the size of the AES_WG extra field */
       blocksize = SH( pOldExtra + 2 );
       /* If the right length then go with it, else get rid of it and add a new extra field
        * to existing block. */
@@ -1914,12 +1914,12 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
         newEFSize = pZEntry->cext - (blocksize + ZIP_EF_HEADER_SIZE) + aes_ef_len;
         pExtra = (char *) malloc( newEFSize );
         if( pExtra == NULL )
-          ziperr(ZE_MEM, "AES local extra field");
-        /* move all before AES EF */
+          ziperr(ZE_MEM, "AES_WG local extra field");
+        /* move all before AES_WG EF */
         usTemp = (extent) (pOldExtra - pZEntry->cextra);
         pTemp = pExtra;
         memcpy( pTemp, pZEntry->cextra, usTemp );
-        /* move all after old AES EF */
+        /* move all after old AES_WG EF */
         pTemp = pExtra + usTemp;
         pOldTemp = pOldExtra + ZIP_EF_HEADER_SIZE + blocksize;
         usTemp = pZEntry->cext - usTemp - blocksize;
@@ -1933,7 +1933,7 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
     }
   }
 
-  /* set/update AES extra field members
+  /* set/update AES_WG extra field members
    *
    * offset   size     content
    * 0        2        Extra field header ID (0x9901)
@@ -5131,7 +5131,7 @@ local int scanzipf_regnew()
 #if 0
       if (z->flg & 1) {
         if (z->how == 99) {
-          /* WinZip AES */
+          /* AES_WG (WinZip/Gladman AES) */
           z->encrypt_method = 2;
         } else if (!(z->flg & 32)) {
           /* if Bit 6 not set, assume standard encryption */
@@ -5598,6 +5598,35 @@ int readzipfile()
 } /* end of function readzipfile() */
 
 
+#ifdef CRYPT_AES_WG
+  /* Determine the AES_WG vendor version.  (Currently based only on file
+   * size, but bzip2 encryption should also select AE-2?)
+   * AE-2 implies no use of CRC.
+   */
+local ush get_aes_vendor_version( z)
+  struct zlist far *z;    /* zip entry. */
+{
+  ush aes_vendor_version;
+
+  aes_vendor_version = AES_WG_VEND_VERS_AE1;    /* Default is AE-1. */
+  if (z->len < 20)
+  {
+    /* Uncompressed file size < 20 bytes, so switch to vendor version
+     * AE-2.
+     */
+    aes_vendor_version = AES_WG_VEND_VERS_AE2;
+  }
+
+  if (aes_vendor_version == AES_WG_VEND_VERS_AE2)
+  {
+    /* AE-2.  Use artificial zero for CRC. */
+    z->crc = 0;
+  }
+  return aes_vendor_version;
+} /* end of function get_aes_vendor_version() */
+#endif /* def CRYPT_AES_WG */
+
+
 int putlocal(z, rewrite)
   struct zlist far *z;    /* zip entry to write local header for */
   int rewrite;            /* did seek to rewrite */
@@ -5635,6 +5664,9 @@ int putlocal(z, rewrite)
   ush nam = z->nam;     /* size of name to write to header */
   char *iname = NULL;   /* name to write to header */
   ush how = z->how;
+#ifdef CRYPT_AES_WG
+  ush aes_vendor_version;       /* AES_WG encryption strength. */
+#endif /* def CRYPT_AES_WG */
 #ifdef UNICODE_SUPPORT
   int use_uname = 0;    /* write uname to header */
 #endif
@@ -5790,14 +5822,18 @@ int putlocal(z, rewrite)
 
 #ifdef CRYPT_AES_WG
   if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
-      if (add_crypt_aes_local_extra_field(z, aes_vendor_version, aes_strength, z->how) != ZE_OK) {
-          ZIPERR(ZE_MEM, "AES local ef");
+      /* Determine the AES_WG vendor version.  (Clear CRC, as appropriate.) */
+      aes_vendor_version = get_aes_vendor_version( z);
+      /* Put out the AES_WG local extra field. */
+      if (add_crypt_aes_local_extra_field(z, aes_vendor_version,
+       aes_strength, z->how) != ZE_OK) {
+          ZIPERR(ZE_MEM, "AES_WG local ef");
       }
 
-      /* set compression method to WinZip AES encryption */
+      /* Set compression method to AES_WG (WinZip/Gladman) encryption. */
       how = 99;
   }
-#endif
+#endif /* def CRYPT_AES_WG */
 
   append_ulong_to_mem(LOCSIG, &block, &offset, &blocksize);     /* local file header signature */
   append_ushort_to_mem(z->ver, &block, &offset, &blocksize);    /* version needed to extract */
@@ -6012,6 +6048,9 @@ int putcentral(z)
   uzoff_t off = 0;      /* offset to start of local header */
   ush nam = z->nam;     /* size of name to write to header */
   char *iname = NULL;   /* name to write to header */
+#ifdef CRYPT_AES_WG
+  ush aes_vendor_version;       /* AES_WG encryption strength. */
+#endif /* def CRYPT_AES_WG */
 #ifdef UNICODE_SUPPORT
   int use_uname = 0;    /* write uname to header */
 #endif
@@ -6076,15 +6115,20 @@ int putcentral(z)
   off = z->off;
 
 #ifdef CRYPT_AES_WG
+
   if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
-      if (add_crypt_aes_cen_extra_field(z, aes_vendor_version, aes_strength, z->how) != ZE_OK) {
-          ZIPERR(ZE_MEM, "AES local ef");
+      /* Determine the AES_WG vendor version.  (Clear CRC, as appropriate.) */
+      aes_vendor_version = get_aes_vendor_version( z);
+      /* Put out the AES_WG central extra field. */
+      if (add_crypt_aes_cen_extra_field(z, aes_vendor_version,
+       aes_strength, z->how) != ZE_OK) {
+          ZIPERR(ZE_MEM, "AES_WG local ef");
       }
 
-      /* set compression method to WinZip AES encryption */
+      /* Set compression method to AES_WG (WinZip/Gladman) encryption. */
       how = 99;
   }
-#endif
+#endif /* def CRYPT_AES_WG */
 
 
 #ifdef ZIP64_SUPPORT        /* zip64 support 09/02/2003 R.Nausedat */

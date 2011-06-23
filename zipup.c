@@ -152,7 +152,7 @@ local unsigned file_read OF((char *buf, unsigned size));
 #endif /* ?USE_ZLIB */
 
 #ifdef CRYPT_AES_WG
-# include "aes/prng.h"
+# include "aes_wg/prng.h"
 #endif
 
 /* zip64 support 08/29/2003 R.Nausedat */
@@ -1014,6 +1014,10 @@ struct zlist far *z;    /* zip entry to compress */
    *     0x02 	192-bit encryption key
    *     0x03 	256-bit encryption key
    * Compression method: the compression method is the one that would otherwise have been stored.
+   *
+   * The decision on the vendor version is made later, when the local or
+   * central header is written out, because it depends on the
+   * uncompressed size of the file, which is not yet known.
    */
 
   {
@@ -1030,16 +1034,13 @@ struct zlist far *z;    /* zip entry to compress */
         zpwd = (unsigned char *)key;
         zpwd_len = strlen(key);
 
-        /* AE-1 for now */
-        aes_vendor_version = 0x0001;
-
         /* these values probably need tweeking */
 
         /* check if password length supports requested encryption strength */
         if (encryption_method == AES_192_ENCRYPTION && zpwd_len < 20) {
-            ZIPERR(ZE_CRYPT, "AES 192 requires minimum 20 character password");
+            ZIPERR(ZE_CRYPT, "AES192 requires minimum 20 character password");
         } else if (encryption_method == AES_256_ENCRYPTION && zpwd_len < 24) {
-            ZIPERR(ZE_CRYPT, "AES 256 requires minimum 24 character password");
+            ZIPERR(ZE_CRYPT, "AES256 requires minimum 24 character password");
         }
         if (encryption_method == AES_128_ENCRYPTION) {
             aes_strength = 0x01;

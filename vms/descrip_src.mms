@@ -1,4 +1,4 @@
-#                                               9 June 2011.  SMS.
+#                                               17 June 2011.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Source Description File.
 #
@@ -103,18 +103,10 @@ GCC_ =
 LARGE_VAX = 1
 .ENDIF                              # LARGE
 .IFDEF VAXC_OR_FORCE_VAXC           # VAXC_OR_FORCE_VAXC
-.IFDEF AES_WG                           # AES_WG
-VAXC_AES_WG = 1
-.ENDIF                                  # AES_WG
 .IFDEF GNUC                             # GNUC
 VAX_MULTI_CMPL = 1
 .ENDIF                                  # GNUC
 .ENDIF                              # VAXC_OR_FORCE_VAXC
-.IFDEF GNUC                         # GNUC
-.IFDEF AES_WG                           # AES_WG
-GNUC_AES_WG = 1
-.ENDIF                                  # AES_WG
-.ENDIF                              # GNUC
 .ELSE                           # __VAX__
 .IFDEF VAXC_OR_FORCE_VAXC           # VAXC_OR_FORCE_VAXC
 NON_VAX_CMPL = 1
@@ -192,20 +184,6 @@ NON_VAX_CMPL = 1
 	@ write sys$output "   ZLIB dir:  ''f$trnlnm( "lib_zlib")'"
 	@ write sys$output ""
 	@ define incl_zlib $(IZ_ZLIB)
-.ELSE                                           # IZ_ZLIB
-.IFDEF VAXC_AES_WG                                  # VAXC_AES_WG
-	@ write sys$output -
- "   Macro ""AES_WG"" is incompatible with ""VAXC"" or ""FORCE_VAXC""."
-	@ write sys$output ""
-	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
-.ELSE                                               # VAXC_AES_WG
-.IFDEF GNUC_AES_WG                                      # GNU_AES_WG
-	@ write sys$output -
- "   Macro ""AES_WG"" is incompatible with ""GNUC""."
-	@ write sys$output ""
-	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
-.ENDIF                                                  # GNUC_AES_WG
-.ENDIF                                              # VAXC_AES_WG
 .ENDIF                                          # IZ_ZLIB
 	@ write sys$output "   Destination: [.$(DEST)]"
 	@ write sys$output ""
@@ -219,7 +197,7 @@ NON_VAX_CMPL = 1
 # AES_WG options.
 
 .IFDEF AES_WG                   # AES_WG
-CDEFS_AES = , CRYPT_AES_WG, _ENDIAN_H="""endian.h"""
+CDEFS_AES = , CRYPT_AES_WG
 .ENDIF                          # AES_WG
 
 # BZIP2 options.
@@ -362,7 +340,7 @@ MODS_OBJS_LIB_ZIP_V = \
  VMSMUNCH=[.$(DEST)]VMSMUNCH.OBJ \
  VMSZIP=[.$(DEST)]VMSZIP.OBJ
 
-#    Primary object library, [.AES].
+#    Primary object library, [.AES_WG].
 
 .IFDEF AES_WG                   # AES_WG
 MODS_OBJS_LIB_ZIP_AES = \
@@ -382,13 +360,13 @@ MODS_OBJS_LIB_ZIP = $(MODS_OBJS_LIB_ZIP_N) $(MODS_OBJS_LIB_ZIP_V) \
 #    Utility object library, normal, [].
 
 MODS_OBJS_LIB_ZIPUTILS_N = \
+ CRC32=[.$(DEST)]CRC32.OBJ \
  GLOBALS=[.$(DEST)]GLOBALS.OBJ \
  TTYIO=[.$(DEST)]TTYIO.OBJ
 
 #    Utility object library, variant, [].
 
 MODS_OBJS_LIB_ZIPUTILS_U = \
- CRC32$(GCC_)=[.$(DEST)]CRC32_.OBJ \
  CRYPT$(GCC_)=[.$(DEST)]CRYPT_.OBJ \
  FILEIO$(GCC_)=[.$(DEST)]FILEIO_.OBJ \
  UTIL$(GCC_)=[.$(DEST)]UTIL_.OBJ \

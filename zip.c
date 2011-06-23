@@ -119,9 +119,9 @@ ZCONST uLongf *crc_32_tab;
 #endif /* CRYPT */
 
 #ifdef CRYPT_AES_WG
-# include "aes/aes.h"
-# include "aes/aesopt.h"
-/* # include "aes/prng.h" */
+# include "aes_wg/aes.h"
+# include "aes_wg/aesopt.h"
+# include "aes_wg/iz_aes_wg.h"
 #endif
 
 /* Local functions */
@@ -863,9 +863,9 @@ local void help_extended()
 "  encryption method.",
 "",
 #ifdef AES192_OK
-"  -Y mthd   set encryption method (Traditional, AES128, AES192, or AES256)",
+"  -Y em     set encryption method (Traditional, AES128, AES192, or AES256)",
 #else /* def AES192_OK */
-"  -Y mthd   set encryption method (Traditional, AES128, or AES256)",
+"  -Y em     set encryption method (Traditional, AES128, or AES256)",
 #endif /* def AES192_OK [else] */
 "  -pn       allow non-ANSI characters in password",
 "",
@@ -1108,6 +1108,12 @@ local void version_info()
   extent i;             /* counter in text arrays */
   char *envptr;
 
+  /* AES_WG option string storage (with version). */
+
+#ifdef CRYPT_AES_WG
+  static char aes_wg_opt_ver[81];
+#endif /* def CRYPT_AES_WG */
+
   /* Bzip2 option string storage (with version). */
 
 #ifdef BZIP2_SUPPORT
@@ -1204,7 +1210,7 @@ local void version_info()
 #endif
 
 #if CRYPT_AES_WG
-    "CRYPT_AES_WG         (AES strong encryption (WinZip/Gladman))",
+    aes_wg_opt_ver,
 #endif
 
 #if CRYPT && defined(PASSWD_FROM_STDIN)
@@ -1290,6 +1296,13 @@ local void version_info()
 #  endif
 #endif
 
+
+  /* Fill in IZ_AES_WG version. */
+#if CRYPT_AES_WG
+  sprintf( aes_wg_opt_ver,
+    "CRYPT_AES_WG         (AES encryption (WinZip/Gladman), ver %s)",
+    IZ_AES_WG_VERSION);
+#endif
 
   /* Fill in bzip2 version.  (32-char limit valid as of bzip 1.0.3.) */
 #ifdef BZIP2_SUPPORT
@@ -2965,7 +2978,7 @@ char **argv;            /* command line tokens */
   }
 
 #ifdef CRYPT_AES_WG
-  /* Verify the AES compile-time endian decision. */
+  /* Verify the AES_WG compile-time endian decision. */
   {
     union {
       int i;
@@ -2975,20 +2988,24 @@ char **argv;            /* command line tokens */
 # ifndef PLATFORM_BYTE_ORDER
 #  define ENDI_BYTE 0x00
 #  define ENDI_PROB "(Undefined)"
-# elif PLATFORM_BYTE_ORDER == AES_LITTLE_ENDIAN
-#  define ENDI_BYTE 0x78
-#  define ENDI_PROB "Little"
-# elif PLATFORM_BYTE_ORDER == AES_BIG_ENDIAN
-#  define ENDI_BYTE 0x12
-#  define ENDI_PROB "Big"
 # else
-#  define ENDI_BYTE 0xff
-#  define ENDI_PROB "(Unknown)"
+#  if PLATFORM_BYTE_ORDER == AES_LITTLE_ENDIAN
+#   define ENDI_BYTE 0x78
+#   define ENDI_PROB "Little"
+#  else
+#   if PLATFORM_BYTE_ORDER == AES_BIG_ENDIAN
+#    define ENDI_BYTE 0x12
+#    define ENDI_PROB "Big"
+#   else
+#    define ENDI_BYTE 0xff
+#    define ENDI_PROB "(Unknown)"
+#   endif
+#  endif
 # endif
 
     bi.i = 0x12345678;
     if (bi.b[ 0] != ENDI_BYTE) {
-      sprintf( errbuf, "Bad AES compile-time endian: %s", ENDI_PROB);
+      sprintf( errbuf, "Bad AES_WG compile-time endian: %s", ENDI_PROB);
       ZIPERR( ZE_COMPERR, errbuf);
     }
   }
@@ -4933,7 +4950,8 @@ char **argv;            /* command line tokens */
     time_t pool_init_time;
 
     if (show_what_doing) {
-        fprintf(mesg, "sd: Initializing AES encryption random number pool\n");
+        fprintf(mesg,
+         "sd: Initializing AES_WG encryption random number pool\n");
         fflush(mesg);
     }
     
@@ -4951,7 +4969,8 @@ char **argv;            /* command line tokens */
     pool_init_time = time(NULL) - pool_init_start;
 
     if (show_what_doing) {
-        fprintf(mesg, "sd: AES random number pool initialized in %d s\n", pool_init_time);
+        fprintf(mesg, "sd: AES_WG random number pool initialized in %d s\n",
+         pool_init_time);
         fflush(mesg);
     }
   }
@@ -6927,7 +6946,7 @@ char **argv;            /* command line tokens */
   /* close random pool */
   if (encryption_method >= AES_MIN_ENCRYPTION) {
     if (show_what_doing) {
-      fprintf(mesg, "sd: Closing AES random pool\n");
+      fprintf(mesg, "sd: Closing AES_WG random pool\n");
       fflush(mesg);
     }
     prng_end(&aes_rnp);

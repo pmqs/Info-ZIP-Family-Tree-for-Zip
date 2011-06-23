@@ -778,11 +778,12 @@ int device_opcnt_32( unsigned int *ui)
     int junk_bit_cnt;
     unsigned int junk;
     unsigned int out_buf;
+    int ret_bits;
     int shft;
     int sts;
 
     junk_bit_cnt = 0;
-    int ret_bits = -1;
+    ret_bits = -1;
 
     while ((junk_acc_bit_cnt < 32) && (junk_bit_cnt >= 0))
     {

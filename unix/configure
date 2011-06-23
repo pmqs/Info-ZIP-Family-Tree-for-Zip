@@ -196,12 +196,12 @@ fi
 # AES (WinZip/Gladman) encryption.  (User must request: "AES_WG=1".)
 
 LIB_AES_WG=''
-if test "${AES_WG}" -ne 0 ; then
+if test -n "${AES_WG}" ; then
   echo "Check AES_WG encryption support"
   cat > conftest.c << _EOF_
 int main()
 {
-#include <aes/aes.h>
+#include <aes_wg/aes.h>
 #ifndef CRYPT_AES_WG
    forget it
 #endif
@@ -215,7 +215,7 @@ _EOF_
     LFLAGS2="${LFLAGS2} -L. -laes"
     echo "-- Including AES_WG encryption"
   else
-    echo "-- AES_WG code not found  (Check \"aes\" directory?)"
+    echo "-- AES_WG code not found  (Check \"aes_wg\" directory?)"
     echo "-- Unable to include AES_WG encryption"
   fi
 fi

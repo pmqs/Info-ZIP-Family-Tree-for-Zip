@@ -1,4 +1,4 @@
-#                                               21 April 2011.  SMS.
+#                                               17 June 2011.  SMS.
 #
 #    Zip 3.1 for VMS - MMS Dependency Description File.
 #
@@ -6,7 +6,11 @@
 #    dependencies file.  Unsightly errors result when /EXTENDED_SYNTAX
 #    is not specified.  Typical usage:
 #
-#    $ MMS /EXTEND /DESCRIP = [.VMS]DESCRIP_MKDEPS.MMS /SKIP
+#    $ MMS /EXTEND /DESCRIP = [.VMS]DESCRIP_MKDEPS.MMS /SKIP -
+#       /MACRO = (AES_WG=1)
+#
+# If the IZ_AES_WG encryption source kit has not been installed, then
+# the macro AES_WG should not be defined.
 #
 # Note that this description file must be used from the main
 # distribution directory, not from the [.VMS] subdirectory.
@@ -103,7 +107,7 @@ MODS_LIB_ZIP_V = $(FILTER-OUT *], \
  $(PATSUBST *]*.OBJ, *] [.VMS]*, $(MODS_OBJS_LIB_ZIP_V)))
 
 MODS_LIB_ZIP_AES = $(FILTER-OUT *], \
- $(PATSUBST *]*.OBJ, *] [.AES]*, $(MODS_OBJS_LIB_ZIP_AES)))
+ $(PATSUBST *]*.OBJ, *] [.AES_WG]*, $(MODS_OBJS_LIB_ZIP_AES)))
 
 MODS_LIB_ZIPUTILS_N = $(FILTER-OUT *], \
  $(PATSUBST *]*.OBJ, *] *, $(MODS_OBJS_LIB_ZIPUTILS_N)))
@@ -155,7 +159,8 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
 #       expansion, is removed by COLLECT_DEPS.COM.
 #
 	@$(COLLECT_DEPS) "Zip for VMS" "$(MMS$TARGET)" -
-         "[...]*.MMSD" "[.$ (DEST)]" $(MMSDESCRIPTION_FILE)
+         "[...]*.MMSD" "[.$ (DEST)]" $(MMSDESCRIPTION_FILE) -
+         "[.AES_WG" "AES_WG"
 	@ write sys$output -
          "Created a new dependency file: $(MMS$TARGET)"
 .IF DELETE_MMSD
@@ -163,8 +168,8 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
          "Deleting intermediate .MMSD files..."
 	if (f$search( "*.MMSD") .nes. "") then -
          delete /log *.MMSD;*
-	if (f$search( "[.aes]*.MMSD") .nes. "") then -
-         delete /log [.aes]*.MMSD;*
+	if (f$search( "[.aes_wg]*.MMSD") .nes. "") then -
+         delete /log [.aes_wg]*.MMSD;*
 	if (f$search( "[.VMS]*.MMSD") .nes. "") then -
          delete /log [.VMS]*.MMSD;*
 .ELSE
@@ -172,8 +177,8 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
          "Purging intermediate .MMSD files..."
 	if (f$search( "*.MMSD;-1") .nes. "") then -
          purge /log *.MMSD
-	if (f$search( "[.aes]*.MMSD;-1") .nes. "") then -
-         purge /log [.aes]*.MMSD
+	if (f$search( "[.aes_wg]*.MMSD;-1") .nes. "") then -
+         purge /log [.aes_wg]*.MMSD
 	if (f$search( "[.VMS]*.MMSD;-1") .nes. "") then -
          purge /log [.VMS]*.MMSD
 .ENDIF
@@ -183,8 +188,8 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
 CLEAN :
 	if (f$search( "*.MMSD") .nes. "") then -
          delete /log *.MMSD;*
-	if (f$search( "[.aes]*.MMSD") .nes. "") then -
-         delete /log [.aes]*.MMSD;*
+	if (f$search( "[.aes_wg]*.MMSD") .nes. "") then -
+         delete /log [.aes_wg]*.MMSD;*
 	if (f$search( "[.VMS]*.MMSD") .nes. "") then -
          delete /log [.VMS]*.MMSD;*
 
@@ -195,8 +200,8 @@ CLEAN :
 CLEAN_ALL :
 	if (f$search( "*.MMSD") .nes. "") then -
          delete /log *.MMSD;*
-	if (f$search( "[.aes]*.MMSD") .nes. "") then -
-         delete /log [.aes]*.MMSD;*
+	if (f$search( "[.aes_wg]*.MMSD") .nes. "") then -
+         delete /log [.aes_wg]*.MMSD;*
 	if (f$search( "[.VMS]*.MMSD") .nes. "") then -
          delete /log [.VMS]*.MMSD;*
 	if (f$search( "[.VMS]DESCRIP_DEPS.MMS") .nes. "") then -

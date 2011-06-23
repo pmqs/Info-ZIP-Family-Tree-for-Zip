@@ -173,6 +173,8 @@ extern int strncasecmp( char *, char *, size_t);
 # define cma$tis_vmserrno_get_addr CMA$TIS_VMSERRNO_GET_ADDR
 # define lib$establish LIB$ESTABLISH
 # define lib$getdvi LIB$GETDVI
+# define lib$getjpi LIB$GETJPI
+# define lib$getsyi LIB$GETSYI
 # define lib$get_foreign LIB$GET_FOREIGN
 # define lib$get_input LIB$GET_INPUT
 # define lib$sig_to_ret LIB$SIG_TO_RET
@@ -186,6 +188,7 @@ extern int strncasecmp( char *, char *, size_t);
 # define sys$close SYS$CLOSE
 # define sys$connect SYS$CONNECT
 # define sys$dassgn SYS$DASSGN
+# define sys$device_scan SYS$DEVICE_SCAN
 # define sys$display SYS$DISPLAY
 # define sys$getjpiw SYS$GETJPIW
 # define sys$gettim SYS$GETTIM

@@ -57,7 +57,7 @@
 /* full version */
 
 #ifdef CRYPT_AES_WG
-#  include "aes/fileenc.h"
+#  include "aes_wg/fileenc.h"
 #endif /* def CRYPT_AES_WG */
 
 #ifdef CR_BETA

@@ -226,7 +226,7 @@ static ZCONST char *help_info[] = {
 #endif
 "  -O  --output-file file  write output to new zip file, \"file\"",
 #ifdef CRYPT_AES_WG
-"  -Y  --encryption-method mthd  use encryption method \"mthd\"",
+"  -Y  --encryption-method em  use encryption method \"em\"",
 # ifdef AES192_OK
 "                     Methods: Traditional, AES128, AES192, AES256",
 # else /* def AES192_OK */
@@ -757,10 +757,9 @@ int main(argc, argv)
     if ((encryption_method >= AES_MIN_ENCRYPTION) &&
      (encryption_method <= AES_MAX_ENCRYPTION))
     {
-        /* Set some AES-related globals which are used by
-         * zipfile.c:putlocal() and putcentral().  See zipup.c:zipup().
+        /* Set the (global) AES_WG encryption strength, which is used by
+         * zipfile.c:putlocal() and putcentral().
          */
-        aes_vendor_version = 0x0001;
         aes_strength = encryption_method- (AES_MIN_ENCRYPTION- 1);
     }
 #endif /* def CRYPT_AES_WG */

@@ -1,4 +1,4 @@
-#                                               9 June 2011.  SMS.
+#                                               17 June 2011.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Description File.
 #
@@ -11,8 +11,7 @@
 #
 # Optional macros:
 #
-#    AES_WG=1       Enable AES (WinZip/Gladman) encryption support.  DEC
-#                   C only.
+#    AES_WG=1       Enable AES (WinZip/Gladman) encryption support.
 #
 #    CCOPTS=xxx     Compile with CC options xxx.  For example:
 #                   CCOPTS=/ARCH=HOST
@@ -303,7 +302,7 @@ $(ZIP) : [.$(DEST)]ZIP.OBJ $(LIB_ZIP) $(OPT_FILE)
 # CLI Zip executable.
 
 $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
-             $(LIB_ZIPCLI) $(OPT_ID) $(OPT_FILE)
+             $(LIB_ZIPCLI) $(LIB_ZIP) $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPCLI) /library, -
 	 $(LIB_ZIP) /include = (GLOBALS $(INCL_BZIP2_M)) /library, -

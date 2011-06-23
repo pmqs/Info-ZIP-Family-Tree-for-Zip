@@ -100,9 +100,9 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #endif
 
 #ifdef CRYPT_AES_WG
-#  include "aes/aes.h"
-#  include "aes/fileenc.h"
-#  include "aes/prng.h"
+#  include "aes_wg/aes.h"
+#  include "aes_wg/fileenc.h"
+#  include "aes_wg/prng.h"
 #  ifndef NO_AES192
 #    define AES192_OK 1         /* Enable (non-standard?) AES192 mode. */
 #  endif /* ndef NO_AES192 */
@@ -554,9 +554,9 @@ extern char *entry_name;        /* used by DLL to pass z->zname to file_read() *
 #endif
 
 
-/* encryption */
+/* Encryption. */
 
-/* values for encryption_method */
+/* Values for encryption_method. */
 #define NO_ENCRYPTION            0      /* None. */
 #define TRADITIONAL_ENCRYPTION   1      /* Traditional (weak). */
 #define AES_128_ENCRYPTION       2      /* AES (WG) mode 1. */
@@ -569,10 +569,14 @@ extern char *entry_name;        /* used by DLL to pass z->zname to file_read() *
 extern char *key;               /* Encryption password.  (NULL, if none.) */
 extern int force_ansi_key;      /* Only ANSI characters for password (char codes 32 - 126) */
 extern int encryption_method;   /* See above defines */
-extern ush aes_vendor_version;
-extern uch aes_strength;
 
 #ifdef CRYPT_AES_WG
+
+  /* Values for aes_vendor_version. */
+# define AES_WG_VEND_VERS_AE1 0x0001    /* AE-1. */
+# define AES_WG_VEND_VERS_AE2 0x0002    /* AE-2. */
+
+ extern uch aes_strength;
  extern int key_size;                 /* Size of strong encryption key */
  extern fcrypt_ctx zctx;
  extern unsigned char *zpwd;

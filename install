@@ -10,70 +10,98 @@ HOW TO INSTALL ZIP
 
      Note:  Zip 3.x distribution kits (unlike previously distributed
      Zip 2.x kits) are created with a top-level directory ("zip31") in
-     the archive, making the creating of the zipsrc directory optional.
+     the archive, making it unecessary to create a "zipsrc" directory in
+     which to unpack the kit, as was advised for Zip 2.x.
 
 Installation on Unix (see below for installation on other systems)
+
+          Unpacking the Source Kit
 
      Let's assume that you start from scratch and have not yet unpacked
      the sources.  First step, then, is to unpack Zip.
 
-     For example, to extract to a new zipsrc directory (assuming
-     zip31.zip is in the current directory):
+     For example, we'll assume that we're working in a directory like,
+     say, "/usr/local/src/zip", and any required source kits are there. 
+     Commands like the following should unpack a "zip31.zip" source kit,
+     and move into the proper directory to build the programs.
 
-          mkdir zipsrc
-          cd zipsrc
-          cp ../zip31.zip .
           unzip zip31.zip
           cd zip31
 
-     To extract in an existing directory, such as /usr/local/src/zip:
+     For a tar+gzip kit like "zip31.tgz":
 
-          copy zip31.zip /usr/local/src/zip
-          cd /usr/local/src/zip
-          unzip zip31.zip
+          gzip -dc zip31.tgz | tar xf -
           cd zip31
 
-     The first extracts all source files and documentation to the
-     directory "zipsrc/zip31".  The second places the zip31 directory
-     in the "/usr/local/src/zip" directory.  In both cases, you then
-     cd into the zip31 directory where Zip will be built.
+     Procedures used to build the programs are described below.  Before
+     doing that, it's important to get any optional extra source kits.
 
-     Note:  Beginning with Zip version 3.0, Zip source kits include the
-     traditional (weak) encryption code.  In earlier versions, this code
-     was distributed in a separate package, zcrypt29.zip.  You still can
-     decide whether to activate the crypt code or not.  Crypt is enabled
-     by default, but you may disable it by specifying the option
-     -DNO_CRYPT in the LOCAL_ZIP environment variable (or by adding this
+          Bzip2 Compression Source Kit
+
+     See "bzip2/install.txt" for details on getting a source kit for
+     adding optional bzip2 compression to Zip.
+
+          Encryption Source Kits
+
+     This Zip release includes the Traditional encryption code ("CRYPT")
+     previously supplied in the separate package zcrypt29.zip, but you
+     still can decide whether to activate the CRYPT code or not.  CRYPT
+     is enabled by default, but you may disable it by specifying the
+     option -DNO_CRYPT in the "make" macro LOCAL_ZIP (or by adding this
      option to the compilation options in the appropriate makefile). 
-     See README.CR for more on crypt.
+     See README_CR.txt for more on CRYPT.
 
-     To build using "cc" as the C compiler, you then do:
+     This Zip release offers optional support for Advanced Encryption
+     Standard (AES) encryption, which is a stronger encryption method
+     than Traditional Zip encryption.  A separate IZ_AES_WG source kit
+     is required to enable this AES encryption option.  See
+     README_AES_WG.txt for more on the optional AES encryption.  The
+     IZ_AES_WG source kit must be unpacked in the Zip source kit, where
+     it creates an "aes_wg" subdirectory.  File and path names may vary,
+     but commands like the following should extract the IZ_AES_WG source
+     kit in the right place:
+
+          cd zip31                      # If not already there.
+          unzip ../iz_aes_wg.zip        # Unpack the IZ_AES_WG kit.
+
+     The IZ_AES_WG source kit may include a newer version of
+     README_AES_WG.txt, which should be checked for late news.  (Compare
+     the Version History at the bottom of the document.)
+
+          Building Zip
+
+     When the source is all unpacked, do:
 
           make -f unix/Makefile system
 
-     where the "make" target, "system", is one of:  generic, att6300,
-     coherent, cray_v3, minix, sco_x286, xenix, zilog.  We recommend
-     using "generic" on most systems.
+     where "system" is one of:  generic, att6300, coherent, cray_v3,
+     minix, sco_x286, xenix, zilog.
 
-     To build using "gcc" as the C compiler, try:
+     For Unix systems where "cc" is the preferred C compiler command,
+     first try:
+
+          make -f unix/Makefile generic
+
+     If "gcc" is preferred, add "CC=gcc" to the "make" command:
 
           make -f unix/Makefile CC=gcc generic
 
-     With the "generic" target, the unix/configure script automatically
-     selects compilation options based on user-specified "make" macros
-     (like "CC=gcc", for example) and a set of tests which include
-     detection of large file support sufficient to enable Zip64 large
-     archive features.  If a "generic" build fails, then one of the
-     special system-specific targets listed above may work better, but,
-     without use of the unix/configure script, any customization will
-     require more work by the user.
+     The "generic" target should work on most systems.  It automatically
+     selects many compilation options based on a set of tests (in
+     unix/configure), including detection of large file support
+     sufficient to enable Zip64 large archive features.  If "generic"
+     fails, then one of the special targets given above may work.
 
-     Among other special systems are Cray Unicos, Zilog Zeus and MINIX.
+     Among the special systems are Cray Unicos, Zilog Zeus, and MINIX.
      (See unix/Makefile for the complete list of targets.)
 
-     The optimization settings for many systems should be close, but
-     if you see optimization for your system is not ideal, send in
-     the changes so we can improve it.
+     The optimization settings for many systems should be reasonable,
+     but if you find that optimization for your system is not ideal,
+     please tell us what to change to improve it.
+
+          Build-time Options
+
+     o Optional bzip2 Compression
 
      By default, Zip uses the "deflate" compression method.  To add
      the additional "bzip2" compression method, see the file
@@ -81,10 +109,24 @@ Installation on Unix (see below for installation on other systems)
      compiling or linking in the bzip2 library.  See the bzip2 site
      (http://www.bzip.org/) for more on bzip2.
 
-     To add the additional AES strong (WinZip/Gladman) encryption
-     method add "AES=1" to the "make" command.  This requires the
-     installation of a separate AES encryption source kit in the "aes"
-     subdirectory.
+     o Encryption
+
+     By default, Traditional Zip encryption is enabled.  To disable it,
+     the C macro NO_CRYPT must be defined at build time.  This can be
+     done by adding "LOCAL_ZIP=-DNO_CRYPT" to the "make" command.  For
+     example:
+
+          make -f unix/Makefile LOCAL_ZIP=-DNO_CRYPT generic
+     
+     By default, AES encryption is not enabled.  To enable it, first
+     download and install the separate IZ_AES_WG source kit, as
+     explained in README_AES_WG.txt.  With the IZ_AES_WG source kit
+     unpacked into its aes_wg subdirectory, add "AES_WG=1" to the "make
+     generic" command.  For example:
+
+          make -f unix/Makefile AES_WG=1 generic
+
+     o Problems, and Other Options
 
      If you get error messages such as "constant expected" in
      deflate.c, add -DDYN_ALLOC to CFLAGS in your makefile entry.
@@ -99,6 +141,8 @@ Installation on Unix (see below for installation on other systems)
      requirements we did not account for.  See the file README for how
      to get help.
 
+          Installation
+
      If a compatible system was selected, the executables zip, zipnote,
      zipcloak, and zipsplit will be created.  (Note that there is much
      commonality between various system builds, so more than one might
@@ -109,9 +153,9 @@ Installation on Unix (see below for installation on other systems)
 
           make -f unix/Makefile install
 
-     The defaults are /usr/local/bin for the executables and
-     /usr/local/man/man1 for the manual pages. Change the macros
-     BINDIR and MANDIR in makefile to change these if needed.
+     The default destinations are /usr/local/bin for the executables and
+     /usr/local/man/man1 for the manual pages.  Change the macros BINDIR
+     and MANDIR in makefile to change these if needed.
 
      If necessary, add the directory with the Zip executables to your
      shell's PATH (or "path") variable.  (C-shell users may need to
@@ -331,12 +375,6 @@ Compiler Flags
 
     This is on by default for Win32.  Use NO_NTSD_EAS to turn this off.
 
-  CRYPT_AES_WG
-    Enable AES strong encryption (WinZip/Goldman).  A suitable AES
-    source kit must be installed in the "aes" subdirectory.  Enables new
-    encryption method options, AES128 and AES256, that can be used
-    instead of the default traditional (weak) Zip encryption method.
-
   BZIP2_SUPPORT
     Enable compressing zip entries using the bzip2 library.  You must get
     the bzip2 library from somewhere else as we only provide a way to
@@ -386,6 +424,13 @@ Compiler Flags
     this flag forces "[list]" matching to be always on as in previous
     releases.
 
+  CRYPT_AES_WG
+    Enable AES_WG encryption capability.  See README_AES_WG.txt for
+    details.
+
+  NO_CRYPT
+    Disable Traditional Zip encryption capability.  (NO_CRYPT also
+    overrides CRYPT_AES_WG, and disables AES_WG encryption capability.)
 
 For command help on any of the zip* utilities, simply enter
 the name with no arguments.

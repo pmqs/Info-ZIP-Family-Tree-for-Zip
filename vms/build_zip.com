@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2011-06-09  SMS.
+$!     Last revised:  2011-06-17  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -10,8 +10,7 @@ $!     - suppress linking executables: "NOLINK"
 $!     - suppress help file processing: "NOHELP"
 $!     - suppress message file processing: "NOMSG"
 $!     - select compiler environment: "VAXC", "DECC", "GNUC"
-$!     - select AES (WinZip/Gladman) encryption support: "AES_WG" (DECC
-$!       only)
+$!     - select AES (WinZip/Gladman) encryption support: "AES_WG"
 $!     - select large-file support: "LARGE" (Non-VAX only)
 $!     - select compiler listings: "LIST"  Note that the whole argument
 $!       is added to the compiler command, so more elaborate options
@@ -380,11 +379,6 @@ $             destm = "''destm'V"
 $             cmpl = "VAC C"
 $         endif
 $         opts = "VAXC"
-$         if (AES_WG .ne. 0)
-$         then
-$            say "AES_WG is not available with GNU C or VAX C."
-$            AES_WG = 0
-$         endif
 $     endif
 $ endif
 $!
@@ -456,12 +450,11 @@ $         lib_zlib_opts = "lib_zlib:''zlib_olb' /library, "
 $     endif
 $ endif
 $!
-$! Set AES_WG-related data.  (Last, to avoid even crazier quotation.)
+$! Set AES_WG-related data.
 $!
 $ if (AES_WG .ne. 0)
 $ then
-$     defs = defs+ -
-       ", CRYPT_AES_WG, _ENDIAN_H=""""""""""""endian.h"""""""""""""
+$     defs = defs+ ", CRYPT_AES_WG"
 $ endif
 $!
 $! Reveal the plan.  If compiling, set some compiler options.
@@ -610,14 +603,14 @@ $     cc 'DEF_UNX' /object = [.'dest']VMSZIP.OBJ [.VMS]VMSZIP.C
 $!
 $     if (AES_WG .ne. 0)
 $     then
-$         cc 'DEF_UNX' /object = [.'dest']AESCRYPT.OBJ [.AES]AESCRYPT.C
-$         cc 'DEF_UNX' /object = [.'dest']AESKEY.OBJ [.AES]AESKEY.C
-$         cc 'DEF_UNX' /object = [.'dest']AESTAB.OBJ [.AES]AESTAB.C
-$         cc 'DEF_UNX' /object = [.'dest']FILEENC.OBJ [.AES]FILEENC.C
-$         cc 'DEF_UNX' /object = [.'dest']HMAC.OBJ [.AES]HMAC.C
-$         cc 'DEF_UNX' /object = [.'dest']PRNG.OBJ [.AES]PRNG.C
-$         cc 'DEF_UNX' /object = [.'dest']PWD2KEY.OBJ [.AES]PWD2KEY.C
-$         cc 'DEF_UNX' /object = [.'dest']SHA1.OBJ [.AES]SHA1.C
+$         cc 'DEF_UNX' /object = [.'dest']AESCRYPT.OBJ [.AES_WG]AESCRYPT.C
+$         cc 'DEF_UNX' /object = [.'dest']AESKEY.OBJ [.AES_WG]AESKEY.C
+$         cc 'DEF_UNX' /object = [.'dest']AESTAB.OBJ [.AES_WG]AESTAB.C
+$         cc 'DEF_UNX' /object = [.'dest']FILEENC.OBJ [.AES_WG]FILEENC.C
+$         cc 'DEF_UNX' /object = [.'dest']HMAC.OBJ [.AES_WG]HMAC.C
+$         cc 'DEF_UNX' /object = [.'dest']PRNG.OBJ [.AES_WG]PRNG.C
+$         cc 'DEF_UNX' /object = [.'dest']PWD2KEY.OBJ [.AES_WG]PWD2KEY.C
+$         cc 'DEF_UNX' /object = [.'dest']SHA1.OBJ [.AES_WG]SHA1.C
 $     endif
 $!
 $! Create the object library.
@@ -732,7 +725,6 @@ $ then
 $!
 $! Compile the variant Zip utilities library sources.
 $!
-$     cc 'DEF_UTIL' /object = [.'dest']CRC32_.OBJ CRC32.C
 $     cc 'DEF_UTIL' /object = [.'dest']CRYPT_.OBJ CRYPT.C
 $     cc 'DEF_UTIL' /object = [.'dest']FILEIO_.OBJ FILEIO.C
 $     cc 'DEF_UTIL' /object = [.'dest']UTIL_.OBJ UTIL.C
@@ -745,7 +737,7 @@ $     if (f$search( "[.''dest']ZIPUTILS.OLB") .eqs. "") then -
        libr /object /create [.'dest']ZIPUTILS.OLB
 $!
 $     libr /object /replace [.'dest']ZIPUTILS.OLB -
-       [.'dest']CRC32_.OBJ, -
+       [.'dest']CRC32.OBJ, -
        [.'dest']CRYPT_.OBJ, -
        [.'dest']FILEIO_.OBJ, -
        [.'dest']GLOBALS.OBJ, -
