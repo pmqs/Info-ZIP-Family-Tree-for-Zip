@@ -4246,7 +4246,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 12. Add new -pa (--prefix-added) option that works like -pp but only
     adds the prefix to new or updated entries.  Add global
     path_prefix_mode.  Add -pa to extended help.  globals.c, zip.c,
-    zipfile.c (EG)
+    zipfile.c (LynX, EG)
 13. Remove aes/prng.h include and include aes/aes.h and aes/aesopt.h instead.
     zip.c (SMS)
 14. Change version information standard encryption listing from "zip standard
@@ -4267,11 +4267,15 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     header settings.  zipfile. (EG)
 22. Always set z->encrypt_method for new entries.  zipup.c (SMS)
 23. Add TRC flags.  vms/descrip_src.mms (SMS)
--------------------- May xxth 2011 version 3.1d08? -----------------------
- 1. Re-sync crypt.c with UnZip.  (SMS)
+-------------------- June 8th 2011 version 3.1d08 -----------------------
+ 1. Re-sync crypt.c with UnZip.  See the UnZip 6.10c02 changes for
+    crypt.c, but includes adding ef_scan_for_aes() and ef_strip_aes(),
+    change USE_AES_WG to CRYPT_AES_WG, and updates to zipbare().
+    crypt.c, crypt.h (SMS)
  2. Change CRYPT_AES_WG_EF_TAG to EF_AES_WG for UnZip-shared crypt.c.
     crypt.c, zipfile.c (SMS)
- 3. Add AES encryption to ZipCloak.  crypt.c, zipcloak.c, unix/Makefile,
+ 3. Add AES encryption to ZipCloak.  Get and save local header offset for
+    central directory.  crypt.c, zipcloak.c, unix/Makefile,
     vms/build_zip.com, vms/descrip_src.mms (SMS)
  4. Add line-length limit to password "line too long" error messages.
     ttyio.c (SMS)
@@ -4284,3 +4288,82 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     zip.c, qdos/qdos.c (SMS).
  8. Make UNIX- and VMS-specific entropy_fun() available for Zip and Zip
     utilities (for ZipCloak).  unix/unix.c, vms/vms.c (SMS)
+ 9. Move entropy_fun() for Win32 from crypt.c to win32/win32.c.  crypt.c,
+    win32/win32.c (EG)
+10. Changes to AES code.  aes/aes.h, aes/aescrypt.c, aes/aeskey.c,
+    aes/aesopt.h, aes/aestab.c, aes/brg_endian.h (SMS)
+-------------------- June 9th 2011 version 3.1d09 -----------------------
+ 1. Change encryption method constant to macros in note.  api.c (SMS)
+ 2. Additional encryption updates.  crypt.c (SMS)
+ 3. Set minimum AES 192 password size to 20 characters.  Define
+    AES_MIN_ENCRYPTION and AES_MAX_ENCRYPTION for AES encryption checks.
+    Change EF_AES to EF_AES_WG for consistency.  Change references to
+    Standard encryption to Traditional encryption.  zip.c, zip.h,
+    zipcloak.c (SMS)
+ 4. Define IZ_MIN() macro for implementing MIN.  Remove define from
+    zipup.c.  zip.h, zipup.c (SMS)
+ 5. Include time.h for CRYPE_AES_WG.  Define IS_A_DIR macro that looks for
+    an end "/".  Set default encryption method to TRADITIONAL_ENCRYPTION.
+    Add AES random pool initialization.  *** there are (sometimes lame)
+    reasons for why 32 or 1 are used ***  Set AES globals.  Exclude
+    directories from encryption.  *** probably should also exclude soft
+    links and maybe pipes too ***  zipcloak.c (SMS)
+ 6. Change CRYPT_AES_WG_EF_TAG to EF_AES_WG.  Use NO_ENCRYPTION.  zipfile.c
+    (SMS)
+ 7. Change i < n to i <= n.  qdos/qdos.c (SMS)
+ 8. Update names of AES encryption methods to AES128, AES192, AES256 and
+    TRAD.  Change AES to AES_WG.  Add AES192.  vms/cmdline.c,
+    vms/descrip.mms, vms/descrip_src.mms, vms/zip_cli.cld,
+    vms/zip_cli.help (SMS)
+-------------------- June 12th 2011 version 3.1d10 -----------------------
+ 1. Clean up extraneous white space.  api.h (SMS)
+ 2. Fix bug in ef_strip_aes().  Minor ZipCloak fixes.  crypt.c (SMS)
+ 3. Enable AES192_OK by default if CRYPT_AES_WG is enabled.  zip.h (SMS)
+ 4. Change AES to AES_WG in list of valid vars user can set.  Include
+    LOCAL_ZIP in CFLAGS.  Change use of AES to AES_WG.  unix/configure (SMS)
+ 5. Remove obsolete os390 target.  Add %_.o: %.c rule.  Change LIB_AES to
+    LIB_AES_WG.  Update zipcloak$E changing OCRCTB to LIB_AES_WG.  Change
+    AES to AES_WG.  Remove note regarding IBM OS/390 as well as os390: zos
+    and zos: flags rules.  unix/Makefile (SMS)
+ 6. Change AES to AES_WG.  Update note to change AES to AES
+    (WinZip/Gladman).  vms/build_zip.com (SMS)
+-------------------- June 27th 2011 version 3.1d11 -----------------------
+ 1. Fix blanks.  api.h (SMS)
+ 2. Add start for using newer Gladman AES code.  New code sections in
+    CRYPT_AES_WG_NEW ifdef blocks.  globals.c, zip.c, zip.h, zipup.c (EG)
+ 3. Fix "bug" where some zip file creator uses 0 in the total disks
+    field of the End Of Central Directory Record to mean a total of 1
+    disk.  This field has traditionally used 1 for 1 disk, where as
+    disk numbers have started with 0.  The "fix" is to handle a 0 here as
+    a 1.  If they put a 1 here for a 2 disk split archive, they're out of
+    luck as we have no way to know if 1 is 1 or 2 without looking at the
+    archive structure more closely.  It might be done by scanning through
+    the central directory looking for what disk numbers are used, but that
+    is a waste except for these misformed archives.  However, zip -F and
+    zip -FF should account for the total disks count maybe being lower
+    than it should be.  zipfile.c (EG)
+-------------------- June 29th 2011 version 3.1d12 -----------------------
+ 1. Fix blanks.  Provided changes not applied to last beta correctly.
+    api.h (SMS)
+ 2. Change include path from aes to aes_wg.  crypt.h (SMS)
+ 3. Updated traditional encryption readme for CRYPT 2.9.  README.CR (EG)
+ 4. Changes to INSTALL to add AES instructions.  INSTALL (SMS)
+ 5. Additional updates to INSTALL.  INSTALL (EG)
+ 6. Add AES encryption command line options and comments to ZipCloak.
+    zipcloak.c (SMS)
+ 7. Update Zip manual page.  Minor changes for encryption, including AES
+    encryption.  man/zip.1 (SMS)
+ 8. Add AES to ZipCloak manual page.  man/zipcloak.1 (SMS)
+ 9. Change aes directory name to aes_wg.  unix/configure, unix/Makefile
+    (SMS)
+10. Change #ifdef OS390 to $if defined(__MVS__) || defined(__VM__).
+    unix/unix.c (Al Dunsmuir (AD))
+11. Change aes to aes_wg.  Remove AES build restriction.  vms/build_zip.com,
+    vms/descrip.mms, vms/descrip_deps.mms, vms/descrip_mkdeps.mms,
+    vms/descrip_src.mms (SMS)
+12. Update VMS install document to include AES.  vms/install_vms.txt (SMS)
+13. Add support for p6 and p7 parameters.  vms/collect_deps.com (SMS)
+14. Minor updates.  vms/osdep.h, vms/vms.c (SMS)
+15. Update COMPERR error.  Add CRYPT error.  vms/zip_msg.msg (SMS)
+-------------------- July xxth 2011 version 3.1d13 -----------------------
+xx. "zip -z" mishandled comment input whose first line was blank.  zip.c (SMS)

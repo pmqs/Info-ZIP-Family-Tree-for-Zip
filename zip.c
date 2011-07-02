@@ -866,11 +866,7 @@ local void help_extended()
 "  Default is Traditional (weak) PKZip 2.0, unless -Y is used to set another",
 "  encryption method.",
 "",
-#ifdef AES192_OK
 "  -Y em     set encryption method (Traditional, AES128, AES192, or AES256)",
-#else /* def AES192_OK */
-"  -Y em     set encryption method (Traditional, AES128, or AES256)",
-#endif /* def AES192_OK [else] */
 "  -pn       allow non-ANSI characters in password",
 "",
 "Splits (archives created as a set of split files):",
@@ -3885,20 +3881,14 @@ char **argv;            /* command line tokens */
             encryption_method = TRADITIONAL_ENCRYPTION;
           } else if (abbrevmatch("AES128", value, 0, 5)) {
             encryption_method = AES_128_ENCRYPTION;
-#ifdef AES192_OK
           } else if (abbrevmatch("AES192", value, 0, 5)) {
             encryption_method = AES_192_ENCRYPTION;
-#endif /* def AES192_OK */
           } else if (abbrevmatch("AES256", value, 0, 4)) {
             encryption_method = AES_256_ENCRYPTION;
 
           } else {
             zipwarn(
-#ifdef AES192_OK
  "valid encryption methods are:  Traditional, AES128, AES192, and AES256", "");
-#else /* def AES192_OK */
- "valid encryption methods are:  Traditional, AES128, and AES256", "");
-#endif /* def AES192_OK [else] */
             free(value);
             ZIPERR(ZE_PARMS,
  "Option -Y (--encryption-method):  unknown method");
@@ -4371,13 +4361,11 @@ char **argv;            /* command line tokens */
        "AES256 password must be at least 24 chars (longer is better)", "");
       ZIPERR(ZE_PARMS, "AES256 password too short");
     }
-#ifdef AES192_OK
     if ((encryption_method == AES_192_ENCRYPTION) && (strlen(key) < 20)) {
       zipwarn(
        "AES192 password must be at least 20 chars (longer is better)", "");
       ZIPERR(ZE_PARMS, "AES192 password too short");
     }
-#endif /* def AES192_OK */
     if ((encryption_method == AES_128_ENCRYPTION) && (strlen(key) < 16)) {
       zipwarn(
        "AES128 password must be at least 16 chars (longer is better)", "");
@@ -6771,6 +6759,10 @@ char **argv;            /* command line tokens */
   /* Get multi-line comment for the zip file */
   if (zipedit)
   {
+#ifndef MACOS
+    int first_line = 1;
+#endif
+
 #ifndef WINDLL
     if (comment_stream == NULL) {
 #ifndef RISCOS
@@ -6813,20 +6805,40 @@ char **argv;            /* command line tokens */
         zcomment = p;
     }
 #else /* !MACOS */
-    while (fgets(e, MAXCOM+1, comment_stream) != NULL && strcmp(e, ".\n"))
+    /* Read comment text lines until ".\n" or EOF. */
+    while (fgets( e, (MAXCOM+ 1), comment_stream) != NULL && strcmp( e, ".\n"))
     {
-      if (e[(r = strlen(e)) - 1] == '\n')
-        e[--r] = 0;
-      if ((p = malloc((*zcomment ? strlen(zcomment) + 3 : 1) + r)) == NULL)
+      /* Strip off a terminating newline character. */
+      if (e[ (r = strlen( e))- 1] == '\n')
+        e[ --r] = 0;
+
+      /* Reallocate "p" string storage.  Always +1 for terminating NUL.
+       * Add 2 more for "\r\n" after the first line (even if it was empty).
+       */
+      if ((p = malloc( (first_line ? 1 : strlen( zcomment)+ 3) + r)) == NULL)
       {
-        free((zvoid *)e);
+        free( (zvoid *)e);
         ZIPERR(ZE_MEM, "was reading comment lines");
       }
-      if (*zcomment)
-        strcat(strcat(strcpy(p, zcomment), "\r\n"), e);
+
+      /* Append the new text line to the old data (if any). */
+      if (first_line)
+      {
+        /* Clear the first-line flag, and store the first text line. */
+        first_line = 0;
+        strcpy( p, e);
+      }
       else
-        strcpy(p, *e ? e : "\r\n");
-      free((zvoid *)zcomment);
+      {
+        /* After the first line (even if it was empty), re-store the old
+         * data in the new buffer, append "\r\n", and then append the
+         * new text line.
+         */
+        strcat( strcat( strcpy( p, zcomment), "\r\n"), e);
+      }
+
+      /* Free the old data storage, and point to the new data storage. */
+      free( (zvoid *)zcomment);
       zcomment = p;
     }
 #endif /* ?MACOS */

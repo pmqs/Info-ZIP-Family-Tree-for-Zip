@@ -227,11 +227,7 @@ static ZCONST char *help_info[] = {
 "  -O  --output-file file  write output to new zip file, \"file\"",
 #ifdef CRYPT_AES_WG
 "  -Y  --encryption-method em  use encryption method \"em\"",
-# ifdef AES192_OK
 "                     Methods: Traditional, AES128, AES192, AES256",
-# else /* def AES192_OK */
-"                     Methods: Traditional, AES128, AES256",
-# endif /* def AES192_OK [else] */
 #endif /* def CRYPT_AES_WG */
 "  -q  --quiet        quiet operation, suppress some informational messages",
 "  -h  --help         show this help",
@@ -561,19 +557,13 @@ int main(argc, argv)
             encryption_method = TRADITIONAL_ENCRYPTION;
           } else if (abbrevmatch("AES128", value, 0, 5)) {
             encryption_method = AES_128_ENCRYPTION;
-#ifdef AES192_OK
           } else if (abbrevmatch("AES192", value, 0, 5)) {
             encryption_method = AES_192_ENCRYPTION;
-#endif /* def AES192_OK */
           } else if (abbrevmatch("AES256", value, 0, 4)) {
             encryption_method = AES_256_ENCRYPTION;
           } else {
             zipwarn(
-#ifdef AES192_OK
  "valid encryption methods are:  Traditional, AES128, AES192, and AES256", "");
-#else /* def AES192_OK */
- "valid encryption methods are:  Traditional, AES128, and AES256", "");
-#endif /* def AES192_OK [else] */
             free(value);
             ZIPERR(ZE_PARMS,
              "Option -Y (--encryption-method):  unknown method");

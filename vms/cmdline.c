@@ -194,9 +194,7 @@ $DESCRIPTOR(cli_encrypt,        "ENCRYPT");             /* -e,-P,-pn,-Y */
 $DESCRIPTOR(cli_encrypt_ansi,   "ENCRYPT.ANSI_PASSWORD"); /* -pn */
 $DESCRIPTOR(cli_encrypt_mthd,   "ENCRYPT.METHOD");      /* -Y */
 $DESCRIPTOR(cli_encrypt_mthd_aes128, "ENCRYPT.METHOD.AES128"); /* -Y AES128 */
-#ifdef AES192_OK
 $DESCRIPTOR(cli_encrypt_mthd_aes192, "ENCRYPT.METHOD.AES192"); /* -Y AES192 */
-#endif /* def AES192_OK */
 $DESCRIPTOR(cli_encrypt_mthd_aes256, "ENCRYPT.METHOD.AES256"); /* -Y AES256 */
 $DESCRIPTOR(cli_encrypt_mthd_trad, "ENCRYPT.METHOD.TRAD"); /* -Y Traditional */
 $DESCRIPTOR(cli_encrypt_pass,   "ENCRYPT.PASSWORD");    /* -P */
@@ -756,12 +754,10 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             {   /* AES128. */
                 opt = OPT_YA128;
             }
-#ifdef AES192_OK
             else if (cli$present( &cli_encrypt_mthd_aes192) & 1)
             {  /* AES192. */
                 opt = OPT_YA192;
             }
-#endif /* def AES192_OK */
             else if (cli$present( &cli_encrypt_mthd_aes256) & 1)
             {   /* AES256. */
                 opt = OPT_YA256;

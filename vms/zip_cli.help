@@ -141,7 +141,7 @@ exceed about 64K.  Zip64 is also used for archives streamed to a
 non-seekable output device.  You must use a 4.5 compatible UnZip to
 extract files using the Zip64 extensions such as UnZip 6.0 or later.
 
-In addition, streamed archives, entries encrypted with standard
+In addition, streamed archives, entries encrypted with traditional zip
 encryption, or split archives created with the pause option may not be
 compatible with PKZIP as data descriptors are used, and PKZIP at the
 time of this writing does not support data descriptors (but recent
@@ -774,8 +774,8 @@ Encrypt new or updated archive entries.
 <LITERAL>
 |  ANSI_PASSWORD     Allow only ANSI characters in password (default).
 |  NOANSI_PASSWORD   Allow any characters in password.
-|  METHOD = mthd     Encryption method: Traditional (default), AES128,
-|                    AES192 (optional), AES256.
+|  METHOD = em       Encryption method: Traditional (default), AES128,
+|                    AES192, AES256.
 |  PASSWORD = "pwd"  Use specified password instead of interactive
 |                    inquiry.  INSECURE.
 <LARETIL>
@@ -785,17 +785,25 @@ on the terminal in response to a prompt.  (The password will not be
 echoed, and must be entered twice for verification.)  If SYS$COMMAND is
 not a terminal, Zip will exit with an error.
 
-You may specify the password on the command line, although we do not
-recommend it because THIS IS INSECURE.  Remember to enclose the password
-string with quotation marks ("pass word"), to prevent automatic
-conversion to upper case or misinterpretation of punctuation characters
-by DCL.
+By default, an encryption password is restricted to "ANSI characters"
+(ASCII character codes 32-126).  /NOANSI_PASSWORD allows any
+characters to be specified.  Note that use of non-ANSI characters in a
+password may cause problems if the UnZip program or either command-line
+interface has difficulty dealing with the special characters.
 
-Zip Traditional encryption is weak, so where security is truly
+You may specify the password on the command line, although we do not
+recommend it because THIS IS INSECURE.  Enclose the password string in
+quotation marks ("pass word"), to prevent automatic conversion to upper
+case or misinterpretation of punctuation characters by DCL.
+
+Traditional zip encryption is weak, so where security is truly
 important, use AES encryption, or use an external strong encryption
 program, such as GNU Privacy Guard (GnuPG, gpg), on an archive instead
-of Traditional Zip encryption.  Support for AES192 is optional, and must
-be enabled at build time.
+of traditional zip encryption.
+
+AES encryption must be enabled at build time, and requires a compatible
+AES source kit.  An AES-capable UnZip program is needed to extract
+AES-encrypted entries.
 <QUALIFIER>
 /EXCLUDE
 
@@ -1241,9 +1249,9 @@ media.
 PAUSE  causes Zip to pause between splits to allow
 changing removable media, for example.  PAUSE uses stream mode to
 write splits so unzips that can't read stream mode entries may not
-be able to read some entries in the archive.  Unless standard encryption
-was used, copy mode using /COPY_ENTRIES can convert stream mode entries
-to normal entries.
+be able to read some entries in the archive.  Unless traditional zip
+encryption was used, copy mode using /COPY_ENTRIES can convert stream
+mode entries to normal entries.
 
 BELL  ring the terminal bell when Zip pauses for the next split
 destination.
@@ -1600,7 +1608,9 @@ be separated by a space or "=".  For example:
 | X   strip-extra         strip all but critical extra fields
 | X-  strip-extra-        keep all extra fields
 | x   exclude  pat1 [pat2 [...]]  exclude all names matching the patterns
-| Z   compression-method mthd  use cmprs method "mthd" (bzip2 or deflate)
+| Y   encryption-method em  use encryption method "em" (Traditional
+|                           (default), AES128, AES192, or AES256)
+| Z   compression-method cm  use cmprs method "cm" (bzip2 or deflate)
 | z   archive-comment     ask for archive comment
 <0LARETIL>
 
