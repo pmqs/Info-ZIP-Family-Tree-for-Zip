@@ -212,17 +212,17 @@ iztimes *t;             /* return value: access, modific. and creation times */
     RBW  --  2009/07/03  --  ***  PROBLEM HERE!!!  Use of plain fseek/ftell
              breaks large file support: file size gets truncated at 32 bits.
              Things to try:
-	     1)  Add LARGE_FILES logic with zfseeko + zftello here.
-	     Let's just change these without any ifdefs & hope the defs in
-	     tailor.h took care of the system-specific issues? That works.
+             1)  Add LARGE_FILES logic with zfseeko + zftello here.
+             Let's just change these without any ifdefs & hope the defs in
+             tailor.h took care of the system-specific issues? That works.
              2)  cf. ../unix/unix.c, which uses stat instead - doesn't mess
-	     with file position.
-	     3)  Also look at zoff_t ffile_size( file) in zipfile.c - uses
-	     zfseeko + zftello.
-	     Not sure what works with pre-z/OS or CMS. Anyone who can
-	     volunteer some information here, please do so.
-	     CAVEAT:  Does the next function - set_extra_field - need some
-	     doctoring, too?
+             with file position.
+             3)  Also look at zoff_t ffile_size( file) in zipfile.c - uses
+             zfseeko + zftello.
+             Not sure what works with pre-z/OS or CMS. Anyone who can
+             volunteer some information here, please do so.
+             CAVEAT:  Does the next function - set_extra_field - need some
+             doctoring, too?
 */
 
 /* Plain fseek() and ftell() probably should never be used.  Always

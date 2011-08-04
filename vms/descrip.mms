@@ -1,4 +1,4 @@
-#                                               17 June 2011.  SMS.
+#                                               3 August 2011.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Description File.
 #
@@ -225,7 +225,7 @@ $(LIB_ZIPUTILS) : $(LIB_ZIPUTILS)($(MODS_OBJS_LIB_ZIPUTILS))
 
 # Module ID options file.
 
-OPT_ID = SYS$DISK:[.VMS]ZIP.OPT
+OPT_ID = SYS$DISK:[.$(DEST)]ZIP.OPT
 
 # Default C compile rule.
 
@@ -289,9 +289,17 @@ $(OPT_FILE) :
         close opt_file_ln
 .ENDIF
 
+# Module ID options files.
+
+$(OPT_ID) :
+        @[.vms]optgen.com Zip iz_zip_versn
+        open /write opt_file_ln $(OPT_ID)
+        write opt_file_ln "Ident = ""Zip ''f$trnlnm( "iz_zip_versn")'"""
+        close opt_file_ln
+
 # Normal Zip executable.
 
-$(ZIP) : [.$(DEST)]ZIP.OBJ $(LIB_ZIP) $(OPT_FILE)
+$(ZIP) : [.$(DEST)]ZIP.OBJ $(LIB_ZIP) $(OPT_FILE) $(OPT_ID)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIP) /include = (GLOBALS $(INCL_BZIP2_M)) /library,  -
 	 $(LIB_BZIP2_OPTS) -
@@ -302,7 +310,7 @@ $(ZIP) : [.$(DEST)]ZIP.OBJ $(LIB_ZIP) $(OPT_FILE)
 # CLI Zip executable.
 
 $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
-             $(LIB_ZIPCLI) $(LIB_ZIP) $(OPT_ID) $(OPT_FILE)
+             $(LIB_ZIPCLI) $(LIB_ZIP) $(OPT_ID) $(OPT_FILE) $(OPT_ID)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPCLI) /library, -
 	 $(LIB_ZIP) /include = (GLOBALS $(INCL_BZIP2_M)) /library, -
@@ -315,7 +323,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
 
 [.$(DEST)]ZIPCLOAK.EXE : [.$(DEST)]ZIPCLOAK.OBJ \
                          $(LIB_ZIPUTILS) \
-                         $(OPT_ID) $(OPT_FILE)
+                         $(OPT_ID) $(OPT_FILE) $(OPT_ID)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
 	 $(LIB_ZLIB_OPTS) -
@@ -324,7 +332,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
 
 [.$(DEST)]ZIPNOTE.EXE : [.$(DEST)]ZIPNOTE.OBJ \
                         $(LIB_ZIPUTILS) \
-                        $(OPT_ID) $(OPT_FILE)
+                        $(OPT_ID) $(OPT_FILE) $(OPT_ID)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
 	 $(LFLAGS_ARCH) -
@@ -332,7 +340,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
 
 [.$(DEST)]ZIPSPLIT.EXE : [.$(DEST)]ZIPSPLIT.OBJ \
                          $(LIB_ZIPUTILS) \
-                         $(OPT_ID) $(OPT_FILE)
+                         $(OPT_ID) $(OPT_FILE) $(OPT_ID)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
 	 $(LFLAGS_ARCH) -

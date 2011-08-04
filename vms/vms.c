@@ -676,7 +676,7 @@ char *vms_file_version( char *s)
  * the system.
  */
 
-/* $DEVICE_SCAN parameters. */			
+/* $DEVICE_SCAN parameters. */
 static unsigned short dev_name_ret_len;         /* Returned name length. */
 static unsigned int dev_scan_ctx[ 2] =          /* Context. */
      { 0, 0 };

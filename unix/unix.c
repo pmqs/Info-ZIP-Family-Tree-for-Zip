@@ -80,8 +80,10 @@ int get_apl_dbl_info( char *name)
   struct attrlist attr_list_rsrc;
 
   /* Attribute buffer structures for getattrlist(). */
+#  pragma pack(4)               /* 32-bit alignment, regardless. */
   attr_bufr_fndr_t attr_bufr_fndr;
   attr_bufr_rsrc_t attr_bufr_rsrc;
+#  pragma options align=reset
 
   /* Clear attribute list structure. */
   memset( &attr_list_fndr, 0, sizeof( attr_list_fndr));
@@ -548,7 +550,7 @@ int set_new_unix_extra_field(z, s)
    gid_size  (1 byte - size in bytes)
    gid       (variable)
  */
-   
+
   ef_data_size = 1 + 1 + uid_size + 1 + gid_size;
 
   if ((extra = (char *)malloc(z->ext + 4 + ef_data_size)) == NULL)
@@ -917,7 +919,7 @@ void version_local()
 #  define OS_NAME "Silicon Graphics IRIX"
 #else
 #ifdef sun
-#  if defined(UNAME_P) && defined(UNAME_R) && defined(UNAME_S) 
+#  if defined(UNAME_P) && defined(UNAME_R) && defined(UNAME_S)
 #    define OS_NAME UNAME_S" "UNAME_R" "UNAME_P
 #  else
 #  ifdef sparc
@@ -940,7 +942,7 @@ void version_local()
 #  endif /* defined(UNAME_P) && defined(UNAME_R) && defined(UNAME_S) */
 #else /* def sun */
 #ifdef __hpux
-#  if defined(UNAME_M) && defined(UNAME_R) && defined(UNAME_S) 
+#  if defined(UNAME_M) && defined(UNAME_R) && defined(UNAME_S)
 #    define OS_NAME UNAME_S" "UNAME_R" "UNAME_M
 #  else
 #    define OS_NAME "HP-UX"

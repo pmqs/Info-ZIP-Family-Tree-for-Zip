@@ -21,8 +21,8 @@
 #define Z_PATCHLEVEL 0
 #define Z_BETALEVEL "d BETA"
 
-#define VERSION "3.1d11 BETA"
-#define REVDATE "Jun 27th 2011"
+#define VERSION "3.1d13 BETA"
+#define REVDATE "Jul 6th 2011"
 
 /* Setting these to the Zip version seems a waste, as the version
    structure already tells the user the Zip version through Z_MAJORVER,
@@ -80,20 +80,20 @@ ZCONST char * far versinfolines[] = {
 /* new notice - 27 September 2010 */
 ZCONST char * far cryptAESnote[] = {
 "AES Strong Encryption notice:",
-"\tThis executable includes 256-bit AES strong encryption and may be",
-"\tsubject to export restrictions in many countries, including the USA."
+"        This executable includes 256-bit AES strong encryption and may be",
+"        subject to export restrictions in many countries, including the USA."
 };
 #endif
 
 /* new notice - 4 March 2007 (updated 27 September 2010) */
 ZCONST char * far cryptnote[] = {
-"Standard Zip Encryption notice:",
-"\tThe standard encryption code of this program is not copyrighted and",
-"\tis put in the public domain.  It was originally written in Europe",
-"\tand, to the best of our knowledge, can be freely distributed in",
-"\tboth source and object forms from any country, including the USA",
-"\tunder License Exception TSU of the U.S. Export Administration",
-"\tRegulations (section 740.13(e)) of 6 June 2002."
+"Traditional Zip Encryption notice:",
+"        The traditional zip encryption code of this program is not",
+"        copyrighted, and is put in the public domain.  It was originally",
+"        written in Europe, and, to the best of our knowledge, can be freely",
+"        distributed in both source and object forms from any country,",
+"        including the USA under License Exception TSU of the U.S. Export",
+"        Administration Regulations (section 740.13(e)) of 6 June 2002."
 };
 
 ZCONST char * far swlicense[] = {

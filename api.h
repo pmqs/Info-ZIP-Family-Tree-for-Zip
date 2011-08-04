@@ -120,7 +120,7 @@
     int  fUnicode;          /* Unicode flags (was "include suffixes", fMisc) */
     /*  Add values to set flags (currently 2 and 4 are exclusive)
           1 = (was include suffixes (not implemented), now not used)
-          2 = no UTF8          Ignore UTF-8 information (except native) 
+          2 = no UTF8          Ignore UTF-8 information (except native)
           4 = native UTF8      Store UTF-8 as native character set
     */
 

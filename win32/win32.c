@@ -1,7 +1,7 @@
 /*
   win32/win32.c - Zip 3
 
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -540,19 +540,19 @@ long GetTheFileTime(char *name, iztimes *z_ut)
 HANDLE h;
 FILETIME Modft, Accft, Creft, lft;
 WORD dh, dl;
-#ifdef __RSXNT__        /* RSXNT/EMX C rtl uses OEM charset */
+# ifdef __RSXNT__        /* RSXNT/EMX C rtl uses OEM charset */
   char *ansi_name = (char *)alloca(strlen(name) + 1);
 
   OemToAnsi(name, ansi_name);
   name = ansi_name;
-#endif
+# endif
 
   h = CreateFile(name, FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
                  NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
   if ( h != INVALID_HANDLE_VALUE ) {
     BOOL ftOK = GetFileTime(h, &Creft, &Accft, &Modft);
     CloseHandle(h);
-#ifdef USE_EF_UT_TIME
+# ifdef USE_EF_UT_TIME
     if (ftOK && (z_ut != NULL)) {
       FileTime2utime(&Modft, &(z_ut->mtime));
       if (Accft.dwLowDateTime != 0 || Accft.dwHighDateTime != 0)
@@ -564,7 +564,7 @@ WORD dh, dl;
       else
           z_ut->ctime = z_ut->mtime;
     }
-#endif
+# endif
     FileTimeToLocalFileTime(&ft, &lft);
     FileTimeToDosDateTime(&lft, &dh, &dl);
     return(dh<<16) | dl;
@@ -1280,7 +1280,7 @@ void version_local()
 # else
 #   define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
 # endif
- 
+
 struct timezonestruct
 {
   int  tz_minuteswest; /* minutes W of Greenwich */
@@ -1302,13 +1302,12 @@ int gettimeofday(struct timevalstruct *tv, struct timezonestruct *tz)
   {
     GetSystemTimeAsFileTime(&ft);
 
-    tmpres |= ft.dwHighDateTime;
-    tmpres <<= 32;
+    tmpres = ft.dwHighDateTime << 32;
     tmpres |= ft.dwLowDateTime;
 
     tmpres /= 10;  /*convert into microseconds*/
     /*converting file time to unix epoch*/
-    tmpres -= DELTA_EPOCH_IN_MICROSECS; 
+    tmpres -= DELTA_EPOCH_IN_MICROSECS;
     tv->tv_sec = (long)(tmpres / 1000000UL);
     tv->tv_usec = (long)(tmpres % 1000000UL);
   }
@@ -1331,25 +1330,125 @@ int gettimeofday(struct timevalstruct *tv, struct timezonestruct *tz)
 // #ifdef TEST
 // int main()
 // {
-//   struct timeval now; 
+//   struct timeval now;
 //   struct timezone tzone;
-// 
+//
 //   gettimeofday(&now, NULL);
 //   gettimeofday(&now, &tzone);
 // }
 // #endif
 
-/* This is used by -de and -dr to get more accurate
-   rate timing. */
+/* This was used by -de and -dr to get more accurate
+   rate timing.  Turns out this is only good to 10 to 15 ms
+   because of how Windows does time. */
+/*
 uzoff_t get_time_in_usec()
 {
-  struct timevalstruct now; 
+  struct timevalstruct now;
 
   gettimeofday(&now, NULL);
   return now.tv_sec * 1000000 + now.tv_usec;
 }
+*/
+
+
+/* an alternative good to around 10 to 15 ms */
+uzoff_t get_time_in_usec()
+{
+  FILETIME ft;
+  unsigned __int64 tmpres = 0;
+  ULARGE_INTEGER qt;
+
+  GetSystemTimeAsFileTime(&ft);
+
+  tmpres = ft.dwHighDateTime;
+  tmpres = tmpres << 32;
+  tmpres |= ft.dwLowDateTime;
+
+
+  qt.LowPart = ft.dwLowDateTime;
+  qt.HighPart = ft.dwHighDateTime;
+
+  tmpres /= 10;  /*convert into microseconds*/
+
+  return tmpres;
+}
 
 #endif
+
+
+
+
+/* --------------------------------------------------- */
+/* WinZip Gladman AES encryption
+ * May 2011
+ */
+
+#ifdef CRYPT_AES_WG
+
+/* Below is more or less the entropy function provided by WinZip and
+   now suggested by Gladman.  This function is for use on Win32
+   systems.  Other OS probably need to modify this function or
+   provide their own.
+ */
+
+/* simple entropy collection function that uses the fast timer      */
+/* since we are not using the random pool for generating secret     */
+/* keys we don't need to be too worried about the entropy quality   */
+
+/* Modified in 2008 to add revised entropy generation courtesy of   */
+/* WinZip Inc. This code now performs the following sequence of     */
+/* entropy generation operations on sequential calls:               */
+/*                                                                  */
+/*      - the current 8-byte Windows performance counter value      */
+/*      - an 8-byte representation of the current date/time         */
+/*      - an 8-byte value built from the current process ID         */
+/*        and thread ID                                             */
+/*      - all subsequent calls return the then-current 8-byte       */
+/*        performance counter value                                 */
+
+int entropy_fun(unsigned char buf[], unsigned int len)
+{   unsigned __int64    pentium_tsc[1];
+    unsigned int        i;
+    static unsigned int num = 0;
+
+    switch(num)
+    {
+    /* use a value that is unlikely to repeat across system reboots         */
+    case 1:
+        ++num;
+        GetSystemTimeAsFileTime((FILETIME *)pentium_tsc);
+        break;
+    /* use a value that distinguishes between different instances of this   */
+    /* code that might be running on different processors at the same time  */
+    case 2:
+        ++num;
+        {
+          unsigned __int32 processtest = GetCurrentProcessId();
+          unsigned __int32 threadtest  = GetCurrentThreadId();
+
+          pentium_tsc[0] = processtest;
+          pentium_tsc[0] = (pentium_tsc[0] << 32) + threadtest;
+        }
+        break;
+
+    /* use a rapidly-changing value -- check QueryPerformanceFrequency()    */
+    /* to ensure that QueryPerformanceCounter() will work                   */
+    case 0:
+        ++num;
+    default:
+        QueryPerformanceCounter((LARGE_INTEGER *)pentium_tsc);
+        break;
+    }
+
+    for(i = 0; i < 8 && i < len; ++i) {
+        buf[i] = ((unsigned char*)pentium_tsc)[i];
+    }
+    return i;
+}
+
+#endif /* CRYPT_AES_WG */
+
 
 
 

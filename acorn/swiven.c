@@ -19,7 +19,7 @@
 #endif
 
 _kernel_oserror *SWI_OS_FSControl_26(const char *source, const char *dest,
-				     int actionmask)
+                                     int actionmask)
 { /* copy */
   return _swix(OS_FSControl,_INR(0,3),26,source,dest,actionmask);
 }
@@ -30,29 +30,29 @@ _kernel_oserror *SWI_OS_FSControl_27(const char *filename, int actionmask)
 }
 
 _kernel_oserror *SWI_OS_GBPB_9(const char *dirname, void *buf, int *number,
-			       int *offset, int size, const char *match)
+                               int *offset, int size, const char *match)
 { /* read dir */
   return  _swix(OS_GBPB,_INR(0,6)|_OUTR(3,4),9,dirname,buf,
-		*number,*offset,size,match,number,offset);
+                *number,*offset,size,match,number,offset);
 }
 
 _kernel_oserror *SWI_OS_File_1(const char *filename, unsigned int loadaddr,
-			       unsigned int execaddr, int attrib)
+                               unsigned int execaddr, int attrib)
 { /* write file attributes */
   return _swix(OS_File,_INR(0,3)|_IN(5),1,filename,loadaddr,execaddr,attrib);
 }
 
 _kernel_oserror *SWI_OS_File_5(const char *filename, int *objtype,
-			       unsigned int *loadaddr,
-			       unsigned int *execaddr,
-			       int *length, int *attrib)
+                               unsigned int *loadaddr,
+                               unsigned int *execaddr,
+                               int *length, int *attrib)
 { /* read file info */
   int _objtype,_length,_attrib;
   unsigned int _loadaddr,_execaddr;
   _kernel_oserror *err = _swix(OS_File,_INR(0,1)|_OUT(0)|_OUTR(2,5),5,
-			       filename,
-			       &_objtype,&_loadaddr,&_execaddr,&_length,
-			       &_attrib);
+                               filename,
+                               &_objtype,&_loadaddr,&_execaddr,&_length,
+                               &_attrib);
   if (err)
     return err;
   if (objtype)
@@ -74,7 +74,7 @@ _kernel_oserror *SWI_OS_File_6(const char *filename)
 }
 
 _kernel_oserror *SWI_OS_File_7(const char *filename, int loadaddr,
-			       int execaddr, int size)
+                               int execaddr, int size)
 { /* create an empty file */
   return _swix(OS_File,_INR(0,5),7,filename,loadaddr,execaddr,0,size);
 }
@@ -92,11 +92,11 @@ int SWI_OS_ReadC(void)
 }
 
 _kernel_oserror *SWI_OS_ReadVarVal(const char *var, char *buf, int len,
-				   int *bytesused)
+                                   int *bytesused)
 { /* reads an OS varibale */
   int _bytesused;
   _kernel_oserror *err = _swix(OS_ReadVarVal,_INR(0,4)|_OUT(2),var,buf,len,
-			       0,0,&_bytesused);
+                               0,0,&_bytesused);
   if (err)
     return err;
   if (bytesused)
@@ -105,10 +105,10 @@ _kernel_oserror *SWI_OS_ReadVarVal(const char *var, char *buf, int len,
 }
 
 _kernel_oserror *SWI_OS_FSControl_37(const char *pathname, char *buffer,
-				     int *size)
+                                     int *size)
 { /* canonicalise path */
   return _swix(OS_FSControl,_INR(0,5)|_OUT(5),37,pathname,buffer,0,0,*size,
-	       size);
+               size);
 }
 
 

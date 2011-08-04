@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2011-06-17  SMS.
+$!     Last revised:  2011-08-03  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -416,17 +416,23 @@ $ lib_bzip2_opts = ""
 $ if (IZ_BZIP2 .nes. "")
 $ then
 $     bz2_olb = "LIBBZ2_NS.OLB"
-$     define incl_bzip2 'IZ_BZIP2'
-$     defs = "''defs', BZIP2_SUPPORT"
-$     @ [.VMS]FIND_BZIP2_LIB.COM 'IZ_BZIP2' 'seek_bz' 'bz2_olb' lib_bzip2
-$     if (f$trnlnm( "lib_bzip2") .eqs. "")
+$     if (MAKE_OBJ .or. MAKE_EXE)
 $     then
-$         say "Can't find BZIP2 object library.  Can't link."
-$         goto error
-$     else
-$         say "BZIP2 dir: ''f$trnlnm( "lib_bzip2")'"
-$         incl_bzip2_m = ", ZBZ2ERR"
-$         lib_bzip2_opts = "lib_bzip2:''bz2_olb' /library, "
+$         define incl_bzip2 'IZ_BZIP2'
+$         defs = "''defs', BZIP2_SUPPORT"
+$     endif
+$!
+$     if (MAKE_EXE)
+$     then
+$         @ [.VMS]FIND_BZIP2_LIB.COM 'IZ_BZIP2' 'seek_bz' 'bz2_olb' lib_bzip2
+$         if (f$trnlnm( "lib_bzip2") .eqs. "")
+$         then
+$             say "Can't find BZIP2 object library.  Can't link."
+$             goto error
+$         else
+$             incl_bzip2_m = ", ZBZ2ERR"
+$             lib_bzip2_opts = "lib_bzip2:''bz2_olb' /library, "
+$         endif
 $     endif
 $ endif
 $!
@@ -525,23 +531,44 @@ $ endif
 $!
 $! Show interesting facts.
 $!
+$ say ""
 $ say "   architecture = ''arch' (destination = [.''dest'])"
 $ if (MAKE_OBJ)
 $ then
 $     say "   cc = ''cc'"
 $ endif
+$!
 $ if (MAKE_EXE)
 $ then
 $     say "   link = ''link'"
 $ endif
-$ say ""
+$!
 $ if (.not. MAKE_HELP)
 $ then
 $     say "   Not making new help files."
 $ endif
+$!
 $ if (.not. MAKE_MSG)
 $ then
 $     say "   Not making new message files."
+$ endif
+$!
+$ if (IZ_BZIP2 .nes. "")
+$ then
+$     if (MAKE_EXE)
+$     then
+$         say "   BZIP2 include dir: ''f$trnlnm( "incl_bzip2")'"
+$     endif
+$     say "   BZIP2 library dir: ''f$trnlnm( "lib_bzip2")'"
+$ endif
+$!
+$ if (IZ_ZLIB .nes. "")
+$ then
+$     if (MAKE_EXE)
+$     then
+$         say "   ZLIB include dir:  ''f$trnlnm( "incl_zlib")'"
+$     endif
+$     say "   ZLIB library dir:  ''f$trnlnm( "lib_zlib")'"
 $ endif
 $ say ""
 $!
@@ -652,6 +679,16 @@ $!
 $ if (MAKE_EXE)
 $ then
 $!
+$! Create the module ID options file.
+$!
+$     optgen_verify = f$verify( 0)
+$     @ [.vms]optgen.com Zip iz_zip_versn
+$     open /write opt_file_ln SYS$DISK:[.'dest']ZIP.OPT
+$     write opt_file_ln "Ident = ""Zip ''f$trnlnm( "iz_zip_versn")'"""
+$     close opt_file_ln
+$     deassign iz_zip_versn
+$     tmp = f$verify( optgen_verify)
+$!
 $! Link the executable.
 $!
 $     link /executable = [.'dest']'ZIPX_UNX'.EXE -
@@ -661,7 +698,7 @@ $     link /executable = [.'dest']'ZIPX_UNX'.EXE -
        'lib_bzip2_opts' -
        'lib_zlib_opts' -
        'opts' -
-       SYS$DISK:[.VMS]ZIP.OPT /options
+       SYS$DISK:[.'dest']ZIP.OPT /options
 $!
 $ endif
 $!
@@ -714,7 +751,7 @@ $     link /executable = [.'dest']'ZIPX_CLI'.EXE -
        'lib_bzip2_opts' -
        'lib_zlib_opts' -
        'opts' -
-       SYS$DISK:[.VMS]ZIP.OPT /options
+       SYS$DISK:[.'dest']ZIP.OPT /options
 $!
 $ endif
 $!
@@ -778,19 +815,19 @@ $     link /executable = [.'dest']ZIPCLOAK.EXE -
        SYS$DISK:[.'dest']ZIPUTILS.OLB /library, -
        'lib_zlib_opts' -
        'opts' -
-       SYS$DISK:[.VMS]ZIP.OPT /options
+       SYS$DISK:[.'dest']ZIP.OPT /options
 $!
 $     link /executable = [.'dest']ZIPNOTE.EXE -
        SYS$DISK:[.'dest']ZIPNOTE.OBJ, -
        SYS$DISK:[.'dest']ZIPUTILS.OLB /library, -
        'opts' -
-       SYS$DISK:[.VMS]ZIP.OPT /OPTIONS
+       SYS$DISK:[.'dest']ZIP.OPT /OPTIONS
 $!
 $     LINK /EXECUTABLE = [.'DEST']ZIPSPLIT.EXE -
        SYS$DISK:[.'DEST']ZIPSPLIT.OBJ, -
        SYS$DISK:[.'DEST']ZIPUTILS.OLB /LIBRARY, -
        'opts' -
-       SYS$DISK:[.VMS]ZIP.OPT /options
+       SYS$DISK:[.'dest']ZIP.OPT /options
 $!
 $ endif
 $!

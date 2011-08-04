@@ -2,7 +2,7 @@
 #include <nwerrno.h>
 
 /*******************************/
-/*  Interupt handler		   */
+/*  Interupt handler           */
 /*******************************/
 
 int NLM_mainThreadGroupID;
@@ -13,26 +13,26 @@ int NLM_exiting = FALSE;
 void NLM_SignalHandler(int sig)
 #pragma on(unreferenced);
 {
-	int handlerThreadGroupID;
+    int handlerThreadGroupID;
 
-	switch(sig)
-	{
-	case SIGTERM:
-		NLM_exiting = TRUE;
-		handlerThreadGroupID = GetThreadGroupID();
-		SetThreadGroupID(NLM_mainThreadGroupID);
+    switch(sig)
+    {
+    case SIGTERM:
+        NLM_exiting = TRUE;
+        handlerThreadGroupID = GetThreadGroupID();
+        SetThreadGroupID(NLM_mainThreadGroupID);
 
-		/* NLM SDK functions may be called here */
+        /* NLM SDK functions may be called here */
 
-		while (NLM_threadCnt != 0) 
-			ThreadSwitchWithDelay();
-		SetThreadGroupID(handlerThreadGroupID);
-		break;
-	case SIGINT:
-		signal(SIGINT, NLM_SignalHandler);
-		break;
-	}
-	return;
+        while (NLM_threadCnt != 0)
+            ThreadSwitchWithDelay();
+        SetThreadGroupID(handlerThreadGroupID);
+        break;
+    case SIGINT:
+        signal(SIGINT, NLM_SignalHandler);
+        break;
+    }
+    return;
 }
 
 void NLMsignals(void)

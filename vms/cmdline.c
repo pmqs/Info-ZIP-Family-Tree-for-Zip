@@ -338,7 +338,7 @@ main(int argc, char **argv)     /* Main program. */
 #endif /* def TEST */
 
 
-unsigned int 
+unsigned int
 vms_zip_cmdline (int *argc_p, char ***argv_p)
 {
 /*
@@ -1677,7 +1677,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 
 
 
-static unsigned int 
+static unsigned int
 get_list (struct dsc$descriptor_s *qual, struct dsc$descriptor_d *rawtail,
           int delim, char **p_str, unsigned int *p_size, unsigned int *p_end)
 {
@@ -1767,7 +1767,7 @@ get_list (struct dsc$descriptor_s *qual, struct dsc$descriptor_d *rawtail,
 }
 
 
-static unsigned int 
+static unsigned int
 get_time (struct dsc$descriptor_s *qual, char *timearg)
 {
 /*
@@ -1837,7 +1837,7 @@ get_time (struct dsc$descriptor_s *qual, char *timearg)
 }
 
 
-static unsigned int 
+static unsigned int
 check_cli (struct dsc$descriptor_s *qual)
 {
 /*
@@ -1889,7 +1889,7 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /QUIET, /VERBOSE[={MORE|DEBUG}], /[NO]DIRNAMES, /JUNK,",
 #endif /* ?CRYPT */
 "    /COMPRESSION = {BZIP2|DEFLATE|STORE}, /LEVEL=[0-9], /NOVMS|/VMS[=ALL],",
-"    /STORE_TYPES=(type_list), /[NO]PRESERVE_CASE[=([NO]ODS{2|5}[,...])],", 
+"    /STORE_TYPES=(type_list), /[NO]PRESERVE_CASE[=([NO]ODS{2|5}[,...])],",
 "    /[NO]PKZIP, /[NO]KEEP_VERSION, /DOT_VERSION, /TRANSLATE_EOL[={LF|CRLF}],",
 "    /DISPLAY=([BYTES][,COUNTS][,DOTS=mb_per_dot][,GLOBALDOTS][,USIZE]",
 "    [,VOLUME]), /DESCRIPTORS, /[NO]EXTRA_FIELDS, /ZIP64,",

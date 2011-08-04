@@ -166,7 +166,7 @@
 #endif
 
 #ifdef CRYPT_AES_WG
- local int add_crypt_aes_local_extra_field OF((struct zlist far *, ush, 
+ local int add_crypt_aes_local_extra_field OF((struct zlist far *, ush,
   uch, ush));
  local int add_crypt_aes_cen_extra_field OF((struct zlist far *, ush,
   uch, ush));
@@ -1721,12 +1721,11 @@ local int add_Unicode_Path_cen_extra_field(pZEntry)
  * Vendor version: the vendor version for AE-1 is 0x0001. The vendor version for AE-2 is 0x0002.
  *       (The handling of the CRC value is the only difference between the AE-1 and AE-2 formats.)
  * Encryption strength: the mode values (encryption strength) for AE-1 and AE-2 are:
-      Value 	Strength
-      0x01 	128-bit encryption key
-      0x02 	192-bit encryption key
-      0x03 	256-bit encryption key
+ *     Value  Strength
+ *     0x01   128-bit encryption key
+ *     0x02   192-bit encryption key
+ *     0x03   256-bit encryption key
  * Compression method: the compression method is the one that would otherwise have been stored.
-
  */
 local int add_crypt_aes_local_extra_field( OFT( struct zlist far *)pZEntry,
                                            OFT( ush) aes_vendor_version,
@@ -1827,7 +1826,7 @@ local int add_crypt_aes_local_extra_field( OFT( struct zlist far *)pZEntry,
    * 8        1        Integer mode value indicating AES encryption strength
    * 9        2        The actual compression method used to compress the file
  */
-  
+
   /* tag header */
   write_ushort_to_mem(EF_AES_WG, pExtra);
   /* data size */
@@ -1943,7 +1942,7 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
    * 8        1        Integer mode value indicating AES encryption strength
    * 9        2        The actual compression method used to compress the file
  */
-  
+
   /* tag header */
   write_ushort_to_mem(EF_AES_WG, pExtra);
   /* data size */
@@ -3572,7 +3571,7 @@ local int scanzipf_fixnew()
 
     /* back up 64k (the max size of the EOCDR) from end */
     /*
-      RBW  --  2009/06/21  --  
+      RBW  --  2009/06/21  --
       All these literals with an L (long) suffix need coercing to a
       zoff_t under z/OS. This should be harmless in other environments.
     */
@@ -5653,7 +5652,7 @@ int putlocal(z, rewrite)
      This assumes that for large entries the compressed size won't need a
      Zip64 extra field if the uncompressed size did not.  This assumption should
      only fail for a large file of nearly totally uncompressable data.
-     
+
      There is a tradeoff here.  A margin could be added to the uncompressed size
      to account for any bad compression expansion, plus meta information, but this
      would force Zip64 for files that would otherwise be under the limit.  When
@@ -5852,8 +5851,8 @@ int putlocal(z, rewrite)
 #ifdef ZIP64_SUPPORT        /* zip64 support 09/02/2003 R.Nausedat */
                             /* changes 10/5/03 EG */
   if (zip64_entry) {
-    append_ulong_to_mem(0xFFFFFFFF, &block, &offset, &blocksize);	/* compressed size */
-    append_ulong_to_mem(0xFFFFFFFF, &block, &offset, &blocksize);	/* uncompressed size */
+    append_ulong_to_mem(0xFFFFFFFF, &block, &offset, &blocksize);       /* compressed size */
+    append_ulong_to_mem(0xFFFFFFFF, &block, &offset, &blocksize);       /* uncompressed size */
   } else {
     append_ulong_to_mem((ulg)z->siz, &block, &offset, &blocksize);/* compressed size */
     append_ulong_to_mem((ulg)z->len, &block, &offset, &blocksize);/* uncompressed size */
@@ -6184,7 +6183,7 @@ int putcentral(z)
   }
   else
   {
-    append_ushort_to_mem((ush)z->dsk, &block, &offset, &blocksize);	/* disk number start */
+    append_ushort_to_mem((ush)z->dsk, &block, &offset, &blocksize);     /* disk number start */
   }
   append_ushort_to_mem(z->att, &block, &offset, &blocksize);    /* internal file attributes */
   append_ulong_to_mem(z->atx, &block, &offset, &blocksize);     /* external file attributes */

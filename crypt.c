@@ -36,12 +36,13 @@
   directory.
  */
 
+#define ZCRYPT_INTERNAL         /* Ensure <windows.h>, where applicable. */
+
 #include "zip.h"
-#include "crypt.h"      /* Get CRYPT defined as desired. */
+#include "crypt.h"              /* Get CRYPT defined as desired. */
 
 #if CRYPT
 
-# define ZCRYPT_INTERNAL
 # include "ttyio.h"
 
 # ifndef FALSE
@@ -49,43 +50,43 @@
 # endif
 
 # ifdef ZIP
-   /*    Implementation notes on traditional (weak) encryption.
-      
-      For the encoding task used in Zip (and ZipCloak), we want to initialize
-      the crypt algorithm with some reasonably unpredictable bytes, see
-      the crypthead() function. The standard rand() library function is
-      used to supply these `random' bytes, which in turn is initialized by
-      a srand() call. The srand() function takes an "unsigned" (at least 16bit)
-      seed value as argument to determine the starting point of the rand()
-      pseudo-random number generator.
-      
-      This seed number is constructed as "Seed = Seed1 .XOR. Seed2" with
-      Seed1 supplied by the current time (= "(unsigned)time()") and Seed2
-      as some (hopefully) nondeterministic bitmask. On many (most) systems,
-      we use some "process specific" number, as the PID or something similar,
-      but when nothing unpredictable is available, a fixed number may be
-      sufficient.
-      
-      NOTE:
-      1.) This implementation requires the availability of the following
-          standard UNIX C runtime library functions: time(), rand(), srand().
-          On systems where some of them are missing, the environment that
-          incorporates the crypt routines must supply suitable replacement
-          functions.
-      2.) It is a very bad idea to use a second call to time() to set the
-          "Seed2" number! In this case, both "Seed1" and "Seed2" would be
-          (almost) identical, resulting in a (mostly) "zero" constant seed
-          number passed to srand().
-
-      The implementation environment defined in the "zip.h" header should
-      supply a reasonable definition for ZCR_SEED2 (an unsigned number; for
-      most implementations of rand() and srand(), only the lower 16 bits are
-      significant!). An example that works on many systems would be
-           "#define ZCR_SEED2  (unsigned)getpid()".
-      The default definition for ZCR_SEED2 supplied below should be regarded
-      as a fallback to allow successful compilation in "beta state"
-      environments.
-    */
+/*   Implementation notes on traditional zip (weak) encryption.
+ *
+ *   For the encoding task used in Zip (and ZipCloak), we want to initialize
+ *   the crypt algorithm with some reasonably unpredictable bytes; see
+ *   the crypthead() function.  The standard rand() library function is
+ *   used to supply these `random' bytes, which in turn is initialized by
+ *   a srand() call. The srand() function takes an "unsigned" (at least 16bit)
+ *   seed value as argument to determine the starting point of the rand()
+ *   pseudo-random number generator.
+ *
+ *   This seed number is constructed as "Seed = Seed1 .XOR. Seed2" with
+ *   Seed1 supplied by the current time (= "(unsigned)time()") and Seed2
+ *   as some (hopefully) nondeterministic bitmask.  On many (most) systems,
+ *   we use some process-specific number, as the PID or something similar,
+ *   but when nothing unpredictable is available, a fixed number may be
+ *   sufficient.
+ *
+ *   NOTE:
+ *   1.) This implementation requires the availability of the following
+ *       standard UNIX C runtime library functions: time(), rand(), srand().
+ *       On systems where some of them are missing, the environment that
+ *       incorporates the crypt routines must supply suitable replacement
+ *       functions.
+ *   2.) It is a very bad idea to use a second call to time() to set the
+ *       "Seed2" number! In this case, both "Seed1" and "Seed2" would be
+ *       (almost) identical, resulting in a (mostly) "zero" constant seed
+ *       number passed to srand().
+ *
+ *   The implementation environment defined in the "zip.h" header should
+ *   supply a reasonable definition for ZCR_SEED2 (an unsigned number; for
+ *   most implementations of rand() and srand(), only the lower 16 bits are
+ *   significant!).  An example that works on many systems would be
+ *         "#define ZCR_SEED2  (unsigned)getpid()".
+ *   The default definition for ZCR_SEED2 supplied below should be regarded
+ *   as a fallback to allow successful compilation in "beta state"
+ *   environments.
+ */
 
 #  include <time.h>     /* time() function supplies first part of crypt seed */
    /* "last resort" source for second part of crypt seed pattern */
@@ -1159,7 +1160,7 @@ local int testkey(__G__ hd_len, h, key)
          */
         GLOBAL( ucsize_aes) =
          GLOBAL( csize)- MAC_LENGTH( GLOBAL( pInfo->cmpr_mode_aes));
-        n = IZ_MIN( GLOBAL( incnt), GLOBAL( ucsize_aes));
+        n = (int)(IZ_MIN( GLOBAL( incnt), GLOBAL( ucsize_aes)));
         fcrypt_decrypt( GLOBAL( inptr), n, GLOBAL( zcx));
         GLOBAL( ucsize_aes) -= n;       /* Decrement bytes-to-decrypt. */
         return 0;       /* OK */

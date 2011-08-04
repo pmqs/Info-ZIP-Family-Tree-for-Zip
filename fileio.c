@@ -2970,7 +2970,7 @@ size_t bfwrite(buffer, size, count, mode)
 
 uzoff_t get_time_in_usec()
 {
-  struct timeval now; 
+  struct timeval now;
 
   gettimeofday(&now, NULL);
   return now.tv_sec * 1000000 + now.tv_usec;
@@ -3620,7 +3620,7 @@ char *local_to_display_string(local_string)
 
 /*  RBW  --  2009/06/22  */
 /*
-  I think this block got misplaced.  
+  I think this block got misplaced.
   It used to be below the EBCDIC block.
 */
   if ((display_string = (char *)malloc(strlen(temp_string) + 1)) == NULL) {
@@ -3686,7 +3686,7 @@ zwchar *local_to_wide_string(local_string)
   if ((wc_string = (wchar_t *)malloc((wsize + 1) * sizeof(wchar_t))) == NULL) {
     ZIPERR(ZE_MEM, "local_to_wide_string");
   }
-  /* Fix by kellner, from forum, 12 Feb 2009 */ 
+  /* Fix by kellner, from forum, 12 Feb 2009 */
   wsize = mbstowcs(wc_string, local_string, wsize + 1);
   wc_string[wsize] = (wchar_t) 0;
 

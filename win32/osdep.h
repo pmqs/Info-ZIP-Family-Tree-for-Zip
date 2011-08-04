@@ -92,12 +92,12 @@
 
 /* callback that DLL caller can use to get progress reports */
 # ifdef WINDLL
-#   ifndef NO_ENABLE_DLL_PROGRESS 
+#   ifndef NO_ENABLE_DLL_PROGRESS
 #     define ENABLE_DLL_PROGRESS
 #   endif
 # endif
 
- 
+
  /* Large File Support
  *
  *  If this is set it is assumed that the port

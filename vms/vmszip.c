@@ -669,7 +669,7 @@ local char *readd( zDIR *d)
   From the docs:
 
         Note that you must close the file before invoking the Search
-        service (FAB$W_IFI must be 0). 
+        service (FAB$W_IFI must be 0).
 
   The same is true for PARSE.  Most likely, it's cleared by setting
   "fab = cc$rms_fab", and left that way, so clearing it here may very
@@ -916,7 +916,7 @@ char *ex2in( char *x, int isdir, int *pdosflag)
       {
         dir_len -= 7;
         ext_dir_and_name += 7;
-      } 
+      }
     }
   }
   else
@@ -1029,7 +1029,7 @@ char *ex2in( char *x, int isdir, int *pdosflag)
   {
     /* If ODS5 is possible, do complicated down-case check.
 
-       Note that the test for ODS2/ODS5 is misleading and over-broad. 
+       Note that the test for ODS2/ODS5 is misleading and over-broad.
        Here, "ODS2" includes anything from DVI$C_ACP_F11V1 (=1, ODS1) up
        to (but not including) DVI$C_ACP_F11V5 (= 11, DVI$C_ACP_F11V5),
        while "ODS5" includes anything from DVI$C_ACP_F11V5 on up.  See
@@ -1111,7 +1111,7 @@ char *ex2in( char *x, int isdir, int *pdosflag)
   }
 
   /* 2008-10-15 SMS.
-   * Changed the scheme here to remove a trailing dot only if there's 
+   * Changed the scheme here to remove a trailing dot only if there's
    * no escaped dot in the name field.  This covers a case like "x^.y.",
    * which had been losing its type-dot, and being archived as "x.y".
    * This method also covers the ".." ("^..") case naturally.

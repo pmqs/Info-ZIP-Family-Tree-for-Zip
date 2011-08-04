@@ -818,13 +818,15 @@ local void help_extended()
 "  -l        change CR or LF (depending on OS) line end to CR LF (Unix->Win)",
 "  -ll       change CR LF to CR or LF (depending on OS) line end (Win->Unix)",
 "  If first buffer read from file contains binary the translation is skipped",
+"  (This check generally reliable, but when there's no binary in first couple",
+"  K bytes of file, this check can fail and binary file might get corrupted.)",
 "",
 "Recursion:",
 "  -r        recurse paths, include files in subdirs:  zip -r a path path ...",
 "  -R        recurse current dir and match patterns:   zip -R a ptn ptn ...",
-"  Use -i and -x with either to include or exclude paths",
 "  Path root in archive starts at current dir, so if /a/b/c/file and",
 "   current dir is /a/b, 'zip -r archive .' puts c/file in archive",
+"  Use -i and -x with either to include or exclude paths",
 "",
 "Date filtering:",
 "  -t date   exclude before (include files modified on this date and later)",
@@ -861,13 +863,28 @@ local void help_extended()
 "",
 "Encryption:",
 "  -e        use encryption, prompt for password",
-"  -P pswd   use encryption, password is pswd (NOT SECURE!  See manual.)",
+"  -P pswd   use encryption, password is pswd (NOT SECURE!  Many OS allow",
+"              seeing what others type on command line.  See manual.)",
 "",
-"  Default is Traditional (weak) PKZip 2.0, unless -Y is used to set another",
-"  encryption method.",
+"  Default is original traditional (weak) PKZip 2.0 encryption, unless -Y",
+"  is used to set another encryption method.",
 "",
-"  -Y em     set encryption method (Traditional, AES128, AES192, or AES256)",
-"  -pn       allow non-ANSI characters in password",
+"  -Y em     set encryption method (TRADITIONAL, AES128, AES192, or AES256)",
+"              (Zip uses WinZip AES encryption.  Other strong encryption",
+"              methods may be added in the future.)",
+"",
+"  For example:",
+"    zip myarchive filetosecure.txt -Y AES2",
+"  compresses and encrypts using AES256 the file filetosecure.txt and adds",
+"  it to myarchive.  Zip will prompt for password.  Min password lengths:",
+"    16 (AES128), 20 (AES192), 24 (AES256).  (No minimum for TRADITIONAL",
+"  zip encryption.)  The longer and more varied the password the better.",
+"  Ideally passwords should be at least:",
+"    22 (AES128), 33 (AES192), 44 (AES256) and include a mix of lowercase,",
+"   uppercase, numeric, and other characters.",
+"",
+"  -pn       allow non-ANSI characters in password.  Default is to restrict",
+"              passwords to printable 7-bit ANSI characters for portability.",
 "",
 "Splits (archives created as a set of split files):",
 "  -s ssize  create split archive with splits of size ssize, where ssize nm",
@@ -922,6 +939,13 @@ local void help_extended()
 "    zip -FI archive fifo",
 "",
 "Dots, counts:",
+"  Any console output may slow performance of Zip.  That said, there are",
+"  times when additional output information is worth the performance impact",
+"  or when actual completion time is not critical.  The below options can",
+"  provide useful information in those cases.  If speed is important but",
+"  some indication of activity is still needed, check out the -dg option",
+"  (which can be used with a log file to save more detailed information).",
+"",
 "  -db       display running count of bytes processed and bytes to go",
 "              (uncompressed size, except delete and copy show stored size)",
 "  -dc       display running count of entries done and entries to go",
@@ -931,12 +955,12 @@ local void help_extended()
 "    zip -qdgds 10m   will turn off most output except dots every 10 MiB",
 "  -dr       display estimated zipping rate in bytes/sec",
 "  -ds siz   each dot is siz processed where siz is nm as splits (0 no dots)",
-"  -dt       display time started zipping entry in day/hr:min:sec format",
+"  -dt       display time Zip started zipping entry in day/hr:min:sec format",
 "  -du       display original uncompressed size for each entry as added",
 "  -dv       display volume (disk) number in format in_disk>out_disk",
 "  Dot size is approximate, especially for dot sizes less than 1 MiB",
 "  Dot options don't apply to Scanning files dots (dot/2sec) (-q turns off)",
-"  Options -de and -dr do not display for first few entries as calc rate",
+"  Options -de and -dr do not display for first few entries",
 "",
 "Logging:",
 "  -lf path  open file at path as logfile (overwrite existing file)",
@@ -1158,15 +1182,15 @@ local void version_info()
     "NO_W32TIMES_IZFIX",
 #endif
 #ifdef VMS
-#ifdef VMSCLI
-    "VMSCLI",
-#endif
-#ifdef VMS_IM_EXTRA
-    "VMS_IM_EXTRA",
-#endif
-#ifdef VMS_PK_EXTRA
-    "VMS_PK_EXTRA",
-#endif
+# ifdef VMSCLI
+    "VMSCLI               (VMS-style command-line interface)",
+# endif
+# ifdef VMS_IM_EXTRA
+    "VMS_IM_EXTRA         (IM-style (obsolete) VMS file attribute encoding)",
+# endif
+# ifdef VMS_PK_EXTRA
+    "VMS_PK_EXTRA         (PK-style (default) VMS file attribute encoding)",
+# endif
 #endif /* VMS */
 #ifdef WILD_STOP_AT_DIR
     "WILD_STOP_AT_DIR     (wildcards do not cross directory boundaries)",
@@ -1565,11 +1589,12 @@ local void check_zipfile(zipname, zippath)
       strcpy(k, "\"");
       strcat(k, key);
       strcat(k, "\"");
-      
+      /* Run "unzip" with "-P pwd". */
       status = spawnlp(P_WAIT, "unzip", "unzip", verbose ? "-t" : "-tqq",
                        "-P", k, zipnam, NULL);
       free(k);
     } else {
+      /* Run "unzip" without "-P pwd". */
       status = spawnlp(P_WAIT, "unzip", "unzip", verbose ? "-t" : "-tqq",
                        zipnam, NULL);
     }
@@ -1801,7 +1826,7 @@ local int add_filter(flag, pattern)
       iname = ex2in(p, 0, (int *)NULL);
       pathput = pathput_save;
       free(p);
-      
+
       if (iname != NULL) {
         lastfilter->pattern = in2ex(iname);
         free(iname);
@@ -4335,7 +4360,7 @@ char **argv;            /* command line tokens */
 # else /* defined(CRYPT_AES_WG) || defined(CRYPT_AES_WG_NEW) */
 #  define REAL_PWLEN IZ_PWLEN
 # endif /* defined(CRYPT_AES_WG) || defined(CRYPT_AES_WG_NEW) [else] */
-    
+
     if ((key = malloc(REAL_PWLEN+1)) == NULL) {
       ZIPERR(ZE_MEM, "was getting encryption password");
     }
@@ -4970,7 +4995,7 @@ char **argv;            /* command line tokens */
          "sd: Initializing AES_WG encryption random number pool\n");
         fflush(mesg);
     }
-    
+
     pool_init_start = time(NULL);
 
     /* initialize the random number pool */
@@ -5001,7 +5026,7 @@ char **argv;            /* command line tokens */
         fprintf(mesg, "sd: Initializing AES_WG\n");
         fflush(mesg);
     }
-    
+
     pool_init_start = time(NULL);
 
     /* initialise mode and set key  */
@@ -5975,7 +6000,7 @@ char **argv;            /* command line tokens */
         {
           if (action == FRESHEN) {
 #ifdef UNICODE_SUPPORT
-	          if (log_utf8 && z->uname)
+            if (log_utf8 && z->uname)
               fprintf(logfile, "freshening: %s", z->uname);
             else
 #endif

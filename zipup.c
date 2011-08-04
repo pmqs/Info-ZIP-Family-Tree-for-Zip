@@ -761,8 +761,10 @@ struct zlist far *z;    /* zip entry to compress */
         struct attrlist attr_list_fndr;
         struct attrlist attr_list_rsrc;
 
+#    pragma pack(4)             /* 32-bit alignment, regardless. */
         attr_bufr_fndr_t attr_bufr_fndr;
         attr_bufr_rsrc_t attr_bufr_rsrc;
+#    pragma options align=reset
 
         /* Truncate name at "/rsrc" for getattrlist(). */
         btrbslash = z->name[ strlen( z->name)- strlen( APL_DBL_SFX)];
@@ -1018,10 +1020,10 @@ struct zlist far *z;    /* zip entry to compress */
    * Vendor version: the vendor version for AE-1 is 0x0001. The vendor version for AE-2 is 0x0002.
    *       (The handling of the CRC value is the only difference between the AE-1 and AE-2 formats.)
    * Encryption strength: the mode values (encryption strength) for AE-1 and AE-2 are:
-   *     Value 	Strength
-   *     0x01 	128-bit encryption key
-   *     0x02 	192-bit encryption key
-   *     0x03 	256-bit encryption key
+   *     Value  Strength
+   *     0x01   128-bit encryption key
+   *     0x02   192-bit encryption key
+   *     0x03   256-bit encryption key
    * Compression method: the compression method is the one that would otherwise have been stored.
    */
 
@@ -1093,10 +1095,10 @@ struct zlist far *z;    /* zip entry to compress */
    * Vendor version: the vendor version for AE-1 is 0x0001. The vendor version for AE-2 is 0x0002.
    *       (The handling of the CRC value is the only difference between the AE-1 and AE-2 formats.)
    * Encryption strength: the mode values (encryption strength) for AE-1 and AE-2 are:
-   *     Value 	Strength
-   *     0x01 	128-bit encryption key
-   *     0x02 	192-bit encryption key
-   *     0x03 	256-bit encryption key
+   *     Value  Strength
+   *     0x01   128-bit encryption key
+   *     0x02   192-bit encryption key
+   *     0x03   256-bit encryption key
    * Compression method: the compression method is the one that would otherwise have been stored.
    */
 
@@ -1146,7 +1148,6 @@ struct zlist far *z;    /* zip entry to compress */
             unsigned long tag_len,          /* authentication field length  */
             ccm_ctx ctx[1]);                /* the mode context             */
 
-        
         /* get the salt */
         prng_rand(zsalt, salt_len, &aes_rnp);
 
@@ -1387,7 +1388,7 @@ struct zlist far *z;    /* zip entry to compress */
     if (z->encrypt_method > 1)
     {
       int ret;
-  
+
       ret = fcrypt_end( auth_code,   /* on return contains the authentication code */
                         &zctx);      /* encryption context */
       bfwrite(auth_code, 1, ret, BFWRITE_DATA);

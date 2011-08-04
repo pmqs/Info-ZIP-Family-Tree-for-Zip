@@ -513,7 +513,7 @@ int zgetch(__G__ f)
  * Simple compile-time check for source compatibility between
  * zcrypt and ttyio:
  */
-#if (!defined(CR_MAJORVER) || (CR_MAJORVER < 2) || (CR_MINORVER < 7))
+#if (!defined(CR_MAJORVER) || (CR_MAJORVER* 10 + CR_MINORVER < 27))
    error:  This Info-ZIP tool requires zcrypt 2.7 or later.
 #endif
 

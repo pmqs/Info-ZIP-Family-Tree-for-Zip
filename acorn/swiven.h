@@ -14,31 +14,31 @@
 #include "kernel.h"
 
 _kernel_oserror *SWI_OS_FSControl_26(const char *source, const char *dest,
-				     int actionmask);
+                                     int actionmask);
 /* copy */
 
 _kernel_oserror *SWI_OS_FSControl_27(const char *filename, int actionmask);
 /* wipe */
 
 _kernel_oserror *SWI_OS_GBPB_9(const char *dirname, void *buf, int *number,
-			       int *offset, int size, const char *match);
+                               int *offset, int size, const char *match);
 /* read dir */
 
 _kernel_oserror *SWI_OS_File_1(const char *filename, unsigned int loadaddr,
-			       unsigned int execaddr, int attrib);
+                               unsigned int execaddr, int attrib);
 /* write file attributes */
 
 _kernel_oserror *SWI_OS_File_5(const char *filename, int *objtype,
-			       unsigned int *loadaddr,
-			       unsigned int *execaddr,
-			       int *length, int *attrib);
+                               unsigned int *loadaddr,
+                               unsigned int *execaddr,
+                               int *length, int *attrib);
 /* read file info */
 
 _kernel_oserror *SWI_OS_File_6(const char *filename);
 /* delete */
 
 _kernel_oserror *SWI_OS_File_7(const char *filename, int loadaddr,
-			       int execaddr, int size);
+                               int execaddr, int size);
 /* create an empty file */
 
 _kernel_oserror *SWI_OS_CLI(const char *cmd);
@@ -48,11 +48,11 @@ int SWI_OS_ReadC(void);
 /* get a key from the keyboard buffer */
 
 _kernel_oserror *SWI_OS_ReadVarVal(const char *var, char *buf, int len,
-				   int *bytesused);
+                                   int *bytesused);
 /* reads an OS varibale */
 
 _kernel_oserror *SWI_OS_FSControl_37(const char *pathname, char *buffer,
-				     int *size);
+                                     int *size);
 /* canonicalise path */
 
 _kernel_oserror *SWI_DDEUtils_Prefix(const char *dir);
