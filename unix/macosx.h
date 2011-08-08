@@ -32,6 +32,8 @@
 
 #    define APL_FNDR_INFO_SIZE         32
 
+#    pragma pack(4)             /* 32-bit alignment, regardless. */
+
 /* Finder info attribute buffer structure for getattrlist(). */
 typedef struct {
   unsigned int  ret_length;
@@ -45,6 +47,7 @@ typedef struct {
   off_t         size;
 } attr_bufr_rsrc_t;
 
+#    pragma options align=reset
 
 /* Buffer for AppleDouble header (including Finder info). */
 extern

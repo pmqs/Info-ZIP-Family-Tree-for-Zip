@@ -80,10 +80,8 @@ int get_apl_dbl_info( char *name)
   struct attrlist attr_list_rsrc;
 
   /* Attribute buffer structures for getattrlist(). */
-#  pragma pack(4)               /* 32-bit alignment, regardless. */
   attr_bufr_fndr_t attr_bufr_fndr;
   attr_bufr_rsrc_t attr_bufr_rsrc;
-#  pragma options align=reset
 
   /* Clear attribute list structure. */
   memset( &attr_list_fndr, 0, sizeof( attr_list_fndr));
@@ -212,7 +210,7 @@ int caseflag;           /* true to force case-sensitive match */
   }
 
   /* Live name--use if file, recurse if directory */
-#if defined(__MVS__) || defined(__VM__)
+#ifdef ZOS_UNIX
   if (S_ISREG(s.st_mode) || S_ISLNK(s.st_mode))
 #else
 #  ifdef S_IFLNK
@@ -243,7 +241,7 @@ int caseflag;           /* true to force case-sensitive match */
 #endif /* def __APPLE__ */
 
   }
-#if defined(__MVS__) || defined(__VM__)
+#ifdef ZOS_UNIX
   else if (S_ISDIR(s.st_mode))
 #else
   else if ((s.st_mode & S_IFDIR) == S_IFDIR)
@@ -291,7 +289,7 @@ int caseflag;           /* true to force case-sensitive match */
     }
     free((zvoid *)p);
   } /* (s.st_mode & S_IFDIR) */
-#if defined(__MVS__) || defined(__VM__)
+#ifdef ZOS_UNIX
   else if (S_ISFIFO(s.st_mode))
 #else
   else if ((s.st_mode & S_IFIFO) == S_IFIFO)
@@ -467,7 +465,7 @@ ulg filetime(f, a, n, t)
   free(name);
 
   if (a != NULL) {
-#if defined(__MVS__) || defined(__VM__)
+#ifdef ZOS_UNIX
     *a = ((ulg)s.st_mode << 16) | !(s.st_mode & S_IWRITE);
 #else
 /*

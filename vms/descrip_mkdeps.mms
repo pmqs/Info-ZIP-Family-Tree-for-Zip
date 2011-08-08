@@ -1,4 +1,4 @@
-#                                               17 June 2011.  SMS.
+#                                               6 August 2011.  SMS.
 #
 #    Zip 3.1 for VMS - MMS Dependency Description File.
 #
@@ -7,7 +7,7 @@
 #    is not specified.  Typical usage:
 #
 #    $ MMS /EXTEND /DESCRIP = [.VMS]DESCRIP_MKDEPS.MMS /SKIP -
-#       /MACRO = (AES_WG=1)
+#       /MACRO = (AES_WG=1, LZMA=1)
 #
 # If the IZ_AES_WG encryption source kit has not been installed, then
 # the macro AES_WG should not be defined.
@@ -109,6 +109,9 @@ MODS_LIB_ZIP_V = $(FILTER-OUT *], \
 MODS_LIB_ZIP_AES = $(FILTER-OUT *], \
  $(PATSUBST *]*.OBJ, *] [.AES_WG]*, $(MODS_OBJS_LIB_ZIP_AES)))
 
+MODS_LIB_ZIP_LZMA = $(FILTER-OUT *], \
+ $(PATSUBST *]*.OBJ, *] [.LZMA]*, $(MODS_OBJS_LIB_ZIP_LZMA)))
+
 MODS_LIB_ZIPUTILS_N = $(FILTER-OUT *], \
  $(PATSUBST *]*.OBJ, *] *, $(MODS_OBJS_LIB_ZIPUTILS_N)))
 
@@ -136,6 +139,7 @@ MODS_ZIPUTILS = $(FILTER-OUT *], \
 DEPS = $(FOREACH NAME, \
  $(MODS_LIB_ZIP_N) $(MODS_LIB_ZIP_V) \
  $(MODS_LIB_ZIP_AES) \
+ $(MODS_LIB_ZIP_LZMA) \
  $(MODS_ZIPUTILS_N) $(MODS_ZIPUTILS_N_V) \
  $(MODS_LIB_ZIPUTILS_U) $(MODS_LIB_ZIPUTILS_U_V) \
  $(MODS_LIB_ZIPCLI_V) \
@@ -160,7 +164,7 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
 #
 	@$(COLLECT_DEPS) "Zip for VMS" "$(MMS$TARGET)" -
          "[...]*.MMSD" "[.$ (DEST)]" $(MMSDESCRIPTION_FILE) -
-         "[.AES_WG" "AES_WG"
+         "[.AES_WG/[.LZMA" "AES_WG/LZMA"
 	@ write sys$output -
          "Created a new dependency file: $(MMS$TARGET)"
 .IF DELETE_MMSD
@@ -170,6 +174,8 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
          delete /log *.MMSD;*
 	if (f$search( "[.aes_wg]*.MMSD") .nes. "") then -
          delete /log [.aes_wg]*.MMSD;*
+	if (f$search( "[.lzma]*.MMSD") .nes. "") then -
+         delete /log [.lzma]*.MMSD;*
 	if (f$search( "[.VMS]*.MMSD") .nes. "") then -
          delete /log [.VMS]*.MMSD;*
 .ELSE
@@ -179,6 +185,8 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
          purge /log *.MMSD
 	if (f$search( "[.aes_wg]*.MMSD;-1") .nes. "") then -
          purge /log [.aes_wg]*.MMSD
+	if (f$search( "[.lzma]*.MMSD;-1") .nes. "") then -
+         purge /log [.lzma]*.MMSD
 	if (f$search( "[.VMS]*.MMSD;-1") .nes. "") then -
          purge /log [.VMS]*.MMSD
 .ENDIF
@@ -190,6 +198,8 @@ CLEAN :
          delete /log *.MMSD;*
 	if (f$search( "[.aes_wg]*.MMSD") .nes. "") then -
          delete /log [.aes_wg]*.MMSD;*
+	if (f$search( "[.lzma]*.MMSD") .nes. "") then -
+         delete /log [.lzma]*.MMSD;*
 	if (f$search( "[.VMS]*.MMSD") .nes. "") then -
          delete /log [.VMS]*.MMSD;*
 
@@ -202,6 +212,8 @@ CLEAN_ALL :
          delete /log *.MMSD;*
 	if (f$search( "[.aes_wg]*.MMSD") .nes. "") then -
          delete /log [.aes_wg]*.MMSD;*
+	if (f$search( "[.lzma]*.MMSD") .nes. "") then -
+         delete /log [.lzma]*.MMSD;*
 	if (f$search( "[.VMS]*.MMSD") .nes. "") then -
          delete /log [.VMS]*.MMSD;*
 	if (f$search( "[.VMS]DESCRIP_DEPS.MMS") .nes. "") then -

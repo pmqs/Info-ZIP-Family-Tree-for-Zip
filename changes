@@ -4365,5 +4365,63 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 13. Add support for p6 and p7 parameters.  vms/collect_deps.com (SMS)
 14. Minor updates.  vms/osdep.h, vms/vms.c (SMS)
 15. Update COMPERR error.  Add CRYPT error.  vms/zip_msg.msg (SMS)
--------------------- July xxth 2011 version 3.1d13 -----------------------
-xx. "zip -z" mishandled comment input whose first line was blank.  zip.c (SMS)
+-------------------- July 5th 2011 version 3.1d13 -----------------------
+ 1. Remove no longer needed files for AES from VMS.  vms/endian.h,
+    vms/memory.h (SMS)
+ 2. Add new zos directory for z/OS and related ports.  Add scripts zcc and
+    zld.  zos, zos/zcc, zos/zld (AD)
+ 3. "zip -z" mishandled comment input whose first line was blank.  Added
+    first_line check to fix.  zip.c (SMS)
+ 4. Remove #ifdef AES192_OK and make 192 always available when AES_WG enabled.
+    zip.c, zipcloak.c, vms/cmdline.c (SMS)
+ 5. Put aes_wg_opt_ver in CRYPT_AES_WG block.  Use aes_wg_opt_ver as version
+    string.  Set aes_wg_opt_ver to include the IZ_AES_WG package version in
+    "major.minor beta" form.  Also do endian check for new AES code.
+    Consolidate code for current and new (not yet completed) AES versions.
+    minor sd message updates.  zip.c (SMS)
+ 6. Remove globals aes_vendor_version and aes_strength.  Add defines for aes
+    vendor version constants.  zip.h (SMS)
+ 7. Update AES to AES_WG.  Add support for WinZip AES AE-2, switching from
+    AE-1 (with CRC) to AE-2 (without CRC, CRC set to 0) aes_vendor_version for
+    small files under 20 bytes.  zipfile.c, zipup.c (SMS)
+ 8. Change references to original Zip encryption from "standard" encryption to
+    "traditional" encryption.  In help, change compression method abbreviation
+    from "mthd" to "cm" for consistency.  Update license.  vms/vms_zip.rnh,
+    vms/zip_cli.cld, vms/zip_cli.help, vms/vms_zip.rnh, vms/zip_cli.cld,
+    vms/zip_cli.help (SMS)
+-------------------- August 5th 2011 version 3.1d14 -----------------------
+ 1. Fix whitespace.  api.h, fileio.c, acorn/swiven.c, acorn/swiven.h,
+    novell/netware.c, novell/signal.c, vms/cmdline.c, vms/vms.c,
+    vms/vmszip.c, win32/osdep.h, win32/win32.c (SMS)
+ 2. Minor comment updates.  Add int cast on IZ_MIN().  crypt.c (SMS)
+ 3. Update crypt version from 2.91 to 3.0.  crypt.h (SMS)
+ 4. Remove \t and replace with spaces.  revision.h (SMS)
+ 5. Fix zcrypt version check to handle version 3.0 and higher.  ttyio.c (SMS)
+ 6. Minor comment formatting.  zipfile.c (SMS)
+ 7. Add pragma pack(4) to 32-bit align attr_bufr_fndr and attr_bufr_rsrc for
+    UNIX APPLE (Mac OS X) to fix bug reading resources.  zipup.c,
+    unix/unix.c (SMS)
+ 8. Update IZ_AES_WG files to version 1.0 code.  aes_wg/iz_aes_wg.h,
+    aes_wg/prng.c, aes_wg/pwd2key.c, aes_wg/readme_aes_wg.txt, aes_wg/sha1.c,
+    aes_wg/usexport.msg, aes_wg/zip-comment.txt (SMS)
+ 9. Add new file cmsmvs.c.  cmsvms/cmsmvs.c (AD)
+10. Change VMS builders to generate module-ID link options file.
+    vms/build_zip.com, vms/descrip.mms, vms/optgen.com (new),
+    vms/zip.opt (removed) (SMS)
+11. Change OS390 to ZOS_UNIX.  Change z/OS (and z/VM) UNIX control define from
+    OS390 to ZOS_UNIX.  (Revision of change 3.1d12 #10, removing
+    defined(__MVS___) || defined(__VM__).)  ebcdic.h, zip.c, zipup.c,
+    unix/unix.c, unix/configure (AD)
+12. Remove OS390 code cloned from unix.  atheos/atheos.c (AD)
+13. Add z/OS UNIX README.  unix/README.zOS (AD)
+14. Remove OS390 readme.  unix/README.OS390 (AD)
+-------------------- Xxxxxxx XXth 2011 version 3.1d15 -----------------------
+ x. Add feature conditionality to optional keywords in the VMS command
+    definition file.  Change the VMS builders to use CC /PREPROCESS_ONLY to
+    process the new conditions.  vms/build_zip.com, vms/cppcld.com (new),
+    vms/descrip.mms, vms/zip_cli.cld (SMS)
+ x. Replaced bad-guess non-fix for the alignment/structure-packing problem
+    which caused bad/spurious AppleDouble data to be archived on Intel
+    Macintosh systems.  Moved the required #pragma directives from
+    "unix/unix.c" to "unix/macosx.h". (SMS)
+

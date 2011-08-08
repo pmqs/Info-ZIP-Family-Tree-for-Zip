@@ -1,4 +1,4 @@
-#                                               3 August 2011.  SMS.
+#                                               6 August 2011.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Description File.
 #
@@ -49,6 +49,8 @@
 #
 #    "LOCAL_ZIP=c_macro_1=value1 [, c_macro_2=value2 [...]]"
 #                   Compile with these additional C macros defined.
+#
+#    LZMA=1         Enable LZMA compression support.
 #
 #    PROD=subdir    Use [.subdir] as the destination for
 #                   architecture-specific product files (.EXE, .OBJ,
@@ -247,7 +249,11 @@ OPT_ID = SYS$DISK:[.$(DEST)]ZIP.OPT
 [.$(DEST)]ZIPCLI.OBJ : ZIP.C
 	$(CC) $(CFLAGS) $(CDEFS_CLI) $(MMS$SOURCE)
 
-[.$(DEST)]ZIP_CLI.OBJ : [.VMS]ZIP_CLI.CLD
+[.$(DEST)]ZIP_CLI.OBJ : [.$(DEST)]ZIP_CLI.CLD
+
+[.$(DEST)]ZIP_CLI.CLD : [.VMS]ZIP_CLI.CLD
+	@[.vms]cppcld.com "$(CC) $(CFLAGS_ARCH)" -
+	 $(MMS$SOURCE) $(MMS$TARGET) "$(CDEFS)"
 
 # Utility variant sources.
 

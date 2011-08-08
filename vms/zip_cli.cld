@@ -1,5 +1,5 @@
 	Module		ZIP_CLITABLE
-	Ident		"03-102"
+	Ident		"03-103"
 
 Define	Verb		ZIP
 	Parameter	P1, Label=ZIPFILE, Prompt="Zip file"
@@ -96,8 +96,13 @@ Define	Type		COMMENTS_OPTS
 	Keyword		ZIP_FILE
 
 Define	Type		COMPRESS_OPTS
+#ifdef BZIP2_SUPPORT
 	Keyword		BZIP2
+#endif /* def BZIP2_SUPPORT */
 	Keyword		DEFLATE, DEFAULT
+#ifdef LZMA_SUPPORT
+	Keyword		LZMA
+#endif /* def LZMA_SUPPORT */
 	Keyword		STORE
 
 Define	Type		DISPLAY_OPTS
@@ -110,9 +115,11 @@ Define	Type		DISPLAY_OPTS
 
 Define	Type		ENCRYPT_METHOD_OPTS
 	Keyword		TRADITIONAL, DEFAULT
+#ifdef CRYPT_AES_WG
 	Keyword		AES128
 	Keyword		AES192
 	Keyword		AES256
+#endif /* def CRYPT_AES_WG */
 
 Define	Type		ENCRYPT_OPTS
 	Keyword		ANSI_PASSWORD, Negatable

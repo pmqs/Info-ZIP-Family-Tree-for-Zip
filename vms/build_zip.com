@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2011-08-03  SMS.
+$!     Last revised:  2011-08-06  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -724,7 +724,11 @@ $     cc 'DEF_CLI' /object = [.'dest']CMDLINE.OBJ [.VMS]CMDLINE.C
 $!
 $! Create the command definition object file.
 $!
-$     set command /object = [.'dest']ZIP_CLI.OBJ [.VMS]ZIP_CLI.CLD
+$     cppcld_verify = f$verify( 0)
+$     @ [.vms]cppcld.com "''cc'" [.VMS]ZIP_CLI.CLD -
+       [.'dest']ZIP_CLI.CLD "''defs'"
+$     tmp = f$verify( cppcld_verify)
+$     set command /object = [.'dest']ZIP_CLI.OBJ [.'dest']ZIP_CLI.CLD
 $!
 $! Create the CLI object library.
 $!

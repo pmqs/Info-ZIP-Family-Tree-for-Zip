@@ -1,4 +1,4 @@
-#                                               17 June 2011.  SMS.
+#                                               6 August 2011.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Source Description File.
 #
@@ -208,6 +208,16 @@ INCL_BZIP2_M = , ZBZ2ERR
 LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2_NS.OLB /library,
 .ENDIF                          # IZ_BZIP2
 
+# LZMA options.
+
+.IFDEF LZMA                     # LZMA
+.IFDEF __VAX__                      # __VAX__
+CDEFS_LZMA = , LZMA_SUPPORT, _7ZIP_ST, _SZ_NO_INT_64
+.ELSE                               # __VAX__
+CDEFS_LZMA = , LZMA_SUPPORT, _7ZIP_ST
+.ENDIF                              # __VAX__
+.ENDIF                          # LZMA
+
 # ZLIB options.
 
 .IFDEF IZ_ZLIB                  # IZ_ZLIB
@@ -250,7 +260,7 @@ C_LOCAL_ZIP = , $(LOCAL_ZIP)
 .ENDIF
 
 CDEFS = VMS $(CDEFS_AES) $(CDEFS_BZ) $(CDEFS_IM) $(CDEFS_LARGE) \
- $(CDEFS_ZL) $(C_LOCAL_ZIP)
+ $(CDEFS_LZMA) $(CDEFS_ZL) $(C_LOCAL_ZIP)
 
 CDEFS_UNX = /define = ($(CDEFS))
 
@@ -354,8 +364,18 @@ MODS_OBJS_LIB_ZIP_AES = \
  SHA1=[.$(DEST)]SHA1.OBJ
 .ENDIF                          # AES_WG
 
+#    Primary object library, [.LZMA].
+
+.IFDEF LZMA                     # LZMA
+MODS_OBJS_LIB_ZIP_LZMA = \
+ 7ZFILE=[.$(DEST)]7ZFILE.OBJ \
+ ALLOC=[.$(DEST)]ALLOC.OBJ \
+ LZFIND=[.$(DEST)]LZFIND.OBJ \
+ LZMAENC=[.$(DEST)]LZMAENC.OBJ
+.ENDIF                          # LZMA
+
 MODS_OBJS_LIB_ZIP = $(MODS_OBJS_LIB_ZIP_N) $(MODS_OBJS_LIB_ZIP_V) \
- $(MODS_OBJS_LIB_ZIP_AES)
+ $(MODS_OBJS_LIB_ZIP_AES) $(MODS_OBJS_LIB_ZIP_LZMA)
 
 #    Utility object library, normal, [].
 
@@ -386,7 +406,8 @@ MODS_OBJS_LIB_ZIPUTILS = $(MODS_OBJS_LIB_ZIPUTILS_N) \
  $(MODS_OBJS_LIB_ZIPUTILS_U) \
  $(MODS_OBJS_LIB_ZIPUTILS_N_V) \
  $(MODS_OBJS_LIB_ZIPUTILS_U_V) \
- $(MODS_OBJS_LIB_ZIP_AES)
+ $(MODS_OBJS_LIB_ZIP_AES) \
+ $(MODS_OBJS_LIB_ZIP_LZMA)
 
 #    CLI object library, [.VMS].
 

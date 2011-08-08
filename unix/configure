@@ -20,7 +20,7 @@ trap "rm -f conftest* core a.out; exit 1" 1 2 3 15
 # Evaluate command-line "make"-macro-like var=value expressions.
 
 # Evaluate only variables in this list.  Complain about others, but continue.
-valid_vars="|AES_WG|CC|CFLAGS|IZ_BZIP2|IZ_ZLIB|LFLAGS1|LFLAGS2|PROD|"
+valid_vars="|AES_WG|CC|CFLAGS|IZ_BZIP2|IZ_ZLIB|LFLAGS1|LFLAGS2|LZMA|PROD|"
 
 argc=$#
 while test ${argc} -gt 0 ; do
@@ -217,6 +217,34 @@ _EOF_
   else
     echo "-- AES_WG code not found  (Check \"aes_wg\" directory?)"
     echo "-- Unable to include AES_WG encryption"
+  fi
+fi
+
+
+# LZMA compression.  (User must request: "LZMA=1".)
+
+LIB_LZMA=''
+if test -n "${LZMA}" ; then
+  echo "Check LZMA compression support"
+  cat > conftest.c << _EOF_
+int main()
+{
+#include <lzma/LzmaEnc.h>
+#ifndef LZMA_SUPPORT
+   forget it
+#endif
+   return 0;
+}
+_EOF_
+  $CC $CFLAGS -DLZMA_SUPPORT -c conftest.c > /dev/null 2>/dev/null
+  if [ $? -eq 0 ]; then
+    CFLAGS="${CFLAGS} -DLZMA_SUPPORT -D_7ZIP_ST"
+    LIB_LZMA="liblzma.a"
+    LFLAGS2="${LFLAGS2} -L. -llzma"
+    echo "-- Including LZMA compression support"
+  else
+    echo \
+     "-- Not including LZMA compression support  (Check \"lzma\" directory?)"
   fi
 fi
 
@@ -823,7 +851,7 @@ else
            #  RBW  --  2009/08/10  --  special vars for z/OS or OS/390
            #  z/OS kernel still announces itself as OS/390.
            echo "    Z/OS or OS/390 system - setting EBCDIC, etc."
-           CFLAGS="${CFLAGS} -DOS390 -DEBCDIC -DSYSV -DNO_PARAM_H"
+           CFLAGS="${CFLAGS} -DZOS_UNIX -DEBCDIC -DSYSV -DNO_PARAM_H"
            CFLAGS="${CFLAGS} -D_LARGE_FILES"
            LFLAGS2=""
            ;;
@@ -874,5 +902,5 @@ echo CC=\"${CC}\" CFLAGS=\"${CFLAGS}\"  CPP=\"${CPP}\" OBJA=\"${OBJA}\" \
        LFLAGS2=\"${LFLAGS2}\" LN=\"${LN}\" \
        CC_BZ=\"${CC_BZ}\" CFLAGS_BZ=\"${CFLAGS_BZ}\" \
        IZ_BZIP2=\"${IZ_BZIP2}\" LIB_BZ=\"${LIB_BZ}\" \
-       LIB_AES_WG=\"${LIB_AES_WG}\" > "$PROD"/flags
+       LIB_AES_WG=\"${LIB_AES_WG}\" LIB_LZMA=\"${LIB_LZMA}\" > "$PROD"/flags
 

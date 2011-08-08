@@ -74,6 +74,7 @@ OBJZ = zip.o zipfile.o zipup.o fileio.o util.o globals.o crypt.o ttyio.o \
 OBJI = deflate.o trees.o
 OBJAES = aescrypt.o aeskey.o aestab.o fileenc.o hmac.o prng.o pwd2key.o \
          sha1.o
+OBJLZMA = 7zFile$O Alloc$O LzFind$O LzmaEnc$O
 OBJA =
 OCRCU8 =
 OCRCTB = crc32_.o
@@ -85,6 +86,9 @@ OBJS = zipsplit.o $(OBJU)
 ZIP_H = zip.h ziperr.h tailor.h unix/osdep.h
 AES_H = aes_wg/aes.h aes_wg/aesopt.h aes_wg/fileenc.h aes_wg/hmac.h \
         aes_wg/prng.h aes_wg/pwd2key.h aes_wg/sha1.h
+LZMA_H = lzma/7zFile.h lzma/7zVersion.h lzma/Alloc.h lzma/LzFind.h \
+         lzma/LzHash.h lzma/LzmaEnc.h lzma/Types.h
+
 
 # suffix rules
 .SUFFIXES:
@@ -106,6 +110,7 @@ AES_H = aes_wg/aes.h aes_wg/aesopt.h aes_wg/fileenc.h aes_wg/hmac.h \
 $(OBJZ): $(ZIP_H)
 $(OBJI): $(ZIP_H)
 $(OBJAES): $(AES_H)
+$(OBJLZMA): $(LZMA_H)
 $(OBJN): $(ZIP_H)
 $(OBJS): $(ZIP_H)
 $(OBJC): $(ZIP_H)
@@ -168,12 +173,32 @@ sha1.o: aes_wg/sha1.c
 	$(CC) -c $(CFLAGS) aes_wg/sha1.c
 
 
+# LZMA object library.
+
+liblzma.a : $(OBJLZMA)
+	-@$(RM) liblzma.a
+	$(AR) cq liblzma.a $(OBJLZMA)
+	-$(RANLIB) liblzma.a
+
+7zFile$O: lzma/7zFile.c
+	$(CC) -c $(CF) lzma/7zFile.c
+
+Alloc$O: lzma/Alloc.c
+	$(CC) -c $(CF) lzma/Alloc.c
+
+LzFind$O: lzma/LzFind.c
+	$(CC) -c $(CF) lzma/LzFind.c
+
+LzmaEnc$O: lzma/LzmaDec.c
+	$(CC) -c $(CF) lzma/LzmaEnc.c
+
+
 ZIPS = zip$E zipcloak$E zipnote$E zipsplit$E
 
 zips: $(ZIPS)
 zipsman: $(ZIPS) $(ZIPMANUALs)
 
-zip$E: $(OBJZ) $(OBJI) $(OBJA) $(LIB_AES_WG) $(LIB_BZ)
+zip$E: $(OBJZ) $(OBJI) $(OBJA) $(LIB_AES_WG) $(LIB_BZ) $(LIB_LZMA)
 	$(BIND) -o zip$E $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) \
 	 $(LFLAGS2)
 zipnote$E: $(OBJN)
@@ -229,7 +254,8 @@ uninstall:
 flags:  unix/configure
 	sh unix/configure "AES_WG=${AES_WG}" \
          "CC=${CC}" "CFLAGS=${CFLAGS_NOOPT}" \
-         "IZ_BZIP2=${IZ_BZIP2}" "IZ_ZLIB=${IZ_ZLIB}"
+         "IZ_BZIP2=${IZ_BZIP2}" "IZ_ZLIB=${IZ_ZLIB}" \
+         "LZMA=${LZMA}"
 
 # These symbols, when #defined using -D have these effects on compilation:
 # ZMEM                  - includes C language versions of memset(), memcpy(),

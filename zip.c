@@ -128,6 +128,10 @@ ZCONST uLongf *crc_32_tab;
 # include "aesnew/ccm.h"
 #endif
 
+#ifdef LZMA_SUPPORT
+# include "lzma/7zVersion.h"
+#endif /* def LZMA_SUPPORT */
+
 /* Local functions */
 
 local void freeup  OF((void));
@@ -1346,6 +1350,11 @@ local void version_info()
   {
     printf("        %s\n",comp_opts[i]);
   }
+
+#ifdef LZMA_SUPPORT
+  printf( "        LZMA_SUPPORT         (LZMA compression, ver %s)\n",
+   MY_VERSION);
+#endif
 
 #ifdef USE_ZLIB
   if (strcmp(ZLIB_VERSION, zlibVersion()) == 0)
@@ -3938,13 +3947,32 @@ char **argv;            /* command line tokens */
 #else
             ZIPERR(ZE_COMPERR, "Compression method bzip2 not enabled");
 #endif
-          } else {
-#ifdef BZIP2_SUPPORT
-            zipwarn("valid compression methods are:  store, deflate, bzip2", "");
+          } else if (abbrevmatch("lzma", value, 0, 1)) {
+            /* LZMA */
+#ifdef LZMA_SUPPORT
+            method = LZMA;
 #else
-            zipwarn("valid compression methods are:  store, deflate)", "");
+            ZIPERR(ZE_COMPERR, "Compression method LZMA not enabled");
 #endif
+          } else {
             zipwarn("unknown compression method found:  ", value);
+#ifdef BZIP2_SUPPORT
+# ifdef LZMA_SUPPORT
+            zipwarn(
+             "valid compression methods are:  store, deflate, bzip2, lzma", "");
+# else
+            zipwarn(
+             "valid compression methods are:  store, deflate, bzip2", "");
+#endif
+#else
+# ifdef LZMA_SUPPORT
+            zipwarn(
+             "valid compression methods are:  store, deflate, lzma)", "");
+# else
+            zipwarn(
+             "valid compression methods are:  store, deflate)", "");
+# endif
+#endif
             free(value);
             ZIPERR(ZE_PARMS, "Option -Z (--compression-method):  unknown method");
           }
@@ -4642,10 +4670,10 @@ char **argv;            /* command line tokens */
   if ((action != ADD || d) && zip_to_stdout) {
     ZIPERR(ZE_PARMS, "can't use -d, -f, -u, -U, or -g on stdout\n");
   }
-#if defined(EBCDIC)  && !defined(OS390)
+#if defined(EBCDIC)  && !defined(ZOS_UNIX)
   if (aflag==ASCII && !translate_eol) {
     /* Translation to ASCII implies EOL translation!
-     * (on OS390, consistent EOL translation is controlled separately)
+     * (on z/OS, consistent EOL translation is controlled separately)
      * The default translation mode is "UNIX" mode (single LF terminators).
      */
     translate_eol = 2;
