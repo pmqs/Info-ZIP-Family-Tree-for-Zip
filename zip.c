@@ -1118,8 +1118,7 @@ local void help_extended()
 
   for (i = 0; i < sizeof(text)/sizeof(char *); i++)
   {
-    printf(text[i]);
-    putchar('\n');
+    printf("%s\n", text[i]);
   }
 #ifdef DOS
   check_for_windows("Zip");
@@ -1370,8 +1369,7 @@ local void version_info()
             CR_MAJORVER, CR_MINORVER, CR_BETA_VER);
   for (i = 0; i < sizeof(cryptnote)/sizeof(char *); i++)
   {
-    printf(cryptnote[i]);
-    putchar('\n');
+    printf("%s\n", cryptnote[i]);
   }
   ++i;  /* crypt support means there IS at least one compilation option */
 #endif /* CRYPT */
@@ -1380,8 +1378,7 @@ local void version_info()
   putchar('\n');
   for (i = 0; i < sizeof(cryptAESnote)/sizeof(char *); i++)
   {
-    printf(cryptAESnote[i]);
-    putchar('\n');
+    printf("%s\n", cryptAESnote[i]);
   }
   ++i;  /* crypt support means there IS at least one compilation option */
 #endif /* CRYPT */
@@ -1390,8 +1387,7 @@ local void version_info()
   putchar('\n');
   for (i = 0; i < sizeof(cryptAESnote)/sizeof(char *); i++)
   {
-    printf(cryptAESnote[i]);
-    putchar('\n');
+    printf("%s\n", cryptAESnote[i]);
   }
   ++i;  /* crypt support means there IS at least one compilation option */
 #endif /* CRYPT */
@@ -3963,7 +3959,7 @@ char **argv;            /* command line tokens */
 # else
             zipwarn(
              "valid compression methods are:  store, deflate, bzip2", "");
-#endif
+# endif
 #else
 # ifdef LZMA_SUPPORT
             zipwarn(
@@ -5015,8 +5011,10 @@ char **argv;            /* command line tokens */
 
 #ifdef CRYPT_AES_WG
   if (encryption_method >= AES_MIN_ENCRYPTION) {
+    /*
     time_t pool_init_start;
     time_t pool_init_time;
+    */
 
     if (show_what_doing) {
         fprintf(mesg,
@@ -5024,7 +5022,9 @@ char **argv;            /* command line tokens */
         fflush(mesg);
     }
 
+    /*
     pool_init_start = time(NULL);
+    */
 
     /* initialize the random number pool */
     aes_rnp.entropy = entropy_fun;
@@ -5035,11 +5035,16 @@ char **argv;            /* command line tokens */
     }
     prng_rand(zsalt, SALT_LENGTH(1), &aes_rnp);
 
+    /*
     pool_init_time = time(NULL) - pool_init_start;
+    */
 
     if (show_what_doing) {
+        fprintf(mesg, "sd: AES_WG random number pool initialized\n");
+        /*
         fprintf(mesg, "sd: AES_WG random number pool initialized in %d s\n",
          pool_init_time);
+        */
         fflush(mesg);
     }
   }
