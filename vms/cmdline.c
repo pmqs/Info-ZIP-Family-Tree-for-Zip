@@ -45,6 +45,8 @@
 **
 **  Modified by:
 **
+**      02-010          Steven Schweda          22-APR-2011
+**              Added /COMPRESSION = LZMA.
 **      02-009          Steven Schweda          22-APR-2011
 **              Added /ENCRYPT options: [NO]ANSI_PASSWORD, METHOD,
 **              PASSWORD.  Sadly, old /ENCRYPT = passwd syntax is now
@@ -1888,7 +1890,19 @@ void VMSCLI_help(void)  /* VMSCLI version */
 #else /* !CRYPT */
 "    /QUIET, /VERBOSE[={MORE|DEBUG}], /[NO]DIRNAMES, /JUNK,",
 #endif /* ?CRYPT */
-"    /COMPRESSION = {BZIP2|DEFLATE|STORE}, /LEVEL=[0-9], /NOVMS|/VMS[=ALL],",
+#ifdef BZIP2_SUPPORT
+# ifdef LZMA_SUPPORT
+"    /COMPRESSION={BZIP2|DEFLATE|LZMA|STORE}, /LEVEL=[0-9], /NOVMS|/VMS[=ALL],",
+# else
+"    /COMPRESSION={BZIP2|DEFLATE|STORE}, /LEVEL=[0-9], /NOVMS|/VMS[=ALL],",
+# endif
+#else
+# ifdef LZMA_SUPPORT
+"    /COMPRESSION={DEFLATE|LZMA|STORE}, /LEVEL=[0-9], /NOVMS|/VMS[=ALL],",
+# else
+"    /COMPRESSION={DEFLATE|STORE}, /LEVEL=[0-9], /NOVMS|/VMS[=ALL],",
+# endif
+#endif
 "    /STORE_TYPES=(type_list), /[NO]PRESERVE_CASE[=([NO]ODS{2|5}[,...])],",
 "    /[NO]PKZIP, /[NO]KEEP_VERSION, /DOT_VERSION, /TRANSLATE_EOL[={LF|CRLF}],",
 "    /DISPLAY=([BYTES][,COUNTS][,DOTS=mb_per_dot][,GLOBALDOTS][,USIZE]",

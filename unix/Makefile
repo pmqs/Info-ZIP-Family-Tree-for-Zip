@@ -74,7 +74,7 @@ OBJZ = zip.o zipfile.o zipup.o fileio.o util.o globals.o crypt.o ttyio.o \
 OBJI = deflate.o trees.o
 OBJAES = aescrypt.o aeskey.o aestab.o fileenc.o hmac.o prng.o pwd2key.o \
          sha1.o
-OBJLZMA = 7zFile$O Alloc$O LzFind$O LzmaEnc$O
+OBJLZMA = 7zFile.o Alloc.o LzFind.o LzmaEnc.o
 OBJA =
 OCRCU8 =
 OCRCTB = crc32_.o
@@ -180,17 +180,17 @@ liblzma.a : $(OBJLZMA)
 	$(AR) cq liblzma.a $(OBJLZMA)
 	-$(RANLIB) liblzma.a
 
-7zFile$O: lzma/7zFile.c
-	$(CC) -c $(CF) lzma/7zFile.c
+7zFile.o: lzma/7zFile.c
+	$(CC) -c $(CFLAGS) lzma/7zFile.c
 
-Alloc$O: lzma/Alloc.c
-	$(CC) -c $(CF) lzma/Alloc.c
+Alloc.o: lzma/Alloc.c
+	$(CC) -c $(CFLAGS) lzma/Alloc.c
 
-LzFind$O: lzma/LzFind.c
-	$(CC) -c $(CF) lzma/LzFind.c
+LzFind.o: lzma/LzFind.c
+	$(CC) -c $(CFLAGS) lzma/LzFind.c
 
-LzmaEnc$O: lzma/LzmaDec.c
-	$(CC) -c $(CF) lzma/LzmaEnc.c
+LzmaEnc.o: lzma/LzmaEnc.c
+	$(CC) -c $(CFLAGS) lzma/LzmaEnc.c
 
 
 ZIPS = zip$E zipcloak$E zipnote$E zipsplit$E

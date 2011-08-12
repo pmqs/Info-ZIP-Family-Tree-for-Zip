@@ -3025,8 +3025,8 @@ char **argv;            /* command line tokens */
   /* Verify the AES_WG compile-time endian decision. */
   {
     union {
-      int i;
-      char b[ 4];
+      unsigned int i;
+      unsigned char b[ 4];
     } bi;
 
 # ifndef PLATFORM_BYTE_ORDER
