@@ -129,7 +129,7 @@ ZCONST uLongf *crc_32_tab;
 #endif
 
 #ifdef LZMA_SUPPORT
-# include "lzma/7zVersion.h"
+# include "lzma/SzVersion.h"
 #endif /* def LZMA_SUPPORT */
 
 /* Local functions */

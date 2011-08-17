@@ -137,10 +137,10 @@ the command-line options used to select a different compiler.
       UPPERCASE, or else build Zip with /NAMES = AS_IS.  For example:
 
          @ [.VMS]BUILD_ZIP LARGE "CCOPTS=/NAMES=AS_IS" -
-          IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3C_VMS]
+          IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_6A_VMS]
       or:
          MMS /DESC = [.VMS] /MACRO = (LARGE=1, "CCOPTS=/NAMES=AS_IS", -
-          IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_3C_VMS])
+          IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_6A_VMS])
 
    o Encryption
 

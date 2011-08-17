@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2011-08-06  SMS.
+$!     Last revised:  2011-08-15  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -36,6 +36,7 @@ $!       (or a suitable logical name) tells where to find "bzlib.h".
 $!       The BZIP2 object library (LIBBZ2_NS.OLB) is expected to be in
 $!       a "[.dest]" directory under that one ("dev:[dir.ALPHAL]", for
 $!       example), or in that directory itself.
+$!     - select LZMA compression support: "LZMA"
 $!     - use ZLIB compression library: "IZ_ZLIB=dev:[dir]", where
 $!       "dev:[dir]" (or a suitable logical name) tells where to find
 $!       "zlib.h".  The ZLIB object library (LIBZ.OLB) is expected to be
@@ -147,6 +148,7 @@ $ IZ_ZLIB = ""
 $ LINKOPTS = "/notraceback"
 $ LISTING = " /nolist"
 $ LARGE_FILE = 0
+$ LZMA = 0
 $ MAKE_EXE = 1
 $ MAKE_HELP = 1
 $ MAKE_MSG = 1
@@ -210,6 +212,12 @@ $!
 $     if (f$extract( 0, 4, curr_arg) .eqs. "LIST")
 $     then
 $         LISTING = "/''curr_arg'"      ! But see below for mods.
+$         goto argloop_end
+$     endif
+$!
+$     if (f$extract( 0, 4, curr_arg) .eqs. "LZMA")
+$     then
+$         LZMA = 1
 $         goto argloop_end
 $     endif
 $!
@@ -463,6 +471,17 @@ $ then
 $     defs = defs+ ", CRYPT_AES_WG"
 $ endif
 $!
+$! Set LZMA-related data.
+$!
+$ if (LZMA .ne. 0)
+$ then
+$     defs = defs+ ", LZMA_SUPPORT, _7ZIP_ST"
+$     if (arch .eqs. "VAX")
+$     then
+$         defs = defs+ ", _SZ_NO_INT_64"
+$     endif
+$ endif
+$!
 $! Reveal the plan.  If compiling, set some compiler options.
 $!
 $ if (MAKE_OBJ)
@@ -640,6 +659,14 @@ $         cc 'DEF_UNX' /object = [.'dest']PWD2KEY.OBJ [.AES_WG]PWD2KEY.C
 $         cc 'DEF_UNX' /object = [.'dest']SHA1.OBJ [.AES_WG]SHA1.C
 $     endif
 $!
+$     if (LZMA .ne. 0)
+$     then
+$         cc 'DEF_UNX' /object = [.'dest']7ZFILE.OBJ [.LZMA]7ZFILE.C
+$         cc 'DEF_UNX' /object = [.'dest']ALLOC.OBJ [.LZMA]ALLOC.C
+$         cc 'DEF_UNX' /object = [.'dest']LZFIND.OBJ [.LZMA]LZFIND.C
+$         cc 'DEF_UNX' /object = [.'dest']LZMAENC.OBJ [.LZMA]LZMAENC.C
+$     endif
+$!
 $! Create the object library.
 $!
 $     if (f$search( "[.''dest']ZIP.OLB") .eqs. "") then -
@@ -672,6 +699,15 @@ $         libr /object /replace [.'dest']ZIP.OLB -
            [.'dest']PRNG.OBJ, -
            [.'dest']PWD2KEY.OBJ, -
            [.'dest']SHA1.OBJ
+$     endif
+$!
+$     if (LZMA .ne. 0)
+$     then
+$         libr /object /replace [.'dest']UNZIP.OLB -
+           [.'dest']7ZFILE.OBJ, -
+           [.'dest']ALLOC.OBJ, -
+           [.'dest']LZFIND.OBJ, -
+           [.'dest']LZMAENC.OBJ
 $     endif
 $!
 $ endif
@@ -799,6 +835,15 @@ $         libr /object /replace [.'dest']ZIPUTILS.OLB -
            [.'dest']PRNG.OBJ, -
            [.'dest']PWD2KEY.OBJ, -
            [.'dest']SHA1.OBJ
+$     endif
+$!
+$     if (LZMA .ne. 0)
+$     then
+$         libr /object /replace [.'dest']UNZIP.OLB -
+           [.'dest']7ZFILE.OBJ, -
+           [.'dest']ALLOC.OBJ, -
+           [.'dest']LZFIND.OBJ, -
+           [.'dest']LZMAENC.OBJ
 $     endif
 $!
 $! Compile the Zip utilities main program sources.

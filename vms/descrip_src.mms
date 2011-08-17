@@ -1,4 +1,4 @@
-#                                               6 August 2011.  SMS.
+#                                               15 August 2011.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Source Description File.
 #
@@ -368,7 +368,7 @@ MODS_OBJS_LIB_ZIP_AES = \
 
 .IFDEF LZMA                     # LZMA
 MODS_OBJS_LIB_ZIP_LZMA = \
- 7ZFILE=[.$(DEST)]7ZFILE.OBJ \
+ SZFILE=[.$(DEST)]SZFILE.OBJ \
  ALLOC=[.$(DEST)]ALLOC.OBJ \
  LZFIND=[.$(DEST)]LZFIND.OBJ \
  LZMAENC=[.$(DEST)]LZMAENC.OBJ

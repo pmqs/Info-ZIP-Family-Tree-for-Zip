@@ -103,9 +103,6 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #  include "aes_wg/aes.h"
 #  include "aes_wg/fileenc.h"
 #  include "aes_wg/prng.h"
-#  ifndef NO_AES192
-#    define AES192_OK 1         /* Enable (non-standard?) AES192 mode. */
-#  endif /* ndef NO_AES192 */
 #endif
 
 #ifdef CRYPT_AES_WG_NEW
@@ -372,10 +369,16 @@ extern int scanimage;           /* Scan through image files */
 #define STORE 0                 /* Store method */
 #define DEFLATE 8               /* Deflation method*/
 #define BZIP2 12                /* BZIP2 method */
-#ifdef BZIP2_SUPPORT
-#define LAST_KNOWN_COMPMETHOD   BZIP2
-#else
+#define LZMA 14                 /* LZMA method */
+
 #define LAST_KNOWN_COMPMETHOD   DEFLATE
+#ifdef BZIP2_SUPPORT
+# undef LAST_KNOWN_COMPMETHOD
+# define LAST_KNOWN_COMPMETHOD  BZIP2
+#endif
+#ifdef LZMA_SUPPORT
+# undef LAST_KNOWN_COMPMETHOD
+# define LAST_KNOWN_COMPMETHOD  LZMA
 #endif
 #define AESENCRED 99            /* AES (WG) encrypted */
 
