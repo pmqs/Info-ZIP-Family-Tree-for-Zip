@@ -1,6 +1,12 @@
 /* LzmaEnc.c -- LZMA Encoder
 2010-04-16 : Igor Pavlov : Public domain */
 
+/* ================================================================== */
+/* Allow globals for Zip to be used here.
+ */
+/* ================================================================== */
+#include "zip.h"
+
 #include <string.h>
 
 /* #define SHOW_STAT */
@@ -2151,7 +2157,15 @@ SRes LzmaEnc_CodeOneMemBlock(CLzmaEncHandle pp, Bool reInit,
   return res;
 }
 
-static SRes LzmaEnc_Encode2(CLzmaEnc *p, ICompressProgress *progress)
+/* ================================================================== */
+/* As compressed size is lost when the structures are destroyed,
+ * which happens before we can get access to it, added compressed_size
+ * to the parameter list to get it out.  2011-08-20 EG
+ */
+/* ================================================================== */
+
+static SRes LzmaEnc_Encode2(CLzmaEnc *p, ICompressProgress *progress,
+ zoff_t *compressed_size)
 {
   SRes res = SZ_OK;
 
@@ -2178,14 +2192,32 @@ static SRes LzmaEnc_Encode2(CLzmaEnc *p, ICompressProgress *progress)
     }
   }
   LzmaEnc_Finish(p);
+
+  /* ================================================================== */
+  /* Return the compressed size.
+   */
+  /* ================================================================== */
+  
+  *compressed_size = p->rc.processed;
+  
   return res;
 }
 
-SRes LzmaEnc_Encode(CLzmaEncHandle pp, ISeqOutStream *outStream, ISeqInStream *inStream, ICompressProgress *progress,
-    ISzAlloc *alloc, ISzAlloc *allocBig)
+
+/* ================================================================== */
+/* Added compressed_size parameter.
+ */
+/* ================================================================== */
+
+SRes LzmaEnc_Encode(CLzmaEncHandle pp, ISeqOutStream *outStream,
+    ISeqInStream *inStream, ICompressProgress *progress,
+    ISzAlloc *alloc, ISzAlloc *allocBig, zoff_t *compressed_size)
 {
+  SRes res;
+
   RINOK(LzmaEnc_Prepare(pp, outStream, inStream, alloc, allocBig));
-  return LzmaEnc_Encode2((CLzmaEnc *)pp, progress);
+  res = LzmaEnc_Encode2((CLzmaEnc *)pp, progress, compressed_size);
+  return res;
 }
 
 SRes LzmaEnc_WriteProperties(CLzmaEncHandle pp, Byte *props, SizeT *size)
@@ -2217,6 +2249,13 @@ SRes LzmaEnc_WriteProperties(CLzmaEncHandle pp, Byte *props, SizeT *size)
   return SZ_OK;
 }
 
+
+/* ================================================================== */
+/* LzmaEnc_MemEncode is currently not used by Zip, but need to add
+ * compressed_size to avoid compiler error.
+ */
+/* ================================================================== */
+
 SRes LzmaEnc_MemEncode(CLzmaEncHandle pp, Byte *dest, SizeT *destLen, const Byte *src, SizeT srcLen,
     int writeEndMark, ICompressProgress *progress, ISzAlloc *alloc, ISzAlloc *allocBig)
 {
@@ -2224,6 +2263,8 @@ SRes LzmaEnc_MemEncode(CLzmaEncHandle pp, Byte *dest, SizeT *destLen, const Byte
   CLzmaEnc *p = (CLzmaEnc *)pp;
 
   CSeqOutStreamBuf outStream;
+
+  zoff_t compressed_size;
 
   LzmaEnc_SetInputBuf(p, src, srcLen);
 
@@ -2237,7 +2278,7 @@ SRes LzmaEnc_MemEncode(CLzmaEncHandle pp, Byte *dest, SizeT *destLen, const Byte
   p->rc.outStream = &outStream.funcTable;
   res = LzmaEnc_MemPrepare(pp, src, srcLen, 0, alloc, allocBig);
   if (res == SZ_OK)
-    res = LzmaEnc_Encode2(p, progress);
+    res = LzmaEnc_Encode2(p, progress, &compressed_size);
 
   *destLen -= outStream.rem;
   if (outStream.overflow)
@@ -2259,8 +2300,10 @@ SRes LzmaEncode(Byte *dest, SizeT *destLen, const Byte *src, SizeT srcLen,
   {
     res = LzmaEnc_WriteProperties(p, propsEncoded, propsSize);
     if (res == SZ_OK)
+    {
       res = LzmaEnc_MemEncode(p, dest, destLen, src, srcLen,
           writeEndMark, progress, alloc, allocBig);
+    }
   }
 
   LzmaEnc_Destroy(p, alloc, allocBig);

@@ -201,7 +201,7 @@ if test -n "${AES_WG}" ; then
   cat > conftest.c << _EOF_
 int main()
 {
-#include <aes_wg/aes.h>
+#include "aes_wg/aes.h"
 #ifndef CRYPT_AES_WG
    forget it
 #endif
@@ -229,7 +229,8 @@ if test -n "${LZMA}" ; then
   cat > conftest.c << _EOF_
 int main()
 {
-#include <lzma/LzmaEnc.h>
+   typedef int zoff_t;
+#include "lzma/LzmaEnc.h"
 #ifndef LZMA_SUPPORT
    forget it
 #endif

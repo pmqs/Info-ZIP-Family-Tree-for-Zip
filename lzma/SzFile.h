@@ -1,15 +1,24 @@
 /* 7zFile.h -- File IO
 2009-11-24 : Igor Pavlov : Public domain */
 
-/* 2011-08-14 SMS for Info-ZIP.
- * Rename 7z*.* to Sz*.*, for IBM compatibility.
- */
+#ifndef __7Z_FILE_H
+#define __7Z_FILE_H
 
-#ifndef __SZ_FILE_H
-#define __SZ_FILE_H
+/* ================================================================== */
+/* Include Zip globals.  Add NO_USE_WINDOWS_FILE to turn off use of
+ * Windows API read and write on Windows and instead use the Zip
+ * file_read() and zfwrite().
+ *
+ * 2011-08-20 EG
+ */
+/* ================================================================== */
+
+#include "zip.h"
 
 #ifdef _WIN32
-#define USE_WINDOWS_FILE
+# ifndef NO_USE_WINDOWS_FILE
+#  define USE_WINDOWS_FILE
+# endif
 #endif
 
 #ifdef USE_WINDOWS_FILE

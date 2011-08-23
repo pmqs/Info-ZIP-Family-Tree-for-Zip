@@ -366,10 +366,10 @@ extern int scanimage;           /* Scan through image files */
 #endif
 
 #define BEST -1                 /* Use best method (deflation or store) */
-#define STORE 0                 /* Store method */
-#define DEFLATE 8               /* Deflation method*/
-#define BZIP2 12                /* BZIP2 method */
-#define LZMA 14                 /* LZMA method */
+#define STORE 0                 /* Store (compression) method */
+#define DEFLATE 8               /* Deflation comppression method*/
+#define BZIP2 12                /* BZIP2 compression method */
+#define LZMA 14                 /* LZMA compression method */
 
 #define LAST_KNOWN_COMPMETHOD   DEFLATE
 #ifdef BZIP2_SUPPORT
@@ -380,6 +380,7 @@ extern int scanimage;           /* Scan through image files */
 # undef LAST_KNOWN_COMPMETHOD
 # define LAST_KNOWN_COMPMETHOD  LZMA
 #endif
+
 #define AESENCRED 99            /* AES (WG) encrypted */
 
 extern int method;              /* Restriction on compression method */
@@ -554,7 +555,7 @@ extern FILE *mesg;              /* Where informational output goes */
 /* dll progress */
 extern uzoff_t bytes_read_this_entry; /* bytes read from current input file */
 extern uzoff_t bytes_expected_this_entry; /* uncompressed size from scan */
-extern char *entry_name;        /* used by DLL to pass z->zname to file_read() */
+extern char *entry_name;        /* used by DLL to pass z->zname to iz_file_read() */
 #ifdef ENABLE_DLL_PROGRESS
  extern uzoff_t progress_chunk_size;  /* how many bytes before next progress report */
  extern uzoff_t last_progress_chunk;  /* used to determine when to send next report */
@@ -1013,6 +1014,19 @@ void     bi_init      OF((char *, unsigned int, int));
  void aes_crypthead OF((ZCONST uch *, uch, ZCONST uch *));
  int entropy_fun OF((unsigned char buf[], unsigned int len));
 #endif
+
+#ifdef LZMA_SUPPORT
+ /* disable multiple threads, which most ports can't do.  May
+    enable on Win32 at some point. */
+# ifndef _7ZIP_ST
+#  define _7ZIP_ST
+# endif
+ /* for now do things generically */
+# define NO_USE_WINDOWS_FILE
+#endif
+
+/* this needs to be global for LZMA */
+unsigned iz_file_read OF((char *buf, unsigned size));
 
 
 /*---------------------------------------------------------------------

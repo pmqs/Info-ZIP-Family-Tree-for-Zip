@@ -1,9 +1,21 @@
 /* 7zFile.c -- File IO
 2009-11-24 : Igor Pavlov : Public domain */
 
-/* 2011-08-14 SMS for Info-ZIP.
- * Rename 7z*.* to Sz*.*,  for IBM compatibility.
+/* ================================================================== */
+/* Modified for Zip by adding zip.h and crypt.h includes, renaming
+ * this file to SzFile.c for compatibility with z/OS, renaming include
+ * to SzFile.h, using iz_file_read() to read data, and zfwrite() to
+ * write data.
+ *
+ * Note that USE_WINDOWS_FILE is disabled by setting NO_USE_WINDOWS_FILE
+ * in zip.h.
+ *
+ * 2011-08-20 EG
  */
+/* ================================================================== */
+
+#include "zip.h"
+#include "crypt.h"  /* for zfwrite() */
 
 #include "SzFile.h"
 
@@ -31,32 +43,32 @@
 
 void File_Construct(CSzFile *p)
 {
-  #ifdef USE_WINDOWS_FILE
+# ifdef USE_WINDOWS_FILE
   p->handle = INVALID_HANDLE_VALUE;
-  #else
+# else
   p->file = NULL;
-  #endif
+# endif
 }
 
 #if !defined(UNDER_CE) || !defined(USE_WINDOWS_FILE)
 static WRes File_Open(CSzFile *p, const char *name, int writeMode)
 {
-  #ifdef USE_WINDOWS_FILE
+# ifdef USE_WINDOWS_FILE
   p->handle = CreateFileA(name,
       writeMode ? GENERIC_WRITE : GENERIC_READ,
       FILE_SHARE_READ, NULL,
       writeMode ? CREATE_ALWAYS : OPEN_EXISTING,
       FILE_ATTRIBUTE_NORMAL, NULL);
   return (p->handle != INVALID_HANDLE_VALUE) ? 0 : GetLastError();
-  #else
+# else
   p->file = fopen(name, writeMode ? "wb+" : "rb");
   return (p->file != 0) ? 0 :
-    #ifdef UNDER_CE
+#  ifdef UNDER_CE
     2; /* ENOENT */
-    #else
+#  else
     errno;
-    #endif
-  #endif
+#  endif
+# endif
 }
 
 WRes InFile_Open(CSzFile *p, const char *name) { return File_Open(p, name, 0); }
@@ -79,14 +91,14 @@ WRes OutFile_OpenW(CSzFile *p, const WCHAR *name) { return File_OpenW(p, name, 1
 
 WRes File_Close(CSzFile *p)
 {
-  #ifdef USE_WINDOWS_FILE
+# ifdef USE_WINDOWS_FILE
   if (p->handle != INVALID_HANDLE_VALUE)
   {
     if (!CloseHandle(p->handle))
       return GetLastError();
     p->handle = INVALID_HANDLE_VALUE;
   }
-  #else
+# else
   if (p->file != NULL)
   {
     int res = fclose(p->file);
@@ -94,7 +106,7 @@ WRes File_Close(CSzFile *p)
       return res;
     p->file = NULL;
   }
-  #endif
+# endif
   return 0;
 }
 
@@ -104,7 +116,7 @@ WRes File_Read(CSzFile *p, void *data, size_t *size)
   if (originalSize == 0)
     return 0;
 
-  #ifdef USE_WINDOWS_FILE
+# ifdef USE_WINDOWS_FILE
 
   *size = 0;
   do
@@ -123,14 +135,26 @@ WRes File_Read(CSzFile *p, void *data, size_t *size)
   while (originalSize > 0);
   return 0;
 
-  #else
+# else
   
-  *size = fread(data, 1, originalSize, p->file);
+  /* ================================================================== */
+  /* Use iz_file_read() in Zip to read file data, letting it handle byte
+   * counting and end of line translation.  As iz_file_read() uses read()
+   * need to use errno to get and return any file error.
+   */
+  /* ================================================================== */
+
+  errno = 0;
+
+  *size = iz_file_read(data, originalSize);
+
+  /* *size = fread(data, 1, originalSize, p->file); */
   if (*size == originalSize)
     return 0;
-  return ferror(p->file);
+  return errno;
+  /* return ferror(p->file); */
   
-  #endif
+# endif
 }
 
 WRes File_Write(CSzFile *p, const void *data, size_t *size)
@@ -139,7 +163,7 @@ WRes File_Write(CSzFile *p, const void *data, size_t *size)
   if (originalSize == 0)
     return 0;
   
-  #ifdef USE_WINDOWS_FILE
+# ifdef USE_WINDOWS_FILE
 
   *size = 0;
   do
@@ -158,19 +182,30 @@ WRes File_Write(CSzFile *p, const void *data, size_t *size)
   while (originalSize > 0);
   return 0;
 
-  #else
+# else
 
-  *size = fwrite(data, 1, originalSize, p->file);
+  /* ================================================================== */
+  /* Use zfwrite() in Zip to write out bytes and do encryption, byte
+   * counting, and split handling.
+   */
+  /* ================================================================== */
+
+  errno = 0;
+
+  *size = zfwrite((zvoid *)data, 1, originalSize);
+
+  /* *size = fwrite(data, 1, originalSize, p->file); */
   if (*size == originalSize)
     return 0;
-  return ferror(p->file);
+  return errno;
+  /* return ferror(p->file); */
   
-  #endif
+# endif
 }
 
 WRes File_Seek(CSzFile *p, Int64 *pos, ESzSeek origin)
 {
-  #ifdef USE_WINDOWS_FILE
+# ifdef USE_WINDOWS_FILE
 
   LARGE_INTEGER value;
   DWORD moveMethod;
@@ -193,7 +228,7 @@ WRes File_Seek(CSzFile *p, Int64 *pos, ESzSeek origin)
   *pos = ((Int64)value.HighPart << 32) | value.LowPart;
   return 0;
 
-  #else
+# else
   
   int moveMethod;
   int res;
@@ -208,12 +243,12 @@ WRes File_Seek(CSzFile *p, Int64 *pos, ESzSeek origin)
   *pos = ftell(p->file);
   return res;
   
-  #endif
+# endif
 }
 
 WRes File_GetLength(CSzFile *p, UInt64 *length)
 {
-  #ifdef USE_WINDOWS_FILE
+# ifdef USE_WINDOWS_FILE
   
   DWORD sizeHigh;
   DWORD sizeLow = GetFileSize(p->handle, &sizeHigh);
@@ -226,7 +261,7 @@ WRes File_GetLength(CSzFile *p, UInt64 *length)
   *length = (((UInt64)sizeHigh) << 32) + sizeLow;
   return 0;
   
-  #else
+# else
   
   long pos = ftell(p->file);
   int res = fseek(p->file, 0, SEEK_END);
@@ -234,7 +269,7 @@ WRes File_GetLength(CSzFile *p, UInt64 *length)
   fseek(p->file, pos, SEEK_SET);
   return res;
   
-  #endif
+# endif
 }
 
 

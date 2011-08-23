@@ -59,12 +59,18 @@
 #endif
 
 #ifdef BZIP2_SUPPORT
+#  ifdef BZIP2_USEBZIP2DIR
+#    include "bzip2/bzlib.h"
+#  else
+
   /* If IZ_BZIP2 is defined as the location of the bzip2 files then
      assume the location has been added to include path.  For Unix
      this is done by the configure script. */
   /* Also do not need path for bzip2 include if OS includes support
      for bzip2 library. */
-# include "bzlib.h"
+
+#    include "bzlib.h"
+#  endif
 #endif
 
 #define MAXCOM 256      /* Maximum one-line comment size */
@@ -129,6 +135,9 @@ ZCONST uLongf *crc_32_tab;
 #endif
 
 #ifdef LZMA_SUPPORT
+/* Some ports can't handle file names with leading numbers,
+ * hence 7zVersion.h is now SzVersion.h.
+ */
 # include "lzma/SzVersion.h"
 #endif /* def LZMA_SUPPORT */
 
@@ -864,6 +873,8 @@ local void help_extended()
 "              deflate - original zip deflate, same as -1 to -9 (default)",
 "            if bzip2 is enabled:",
 "              bzip2 - use bzip2 compression (need modern unzip)",
+"            if lzma is enabled:",
+"              lzma - use lzma compression (need modern unzip)",
 "",
 "Encryption:",
 "  -e        use encryption, prompt for password",
@@ -880,12 +891,16 @@ local void help_extended()
 "  For example:",
 "    zip myarchive filetosecure.txt -Y AES2",
 "  compresses and encrypts using AES256 the file filetosecure.txt and adds",
-"  it to myarchive.  Zip will prompt for password.  Min password lengths:",
-"    16 (AES128), 20 (AES192), 24 (AES256).  (No minimum for TRADITIONAL",
-"  zip encryption.)  The longer and more varied the password the better.",
-"  Ideally passwords should be at least:",
-"    22 (AES128), 33 (AES192), 44 (AES256) and include a mix of lowercase,",
-"   uppercase, numeric, and other characters.",
+"  it to myarchive.  Zip will prompt for password.",
+"",
+"  Min password lengths in chars:  16 (AES128), 20 (AES192), 24 (AES256).",
+"  (No minimum for TRADITIONAL zip encryption.)  The longer and more varied",
+"  the password the better.  We suggest the length of passwords should be at",
+"  least 22 chars (AES128), 33 chars (AES192), and 44 chars (AES256) and",
+"  include a mix of lowercase, uppercase, numeric, and other characters.",
+"  The strength of encryption is directly dependent on the length and",
+"  variedness of the password.  Even using AES256, entries using simple",
+"  short passwords are probably easy to crack.",
 "",
 "  -pn       allow non-ANSI characters in password.  Default is to restrict",
 "              passwords to printable 7-bit ANSI characters for portability.",
@@ -1015,12 +1030,13 @@ local void help_extended()
 "Difference mode:",
 "  -DF       (also --dif) only include files that have changed or are",
 "             new as compared to the input archive",
+"",
 "  Difference mode can be used to create incremental backups.  For example:",
 "    zip --dif full_backup.zip -r somedir --out diff.zip",
 "  will store all new files, as well as any files in full_backup.zip where",
 "  either file time or size have changed from that in full_backup.zip,",
 "  in new diff.zip.  Output archive not excluded automatically if exists,",
-"  so either use -x to exclude it or put outside what is being zipped.",
+"  so either use -x to exclude it or put outside of what is being zipped.",
 "",
 "DOS Archive bit (Windows only):",
 "  -AS       include only files with the DOS Archive bit set",

@@ -142,7 +142,7 @@
 #else
    local int filetypes OF((char *, char *));
 #endif
-local unsigned file_read OF((char *buf, unsigned size));
+/* local unsigned iz_file_read OF((char *buf, unsigned size)); */
 #ifdef USE_ZLIB
   local int zl_deflate_init OF((int pack_level));
 #else /* !USE_ZLIB */
@@ -166,6 +166,37 @@ local zoff_t filecompress OF((struct zlist far *z_entry, int *cmpr_method));
 local zoff_t bzfilecompress OF((struct zlist far *z_entry, int *cmpr_method));
 #endif
 
+#ifdef LZMA_SUPPORT
+
+# define _CRT_SECURE_NO_WARNINGS
+
+# include <stdio.h>
+# include <stdlib.h>
+# include <string.h>
+
+# include "lzma/Alloc.h"
+# include "lzma/SzFile.h"
+# include "lzma/SzVersion.h"
+# include "lzma/LzmaDec.h"
+# include "lzma/LzmaEnc.h"
+
+ const char *kCantReadMessage = "Can not read input file";
+ const char *kCantWriteMessage = "Can not write output file";
+ const char *kCantAllocateMessage = "Can not allocate memory";
+ const char *kDataErrorMessage = "Data error";
+
+ static void *SzAlloc(void *p, size_t size) { p = p; return MyAlloc(size); }
+ static void SzFree(void *p, void *address) { p = p; MyFree(address); }
+ static ISzAlloc g_Alloc = { SzAlloc, SzFree };
+
+
+ local zoff_t lzma_filecompress OF((struct zlist far *z_entry,
+  int *cmpr_method));
+ local SRes LZMA_Encode(ISeqOutStream *outStream, ISeqInStream *inStream,
+  UInt64 fileSize, zoff_t *compressed_size);
+
+#endif
+
 /* Deflate "internal" global data (currently not in zip.h) */
 #if defined(MMAP) || defined(BIG_MEM)
 # ifdef USE_ZLIB
@@ -178,7 +209,7 @@ local zoff_t bzfilecompress OF((struct zlist far *z_entry, int *cmpr_method));
 #ifndef USE_ZLIB
   extern ulg window_size;       /* size of said window */
 
-  unsigned (*read_buf) OF((char *buf, unsigned size)) = file_read;
+  unsigned (*read_buf) OF((char *buf, unsigned size)) = iz_file_read;
   /* Current input function. Set to mem_read for in-memory compression */
 #endif /* !USE_ZLIB */
 
@@ -257,7 +288,7 @@ local ftype ifile;              /* file to compress */
 #else /* !DEBUG */
     local zoff_t isize;         /* input file size. global only for debugging */
 #endif /* ?DEBUG */
-  /* If file_read detects binary it sets this flag - 12/16/04 EG */
+  /* If iz_file_read detects binary it sets this flag - 12/16/04 EG */
   local int file_binary = 0;        /* first buf */
   local int file_binary_final = 0;  /* for bzip2 for entire file.  assume text until find binary */
 
@@ -500,7 +531,7 @@ struct zlist far *z;    /* zip entry to compress */
 #ifdef ENABLE_DLL_PROGRESS
   last_progress_chunk = 0;
 
-  /* Initial progress callback.  Updates in file_read(). */
+  /* Initial progress callback.  Updates in iz_file_read(). */
 /*  if (progress_chunk_size > 0) { */
   if (progress_chunk_size > 0 && lpZipUserFunctions->ProgressReport != NULL) {
     /* Callback parameters:
@@ -969,16 +1000,19 @@ struct zlist far *z;    /* zip entry to compress */
 
   z->ver = (ush)(m == STORE ? 10 : 20); /* Need PKUNZIP 2.0 except for store */
 
-  /* standard says directories need minimum version 20 */
-  if (isdir && z->ver == 10)
-    z->ver = 20;
-
+#ifdef LZMA_SUPPORT
+  if (method == LZMA)
+      z->ver = (ush)(m == STORE ? 10 : 63);
+#endif
 #ifdef BZIP2_SUPPORT
   if (method == BZIP2)
       z->ver = (ush)(m == STORE ? 10 : 46);
+#endif
+
+  /* standard says directories need minimum version 20 */
   if (isdir && z->ver == 10)
     z->ver = 20;
-#endif
+  
   z->crc = 0;  /* to be updated later */
   /* Assume first that we will need an extended local header: */
   /* z->flg is now zeroed in zip.c */
@@ -1226,11 +1260,23 @@ struct zlist far *z;    /* zip entry to compress */
   crc = CRCVAL_INITIAL;
 
   if (isdir) {
+
+    /* dir */
+
     /* nothing to write */
   }
   else if (m != STORE) {
+
+    /* compress */
+
     if (set_type) z->att = (ush)UNKNOWN;
     /* ... is finally set in file compression routine */
+#ifdef LZMA_SUPPORT
+    if (m == LZMA) {
+      s = lzma_filecompress(z, &m);
+    }
+    else
+#endif /* LZMA_SUPPORT */
 #ifdef BZIP2_SUPPORT
     if (m == BZIP2) {
       s = bzfilecompress(z, &m);
@@ -1259,6 +1305,8 @@ struct zlist far *z;    /* zip entry to compress */
   }
   else
   {
+    /* store */
+
     if ((b = malloc(SBSZ)) == NULL)
        return ZE_MEM;
 
@@ -1281,7 +1329,7 @@ struct zlist far *z;    /* zip entry to compress */
     }
     else
     {
-      while ((k = file_read(b, SBSZ)) > 0 && k != (extent) EOF)
+      while ((k = iz_file_read(b, SBSZ)) > 0 && k != (extent) EOF)
       {
         if (zfwrite(b, 1, k) != k)
         {
@@ -1290,36 +1338,46 @@ struct zlist far *z;    /* zip entry to compress */
           free((zvoid *)b);
           return ZE_TEMP;
         }
+
+
+        /* store */
+        
+        /* display dots */
+
         if (!display_globaldots) {
           if (dot_size > 0) {
             /* initial space */
             if (noisy && dot_count == -1) {
-#ifndef WINDLL
+# ifndef WINDLL
               putc(' ', mesg);
               fflush(mesg);
-#else
+# else
               fprintf(stdout,"%c",' ');
-#endif
+# endif
               dot_count++;
             }
             dot_count++;
             if (dot_size <= (dot_count + 1) * SBSZ) dot_count = 0;
           }
           if ((verbose || noisy) && dot_size && !dot_count) {
-#ifndef WINDLL
+# ifndef WINDLL
             putc('.', mesg);
             fflush(mesg);
-#else
+# else
             fprintf(stdout,"%c",'.');
-#endif
+# endif
             mesg_line_started = 1;
           }
-        }
+        } /* display dots */
+
+
       }
     }
     free((zvoid *)b);
     s = isize;
-  }
+
+  } /* store */
+
   if (ifile != fbad && zerr(ifile)) {
     perror("\nzip warning");
     if (logfile)
@@ -1539,6 +1597,11 @@ struct zlist far *z;    /* zip entry to compress */
       fprintf( mesg, "        (in=%s) (out=%s)",
                zip_fzofft(isize, NULL, "u"), zip_fzofft(s, NULL, "u"));
     }
+#ifdef LZMA_SUPPORT
+    if (m == LZMA)
+      fprintf(mesg, " (LZMAed %d%%)\n", percent(isize, s));
+    else
+#endif
 #ifdef BZIP2_SUPPORT
     if (m == BZIP2)
       fprintf(mesg, " (bzipped %d%%)\n", percent(isize, s));
@@ -1644,7 +1707,7 @@ struct zlist far *z;    /* zip entry to compress */
 
 
 
-local unsigned file_read(buf, size)
+unsigned iz_file_read(buf, size)
   char *buf;
   unsigned size;
 /* Read a new buffer from the current input file, perform end-of-line
@@ -1692,7 +1755,7 @@ local unsigned file_read(buf, size)
     len = zread(ifile, buf, size);
     bytes_read_this_entry += len;
     if (len == (unsigned)EOF || len == 0) return len;
-#ifdef OS390
+#ifdef ZOS_UNIX
     b = buf;
     if (aflag == ASCII) {
       while (*b != '\0') {
@@ -1804,6 +1867,10 @@ local unsigned file_read(buf, size)
     ZIPERR(ZE_BIG, "overflow in byte count");
   }
 
+
+
+
+  
 #ifdef ENABLE_DLL_PROGRESS
   /* If progress_chunk_size is defined and ProgressReport() exists,
      see if time to send user progress information. */
@@ -1937,7 +2004,7 @@ void zl_deflate_free()
 
 # ifdef ZP_NEED_MEMCOMPR
 /* ===========================================================================
- * In-memory read function. As opposed to file_read(), this function
+ * In-memory read function. As opposed to iz_file_read(), this function
  * does not perform end-of-line translation, and does not update the
  * crc and input size.
  *    Note that the size of the entire input buffer is an unsigned long,
@@ -2049,9 +2116,9 @@ local zoff_t filecompress(z_entry, cmpr_method)
     {
         zstrm.next_in = (Bytef *)f_ibuf;
     }
-    zstrm.avail_in = file_read((char *)zstrm.next_in, ibuf_sz);
+    zstrm.avail_in = iz_file_read((char *)zstrm.next_in, ibuf_sz);
     if (zstrm.avail_in < ibuf_sz) {
-        unsigned more = file_read((char *)(zstrm.next_in + zstrm.avail_in),
+        unsigned more = iz_file_read((char *)(zstrm.next_in + zstrm.avail_in),
                                   (ibuf_sz - zstrm.avail_in));
         if (more == (unsigned)EOF || more == 0) {
             maybe_stored = TRUE;
@@ -2081,6 +2148,12 @@ local zoff_t filecompress(z_entry, cmpr_method)
             if (verbose || noisy)
                 while((unsigned)(zstrm.total_in / (uLong)WSIZE) > mrk_cnt) {
                     mrk_cnt++;
+
+
+                    /* deflate */
+
+                    /* display dots */
+
                     if (!display_globaldots) {
                       if (dot_size > 0) {
                         /* initial space */
@@ -2106,6 +2179,8 @@ local zoff_t filecompress(z_entry, cmpr_method)
                         mesg_line_started = 1;
                       }
                     }
+
+
                 }
 # if defined(MMAP) || defined(BIG_MEM)
             if (remain == (ulg)-1L)
@@ -2113,7 +2188,7 @@ local zoff_t filecompress(z_entry, cmpr_method)
 # else
             zstrm.next_in = (Bytef *)f_ibuf;
 # endif
-            zstrm.avail_in = file_read((char *)zstrm.next_in, ibuf_sz);
+            zstrm.avail_in = iz_file_read((char *)zstrm.next_in, ibuf_sz);
             bytes_so_far += zstrm.avail_in;
         }
     }
@@ -2160,7 +2235,7 @@ local zoff_t filecompress(z_entry, cmpr_method)
 #else /* !USE_ZLIB */
 
     /* Set the defaults for file compression. */
-    read_buf = file_read;
+    read_buf = iz_file_read;
 
     /* Initialize deflate's internals and execute file compression. */
     bi_init(file_outbuf, sizeof(file_outbuf), TRUE);
@@ -2248,6 +2323,15 @@ ulg memcompress(tgt, tgtsize, src, srcsize)
 }
 #endif /* ZP_NEED_MEMCOMPR */
 
+
+
+
+
+
+/* ===========================================================================
+ * BZIP2 Compression
+ */
+
 #ifdef BZIP2_SUPPORT
 
 local int bz_compress_init(pack_level)
@@ -2280,6 +2364,7 @@ int pack_level;
     return zp_err;
 }
 
+
 void bz_compress_free()
 {
     int err;
@@ -2301,9 +2386,6 @@ void bz_compress_free()
     }
 }
 
-/* ===========================================================================
- * BZIP2 Compression to archive file.
- */
 
 local zoff_t bzfilecompress(z_entry, cmpr_method)
 struct zlist far *z_entry;
@@ -2352,14 +2434,16 @@ int *cmpr_method;
     {
         bstrm.next_in = (char *)f_ibuf;
     }
-    bstrm.avail_in = file_read(bstrm.next_in, ibuf_sz);
+
+    bstrm.avail_in = iz_file_read(bstrm.next_in, ibuf_sz);
+
     if (file_binary_final == 0) {
       /* check for binary as library does not */
       if (!is_text_buf(bstrm.next_in, ibuf_sz))
         file_binary_final = 1;
     }
     if (bstrm.avail_in < ibuf_sz) {
-        unsigned more = file_read(bstrm.next_in + bstrm.avail_in,
+        unsigned more = iz_file_read(bstrm.next_in + bstrm.avail_in,
                                   (ibuf_sz - bstrm.avail_in));
         if (more == (unsigned) EOF || more == 0) {
             maybe_stored = TRUE;
@@ -2397,6 +2481,12 @@ int *cmpr_method;
                 while((unsigned)(bstrm.total_in_lo32 / (ulg)WSIZE) > mrk_cnt) {
 #endif
                     mrk_cnt++;
+
+
+                    /* bzip2 */
+                    
+                    /* display dots */
+                    
                     if (!display_globaldots) {
                       if (dot_size > 0) {
                         /* initial space */
@@ -2422,6 +2512,8 @@ int *cmpr_method;
                         mesg_line_started = 1;
                       }
                     }
+
+
                 }
 #if defined(MMAP) || defined(BIG_MEM)
             if (remain == (ulg)-1L)
@@ -2429,7 +2521,9 @@ int *cmpr_method;
 #else
             bstrm.next_in = (char *)f_ibuf;
 #endif
-            bstrm.avail_in = file_read(bstrm.next_in, ibuf_sz);
+
+            bstrm.avail_in = iz_file_read(bstrm.next_in, ibuf_sz);
+
             bytes_so_far += bstrm.avail_in;
             if (file_binary_final == 0) {
               /* check for binary as library does not */
@@ -2504,4 +2598,199 @@ int *cmpr_method;
 }
 
 #endif /* BZIP2_SUPPORT */
+
+
+
+/* ===========================================================================
+ * LZMA Compression
+ */
+
+#ifdef LZMA_SUPPORT
+
+local zoff_t lzma_filecompress(z_entry, cmpr_method)
+  struct zlist far *z_entry;
+  int *cmpr_method;
+{
+  CFileSeqInStream inStream;
+  CFileOutStream outStream;
+  int res;
+  uzoff_t filesize = z_entry->len;
+
+  zoff_t compressed_size = 0;
+
+  unsigned char lzma_properties_header[4];
+  ush lzma_header_size;
+
+
+  FileSeqInStream_CreateVTable(&inStream);
+  File_Construct(&inStream.file);
+
+  FileOutStream_CreateVTable(&outStream);
+  File_Construct(&outStream.file);
+
+  {
+    size_t t4 = sizeof(UInt32);
+    size_t t8 = sizeof(UInt64);
+    if (t4 != 4 || t8 != 8)
+      ZIPERR(ZE_COMPERR, "LZMA UInt32 or UInt64 wrong size");
+  }
+
+
+  /* write out first 4 bytes of LZMA properties header */
+  lzma_properties_header[0] = MY_VER_MAJOR;
+  lzma_properties_header[1] = MY_VER_MINOR;
+
+  lzma_header_size = LZMA_PROPS_SIZE;
+
+  lzma_properties_header[2] = lzma_header_size % 256;
+  lzma_properties_header[3] = lzma_header_size / 256;
+
+  zfwrite(lzma_properties_header, 1, 4);
+
+
+  res = LZMA_Encode(&outStream.s, &inStream.s, filesize, &compressed_size);
+
+  if (res != SZ_OK)
+  {
+    if (res == SZ_ERROR_MEM) {
+      sprintf(errbuf, "LZMA error %d, %s", res, kCantAllocateMessage);
+      ZIPERR(ZE_COMPRESS, errbuf);
+    }
+    else if (res == SZ_ERROR_DATA) {
+      sprintf(errbuf, "LZMA error %d, %s", res, kDataErrorMessage);
+      ZIPERR(ZE_COMPRESS, errbuf);
+    }
+    else if (res == SZ_ERROR_WRITE) {
+      sprintf(errbuf, "LZMA error %d, %s", res, kCantWriteMessage);
+      ZIPERR(ZE_COMPRESS, errbuf);
+    }
+    else if (res == SZ_ERROR_READ) {
+      sprintf(errbuf, "LZMA error %d, %s", res, kCantReadMessage);
+      ZIPERR(ZE_COMPRESS, errbuf);
+    }
+    sprintf(errbuf, "LZMA error %d", res);
+    ZIPERR(ZE_COMPRESS, errbuf);
+  }
+
+  /* add count of first 4 bytes of properties header */
+  return compressed_size + 4;
+}
+
+
+int lzma_progress_function(void *v, UInt64 a, UInt64 b)
+{
+  UInt64 bufsize = 32819;
+
+  /*
+  printf("progress  uncompressed read %I64d  compressed written %I64d\n", a, b);
+  */
+
+  /* display dots every so many bytes */
+  if (!display_globaldots) {
+    if (dot_size > 0) {
+      /* initial space */
+      if (noisy && dot_count == -1) {
+#ifndef WINDLL
+        putc(' ', mesg);
+        fflush(mesg);
+#else
+        fprintf(stdout,"%c",' ');
+#endif
+        dot_count++;
+      }
+      dot_count++;
+      if ((uzoff_t)dot_size <= (dot_count + 1) * bufsize) dot_count = 0;
+    }
+    if ((verbose || noisy) && dot_size && !dot_count) {
+#ifndef WINDLL
+      putc('.', mesg);
+      fflush(mesg);
+#else
+      fprintf(stdout,"%c",'.');
+#endif
+      mesg_line_started = 1;
+    }
+  }
+
+  return 0;
+}
+
+
+static SRes LZMA_Encode(ISeqOutStream *outStream, ISeqInStream *inStream,
+ UInt64 fileSize, zoff_t *compressed_size)
+{
+  CLzmaEncHandle enc;
+  SRes res;
+  CLzmaEncProps props;
+  ICompressProgress lzma_progress;
+
+  lzma_progress.Progress = lzma_progress_function;
+
+  /* Sets enc as a props. */
+  enc = LzmaEnc_Create(&g_Alloc);
+  if (enc == 0)
+    return SZ_ERROR_MEM;
+
+  /* Then creates props as a props. */
+  
+  /* Sets some initial defaults in props. */
+  LzmaEncProps_Init(&props);
+
+  /* Set the LZMA level to the Zip level - 1, which seems roughly
+     appropriate.  So the Zip default level 6 becomes the LZMA
+     default level 5.  Zip level 0 (store) should not get here.
+  
+     This is just an initial mapping.  Initial testing suggests
+     that it may be better to drift some from the standard LZMA
+     level settings and change the settings in props directly to
+     get a better range of results when setting Zip compression
+     level from 1 to 9.  - EG
+  */
+  if (level > 0)
+    props.level = level - 1;
+  else
+    props.level = 0;
+
+  /* Sets enc using props. */
+  /* Uses props.level to set various other props. */
+  res = LzmaEnc_SetProps(enc, &props);
+
+  if (res == SZ_OK)
+  {
+    Byte header[LZMA_PROPS_SIZE + 8];
+    size_t headerSize = LZMA_PROPS_SIZE;
+#if 0
+    int i;
+#endif
+
+    res = LzmaEnc_WriteProperties(enc, header, &headerSize);
+
+    /* Apparently not included for LZMA entries in zip archives. */
+#if 0
+    for (i = 0; i < 8; i++)
+      header[headerSize++] = (Byte)(fileSize >> (8 * i));
+#endif
+
+    if (outStream->Write(outStream, header, headerSize) != headerSize)
+      res = SZ_ERROR_WRITE;
+    else
+    {
+      if (res == SZ_OK)
+        res = LzmaEnc_Encode(enc, outStream, inStream, &lzma_progress, &g_Alloc, &g_Alloc,
+                             compressed_size);
+    }
+  }
+  /* Add header to compressed size */
+  /* Apparently the dictionary is not included */
+  *compressed_size += LZMA_PROPS_SIZE /* + 8 */;
+  LzmaEnc_Destroy(enc, &g_Alloc, &g_Alloc);
+  return res;
+}
+
+
+
+#endif /* LZMA_SUPPORT */
+
+
+
 #endif /* !UTIL */
