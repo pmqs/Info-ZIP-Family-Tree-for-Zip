@@ -41,6 +41,9 @@
 .!              Adjusted /[NO]FULL_PATH and /[NO]JUNK usage.
 .!      01-009          Steven Schweda          22-APR-2011
 .!              Added /ENCRYPT options.
+.!      01-010          Steven Schweda          25-AUG-2011
+.!              Added NO and USIZE in /SHOW = [NO]FILES = USIZE.
+.!              Added LZMA compression.
 .!
 <INIT>
 <MAIN>
@@ -106,10 +109,11 @@ Compression
 Compression ratios of 2:1 to 3:1 are common for text files.  Zip has one
 standard compression method ("deflate") and can also store files without
 compression.  Zip (and UnZip) may be built with optional support for the
-bzip2 compression method.  Then, the user may select bzip2 compression
-instead of the default "deflate" method.  Zip automatically chooses
-simple storage over compression for a file, if the specified compression
-method does not actually compress the data in that file.
+bzip2 and/or LZMA compression methods.  Then, the user may select bzip2
+or LZMA compression instead of the default "deflate" method.  Zip
+automatically chooses simple storage over compression for a file, if the
+specified compression method does not actually compress the data in that
+file.
 
 Compatibility
 
@@ -121,9 +125,10 @@ better compatibility).  Zip version 3.0 is compatible with PKZIP 2.04
 and also supports the Zip64 extensions of PKZIP 4.5 which allows
 archives as well as files to exceed the previous 2 GB limit (4 GB in
 some cases).  Zip also supports bzip2 compression if the bzip2 library
-is included when Zip is built.  Note that PKUNZIP 1.10 cannot extract
-files produced by PKZIP 2.04 or Zip 3.0.  You must use PKUNZIP 2.04g or
-UnZip 5.0p1 (or later versions) to extract them.
+is included when Zip is built, and/or LZMA compression if that is enabled
+when Zip is built.  Note that PKUNZIP 1.10 cannot extract files produced
+by PKZIP 2.04 or Zip 3.0.  You must use PKUNZIP 2.04g or UnZip 5.0p1 (or
+later versions) to extract them.
 
 Large Archives and Zip64
 
@@ -677,21 +682,21 @@ line containing just a period, or by an end-of-file character (CTRL/Z).
 <QUALIFIER>
 /COMPRESSION
 
-/COMPRESSION = {BZIP2|DEFLATE|STORE}
+/COMPRESSION = {BZIP2|DEFLATE|LZMA|STORE}
 
 Specify the compression method to be used when adding or updating files
 in an archive.  STORE disables compression (like /LEVEL = 0).  Default:
 /COMPRESSION = DEFLATE.
 
 Zip can archive files with or without compression.  The standard
-compression method ("deflate") is compatible with all UnZip versions
-(except really old ones that only understand the "store" method).
+compression method ("Deflate") is compatible with all UnZip versions
+(except really old ones that only understand the "Store" method).
 Current Zip and UnZip versions may be built with optional support for
-the bzip2 compression method.  (The bzip2 method can compress better,
-especially when compressing highly redundant files, but uses more CPU
-time, and requires an UnZip which includes the optional bzip2 support.
-See the installation instructions for details on adding bzip2
-compression support at build time.)
+the bzip2 and LZMA compression methods.  The optional compression
+methods often compress better than the default Deflate method, but
+usually require more CPU time.  They also require an UnZip program which
+supports the method used.  See the installation instructions for details
+on adding support for optional compression methods at build time.)
 <QUALIFIER>
 /COPY_ENTRIES
 
@@ -1205,6 +1210,7 @@ The keywords recognized are:
 |COMMAND  Show command line arguments as processed (only, then exit).
 |DEBUG    Show Debug information.
 |FILES    Show files to process (only, then exit).
+|FILES = USIZE   Include uncompressed file sizes in the FILES list.
 |OPTIONS  Show all available command-line options on this system.
 <LARETIL>
 <QUALIFIER>
@@ -1484,11 +1490,15 @@ Controls wildcard processing.
 <QUALIFIER>
 /ZIP64
 
-/ZIP64
+/NOZIP64
 
-Forces use of Zip64 archive format, even for small files.  This is
-mainly for testing and should never be used.  Zip will automatically
-use Zip64 as needed without this option.
+/ZIP64 forces the use of the Zip64 archive format, even for small files. 
+This may be needed if /TRANSLATE_EOL (-l) is used, and this pushes the
+effective file size over the small-file size limit, causing Zip to
+recommend using "-fz" (equivalent to /ZIP64).
+
+/NOZIP64 (the default) causes Zip to use the Zip64 archive format when
+it is needed (normally for large files or many files).
 <TOPIC>
 UNIX_Options
 
@@ -1610,7 +1620,7 @@ be separated by a space or "=".  For example:
 | x   exclude  pat1 [pat2 [...]]  exclude all names matching the patterns
 | Y   encryption-method em  use encryption method "em" (Traditional
 |                           (default), AES128, AES192, or AES256)
-| Z   compression-method cm  use cmprs method "cm" (bzip2 or deflate)
+| Z   compression-method cm  use cmprs method "cm" (bzip2, deflate, LZMA)
 | z   archive-comment     ask for archive comment
 <0LARETIL>
 

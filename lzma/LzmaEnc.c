@@ -5,7 +5,12 @@
 /* Allow globals for Zip to be used here.
  */
 /* ================================================================== */
-#include "zip.h"
+
+#ifdef INCLUDE_LZMA_AS_SOURCE
+# include "../zip.h"
+#else
+# include "zip.h"
+#endif
 
 #include <string.h>
 
@@ -2165,7 +2170,7 @@ SRes LzmaEnc_CodeOneMemBlock(CLzmaEncHandle pp, Bool reInit,
 /* ================================================================== */
 
 static SRes LzmaEnc_Encode2(CLzmaEnc *p, ICompressProgress *progress,
- zoff_t *compressed_size)
+                            zoff_t *compressed_size)
 {
   SRes res = SZ_OK;
 
@@ -2210,8 +2215,8 @@ static SRes LzmaEnc_Encode2(CLzmaEnc *p, ICompressProgress *progress,
 /* ================================================================== */
 
 SRes LzmaEnc_Encode(CLzmaEncHandle pp, ISeqOutStream *outStream,
-    ISeqInStream *inStream, ICompressProgress *progress,
-    ISzAlloc *alloc, ISzAlloc *allocBig, zoff_t *compressed_size)
+                    ISeqInStream *inStream, ICompressProgress *progress,
+                    ISzAlloc *alloc, ISzAlloc *allocBig, zoff_t *compressed_size)
 {
   SRes res;
 

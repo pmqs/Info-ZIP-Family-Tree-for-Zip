@@ -259,7 +259,7 @@ Installation on other systems
 
   VMS (OpenVMS):
 
-  See [.vms]install_vms.txt for how to enable bzip2 support on VMS.
+  See [.vms]INSTALL_VMS.txt for how to enable bzip2 support on VMS.
 
 
 Updated 26 March 2007, 15 July 2007, 9 April 2008, 27 June 2008,

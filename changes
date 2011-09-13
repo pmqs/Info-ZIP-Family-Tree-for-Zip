@@ -4415,13 +4415,104 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 12. Remove OS390 code cloned from unix.  atheos/atheos.c (AD)
 13. Add z/OS UNIX README.  unix/README.zOS (AD)
 14. Remove OS390 readme.  unix/README.OS390 (AD)
--------------------- Xxxxxxx XXth 2011 version 3.1d15 -----------------------
- x. Add feature conditionality to optional keywords in the VMS command
+-------------------- August 10th 2011 version 3.1d15 -----------------------
+ 1. Add feature conditionality to optional keywords in the VMS command
     definition file.  Change the VMS builders to use CC /PREPROCESS_ONLY to
     process the new conditions.  vms/build_zip.com, vms/cppcld.com (new),
     vms/descrip.mms, vms/zip_cli.cld (SMS)
- x. Replaced bad-guess non-fix for the alignment/structure-packing problem
+ 2. Replaced bad-guess non-fix for the alignment/structure-packing problem
     which caused bad/spurious AppleDouble data to be archived on Intel
     Macintosh systems.  Moved the required #pragma directives from
-    "unix/unix.c" to "unix/macosx.h". (SMS)
-
+    "unix/unix.c" to "unix/macosx.h".  unix/unix.c, unix/macosx.h (SMS)
+ 3. Add lzma/7zVersion.h include.  Add descriptions to version information
+    items VMSCLI, VMS_IM_EXTRA, and VMS_PK_EXTRA.  Add LZMA_SUPPORT to
+    version information.  Add Run "unzip" comments.  Add LZMA as compression
+    option, though not yet implemented.  zip.c (SMS)
+ 4. Change printf(var) and putchar('\n') to printf("%s\n", var) to make some
+    compilers happier.  Comment out CRYPT_AES_WG random number pool
+    initialization timing.  zip.c (EG)
+ 5. Add LZMA compression support compilation code.  LZMA preparations.
+    unix/configure, unix/Makefile, vms/descrip.mms, vms/descrip_deps.mms,
+    vms/descrip_mkdeps.mms, vms/descrip_src.mms (SMS)
+ 6. Add and conditionally include keywords for BZIP2, LZMA, and CRYPT_AES_WG.
+    vms/zip_cli.cld (SMS)
+-------------------- August 11th 2011 version 3.1d16 -----------------------
+ 1. Remove bogus cmsvms directory.  Redistribute files from cmsmvs to new zos
+    and zvm ports and remove old cmsmvs directory.  Add initial versions of
+    some zos and zvm files.  zos/cczip.job, zos/cmsmvs.job, zos/cmsmvs.h,
+    zos/mvs.c, zos/mvs.h, zos/mki, zos/readme.mvs, zos/readme.mvs.le,
+    zos/readme.zos, zos/zipname.zos, zos/zipup.h, zvm/cczip.exec, zvm/cms.c,
+    zvm/cstat.h, zvm/mc.exec, zvm/pipzip.rexx, zvm/readme.cms, zvm/zip.exec,
+    zvm/zip.makefile, zvm/zipcloak.exec, zvm/zipnote.exec, zvm/zipnote.exec,
+    zvm/zipsplit.exec, zvm/zipvmc.exec (AD)
+ 2. Update white space formatting.  zip.c (SMS)
+ 3. Update README.  README (AD, EG)
+-------------------- August 12th 2011 version 3.1d17 -----------------------
+ 1. Add LZMA compression.  cmdline.c (SMS)
+ 2. Remove old aes_wg_old directory.  aes_wg_old/* (EG)
+ 3. Rename aesnew directory to aes_wg_new.  aes_wg_new/* (EG)
+ 4. Add README to aes_wg_new.  aes_wg_new/README_aes_wg_new.txt (EG)
+ 5. Remove zip.opt as now generated.  vms/zip.opt (SMS)
+ 6. Initial update of README as start preparing for public beta release.
+    README (EG, SMS)
+-------------------- August 20th 2011 version 3.1d18 -----------------------
+ 1. Copy LZMA files to lzma directory from UnZip.  Implement LZMA compression
+    in Zip.  Modify the LZMA files as needed to work with Zip.  lzma/Alloc.c,
+    lzma/Alloc.h, lzma/LzFind.c, lzma/LzFind.h, lzma/LzHash.h,
+    lzma/LzmaDec.c, lzma/LzmaDec.h, lzma/LzmaEnc.c, lzma/LzmaEnc.h,
+    lzma/README_LZMA.txt, lzma/SzFile.c, lzma/SzFile.h, lzma/SzVersion.h,
+    lzma/Types.h, lzma/orig/7zFile.c, lzma/orig/7zFile.h,
+    lzma/orig/7zVersion.h, lzma/orig/LzFind.h, lzma/orig/LzmaEnc.c,
+    lzma/orig/LzmaEnc.h, zip.c, zip.h, zipup.c (EG)
+ 2. Attempt to fix compiling issues with bzip2 in Win32.  Will pick up next
+    beta.  zip.c (EG)
+ 3. Update extended help to add LZMA compression method and add comments on
+    encryption.  zip.c (EG)
+ 4. Make file_read() global for LZMA.  Add NO_USE_WINDOWS_FILE to prevent
+    use of Windows API in LZMA code and instead use generic calls and
+    Zip file_read() and zfwrite().  zip.h (EG)
+ 5. Add new error code ZE_COMPRESS (22) for errors related to compression.
+    ziperr.h (EG)
+ 6. Comment out local prototype for file_read().  Add header block for LZMA
+    to top of file, with includes, error messages, and function definitions,
+    though it maybe can be pruned a bit.  Set Version Needed To Extract to
+    63 (6.3) for LZMA.  Add lzma_filecompress() for LZMA.  Add LZMAed
+    percent message.  Comment updates for bzip2.  Add callback function
+    lzma_progress_function() for LZMA to call each loop which is used to
+    output progress dots for LZMA.  Add LZMA_Encode() as modified copy of
+    LZMA version.  Set "LZMA level" = "Zip compression level" - 1.  Add
+    compressed_size parameter to some LZMA calls to get compressed size out
+    to Zip.  zipup.c (EG)
+ 7. Update LZMA README.  lzma/README_LZMA.txt (EG)
+ 8. Add vc6_bz2_lzma project for vc6, but doesn't work yet.  Only Windows
+    project that compiles LZMA currently is the win32/vc6aes project.
+    win32/vc6_bz2_lzma/*, win32/vc6aes/zip.dsp (EG)
+-------------------- August 22nd 2011 version 3.1d19 -----------------------
+ 1. Add -sF option to add information to -sf listings.  Only option value
+    implemented currently is usize to add uncompressed size of files from
+    file system scan.  Add sf_usize global.  Update extended help for -sf.
+    Update comment for DisplayNumString().  globals.c, zip.c, zip.h,
+    util.c (EG)
+ 2. Change i and b in union used for endian check to unsigned.  zip.c (SMS)
+ 3. Update LAST_KNOWN_COMPMETHOD to account for LZMA.  Avoid defining
+    _7ZIP_ST if defined.  zip.h (SMS)
+ 4. Rename file_read() to iz_file_read() to avoid conflict with LZMA
+    File_Read() on ports where function names are not case sensitive.
+    zip.h, zipup.h, zipup.c, lzma/SzFile.c (SMS)
+ 5. Change lzma_propertied_header from byte to unsigned char.  zipup.c (SMS)
+ 6. If INCLUDE_LZMA_AS_SOURCE defined then include zip.h as ../zip.h.  Add
+    INCLUDE_LZMA_AS_SOURCE to VC 6 project file.  lzma/LzmaEnc.c,
+    lzma/SzFile.c, lzma/SzFile.h (EG)
+ 7. Change compressed_size from UInt64 to zoff_t.  lzma/LzmaEnc.c,
+    lzma/LzmaEnc.h (SMS)
+ 8. Change <> to "" for aes_wg/aes.h and lzma/LzmaEnc.h includes.  Add
+    typedef int zoff_t to LZMA test.  unix/configure (SMS)
+ 9. Change 7zFile to SzFile.  unix/Makefile (SMS)
+10. VMS updates for LZMA and AEG_WG.  vms/build_zip.com,
+    vms/descrip_deps.mms, vms/descrip_src.mms, vms/install_vms.txt (SMS)
+11. Initial updates to VC 6 project for compiling LZMA.  win32/vc6aes (EG)
+-------------------- August XXnd 2011 version 3.1dXX -----------------------
+ x. In the VMS CLI, /ZIP64 is now negatable (/[NO]ZIP64), like -fz, and
+    the help is now less inaccurate.  vms/cmdline.c, vms/zip_cli.cld,
+    vms/zip_cli.help (SMS)
+ x. Rename vms/install_vms.txt to vms/INSTALL_VMS.txt.  INSTALL (SMS)

@@ -26,7 +26,7 @@
  */
 #if 0
 # define module_name VMS_ZIP_CMDLINE
-# define module_ident "02-009"
+# define module_ident "02-011"
 #endif /* 0 */
 
 /*
@@ -44,6 +44,9 @@
 **              returned to Zip.
 **
 **  Modified by:
+**
+**      02-011          Steven Schweda          25-AUG-2011
+**              Added NO and USIZE in /SHOW = [NO]FILES = USIZE.
 **
 **      02-010          Steven Schweda          22-APR-2011
 **              Added /COMPRESSION = LZMA.
@@ -240,6 +243,7 @@ $DESCRIPTOR(cli_show,           "SHOW");                /* -s? */
 $DESCRIPTOR(cli_show_command,   "SHOW.COMMAND");        /* -sc */
 $DESCRIPTOR(cli_show_debug,     "SHOW.DEBUG");          /* -sd */
 $DESCRIPTOR(cli_show_files,     "SHOW.FILES");          /* -sf */
+$DESCRIPTOR(cli_show_files_usize, "SHOW.FILES.USIZE");  /* -sF=usize */
 $DESCRIPTOR(cli_show_options,   "SHOW.OPTIONS");        /* -so */
 $DESCRIPTOR(cli_since,          "SINCE");               /* -t */
 $DESCRIPTOR(cli_split,          "SPLIT");               /* -s,-sb,-sp,-sv */
@@ -1187,7 +1191,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     status = cli$present( &cli_log_file);
     if (status & 1)
     {
-        /* /SHOW */
+        /* /LOG_FILE */
         if ((status = cli$present( &cli_log_file_append)) & 1)
         {
             /* /LOG_FILE = APPEND */
@@ -1282,14 +1286,18 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     /*
     **  Handle "-sc", "-sd", "-sf", "-so".
     */
-#define OPT_SC "-sc"
-#define OPT_SD "-sd"
-#define OPT_SF "-sf"
-#define OPT_SO "-so"
+#define OPT_SC     "-sc"
+#define OPT_SD     "-sd"
+#define OPT_SF     "-sf"
+#define OPT_SFN    "-sf-"
+#define OPT_S_F_US "-sF=usize"
+#define OPT_SO     "-so"
 
     status = cli$present( &cli_show);
     if (status & 1)
     {
+        char *opt;
+
         /* /SHOW */
         if ((status = cli$present( &cli_show_command)) & 1)
         {
@@ -1309,13 +1317,34 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             strcpy( &the_cmd_line[ x],  OPT_SD);
         }
 
-        if ((status = cli$present( &cli_show_files)) & 1)
+        status = cli$present( &cli_show_files);
+        if ((status & 1) || (status == CLI$_NEGATED))
         {
             /* /SHOW = FILES */
+            if (status == CLI$_PRESENT)
+            {
+                opt = OPT_SF;
+            }
+            else if (status == CLI$_NEGATED)
+                opt = OPT_SFN;
+
             x = cmdl_len;
-            cmdl_len += strlen( OPT_SF)+ 1;
+            cmdl_len += strlen( opt)+ 1;
             CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
-            strcpy( &the_cmd_line[ x], OPT_SF);
+            strcpy( &the_cmd_line[ x], opt);
+
+            if (status == CLI$_PRESENT)
+            {
+                /* Still /SHOW = FILES (but not /SHOW = NOFILES). */
+                if ((status = cli$present( &cli_show_files_usize)) & 1)
+                {
+                    /* /SHOW = FILES = USIZE */
+                    x = cmdl_len;
+                    cmdl_len += strlen( OPT_S_F_US)+ 1;
+                    CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+                    strcpy( &the_cmd_line[ x], OPT_S_F_US);
+                }
+            }
         }
 
         if ((status = cli$present( &cli_show_options)) & 1)
@@ -1331,16 +1360,26 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     /*
     **  Handle "-fz".
     */
-#define OPT_FZ "-fz"
+#define OPT_FZ    "-fz"         /* Force Zip64 format. */
+#define OPT_FZN   "-fz-"        /* Do not force Zip64 format. */
 
+    /* /[NO]ZIP64 */
     status = cli$present( &cli_zip64);
-    if (status & 1)
+    if ((status & 1) || (status == CLI$_NEGATED))
     {
-        /* /ZIP64 */
+        char *opt;
+
+        if (status == CLI$_NEGATED)
+            /* /NOZIP64 */
+            opt = OPT_FZN;
+        else
+            /* /ZIP64 */
+            opt = OPT_FZ;
+
         x = cmdl_len;
-        cmdl_len += strlen( OPT_FZ)+ 1;
+        cmdl_len += strlen( opt)+ 1;
         CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
-        strcpy( &the_cmd_line[ x], OPT_FZ);
+        strcpy( &the_cmd_line[ x], opt);
     }
 
     /*
@@ -1906,7 +1945,7 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /STORE_TYPES=(type_list), /[NO]PRESERVE_CASE[=([NO]ODS{2|5}[,...])],",
 "    /[NO]PKZIP, /[NO]KEEP_VERSION, /DOT_VERSION, /TRANSLATE_EOL[={LF|CRLF}],",
 "    /DISPLAY=([BYTES][,COUNTS][,DOTS=mb_per_dot][,GLOBALDOTS][,USIZE]",
-"    [,VOLUME]), /DESCRIPTORS, /[NO]EXTRA_FIELDS, /ZIP64,",
+"    [,VOLUME]), /DESCRIPTORS, /[NO]EXTRA_FIELDS, /[NO]ZIP64,",
 #ifdef S_IFLNK
 "    /SPLIT = (SIZE=ssize [,BELL] [,PAUSE] [,VERBOSE]), /SYMLINKS"
 #else /* S_IFLNK */
