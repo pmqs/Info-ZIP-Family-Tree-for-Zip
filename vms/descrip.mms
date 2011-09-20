@@ -1,4 +1,4 @@
-#                                               6 August 2011.  SMS.
+#                                               19 September 2011.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Description File.
 #
@@ -341,6 +341,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
                         $(OPT_ID) $(OPT_FILE) $(OPT_ID)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
+	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
@@ -349,6 +350,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
                          $(OPT_ID) $(OPT_FILE) $(OPT_ID)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
+	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 

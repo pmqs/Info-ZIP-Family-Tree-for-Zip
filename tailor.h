@@ -349,14 +349,21 @@ IZ_IMP char *mktemp();
  * (differently) when <locale.h> is read later.
  */
 #ifdef UNICODE_SUPPORT
-#  if defined( UNIX) || defined( VMS)
-#    include <locale.h>
-#    ifndef NO_NL_LANGINFO
-#      include <langinfo.h>
-#    endif
-#  endif /* defined( UNIX) || defined( VMS) */
+# include <stdlib.h>
+# ifdef HAVE_WCHAR_H
 #  include <wchar.h>
 #  include <wctype.h>
+# endif
+# ifndef _MBCS  /* no need to include <locale.h> twice, see below */
+#  include <locale.h>
+# endif
+/* Desperate attempt to deal with a missing iswprint() (SunOS 4.1.4). */
+# ifdef NO_ISWPRINT
+#  define iswprint(x) isprint(x)
+# endif
+# ifndef NO_NL_LANGINFO
+#  include <langinfo.h>
+# endif
 #endif /* def UNICODE_SUPPORT */
 
 #ifdef _MBCS

@@ -4503,16 +4503,116 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  6. If INCLUDE_LZMA_AS_SOURCE defined then include zip.h as ../zip.h.  Add
     INCLUDE_LZMA_AS_SOURCE to VC 6 project file.  lzma/LzmaEnc.c,
     lzma/SzFile.c, lzma/SzFile.h (EG)
- 7. Change compressed_size from UInt64 to zoff_t.  lzma/LzmaEnc.c,
-    lzma/LzmaEnc.h (SMS)
- 8. Change <> to "" for aes_wg/aes.h and lzma/LzmaEnc.h includes.  Add
+ 7. Change compressed_size from UInt64 to zoff_t.  lzma/LzmaEnc.c (SMS)
+ 8. Formatting changes.  lzma/LzmaEnc.h (SMS)
+ 9. Change <> to "" for aes_wg/aes.h and lzma/LzmaEnc.h includes.  Add
     typedef int zoff_t to LZMA test.  unix/configure (SMS)
- 9. Change 7zFile to SzFile.  unix/Makefile (SMS)
-10. VMS updates for LZMA and AEG_WG.  vms/build_zip.com,
+10. Change 7zFile to SzFile.  unix/Makefile (SMS)
+11. VMS updates for LZMA and AEG_WG.  vms/build_zip.com,
     vms/descrip_deps.mms, vms/descrip_src.mms, vms/install_vms.txt (SMS)
-11. Initial updates to VC 6 project for compiling LZMA.  win32/vc6aes (EG)
--------------------- August XXnd 2011 version 3.1dXX -----------------------
- x. In the VMS CLI, /ZIP64 is now negatable (/[NO]ZIP64), like -fz, and
-    the help is now less inaccurate.  vms/cmdline.c, vms/zip_cli.cld,
+12. Initial updates to VC 6 project for compiling LZMA.  win32/vc6aes (EG)
+-------------------- September 18th 2011 version 3.1d20 -----------------------
+ 1. Add section on LZMA compression to installation procedures.  Minor
+    formatting changes.  INSTALL (SMS)
+ 2. Change install_vms.txt to INSTALL_VMS.txt.  bzip2/install.txt (SMS)
+ 3. Move zip.h include before other includes so port settings are available.
+    lzma/LzmaEnc.c (SMS)
+ 4. In the VMS CLI, /ZIP64 is now negatable (/[NO]ZIP64), like -fz, and
+    the help is now less inaccurate.  Add VMS support for new -sF (-sf list
+    output contents) option.  vms/cmdline.c, vms/zip_cli.cld,
     vms/zip_cli.help (SMS)
- x. Rename vms/install_vms.txt to vms/INSTALL_VMS.txt.  INSTALL (SMS)
+ 5. Add section on LZMA compression.  vms/install_vms.txt (SMS)
+ 6. Minor change in LZMA description.  vms/zip_cli.help (EG)
+ 7. Include <mbstr.h> if HAVE_MBSTR_H is defined.  Only define MBSCHR()
+    and MBSRCHR() if not already defined.  tailor.h (AD)
+ 8. Restructure unix build; restructure, document, reorganize; recognize IBM
+    compilers (z/OS, z/VM, AIX, Linux. iSeries); recognize z/OS system (uname
+    -I variant); add $PROD/flags_bz to support BZip2 compilation; support
+    build with system zlib or zlib in zip source tree; support man page and
+    doc (plain text versions of man pages) generation; redirect man page
+    output to a new manl directory; extensively add symbols defining various
+    build variables; generate BINDIR, BINPERMS, MANEXR, MANDIR, MANPERMS
+    flags; generate -Tascii man page nroff option; rename flags like CFLAGS to
+    CF to match how UnZip names them; add UnZip flags so that the same basic
+    stripts can be used for UnZip as well with less modification; define
+    OSDEP_xx flags for OS dependent source and object files; update assembler
+    sections; add flags for extensions of executables (PGMEXT) and DLLs
+    (DLLEXT); add flags for RANLIB, RM, LN, and AR (required by IBMLXC for AIX
+    64-bit compiles); update library dependencies for AES_WG, LZMA, BZIP2, and
+    ZLIB; add AF for assembler flags; support compiler listing options; make
+    cleanup consistent between Zip and UnZip; make all targets explicit for
+    portability; on z/OS and AIX (XL C) use CC=c89; change to UnZip
+    nl_langinfo() test; add tests for sys/param.h, sys/time.h, sys/timeb.h,
+    and utime.h; set z/OS linker flags; add PORT param to unix/configure; add
+    -DBZ_NO_STUDIO to BZip2 build so BZip2 configured correctly for use; add
+    -D_FILE_OFFSET_BITS=64 and -D_LARGE_FILES to BZip2 build if large files
+    enabled; add -Wc,'target(zOSV1R10)' to support that oldest supported
+    release; add -D_XOPEN_SOURCE and -D_XOPEN_SOURCE_EXTENDED=1; eliminate
+    extraneous trailing white space; generate -DHAVE_WCHAR_H if check finds
+    <wchar.h>; for flags_bz, AR value omits cq flag (in Makefile); and update
+    Makefile "all", "help", and "list" targets.  unix/configure,
+    unix/Makefile (AD)
+ 9. Correct z/OS build script options parsing.  zos/zcc, zos/zld (AD)
+10. Add z/OS wrapper script for C preprocessor tests.  zos/zccp (AD)
+11. #include <mbstr.h> if HAVE_MBSTR_H is defined.  tailor.h (AD)
+12. Change manl to manout as the man output directory (as manl could be
+    confused with man1); minor documentation updates; output plain text
+    man pages to top directory for backward consistency; other minor changes.
+    unix/configure; unix/Makefile (EG)
+13. Add note about GETNAM_MAX.  Add GETNAM_MAX error if name too long.
+    fileio.c (EG)
+14. Add note about LZMA compression.  Rename install_vms.txt to
+    INSTALL_VMS.txt. (SMS, EG)
+15. Update readme for zcrypt 2.9 used to add traditional encryption to old
+    releases.  readme.cr (EG)
+16. Add initial attempt at incremental archive option -DI by adding new list
+    apath_list and pointer last_apath, adding add_apath() to add a path to the
+    linked list, add read_inc_file() to read in entries from an incremental
+    archive.  This option is unfinished and should not be run.
+    zip.c, zip.h, zipfile.c (EG)
+17. Add additional clarification of use of two-character options to extended
+    help.  zip.c (EG)
+18. Add lzma_opt_ver and crypt_opt_ver for LZMA and CRYPT version information
+    to be consistent.  zip.c (EG)
+19. Add new option --show-parsed-command (no short option) to show the command
+    line after get_option() parses it.  zip.c, zip.h (EG)
+20. Add option -cd to change root zipping directory, but not yet implemented.
+    zip.c (EG)
+21. Add initial implementation of -@@ option that reads names the same as -@,
+    but from the given file instead of stdin.  Define o_atat for the option
+    and add names_from_file to flag if names are being added from a file using
+    -@@.  Names are read in while the option is being processed, but names are
+    not processed until the command line is processed.  Update extended help
+    for -@ and -@@.  Modify command line check to allow --show-files to show
+    names read in from -@@ files.  zip.c (EG)
+22. Move some of the command line checks earlier where possible so Zip can
+    exit sooner if there is a problem.  zip.c (EG)
+23. Always define _7ZIP_ST to allow combining of projects in MS VC.
+    zip.h (EG)
+24. Change messages from suggesting -fz- to suggesting --force-zip64- to avoid
+    short option misinterpretations.  (Plan is to add a workaround to avoid
+    this situation in the next beta.)  zipfile.c (EG)
+25. Update PKZip licensed feature note.  Add CRYPT_AES_WG note.
+    zipfile.c (EG)
+26. Move zip.h include above other includes.  lzma/lzmaenc.c (SMS)
+27. Add ifndef ZLIB_H to prevent redefinition of Byte.  lzma/types.h,
+    lzma/orig/types.h (SMS)
+28. Add NO and USIZE in /SHOW.  vms/cmdline.c, vms/zip_cli.cld,
+    vms/zip_cli.help (SMS)
+29. Minor updates.  Add LZMA compression description.
+    vms/INSTALL_VMS.txt (SMS)
+30. Add LZMA compression to help.  vms/zip_cli.help (SMS)
+31. Update help to note that LZMA compression currently does not switch over
+    to store if a file does not compress.  Update help to note that -fz-
+    (--force-zip64-) prevents the use of Zip64 and zip will exit with an error
+    if Zip64 is actually needed.  vms/zip_cli.help (EG)
+32. Add LZMA Debug and Release targets.  win32/vc6/zip.dsp,
+    win32/vc6aes/zip.dsp (EG)
+33. Update README.  README (EG)
+-------------------- September xxth 2011 version 3.1d21 -----------------------
+ x. Added zlib LIBZ.OLB to LINK commands for utility programs which
+    couldn't find CRC32 when using zlib.  vms/descrip.mms (SMS)
+ x. Added conditional definition of new HAVE_WCHAR_H macro.  vms/osdep.h (SMS)
+ x. Revised some Unicode-related conditions to accommodate SunOS 4.1.4.
+    tailor.h (SMS)
+ x. Added some type casts for old (char*) malloc().  zip.c  (SMS)

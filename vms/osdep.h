@@ -167,6 +167,12 @@ extern int strncasecmp( char *, char *, size_t);
 #endif /* def HAVE_STRCASECMP [else] */
 
 
+/* UNICODE.  (Still in the dream stage.) */
+#if __CRTL_VER >= 60200000
+# define HAVE_WCHAR_H
+#endif
+
+
 /* Accommodation for /NAMES = AS_IS with old header files. */
 
 # define cma$tis_errno_get_addr CMA$TIS_ERRNO_GET_ADDR
