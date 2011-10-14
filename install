@@ -111,6 +111,9 @@ Installation on Unix (see below for installation on other systems)
      Among the special systems are Cray Unicos, Zilog Zeus, and MINIX.
      (See unix/Makefile for the complete list of targets.)
 
+     On HP-UX, a problem in the C run-time library may need special
+     attention.  See below for details.
+
      The optimization settings for many systems should be reasonable,
      but if you find that optimization for your system is not ideal,
      please tell us what to change to improve it.
@@ -122,6 +125,26 @@ Installation on Unix (see below for installation on other systems)
      your Unix system, then your system apparently has specific
      requirements we did not account for.  See the file README for how
      to get help.
+
+  HP-UX Special Note:
+
+     Some versions of HP-UX may have a defective mkstemp(), which can lead
+     to run-time error messages like:
+          zip I/O error: File too large
+          zip error: Output file write failure (write error on zip file)
+     for large (>2GB) archives.  
+
+     The problem has been observed on HP-UX version 11.11 (PA-RISC). and
+     not on 11.31 (IA64).  A discussion may be available at:
+          http://h30499.www3.hp.com/t5/x/x/m-p/4166878
+
+     For proper operation on systems with the defective mkstemp(), the C
+     macro NO_MKSTEMP must be specified during the Zip build.  For example:
+          make -f unix/makefile LOCAL_ZIP="-DNO_MKSTEMP" generic
+ 
+     We suspect that 11.31 and later (on either hardware architecture) are
+     always ok, and anything earlier is always bad, but HP may know more
+     than we do.
 
 
      bzip2 Compression
@@ -466,6 +489,11 @@ Compiler Flags
   NO_CRYPT
     Disable traditional zip encryption capability.  (NO_CRYPT also
     overrides CRYPT_AES_WG, and disables AES_WG encryption.)
+
+  NO_MKSTEMP
+    On Unix systems, the zip temporary file is normally created using mkstemp()
+    rather than mktemp().  NO_MKSTEMP reverts this to using mktemp().
+
 
 For command help on any of the zip* utilities, simply enter
 the name with no arguments.
