@@ -1,6 +1,6 @@
 #==============================================================================
 # unix/Makefile
-# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 13 Oct 2011
+# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 08 Jan 2012
 #==============================================================================
 
 # INSTRUCTIONS (such as they are):
@@ -53,6 +53,10 @@
 #
 # LZMA compression - If you want LZMA compression support included, set the
 #   "make" macro LZMA to 1.  See the files README_LZMA.txt and INSTALL for
+#   more information.
+#
+# PPMd compression - If you want PPMd compression support included, set the
+#   "make" macro PPMD to 1.  See the files README_LZMA.txt and INSTALL for
 #   more information.
 #
 # Bzip2 compression - If you want bzip2 compression support included, there
@@ -131,6 +135,7 @@ help:
 	@echo '    "CC=gcc"          Use "gcc" instead of "cc" for C compiler'
 	@echo '    "AES_WG=1"        Add AES encryption (WinZip/Gladman)'
 	@echo '    "LZMA=1"          Add LZMA compression'
+	@echo '    "PPMD=1"          Add PPMd compression'
 	@echo '    "IZ_BZIP2=bz2dir" Add BZIP2 compression from dir bz2dir'
 	@echo '    "IZ_ZLIB=zdir"    Use ZLIB from dir zdir for deflate'
 	@echo '    "LOCAL_ZIP=opts"  Add C compiler options and macro defines'
@@ -211,15 +216,21 @@ MAKEF = '-f unix/Makefile'
 
 # Build Dependencies for make
 # - Contains archive library name, if enabled
-LIB_AES_WG  =                          # AES (WinZip/Gladman) encryption
-LIB_LZMA    =                          # LZMA compression
-LIB_BZ      =                          # BZIP2 compression
-LIB_Z       =                          # ZLIB compression
+#    AES (WinZip/Gladman) encryption
+#    LZMA compression
+#    PPMd compression
+#    BZIP2 compression
+#    ZLIB compression
+LIB_AES_WG  =
+LIB_LZMA    =
+LIB_PPMD    =
+LIB_BZ      =
+LIB_Z       =
 
-# Build makefiles
-MK_BZ   = Makefile                     # BZIP2 compression
+# Build makefiles: bzip2 compression
+MK_BZ   = Makefile
 
-# OS Dependent files
+# OS-dependent files
 # - Default:  Unix port.
 # - Compilation and execution are both for Unix (or a Unix-like) environment.
 #   The files in the Zip root and unix directories are used.
@@ -227,32 +238,38 @@ MK_BZ   = Makefile                     # BZIP2 compression
 #   do not have to ever worry about this.
 # - Where required by a specific Zip port, a generic target (in this Makefile
 #   or a Makefile located in another port directory) uses the PORT macro to
-#   set the correct OS dependent files via unix/configure.  Or you can (very
+#   set the correct OS-dependent files via unix/configure.  Or you can (very
 #   carefully) override as required.
-OSDEP_H  = unix/osdep.h                # OS dep C header files
-OSDEP_OC = ./unix.o                    # OS dep C object files
-OSDEP_OS =                             # OS dep Assembler object files
+#    C header files
+#    C object files
+#    Assembler object files
+OSDEP_H  = unix/osdep.h
+OSDEP_OC = ./unix.o
+OSDEP_OS =
 
 # OS-dependent file extensions
 # - This default may be customized by unix/configure based on PORT
-PGMEXT =                               # Executable programs
-DLLEXT = .so                           # DLL (.so) (currently not used)
-MANEXT = .1                            # man page
+#    Executable programs
+#    DLL (.so) (currently not used)
+#    man page
+PGMEXT =
+DLLEXT = .so
+MANEXT = 1
 
-# OS-dependent installation directories
+# OS-dependent installation directories: executables and man pages
 # - This default may be customized by unix/configure based on PORT
-BINDIR = /usr/local/bin                # Where to install executables
-MANDIR = /usr/local/man/man$(MANEXT)   # where to install man pages
+BINDIR = /usr/local/bin
+MANDIR = /usr/local/man/man$(MANEXT)
 
-# OS-dependent installation file permissions
+# OS-dependent installation file permissions: executables and man pages
 # - This default may be customized by unix/configure based on PORT
-BINPERMS = 755                         # Executable programs
-MANPERMS = 644                         # man pages
+BINPERMS = 755
+MANPERMS = 644
 
-# C compiler
+# C compiler and flags: core and bzip2
 # - CC and LD must match, else "unresolved symbol:  ___main" is possible.
-CC     = cc                            # C compiler name (core components)
-CC_BZ  = $(CC)                         # C compiler name (BZIP2 components)
+CC     = cc
+CC_BZ  = $(CC)
 
 CF_NOOPT = -I. -DUNIX $(LOCAL_ZIP)
 CFLAGS = -O
@@ -260,22 +277,22 @@ CF     = $(CFLAGS) $(CF_NOOPT)         # C compiler flags (core components)
 CF_BZ  = $(CF)                         # C compiler flags (BZIP2 components)
 
 # C preprocessor
-CPP    = $(CC) -E                      # C preprocessor name
+CPP    = $(CC) -E
 
-# Assembler
-AS     = as                            # Assembler name
-AF     = $(LOCAL_ZIP)                  # Assembler flags
+# Assembler and assembler flags
+AS     = as
+AF     = $(LOCAL_ZIP)
 
-# Linker
+# Linker and linker flags (early and late)
 # - CC and LD must match, else "unresolved symbol:  ___main" is possible)
-LD     = $(CC)                         # Linker name
-LF1    =                               # Linker options, part 1
-LF2    = -s                            # Linker options, part 2
+LD     = $(CC)
+LF1    =
+LF2    = -s
 
 # Other utility programs
 AR     = ar cq
 CHMOD  = chmod
-LN     = ln -s                         # Create symbolic link
+LN     = ln
 RANLIB = ranlib
 RM     = rm -f
 SHELL  = /bin/sh
@@ -290,7 +307,7 @@ ACONF_DEP =
 #  Build configuration:  header files
 #----------------------------------------------------------------------------
 
-# OSDEP_H is port dependent and can be updated by unix/configure
+# OSDEP_H is port-dependent and can be updated by unix/configure
 
 # C header files: zip
 H_ZIP    = zip.h            \
@@ -311,17 +328,20 @@ H_AES    = aes_wg/aes.h     \
 # C header files: LZMA compression
 H_LZMA   = lzma/SzFile.h    \
            lzma/SzVersion.h \
-           lzma/Alloc.h     \
            lzma/LzFind.h    \
            lzma/LzHash.h    \
            lzma/LzmaEnc.h   \
            lzma/Types.h
 
+# C header files: PPMd compression
+H_PPMD   = lzma/Ppmd.h      \
+           lzma/Ppmd8.h
+
 #----------------------------------------------------------------------------
 #  Build configuration:  object files
 #----------------------------------------------------------------------------
 
-# OSDEP_OC and OSDEP_OS are port dependent and can be updated by unix/configure
+# OSDEP_OC and OSDEP_OS are port-dependent and can be updated by unix/configure
 
 # object files: zip
 O_ZIP    = zip.o       \
@@ -398,9 +418,12 @@ O_AES    = aescrypt.o \
 
 # object files: LZMA compression
 O_LZMA   = SzFile.o   \
-           Alloc.o    \
            LzFind.o   \
            LzmaEnc.o
+
+# object files: PPMd compression
+O_PPMD   = Ppmd8.o   \
+           Ppmd8Enc.o
 
 # object files: ZLIB compression
 # - N/A. ZLIB is not built as part of Zip
@@ -412,11 +435,14 @@ O_LZMA   = SzFile.o   \
 # object archive: AES (WinZip/Gladman) encryption
 AR_AES  = libaes.a
 
+# object archive: BZIP2 compression
+AR_BZ   = bzip2/libbz2.a
+
 # object archive: LZMA compression
 AR_LZMA = liblzma.a
 
-# object archive: BZIP2 compression
-AR_BZ   = bzip2/libbz2.a
+# object archive: PPMd compression
+AR_PPMD = libppmd.a
 
 # object archive: ZLIB compression
 AR_Z    = zlib/libz.a
@@ -437,10 +463,10 @@ ZIP_PGMS   = $(PGM_ZIP)   \
 #----------------------------------------------------------------------------
 #  Build configuration:  Manuals
 #----------------------------------------------------------------------------
-MAN_ZIP    = manout/zip$(MANEXT)
-MAN_CLOAK  = manout/zipcloak$(MANEXT)
-MAN_NOTE   = manout/zipnote$(MANEXT)
-MAN_SPLIT  = manout/zipsplit$(MANEXT)
+MAN_ZIP    = manout/zip.$(MANEXT)
+MAN_CLOAK  = manout/zipcloak.$(MANEXT)
+MAN_NOTE   = manout/zipnote.$(MANEXT)
+MAN_SPLIT  = manout/zipsplit.$(MANEXT)
 
 ZIP_MANS   = $(MAN_ZIP)   \
              $(MAN_CLOAK) \
@@ -642,14 +668,22 @@ sha1.o:     aes_wg/sha1.c     $(H_AES)
 SzFile.o:   lzma/SzFile.c     $(H_LZMA)
 	$(CC) -c $(CF) -o $@ lzma/SzFile.c
 
-Alloc.o:    lzma/Alloc.c      $(H_LZMA)
-	$(CC) -c $(CF) -o $@ lzma/Alloc.c
-
 LzFind.o:   lzma/LzFind.c     $(H_LZMA)
 	$(CC) -c $(CF) -o $@ lzma/LzFind.c
 
 LzmaEnc.o:  lzma/LzmaEnc.c    $(H_LZMA)
 	$(CC) -c $(CF) -o $@ lzma/LzmaEnc.c
+
+
+#----------------------------------------------------------------------------
+
+# C Compile rules: PPMd compression
+
+Ppmd8.o:  lzma/Ppmd8.c          $(H_PPMD)
+	$(CC) -c $(CF) -o $@ lzma/Ppmd8.c
+
+Ppmd8Enc.o:  lzma/Ppmd8Enc.c    $(H_PPMD)
+	$(CC) -c $(CF) -o $@ lzma/Ppmd8Enc.c
 
 
 #----------------------------------------------------------------------------
@@ -718,6 +752,15 @@ $(AR_LZMA): $(O_LZMA)
 	-$(RANLIB) liblzma.a
 
 
+# Object archive rule: PPMd compression
+
+$(AR_PPMD): $(O_PPMD)
+	@echo 'Building/updating PPMd object library...'
+	-$(RM) libppmd.a
+	$(AR) libppmd.a $(O_PPMD)
+	-$(RANLIB) libppmd.a
+
+
 # Object archive rule: BZIP2 compression
 
 $(AR_BZ):
@@ -750,7 +793,8 @@ $(AR_Z):
 
 # Link rule: zip
 
-$(PGM_ZIP): $(O_ZIP) $(LIB_AES_WG) $(LIB_LZMA) $(LIB_BZ) $(LIB_Z)
+$(PGM_ZIP): $(O_ZIP) $(LIB_AES_WG) $(LIB_BZ) $(LIB_LZMA) \
+            $(LIB_PPMD) $(LIB_Z)
 	$(LD) -o $@ $(LF1) $(O_ZIP) $(LF2)
 
 
@@ -848,6 +892,7 @@ flags: unix/configure
 	        "CFLAGS=${CF_NOOPT}" \
 	        "AES_WG=${AES_WG}" \
 	        "LZMA=${LZMA}" \
+	        "PPMD=${PPMD}" \
 	        "IZ_BZIP2=${IZ_BZIP2}" \
 	        "IZ_ZLIB=${IZ_ZLIB}"
 
@@ -909,7 +954,7 @@ install: zips manuals
 	$(INSTALL_PROGRAM) $(ZIP_PGMS) $(BINDIR)
 	-cd $(BINDIR); $(CHMOD) $(BINPERMS) $(ZIP_PGMS)
 	-$(INSTALL_D) $(MANDIR)
-	$(INSTALL) $(UNZIP_MANS) $(MANDIR)
+	$(INSTALL) $(ZIP_MANS) $(MANDIR)
 	$(CHMOD) $(BINPERMS) $(INSTALLEDBIN)
 	$(CHMOD) $(MANPERMS) $(INSTALLEDMAN)
 

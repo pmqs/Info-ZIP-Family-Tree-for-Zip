@@ -21,8 +21,8 @@
 #define Z_PATCHLEVEL 0
 #define Z_BETALEVEL "d BETA"
 
-#define VERSION "3.1d13 BETA"
-#define REVDATE "Jul 6th 2011"
+#define VERSION "3.1d21 BETA"
+#define REVDATE "Sep 22nd 2011"
 
 /* Setting these to the Zip version seems a waste, as the version
    structure already tells the user the Zip version through Z_MAJORVER,
@@ -59,7 +59,11 @@ extern ZCONST char * far cryptnote[7];
 #else /* ndef DEFCPYRT */
 
 ZCONST char *copyright[] = {
+# ifdef VMS
 "Copyright (c) 1990-2011 Info-ZIP - Type '%s \"-L\"' for software license."
+# else /* def VMS */
+"Copyright (c) 1990-2011 Info-ZIP - Type '%s -L' for software license."
+# endif /* def VMS [else] */
 /* XXX still necessary ???? */
 #ifdef AZTEC_C
 ,        /* extremely lame compiler bug workaround */

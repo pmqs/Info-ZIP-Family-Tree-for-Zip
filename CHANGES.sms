@@ -1,0 +1,40 @@
+-------------------- November 7th 2011 version 3.1dxx -----------------------
+ 1. Added C macro CRYPT_TRAD (defined in crypt.h according to
+    CRYPT/NO_CRYPT and NO_TRADITIONAL_CRYPT) to control traditional-only
+    encryption code.  crypt.c, crypt.h, zip.c, zipup.c (SMS)
+ 2. Changed NO_TRADITIONAL_CRYPT processing to make defining
+    NO_TRADITIONAL_CRYPT with no other (AES_WG) encryption enabled
+    equivalent to defining NO_CRYPT.  zip.h (SMS)
+ 3. Reformed the error message emitted when ZipCloak is built without any
+    encryption support.  Writing the message to an uninitialized-variable
+    file pointer ("mesg") tended to cause the message to be lost, possibly
+    with a program failure ("Segmentation fault (core dumped)").  Made the
+    NO_CRYPT dummy functions/variables (which are unnecessary on VMS)
+    conditional on the OS.  Added dummy functions for rename_split(),
+    set_filetype(), zipmessage(), zipmessage_nl().  Trimmed unused
+    content from options[].  Changed the NO_CRYPT exit status from 1 to
+    ZE_COMPERR.  Changed the "ZipCloak special compilation options" list
+    in in the "-v" report to show accurate encryption options, plus
+    LARGE_FILE_SUPPORT and ZIP64_SUPPORT, as appropriate.  Changed the
+    "-h" help text for the "-Y" option to show only the excryption methods
+    enabled in the program as built.  zipcloak.c (SMS)
+ 4. Changed copyright[] text to quote "-L" only on VMS.  revision.h (SMS)
+ 5. Changed open-fail "zip warning:" message to include the file name, even
+    when "-q" is in effect.  New function: zipwarn_unc().  zip.c (SMS)
+ 6. Changed VMS builders to avoid explicit LINK /INCLUDE, to avoid case
+    problems with CC /NAMES = AS_IS.  Added VMS-specific globals_dummy() to
+    globalc.c, and references to it in main programs, zip.c, zipcloak.c,
+    zipnote.c, zipsplit.c to get the globals module linked in.  The
+    rearrangement of the LINK commands also obviates the bzip2-related
+    LINK /INCLUDE module (INCL_BZIP2_M = ZBZ2ERR) which has been removed.
+    vms/build_zip.com, vms/descrip.mms, vms/descrip_src.mms (SMS)
+ 7. Changed VMS file I/O details to cope better with input files having
+    record format Stream or Stream_CR, and long records.  Previously,
+    errors like the following could occur:
+      zip warning: non-translatable vms error code: 0x181A8
+      %rms-w-rtb, !ul byte record too large for user's buffer
+              zip warning: could not open for reading: LONG_REC.DAT
+    Or, using DECnet access, the similar:
+      zip warning: non-translatable vms error code: 0x183A2
+      %rms-e-netbts, network buffer too small for !ul byte record
+    vms/vms.c, vms/zipup.h (SMS)

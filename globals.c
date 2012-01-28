@@ -129,6 +129,8 @@ int copy_only = 0;            /* 1=copying archive entries only */
 int allow_fifo = 0;           /* 1=allow reading Unix FIFOs, waiting if pipe open */
 int show_files = 0;           /* show files to operate on and exit (=2 log only) */
 
+int sf_usize = 0;             /* include usize in -sf listing */
+
 int output_seekable = 1;      /* 1 = output seekable 3/13/05 EG */
 
 #ifdef ZIP64_SUPPORT          /* zip64 support 10/4/03 */
@@ -143,9 +145,8 @@ char *key = NULL;             /* Scramble password if scrambling */
 int encryption_method = 0;    /* See definitions in zip.h */
 ush aes_vendor_version;
 uch aes_strength;
-ush comp_method = 0;          /* Compression method */
 int force_ansi_key = 1;       /* Only ANSI characters for password (32 - 126) */
-#ifdef CRYPT_AES
+#ifdef CRYPT_AES_WG
   int key_size = 0;
   fcrypt_ctx zctx;
   unsigned char *zpwd;
@@ -154,6 +155,16 @@ int force_ansi_key = 1;       /* Only ANSI characters for password (32 - 126) */
   unsigned char zpwd_verifier[PWD_VER_LENGTH];
 
   prng_ctx aes_rnp;           /* the context for the random number pool */
+  unsigned char auth_code[20]; /* returned authentication code */
+#endif
+
+#ifdef CRYPT_AES_WG_NEW
+  int key_size = 0;
+  ccm_ctx aesnew_ctx;
+  unsigned char *zpwd;
+  int zpwd_len;
+  unsigned char *zsalt;
+  unsigned char zpwd_verifier[PWD_VER_LENGTH];
   unsigned char auth_code[20]; /* returned authentication code */
 #endif
 
@@ -179,6 +190,7 @@ FILE *mesg;             /* stdout by default, stderr for piping */
 char **args = NULL;     /* Copy of argv that can be updated and freed */
 
 char *path_prefix = NULL; /* Prefix to add to all new archive entries */
+int path_prefix_mode = 0; /* 0=Prefix all paths, 1=Prefix only added/updated paths */
 
 int all_ascii = 0;      /* Skip binary check and handle all files as text */
 
@@ -265,6 +277,13 @@ char *entry_name = NULL;           /* used by DLL to pass z->zname to file_read(
 #endif
 int show_what_doing = 0;           /* show what doing */
 
+/* For user-triggered progress reports. */
+#ifdef ENABLE_USER_PROGRESS
+int u_p_phase = 0;
+char *u_p_task = NULL;
+char *u_p_name = NULL;
+#endif /* def ENABLE_USER_PROGRESS */
+
 #ifdef WIN32
   int nonlocal_name = 0;          /* Name has non-local characters */
   int nonlocal_path = 0;          /* Path has non-local characters */
@@ -304,3 +323,19 @@ unsigned Rcount = 0;            /* number of -R include patterns */
 #ifdef IZ_CHECK_TZ
 int zp_tz_is_valid;     /* signals "timezone info is available" */
 #endif
+
+/* 2011-12-04 SMS.
+ *
+ * Old VMS versions (V5.4 with VAX C V3.1-051, for example) may need
+ * help to get this stuff linked in.  Using LINK /INCLUDE = GLOBALS
+ * would work, except when compiling with CC /NAMES = AS_IS, and the
+ * module name "GLOBALS" becomes "globals".  Adding this useless
+ * function seems to solve the problem without requiring a right-case
+ * LINK /INCLUDE option.  (See also zip.c, where it's referenced.)
+ */
+#ifdef VMS
+void globals_dummy( void)
+{
+    int dmy = 0;
+}
+#endif /* def VMS */

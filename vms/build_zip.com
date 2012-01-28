@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2011-08-15  SMS.
+$!     Last revised:  2012-01-07  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -37,6 +37,7 @@ $!       The BZIP2 object library (LIBBZ2_NS.OLB) is expected to be in
 $!       a "[.dest]" directory under that one ("dev:[dir.ALPHAL]", for
 $!       example), or in that directory itself.
 $!     - select LZMA compression support: "LZMA"
+$!     - select PPMd compression support: "PPMD"
 $!     - use ZLIB compression library: "IZ_ZLIB=dev:[dir]", where
 $!       "dev:[dir]" (or a suitable logical name) tells where to find
 $!       "zlib.h".  The ZLIB object library (LIBZ.OLB) is expected to be
@@ -149,6 +150,7 @@ $ LINKOPTS = "/notraceback"
 $ LISTING = " /nolist"
 $ LARGE_FILE = 0
 $ LZMA = 0
+$ PPMD = 0
 $ MAKE_EXE = 1
 $ MAKE_HELP = 1
 $ MAKE_MSG = 1
@@ -242,6 +244,12 @@ $!
 $     if (curr_arg .eqs. "NOMSG")
 $     then
 $         MAKE_MSG = 0
+$         goto argloop_end
+$     endif
+$!
+$     if (f$extract( 0, 4, curr_arg) .eqs. "PPMD")
+$     then
+$         PPMD = 1
 $         goto argloop_end
 $     endif
 $!
@@ -419,7 +427,6 @@ $! If BZIP2 support was selected, find the object library.
 $! Complain if things fail.
 $!
 $ cc_incl = "[], [.VMS]"
-$ incl_bzip2_m = ""
 $ lib_bzip2_opts = ""
 $ if (IZ_BZIP2 .nes. "")
 $ then
@@ -438,7 +445,6 @@ $         then
 $             say "Can't find BZIP2 object library.  Can't link."
 $             goto error
 $         else
-$             incl_bzip2_m = ", ZBZ2ERR"
 $             lib_bzip2_opts = "lib_bzip2:''bz2_olb' /library, "
 $         endif
 $     endif
@@ -477,6 +483,21 @@ $ if (LZMA .ne. 0)
 $ then
 $     defs = defs+ ", LZMA_SUPPORT, _7ZIP_ST"
 $     if (arch .eqs. "VAX")
+$     then
+$         defs = defs+ ", _SZ_NO_INT_64"
+$     endif
+$ endif
+$!
+$! Set PPMd-related data.
+$!
+$ if (PPMD .ne. 0)
+$ then
+$     defs = defs+ ", PPMD_SUPPORT"
+$     if (LZMA .eq. 0)
+$     then
+$         defs = defs+ ", _7ZIP_ST"
+$     endif
+$     if ((arch .eqs. "VAX") .and. (LZMA .eq. 0))
 $     then
 $         defs = defs+ ", _SZ_NO_INT_64"
 $     endif
@@ -661,10 +682,15 @@ $     endif
 $!
 $     if (LZMA .ne. 0)
 $     then
-$         cc 'DEF_UNX' /object = [.'dest']7ZFILE.OBJ [.LZMA]7ZFILE.C
-$         cc 'DEF_UNX' /object = [.'dest']ALLOC.OBJ [.LZMA]ALLOC.C
 $         cc 'DEF_UNX' /object = [.'dest']LZFIND.OBJ [.LZMA]LZFIND.C
 $         cc 'DEF_UNX' /object = [.'dest']LZMAENC.OBJ [.LZMA]LZMAENC.C
+$         cc 'DEF_UNX' /object = [.'dest']SZFILE.OBJ [.LZMA]SZFILE.C
+$     endif
+$!
+$     if (PPMD .ne. 0)
+$     then
+$         cc 'DEF_UNX' /object = [.'dest']PPMD8.OBJ [.LZMA]PPMD8.C
+$         cc 'DEF_UNX' /object = [.'dest']PPMD8ENC.OBJ [.LZMA]PPMD8ENC.C
 $     endif
 $!
 $! Create the object library.
@@ -705,9 +731,15 @@ $     if (LZMA .ne. 0)
 $     then
 $         libr /object /replace [.'dest']UNZIP.OLB -
            [.'dest']7ZFILE.OBJ, -
-           [.'dest']ALLOC.OBJ, -
            [.'dest']LZFIND.OBJ, -
            [.'dest']LZMAENC.OBJ
+$     endif
+$!
+$     if (PPMD .ne. 0)
+$     then
+$         libr /object /replace [.'dest']UNZIP.OLB -
+           [.'dest']PPMD8.OBJ, -
+           [.'dest']PPMD8ENC.OBJ
 $     endif
 $!
 $ endif
@@ -729,9 +761,9 @@ $! Link the executable.
 $!
 $     link /executable = [.'dest']'ZIPX_UNX'.EXE -
        SYS$DISK:[.'dest']ZIP.OBJ, -
-       SYS$DISK:[.'dest']ZIP.OLB -
-       /include = (GLOBALS 'incl_bzip2_m') /library, -
+       SYS$DISK:[.'dest']ZIP.OLB /library, -
        'lib_bzip2_opts' -
+       SYS$DISK:[.'dest']ZIP.OLB /library, -
        'lib_zlib_opts' -
        'opts' -
        SYS$DISK:[.'dest']ZIP.OPT /options
@@ -786,9 +818,9 @@ $!
 $     link /executable = [.'dest']'ZIPX_CLI'.EXE -
        SYS$DISK:[.'dest']ZIPCLI.OBJ, -
        SYS$DISK:[.'dest']ZIPCLI.OLB /library, -
-       SYS$DISK:[.'dest']ZIP.OLB -
-       /include = (GLOBALS 'incl_bzip2_m') /library, -
+       SYS$DISK:[.'dest']ZIP.OLB /library, -
        'lib_bzip2_opts' -
+       SYS$DISK:[.'dest']ZIP.OLB /library, -
        'lib_zlib_opts' -
        'opts' -
        SYS$DISK:[.'dest']ZIP.OPT /options
@@ -841,9 +873,15 @@ $     if (LZMA .ne. 0)
 $     then
 $         libr /object /replace [.'dest']UNZIP.OLB -
            [.'dest']7ZFILE.OBJ, -
-           [.'dest']ALLOC.OBJ, -
            [.'dest']LZFIND.OBJ, -
            [.'dest']LZMAENC.OBJ
+$     endif
+$!
+$     if (PPMD .ne. 0)
+$     then
+$         libr /object /replace [.'dest']UNZIP.OLB -
+           [.'dest']PPMD8.OBJ, -
+           [.'dest']PPMD8ENC.OBJ
 $     endif
 $!
 $! Compile the Zip utilities main program sources.

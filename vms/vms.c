@@ -27,6 +27,12 @@
  *
  *  3.1         23-apr-2011     SMS
  *      Added entropy_fun() for AES encryption.
+ *              17-nov-2011     SMS
+ *      Added establish_ctrl_t() for user-triggered progress reports.
+ *              05-dec-2011     SMS
+ *      Added vms_fopen() to solve %rms-w-rtb (or %rms-e-netbts for
+ *      DECnet access) errors when zipping Record format: Stream or
+ *      Stream_CR files (without "-V[V]").
  *
  */
 
@@ -37,20 +43,31 @@
 #include "zip.h"
 #include "zipup.h"              /* Only partial. */
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <unixlib.h>            /* getpid().  (<unistd.h> is too new.) */
 
+#include <dcdef.h>
 #include <descrip.h>
 #include <dvidef.h>
 #include <fab.h>                /* Needed only in old environments. */
-#include <nam.h>                /* Needed only in old environments. */
+#include <iodef.h>
 #include <jpidef.h>
 #include <lib$routines.h>
+#include <nam.h>                /* Needed only in old environments. */
 #include <starlet.h>
 #include <ssdef.h>
 #include <stsdef.h>
 #include <syidef.h>
+
+#ifdef ENABLE_USER_PROGRESS
+# include <prdef.h>
+/* Last-ditch attempt to get PR$C_PS_USER defined. */
+# ifndef PR$C_PS_USER
+#  define PR$C_PS_USER 3
+# endif /* ndef PR$C_PS_USER */
+#endif /* def ENABLE_USER_PROGRESS */
 
 /* On VAX, define Goofy VAX Type-Cast to obviate /standard = vaxc.
    Otherwise, lame system headers on VAX cause compiler warnings.
@@ -65,6 +82,8 @@
 #else /* def __VAX */
 # define GVTC
 #endif /* def __VAX */
+
+#define DIAG_FLAG (verbose >= 2)
 
 
 #ifdef UTIL
@@ -105,6 +124,72 @@
 #define NULL (void*)(0L)
 #endif
 
+
+/* 2011-12-04 SMS.
+ *
+ *       vms_fopen().
+ *
+ *    VMS-specific jacket for fopen().
+ *
+ * Formerly, zopen() was defined in [.vms]zipup.h, so:
+ *   #define zopen(n,p)   (vms_native?vms_open(n)    :(ftype)fopen((n), p))
+ * so, when vms_native was zero, fopen() was used directly (with the
+ * "fhow" value which was also defined in [.vms]zipup.h).  This caused
+ * problems ("%rms-w-rtb, !ul byte record too large for user's buffer")
+ * for files with Record Format: Stream or Stream_CR (but,
+ * interestingly, not Stream_LF).
+ *
+ * Now, zopen() is defined in [.vms]zipup.h, so:
+ *   #define zopen(n,p)   (vms_native?vms_open(n)    :vms_fopen(n))
+ * so vms_fopen() (below) is used to specify the exotic arguments for
+ * fopen() (and "fhow" is ignored).
+ *
+ * vms_fopen() uses stat() to get the record format of a file before
+ * opening it.  If stat() works, and the record format is one of the
+ * Stream types, then the file is opened in stream mode ("ctx = stm").
+ * This seems to solve the %RMS-W-RTB problem.
+ *
+ * Changed old non-DEC-C "mbc=60" to DEC-C-default-like "mbc=127".
+ */
+
+#ifdef __DECC
+# define FOPEN_ARGS , "acc", acc_cb, &fhow_id
+#else /* def __DECC */          /* (So, GNU C, VAX C, ...)*/
+# define FOPEN_ARGS , "mbc=127"
+#endif /* def __DECC [else] */
+
+FILE *vms_fopen( char *file_spec)
+{
+    int sts;
+    struct stat stat_buf;
+
+    sts = stat( file_spec, &stat_buf);
+
+    if (DIAG_FLAG)
+    {
+        fprintf( stderr,
+         "vms_fopen(): stat() = %d, rfm = %d.\n",
+         sts, stat_buf.st_fab_rfm);
+    }
+
+    if ((sts == 0) &&
+     ((stat_buf.st_fab_rfm == FAB$C_STM) ||
+     (stat_buf.st_fab_rfm == FAB$C_STMCR) ||
+     (stat_buf.st_fab_rfm == FAB$C_STMLF)))
+    {
+        /* Use stream-mode access ("ctx = stm") for Stream[_xx] files. */
+        return fopen( file_spec, "r", "ctx = stm" FOPEN_ARGS);
+    }
+    else
+    {
+        return fopen( file_spec, "r" FOPEN_ARGS);
+    }
+}
+
+
+/*
+ *       vms_stat().
+ */
 int vms_stat( char *file, stat_t *s)
 {
     int status;
@@ -724,9 +809,9 @@ int device_opcnt_bits( unsigned int *ui)
             sts = lib$getdvi( &((int) DVI$_OPCNT),  /* Item code. */
                               0,                    /* Channel. */
                               &dev_name_ret_descr,  /* Device name. */
-                              &os_info,             /* Result buffer. */
-                              0,                    /* Result length. */
-                              0);                   /* Path name. */
+                              &os_info,             /* Result buffer (int). */
+                              0,                    /* Result string. */
+                              0);                   /* Result string len. */
 
             if ((sts& STS$M_SEVERITY) == STS$K_SUCCESS)
             {
@@ -916,6 +1001,102 @@ int entropy_fun( unsigned char *buf, unsigned int len)
 # endif /* def CRYPT_AES_WG */
 
 
+#ifdef ENABLE_USER_PROGRESS
+
+/* 2011-12-05 SMS.
+ *
+ *       establish_ctrl_t().
+ *
+ *    Establish Ctrl/T handler, if SYS$COMMAND is a terminal.
+ */
+
+int establish_ctrl_t( void ctrl_t_ast())
+{
+    int i;
+    int status;
+    short iosb[ 4];
+
+    int access_mode = PR$C_PS_USER;
+    int dev_class;
+
+/*
+ * Mask bits for Ctrl/x characters.
+ *  Z  Y  X  W  V  U  T  S  R  Q  P O N M L K J I H G F E D C B A sp
+ * 1A 19 18 17 16 15 14 13 12 11 10 F E D C B A 9 8 7 6 5 4 3 2 1  0
+ * -------- ----------- ----------- ------- ------- ------- --------
+ *        0           1           0       0       0       0        0
+ */
+    struct
+    {
+        int mask_size;
+        unsigned int mask;
+    } char_mask = { 0, 0x00100000 };    /* Ctrl/T. */
+
+    $DESCRIPTOR( term_name_descr, "SYS$COMMAND");
+    short term_chan;
+
+    status = sys$assign( &term_name_descr, &term_chan, 0, 0);
+    if ((status& STS$M_SEVERITY) != STS$K_SUCCESS)
+    {
+        fprintf( stderr, " establish_ctrl_t(): $ASSIGN sts =  %%x%08x .\n",
+         status);
+        return status;
+    }
+
+    status = lib$getdvi( &((int)DVI$_DEVCLASS), /* Item code. */
+                         &term_chan,            /* Channel. */
+                         0,                     /* Device name. */
+                         &dev_class,            /* Result buffer (int). */
+                         0,                     /* Result string. */
+                         0);                    /* Result string len. */
+
+    if ((status& STS$M_SEVERITY) != STS$K_SUCCESS)
+    {
+        fprintf( stderr, " establish_ctrl_t(): $GETDVI sts =  %%x%08x .\n",
+         status);
+        sys$dassgn( term_chan);
+        return status;
+    }
+
+    if (dev_class != DC$_TERM)
+    {
+        /* SYS$COMMAND is not a terminal.  (Batch job, for example.)
+         * Harmless, but we can't establish a Ctrl/T handler for it.
+         */
+        sys$dassgn( term_chan);
+        vaxc$errno = ENOTTY;
+        return EVMSERR;
+    }
+
+#define FUN_AST_ENA (IO$_SETMODE| IO$M_OUTBAND)
+					
+    status = sys$qiow( 0,               /* Event flag. */
+                       term_chan,       /* Channel. */
+                       FUN_AST_ENA,     /* Function code. */
+                       &iosb,           /* IOSB. */
+                       0,               /* AST address. */
+                       0,               /* AST parameter. */
+                       ctrl_t_ast,      /* P1 = OOB AST addr. */
+                       &char_mask,      /* P2 = Char mask. */
+                       &access_mode,    /* P3 = Access mode. */
+                       0,               /* P4. */
+                       0,               /* P5. */
+                       0);              /* P6. */
+
+    if ((status& STS$M_SEVERITY) != STS$K_SUCCESS)
+    {
+        fprintf( stderr, " establish_ctrl_t(): $QIOW sts =  %%x%08x .\n",
+         status);
+        sys$dassgn( term_chan);
+    }
+
+    /* If successful, then don't deassign the channel. */
+    return status;
+}
+
+#endif /* def ENABLE_USER_PROGRESS */
+
+
 /* 2004-11-23 SMS.
  *
  *       get_rms_defaults().
@@ -927,8 +1108,6 @@ int entropy_fun( unsigned char *buf, unsigned int len)
  *       rab$b_mbc         multi-block count.
  *       rab$b_mbf         multi-buffer count (used with rah and wbh).
  */
-
-#define DIAG_FLAG (verbose >= 2)
 
 /* Default RMS parameter values. */
 

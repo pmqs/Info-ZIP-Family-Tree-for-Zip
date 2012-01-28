@@ -33,6 +33,11 @@
 #endif
 #ifdef CRYPT_AES_WG
 #  include <time.h>
+#  include "aes_wg/iz_aes_wg.h"
+#endif
+
+#ifdef VMS
+extern void globals_dummy( void);
 #endif
 
 #if CRYPT       /* defined (as TRUE or FALSE) in crypt.h */
@@ -227,7 +232,11 @@ static ZCONST char *help_info[] = {
 "  -O  --output-file file  write output to new zip file, \"file\"",
 #ifdef CRYPT_AES_WG
 "  -Y  --encryption-method em  use encryption method \"em\"",
+#  ifdef CRYPT_TRAD
 "                     Methods: Traditional, AES128, AES192, AES256",
+#  else /* def CRYPT_TRAD */
+"                     Methods: AES128, AES192, AES256",
+#  endif /* def CRYPT_TRAD [else] */
 #endif /* def CRYPT_AES_WG */
 "  -q  --quiet        quiet operation, suppress some informational messages",
 "  -h  --help         show this help",
@@ -255,16 +264,64 @@ local void version_info()
 {
   extent i;             /* counter in text arrays */
 
+  /* AES_WG option string storage (with version). */
+
+#ifdef CRYPT_AES_WG
+  static char aes_wg_opt_ver[81];
+#endif /* def CRYPT_AES_WG */
+
+#ifdef CRYPT_TRAD
+  static char crypt_opt_ver[81];
+#endif
+
   /* Options info array */
   static ZCONST char *comp_opts[] = {
 #ifdef DEBUG
     "DEBUG",
 #endif
+
+#ifdef LARGE_FILE_SUPPORT
+# ifdef USING_DEFAULT_LARGE_FILE_SUPPORT
+    "LARGE_FILE_SUPPORT (default settings)",
+# else
+    "LARGE_FILE_SUPPORT   (can read and write large files on file system)",
+# endif
+#endif
+#ifdef ZIP64_SUPPORT
+    "ZIP64_SUPPORT        (use Zip64 to store large files in archives)",
+#endif
+
+#ifdef CRYPT_TRAD
+    crypt_opt_ver,
+#endif
+
+#if CRYPT_AES_WG
+    aes_wg_opt_ver,
+#endif
+
+#if CRYPT_AES_WG_NEW
+    "CRYPT_AES_WG_NEW     (AES strong encryption (WinZip/Gladman new))",
+#endif
+
 #if CRYPT && defined(PASSWD_FROM_STDIN)
     "PASSWD_FROM_STDIN",
 #endif /* CRYPT && PASSWD_FROM_STDIN */
+
     NULL
   };
+
+#ifdef CRYPT_TRAD
+  sprintf(crypt_opt_ver,
+    "CRYPT                (traditional (weak) encryption, ver %d.%d%s)",
+    CR_MAJORVER, CR_MINORVER, CR_BETA_VER);
+#endif /* CRYPT_TRAD */
+
+  /* Fill in IZ_AES_WG version. */
+#if CRYPT_AES_WG
+  sprintf( aes_wg_opt_ver,
+    "CRYPT_AES_WG         (AES encryption (WinZip/Gladman), ver %d.%d%s)",
+    IZ_AES_WG_MAJORVER, IZ_AES_WG_MINORVER, IZ_AES_WG_BETA_VER);
+#endif
 
   for (i = 0; i < sizeof(copyright)/sizeof(char *); i++)
   {
@@ -286,8 +343,6 @@ local void version_info()
   {
     printf("        %s\n",comp_opts[i]);
   }
-  printf("        [encryption, version %d.%d%s of %s]\n",
-            CR_MAJORVER, CR_MINORVER, CR_BETA_VER, CR_VERSION_DATE);
 }
 
 
@@ -362,6 +417,17 @@ int main(argc, argv)
 #ifdef THEOS
     setlocale(LC_CTYPE, "I");
 #endif
+
+#ifdef VMS
+  /* This pointless reference to a do-nothing function ensures that the
+   * globals get linked in, even on old systems, or when compiled using
+   * /NAMES = AS_IS.  (See also globals.c.)
+   */
+  {
+    void (*local_dummy)( void);
+    local_dummy = globals_dummy;
+  }
+#endif /* def VMS */
 
 #ifdef UNICODE_SUPPORT
 # ifdef UNIX
@@ -553,9 +619,12 @@ int main(argc, argv)
 
 #ifdef CRYPT_AES_WG
         case 'Y':   /* Encryption method */
+#  ifdef CRYPT_TRAD
           if (abbrevmatch("Traditional", value, 0, 1)) {
             encryption_method = TRADITIONAL_ENCRYPTION;
-          } else if (abbrevmatch("AES128", value, 0, 5)) {
+          } else
+#  endif /* def CRYPT_TRAD */
+          if (abbrevmatch("AES128", value, 0, 5)) {
             encryption_method = AES_128_ENCRYPTION;
           } else if (abbrevmatch("AES192", value, 0, 5)) {
             encryption_method = AES_192_ENCRYPTION;
@@ -563,7 +632,12 @@ int main(argc, argv)
             encryption_method = AES_256_ENCRYPTION;
           } else {
             zipwarn(
+#  ifdef CRYPT_TRAD
  "valid encryption methods are:  Traditional, AES128, AES192, and AES256", "");
+#  else /* def CRYPT_TRAD */
+ "valid encryption methods are:  AES128, AES192, and AES256", "");
+#  endif /* def CRYPT_TRAD [else] */
+
             free(value);
             ZIPERR(ZE_PARMS,
              "Option -Y (--encryption-method):  unknown method");
@@ -840,29 +914,58 @@ int main(argc, argv)
     /* Done! */
     RETURN(0);
 }
-#else /* !CRYPT */
+
+#else /* CRYPT */
+
+/* ZipCloak with no CRYPT support is useless. */
+
+ZCONST char * far no_cloak_msg[] =
+{
+"",
+"   This ZipCloak executable was built without any encryption support,",
+"   making it essentially useless.",
+"",
+"   Building Zip with some kind of encryption enabled should yield a",
+"   more useful ZipCloak executable.",
+""
+};
 
 
-/* below is only used if crypt is not enabled */
+/* These dummy functions et al.  are not needed on VMS.  Elsewhere? */
 
-struct option_struct far options[] = {
-  /* short longopt        value_type        negatable        ID    name */
-    {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
+#ifndef VMS
+
+struct option_struct far options[] =
+{
     /* the end of the list */
     {NULL, NULL,          o_NO_VALUE,       o_NOT_NEGATABLE, 0,    NULL} /* end has option_ID = 0 */
-  };
+};
 
 
-int main OF((void));
 
-void zipwarn(msg1, msg2)
-ZCONST char  *msg1, *msg2;
+int rename_split( t, o)
+  char *t;
+  char *o;
 {
     /* Tell picky compilers to shut up about unused variables */
-    msg1 = msg1; msg2 = msg2;
+    t = t;
+    o = o;
+
+    return 0;
 }
 
-void ziperr(c, h)
+
+int set_filetype( o)
+  char *o;
+{
+    /* Tell picky compilers to shut up about unused variables */
+    o = o;
+
+    return 0;
+}
+
+
+void ziperr( c, h)
 int  c;
 ZCONST char *h;
 {
@@ -870,13 +973,48 @@ ZCONST char *h;
     c = c; h = h;
 }
 
-int main()
+
+void zipmessage( a, b)
+ZCONST char *a, *b;
 {
-    fprintf(mesg, "\
-This version of ZipCloak does not support encryption.  Get the current Zip\n\
-source distribution and recompile ZipCloak after you have added an option to\n\
-define the symbol USE_CRYPT to the C compiler's command arguments.\n");
-    RETURN(1);
+    /* Tell picky compilers to shut up about unused variables */
+    a = a;
+    b = b;
 }
 
-#endif /* ?CRYPT */
+
+void zipmessage_nl( a, nl)
+ZCONST char *a;
+int nl;
+{
+    /* Tell picky compilers to shut up about unused variables */
+    a = a;
+    nl = nl;
+}
+
+
+void zipwarn( msg1, msg2)
+ZCONST char *msg1, *msg2;
+{
+    /* Tell picky compilers to shut up about unused variables */
+    msg1 = msg1; msg2 = msg2;
+}
+
+#endif /* ndef VMS */
+
+
+int main()
+{
+    int i;
+
+    printf( "This is ZipCloak %s (%s), by Info-ZIP.\n", VERSION, REVDATE);
+
+    for (i = 0; i < sizeof(no_cloak_msg)/sizeof(char *); i++)
+    {
+        printf( "%s\n", no_cloak_msg[ i]);
+    }
+
+    EXIT( ZE_COMPERR);  /* Error in compilation options. */
+}
+
+#endif /* CRYPT [else] */

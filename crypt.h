@@ -54,6 +54,12 @@
 #endif /* ?NO_CRYPT */
 
 #if CRYPT
+# ifndef NO_TRADITIONAL_CRYPT
+#  define CRYPT_TRAD
+# endif /* ndef NO_TRADITIONAL_CRYPT */
+#endif /* CRYPT */
+
+#if CRYPT
 /* full version */
 
 #ifdef CRYPT_AES_WG

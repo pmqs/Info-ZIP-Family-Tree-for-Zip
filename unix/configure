@@ -4,7 +4,7 @@
 
 #==============================================================================
 # unix/configure: Detect feature support and pass that information to Makefile.
-# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 13 Oct 2011
+# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 08 Jan 2012
 #==============================================================================
 
 #==============================================================================
@@ -102,9 +102,10 @@
 #
 #   Zip optional feature configuration:
 #    AES_WG      - Enable AES encryption (WinZip/Gladman)
-#    LZMA        - Enable LZMA compression
 #    IZ_BZIP2    - Enable BZIP2 compression
 #    IZ_ZLIB     - Use ZLIB for deflate compression
+#    LZMA        - Enable LZMA compression
+#    PPMD        - Enable PPMd compression
 #
 #==============================================================================
 # Build utility generated configuration flags:
@@ -131,8 +132,9 @@
 #  IZ_BZIP2    - BZIP2 compression build directory
 #  IZ_ZLIB     - ZLIB  compression build directory
 #  LIB_AES_WG  - AES (WinZip/Gladman) encryption build dependencies
-#  LIB_LZMA    - LZMA  compression build dependencies
 #  LIB_BZ      - BZIP2 compression build dependencies
+#  LIB_LZMA    - LZMA  compression build dependencies
+#  LIB_PPMD    - PPMd  compression build dependencies
 #  LIB_Z       - ZLIB  compression build dependencies
 #  MK_BZ       - BZIP2 compression build makefile
 #  OSDEP_H     - OS-dependent C header file names
@@ -159,7 +161,7 @@ echo 'Generating system-dependent flags...'
 # Evaluate only variables in this list.  Complain about others, but continue.
 valid_vars1="|AES_WG|AFLAGS|AS|CC|CC_BZ|CFLAGS|CPP|DLLEXT|IZ_BZIP2|IZ_ZLIB"
 valid_vars2="|LD|LFLAGS1|LFLAGS2|LIST|LZMA|OSDEP_H|OSDEP_OC|OSDEP_OS"
-valid_vars3="|PGMEXT|PROD|RANLIB|"
+valid_vars3="|PGMEXT|PPMD|PROD|RANLIB|"
 valid_vars="${valid_vars1}${valid_vars2}${valid_vars3}"
 
 argc=$#
@@ -195,7 +197,6 @@ LD=${LD:-"${CC}"}                          # Linker name
 LD_LIST=''                                 # Linker name, if LIST enabled
 LFLAGS1=${LFLAGS1:-}                       # Linker options, part 1
 LFLAGS2=${LFLAGS2:--s}                     # Linker options, part 2
-LFLAGS2_LPFX=''                            # Linker library prefix options
 
 CC_TST=$CC                                 # C cmplr/options for feature tests
 BIF_TST=''                                 # C builtin fnctn feature test flags
@@ -228,15 +229,17 @@ PORT_SPEC=''                               # Port specification method
                                            #   Implicit ('I') via config test
 
 AES_WG=${AES_WG:-}                         # AES (WinZip/Gladman) encryption
-LZMA=${LZMA:-}                             # LZMA compression
 IZ_BZIP2=${IZ_BZIP2:-}                     # BZIP2 compression
 IZ_ZLIB=${IZ_ZLIB:-}                       # ZLIB compression
+LZMA=${LZMA:-}                             # LZMA compression
+PPMD=${PPMD:-}                             # PPMd compression
 
 # Generated Build Dependencies for make
 # - Contains archive library name, if enabled
 LIB_AES_WG=''                              # AES (WinZip/Gladman) encryption
-LIB_LZMA=''                                # LZMA compression
 LIB_BZ=''                                  # BZIP2 compression
+LIB_LZMA=''                                # LZMA compression
+LIB_PPMD=''                                # PPMd compression
 LIB_Z=''                                   # ZLIB compression
 
 # Build makefiles
@@ -581,11 +584,17 @@ _EOF_
     # Special Mac OS X shared library "ld" option?
     if [ "${UNAME_S}" = 'Darwin' ]; then
       OSDEP_H="${OSDEP_H} unix/macosx.h"
-      LFLAGS_LPFX_TRY='-W l,-search_paths_first'
-      $CC $CFLAGS $lf conftest.c >/dev/null 2>/dev/null
+
+      # "ld64: warning: option -s is obsolete and being ignored"
+      if [ "${LFLAGS2}" = '-s' ]; then
+        LFLAGS2=''
+      fi
+
+      lflags2_try='-Wl,-search_paths_first'
+      $CC $CFLAGS ${lflags2_try} conftest.c >/dev/null 2>/dev/null
       status=$?
       if [ $status -eq 0 ]; then
-        LFLAGS2_LPFX=${LFLAGS_LPFX_TRY}
+        LFLAGS2="${LFLAGS2} ${lflags2_try}"
       fi
       rm -f conftest
     fi
@@ -685,12 +694,17 @@ _EOF_
         CFLAGS_OPT='-O3'
         OSDEP_H="${OSDEP_H} unix/macosx.h"
 
+        # "ld64: warning: option -s is obsolete and being ignored"
+        if [ "${LFLAGS2}" = '-s' ]; then
+          LFLAGS2=''
+        fi
+
         # Special Mac OS X shared library "ld" option?
-        LFLAGS_LPFX_TRY='-W l,-search_paths_first'
-        $CC $CFLAGS $lf conftest.c >/dev/null 2>/dev/null
+        lflags2_try='-Wl,-search_paths_first'
+        $CC $CFLAGS ${lflags2_try} conftest.c >/dev/null 2>/dev/null
         status=$?
         if [ $status -eq 0 ]; then
-          LFLAGS2_LPFX=${LFLAGS_LPFX_TRY}
+          LFLAGS2="${LFLAGS2} ${lflags2_try}"
         fi
         rm -f conftest
 
@@ -1239,6 +1253,51 @@ _EOF_
   fi
 else
   echo "No LZMA compression"
+fi
+
+#------------------------------------------------------------------------------
+# F') Configure optional PPMd compression library
+#------------------------------------------------------------------------------
+# PPMd compression.  (User must request: "PPMD=1".)
+if [ -n "${PPMD}" ]; then
+  echo "Check PPMd compression support"
+  if [ -d "lzma" ]; then
+    echo "  Check for PPMd header file in lzma"
+    if [ -f "lzma/Ppmd.h" ]; then
+      cat > conftest.c << _EOF_
+int main()
+{
+   typedef int zoff_t;
+#include "lzma/Ppmd.h"
+#ifndef PPMD_SUPPORT
+   forget it
+#endif
+   return 0;
+}
+_EOF_
+      $CC_TST $CFLAGS -DPPMD_SUPPORT -c conftest.c >/dev/null 2>/dev/null
+      status=$?
+      if [ $status -eq 0 ]; then
+        LIB_PPMD="libppmd.a"
+        CFLAGS_TST="${CFLAGS_TST} -DPPMD_SUPPORT"
+        LFLAGS1="${LFLAGS1} -L."
+        LFLAGS2="${LFLAGS2} -lppmd"
+        echo "-- Including PPMd compression support"
+        echo "-- Building libppmd.a in ${PROD}"
+      else
+        echo "^^ PPMd test build failed. Check lzma directory"
+        echo "^^ Unable to include PPMd compression support"
+      fi
+    else
+      echo "^^ PPMD source code not found in lzma directory"
+      echo "^^ Unable to include PPMd compression support"
+    fi
+  else
+    echo "^^ Directory lzma not found"
+    echo "^^ Unable to include PPMd compression support"
+  fi
+else
+  echo "No PPMd compression"
 fi
 
 #------------------------------------------------------------------------------
@@ -2271,8 +2330,9 @@ echo "CC=\"${CC}\" CF=\"${CFLAGS}\"" \
      "PROD=\"${PROD}\"" \
      "PORT=\"${PORT}\"" \
      "LIB_AES_WG=\"${LIB_AES_WG}\"" \
-     "LIB_LZMA=\"${LIB_LZMA}\"" \
      "LIB_BZ=\"${LIB_BZ}\"" \
+     "LIB_LZMA=\"${LIB_LZMA}\"" \
+     "LIB_PPMD=\"${LIB_PPMD}\"" \
      "LIB_Z=\"${LIB_Z}\"" \
      "MK_BZ=\"${MK_BZ}\"" \
      "OSDEP_H=\"${OSDEP_H}\"" \

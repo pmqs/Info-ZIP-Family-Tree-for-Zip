@@ -121,18 +121,20 @@ local z_uint4 keys[3];          /* keys defining the pseudo-random sequence */
 #  endif
 # endif
 
-# include "crc32.h"
+# ifdef CRYPT_TRAD
 
-# ifdef IZ_CRC_BE_OPTIMIZ
+#  include "crc32.h"
+
+#  ifdef IZ_CRC_BE_OPTIMIZ
 local z_uint4 near crycrctab[256];
 local z_uint4 near *cry_crctb_p = NULL;
 local z_uint4 near *crytab_init OF((__GPRO));
-#  define CRY_CRC_TAB  cry_crctb_p
-#  undef CRC32
-#  define CRC32(c, b, crctab) (crctab[((int)(c) ^ (b)) & 0xff] ^ ((c) >> 8))
-# else
-#  define CRY_CRC_TAB  CRC_32_TAB
-# endif /* ?IZ_CRC_BE_OPTIMIZ */
+#   define CRY_CRC_TAB  cry_crctb_p
+#   undef CRC32
+#   define CRC32(c, b, crctab) (crctab[((int)(c) ^ (b)) & 0xff] ^ ((c) >> 8))
+#  else
+#   define CRY_CRC_TAB  CRC_32_TAB
+#  endif /* ?IZ_CRC_BE_OPTIMIZ */
 
 /***********************************************************************
  * Return the next byte in the pseudo-random sequence
@@ -175,11 +177,11 @@ void init_keys(__G__ passwd)
     __GDEF
     ZCONST char *passwd;        /* password string with which to modify keys */
 {
-# ifdef IZ_CRC_BE_OPTIMIZ
+#  ifdef IZ_CRC_BE_OPTIMIZ
     if (cry_crctb_p == NULL) {
         cry_crctb_p = crytab_init(__G);
     }
-# endif
+#  endif
     GLOBAL(keys[0]) = 305419896L;       /* 0x12345678. */
     GLOBAL(keys[1]) = 591751049L;       /* 0x23456789. */
     GLOBAL(keys[2]) = 878082192L;       /* 0x34567890. */
@@ -199,7 +201,7 @@ void init_keys(__G__ passwd)
  * requires inverting the byte-order of the values in the
  * crypt-crc32-table.
  */
-# ifdef IZ_CRC_BE_OPTIMIZ
+#  ifdef IZ_CRC_BE_OPTIMIZ
 local z_uint4 near *crytab_init(__G)
     __GDEF
 {
@@ -210,10 +212,14 @@ local z_uint4 near *crytab_init(__G)
     }
     return crycrctab;
 }
-# endif /* def IZ_CRC_BE_OPTIMIZ */
+#  endif /* def IZ_CRC_BE_OPTIMIZ */
+
+# endif /* def CRYPT_TRAD */
 
 
 # ifdef ZIP
+
+#  ifdef CRYPT_TRAD
 
 /***********************************************************************
  * Write encryption header to file zfile using the password passwd
@@ -251,6 +257,8 @@ void crypthead(passwd, crc)
     bfwrite(header, 1, RAND_HEAD_LEN, BFWRITE_DATA);
 }
 
+#  endif /* def CRYPT_TRAD */
+
 
 /***********************************************************************
  * If requested, encrypt the data in buf, and in any case call bfwrite()
@@ -273,23 +281,32 @@ unsigned zfwrite(buf, item_size, nb)
 {
     int t;                      /* temporary */
 
-    if (key != (char *)NULL) {  /* key is the global password pointer */
+    if (key != (char *)NULL)    /* key is the global password pointer */
+    {
 #  ifdef CRYPT_AES_WG
-      if (encryption_method >= AES_MIN_ENCRYPTION) {
+      if (encryption_method >= AES_MIN_ENCRYPTION)
+      {
         /* assume all items are bytes */
         fcrypt_encrypt(buf, item_size * nb, &zctx);
       }
       else
-#  endif
       {
+#  endif /* def CRYPT_AES_WG */
+#  ifdef CRYPT_TRAD
         ulg size;               /* buffer size */
         char *p = (char *)buf;  /* steps through buffer */
 
         /* Encrypt data in buffer */
-        for (size = item_size*(ulg)nb; size != 0; p++, size--) {
+        for (size = item_size*(ulg)nb; size != 0; p++, size--)
+        {
             *p = (char)zencode(*p, t);
         }
+#  else /* def CRYPT_TRAD */
+        /* Do something in case the impossible happens here? */
+#  endif /* def CRYPT_TRAD [else] */
+#   ifdef CRYPT_AES_WG
       }
+#   endif /* def CRYPT_AES_WG */
     }
 
     /* Write the buffer out */
@@ -630,15 +647,19 @@ int zipcloak(z, passwd)
              MAC_LENGTH( encryption_method- (AES_MIN_ENCRYPTION- 1));
         }
         else
-#   endif /* def CRYPT_AES_WG */
         {
+#   endif /* def CRYPT_AES_WG */
+#   ifdef CRYPT_TRAD
             /* Initialize keys with password and write random header */
             crypthead( passwd, localz->crc);
 #if 0
             z->siz += RAND_HEAD_LEN;    /* to be updated later */
 #endif /* 0 */
             tempzn += HEAD_LEN;
+#    endif /* CRYPT_TRAD */
+#   ifdef CRYPT_AES_WG
         }
+#   endif /* def CRYPT_AES_WG */
     }
 
     /* Point the global "key" to our password for zfwrite(). */
@@ -790,6 +811,7 @@ int zipbare(z, passwd)
 #   else /* def CRYPT_AES_WG */
     {
 #   endif /* def CRYPT_AES_WG [else] */
+#   ifdef CRYPT_TRAD
         /* Traditional Zip decryption. */
         /* Update disk.  Caller is responsible for offset (z->off). */
         z->dsk = 0;
@@ -825,6 +847,7 @@ int zipbare(z, passwd)
         {
             passwd_ok = 0;          /* Bad traditional password. */
         }
+#   endif /* def CRYPT_TRAD */
     }
 
     if (!passwd_ok)
@@ -911,8 +934,9 @@ int zipbare(z, passwd)
         }
     }
     else /* if (how_orig == AESENCRED) */
-#   endif /* def CRYPT_AES_WG */
     {
+#   endif /* def CRYPT_AES_WG */
+#   ifdef CRYPT_TRAD
         /* Read, traditional-decrypt, and write the member data, until done. */
         b = 0;
         for (size = z->siz; size; size--) {
@@ -933,7 +957,10 @@ int zipbare(z, passwd)
           bfwrite(buf, 1, b, BFWRITE_DATA);
           b = 0;
         }
+#   endif /* def CRYPT_TRAD */
+#   ifdef CRYPT_AES_WG
     }
+#   endif /* def CRYPT_AES_WG */
 
     /* Since we seek to the start of each local header can skip
          reading any extended local header */

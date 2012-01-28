@@ -1,4 +1,4 @@
-#                                               15 August 2011.  SMS.
+#                                               8 January 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Source Description File.
 #
@@ -204,7 +204,6 @@ CDEFS_AES = , CRYPT_AES_WG
 
 .IFDEF IZ_BZIP2                 # IZ_BZIP2
 CDEFS_BZ = , BZIP2_SUPPORT
-INCL_BZIP2_M = , ZBZ2ERR
 LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2_NS.OLB /library,
 .ENDIF                          # IZ_BZIP2
 
@@ -217,6 +216,20 @@ CDEFS_LZMA = , LZMA_SUPPORT, _7ZIP_ST, _SZ_NO_INT_64
 CDEFS_LZMA = , LZMA_SUPPORT, _7ZIP_ST
 .ENDIF                              # __VAX__
 .ENDIF                          # LZMA
+
+# PPMd options.
+
+.IFDEF PPMD                     # PPMD
+.IFDEF LZMA                         # LZMA
+CDEFS_PPMD = , PPMD_SUPPORT
+.ELSE                               # LZMA
+.IFDEF __VAX__                          # __VAX__
+CDEFS_PPMD = , PPMD_SUPPORT, _SZ_NO_INT_64
+.ELSE                                   # __VAX__
+CDEFS_PPMD = , PPMD_SUPPORT
+.ENDIF                                  # __VAX__
+.ENDIF                              # LZMA
+.ENDIF                          # PPMD
 
 # ZLIB options.
 
@@ -260,7 +273,7 @@ C_LOCAL_ZIP = , $(LOCAL_ZIP)
 .ENDIF
 
 CDEFS = VMS $(CDEFS_AES) $(CDEFS_BZ) $(CDEFS_IM) $(CDEFS_LARGE) \
- $(CDEFS_LZMA) $(CDEFS_ZL) $(C_LOCAL_ZIP)
+ $(CDEFS_LZMA) $(CDEFS_PPMD) $(CDEFS_ZL) $(C_LOCAL_ZIP)
 
 CDEFS_UNX = /define = ($(CDEFS))
 
@@ -368,14 +381,22 @@ MODS_OBJS_LIB_ZIP_AES = \
 
 .IFDEF LZMA                     # LZMA
 MODS_OBJS_LIB_ZIP_LZMA = \
- SZFILE=[.$(DEST)]SZFILE.OBJ \
- ALLOC=[.$(DEST)]ALLOC.OBJ \
  LZFIND=[.$(DEST)]LZFIND.OBJ \
- LZMAENC=[.$(DEST)]LZMAENC.OBJ
+ LZMAENC=[.$(DEST)]LZMAENC.OBJ \
+ SZFILE=[.$(DEST)]SZFILE.OBJ
 .ENDIF                          # LZMA
 
+#    Primary object library, [.PPMD].
+
+.IFDEF PPMD                     # PPMD
+MODS_OBJS_LIB_ZIP_PPMD = \
+ PPMD8=[.$(DEST)]PPMD8.OBJ \
+ PPMD8ENC=[.$(DEST)]PPMD8ENC.OBJ
+.ENDIF                          # PPMD
+
 MODS_OBJS_LIB_ZIP = $(MODS_OBJS_LIB_ZIP_N) $(MODS_OBJS_LIB_ZIP_V) \
- $(MODS_OBJS_LIB_ZIP_AES) $(MODS_OBJS_LIB_ZIP_LZMA)
+ $(MODS_OBJS_LIB_ZIP_AES) $(MODS_OBJS_LIB_ZIP_LZMA) \
+ $(MODS_OBJS_LIB_ZIP_PPMD)
 
 #    Utility object library, normal, [].
 
@@ -407,7 +428,8 @@ MODS_OBJS_LIB_ZIPUTILS = $(MODS_OBJS_LIB_ZIPUTILS_N) \
  $(MODS_OBJS_LIB_ZIPUTILS_N_V) \
  $(MODS_OBJS_LIB_ZIPUTILS_U_V) \
  $(MODS_OBJS_LIB_ZIP_AES) \
- $(MODS_OBJS_LIB_ZIP_LZMA)
+ $(MODS_OBJS_LIB_ZIP_LZMA) \
+ $(MODS_OBJS_LIB_ZIP_PPMD)
 
 #    CLI object library, [.VMS].
 

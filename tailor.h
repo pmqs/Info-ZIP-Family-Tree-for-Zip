@@ -27,11 +27,47 @@
 #  endif
 #endif
 
-
 /* UNICODE */
 #ifdef NO_UNICODE_SUPPORT
+/* NO_UNICODE_SUPPORT override disables Unicode support 
+   - Useful for environments like MS Visual Studio */
 # ifdef UNICODE_SUPPORT
 #   undef UNICODE_SUPPORT
+# endif
+#endif
+
+/* This needs fixing, but currently assume that we don't have full
+   Unicode support unless UNICODE_WCHAR is set.
+
+   What we should do is define three possibilities:
+   UNICODE_WIDE   = we have the wide character support we need for Unicode.
+                    If unix/configure found the port is missing something,
+                    the port needs to provide it and turn Unicode back on.
+                    Check for HAVE_TOWUPPER and so on.
+   UNICODE_ICONV  = we can use iconv for Unicode conversions.  All processing
+                    will be done using 8-bit characters.
+   UNICODE_NATIVE = we don't need to do any conversions.  This flag is needed,
+                    though, so we know to set the UTF-8 bit.  It also means
+                    we somehow have verified the character set as UTF-8.
+                    However, note that if the port has no way to convert
+                    from UTF-8, the code page must be UTF-8 to see paths in
+                    an existing archive.
+
+   I can't see any reason more than one of these should be set in any
+   particular build, so there probably should be some priority order for these
+   set up.  For instance, if UTF-8 is native, then paths coming in are already
+   UTF-8 and the UTF-8 paths in existing archives should be readable, so no
+   conversion code may be needed, just the code to detect if UNICODE_NATIVE
+   really applies.
+
+   This might get done in the next beta. */
+
+#ifdef UNICODE_SUPPORT
+# if !(defined(UNICODE_WCHAR))
+/* UNZIP had the following test (now synced to ZIP):
+ * # if !(defined(UTF8_MAYBE_NATIVE) || defined(UNICODE_WCHAR))
+ */
+#  undef UNICODE_SUPPORT
 # endif
 #endif
 
@@ -349,51 +385,121 @@ IZ_IMP char *mktemp();
  * (differently) when <locale.h> is read later.
  */
 #ifdef UNICODE_SUPPORT
-# include <stdlib.h>
-# ifdef HAVE_WCHAR_H
-#  include <wchar.h>
-#  include <wctype.h>
+# ifdef UNICODE_WCHAR
+#  include <stdlib.h>
+/* wchar support may be in any of these three headers */
+#  ifdef HAVE_CTYPE_H
+#   include <ctype.h>
+#  endif
+#  ifdef HAVE_WCHAR_H
+#   include <wchar.h>
+#  endif
+#  ifdef HAVE_WCTYPE_H
+#   include <wctype.h>
+#  endif
+# endif /* def UNICODE_WCHAR */
+
+# ifdef HAVE_LANGINFO_H
+#  include <langinfo.h>
 # endif
+
 # ifndef _MBCS  /* no need to include <locale.h> twice, see below */
-#  include <locale.h>
-# endif
+#  ifdef HAVE_LOCALE_H
+#   include <locale.h>
+#  endif
+# endif /* ndef _MBCS */
+
 /* Desperate attempt to deal with a missing iswprint() (SunOS 4.1.4). */
+/* Should not get here if unix/configure doesn't find iswprint() */
 # ifdef NO_ISWPRINT
 #  define iswprint(x) isprint(x)
-# endif
-# ifndef NO_NL_LANGINFO
-#  include <langinfo.h>
 # endif
 #endif /* def UNICODE_SUPPORT */
 
 #ifdef _MBCS
+   /* Multi Byte Character Set support
+      - This section supports a number of mbcs-related functions which
+        will use the OS-provided version (if found by a unix/configure
+        test, or equivalent) or will use a generic minimally-functional
+        version provided as a utilio.c function.
+      - All references to this function Zip code are via the FUNCTION 
+        name.
+      - If unix/configure finds the OS-provided function, it will define
+        a macro in the form FUNCTION=function. 
+      - If not defined:
+        - A replacement is defined below pointing to the generic version.
+        - The prototype for the generic function will be defined (below).
+        - A NEED_FUNCTION macro will also be defined, to enable compile
+          of the util.c code to implement the generic function.
+    */
+#  ifdef HAVE_LOCALE_H
 #   include <locale.h>
+#  endif
+#  ifdef HAVE_MBSTR_H
+#   include <mbstr.h>
+#  endif 
 
-    /* Multi Byte Character Set */
     extern char *___tmp_ptr;
-    unsigned char *zmbschr OF((ZCONST unsigned char *, unsigned int));
-    unsigned char *zmbsrchr OF((ZCONST unsigned char *, unsigned int));
-#   define CLEN(ptr) mblen((ZCONST char *)ptr, MB_CUR_MAX)
-#   define PREINCSTR(ptr) (ptr += CLEN(ptr))
+
+#  ifndef CLEN
+#    define CLEN(ptr) mblen((ZCONST char *)ptr, MB_CUR_MAX)
+     /* UnZip defines as
+#    define NEED_UZMBCLEN
+#    define CLEN(ptr) (int)uzmbclen((ZCONST unsigned char *)(ptr))
+      */
+#  endif
+
+#  ifndef PREINCSTR
+#    define PREINCSTR(ptr) (ptr += CLEN(ptr))
+#  endif
+
 #   define POSTINCSTR(ptr) (___tmp_ptr=(char *)ptr,ptr += CLEN(ptr),___tmp_ptr)
     int lastchar OF((ZCONST char *ptr));
-#   define MBSCHR(str,c) (char *)zmbschr((ZCONST unsigned char *)(str), c)
-#   define MBSRCHR(str,c) (char *)zmbsrchr((ZCONST unsigned char *)(str), (c))
-#   ifndef SETLOCALE
-#      define SETLOCALE(category, locale) setlocale(category, locale)
-#   endif /* ndef SETLOCALE */
+    /* UnZip defines as
+#  define POSTINCSTR(ptr) (___TMP_PTR=(char *)(ptr), PREINCSTR(ptr),___TMP_PTR)
+   char *plastchar OF((ZCONST char *ptr, extent len));
+#  define lastchar(ptr, len) ((int)(unsigned)*plastchar(ptr, len))
+      */
+
+#  ifndef MBSCHR
+#    define NEED_ZMBSCHR
+#    define MBSCHR(str,c) (char *)zmbschr((ZCONST unsigned char *)(str), c)
+#  endif
+
+#  ifndef MBSRCHR
+#    define NEED_ZMBSRCHR
+#    define MBSRCHR(str,c) (char *)zmbsrchr((ZCONST unsigned char *)(str), c)
+#  endif
+
+#  ifndef SETLOCALE
+#    define SETLOCALE(category, locale) setlocale(category, locale)
+#  endif
+
 #else /* !_MBCS */
-#   define CLEN(ptr) 1
-#   define PREINCSTR(ptr) (++(ptr))
-#   define POSTINCSTR(ptr) ((ptr)++)
-#   define lastchar(ptr) ((*(ptr)=='\0') ? '\0' : ptr[strlen(ptr)-1])
-#   define MBSCHR(str, c) strchr(str, c)
-#   define MBSRCHR(str, c) strrchr(str, c)
-#   ifndef SETLOCALE
-#      define SETLOCALE(category, locale)
-#   endif /* ndef SETLOCALE */
+   /* Multi Byte Character Set support is not available */
+#  define CLEN(ptr) 1
+#  define PREINCSTR(ptr) (++(ptr))
+#  define POSTINCSTR(ptr) ((ptr)++)
+#  define lastchar(ptr) ((*(ptr)=='\0') ? '\0' : ptr[strlen(ptr)-1])
+#  define MBSCHR(str, c) strchr(str, c)
+#  define MBSRCHR(str, c) strrchr(str, c)
+#  ifndef SETLOCALE
+#     define SETLOCALE(category, locale)
+#  endif /* ndef SETLOCALE */
 #endif /* ?_MBCS */
+
 #define INCSTR(ptr) PREINCSTR(ptr)
+
+
+/*---------------------------------------------------------------------------
+    Functions in util.c:
+  ---------------------------------------------------------------------------*/
+#ifdef NEED_ZMBSCHR
+   unsigned char *zmbschr  OF((ZCONST unsigned char *str, unsigned int c));
+#endif
+#ifdef NEED_ZMBSRCHR
+   unsigned char *zmbsrchr OF((ZCONST unsigned char *str, unsigned int c));
+#endif
 
 
 /* System independent replacement for "struct utimbuf", which is missing

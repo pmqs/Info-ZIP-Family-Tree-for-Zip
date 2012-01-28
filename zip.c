@@ -34,7 +34,8 @@
 #  include <stsdef.h>
 #  include "vms/vmsmunch.h"
 #  include "vms/vms.h"
-#endif
+extern void globals_dummy( void);
+#endif /* def VMS */
 
 #ifdef MACOS
 #  include "macglob.h"
@@ -134,12 +135,12 @@ ZCONST uLongf *crc_32_tab;
 # include "aesnew/ccm.h"
 #endif
 
-#ifdef LZMA_SUPPORT
+#if defined( LZMA_SUPPORT) || defined( PPMD_SUPPORT)
 /* Some ports can't handle file names with leading numbers,
  * hence 7zVersion.h is now SzVersion.h.
  */
 # include "lzma/SzVersion.h"
-#endif /* def LZMA_SUPPORT */
+#endif /* defined( USE_LZMA) || defined( USE_PPMD) */
 
 /* Local functions */
 
@@ -153,6 +154,16 @@ local void help    OF((void));
 local void help_extended OF((void));
 #endif /* !VMSCLI */
 #endif /* !MACOS && !WINDLL */
+
+#ifdef ENABLE_USER_PROGRESS
+# ifdef VMS
+#  define USER_PROGRESS_CLASS extern
+# else /* def VMS */
+#  define USER_PROGRESS_CLASS local
+int show_pid;
+# endif /* def VMS [else] */
+USER_PROGRESS_CLASS void user_progress OF((int));
+#endif /* def ENABLE_USER_PROGRESS */
 
 /* prereading of arguments is not supported in new command
    line interpreter get_option() so read filters as arguments
@@ -548,24 +559,61 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
   }
 }
 
-void zipwarn(a, b)
+/* Print a warning message to mesg (usually stderr) and return,
+ * with or without indentation.
+ */
+void zipwarn_i( indent, a, b)
+int indent;
 ZCONST char *a, *b;     /* message strings juxtaposed in output */
 /* Print a warning message to mesg (usually stderr) and return. */
 {
-  if (noisy) {
-    if (mesg_line_started)
-      fprintf(mesg, "\n");
-    fprintf(mesg, "        zip warning: %s%s\n", a, b);
-    mesg_line_started = 0;
-    fflush(mesg);
+  char *prefix;
+  char *warning;
+
+  if (indent)
+    prefix = "      ";
+  else
+    prefix = "";
+
+  if (a == NULL)
+  {
+    a = "";
+    warning = "            ";
   }
+  else
+  {
+    warning = "zip warning:";
+  }
+
+  if (mesg_line_started)
+    fprintf(mesg, "\n");
+  fprintf(mesg, "%s%s %s%s\n", prefix, warning, a, b);
+  mesg_line_started = 0;
+  fflush(mesg);
+
   if (logfile) {
     if (logfile_line_started)
       fprintf(logfile, "\n");
-    fprintf(logfile, "        zip warning: %s%s\n", a, b);
+    fprintf(logfile, "%s%s %s%s\n", prefix, warning, a, b);
     logfile_line_started = 0;
     fflush(logfile);
   }
+}
+
+/* Print a warning message to mesg (usually stderr) and return. */
+
+void zipwarn(a, b)
+ZCONST char *a, *b;     /* message strings juxtaposed in output */
+{
+  zipwarn_i( 0, a, b);
+}
+
+/* zipwarn_indent(): zipwarn(), with message indented. */
+
+void zipwarn_indent( a, b)
+ZCONST char *a, *b;
+{
+    zipwarn_i( 1, a, b);
 }
 
 #ifndef WINDLL
@@ -889,8 +937,10 @@ local void help_extended()
 "              deflate - original zip deflate, same as -1 to -9 (default)",
 "            if bzip2 is enabled:",
 "              bzip2 - use bzip2 compression (need modern unzip)",
-"            if lzma is enabled:",
-"              lzma - use lzma compression (need modern unzip)",
+"            if LZMA is enabled:",
+"              lzma - use LZMA compression (need modern unzip)",
+"            if PPMd is enabled:",
+"              ppmd - use PPMd compression (need modern unzip)",
 "",
 "Encryption:",
 "  -e        use encryption, prompt for password",
@@ -1189,7 +1239,11 @@ local void version_info()
   static char lzma_opt_ver[81];
 #endif
 
-#ifdef CRYPT
+#ifdef PPMD_SUPPORT
+  static char ppmd_opt_ver[81];
+#endif
+
+#ifdef CRYPT_TRAD
   static char crypt_opt_ver[81];
 #endif
 
@@ -1245,7 +1299,6 @@ local void version_info()
 #ifdef WIN32_OEM
     "WIN32_OEM            (store file paths on Windows as OEM)",
 #endif
-    "",
 #ifdef BZIP2_SUPPORT
     bz_opt_ver,
     bz_opt_ver2,
@@ -1254,8 +1307,10 @@ local void version_info()
 #ifdef LZMA_SUPPORT
     lzma_opt_ver,
 #endif
-#if defined(BZIP2_SUPPORT) || defined(LZMA_SUPPORT)
-    "",
+#ifdef PPMD_SUPPORT
+    ppmd_opt_ver,
+#endif
+#if defined(BZIP2_SUPPORT) || defined(LZMA_SUPPORT) || defined(PPMD_SUPPORT)
 #endif
 #ifdef S_IFLNK
 # ifdef VMS
@@ -1286,9 +1341,8 @@ local void version_info()
     "UIDGID_16BIT         (old Unix 16-bit UID/GID extra field also used)",
 # endif
 #endif
-    "",
 
-#if CRYPT
+#ifdef CRYPT_TRAD
     crypt_opt_ver,
 #endif
 
@@ -1303,7 +1357,6 @@ local void version_info()
 #if CRYPT && defined(PASSWD_FROM_STDIN)
     "PASSWD_FROM_STDIN",
 #endif /* CRYPT & PASSWD_FROM_STDIN */
-    "",
 
     NULL
   };
@@ -1403,6 +1456,7 @@ local void version_info()
    "    (See the bzip2 license for terms of use)");
 #endif
 
+  /* Fill in LZMA version. */
 #ifdef LZMA_SUPPORT
   sprintf(lzma_opt_ver,
     "LZMA_SUPPORT         (LZMA compression, ver %s)",
@@ -1410,11 +1464,19 @@ local void version_info()
   i++;
 #endif
 
-#ifdef CRYPT
+  /* Fill in PPMd version. */
+#ifdef PPMD_SUPPORT
+  sprintf(ppmd_opt_ver,
+    "PPMD_SUPPORT         (PPMd compression, ver %s)",
+    MY_VERSION);
+  i++;
+#endif
+
+#ifdef CRYPT_TRAD
   sprintf(crypt_opt_ver,
     "CRYPT                (traditional (weak) encryption, ver %d.%d%s)",
     CR_MAJORVER, CR_MINORVER, CR_BETA_VER);
-#endif /* CRYPT */
+#endif /* CRYPT_TRAD */
 
   for (i = 0; (int)i < (int)(sizeof(comp_opts)/sizeof(char *) - 1); i++)
   {
@@ -1430,36 +1492,49 @@ local void version_info()
   i++;  /* zlib use means there IS at least one compilation option */
 #endif
 
-#ifdef CRYPT
+  if (i != 0)
+    printf("\n");
+
+/* Any CRYPT option sets "i", indicating at least one compilation option. */
+
+#ifdef CRYPT_TRAD
   for (i = 0; i < sizeof(cryptnote)/sizeof(char *); i++)
   {
     printf("%s\n", cryptnote[i]);
   }
-  /* ++i; */  /* crypt support means there IS at least one compilation option */
-#endif /* CRYPT */
+#endif /* CRYPT_TRAD */
 
 #ifdef CRYPT_AES_WG
-  putchar('\n');
+# ifdef CRYPT_TRAD
+  printf( "\n");
+# endif /* def CRYPT_TRAD */
   for (i = 0; i < sizeof(cryptAESnote)/sizeof(char *); i++)
   {
     printf("%s\n", cryptAESnote[i]);
   }
-  /* ++i; */  /* crypt support means there IS at least one compilation option */
-#endif /* CRYPT */
+#endif /* def CRYPT_AES_WG */
 
 #ifdef CRYPT_AES_WG_NEW
-  putchar('\n');
+# if defined( CRYPT_TRAD) || defined( CRYPT_AES_WG)
+  printf( "\n");
+# endif /* defined( CRYPT_TRAD) || defined( CRYPT_AES_WG) */
   for (i = 0; i < sizeof(cryptAESnote)/sizeof(char *); i++)
   {
     printf("%s\n", cryptAESnote[i]);
   }
-  /* ++i; */  /* crypt support means there IS at least one compilation option */
-#endif /* CRYPT */
+#endif /* CRYPT_AES_WG_NEW */
+
+#if defined( CRYPT_TRAD) || defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW)
+  printf( "\n");
+#endif
 
   if (i == 0)
-      puts("        [none]");
+  {
+      printf( "        [none]\n");
+      printf( "\n");
+  }
 
-  puts("\nZip environment options:");
+  printf( "Zip environment options:\n");
   for (i = 0; i < sizeof(zipenv_names)/sizeof(char *); i++)
   {
     envptr = getenv(zipenv_names[i]);
@@ -2469,8 +2544,9 @@ int set_filetype(out_path)
 #define o_sd            0x145
 #define o_sf            0x146
 #define o_sF            0x147
-#define o_so            0x148
-#define o_sp            0x149
+#define o_si            0x148
+#define o_so            0x149
+#define o_sp            0x14a
 #define o_spc           0x150
 #define o_su            0x151
 #define o_sU            0x152
@@ -2547,7 +2623,9 @@ struct option_struct far options[] = {
     {"D",  "no-dir-entries", o_NO_VALUE,    o_NOT_NEGATABLE, 'D',  "no entries for dirs themselves (-x */)"},
     {"DF", "difference-archive",o_NO_VALUE, o_NOT_NEGATABLE, o_DF, "create diff archive with changed/new files"},
     {"DI", "incremental-list",o_VALUE_LIST, o_NOT_NEGATABLE, o_DI, "archive list to exclude from -DF archive"},
+#if CRYPT
     {"e",  "encrypt",     o_NO_VALUE,       o_NOT_NEGATABLE, 'e',  "encrypt entries, ask for password"},
+#endif /* CRYPT */
 #ifdef OS2
     {"E",  "longnames",   o_NO_VALUE,       o_NOT_NEGATABLE, 'E',  "use OS2 longnames"},
 #endif
@@ -2609,7 +2687,9 @@ struct option_struct far options[] = {
     {"",   "prefix-new-path",o_REQUIRED_VALUE,o_NOT_NEGATABLE,o_pa,"add prefix to added/updated paths"},
     {"pn", "non-ansi-password", o_NO_VALUE, o_NEGATABLE,     o_pn, "allow non-ANSI password"},
     {"pp", "prefix-path", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_pp, "add prefix to all paths in archive"},
+#if CRYPT
     {"P",  "password",    o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'P',  "encrypt entries, option value is password"},
+#endif /* CRYPT */
 #if defined(QDOS) || defined(QLZIP)
     {"Q",  "Q-flag",      o_NUMBER_VALUE,   o_NOT_NEGATABLE, 'Q',  "Q flag"},
 #endif
@@ -2630,6 +2710,9 @@ struct option_struct far options[] = {
     {"sd", "show-debug",  o_NO_VALUE,       o_NOT_NEGATABLE, o_sd, "show debug"},
     {"sf", "show-files",  o_NO_VALUE,       o_NEGATABLE,     o_sf, "show files to operate on and exit"},
     {"sF", "sf-params",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_sF, "add info to -sf listing"},
+#if !defined( VMS) && defined( ENABLE_USER_PROGRESS)
+    {"si", "show-pid",    o_NO_VALUE,       o_NEGATABLE,     o_si, "show process ID"},
+#endif /* !defined( VMS) && defined( ENABLE_USER_PROGRESS) */
     {"so", "show-options",o_NO_VALUE,       o_NOT_NEGATABLE, o_so, "show options"},
 #ifdef UNICODE_SUPPORT
     {"su", "show-unicode", o_NO_VALUE,      o_NEGATABLE,     o_su, "as -sf but also show escaped Unicode"},
@@ -2663,7 +2746,9 @@ struct option_struct far options[] = {
 #ifdef S_IFLNK
     {"y",  "symlinks",    o_NO_VALUE,       o_NOT_NEGATABLE, 'y',  "store symbolic links"},
 #endif /* S_IFLNK */
+#if CRYPT
     {"Y", "encryption-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Y', "set encryption method"},
+#endif /* CRYPT */
     {"z",  "archive-comment", o_NO_VALUE,   o_NOT_NEGATABLE, 'z',  "ask for archive comment"},
     {"Z",  "compression-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Z', "compression method"},
 #if defined(MSDOS) || defined(OS2)
@@ -2770,11 +2855,51 @@ char **argv;            /* command line tokens */
 #endif
 
 #ifdef UNICODE_SUPPORT
+  /* For Unix, we either need to be working in some UTF-8 environment or we
+     need help elsewise to see all file system paths available to us,
+     otherwise paths not supported in the current character set won't be seen
+     and can't be archived.
+
+     If we detect we are already in some UTF-8 environment, then we can
+     proceed.  If not, we can attempt (in some cases) to change to UTF-8 if
+     supported.  (For most ports, the actual UTF-8 encoding probably does not
+     matter, and setting the locale to en_US.UTF-8 may be sufficient.  For
+     others, it does matter and some special handling is needed.)  If neither
+     work and we can't establish some UTF-8 environment, we should give up on
+     Unicode, as one of the main reasons for supporting Unicode is so we can
+     find and archive the various non-current-char-set paths out there as they
+     come up in a directory scan.  If we're not doing that, what's the point
+     pretending Unicode is doing what we really need done and giving the user
+     the possibly false impression that all their files are being found and
+     archived.  We also use UTF-8 for writing paths in the archive and for
+     display of the real paths on the console (if supported).  To some degree,
+     the Unicode escapes (#Uxxxx and #Lxxxxxx) can be used to bypass that use
+     of UTF-8.  As long as Unicode directory scanning is supported we can
+     proceed.
+
+     For Windows, the Unicode tasks are handled using the OS wide character
+     calls, as there is no direct UTF-8 support.  So directory scans are done
+     using wide character strings and then converted to UTF-8 for storage in
+     the archive.  This falls into the "need help elsewise" category and adds
+     considerable Windows-unique code, but it seems the only way if full
+     native Unicode support is to be had.  (iconv won't work, as there are
+     many abnormalities in how Unicode is handled in Windows that are handled
+     by the native OS calls, but would need significant kluging if we tried to
+     do all that.  For instance, the handling of surrogates.  Best to leave
+     converting Windows wide strings to UTF-8 to Windows.)
+
+     For z/OS and related, this gets more complex from the Unix case as it is
+     EBCDIC based.  While one can work with UTF-8 via iconv, one can not
+     actually run in an ASCII-based locale via setlocale() in the z/OS Unix
+     environment.  We are still working out the details.
+
+     AIX will support the UTF-8 locale, but it is an optional feature, so one
+     must do a test to see if it is present.  Some specific testing is needed
+     and is being worked on.
+
+     We plan to update the below checks shortly.
+  */
 # ifdef UNIX
-  /* For Unix, set the locale to UTF-8.  Any UTF-8 locale is
-     OK and they should all be the same.  This allows seeing,
-     writing, and displaying (if the fonts are loaded) all
-     characters in UTF-8. */
   {
     char *loc = NULL;
     char *codeset = NULL;
@@ -2792,14 +2917,14 @@ char **argv;            /* command line tokens */
        default. */
     setlocale(LC_CTYPE, "");
 
-#ifndef NO_NL_LANGINFO
+#  ifndef NO_NL_LANGINFO
     /* get the codeset (character set encoding) currently used,
        for example "UTF-8". */
     codeset = nl_langinfo(CODESET);
     /*
       printf("  codeset = '%s'\n", codeset);
     */
-#else
+#  else
     /* lacking a way to get codeset, get locale */
     {
       char *c;
@@ -2814,7 +2939,7 @@ char **argv;            /* command line tokens */
       }
     }
 
-#endif
+#  endif
 
     if ((codeset && strcmp(codeset, "UTF-8") == 0)
          || (loc && strcmp(loc, "UTF-8") == 0)) {
@@ -2889,6 +3014,18 @@ char **argv;            /* command line tokens */
   fflush(stderr);
   setbuf(stderr, NULL);
 #endif
+
+#ifdef VMS
+  /* This pointless reference to a do-nothing function ensures that the
+   * globals get linked in, even on old systems, or when compiled using
+   * /NAMES = AS_IS.  (See also globals.c.)
+   */
+  {
+    void (*local_dummy)( void);
+    local_dummy = globals_dummy;
+  }
+#endif /* def VMS */
+
 
 /* Re-initialize global variables to make the zip dll re-entrant. It is
  * possible that we could get away with not re-initializing all of these
@@ -3282,13 +3419,24 @@ char **argv;            /* command line tokens */
 #endif /* ndef NO_EXCEPT_SIGNALS */
 
 
+#ifdef ENABLE_USER_PROGRESS
+# ifdef VMS
+  establish_ctrl_t( user_progress);
+# else /* def VMS */
+#  ifdef SIGUSR1
+  signal( SIGUSR1, user_progress);
+#  endif /* def SIGUSR1 */
+# endif /* def VMS [else] */
+#endif /* def ENABLE_USER_PROGRESS */
+
+
 #if defined(UNICODE_SUPPORT) && defined(WIN32)
   /* check if this Win32 OS has support for wide character calls */
   has_win32_wide();
 #endif
 
 
-  /* make copy if command line as it is parsed */
+  /* make copy of command line as it is parsed */
   parsed_arg_count = 0;
   parsed_args = NULL;
   max_parsed_args = 9000;
@@ -3601,16 +3749,16 @@ char **argv;            /* command line tokens */
 
           break;
         case 'e':   /* Encrypt */
-#if !CRYPT
-          ZIPERR(ZE_PARMS, "encryption not supported");
-#else /* CRYPT */
+#if CRYPT
           if (key)
             free(key);
           key_needed = 1;
           if (encryption_method == NO_ENCRYPTION) {
             encryption_method = TRADITIONAL_ENCRYPTION;
           }
-#endif /* !CRYPT */
+#else /* CRYPT */
+          ZIPERR(ZE_PARMS, "encryption (-e) not supported");
+#endif /* CRYPT [else] */
           break;
         case 'F':   /* fix the zip file */
           fix = 1; break;
@@ -3808,7 +3956,7 @@ char **argv;            /* command line tokens */
             encryption_method = TRADITIONAL_ENCRYPTION;
           }
 #else
-          ZIPERR(ZE_PARMS, "encryption not supported");
+          ZIPERR(ZE_PARMS, "encryption (-P) not supported");
 #endif /* CRYPT */
           break;
 #if defined(QDOS) || defined(QLZIP)
@@ -3869,6 +4017,12 @@ char **argv;            /* command line tokens */
           }
           free(value);
           break;
+
+#if !defined( VMS) && defined( ENABLE_USER_PROGRESS)
+        case o_si:  /* Show process id. */
+          show_pid = 1; break;
+#endif /* !defined( VMS) && defined( ENABLE_USER_PROGRESS) */
+
         case o_so:  /* show all options */
           show_options = 1; break;
 #ifdef UNICODE_SUPPORT
@@ -4121,10 +4275,17 @@ char **argv;            /* command line tokens */
           linkput = 1;  break;
 #endif /* S_IFLNK */
 
-#if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW)
+#if CRYPT
+# if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW)
         case 'Y':   /* Encryption method */
           if (abbrevmatch("traditional", value, 0, 1)) {
+#  ifdef CRYPT_TRAD
             encryption_method = TRADITIONAL_ENCRYPTION;
+#  else
+            free(value);
+            ZIPERR(ZE_PARMS, 
+                   "Traditional zip encryption not supported in this build");
+#  endif
           } else if (abbrevmatch("AES128", value, 0, 5)) {
             encryption_method = AES_128_ENCRYPTION;
           } else if (abbrevmatch("AES192", value, 0, 5)) {
@@ -4133,15 +4294,23 @@ char **argv;            /* command line tokens */
             encryption_method = AES_256_ENCRYPTION;
 
           } else {
+#  ifdef CRYPT_TRAD
             zipwarn(
  "valid encryption methods are:  Traditional, AES128, AES192, and AES256", "");
+#  else
+            zipwarn(
+ "valid encryption methods are:  AES128, AES192, and AES256", "");
+#  endif
             free(value);
             ZIPERR(ZE_PARMS,
  "Option -Y (--encryption-method):  unknown method");
           }
           free(value);
           break;
-#endif /* if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW) */
+# endif /* if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW) */
+#else /* CRYPT */
+          ZIPERR(ZE_PARMS, "encryption (-Y) not supported");
+#endif /* CRYPT [else] */
 
         case 'z':   /* Edit zip file comment */
           zipedit = 1;  break;
@@ -4166,23 +4335,43 @@ char **argv;            /* command line tokens */
 #else
             ZIPERR(ZE_COMPERR, "Compression method LZMA not enabled");
 #endif
+          } else if (abbrevmatch("ppmd", value, 0, 1)) {
+            /* PPMD */
+#ifdef PPMD_SUPPORT
+            method = PPMD;
+#else
+            ZIPERR(ZE_COMPERR, "Compression method PPMd not enabled");
+#endif
           } else {
             zipwarn("unknown compression method found:  ", value);
+            zipwarn(
 #ifdef BZIP2_SUPPORT
 # ifdef LZMA_SUPPORT
-            zipwarn(
-             "valid compression methods are:  store, deflate, bzip2, lzma", "");
+#  ifdef PPMD_SUPPORT
+     "valid compression methods are:  store, deflate, bzip2, lzma, ppmd", "");
+#  else
+     "valid compression methods are:  store, deflate, bzip2, lzma", "");
+#   endif
 # else
-            zipwarn(
-             "valid compression methods are:  store, deflate, bzip2", "");
+#  ifdef PPMD_SUPPORT
+     "valid compression methods are:  store, deflate, bzip2, ppmd", "");
+#  else
+     "valid compression methods are:  store, deflate, bzip2", "");
+#   endif
 # endif
 #else
 # ifdef LZMA_SUPPORT
-            zipwarn(
-             "valid compression methods are:  store, deflate, lzma)", "");
+#  ifdef PPMD_SUPPORT
+     "valid compression methods are:  store, deflate, lzma, ppmd)", "");
+#  else
+     "valid compression methods are:  store, deflate, lzma)", "");
+#   endif
 # else
-            zipwarn(
-             "valid compression methods are:  store, deflate)", "");
+#  ifdef PPMD_SUPPORT
+     "valid compression methods are:  store, deflate, ppmd)", "");
+#  else
+     "valid compression methods are:  store, deflate)", "");
+#   endif
 # endif
 #endif
             free(value);
@@ -4620,6 +4809,15 @@ char **argv;            /* command line tokens */
   }
 
 
+  /* Show process ID. */
+#if !defined( VMS) && defined( ENABLE_USER_PROGRESS)
+  if (show_pid)
+  {
+    fprintf( mesg, "PID = %d \n", getpid());
+  }
+#endif /* !defined( VMS) && defined( ENABLE_USER_PROGRESS) */
+
+
   /* process command line options */
 
 #if CRYPT
@@ -4716,7 +4914,7 @@ char **argv;            /* command line tokens */
     char c;
     char *allowed_other_chars = "!@#$%^&()-_=+/[]{}|";
 
-    for (i = 0; c = path_prefix[i]; i++) {
+    for (i = 0; (c = path_prefix[i]); i++) {
       if (!isprint(c)) {
         if (path_prefix_mode == 1)
           ZIPERR(ZE_PARMS, "option -pa (--prefix_added): non-print char in prefix");
@@ -5254,6 +5452,11 @@ char **argv;            /* command line tokens */
   }
 
   /* Scan for new files */
+
+#ifdef ENABLE_USER_PROGRESS
+  u_p_phase = 1;
+  u_p_task = "Scanning";
+#endif /* def ENABLE_USER_PROGRESS */
 
   /* Process file arguments from command line */
   if (filelist) {
@@ -6320,6 +6523,12 @@ char **argv;            /* command line tokens */
     fprintf(mesg, "sd: Going through old zip file\n");
     fflush(mesg);
   }
+
+#ifdef ENABLE_USER_PROGRESS
+  u_p_phase = 2;
+  u_p_task = "Freshening";
+#endif /* def ENABLE_USER_PROGRESS */
+
   w = &zfiles;
   while ((z = *w) != NULL) {
     if (z->mark == 1)
@@ -6335,6 +6544,10 @@ char **argv;            /* command line tokens */
       if (action != ARCHIVE && action != DELETE)
       {
         struct zlist far *localz; /* local header */
+
+#ifdef ENABLE_USER_PROGRESS
+        u_p_name = z->oname;
+#endif /* def ENABLE_USER_PROGRESS */
 
         if (verbose || !(filesync && z->current))
           DisplayRunningStats();
@@ -6490,16 +6703,16 @@ char **argv;            /* command line tokens */
           }
           */
           if (r == ZE_OPEN) {
-            perror(z->oname);
-            zipwarn("could not open for reading: ", z->oname);
+            zipwarn_indent("could not open for reading: ", z->oname);
+            zipwarn_indent( NULL, strerror( errno));
             if (bad_open_is_error) {
               sprintf(errbuf, "was zipping %s", z->name);
               ZIPERR(r, errbuf);
             }
           } else {
-            zipwarn("file and directory with the same name: ", z->oname);
+            zipwarn_indent("file and directory with the same name: ", z->oname);
           }
-          zipwarn("will just copy entry over: ", z->oname);
+          zipwarn_indent("will just copy entry over: ", z->oname);
           if ((r = zipcopy(z)) != ZE_OK)
           {
             sprintf(errbuf, "was copying %s", z->oname);
@@ -6826,6 +7039,12 @@ char **argv;            /* command line tokens */
     fprintf(mesg, "sd: Zipping up new entries\n");
     fflush(mesg);
   }
+
+#ifdef ENABLE_USER_PROGRESS
+  u_p_phase = 3;
+  u_p_task = "Adding";
+#endif /* def ENABLE_USER_PROGRESS */
+
   diag("zipping up new entries, if any");
   Trace((stderr, "zip diagnostic: fcount=%u\n", (unsigned)fcount));
   for (f = found; f != NULL; f = fexpel(f))
@@ -6918,6 +7137,11 @@ char **argv;            /* command line tokens */
     z->dosflag = f->dosflag;
     /* zip it up */
     DisplayRunningStats();
+
+#ifdef ENABLE_USER_PROGRESS
+    u_p_name = z->oname;
+#endif /* def ENABLE_USER_PROGRESS */
+
     if (noisy)
     {
       fprintf(mesg, "  adding: %s", z->oname);
@@ -6984,21 +7208,22 @@ char **argv;            /* command line tokens */
       }
       */
       if (r == ZE_OPEN) {
-        perror("zip warning");
-        if (logfile)
-          fprintf(logfile, "zip warning: %s\n", strerror(errno));
-        zipwarn("could not open for reading: ", z->oname);
+        zipwarn_indent("could not open for reading: ", z->oname);
+        zipwarn_indent( NULL, strerror( errno));
         if (bad_open_is_error) {
           sprintf(errbuf, "was zipping %s", z->name);
           ZIPERR(r, errbuf);
         }
       } else {
-        zipwarn("file and directory with the same name: ", z->oname);
+        zipwarn_indent("file and directory with the same name: ", z->oname);
       }
       files_so_far++;
       bytes_so_far += len;
       bad_files_so_far++;
       bad_bytes_so_far += len;
+#ifdef ENABLE_USER_PROGRESS
+      u_p_name = NULL;
+#endif /* def ENABLE_USER_PROGRESS */
       free((zvoid *)(z->name));
       free((zvoid *)(z->iname));
       free((zvoid *)(z->zname));
@@ -7036,7 +7261,13 @@ char **argv;            /* command line tokens */
   }
 
   /* final status 3/17/05 EG */
-  if (noisy && bad_files_so_far)
+
+#ifdef ENABLE_USER_PROGRESS
+  u_p_phase = 4;
+  u_p_task = "Finishing";
+#endif /* def ENABLE_USER_PROGRESS */
+
+  if (bad_files_so_far)
   {
     char tempstrg[100];
 
@@ -7255,6 +7486,12 @@ char **argv;            /* command line tokens */
   }
 
   /* Write central directory and end header to temporary zip */
+
+#ifdef ENABLE_USER_PROGRESS
+  u_p_phase = 5;
+  u_p_task = "Done";
+#endif /* def ENABLE_USER_PROGRESS */
+
   if (show_what_doing) {
     fprintf(mesg, "sd: Writing central directory\n");
     fflush(mesg);
@@ -7440,3 +7677,124 @@ char **argv;            /* command line tokens */
 #endif /* !VMS && !CMS_MVS */
   RETURN(finish(o ? ZE_OPEN : ZE_OK));
 }
+
+
+/* Ctrl/T (VMS) AST or SIGUSR1 handler for user-triggered progress
+ * message.
+ * UNIX: arg = signal number. 
+ * VMS:  arg = Out-of-band character mask.
+ */
+#ifdef ENABLE_USER_PROGRESS
+
+# ifndef VMS
+#  include <limits.h>
+#  include <time.h>
+#  include <sys/times.h>
+#  include <sys/utsname.h>
+#  include <unistd.h>
+# endif /* ndef VMS */
+
+USER_PROGRESS_CLASS void user_progress( arg)
+int arg;
+{
+  /* VMS Ctrl/T automatically puts out a line like:
+   * ALP::_FTA24: 07:59:43 ZIP       CPU=00:00:59.08 PF=2320 IO=52406 MEM=333
+   * (host::tty local_time program cpu_time page_faults I/O_ops phys_mem)
+   * We do something vaguely similar on non-VMS systems.
+   */
+# ifndef VMS
+
+#  ifdef CLK_TCK
+#   define clk_tck CLK_TCK
+#  else /* def CLK_TCK */
+  long clk_tck;
+#  endif /* def CLK_TCK [else] */
+#  define U_P_NODENAME_LEN 32
+
+  static int not_first = 0;                             /* First time flag. */
+  static char u_p_nodename[ U_P_NODENAME_LEN+ 1];	/* "hoat::tty". */
+  static char u_p_prog_name[] = "zip";                  /* Program name. */
+
+  struct utsname u_p_utsname;
+  struct tm u_p_loc_tm;
+  struct tms u_p_tms;
+  char u_p_intro[ 128];
+  char *cp;
+  char *tty_name;
+  time_t u_p_time;
+  float stime_f;
+  float utime_f;
+
+  /* On the first time through, get the host name and tty name, and form
+   * the "host::tty" string (in u_p_nodename) for the intro line.
+   */
+  if (not_first == 0)
+  {
+    not_first = 1;
+    /* Host name.  (Trim off any domain info.  (Needed on Tru64.)) */
+    uname( &u_p_utsname);
+    if (u_p_utsname.nodename == NULL)
+    {
+      *u_p_nodename = '\0';
+    }
+    else
+    {
+      strncpy( u_p_nodename, u_p_utsname.nodename, (U_P_NODENAME_LEN- 8));
+      u_p_nodename[ 24] = '\0';
+      cp = strchr( u_p_nodename, '.');
+      if (cp != NULL)
+        *cp = '\0';
+    }
+
+    /* Terminal name.  (Trim off any leading "/dev/"). */
+    tty_name = ttyname( 0);
+    if (tty_name != NULL)
+    {
+      cp = strstr( tty_name, "/dev/");
+      if (cp != NULL)
+        tty_name += 5;
+
+      strcat( u_p_nodename, "::");
+      strncat( u_p_nodename, tty_name,
+       (U_P_NODENAME_LEN- strlen( u_p_nodename)));
+    }
+  }
+
+  /* Local time.  (Use reentrant localtime_r().) */
+  u_p_time = time( NULL);
+  localtime_r( &u_p_time, &u_p_loc_tm);
+
+  /* CPU time. */
+  times( &u_p_tms);
+#ifndef CLK_TCK
+  clk_tck = sysconf( _SC_CLK_TCK);
+#endif /* ndef CLK_TCK */
+  utime_f = ((float)u_p_tms.tms_utime)/ clk_tck;
+  stime_f = ((float)u_p_tms.tms_stime)/ clk_tck;
+
+  /* Put out intro line. */
+  fprintf( stderr, "%s %02d:%02d:%02d %s CPU=%.2f\n",
+   u_p_nodename,
+   u_p_loc_tm.tm_hour, u_p_loc_tm.tm_min, u_p_loc_tm.tm_sec,
+   u_p_prog_name,
+   (stime_f+ utime_f));
+
+# endif /* ndef VMS */
+
+  if (u_p_task != NULL)
+  {
+    if (u_p_name == NULL)
+      u_p_name = "";
+
+    fprintf( stderr, "   %s: %s\n", u_p_task, u_p_name);
+  }
+
+# ifndef VMS
+  /* Re-establish this SIGUSR1 handler.
+   * (On VMS, the Ctrl/T handler persists.) */
+  signal( SIGUSR1, user_progress);
+# endif /* ndef VMS */
+}
+
+#endif /* def ENABLE_USER_PROGRESS */
+

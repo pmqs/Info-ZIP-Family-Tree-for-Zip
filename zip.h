@@ -99,6 +99,15 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #  include "zlib.h"
 #endif
 
+/* If traditional CRYPT is disabled, and no other encryption method is
+ * enabled, then ensure that all encryption is disabled.
+ */
+#ifdef NO_TRADITIONAL_CRYPT
+# if !defined( CRYPT_AES_WG) && !defined( CRYPT_AES_WG_NEW)
+#  define NO_CRYPT
+# endif
+#endif
+
 #ifdef CRYPT_AES_WG
 #  include "aes_wg/aes.h"
 #  include "aes_wg/fileenc.h"
@@ -370,6 +379,7 @@ extern int scanimage;           /* Scan through image files */
 #define DEFLATE 8               /* Deflation comppression method*/
 #define BZIP2 12                /* BZIP2 compression method */
 #define LZMA 14                 /* LZMA compression method */
+#define PPMD 98                 /* PPMd compression method */
 
 #define LAST_KNOWN_COMPMETHOD   DEFLATE
 #ifdef BZIP2_SUPPORT
@@ -379,6 +389,10 @@ extern int scanimage;           /* Scan through image files */
 #ifdef LZMA_SUPPORT
 # undef LAST_KNOWN_COMPMETHOD
 # define LAST_KNOWN_COMPMETHOD  LZMA
+#endif
+#ifdef PPMD_SUPPORT
+# undef LAST_KNOWN_COMPMETHOD
+# define LAST_KNOWN_COMPMETHOD  PPMD
 #endif
 
 #define AESENCRED 99            /* AES (WG) encrypted */
@@ -494,6 +508,8 @@ extern int output_seekable;     /* 1 = output seekable 3/13/05 EG */
 extern int allow_fifo;          /* Allow reading Unix FIFOs, waiting if pipe open */
 extern int show_files;          /* show files to operate on and exit (=2 log only) */
 
+extern int sf_usize;            /* include usize in -sf listing */
+
 extern char *tempzip;           /* temp file name */
 extern FILE *y;                 /* output file now global for splits */
 
@@ -561,6 +577,24 @@ extern char *entry_name;        /* used by DLL to pass z->zname to iz_file_read(
  extern uzoff_t last_progress_chunk;  /* used to determine when to send next report */
 #endif
 
+/* User-triggered (Ctrl/T, SIGUSR1) progress. */
+
+#ifndef NO_USER_PROGRESS
+# ifndef VMS
+#  include <signal.h>
+# endif /* ndef VMS */
+# if defined(VMS) || defined(SIGUSR1)
+#  if !defined(MACOS) && !defined(WINDLL)
+#   define ENABLE_USER_PROGRESS
+#  endif /* !defined(MACOS) && !defined(WINDLL) */
+# endif /* defined(VMS) || defined(SIGUSR1) */
+#endif /* ndef NO_USER_PROGRESS */
+
+#ifdef ENABLE_USER_PROGRESS
+ extern char *u_p_name;
+ extern char *u_p_task;
+ extern int u_p_phase;
+#endif /* def ENABLE_USER_PROGRESS */
 
 /* Encryption. */
 
@@ -765,6 +799,9 @@ int readlocal OF((struct zlist far **, struct zlist far *));
 /* made global for handling extra fields */
 char *get_extra_field OF((ush, char *, unsigned));
 char *copy_nondup_extra_fields OF((char *, unsigned, char *, unsigned, unsigned *));
+
+int read_inc_file OF((char *));
+
 
         /* in fileio.c */
 #ifndef UTIL
@@ -1015,18 +1052,29 @@ void     bi_init      OF((char *, unsigned int, int));
  int entropy_fun OF((unsigned char buf[], unsigned int len));
 #endif
 
-#ifdef LZMA_SUPPORT
+
+/*---------------------------------------------------------------------
+  LZMA
+  27 August 2011
+  ---------------------------------------------------------------------*/
+
+/* This needs to be global to support VC project configuration */
+
  /* disable multiple threads, which most ports can't do.  May
     enable on Win32 at some point. */
-# ifndef _7ZIP_ST
-#  define _7ZIP_ST
-# endif
  /* for now do things generically */
+
+#ifndef _7ZIP_ST
+# define _7ZIP_ST
+#endif
+
+#ifdef LZMA_SUPPORT
 # define NO_USE_WINDOWS_FILE
 #endif
 
 /* this needs to be global for LZMA */
 unsigned iz_file_read OF((char *buf, unsigned size));
+
 
 
 /*---------------------------------------------------------------------
@@ -1155,6 +1203,11 @@ struct option_struct {
   char Far *name;           /* optional string for option returned on some errors */
 };
 extern struct option_struct far options[];
+
+
+#ifndef NO_SHOW_PARSED_COMMAND
+# define SHOW_PARSED_COMMAND
+#endif
 
 
 /* moved here from fileio.c to make global - 10/6/05 EG */

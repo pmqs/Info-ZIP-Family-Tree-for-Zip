@@ -352,6 +352,10 @@ struct PK_header
 
 #define PK_HEADER_SIZE  8
 
+#ifdef ENABLE_USER_PROGRESS
+int establish_ctrl_t( void ctrl_t_ast());
+#endif /* def ENABLE_USER_PROGRESS */
+
 char *vms_file_version( char *s);
 
 #endif /* !__vms_h */

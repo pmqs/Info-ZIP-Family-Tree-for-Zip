@@ -1,4 +1,4 @@
-#                                               6 August 2011.  SMS.
+#                                               8 January 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS Dependency Description File.
 #
@@ -7,7 +7,7 @@
 #    is not specified.  Typical usage:
 #
 #    $ MMS /EXTEND /DESCRIP = [.VMS]DESCRIP_MKDEPS.MMS /SKIP -
-#       /MACRO = (AES_WG=1, LZMA=1)
+#       /MACRO = (AES_WG=1, IZ_BZIP2=iz_bzip2, LZMA=1, PPMD=1)
 #
 # If the IZ_AES_WG encryption source kit has not been installed, then
 # the macro AES_WG should not be defined.
@@ -112,6 +112,9 @@ MODS_LIB_ZIP_AES = $(FILTER-OUT *], \
 MODS_LIB_ZIP_LZMA = $(FILTER-OUT *], \
  $(PATSUBST *]*.OBJ, *] [.LZMA]*, $(MODS_OBJS_LIB_ZIP_LZMA)))
 
+MODS_LIB_ZIP_PPMD = $(FILTER-OUT *], \
+ $(PATSUBST *]*.OBJ, *] [.LZMA]*, $(MODS_OBJS_LIB_ZIP_PPMD)))
+
 MODS_LIB_ZIPUTILS_N = $(FILTER-OUT *], \
  $(PATSUBST *]*.OBJ, *] *, $(MODS_OBJS_LIB_ZIPUTILS_N)))
 
@@ -140,6 +143,7 @@ DEPS = $(FOREACH NAME, \
  $(MODS_LIB_ZIP_N) $(MODS_LIB_ZIP_V) \
  $(MODS_LIB_ZIP_AES) \
  $(MODS_LIB_ZIP_LZMA) \
+ $(MODS_LIB_ZIP_PPMD) \
  $(MODS_ZIPUTILS_N) $(MODS_ZIPUTILS_N_V) \
  $(MODS_LIB_ZIPUTILS_U) $(MODS_LIB_ZIPUTILS_U_V) \
  $(MODS_LIB_ZIPCLI_V) \
@@ -162,9 +166,9 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
 #       Note that the space in P4, which prevents immediate macro
 #       expansion, is removed by COLLECT_DEPS.COM.
 #
-	@$(COLLECT_DEPS) "Zip for VMS" "$(MMS$TARGET)" -
+        @$(COLLECT_DEPS) "Zip for VMS" "$(MMS$TARGET)" -
          "[...]*.MMSD" "[.$ (DEST)]" $(MMSDESCRIPTION_FILE) -
-         "[.AES_WG/[.LZMA" "AES_WG/LZMA"
+         "[.AES_WG/[.LZMA]P/[.LZMA" "AES_WG/PPMD/LZMA"
 	@ write sys$output -
          "Created a new dependency file: $(MMS$TARGET)"
 .IF DELETE_MMSD

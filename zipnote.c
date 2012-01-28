@@ -14,12 +14,17 @@
 #define __ZIPNOTE_C
 
 #ifndef UTIL
-#define UTIL
+# define UTIL
 #endif
+
 #include "zip.h"
 #define DEFCPYRT        /* main module: enable copyright string defines! */
 #include "revision.h"
 #include <signal.h>
+
+#ifdef VMS
+extern void globals_dummy( void);
+#endif /* def VMS */
 
 /* Calculate size of static line buffer used in write (-w) mode. */
 #define WRBUFSIZ 2047
@@ -404,6 +409,17 @@ char **argv;            /* command line tokens */
 #ifdef THEOS
   setlocale(LC_CTYPE, "I");
 #endif
+
+#ifdef VMS
+  /* This pointless reference to a do-nothing function ensures that the
+   * globals get linked in, even on old systems, or when compiled using
+   * /NAMES = AS_IS.  (See also globals.c.)
+   */
+  {
+    void (*local_dummy)( void);
+    local_dummy = globals_dummy;
+  }
+#endif /* def VMS */
 
 #ifdef UNICODE_SUPPORT
 # ifdef UNIX

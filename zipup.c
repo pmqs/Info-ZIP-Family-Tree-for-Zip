@@ -166,15 +166,26 @@ local zoff_t filecompress OF((struct zlist far *z_entry, int *cmpr_method));
 local zoff_t bzfilecompress OF((struct zlist far *z_entry, int *cmpr_method));
 #endif
 
+#if defined( LZMA_SUPPORT) || defined( PPMD_SUPPORT)
+
+#include "lzma/Types.h"
+
+static void *SzAlloc(void *p, size_t size) { p = p; return malloc(size); }
+static void SzFree(void *p, void *address) { p = p; free(address); }
+static ISzAlloc g_Alloc = { SzAlloc, SzFree };
+
+#endif /* defined( LZMA_SUPPORT) || defined( PPMD_SUPPORT) */
+
 #ifdef LZMA_SUPPORT
 
-# define _CRT_SECURE_NO_WARNINGS
+# ifdef WIN32
+#  define _CRT_SECURE_NO_WARNINGS
+# endif /* def WIN32 */
 
 # include <stdio.h>
 # include <stdlib.h>
 # include <string.h>
 
-# include "lzma/Alloc.h"
 # include "lzma/SzFile.h"
 # include "lzma/SzVersion.h"
 # include "lzma/LzmaDec.h"
@@ -185,17 +196,22 @@ local zoff_t bzfilecompress OF((struct zlist far *z_entry, int *cmpr_method));
  const char *kCantAllocateMessage = "Can not allocate memory";
  const char *kDataErrorMessage = "Data error";
 
- static void *SzAlloc(void *p, size_t size) { p = p; return MyAlloc(size); }
- static void SzFree(void *p, void *address) { p = p; MyFree(address); }
- static ISzAlloc g_Alloc = { SzAlloc, SzFree };
-
-
  local zoff_t lzma_filecompress OF((struct zlist far *z_entry,
   int *cmpr_method));
  local SRes LZMA_Encode(ISeqOutStream *outStream, ISeqInStream *inStream,
   UInt64 fileSize, zoff_t *compressed_size);
 
 #endif
+
+#ifdef PPMD_SUPPORT
+
+# include "lzma/Ppmd8.h"
+
+ local zoff_t ppmd_filecompress OF((struct zlist far *z_entry,
+  int *cmpr_method));
+
+#endif /* def PPMD_SUPPORT */
+
 
 /* Deflate "internal" global data (currently not in zip.h) */
 #if defined(MMAP) || defined(BIG_MEM)
@@ -1000,8 +1016,8 @@ struct zlist far *z;    /* zip entry to compress */
 
   z->ver = (ush)(m == STORE ? 10 : 20); /* Need PKUNZIP 2.0 except for store */
 
-#ifdef LZMA_SUPPORT
-  if (method == LZMA)
+#if defined( LZMA_SUPPORT) || defined( PPMD_SUPPORT)
+  if ((method == LZMA) || (method == PPMD))
       z->ver = (ush)(m == STORE ? 10 : 63);
 #endif
 #ifdef BZIP2_SUPPORT
@@ -1230,9 +1246,13 @@ struct zlist far *z;    /* zip entry to compress */
       tempzn += salt_len + 2;
     } else {
 # endif
+# ifdef CRYPT_TRAD
       crypthead(key, z->crc);
       z->siz += RAND_HEAD_LEN;  /* to be updated later */
       tempzn += RAND_HEAD_LEN;
+# else /* def CRYPT_TRAD */
+      /* Do something in case the impossible happens here? */
+# endif /* def CRYPT_TRAD [else] */
 # ifdef CRYPT_AES_WG
     }
 # endif
@@ -1271,18 +1291,24 @@ struct zlist far *z;    /* zip entry to compress */
 
     if (set_type) z->att = (ush)UNKNOWN;
     /* ... is finally set in file compression routine */
-#ifdef LZMA_SUPPORT
-    if (m == LZMA) {
-      s = lzma_filecompress(z, &m);
-    }
-    else
-#endif /* LZMA_SUPPORT */
 #ifdef BZIP2_SUPPORT
     if (m == BZIP2) {
       s = bzfilecompress(z, &m);
     }
     else
 #endif /* BZIP2_SUPPORT */
+#ifdef LZMA_SUPPORT
+    if (m == LZMA) {
+      s = lzma_filecompress(z, &m);
+    }
+    else
+#endif /* LZMA_SUPPORT */
+#ifdef PPMD_SUPPORT
+    if (m == PPMD) {
+      s = ppmd_filecompress(z, &m);
+    }
+    else
+#endif /* PPMD_SUPPORT */
     {
       s = filecompress(z, &m);
     }
@@ -2787,10 +2813,94 @@ static SRes LZMA_Encode(ISeqOutStream *outStream, ISeqInStream *inStream,
   return res;
 }
 
-
-
 #endif /* LZMA_SUPPORT */
 
 
+
+/* ===========================================================================
+ * PPMd Compression
+ */
+
+#ifdef PPMD_SUPPORT
+
+
+/* 7-Zip I/O structure (reduced). */
+typedef struct
+{
+  IByteOut p;
+  Bool extra;
+  SRes res;
+  ISeqOutStream *outStream;
+} CByteOutToSeq;
+
+
+/* 7-Zip-compatible I/O Write function. */
+static void ppmd_write_byte( void *pp, unsigned char uc)
+{
+    CByteOutToSeq *p = (CByteOutToSeq *)pp;
+}
+
+
+
+
+local zoff_t ppmd_filecompress(z_entry, cmpr_method)
+  struct zlist far *z_entry;
+  int *cmpr_method;
+{
+
+  /* PPMd Header. */
+  unsigned char ppmd_props[ 2];       /* PPMd properties. */
+  unsigned short ppmd_prop_word;
+  int b;
+
+  /* PPMd parameters. */
+  unsigned order;
+  unsigned memSize;
+  unsigned restor;
+  unsigned short ppmd_param_word;
+
+  /* PPMd structure. */
+  CPpmd8 ppmd8;
+
+  /* 7-Zip I/O structure (reduced). */
+  CByteOutToSeq s;
+
+  s.p.Write = ppmd_write_byte;
+  s.extra = False;
+  s.res = SZ_OK;
+
+  /* PPMD8_MIN_ORDER (= 2) <= order <= PPMD8_MAX_ORDER (= 16)
+   * 1MB (= 2* 0) <= memSize <= 256MB (= 2^ 8)   (M = 2^ 20)
+   * restor = 0
+   */
+  order = 16;
+  memSize = (64<< 20);
+  restor = 0;
+
+/* wPPMd = (Model order - 1) +
+ *         ((Sub-allocator size - 1) << 4) +
+ *         (Model restoration method << 12)
+ *
+ *  15 14 13 12 11 10 09 08 07 06 05 04 03 02 01 00
+ *  Mdl_Res_Mth ___Sub-allocator_size-1 Mdl_Order-1
+ */
+
+  /* Form the PPMd properties word and bytes.  Put out the bytes. */
+  ppmd_param_word = ((order- 1)& 0xf)+
+   ((((memSize& 0xff)>> 20)- 1)<< 4)+
+   ((restor& 0xf)<< 12);
+
+  ppmd_props[ 0] = ppmd_param_word& 0xff;
+  ppmd_props[ 1] = ppmd_param_word> 8;
+
+/* SMSd. */
+fprintf( stderr, " p_p_w: %%x%04x \n\n", ppmd_param_word);
+
+  zfwrite(ppmd_props, 1, 2);
+
+  return 0;
+}
+
+#endif /* def PPMD_SUPPORT */
 
 #endif /* !UTIL */

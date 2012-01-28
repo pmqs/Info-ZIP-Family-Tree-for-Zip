@@ -1,5 +1,5 @@
 	Module		ZIP_CLITABLE
-	Ident		"03-105"
+	Ident		"03-106"
 
 Define	Verb		ZIP
 	Parameter	P1, Label=ZIPFILE, Prompt="Zip file"
@@ -104,6 +104,9 @@ Define	Type		COMPRESS_OPTS
 #ifdef LZMA_SUPPORT
 	Keyword		LZMA
 #endif /* def LZMA_SUPPORT */
+#ifdef PPMD_SUPPORT
+	Keyword		PPMD
+#endif /* def PPMD_SUPPORT */
 	Keyword		STORE
 
 Define	Type		DISPLAY_OPTS
