@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2012-01-07  SMS.
+$!     Last revised:  2012-02-16  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -36,7 +36,7 @@ $!       (or a suitable logical name) tells where to find "bzlib.h".
 $!       The BZIP2 object library (LIBBZ2_NS.OLB) is expected to be in
 $!       a "[.dest]" directory under that one ("dev:[dir.ALPHAL]", for
 $!       example), or in that directory itself.
-$!     - select LZMA compression support: "LZMA"
+$!     - select LZMA compression support: "LZMA" (Non-VAX only)
 $!     - select PPMd compression support: "PPMD"
 $!     - use ZLIB compression library: "IZ_ZLIB=dev:[dir]", where
 $!       "dev:[dir]" (or a suitable logical name) tells where to find
@@ -364,6 +364,11 @@ $     if (LARGE_FILE .ne. 0)
 $     then
 $        say "LARGE_FILE_SUPPORT is not available on VAX."
 $        LARGE_FILE = 0
+$     endif
+$     if (LZMA .ne. 0)
+$     then
+$        say "LZMA is not available on VAX."
+$        LZMA = 0
 $     endif
 $     HAVE_DECC_VAX = (f$search( "SYS$SYSTEM:DECC$COMPILER.EXE") .nes. "")
 $     HAVE_VAXC_VAX = (f$search( "SYS$SYSTEM:VAXC.EXE") .nes. "")

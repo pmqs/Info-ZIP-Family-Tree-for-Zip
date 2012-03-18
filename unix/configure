@@ -4,7 +4,7 @@
 
 #==============================================================================
 # unix/configure: Detect feature support and pass that information to Makefile.
-# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 08 Jan 2012
+# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 17 Mar 2012
 #==============================================================================
 
 #==============================================================================
@@ -63,7 +63,7 @@
 # Supported ports include:
 #   msdos : DOS port built using the DJGPP native or cross-compiler
 #   os2   : OS/2 port
-#   qdos  : Sinclare Q-DOS port built using a gcc cross-compiler
+#   qdos  : Sinclair Q-DOS port built using a gcc cross-compiler
 #   zos   : z/OS MVS port built under z/OS UNIX
 #   zvm   : z/VM CMS port built under z/VM UNIX
 #
@@ -708,7 +708,7 @@ _EOF_
         fi
         rm -f conftest
 
-        echo "  GNU C for OS/X Darwin ($CFLAGS_OPT)"
+        echo "  GNU C for Mac OS X Darwin ($CFLAGS_OPT)"
       fi
     fi
 

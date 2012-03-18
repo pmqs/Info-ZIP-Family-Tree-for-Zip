@@ -1,4 +1,4 @@
-#                                               8 January 2012.  SMS.
+#                                               2 March 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS Dependency Description File.
 #
@@ -7,7 +7,7 @@
 #    is not specified.  Typical usage:
 #
 #    $ MMS /EXTEND /DESCRIP = [.VMS]DESCRIP_MKDEPS.MMS /SKIP -
-#       /MACRO = (AES_WG=1, IZ_BZIP2=iz_bzip2, LZMA=1, PPMD=1)
+#       /MACRO = (LARGE=1, AES_WG=1, IZ_BZIP2=iz_bzip2, LZMA=1, PPMD=1)
 #
 # If the IZ_AES_WG encryption source kit has not been installed, then
 # the macro AES_WG should not be defined.
@@ -168,7 +168,8 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
 #
         @$(COLLECT_DEPS) "Zip for VMS" "$(MMS$TARGET)" -
          "[...]*.MMSD" "[.$ (DEST)]" $(MMSDESCRIPTION_FILE) -
-         "[.AES_WG/[.LZMA]P/[.LZMA" "AES_WG/PPMD/LZMA"
+         "[.AES_WG/[.LZMA]C/[.LZMA]P/[.LZMA]S/[.LZMA]T/[.LZMA" -
+         "AES_WG/LZMA_PPMD/PPMD/LZMA_PPMD/LZMA_PPMD/LZMA"
 	@ write sys$output -
          "Created a new dependency file: $(MMS$TARGET)"
 .IF DELETE_MMSD

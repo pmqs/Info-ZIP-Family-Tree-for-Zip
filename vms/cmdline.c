@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -44,6 +44,16 @@
 **              returned to Zip.
 **
 **  Modified by:
+**
+**      02-012          Steven Schweda          13-FEB-2012
+**              Added /COMPRESSION = LZMA (really) and PPMD.
+**              Added /COMPRESSION = mthd = LEVEL: n and
+**              Added /COMPRESSION = mthd = SUFFIX: (sufx1, ..., sufxn)
+**              Added /LEVEL = (mthd1, ..., mthdn).
+**              Partially de-inlined CHECK_BUFFER_ALLOCATION() (now
+**              CHECK_BUF_ALLOC()) for .OBJ size reduction (20%).
+**              Changed explicit run-time init init_dyndesc macro to
+**              link-time/implicit DSC_D_INIT.
 **
 **      02-011          Steven Schweda          25-AUG-2011
 **              Added NO and USIZE in /SHOW = [NO]FILES = USIZE.
@@ -109,7 +119,6 @@
 #define lib$get_foreign LIB$GET_FOREIGN
 #define lib$get_input LIB$GET_INPUT
 #define lib$sig_to_ret LIB$SIG_TO_RET
-#define ots$cvt_tu_l OTS$CVT_TU_L
 #define str$concat STR$CONCAT
 #define str$find_first_substring STR$FIND_FIRST_SUBSTRING
 #define str$free1_dx STR$FREE1_DX
@@ -125,7 +134,6 @@
 #include <climsgdef.h>
 #include <clidef.h>
 #include <lib$routines.h>
-#include <ots$routines.h>
 #include <str$routines.h>
 
 #ifndef CLI$_COMMA
@@ -135,11 +143,7 @@ globalvalue CLI$_COMMA;
 /*
 **  "Macro" to initialize a dynamic string descriptor.
 */
-#define init_dyndesc(dsc) {\
-        dsc.dsc$w_length = 0;\
-        dsc.dsc$b_dtype = DSC$K_DTYPE_T;\
-        dsc.dsc$b_class = DSC$K_CLASS_D;\
-        dsc.dsc$a_pointer = NULL;}
+#define DSC_D_INIT { 0, DSC$K_DTYPE_T, DSC$K_CLASS_D, NULL }
 
 /*
 **  Memory allocation step for argv string buffer.
@@ -147,18 +151,29 @@ globalvalue CLI$_COMMA;
 #define ARGBSIZE_UNIT 256
 
 /*
-**  Memory reallocation macro for argv string buffer.
+**  Memory reallocation macro (and function) for argv string buffer.
 */
-#define CHECK_BUFFER_ALLOCATION(buf, reserved, requested) { \
-    if ((requested) > (reserved)) { \
-        char *save_buf = (buf); \
-        (reserved) += ARGBSIZE_UNIT; \
-        if (((buf) = (char *) realloc((buf), (reserved))) == NULL) { \
-            if (save_buf != NULL) free(save_buf); \
-            return (SS$_INSFMEM); \
-        } \
-    } \
+#define CHECK_BUF_ALLOC( buf, reserved, requested) { \
+    char *buf_new; \
+    if ((buf_new = buffer_alloc( (buf), (reserved), (requested))) == NULL) \
+        return (SS$_INSFMEM); \
+    buf = buf_new; \
 }
+
+static char *buffer_alloc( char *buf, unsigned int *reserved,
+                           unsigned int requested)
+{
+    char *save_buf = buf;
+
+    *reserved += ARGBSIZE_UNIT;
+    if ((buf = (char *)realloc( buf, *reserved)) == NULL)
+    {
+        if (save_buf != NULL)
+            free( save_buf);
+    }
+    return buf;
+}
+
 
 /*
 **  Define descriptors for all of the CLI parameters and qualifiers.
@@ -180,9 +195,20 @@ $DESCRIPTOR(cli_comment_archive,"COMMENTS.ARCHIVE");    /* -z */
 $DESCRIPTOR(cli_comment_zipfile,"COMMENTS.ZIP_FILE");   /* -z */
 $DESCRIPTOR(cli_comment_files,  "COMMENTS.FILES");      /* -c */
 $DESCRIPTOR(cli_compression,    "COMPRESSION");         /* -Z */
-$DESCRIPTOR(cli_compression_b,  "COMPRESSION.BZIP2");   /* -Zb */
-$DESCRIPTOR(cli_compression_d,  "COMPRESSION.DEFLATE"); /* -Zd */
-$DESCRIPTOR(cli_compression_s,  "COMPRESSION.STORE");   /* -Zs */
+$DESCRIPTOR(cli_compression_b,  "COMPRESSION.BZIP2");           /* -Zb */
+$DESCRIPTOR(cli_compression_b_l,"COMPRESSION.BZIP2.LEVEL");     /* -n */
+$DESCRIPTOR(cli_compression_b_s,"COMPRESSION.BZIP2.SUFFIX");    /* -n */
+$DESCRIPTOR(cli_compression_d,  "COMPRESSION.DEFLATE");         /* -Zd */
+$DESCRIPTOR(cli_compression_d_l,"COMPRESSION.DEFLATE.LEVEL");   /* -n */
+$DESCRIPTOR(cli_compression_d_s,"COMPRESSION.DEFLATE.SUFFIX");  /* -n */
+$DESCRIPTOR(cli_compression_l,  "COMPRESSION.LZMA");            /* -Zl */
+$DESCRIPTOR(cli_compression_l_l,"COMPRESSION.LZMA.LEVEL");      /* -n */
+$DESCRIPTOR(cli_compression_l_s,"COMPRESSION.LZMA.SUFFIX");     /* -n */
+$DESCRIPTOR(cli_compression_p,  "COMPRESSION.PPMD");            /* -Zp */
+$DESCRIPTOR(cli_compression_p_l,"COMPRESSION.PPMD.LEVEL");      /* -n */
+$DESCRIPTOR(cli_compression_p_s,"COMPRESSION.PPMD.SUFFIX");     /* -n */
+$DESCRIPTOR(cli_compression_s,  "COMPRESSION.STORE");           /* -Zs */
+$DESCRIPTOR(cli_compression_s_s,"COMPRESSION.STORE.SUFFIX");    /* -n */
 $DESCRIPTOR(cli_copy_entries,   "COPY_ENTRIES");        /* -U */
 $DESCRIPTOR(cli_descriptors,    "DESCRIPTORS");         /* -fd */
 $DESCRIPTOR(cli_difference,     "DIFFERENCE");          /* -DF */
@@ -219,6 +245,16 @@ $DESCRIPTOR(cli_junk,           "JUNK");                /* -j,-j- */
 $DESCRIPTOR(cli_keep_version,   "KEEP_VERSION");        /* -w */
 $DESCRIPTOR(cli_latest,         "LATEST");              /* -o */
 $DESCRIPTOR(cli_level,          "LEVEL");               /* -[0-9] */
+$DESCRIPTOR(cli_level_0,        "LEVEL.0");             /* -0 */
+$DESCRIPTOR(cli_level_1,        "LEVEL.1");             /* -1 */
+$DESCRIPTOR(cli_level_2,        "LEVEL.2");             /* -2 */
+$DESCRIPTOR(cli_level_3,        "LEVEL.3");             /* -3 */
+$DESCRIPTOR(cli_level_4,        "LEVEL.4");             /* -4 */
+$DESCRIPTOR(cli_level_5,        "LEVEL.5");             /* -5 */
+$DESCRIPTOR(cli_level_6,        "LEVEL.6");             /* -6 */
+$DESCRIPTOR(cli_level_7,        "LEVEL.7");             /* -7 */
+$DESCRIPTOR(cli_level_8,        "LEVEL.8");             /* -8 */
+$DESCRIPTOR(cli_level_9,        "LEVEL.9");             /* -9 */
 $DESCRIPTOR(cli_license,        "LICENSE");             /* -L */
 $DESCRIPTOR(cli_log_file,       "LOG_FILE");            /* -la,-lf,-li */
 $DESCRIPTOR(cli_log_file_append, "LOG_FILE.APPEND");    /* -la */
@@ -386,11 +422,8 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     int new_argc;
     char **new_argv;
 
-    struct dsc$descriptor_d work_str;
-    struct dsc$descriptor_d foreign_cmdline;
-
-    init_dyndesc(work_str);
-    init_dyndesc(foreign_cmdline);
+    struct dsc$descriptor_d work_str = DSC_D_INIT;
+    struct dsc$descriptor_d foreign_cmdline = DSC_D_INIT;
 
     /*
     **  See if the program was invoked by the CLI (SET COMMAND) or by
@@ -431,7 +464,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     cmdl_len = sizeof("zip");
 
     /*
-    **  First, check to see if any of the regular options were specified.
+    **  First, check to see if any of the simple options were specified.
     */
 
     options[0] = '-';
@@ -476,23 +509,6 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     if (status & 1)
         /* /UPDATE */
         *ptr++ = 'u';
-
-    /*
-    **  Check for the compression level (-0 through -9).
-    */
-    status = cli$present(&cli_level);
-    if (status & 1) {
-        /* /LEVEL = value */
-
-        unsigned int binval;
-
-        status = cli$get_value(&cli_level, &work_str);
-        status = ots$cvt_tu_l(&work_str, &binval);
-        if (!(status & 1) || (binval > 9)) {
-           return (SS$_ABORT);
-        }
-        *ptr++ = binval + '0';
-    }
 
     /*
     **  Adjust offsets of zip archive entries.
@@ -546,7 +562,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         {
             x = cmdl_len;
             cmdl_len += strlen( OPT_CN)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_CN);
         }
         else
@@ -582,7 +598,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 
                 x = cmdl_len;
                 cmdl_len += strlen( opt)+ 1;
-                CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
                 strcpy( &the_cmd_line[ x], opt);
             }
             else
@@ -597,7 +613,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 
                     x = cmdl_len;
                     cmdl_len += strlen( opt)+ 1;
-                    CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+                    CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
                     strcpy( &the_cmd_line[ x], opt);
                 }
 
@@ -611,7 +627,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 
                     x = cmdl_len;
                     cmdl_len += strlen( opt)+ 1;
-                    CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+                    CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
                     strcpy( &the_cmd_line[ x], opt);
                 }
             }
@@ -632,7 +648,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* "-ic". */
             x = cmdl_len;
             cmdl_len += strlen( OPT_IC)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_IC);
         }
         else if (cli$present( &cli_patt_case_sensitive) & 1)
@@ -640,7 +656,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* "-ic-". */
             x = cmdl_len;
             cmdl_len += strlen( OPT_ICN)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_ICN);
         }
     }
@@ -656,7 +672,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         /* /DESCRIPTORS */
         x = cmdl_len;
         cmdl_len += strlen( OPT_FD)+ 1;
-        CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy( &the_cmd_line[ x], OPT_FD);
     }
 
@@ -670,7 +686,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         /* /DIFFERENCE */
         x = cmdl_len;
         cmdl_len += strlen( OPT_DF)+ 1;
-        CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy( &the_cmd_line[ x],  OPT_DF);
     }
 
@@ -706,14 +722,14 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /ENCRYPT = PASSWORD = "pwd". */
             x = cmdl_len;
             cmdl_len += strlen( OPT_P)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_P);
 
             if (cli$get_value( &cli_encrypt_pass, &work_str) & 1)
             {
                 x = cmdl_len;
                 cmdl_len += work_str.dsc$w_length+ 1;
-                CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
                 strncpy( &the_cmd_line[ x], work_str.dsc$a_pointer,
                  work_str.dsc$w_length);
                 the_cmd_line[ cmdl_len- 1] = '\0';
@@ -724,7 +740,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /ENCRYPT (no password). */
             x = cmdl_len;
             cmdl_len += strlen( OPT_E)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_E);
         }
 
@@ -744,7 +760,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             }
             x = cmdl_len;
             cmdl_len += strlen( opt)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], opt);
         }
 
@@ -753,7 +769,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /ENCRYPT = METHOD = mthd. */
             x = cmdl_len;
             cmdl_len += strlen( OPT_Y)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_Y);
 
             if (cli$present( &cli_encrypt_mthd_aes128) & 1)
@@ -774,7 +790,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             }
             x = cmdl_len;
             cmdl_len += strlen( opt)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], opt);
         }
     }
@@ -802,7 +818,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         /* /FILESYNC */
         x = cmdl_len;
         cmdl_len += strlen( OPT_FS)+ 1;
-        CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy( &the_cmd_line[ x],  OPT_FS);
     }
 
@@ -839,7 +855,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /HELP = EXTENDED */
             x = cmdl_len;
             cmdl_len += strlen( OPT_H2)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_H2);
         }
     }
@@ -879,7 +895,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         /* /FULL_PATH, /NOJUNK, -j- */
         x = cmdl_len;
         cmdl_len += strlen( OPT_JN)+ 1;
-        CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy( &the_cmd_line[ x], OPT_JN);
     }
     else if (flag < 0)
@@ -887,7 +903,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         /* /NOFULL_PATH, /JUNK, -j */
         x = cmdl_len;
         cmdl_len += strlen( OPT_J)+ 1;
-        CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy( &the_cmd_line[ x], OPT_J);
     }
 
@@ -1058,17 +1074,91 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         options[len] = '\0';
         x = cmdl_len;
         cmdl_len += len + 1;
-        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy(&the_cmd_line[x], options);
     }
 
     /*
     **
-    **  OK.  We've done all the regular options, so check for -b (temporary
+    **  OK.  We've done all the simple options, so check for -b (temporary
     **  file path), -n (special suffixes), -O (output atchive file),
     **  -t (exclude before time), -Z (compression method), zipfile,
     **  files to zip, and exclude list.
     **
+    */
+
+    /*
+    **  Check for the compression level (-0 through -9).
+    */
+    status = cli$present( &cli_level);
+    if (status& 1)
+    {
+        /* /LEVEL = value */
+        int clni;
+
+        /* Compression level CLI descriptors. */
+        struct dsc$descriptor_s *cli_level_n_p[] =
+         { &cli_level_0, &cli_level_1, &cli_level_2, &cli_level_3,
+           &cli_level_4, &cli_level_5, &cli_level_6, &cli_level_7,
+           &cli_level_8, &cli_level_9 };
+
+#define CLI_LEVEL_NP_SIZE \
+ ((sizeof cli_level_n_p)/ (sizeof cli_level_n_p[ 0]))
+
+        /* Loop through all compression levels.
+         * Note that there's currently nothing here to avoid putting out
+         * multiple "-<N>=mthd" options for the same method, if the
+         * victim specifies "/LEVEL = (i: mthd, j: mthd, ...)".  We'll
+         * put them out in 0-9 order, Zip will use the last one it sees.
+         */
+        for (clni = 0; clni < CLI_LEVEL_NP_SIZE; clni++)
+        {
+            if (cli$present( cli_level_n_p[ clni])& 1)
+            {
+                /* "-0" - "-9". */
+                x = cmdl_len;
+                cmdl_len += 2;
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                the_cmd_line[ x] = '-';
+                the_cmd_line[ x+ 1] = clni+ '0';
+
+                /* /LEVEL = n = method_list */
+                int first = 1;
+                while (cli$get_value( cli_level_n_p[ clni], &work_str)& 1)
+                {
+                    /* Delimiter.  First "=", then ":". */
+                    x = cmdl_len;
+                    cmdl_len += 1;
+                    CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                    if (first == 0)
+                    {
+                        the_cmd_line[ x] = ':';
+                    }
+                    else
+                    {
+                        first = 0;
+                        the_cmd_line[ x] = '=';
+                    }
+
+                    /* Compression method name. */
+                    x = cmdl_len;
+                    cmdl_len += work_str.dsc$w_length;
+                    CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                    strncpy( &the_cmd_line[ x], work_str.dsc$a_pointer,
+                     work_str.dsc$w_length);
+                }
+
+                /* NUL terminate. */
+                x = cmdl_len;
+                cmdl_len += 1;
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                the_cmd_line[ x] = '\0';
+            }
+        }
+    }
+
+    /*
+    **  Check for the temporary path (-b).
     */
     status = cli$present(&cli_temp_path);
     if (status & 1) {
@@ -1076,20 +1166,23 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         status = cli$get_value(&cli_temp_path, &work_str);
         x = cmdl_len;
         cmdl_len += work_str.dsc$w_length + 4;
-        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy(&the_cmd_line[x], "-b");
         strncpy(&the_cmd_line[x+3], work_str.dsc$a_pointer,
                 work_str.dsc$w_length);
         the_cmd_line[cmdl_len-1] = '\0';
     }
 
+    /*
+    **  Check for the output archive name (-O).
+    */
     status = cli$present(&cli_output);
     if (status & 1) {
         /* /OUTPUT = value */
         status = cli$get_value(&cli_output, &work_str);
         x = cmdl_len;
         cmdl_len += work_str.dsc$w_length + 4;
-        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy(&the_cmd_line[x], "-O");
         strncpy(&the_cmd_line[x+3], work_str.dsc$a_pointer,
                 work_str.dsc$w_length);
@@ -1115,7 +1208,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /DISPLAY = BYTES */
             x = cmdl_len;
             cmdl_len += strlen( OPT_DB)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_DB);
         }
 
@@ -1124,7 +1217,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /DISPLAY = COUNTS */
             x = cmdl_len;
             cmdl_len += strlen( OPT_DC)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x],  OPT_DC);
         }
 
@@ -1135,19 +1228,19 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 
             x = cmdl_len;
             cmdl_len += strlen( OPT_DD)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_DD);
 
             /* -dd[=value] now -dd -ds=value - 5/8/05 EG */
             if (work_str.dsc$w_length > 0) {
                 x = cmdl_len;
                 cmdl_len += strlen( OPT_DS);
-                CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
                 strcpy( &the_cmd_line[ x], OPT_DS);
 
                 x = cmdl_len;
                 cmdl_len += work_str.dsc$w_length+ 1;
-                CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
                 strncpy( &the_cmd_line[ x],
                  work_str.dsc$a_pointer, work_str.dsc$w_length);
             }
@@ -1158,7 +1251,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /DISPLAY = GLOBALDOTS */
             x = cmdl_len;
             cmdl_len += strlen( OPT_DG)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x],  OPT_DG);
         }
 
@@ -1167,7 +1260,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /DISPLAY = USIZE */
             x = cmdl_len;
             cmdl_len += strlen( OPT_DU)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x],  OPT_DU);
         }
 
@@ -1176,7 +1269,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /DISPLAY = VOLUME */
             x = cmdl_len;
             cmdl_len += strlen( OPT_DV)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x],  OPT_DV);
         }
     }
@@ -1197,7 +1290,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /LOG_FILE = APPEND */
             x = cmdl_len;
             cmdl_len += strlen( OPT_LA)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_LA);
         }
 
@@ -1207,7 +1300,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             status = cli$get_value(&cli_log_file_file, &work_str);
             x = cmdl_len;
             cmdl_len += strlen( OPT_LF)+ 2+ work_str.dsc$w_length;
-            CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy(&the_cmd_line[x], OPT_LF);
             strncpy(&the_cmd_line[x+strlen( OPT_LF)+ 1], work_str.dsc$a_pointer,
                 work_str.dsc$w_length);
@@ -1219,7 +1312,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /LOG = INFO */
             x = cmdl_len;
             cmdl_len += strlen( OPT_LI)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x],  OPT_LI);
         }
     }
@@ -1241,7 +1334,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /SPLIT = BELL */
             x = cmdl_len;
             cmdl_len += strlen( OPT_SB)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_SB);
         }
 
@@ -1251,7 +1344,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /SPLIT = PAUSE */
             x = cmdl_len;
             cmdl_len += strlen( OPT_SP)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_SP);
         }
 
@@ -1263,7 +1356,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 
             x = cmdl_len;
             cmdl_len += strlen( OPT_S)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_S);
 
             x = cmdl_len;
@@ -1278,7 +1371,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /SPLIT = VERBOSE */
             x = cmdl_len;
             cmdl_len += strlen( OPT_SV)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_SV);
         }
     }
@@ -1304,7 +1397,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /SHOW = COMMAND */
             x = cmdl_len;
             cmdl_len += strlen( OPT_SC)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_SC);
         }
 
@@ -1313,7 +1406,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /SHOW = DEBUG */
             x = cmdl_len;
             cmdl_len += strlen( OPT_SD)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x],  OPT_SD);
         }
 
@@ -1330,7 +1423,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 
             x = cmdl_len;
             cmdl_len += strlen( opt)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], opt);
 
             if (status == CLI$_PRESENT)
@@ -1341,7 +1434,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
                     /* /SHOW = FILES = USIZE */
                     x = cmdl_len;
                     cmdl_len += strlen( OPT_S_F_US)+ 1;
-                    CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+                    CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
                     strcpy( &the_cmd_line[ x], OPT_S_F_US);
                 }
             }
@@ -1352,7 +1445,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /SHOW = OPTIONS */
             x = cmdl_len;
             cmdl_len += strlen( OPT_SO)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_SO);
         }
     }
@@ -1378,7 +1471,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 
         x = cmdl_len;
         cmdl_len += strlen( opt)+ 1;
-        CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy( &the_cmd_line[ x], opt);
     }
 
@@ -1396,7 +1489,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /WILDCARD = NOSPAN */
             x = cmdl_len;
             cmdl_len += strlen( OPT_W)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_W);
         }
     }
@@ -1405,7 +1498,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         /* /NOWILDCARD */
         x = cmdl_len;
         cmdl_len += strlen( OPT_NW)+ 1;
-        CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy( &the_cmd_line[ x], OPT_NW);
     }
 
@@ -1420,7 +1513,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         /* /MUST_MATCH */
         x = cmdl_len;
         cmdl_len += strlen( OPT_MM)+ 1;
-        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy( &the_cmd_line[ x], OPT_MM);
     }
 
@@ -1438,7 +1531,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             status = cli$get_value(&cli_test_unzip, &work_str);
             x = cmdl_len;
             cmdl_len += strlen( OPT_TT)+ 2+ work_str.dsc$w_length;
-            CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy(&the_cmd_line[x], OPT_TT);
             strncpy(&the_cmd_line[x+strlen( OPT_TT)+ 1], work_str.dsc$a_pointer,
                 work_str.dsc$w_length);
@@ -1447,41 +1540,146 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
-    **  Handle "-Z".
+    **  Handle "-Z" and "-n".
     */
-#define OPT_ZB "-Zb"
-#define OPT_ZD "-Zd"
-#define OPT_ZS "-Zs"
+#define OPT_N "-n"
+#define OPT_Z "-Z"
 
     status = cli$present( &cli_compression);
     if (status & 1)
     {
-        if ((status = cli$present( &cli_compression_b)) & 1)
-        {
-            /* /COMPRESSION = BZIP2 */
-            x = cmdl_len;
-            cmdl_len += strlen( OPT_ZB)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
-            strcpy( &the_cmd_line[ x], OPT_ZB);
-        }
+        char *mthd_str;
+        int first;
+        int have_n;
+        int mthd_len;
+        int cmi;
 
-        if ((status = cli$present( &cli_compression_d)) & 1)
+        /* Compression method-related CLI descriptors and related info. */
+        struct
         {
-            /* /COMPRESSION = DEFLATE */
-            x = cmdl_len;
-            cmdl_len += strlen( OPT_ZD)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
-            strcpy( &the_cmd_line[ x], OPT_ZD);
-        }
+            char *name;                         /* Method name string. */
+            struct dsc$descriptor_s *mth_p;     /* method */
+            struct dsc$descriptor_s *mth_l_p;   /* method.LEVEL */
+            struct dsc$descriptor_s *mth_s_p;   /* method.SUFFIX */
+        } cli_cmprs_info[] =
+         { { "bzip2", &cli_compression_b,
+              &cli_compression_b_l, &cli_compression_b_s },
+           { "deflate", &cli_compression_d,
+               &cli_compression_d_l,  &cli_compression_d_s },
+           { "lzma", &cli_compression_l,
+               &cli_compression_l_l, &cli_compression_l_s },
+           { "ppmd", &cli_compression_p,
+               &cli_compression_p_l, &cli_compression_p_s },
+           { "store", &cli_compression_s,
+               NULL, &cli_compression_s_s } };  /* Note: No STORE = LEVEL. */
 
-        if ((status = cli$present( &cli_compression_s)) & 1)
+#define CLI_CMPRS_INFO_SIZE \
+ ((sizeof cli_cmprs_info)/ (sizeof cli_cmprs_info[ 0]))
+
+        /* Loop through all compression methods. */
+        for (cmi = 0; cmi < CLI_CMPRS_INFO_SIZE ; cmi++)
         {
-            /* /COMPRESSION = STORE */
-            x = cmdl_len;
-            cmdl_len += strlen( OPT_ZS)+ 1;
-            CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
-            strcpy( &the_cmd_line[ x], OPT_ZS);
-        }
+            first = 1;                  /* "=" v. ":". */
+            have_n = 0;                 /* "-n" v. "-Z". */
+            if (cli$present( (cli_cmprs_info[ cmi]).mth_p)& 1)
+            {
+                /* /COMPRESSION = mthd [= ...] */
+                mthd_str = (cli_cmprs_info[ cmi]).name;
+                mthd_len = strlen( mthd_str);
+                if ((cli_cmprs_info[ cmi]).mth_l_p != NULL)
+                {
+                    if (cli$present(
+                     (cli_cmprs_info[ cmi]).mth_l_p)& 1)
+                    {
+                        /* /COMPRESSION = mthd = LEVEL = lvl [...] */
+                        if (cli$get_value(
+                         (cli_cmprs_info[ cmi]).mth_l_p, &work_str)& 1)
+                        {
+                            /* Put out "-n". */
+                            have_n = 1;
+                            x = cmdl_len;
+                            cmdl_len += strlen( OPT_N)+ mthd_len+ 3;
+                            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size,
+                             cmdl_len)
+                            strcpy( &the_cmd_line[ x], OPT_N);
+                            /* Put out "mthd-lvl". */
+                            strcpy( &the_cmd_line[ x+ strlen( OPT_N)+ 1],
+                             mthd_str);
+                            the_cmd_line[ x+ strlen( OPT_N)+ 1+ mthd_len] = '-';
+                            the_cmd_line[ x+ strlen( OPT_N)+ 1+ mthd_len+ 1] =
+                             *work_str.dsc$a_pointer;
+                        }
+                    }
+                }
+
+                if (cli$present( (cli_cmprs_info[ cmi]).mth_s_p)& 1)
+                {
+                    /* /COMPRESSION = mthd = ([LEVEL = lvl],
+                     * SUFFIX = (sufx1, ..., sufxn))
+                     */
+                    if (have_n == 0)
+                    {
+                        /* Put out "-n". */
+                        have_n = 1;
+                        x = cmdl_len;
+                        cmdl_len += strlen( OPT_N)+ mthd_len+ 1;
+                        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size,
+                         cmdl_len)
+                        strcpy( &the_cmd_line[ x], OPT_N);
+                        strcpy( &the_cmd_line[ x+ strlen( OPT_N)+ 1], mthd_str);
+                    }
+
+                    /* Put out "=sufx1:...:sufxn". */
+                    while (cli$get_value(
+                     (cli_cmprs_info[ cmi]).mth_s_p, &work_str)& 1)
+                    {
+                        /* Delimiter.  First "=", then ":". */
+                        x = cmdl_len;
+                        cmdl_len += 1;
+                        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                        if (first == 0)
+                        {
+                            the_cmd_line[ x] = ':';
+                        }
+                        else
+                        {
+                            first = 0;
+                            the_cmd_line[ x] = '=';
+                        }
+
+                        x = cmdl_len;
+                        cmdl_len += work_str.dsc$w_length;
+                        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                        strncpy( &the_cmd_line[ x], work_str.dsc$a_pointer,
+                         work_str.dsc$w_length);
+                    }
+
+                    /* NUL terminate. */
+                    x = cmdl_len;
+                    cmdl_len += 1;
+                    CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                    the_cmd_line[ cmdl_len] = '\0';
+                }
+
+                /* If there were no LEVEL or SUFFIX keywords, hence no
+                 * "-n" option, then put out "-Zmthd".
+                 * Note that there's currently nothing here to avoid
+                 * putting out multiple "-Zmthd" options, if the victim
+                 * specifies "/COMPRESSION = (mthd1, mthd2, ...)". 
+                 * We'll put them out alphabetically, and Zip will use
+                 * the last one it sees.
+                 */
+                if (have_n == 0)
+                {
+                    /* /COMPRESSION = mthd */
+                    x = cmdl_len;
+                    cmdl_len += strlen( OPT_Z)+ mthd_len+ 1;
+                    CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                    strcpy( &the_cmd_line[ x], OPT_Z);
+                    strcpy( &the_cmd_line[ x+ strlen( OPT_Z)], mthd_str);
+                }
+            } /* if */
+        } /* for */
     }
 
     /*
@@ -1500,7 +1698,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         */
         x = cmdl_len;
         cmdl_len += (3 + 9);
-        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy(&the_cmd_line[x], "-t");
         strcpy(&the_cmd_line[x+3], since_time);
     }
@@ -1521,7 +1719,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         */
         x = cmdl_len;
         cmdl_len += (4 + 9);
-        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy(&the_cmd_line[x], "-tt");
         strcpy(&the_cmd_line[x+4], before_time);
     }
@@ -1534,7 +1732,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         /* /STORE_TYPES = value_list */
         x = cmdl_len;
         cmdl_len += 3;
-        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy(&the_cmd_line[x], "-n");
 
         status = get_list(&cli_store_types, &foreign_cmdline, ':',
@@ -1555,7 +1753,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /EXTRA_FIELDS = KEEP_EXISTING */
             x = cmdl_len;
             cmdl_len += strlen( OPT_XN)+ 1;
-            CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
             strcpy( &the_cmd_line[ x], OPT_XN);
         }
     }
@@ -1563,7 +1761,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         /* /NOEXTRA_FIELDS */
         x = cmdl_len;
         cmdl_len += strlen( OPT_X)+ 1;
-        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy( &the_cmd_line[ x], OPT_X);
     }
 
@@ -1577,7 +1775,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 
         x = cmdl_len;
         cmdl_len += work_str.dsc$w_length + 1;
-        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strncpy(&the_cmd_line[x], work_str.dsc$a_pointer,
                 work_str.dsc$w_length);
         the_cmd_line[cmdl_len-1] = '\0';
@@ -1604,7 +1802,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         status = cli$get_value(&cli_exlist, &work_str);
         x = cmdl_len;
         cmdl_len += work_str.dsc$w_length + 4;
-        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strncpy(&the_cmd_line[x], "-x@", 3);
         strncpy(&the_cmd_line[x+3], work_str.dsc$a_pointer,
                 work_str.dsc$w_length);
@@ -1619,7 +1817,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         /* /EXCLUDE = list */
         x = cmdl_len;
         cmdl_len += 3;
-        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy(&the_cmd_line[x], "-x");
 
         status = get_list(&cli_exclude, &foreign_cmdline, '\0',
@@ -1636,7 +1834,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         status = cli$get_value(&cli_inlist, &work_str);
         x = cmdl_len;
         cmdl_len += work_str.dsc$w_length + 4;
-        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strncpy(&the_cmd_line[x], "-i@", 3);
         strncpy(&the_cmd_line[x+3], work_str.dsc$a_pointer,
                 work_str.dsc$w_length);
@@ -1651,7 +1849,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         /* /INCLUDE = list */
         x = cmdl_len;
         cmdl_len += 3;
-        CHECK_BUFFER_ALLOCATION(the_cmd_line, cmdl_size, cmdl_len)
+        CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
         strcpy(&the_cmd_line[x], "-i");
 
         status = get_list(&cli_exclude, &foreign_cmdline, '\0',
@@ -1744,9 +1942,7 @@ get_list (struct dsc$descriptor_s *qual, struct dsc$descriptor_d *rawtail,
 */
 
     unsigned int status;
-    struct dsc$descriptor_d work_str;
-
-    init_dyndesc(work_str);
+    struct dsc$descriptor_d work_str = DSC_D_INIT;
 
     status = cli$present(qual);
     if (status & 1) {
@@ -1771,7 +1967,7 @@ get_list (struct dsc$descriptor_s *qual, struct dsc$descriptor_d *rawtail,
         while ((status = cli$get_value(qual, &work_str)) & 1) {
             old_len = len;
             len += work_str.dsc$w_length + 1;
-            CHECK_BUFFER_ALLOCATION(*p_str, *p_size, len)
+            CHECK_BUF_ALLOC( *p_str, p_size, len)
 
             /*
             **  Look for the filename in the original foreign command
@@ -1828,7 +2024,7 @@ get_time (struct dsc$descriptor_s *qual, char *timearg)
 */
 
     unsigned int status;
-    struct dsc$descriptor_d time_str;
+    struct dsc$descriptor_d time_str = DSC_D_INIT;
     struct quadword {
         int high;
         int low;
@@ -1849,8 +2045,6 @@ get_time (struct dsc$descriptor_s *qual, char *timearg)
 #ifdef __DECC
 #pragma member_alignment restore
 #endif
-
-    init_dyndesc(time_str);
 
     status = cli$get_value(qual, &time_str);
     /*

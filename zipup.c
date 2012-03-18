@@ -1,7 +1,7 @@
 /*
   zipup.c - Zip 3
 
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -142,7 +142,7 @@
 #else
    local int filetypes OF((char *, char *));
 #endif
-/* local unsigned iz_file_read OF((char *buf, unsigned size)); */
+local unsigned iz_file_read OF((char *buf, unsigned size));
 #ifdef USE_ZLIB
   local int zl_deflate_init OF((int pack_level));
 #else /* !USE_ZLIB */
@@ -186,9 +186,7 @@ static ISzAlloc g_Alloc = { SzAlloc, SzFree };
 # include <stdlib.h>
 # include <string.h>
 
-# include "lzma/SzFile.h"
 # include "lzma/SzVersion.h"
-# include "lzma/LzmaDec.h"
 # include "lzma/LzmaEnc.h"
 
  const char *kCantReadMessage = "Can not read input file";
@@ -198,8 +196,6 @@ static ISzAlloc g_Alloc = { SzAlloc, SzFree };
 
  local zoff_t lzma_filecompress OF((struct zlist far *z_entry,
   int *cmpr_method));
- local SRes LZMA_Encode(ISeqOutStream *outStream, ISeqInStream *inStream,
-  UInt64 fileSize, zoff_t *compressed_size);
 
 #endif
 
@@ -239,11 +235,29 @@ local ftype ifile;              /* file to compress */
    *  special value "(ulg)-1L" reserved to signal normal reads.
    */
 #endif /* MMAP || BIG_MEM */
+
+/* Show-what-doing compression level message storage. */
+local char l_str[ 4];
+local char *l_str_p;
+
+
+/* 2012-02-07 SMS.
+ * Pulled these declarations out of bzip2- and zlib-specific blocks into
+ * this once-for-all set.  Changed the type from char to unsigned char,
+ * to accommodate the PPMd8 code, where signed char causes trouble.
+ */
+#if defined( USE_ZLIB) || defined( BZIP2_SUPPORT) || defined( PPMD_SUPPORT)
+# define NEED_IO_BUFFERS
+#endif
+
+# ifdef NEED_IO_BUFFERS
+local unsigned char *f_ibuf = NULL;
+local unsigned char *f_obuf = NULL;
+#endif /* def NEED_IO_BUFFERS */
+
 #ifdef USE_ZLIB
   local int deflInit = FALSE;   /* flag: zlib deflate is initialized */
   local z_stream zstrm;         /* zlib's data interface structure */
-  local char *f_ibuf = NULL;
-  local char *f_obuf = NULL;
 #else /* !USE_ZLIB */
   local char file_outbuf[1024]; /* output buffer for compression to file */
 
@@ -293,10 +307,6 @@ local ftype ifile;              /* file to compress */
 #ifdef BZIP2_SUPPORT
     local int bzipInit;         /* flag: bzip2lib is initialized */
     local bz_stream bstrm;      /* zlib's data interface structure */
-# if !defined(USE_ZLIB)
-    local char *f_ibuf = NULL;
-    local char *f_obuf = NULL;
-# endif /* !USE_ZLIB */
 #endif /* BZIP2_SUPPORT */
 
 #ifdef DEBUG
@@ -306,6 +316,7 @@ local ftype ifile;              /* file to compress */
 #endif /* ?DEBUG */
   /* If iz_file_read detects binary it sets this flag - 12/16/04 EG */
   local int file_binary = 0;        /* first buf */
+  /* iz_file_read_bt() sets this one.   2012-02-23 SMS. */
   local int file_binary_final = 0;  /* for bzip2 for entire file.  assume text until find binary */
 
 
@@ -381,7 +392,10 @@ int percent(n, m)
     }
   }
   if (n != 0)
-    p = ((200 * ((zoff_t)n - (zoff_t)m) / (zoff_t)n) + 1) / 2;
+    if (n > m)
+      p = ((200 * ((zoff_t)n - (zoff_t)m) / (zoff_t)n) + 1) / 2;
+    else
+      p = ((200 * ((zoff_t)n - (zoff_t)m) / (zoff_t)n) - 1) / 2;
   else
     p = 0;
   return (int)p;  /* Return (rounded) % reduction. */
@@ -390,79 +404,86 @@ int percent(n, m)
 
 #ifndef RISCOS
 
-local int suffixes(a, s)
-  char *a;                      /* name to check suffix of */
-  char *s;                      /* list of suffixes separated by : or ; */
-/* Return true if a ends in any of the suffixes in the list s. */
+local int suffixes(fname, sufx_list)
+  char *fname;                  /* name to check suffix of */
+  char *sufx_list;              /* list of suffixes separated by : or ; */
+/* Return true if fname ends in any of the suffixes in sufx_list. */
 {
-  int m;                        /* true if suffix matches so far */
-  char *p;                      /* pointer into special */
-  char *q;                      /* pointer into name a */
+  int match;                    /* true if suffix matches so far */
+  char *slp;                    /* pointer into sufx_list */
+  char *fnp;                    /* pointer into fname */
+
+  if (sufx_list == NULL)        /* Nothing matches a null suffix list. */
+    return 0;
 
 #ifdef QDOS
-  short dlen = devlen(a);
-  a = a + dlen;
+  short dlen = devlen(fname);
+  fname = fname + dlen;
 #endif
 
-  m = 1;
+  match = 1;
 #ifdef VMS
-  if( (q = strrchr(a,';')) != NULL )    /* Cut out VMS file version */
-    --q;
+  if ((fnp = strrchr(fname,';')) != NULL)       /* Cut out VMS file version. */
+    --fnp;
   else
-    q = a + strlen(a) - 1;
+    fnp = fname + strlen(fname) - 1;
 #else /* !VMS */
-  q = a + strlen(a) - 1;
+  fnp = fname + strlen(fname) - 1;
 #endif /* ?VMS */
-  for (p = s + strlen(s) - 1; p >= s; p--)
-    if (*p == ':' || *p == ';')
+  for (slp = sufx_list + strlen(sufx_list) - 1; slp >= sufx_list; slp--)
+    if (*slp == ':' || *slp == ';')
     {
-      if (m)
+      if (match)
         return 1;
       else
       {
-        m = 1;
+        match = 1;
 #ifdef VMS
-        if( (q = strrchr(a,';')) != NULL )      /* Cut out VMS file version */
-          --q;
+        if ((fnp = strrchr(fname,';')) != NULL) /* Cut out VMS file version. */
+          --fnp;
         else
-          q = a + strlen(a) - 1;
+          fnp = fname + strlen(fname) - 1;
 #else /* !VMS */
-        q = a + strlen(a) - 1;
+        fnp = fname + strlen(fname) - 1;
 #endif /* ?VMS */
       }
     }
     else
     {
-      m = m && q >= a && case_map(*p) == case_map(*q);
-      q--;
+      match = match && fnp >= fname && case_map(*slp) == case_map(*fnp);
+      fnp--;
     }
-  return m;
+  return match;
 }
 
 #else /* RISCOS */
 
-local int filetypes(a, s)
-char *a;                        /* extra field of file to check filetype of */
-char *s;                        /* list of filetypes separated by : or ; */
-/* Return true if a is any of the filetypes in the list s. */
+local int filetypes(fname, sufx_list)
+char *fname;                    /* extra field of file to check filetype of */
+char *sufx_list;                /* list of filetypes separated by : or ; */
+/* Return true if fname is any of the filetypes in sufx_list. */
 {
- char *p;                       /* pointer into special */
- char typestr[4];               /* filetype hex string taken from a */
+ char *slp;                     /* pointer into sufx_list */
+ char typestr[4];               /* filetype hex string taken from fname */
 
- if ((((unsigned*)a)[2] & 0xFFF00000) != 0xFFF00000) {
+ if ((((unsigned*)fname)[2] & 0xFFF00000) != 0xFFF00000) {
  /* The file is not filestamped, always try to compress it */
    return 0;
  }
 
- sprintf(typestr,"%.3X",(((unsigned*)a)[2] & 0x000FFF00) >> 8);
+ if (sufx_list == NULL)         /* Nothing matches a null suffix list. */
+   return 0;
 
- for (p=s;p<=s+strlen(s)-3;p+=3) { /* p+=3 to skip 3 hex type */
-   while (*p==':' || *p==';')
-     p++;
+ sprintf(typestr,"%.3X",(((unsigned*)fname)[2] & 0x000FFF00) >> 8);
 
-   if (typestr[0] == toupper(p[0]) &&
-       typestr[1] == toupper(p[1]) &&
-       typestr[2] == toupper(p[2]))
+ for (slp = sufx_list; slp <= sufx_list+ strlen(sufx_list)- 3; slp += 3) {
+   /* slp+=3 to skip 3 hex type */
+   while (*slp==':' || *slp==';')
+     slp++;
+
+   if (typestr[0] == toupper(slp[0]) &&
+       typestr[1] == toupper(slp[1]) &&
+       typestr[2] == toupper(slp[2]))
      return 1;
  }
  return 0;
@@ -487,8 +508,11 @@ struct zlist far *z;    /* zip entry to compress */
   ulg a = 0L;           /* attributes returned by filetime() */
   char *b;              /* malloc'ed file buffer */
   extent k = 0;         /* result of zread */
+  int j;
   int l = 0;            /* true if this file is a symbolic link */
-  int m;                /* method for this entry */
+  int mthd;             /* Method for this entry. */
+  int mthd_adj;         /* Method for this entry, adjusted. */
+  int lvl;
 
   zoff_t o = 0, p;      /* offsets in zip file */
   zoff_t q = (zoff_t) -3; /* size returned by filetime */
@@ -499,6 +523,7 @@ struct zlist far *z;    /* zip entry to compress */
   int isdir;            /* set for a directory name */
   int set_type = 0;     /* set if file type (ascii/binary) unknown */
   zoff_t last_o;        /* used to detect wrap around */
+  int sufx_i;           /* Method-by-suffix index. */
 
   ush tempext = 0;      /* temp copies of extra fields */
   ush tempcext = 0;
@@ -698,12 +723,54 @@ struct zlist far *z;    /* zip entry to compress */
   window_size = 0L;
 #endif /* !USE_ZLIB || MMAP || BIG_MEM */
 
-  /* Select method based on the suffix and the global method */
+  /* Select method and level based on the global method and the file
+   * name suffix.  Note: RISCOS must set m after setting extra field.
+   */
+  mthd = method;        /* Everyone starts with the global (-Z) method. */
+  mthd_adj = mthd;      /* Adjusted global method,             */
+  if (mthd_adj < 0)     /* with (misnomer) BEST (-1) converted */
+    mthd_adj = DEFLATE; /* to its eventual value, DEFLATE.     */
+  levell = level;       /* and the global (-0, ..., -9) level. */
+
 #ifndef RISCOS
-  m = special != NULL && suffixes(z->name, special) ? STORE : method;
-#else /* RISCOS  must set m after setting extra field */
-  m = method;
-#endif /* ?RISCOS */
+  /* Scan for a by-suffix compression method (with by-suffix level?). */
+
+  lvl = -1;
+  for (sufx_i = 0; mthd_lvl[ sufx_i].method >= 0; sufx_i++)
+  {
+    /* Note: suffixes() checks for a null suffix list. */
+    if (suffixes( z->name, mthd_lvl[ sufx_i].suffixes))
+    {
+      /* Found a match for this method. */
+      mthd = mthd_adj = mthd_lvl[ sufx_i].method;
+
+      if (mthd_lvl[ sufx_i].level_sufx >= 0)
+      {
+        /* Use the compression level specified for this method by suffix. */
+        lvl = levell = mthd_lvl[ sufx_i].level_sufx;
+      }
+      break;
+    }
+  }
+
+  if (lvl < 0)
+  {
+    /* Scan for a by-method compression level, and use that, if found. */
+    for (j = 0; mthd_lvl[ j].method >= 0; j++)
+    {
+      if (mthd_lvl[ j].method == mthd_adj)
+      {
+        /* Use the compression level for this method (if specified). */
+        if (mthd_lvl[ j].level >= 0)
+        {
+          levell = mthd_lvl[ j].level;
+        }
+        break;
+      }
+    }
+  }
+
+#endif /* ndef RISCOS */
 
   /* For now force deflate if using descriptors.  Instead zip and unzip
      could check bytes read against compressed size in each data descriptor
@@ -744,15 +811,24 @@ struct zlist far *z;    /* zip entry to compress */
           a |= (S_IXUSR) << 16;   /* Cross compilers don't set this */
 # endif
 # ifdef RISCOS
-      m = special != NULL && filetypes(z->extra, special) ? STORE : method;
-# endif /* RISCOS */
+  for (sufx_i = 0; mthd_lvl[ sufx_i].method >= 0; sufx_i++)
+  {
+    /* Note: filetypes() checks for a null suffix list. */
+    if (filetypes( z->extra, mthd_lvl[ sufx_i].suffixes))
+    {
+      /* Found a match for this method. */
+      mthd = mthd_lvl[ sufx_i].method;
+      break;
+    }
+  }
+# endif /* def RISCOS */
 
       /* For now allow store for testing */
 #ifdef NO_STREAMING_STORE
       /* For now force deflation if using data descriptors. */
-      if (use_descriptors && m == STORE)
+      if (use_descriptors && (mthd == STORE))
       {
-        m = DEFLATE;
+        mthd = DEFLATE;
       }
 #endif
 
@@ -761,17 +837,17 @@ struct zlist far *z;    /* zip entry to compress */
     l = issymlnk(a);
     if (l) {
       ifile = fbad;
-      m = STORE;
+      mthd = STORE;
     }
     else if (isdir) { /* directory */
       ifile = fbad;
-      m = STORE;
+      mthd = STORE;
       q = 0;
     }
 #ifdef THEOS
     else if (((a >> 16) & S_IFMT) == S_IFLIB) {   /* library */
       ifile = fbad;
-      m = STORE;
+      mthd = STORE;
       q = 0;
     }
 #endif
@@ -965,9 +1041,9 @@ struct zlist far *z;    /* zip entry to compress */
   }
 
   if (q == 0)
-    m = STORE;
-  if (m == BEST)
-    m = DEFLATE;
+    mthd = STORE;
+  if (mthd == BEST)
+    mthd = DEFLATE;
 
   /* Do not create STORED files with extended local headers if the
    * input size is not known, because such files could not be extracted.
@@ -1014,15 +1090,16 @@ struct zlist far *z;    /* zip entry to compress */
   z->vem = (ush)(dosify ? 20 : OS_CODE + Z_MAJORVER * 10 + Z_MINORVER);
 #endif /* ?(OS2 || WIN32) */
 
-  z->ver = (ush)(m == STORE ? 10 : 20); /* Need PKUNZIP 2.0 except for store */
+  /* Need PKUNZIP 2.0 except for store */
+  z->ver = (ush)(mthd == STORE ? 10 : 20);
 
 #if defined( LZMA_SUPPORT) || defined( PPMD_SUPPORT)
-  if ((method == LZMA) || (method == PPMD))
-      z->ver = (ush)(m == STORE ? 10 : 63);
+  if ((mthd == LZMA) || (mthd == PPMD))
+      z->ver = (ush)(mthd == STORE ? 10 : 63);
 #endif
 #ifdef BZIP2_SUPPORT
-  if (method == BZIP2)
-      z->ver = (ush)(m == STORE ? 10 : 46);
+  if (mthd == BZIP2)
+      z->ver = (ush)(mthd == STORE ? 10 : 46);
 #endif
 
   /* standard says directories need minimum version 20 */
@@ -1048,8 +1125,8 @@ struct zlist far *z;    /* zip entry to compress */
   }
 #endif /* CRYPT */
   z->lflg = z->flg;
-  z->how = (ush)m;                              /* may be changed later  */
-  z->siz = (zoff_t)(m == STORE && q >= 0 ? q : 0); /* will be changed later */
+  z->how = (ush)mthd;                           /* may be changed later  */
+  z->siz = (zoff_t)(mthd == STORE && q >= 0 ? q : 0); /* will be changed later */
   z->len = (zoff_t)(q != -1L ? q : 0);          /* may be changed later  */
   if (z->att == (ush)UNKNOWN) {
       z->att = BINARY;                    /* set sensible value in header */
@@ -1285,32 +1362,32 @@ struct zlist far *z;    /* zip entry to compress */
 
     /* nothing to write */
   }
-  else if (m != STORE) {
+  else if (mthd != STORE) {
 
     /* compress */
 
     if (set_type) z->att = (ush)UNKNOWN;
     /* ... is finally set in file compression routine */
 #ifdef BZIP2_SUPPORT
-    if (m == BZIP2) {
-      s = bzfilecompress(z, &m);
+    if (mthd == BZIP2) {
+      s = bzfilecompress(z, &mthd);
     }
     else
 #endif /* BZIP2_SUPPORT */
 #ifdef LZMA_SUPPORT
-    if (m == LZMA) {
-      s = lzma_filecompress(z, &m);
+    if (mthd == LZMA) {
+      s = lzma_filecompress(z, &mthd);
     }
     else
 #endif /* LZMA_SUPPORT */
 #ifdef PPMD_SUPPORT
-    if (m == PPMD) {
-      s = ppmd_filecompress(z, &m);
+    if (mthd == PPMD) {
+      s = ppmd_filecompress(z, &mthd);
     }
     else
 #endif /* PPMD_SUPPORT */
     {
-      s = filecompress(z, &m);
+      s = filecompress(z, &mthd);
     }
     /* not sure why this is here */
     /* fflush(y); */
@@ -1365,38 +1442,13 @@ struct zlist far *z;    /* zip entry to compress */
           return ZE_TEMP;
         }
 
-
         /* store */
         
-        /* display dots */
-
-        if (!display_globaldots) {
-          if (dot_size > 0) {
-            /* initial space */
-            if (noisy && dot_count == -1) {
-# ifndef WINDLL
-              putc(' ', mesg);
-              fflush(mesg);
-# else
-              fprintf(stdout,"%c",' ');
-# endif
-              dot_count++;
-            }
-            dot_count++;
-            if (dot_size <= (dot_count + 1) * SBSZ) dot_count = 0;
-          }
-          if ((verbose || noisy) && dot_size && !dot_count) {
-# ifndef WINDLL
-            putc('.', mesg);
-            fflush(mesg);
-# else
-            fprintf(stdout,"%c",'.');
-# endif
-            mesg_line_started = 1;
-          }
-        } /* display dots */
-
-
+        /* Display progress dots. */
+        if (!display_globaldots)
+        {
+          display_dot( 0, SBSZ);
+        }
       }
     }
     free((zvoid *)b);
@@ -1488,9 +1540,9 @@ struct zlist far *z;    /* zip entry to compress */
     if (use_descriptors || zfseeko(y, z->off, SEEK_SET))
 #endif
     {
-      if (z->how != (ush) m)
+      if (z->how != (ush) mthd)
          error("can't rewrite method");
-      if (m == STORE && q < 0)
+      if (mthd == STORE && q < 0)
          ZIPERR(ZE_PARMS, "zip -0 not supported for I/O on pipes or devices");
       if ((r = putextended(z)) != ZE_OK)
         return r;
@@ -1533,8 +1585,8 @@ struct zlist far *z;    /* zip entry to compress */
       }
 # endif /* !VMS && !CMS_MVS */
 #endif /* 0 */
-      z->how = (ush)m;
-      switch (m)
+      z->how = (ush)mthd;
+      switch (mthd)
       {
       case STORE:
         if (isdir)
@@ -1617,24 +1669,44 @@ struct zlist far *z;    /* zip entry to compress */
   }
 
   /* Display statistics */
+
+
+  if (noisy || logall)
+  {
+    l_str_p = "";
+    if (show_what_doing || verbose)
+      {
+      if (mthd != STORE)
+      {
+        sprintf( l_str, "-%d", levell);
+        l_str_p = l_str;
+      }
+    }
+  }
+
   if (noisy)
   {
     if (verbose) {
       fprintf( mesg, "        (in=%s) (out=%s)",
                zip_fzofft(isize, NULL, "u"), zip_fzofft(s, NULL, "u"));
     }
-#ifdef LZMA_SUPPORT
-    if (m == LZMA)
-      fprintf(mesg, " (LZMAed %d%%)\n", percent(isize, s));
-    else
-#endif
 #ifdef BZIP2_SUPPORT
-    if (m == BZIP2)
-      fprintf(mesg, " (bzipped %d%%)\n", percent(isize, s));
+    if (mthd == BZIP2)
+      fprintf(mesg, " (bzipped%s %d%%)\n", l_str_p, percent(isize, s));
     else
 #endif
-    if (m == DEFLATE)
-      fprintf(mesg, " (deflated %d%%)\n", percent(isize, s));
+#ifdef LZMA_SUPPORT
+    if (mthd == LZMA)
+      fprintf(mesg, " (LZMAed%s %d%%)\n", l_str_p, percent(isize, s));
+    else
+#endif
+#ifdef PPMD_SUPPORT
+    if (mthd == PPMD)
+      fprintf(mesg, " (PPMded%s %d%%)\n", l_str_p, percent(isize, s));
+    else
+#endif
+    if (mthd == DEFLATE)
+      fprintf(mesg, " (deflated%s %d%%)\n", l_str_p, percent(isize, s));
     else
       fprintf(mesg, " (stored 0%%)\n");
     mesg_line_started = 0;
@@ -1643,12 +1715,22 @@ struct zlist far *z;    /* zip entry to compress */
   if (logall)
   {
 #ifdef BZIP2_SUPPORT
-    if (m == BZIP2)
-      fprintf(logfile, " (bzipped %d%%)\n", percent(isize, s));
+    if (mthd == BZIP2)
+      fprintf(logfile, " (bzipped%s %d%%)\n", l_str_p, percent(isize, s));
     else
 #endif
-    if (m == DEFLATE)
-      fprintf(logfile, " (deflated %d%%)\n", percent(isize, s));
+#ifdef LZMA_SUPPORT
+    if (mthd == LZMA)
+      fprintf(logfile, " (LZMAed%s %d%%)\n", l_str_p, percent(isize, s));
+    else
+#endif
+#ifdef PPMD_SUPPORT
+    if (mthd == PPMD)
+      fprintf(logfile, " (PPMded%s %d%%)\n", l_str_p, percent(isize, s));
+    else
+#endif
+    if (mthd == DEFLATE)
+      fprintf(logfile, " (deflated%s %d%%)\n", l_str_p, percent(isize, s));
     else
       fprintf(logfile, " (stored 0%%)\n");
     logfile_line_started = 0;
@@ -1892,10 +1974,6 @@ unsigned iz_file_read(buf, size)
   if (isize < isize_prev) {
     ZIPERR(ZE_BIG, "overflow in byte count");
   }
-
-
-
-
   
 #ifdef ENABLE_DLL_PROGRESS
   /* If progress_chunk_size is defined and ProgressReport() exists,
@@ -1960,6 +2038,26 @@ unsigned iz_file_read(buf, size)
 #endif
 
   return len;
+}
+
+
+/* Read a buffer using iz_file_read() and set file_binary_final
+ * according to the buffer contents.
+ */
+
+unsigned iz_file_read_bt( buf, size)
+  char *buf;
+  unsigned size;
+{
+  unsigned cnt;
+
+  cnt = iz_file_read( buf, size);
+  if ((cnt > 0) && (file_binary_final == 0))
+  {
+    if (!is_text_buf( (char *)buf, cnt))
+      file_binary_final = 1;
+  }
+  return cnt;
 }
 
 
@@ -2112,9 +2210,9 @@ local zoff_t filecompress(z_entry, cmpr_method)
 # else /* !(MMAP || BIG_MEM */
     if (f_ibuf == NULL)
 # endif /* MMAP || BIG_MEM */
-        f_ibuf = (char *)malloc(SBSZ);
+        f_ibuf = (unsigned char *)malloc(SBSZ);
     if (f_obuf == NULL)
-        f_obuf = (char *)malloc(OBUF_SZ);
+        f_obuf = (unsigned char *)malloc(OBUF_SZ);
 # if defined(MMAP) || defined(BIG_MEM)
     if ((remain == (ulg)-1L && f_ibuf == NULL) || f_obuf == NULL)
 # else /* !(MMAP || BIG_MEM */
@@ -2123,14 +2221,14 @@ local zoff_t filecompress(z_entry, cmpr_method)
         ziperr(ZE_MEM, "allocating zlib file-I/O buffers");
 
     if (!deflInit) {
-        err = zl_deflate_init(level);
+        err = zl_deflate_init(levell);
         if (err != ZE_OK)
             ziperr(err, errbuf);
     }
 
-    if (level <= 2) {
+    if (levell <= 2) {
         z_entry->flg |= 4;
-    } else if (level >= 8) {
+    } else if (levell >= 8) {
         z_entry->flg |= 2;
     }
 # if defined(MMAP) || defined(BIG_MEM)
@@ -2179,34 +2277,10 @@ local zoff_t filecompress(z_entry, cmpr_method)
                     /* deflate */
 
                     /* display dots */
-
-                    if (!display_globaldots) {
-                      if (dot_size > 0) {
-                        /* initial space */
-                        if (noisy && dot_count == -1) {
-# ifndef WINDLL
-                          putc(' ', mesg);
-                          fflush(mesg);
-# else
-                          fprintf(stdout,"%c",' ');
-# endif
-                          dot_count++;
-                        }
-                        dot_count++;
-                        if (dot_size <= (dot_count + 1) * WSIZE) dot_count = 0;
-                      }
-                      if (noisy && dot_size && !dot_count) {
-# ifndef WINDLL
-                        putc('.', mesg);
-                        fflush(mesg);
-# else
-                        fprintf(stdout,"%c",'.');
-# endif
-                        mesg_line_started = 1;
-                      }
+                    if (!display_globaldots)
+                    {
+                      display_dot( 1, WSIZE);
                     }
-
-
                 }
 # if defined(MMAP) || defined(BIG_MEM)
             if (remain == (ulg)-1L)
@@ -2266,7 +2340,7 @@ local zoff_t filecompress(z_entry, cmpr_method)
     /* Initialize deflate's internals and execute file compression. */
     bi_init(file_outbuf, sizeof(file_outbuf), TRUE);
     ct_init(&z_entry->att, cmpr_method);
-    lm_init(level, &z_entry->flg);
+    lm_init(levell, &z_entry->flg);
     return deflate();
 #endif /* ?USE_ZLIB */
 }
@@ -2303,7 +2377,7 @@ ulg memcompress(tgt, tgtsize, src, srcsize)
 
 #ifdef USE_ZLIB
     if (!deflInit) {
-        err = zl_deflate_init(level);
+        err = zl_deflate_init(levell);
         if (err != ZE_OK)
             ziperr(err, errbuf);
     }
@@ -2329,7 +2403,7 @@ ulg memcompress(tgt, tgtsize, src, srcsize)
 
     bi_init(tgt + (2 + 4), (unsigned)(tgtsize - (2 + 4)), FALSE);
     ct_init(&att, &method);
-    lm_init((level != 0 ? level : 1), &flags);
+    lm_init((levell != 0 ? levell : 1), &flags);
     out_total += (unsigned)deflate();
     window_size = 0L; /* was updated by lm_init() */
 #endif /* ?USE_ZLIB */
@@ -2348,10 +2422,6 @@ ulg memcompress(tgt, tgtsize, src, srcsize)
     return (ulg)out_total;
 }
 #endif /* ZP_NEED_MEMCOMPR */
-
-
-
-
 
 
 /* ===========================================================================
@@ -2435,9 +2505,9 @@ int *cmpr_method;
 #else /* !(MMAP || BIG_MEM */
     if (f_ibuf == NULL)
 #endif /* MMAP || BIG_MEM */
-        f_ibuf = (char *)malloc(SBSZ);
+        f_ibuf = (unsigned char *)malloc(SBSZ);
     if (f_obuf == NULL)
-        f_obuf = (char *)malloc(OBUF_SZ);
+        f_obuf = (unsigned char *)malloc(OBUF_SZ);
 #if defined(MMAP) || defined(BIG_MEM)
     if ((remain == (ulg)-1L && f_ibuf == NULL) || f_obuf == NULL)
 #else /* !(MMAP || BIG_MEM */
@@ -2446,7 +2516,7 @@ int *cmpr_method;
         ziperr(ZE_MEM, "allocating zlib/bzlib file-I/O buffers");
 
     if (!bzipInit) {
-        err = bz_compress_init(level);
+        err = bz_compress_init(levell);
         if (err != ZE_OK)
             ziperr(err, errbuf);
     }
@@ -2461,14 +2531,10 @@ int *cmpr_method;
         bstrm.next_in = (char *)f_ibuf;
     }
 
-    bstrm.avail_in = iz_file_read(bstrm.next_in, ibuf_sz);
+    bstrm.avail_in = iz_file_read_bt(bstrm.next_in, ibuf_sz);
 
-    if (file_binary_final == 0) {
-      /* check for binary as library does not */
-      if (!is_text_buf(bstrm.next_in, ibuf_sz))
-        file_binary_final = 1;
-    }
     if (bstrm.avail_in < ibuf_sz) {
+        /* Should this be iz_file_read_bt(), too? */
         unsigned more = iz_file_read(bstrm.next_in + bstrm.avail_in,
                                   (ibuf_sz - bstrm.avail_in));
         if (more == (unsigned) EOF || more == 0) {
@@ -2512,34 +2578,10 @@ int *cmpr_method;
                     /* bzip2 */
                     
                     /* display dots */
-                    
-                    if (!display_globaldots) {
-                      if (dot_size > 0) {
-                        /* initial space */
-                        if (noisy && dot_count == -1) {
-#ifndef WINDLL
-                          putc(' ', mesg);
-                          fflush(mesg);
-#else
-                          fprintf(stdout,"%c",' ');
-#endif
-                          dot_count++;
-                        }
-                        dot_count++;
-                        if (dot_size <= (dot_count + 1) * WSIZE) dot_count = 0;
-                      }
-                      if (noisy && dot_size && !dot_count) {
-#ifndef WINDLL
-                        putc('.', mesg);
-                        fflush(mesg);
-#else
-                        fprintf(stdout,"%c",'.');
-#endif
-                        mesg_line_started = 1;
-                      }
+                    if (!display_globaldots)
+                    {
+                      display_dot( 1, WSIZE);
                     }
-
-
                 }
 #if defined(MMAP) || defined(BIG_MEM)
             if (remain == (ulg)-1L)
@@ -2548,14 +2590,8 @@ int *cmpr_method;
             bstrm.next_in = (char *)f_ibuf;
 #endif
 
-            bstrm.avail_in = iz_file_read(bstrm.next_in, ibuf_sz);
-
+            bstrm.avail_in = iz_file_read_bt( bstrm.next_in, ibuf_sz);
             bytes_so_far += bstrm.avail_in;
-            if (file_binary_final == 0) {
-              /* check for binary as library does not */
-              if (!is_text_buf(bstrm.next_in, ibuf_sz))
-                file_binary_final = 1;
-            }
         }
       }
     }
@@ -2626,33 +2662,167 @@ int *cmpr_method;
 #endif /* BZIP2_SUPPORT */
 
 
-
 /* ===========================================================================
  * LZMA Compression
  */
 
 #ifdef LZMA_SUPPORT
 
+/* 7-Zip-compatible I/O Read and Write functions. */
+
+static SRes lzma_read( void *p, void *buf, size_t *size)
+{
+  int size0;
+
+  errno = 0;                            /* iz_file_read_bt() sets errno. */
+  size0 = *size;
+  *size = iz_file_read_bt( buf, size0);
+
+  return errno;
+}
+
+
+/* 2012-03-02 SMS.
+ * We call this write function first, with the four-byte LZMA Zip
+ * properties header (version, LZMA properties size).  LzmaEnc_Encode(),
+ * calls it once with the five-byte (LzmaEnc.h:LZMA_PROPS_SIZE) LZMA
+ * properties header, then as needed with up to 64KB
+ * (LzmaEnc.c:RC_BUF_SIZE?).
+ *
+ * With no obvious (reliable) way to identify the last call, identifying
+ * the case where reverting to the STORE method (all the data fit into
+ * one buffer, and the "compressed" data are bigger than the original
+ * data) would seem to require additional buffering (for at least the
+ * header, and, perhaps, for the old input, which might get lost by the
+ * time we would need it again), and a scheme to defer actual writing
+ * for the (two-part) header and for the next (compressed data) buffer.
+ */
+
+local zoff_t lzma_compressed_size;      /* Output byte count. */
+
+static size_t lzma_write( void *p, const void *buf, size_t size)
+{
+  int bytes_written;
+
+  bytes_written = zfwrite( (void *)buf, 1, size);
+  if (bytes_written > 0)
+  {
+    lzma_compressed_size += bytes_written;
+  }
+  return bytes_written;
+}
+
+
+/* LZMA progress function. */
+
+int lzma_progress_function(void *v, UInt64 a, UInt64 b)
+{
+  UInt64 bufsize = 32819;
+
+#if 0
+  printf("progress  uncompressed read %I64d  compressed written %I64d\n", a, b);
+#endif /* 0 */
+
+  /* display dots every so many bytes */
+  if (!display_globaldots)
+  {
+    display_dot( 0, bufsize);
+  }
+  return 0;
+}
+
+
+local SRes LZMA_Encode(struct zlist far *z_entry,
+ ISeqOutStream *outStream, ISeqInStream *inStream,
+ UInt64 fileSize)
+{
+  CLzmaEncHandle enc;
+  CLzmaEncProps props;
+  ICompressProgress lzma_progress;
+  SRes res;
+
+  lzma_progress.Progress = lzma_progress_function;
+
+  /* Create LZMA data structures. */
+  enc = LzmaEnc_Create( &g_Alloc);
+  if (enc == 0)
+    return SZ_ERROR_MEM;
+
+  /* Initialize LZMA properties. */
+  LzmaEncProps_Init( &props);
+
+  /* Set the LZMA level to the Zip level - 1, which seems roughly
+     appropriate.  So the Zip default level 6 becomes the LZMA
+     default level 5.  Zip level 0 (store) should not get here.
+  
+     This is just an initial mapping.  Initial testing suggests
+     that it may be better to drift some from the standard LZMA
+     level settings and change the settings in props directly to
+     get a better range of results when setting Zip compression
+     level from 1 to 9.  - EG
+  */
+  if (levell > 0)
+    props.level = levell - 1;
+  else
+    props.level = 0;
+
+  /* Set LZMA encoding parameters, using props.
+   * Uses props.level to set various other props.
+   */
+  res = LzmaEnc_SetProps( enc, &props);
+
+  if (res == SZ_OK)
+  {
+    Byte header[ LZMA_PROPS_SIZE];
+    size_t headerSize = LZMA_PROPS_SIZE;
+
+    /* Fill in the LZMA header. */
+    res = LzmaEnc_WriteProperties( enc, header, &headerSize);
+
+#if 0
+    /* Apparently not included for LZMA entries in zip archives. */
+    for (i = 0; i < 8; i++)
+      header[headerSize++] = (Byte)(fileSize >> (8 * i));
+#endif
+
+    if (outStream->Write(outStream, header, headerSize) != headerSize)
+      res = SZ_ERROR_WRITE;
+    else
+    {
+      if (res == SZ_OK)
+        res = LzmaEnc_Encode(enc, outStream, inStream, &lzma_progress,
+         &g_Alloc, &g_Alloc);
+    }
+  }
+
+  LzmaEnc_Destroy(enc, &g_Alloc, &g_Alloc);
+
+  /* Set the "internal file attributes" word to text or binary,
+   * according to what is_text_buf() determined.
+   */
+  if (file_binary_final)
+    z_entry->att = (ush)BINARY;
+  else
+    z_entry->att = (ush)ASCII;
+
+  return res;
+}
+
+
 local zoff_t lzma_filecompress(z_entry, cmpr_method)
   struct zlist far *z_entry;
   int *cmpr_method;
 {
-  CFileSeqInStream inStream;
-  CFileOutStream outStream;
+  ISeqInStream inStream;
+  ISeqOutStream outStream;
   int res;
   uzoff_t filesize = z_entry->len;
 
-  zoff_t compressed_size = 0;
-
   unsigned char lzma_properties_header[4];
-  ush lzma_header_size;
 
-
-  FileSeqInStream_CreateVTable(&inStream);
-  File_Construct(&inStream.file);
-
-  FileOutStream_CreateVTable(&outStream);
-  File_Construct(&outStream.file);
+  inStream.Read = lzma_read;
+  outStream.Write = lzma_write;
+  lzma_compressed_size = 0;
 
   {
     size_t t4 = sizeof(UInt32);
@@ -2661,21 +2831,16 @@ local zoff_t lzma_filecompress(z_entry, cmpr_method)
       ZIPERR(ZE_COMPERR, "LZMA UInt32 or UInt64 wrong size");
   }
 
-
-  /* write out first 4 bytes of LZMA properties header */
+  /* Write out 4 bytes of LZMA Zip header: version, LZMA properties size. */
   lzma_properties_header[0] = MY_VER_MAJOR;
   lzma_properties_header[1] = MY_VER_MINOR;
+  lzma_properties_header[2] = LZMA_PROPS_SIZE & 0xff;
+  lzma_properties_header[3] = LZMA_PROPS_SIZE >> 8;
 
-  lzma_header_size = LZMA_PROPS_SIZE;
+  lzma_write( NULL, lzma_properties_header, 4);
 
-  lzma_properties_header[2] = lzma_header_size % 256;
-  lzma_properties_header[3] = lzma_header_size / 256;
-
-  zfwrite(lzma_properties_header, 1, 4);
-
-
-  res = LZMA_Encode(&outStream.s, &inStream.s, filesize, &compressed_size);
-
+  /* LZMA encode.  (Puts out LZMA properties, and compressed data.) */
+  res = LZMA_Encode( z_entry, &outStream, &inStream, filesize);
   if (res != SZ_OK)
   {
     if (res == SZ_ERROR_MEM) {
@@ -2697,124 +2862,10 @@ local zoff_t lzma_filecompress(z_entry, cmpr_method)
     sprintf(errbuf, "LZMA error %d", res);
     ZIPERR(ZE_COMPRESS, errbuf);
   }
-
-  /* add count of first 4 bytes of properties header */
-  return compressed_size + 4;
-}
-
-
-int lzma_progress_function(void *v, UInt64 a, UInt64 b)
-{
-  UInt64 bufsize = 32819;
-
-  /*
-  printf("progress  uncompressed read %I64d  compressed written %I64d\n", a, b);
-  */
-
-  /* display dots every so many bytes */
-  if (!display_globaldots) {
-    if (dot_size > 0) {
-      /* initial space */
-      if (noisy && dot_count == -1) {
-#ifndef WINDLL
-        putc(' ', mesg);
-        fflush(mesg);
-#else
-        fprintf(stdout,"%c",' ');
-#endif
-        dot_count++;
-      }
-      dot_count++;
-      if ((uzoff_t)dot_size <= (dot_count + 1) * bufsize) dot_count = 0;
-    }
-    if ((verbose || noisy) && dot_size && !dot_count) {
-#ifndef WINDLL
-      putc('.', mesg);
-      fflush(mesg);
-#else
-      fprintf(stdout,"%c",'.');
-#endif
-      mesg_line_started = 1;
-    }
-  }
-
-  return 0;
-}
-
-
-static SRes LZMA_Encode(ISeqOutStream *outStream, ISeqInStream *inStream,
- UInt64 fileSize, zoff_t *compressed_size)
-{
-  CLzmaEncHandle enc;
-  SRes res;
-  CLzmaEncProps props;
-  ICompressProgress lzma_progress;
-
-  lzma_progress.Progress = lzma_progress_function;
-
-  /* Sets enc as a props. */
-  enc = LzmaEnc_Create(&g_Alloc);
-  if (enc == 0)
-    return SZ_ERROR_MEM;
-
-  /* Then creates props as a props. */
-  
-  /* Sets some initial defaults in props. */
-  LzmaEncProps_Init(&props);
-
-  /* Set the LZMA level to the Zip level - 1, which seems roughly
-     appropriate.  So the Zip default level 6 becomes the LZMA
-     default level 5.  Zip level 0 (store) should not get here.
-  
-     This is just an initial mapping.  Initial testing suggests
-     that it may be better to drift some from the standard LZMA
-     level settings and change the settings in props directly to
-     get a better range of results when setting Zip compression
-     level from 1 to 9.  - EG
-  */
-  if (level > 0)
-    props.level = level - 1;
-  else
-    props.level = 0;
-
-  /* Sets enc using props. */
-  /* Uses props.level to set various other props. */
-  res = LzmaEnc_SetProps(enc, &props);
-
-  if (res == SZ_OK)
-  {
-    Byte header[LZMA_PROPS_SIZE + 8];
-    size_t headerSize = LZMA_PROPS_SIZE;
-#if 0
-    int i;
-#endif
-
-    res = LzmaEnc_WriteProperties(enc, header, &headerSize);
-
-    /* Apparently not included for LZMA entries in zip archives. */
-#if 0
-    for (i = 0; i < 8; i++)
-      header[headerSize++] = (Byte)(fileSize >> (8 * i));
-#endif
-
-    if (outStream->Write(outStream, header, headerSize) != headerSize)
-      res = SZ_ERROR_WRITE;
-    else
-    {
-      if (res == SZ_OK)
-        res = LzmaEnc_Encode(enc, outStream, inStream, &lzma_progress, &g_Alloc, &g_Alloc,
-                             compressed_size);
-    }
-  }
-  /* Add header to compressed size */
-  /* Apparently the dictionary is not included */
-  *compressed_size += LZMA_PROPS_SIZE /* + 8 */;
-  LzmaEnc_Destroy(enc, &g_Alloc, &g_Alloc);
-  return res;
+  return lzma_compressed_size;
 }
 
 #endif /* LZMA_SUPPORT */
-
 
 
 /* ===========================================================================
@@ -2823,36 +2874,35 @@ static SRes LZMA_Encode(ISeqOutStream *outStream, ISeqInStream *inStream,
 
 #ifdef PPMD_SUPPORT
 
-
 /* 7-Zip I/O structure (reduced). */
 typedef struct
 {
-  IByteOut p;
-  Bool extra;
-  SRes res;
-  ISeqOutStream *outStream;
+  IByteOut ibo;
+  int byte_count;
+  int buf_size;
+  zoff_t compressed_size;
 } CByteOutToSeq;
 
 
-/* 7-Zip-compatible I/O Write function. */
+/* 7-Zip-compatible I/O Write (one byte, blindly) function. */
 static void ppmd_write_byte( void *pp, unsigned char uc)
 {
-    CByteOutToSeq *p = (CByteOutToSeq *)pp;
+  CByteOutToSeq *p = (CByteOutToSeq *)pp;
+
+  if (p->byte_count >= p->buf_size)
+  {
+    zfwrite( f_obuf, 1, p->byte_count);
+    p->compressed_size += p->byte_count;
+    p->byte_count = 0;
+  }
+  f_obuf[ p->byte_count++] = uc;
 }
-
-
 
 
 local zoff_t ppmd_filecompress(z_entry, cmpr_method)
   struct zlist far *z_entry;
   int *cmpr_method;
 {
-
-  /* PPMd Header. */
-  unsigned char ppmd_props[ 2];       /* PPMd properties. */
-  unsigned short ppmd_prop_word;
-  int b;
-
   /* PPMd parameters. */
   unsigned order;
   unsigned memSize;
@@ -2862,20 +2912,68 @@ local zoff_t ppmd_filecompress(z_entry, cmpr_method)
   /* PPMd structure. */
   CPpmd8 ppmd8;
 
-  /* 7-Zip I/O structure (reduced). */
-  CByteOutToSeq s;
+  /* 7-Zip-compatible I/O structure. */
+  CByteOutToSeq cbots;
 
-  s.p.Write = ppmd_write_byte;
-  s.extra = False;
-  s.res = SZ_OK;
+  int byte_cnt_in;
+  int i;
+  int sts;
+
+#if defined(MMAP) || defined(BIG_MEM)
+  unsigned ibuf_sz = (unsigned)SBSZ;
+#else
+#  define ibuf_sz ((unsigned)SBSZ)
+#endif
+#ifndef OBUF_SZ
+#  define OBUF_SZ ZBSZ
+#endif
+
+#if defined(MMAP) || defined(BIG_MEM)
+  if (remain == (ulg)-1L && f_ibuf == NULL)
+#else /* !(MMAP || BIG_MEM */
+  if (f_ibuf == NULL)
+#endif /* MMAP || BIG_MEM */
+    f_ibuf = (unsigned char *)malloc(SBSZ);
+  if (f_obuf == NULL)
+    f_obuf = (unsigned char *)malloc(OBUF_SZ);
+#if defined(MMAP) || defined(BIG_MEM)
+  if ((remain == (ulg)-1L && f_ibuf == NULL) || f_obuf == NULL)
+#else /* !(MMAP || BIG_MEM */
+  if (f_ibuf == NULL || f_obuf == NULL)
+#endif /* MMAP || BIG_MEM */
+    ziperr(ZE_MEM, "allocating PPMd file-I/O buffers");
+
+  ppmd8.Stream.Out = &cbots.ibo;
+  cbots.ibo.Write = ppmd_write_byte;
+  cbots.byte_count = 0;
+  cbots.compressed_size = 0;
+  cbots.buf_size = OBUF_SZ;
 
   /* PPMD8_MIN_ORDER (= 2) <= order <= PPMD8_MAX_ORDER (= 16)
    * 1MB (= 2* 0) <= memSize <= 256MB (= 2^ 8)   (M = 2^ 20)
-   * restor = 0
+   * restor = 0 (PPMD8_RESTORE_METHOD_RESTART),
+   *          1 (PPMD8_RESTORE_METHOD_CUT_OFF)
+   *
+   * Currently using 7-Zip-compatible values:
+   *    order = 3 + level
+   *    memory size = 2^ (level- 1) (MB)  (level 9 treated as level 8.)
+   *    restoration method = 0 for level <= 6, 1 for level >= 7.
+   *
    */
-  order = 16;
-  memSize = (64<< 20);
-  restor = 0;
+  order = 3+ levell;                        /* 4, 5, 6, ..., 12. */
+  memSize = 1<< (IZ_MIN( levell, 8)- 1);    /* 1MB, 2MB, 4MB, ..., 128MB. */
+  restor = (levell <= 6 ? 0 : 1);
+
+  memSize <<= 20;                       /* Convert B to MB. */
+
+  Ppmd8_Construct( &ppmd8);
+  sts = Ppmd8_Alloc( &ppmd8, memSize, &g_Alloc);
+
+  if (sts <= 0)
+    ziperr( ZE_MEM, "allocating PPMd storage");
+
+  Ppmd8_RangeEnc_Init( &ppmd8);
+  Ppmd8_Init( &ppmd8, order, restor);
 
 /* wPPMd = (Model order - 1) +
  *         ((Sub-allocator size - 1) << 4) +
@@ -2885,20 +2983,89 @@ local zoff_t ppmd_filecompress(z_entry, cmpr_method)
  *  Mdl_Res_Mth ___Sub-allocator_size-1 Mdl_Order-1
  */
 
-  /* Form the PPMd properties word and bytes.  Put out the bytes. */
+  /* Form the PPMd properties word.  Put out the bytes. */
   ppmd_param_word = ((order- 1)& 0xf)+
-   ((((memSize& 0xff)>> 20)- 1)<< 4)+
+   ((((memSize>> 20)- 1)& 0xff)<< 4)+
    ((restor& 0xf)<< 12);
 
-  ppmd_props[ 0] = ppmd_param_word& 0xff;
-  ppmd_props[ 1] = ppmd_param_word> 8;
+  ppmd_write_byte( ppmd8.Stream.Out, (ppmd_param_word& 0xff));
+  ppmd_write_byte( ppmd8.Stream.Out, (ppmd_param_word>> 8));
 
-/* SMSd. */
-fprintf( stderr, " p_p_w: %%x%04x \n\n", ppmd_param_word);
+  sts = 0;
+  while (sts == 0)
+  {
+    byte_cnt_in = iz_file_read_bt( (char *)f_ibuf, ibuf_sz);
+    if (byte_cnt_in > 0)
+    {
+      if (byte_cnt_in >= ibuf_sz)
+      {
+        /* Display progress dots. */
+        if (!display_globaldots)
+        {
+          display_dot( 0, ibuf_sz);
+        }
+      }
+      for (i = 0; i < byte_cnt_in; i++)
+      {
+        /* Note: Passing Ppmd8_EncodeSymbol() a _signed_ char (for its
+         * "int" argument) causes 0xff to be treated as EOF (= -1),
+         * which thoroughly confuses the PPMd code.
+         */
+        Ppmd8_EncodeSymbol( &ppmd8, f_ibuf[ i]);
+      }
+    }
+    else
+    {
+      sts = -1;
+      Ppmd8_EncodeSymbol( &ppmd8, -1);
+      Ppmd8_RangeEnc_FlushData( &ppmd8);
+    }
+  }
 
-  zfwrite(ppmd_props, 1, 2);
+  /* Revert to STORE if:
+   *   the output buffer has not been flushed, and
+   *   the uncompressed size is less than the "compressed" size.
+   */
+  if ((cbots.compressed_size == 0) && (isize < cbots.byte_count))
+  {
+    /* Revert to STORE.  Write out the input buffer, and use its size. */
+    *cmpr_method = STORE;
+    zfwrite( f_ibuf, 1, isize);
+    cbots.compressed_size = isize;
+  }
+  else
+  {
+    /* Flush out any remaining expanded data. */
+    if (cbots.byte_count > 0)
+    {
+      zfwrite( f_obuf, 1, cbots.byte_count);
+      cbots.compressed_size += cbots.byte_count;
+    }
+  }
 
-  return 0;
+  if (f_ibuf != NULL)
+  {
+    free( f_ibuf);
+    f_ibuf = NULL;
+  }
+
+  if (f_obuf != NULL)
+  {
+    free( f_obuf);
+    f_obuf = NULL;
+  }
+
+  Ppmd8_Free( &ppmd8, &g_Alloc);
+
+  /* Set the "internal file attributes" word to text or binary,
+   * according to what is_text_buf() determined.
+   */
+  if (file_binary_final)
+    z_entry->att = (ush)BINARY;
+  else
+    z_entry->att = (ush)ASCII;
+
+  return cbots.compressed_size;
 }
 
 #endif /* def PPMD_SUPPORT */

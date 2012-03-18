@@ -98,14 +98,14 @@ compatible unzip, such as \fIunzip\ 6.0\fP or later, to extract files
 using the Zip64 extensions.
 .PP
 \fBStreamed\ archives.\fP
-Streamed archives, entries encrypted with Traditional encryption,
+Streamed archives, entries encrypted with traditional encryption,
 or split archives created with the pause option may not be compatible with
 some utilities as data descriptors are used and they do not yet support
 them, though the latest PKWare published zip standard now includes the data
 descriptor format \fIzip\fP uses.  Other utilities do support these archives,
 however.  If you run into problems, \fIzip\fP provides a way to strip data
 descriptors from an existing archive using the \fB\-\-copy\fP option (if
-Traditional encryption was not used).
+Zip Traditional encryption was not used).
 
 .PP
 \fBMac OS X.\fP  Though previous Mac versions had their own \fIzip\fP port,
@@ -1718,7 +1718,7 @@ password as part of a command line in an automated script is even worse.
 Whenever possible, use the non-echoing, interactive prompt to enter passwords.
 (And where security is truly important, use AES encryption, or an external
 encryption program such as GNU Privacy Guard (GnuPG, gpg) instead of the
-relatively weak Traditional encryption provided by zipfile utilities.)
+relatively weak traditional zip encryption.)
 .TP
 .PD 0
 .B \-q
@@ -2519,9 +2519,6 @@ Set the encryption method.  Supported methods are \fBTraditional\fP
 enabled at build time, and requires a compatible AES library kit.  An
 AES-capable UnZip program is needed to extract AES-encrypted entries.
 .PD 0
-.B \-Z\ \fRcm
-.TP
-.PD 0
 .B \-z
 .TP
 .PD
@@ -2536,6 +2533,9 @@ The comment can be taken from a file:
 .IP
 \fCzip -z foo < foowhat\fP
 .RE
+.TP
+.PD 0
+.B \-Z\ \fRcm
 .TP
 .PD
 .B \-\-compression\-method\ \fRcm
@@ -2553,9 +2553,18 @@ determines that storing is better than deflation, the entry will be
 stored instead.
 
 \fBbzip2\fP \- If \fBbzip2\fP support is compiled in, this compression
-method also becomes available.  Only some modern unzips currently support
-the \fBbzip2\fP compression method, so test the unzip you will be using
-before relying on archives using this method (compression method 12).
+method also becomes available.
+
+\fBlzma\fP \- If \fBLZMA\fP support is compiled in, this compression
+method also becomes available.
+
+\fBppmd\fP \- If \fBPPMd\fP support is compiled in, this compression
+method also becomes available.
+
+Many older unzip programs do not support the newer compression methods,
+\fBbzip2\fP (method 12), \fBLZMA\fP (method 14), and/or \fBPPMd\fP
+(method 98), so test the unzip you will be using before relying on
+archives using these methods.
 
 For example, to add \fBbar.c\fP to archive \fBfoo\fP using \fBbzip2\fP
 compression:

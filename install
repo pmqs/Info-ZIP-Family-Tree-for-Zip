@@ -176,15 +176,16 @@ Installation on Unix (see below for installation on other systems)
           make -f unix/Makefile AES_WG=1 generic
 
 
-     LZMA Compression
-     ----------------
+     LZMA and/or PPMd Compression
+     ----------------------------
 
-     LZMA compression (new in Zip version 3.1) is not enabled by
-     default, but the required source code is included in the Zip source
-     kit.  To enable LZMA compression, add "LZMA=1" to the "make
-     generic" command.  For example:
+     The LZMA and PPMd compression methods (new in Zip version 3.1) are
+     not enabled by default, but the required source code is included in
+     the Zip source kit.  To enable LZMA and/or PPMd compression, add
+     "LZMA=1" and/or "PPMD=1" to the "make generic" command.  For
+     example:
 
-          make -f unix/Makefile LZMA=1 generic
+          make -f unix/Makefile LZMA=1 PPMD=1 generic
 
 
      Memory Options

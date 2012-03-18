@@ -164,16 +164,21 @@ the command-line options used to select a different compiler.
       or:
          MMS /DESC = [.VMS] /MACRO = (LARGE=1, AES_WG=1)
 
-   o LZMA Compression
+   o LZMA and PPMd Compression
 
-      LZMA compression (new in Zip version 3.1) is not enabled by
-      default, but the required source code is included in the Zip
-      source kit.  To enable LZMA compression, add the appropriate LZMA
-      option to the builder command line.  For example:
+      The LZMA and PPMd compression methods (new in Zip version 3.1) are
+      not enabled by default, but the required source code is included
+      in the Zip source kit.  To enable LZMA and/or PPMd compression,
+      add the appropriate LZMA and/or PPMd option(s) to the builder
+      command line.  For example:
 
-         @ [.VMS]BUILD_ZIP LARGE LZMA
+         @ [.VMS]BUILD_ZIP LARGE LZMA PPMD
       or:
-         MMS /DESC = [.VMS] /MACRO = (LARGE=1, LZMA=1)
+         MMS /DESC = [.VMS] /MACRO = (LARGE=1, LZMA=1, PPMD=1)
+
+      LZMA compression is not available on VAX systems.  The LZMA
+      compression code uses some 64-bit arithmetic, and needs a 64-bit
+      "long long" data type which is not available on VAX systems.
 
 
    System-architecture-specific files (like objects and executables) are

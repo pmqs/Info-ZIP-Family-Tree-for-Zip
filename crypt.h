@@ -77,11 +77,11 @@
 #define CR_MAJORVER        3
 #define CR_MINORVER        0
 #ifdef CR_BETA
-#  define CR_BETA_VER      "b BETA"
-#  define CR_VERSION_DATE  "22 Jul 2011"       /* last real code change */
+#  define CR_BETA_VER      "c BETA"
+#  define CR_VERSION_DATE  "22 Jan 2012"       /* last real code change */
 #else
 #  define CR_BETA_VER      ""
-#  define CR_VERSION_DATE  "22 Jul 2011"       /* last public release date */
+#  define CR_VERSION_DATE  "22 Jan 2012"       /* last public release date */
 #  define CR_RELEASE
 #endif
 

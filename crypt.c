@@ -560,7 +560,7 @@ int zipcloak(z, passwd)
 #   ifdef CRYPT_AES_WG
 #    define HEAD_LEN head_len   /* Variable header length. */
     int head_len;               /* Variable encryption header length. */
-    uch salt_len;               /* AES salt length. */
+    uch salt_len = 0;           /* AES salt length.  (Init'd to hush cmplr.) */
 #   else /* def CRYPT_AES_WG */
 #    define HEAD_LEN RAND_HEAD_LEN      /* Constant trad. header length. */
 #   endif /* def CRYPT_AES_WG [else] */
@@ -601,7 +601,8 @@ int zipcloak(z, passwd)
     else
     {
         /* Determine AES encryption salt length, and header length. */
-        salt_len = SALT_LENGTH( encryption_method- (AES_MIN_ENCRYPTION- 1));
+        /*                Note: v-- No parentheses in SALT_LENGTH def'n. --v */
+        salt_len = SALT_LENGTH( (encryption_method- (AES_MIN_ENCRYPTION- 1)));
         HEAD_LEN = salt_len+ PWD_VER_LENGTH;
 
         /* get the salt */
@@ -741,8 +742,8 @@ int zipbare(z, passwd)
     int head_len;               /* Variable encryption header length. */
     uch h[ ENCR_HEAD_LEN];
     uch hh[ ENCR_PW_CHK_LEN];   /* Password check buffer. */
-    char aes_mode;      /* Return storage: AES encryption mode. */
-    ush aes_mthd;       /* Return storage: Actual compression method. */
+    char aes_mode = 0;  /* AES encryption mode.  (Init'd to hush cmplr.) */
+    ush aes_mthd = 0;   /* Actual compress method.  (Init'd to hush cmplr.) */
 #   else /* def CRYPT_AES_WG */
 #    define HEAD_LEN RAND_HEAD_LEN      /* Constant trad. header length. */
 #   endif /* def CRYPT_AES_WG [else] */
@@ -1196,6 +1197,7 @@ local int testkey(__G__ hd_len, h, key)
     {
 #  endif /* def CRYPT_AES_WG */
 
+#  ifdef CRYPT_TRAD
     /* Traditional encryption. */
 
     /* set keys and save the encrypted header */
@@ -1244,6 +1246,7 @@ local int testkey(__G__ hd_len, h, key)
          p = GLOBAL(inptr); n--; p++)
         zdecode(*p);
     return 0;       /* OK */
+#  endif /* def CRYPT_TRAD */
 
 #  ifdef CRYPT_AES_WG
     } /* (GLOBAL( lrec.compression_method) == AESENCRED) [else] */

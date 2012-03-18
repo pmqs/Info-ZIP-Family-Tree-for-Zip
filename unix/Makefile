@@ -1,6 +1,6 @@
 #==============================================================================
 # unix/Makefile
-# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 08 Jan 2012
+# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 17 Mar 2012
 #==============================================================================
 
 # INSTRUCTIONS (such as they are):
@@ -98,7 +98,7 @@
 # Supported ports include:
 #   msdos : DOS port built using the DJGPP (or Cygwin) cross-compiler
 #   os2   : OS/2 port
-#   qdos  : Sinclare Q-DOS port built using a gcc cross-compiler
+#   qdos  : Sinclair Q-DOS port built using a gcc cross-compiler
 #   zos   : z/OS MVS port built under z/OS UNIX
 #   zvm   : z/VM CMS port built under z/VM OpenExtensions
 #
@@ -326,16 +326,17 @@ H_AES    = aes_wg/aes.h     \
            aes_wg/sha1.h
 
 # C header files: LZMA compression
-H_LZMA   = lzma/SzFile.h    \
-           lzma/SzVersion.h \
+H_LZMA   = lzma/SzVersion.h \
            lzma/LzFind.h    \
            lzma/LzHash.h    \
            lzma/LzmaEnc.h   \
            lzma/Types.h
 
 # C header files: PPMd compression
-H_PPMD   = lzma/Ppmd.h      \
-           lzma/Ppmd8.h
+H_PPMD   = lzma/CpuArch.h   \
+           lzma/Ppmd.h      \
+           lzma/Ppmd8.h     \
+           lzma/Types.h
 
 #----------------------------------------------------------------------------
 #  Build configuration:  object files
@@ -417,8 +418,7 @@ O_AES    = aescrypt.o \
            sha1.o
 
 # object files: LZMA compression
-O_LZMA   = SzFile.o   \
-           LzFind.o   \
+O_LZMA   = LzFind.o   \
            LzmaEnc.o
 
 # object files: PPMd compression
@@ -664,9 +664,6 @@ sha1.o:     aes_wg/sha1.c     $(H_AES)
 #----------------------------------------------------------------------------
 
 # C Compile rules: LZMA compression
-
-SzFile.o:   lzma/SzFile.c     $(H_LZMA)
-	$(CC) -c $(CF) -o $@ lzma/SzFile.c
 
 LzFind.o:   lzma/LzFind.c     $(H_LZMA)
 	$(CC) -c $(CF) -o $@ lzma/LzFind.c

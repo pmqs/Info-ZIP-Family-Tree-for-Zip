@@ -1,4 +1,4 @@
-#                                               20 November 2011.  SMS.
+#                                               16 February 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Description File.
 #
@@ -50,7 +50,9 @@
 #    "LOCAL_ZIP=c_macro_1=value1 [, c_macro_2=value2 [...]]"
 #                   Compile with these additional C macros defined.
 #
-#    LZMA=1         Enable LZMA compression support.
+#    LZMA=1         Enable LZMA compression support.  Non-VAX only.
+#
+#    PPMD=1         Enable PPMd compression support.
 #
 #    PROD=subdir    Use [.subdir] as the destination for
 #                   architecture-specific product files (.EXE, .OBJ,

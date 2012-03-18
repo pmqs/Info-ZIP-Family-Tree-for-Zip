@@ -405,13 +405,26 @@ extern ulg des_crc;             /* Data descriptor CRC */
 extern uzoff_t des_csize;       /* Data descriptor csize */
 extern uzoff_t des_usize;       /* Data descriptor usize */
 extern int dosify;              /* Make new entries look like MSDOS */
-extern char *special;           /* Don't compress special suffixes */
 extern int verbose;             /* Report oddities in zip file structure */
 extern int fix;                 /* Fix the zip file */
 extern int filesync;            /* 1=file sync, delete entries not on file system */
 extern int adjust;              /* Adjust the unzipsfx'd zip file */
-extern int level;               /* Compression level */
 extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
+extern int level;               /* Compression level, global (-0, ..., -9) */
+extern int levell;              /* Compression level, adjusted by mthd, sufx. */
+
+/* Compression method and level (with file name suffixes). */
+typedef struct
+{
+  int  method;
+  int  level;
+  int  level_sufx;
+  char *method_str;
+  char *suffixes;
+} mthd_lvl_t;
+
+extern mthd_lvl_t mthd_lvl[];   /* Compr. method, level, file name suffixes. */
+
 #ifdef VMS
    extern int vmsver;           /* Append VMS version number to file names */
    extern int vms_native;       /* Store in VMS format */
@@ -804,6 +817,7 @@ int read_inc_file OF((char *));
 
 
         /* in fileio.c */
+void display_dot OF((int, int));
 #ifndef UTIL
    char *getnam OF((FILE *));
    struct flist far *fexpel OF((struct flist far *));
@@ -1073,7 +1087,7 @@ void     bi_init      OF((char *, unsigned int, int));
 #endif
 
 /* this needs to be global for LZMA */
-unsigned iz_file_read OF((char *buf, unsigned size));
+unsigned iz_file_read_bt OF((char *buf, unsigned size));
 
 
 
@@ -1168,15 +1182,16 @@ size_t bfwrite OF((ZCONST void *buffer, size_t size, size_t count,
     See fileio.c
   --------------------------------------------------------------------*/
 
-/* The below is for use in the caller-provided options table */
+/* Option value types.  See fileio.c:get_option() for details. */
 
 /* value_type - value is always returned as a string. */
 #define o_NO_VALUE        0   /* this option does not take a value */
 #define o_REQUIRED_VALUE  1   /* this option requires a value */
-#define o_OPTIONAL_VALUE  2   /* value is optional (see get_option() for details) */
+#define o_OPTIONAL_VALUE  2   /* value is optional */
 #define o_VALUE_LIST      3   /* this option takes a list of values */
 #define o_ONE_CHAR_VALUE  4   /* next char is value (does not end short opt string) */
 #define o_NUMBER_VALUE    5   /* value is integer (does not end short opt string) */
+#define o_OPT_EQ_VALUE    6   /* value optional, but "=" required for one. */
 
 
 /* negatable - a dash following the option (but before any value) sets negated. */

@@ -125,6 +125,13 @@
  * Local data used by the "longest match" routines.
  */
 
+/* 2012-02-10 SMS.  
+ * Changed lm_init() to save its "pack_level" argument, and the
+ * consumers to use that saved value instead of the global "level"
+ * value.
+ */
+local int leveld;
+
 #if defined(MMAP) || defined(BIG_MEM)
   typedef unsigned Pos; /* must be at least 32 bits */
 #else
@@ -307,6 +314,8 @@ void lm_init (pack_level, flags)
     register unsigned j;
 
     if (pack_level < 1 || pack_level > 9) error("bad pack level");
+
+    leveld = pack_level;        /* Save the compression level parameter. */
 
     /* Do not slide the window if the whole input is already in memory
      * (window_size > 0)
@@ -615,7 +624,7 @@ local void fill_window()
             /* When methods "stored" or "store_block" are requested, the
              * current block must be flushed before sliding the window.
              */
-            if (level <= 2) FLUSH_BLOCK(0), block_start = strstart;
+            if (leveld <= 2) FLUSH_BLOCK(0), block_start = strstart;
 #endif
             /* By the IN assertion, the window is not empty so we can't confuse
              * more == 0 with more == 64K on a 16 bit machine.
@@ -638,28 +647,11 @@ local void fill_window()
                  */
             }
             more += WSIZE;
-            if (dot_size > 0 && !display_globaldots) {
-              /* initial space */
-              if (noisy && dot_count == -1) {
-#ifndef WINDLL
-                putc(' ', mesg);
-                fflush(mesg);
-#else
-                fprintf(stdout,"%c",' ');
-#endif
-                dot_count++;
-              }
-              dot_count++;
-              if (dot_size <= (dot_count + 1) * WSIZE) dot_count = 0;
-            }
-            if ((verbose || noisy) && dot_size && !dot_count) {
-#ifndef WINDLL
-              putc('.', mesg);
-              fflush(mesg);
-#else
-              fprintf(stdout,"%c",'.');
-#endif
-              mesg_line_started = 1;
+
+            /* Display dots. */
+            if (!display_globaldots)
+            {
+              display_dot( 0, WSIZE);
             }
         }
         if (eofile) return;
@@ -802,7 +794,7 @@ uzoff_t deflate()
     extern uzoff_t isize;       /* byte length of input file, for debug only */
 #endif
 
-    if (level <= 3) return deflate_fast(); /* optimized for speed */
+    if (leveld <= 3) return deflate_fast(); /* optimized for speed */
 
     /* Process the input block. */
     while (lookahead != 0) {

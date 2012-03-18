@@ -713,7 +713,8 @@ int main(argc, argv)
             ZIPERR( ZE_MEM, "Getting memory for AES salt");
         }
         prng_rand( zsalt,
-         SALT_LENGTH( encryption_method- (AES_MIN_ENCRYPTION- 1)),
+             /* Note: v-- No parentheses in SALT_LENGTH def'n. --v */
+         SALT_LENGTH( (encryption_method- (AES_MIN_ENCRYPTION- 1))),
          &aes_rnp);
 
         pool_init_time = time(NULL) - pool_init_start;

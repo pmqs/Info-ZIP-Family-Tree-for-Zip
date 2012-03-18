@@ -517,6 +517,7 @@ char **argv;            /* command line tokens */
   uzoff_t *a;           /* malloc'ed list of sizes, dest bins */
   extent *b;            /* heads of bin linked lists (malloc'ed) */
   uzoff_t c;            /* bin capacity, start of central directory */
+  uzoff_t c_d_ents;     /* Central directory entry counter. */
   int d;                /* if true, just report the number of disks */
   FILE *e;              /* input zip file */
   FILE *f;              /* output index and zip files */
@@ -959,7 +960,7 @@ char **argv;            /* command line tokens */
       if (u && retry()) goto redobin;
       ziperr(ZE_WRITE, path);
     }
-    for (g = b[j], k = 0; g != (extent)-1; g = n[g], k++)
+    for (g = b[j], c_d_ents = 0; g != (extent)-1; g = n[g], c_d_ents++)
       if ((r = putcentral(w[g])) != ZE_OK)
       {
         if (u && retry()) goto redobin;
@@ -968,9 +969,9 @@ char **argv;            /* command line tokens */
 
     /* write end-of-central header */
     cd_start_offset = c;
-    total_cd_entries = k;
+    total_cd_entries = c_d_ents;
     if ((t = zftello(f)) == (zoff_t)-1 ||
-        (r = putend((zoff_t)k, t - c, c, (extent)0, (char *)NULL)) !=
+        (r = putend( c_d_ents, t - c, c, (extent)0, (char *)NULL)) !=
         ZE_OK ||
         ferror(f) || fclose(f))
     {

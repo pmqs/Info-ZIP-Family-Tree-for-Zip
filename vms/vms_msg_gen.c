@@ -78,7 +78,7 @@ NULL                                            /* End-of-text marker. */
             {
                 printf( ".BASE %d\n", code_vms);
             }
-            printf( "%-7s %-13s <%s>\n",
+            printf( "%-11s %-9s <%s>\n",
              ziperrors[ code_zip].name,
              sev_str[ ziperrors[ code_zip].severity & 0x07],
              ziperrors[ code_zip].string);

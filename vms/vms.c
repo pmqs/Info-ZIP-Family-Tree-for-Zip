@@ -307,7 +307,7 @@ int vms_stat( char *file, stat_t *s)
 #  if !defined( NO_POSIX_EXIT)
 void     __posix_exit     (int __status);
 #  endif /* !defined( NO_POSIX_EXIT) */
-#endif /* __CRTL_VER >= 70000000 && !defined(_POSIX_EXIT)
+#endif /* __CRTL_VER >= 70000000 && !defined(_POSIX_EXIT) */
 
 
 /* Return an intelligent status/severity code. */

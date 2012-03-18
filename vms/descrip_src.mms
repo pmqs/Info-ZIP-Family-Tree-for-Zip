@@ -1,4 +1,4 @@
-#                                               8 January 2012.  SMS.
+#                                               2 March 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Source Description File.
 #
@@ -102,6 +102,9 @@ GCC_ =
 .IFDEF LARGE                        # LARGE
 LARGE_VAX = 1
 .ENDIF                              # LARGE
+.IFDEF LZMA                         # LZMA
+LZMA_VAX = 1
+.ENDIF                              # LZMA
 .IFDEF VAXC_OR_FORCE_VAXC           # VAXC_OR_FORCE_VAXC
 .IFDEF GNUC                             # GNUC
 VAX_MULTI_CMPL = 1
@@ -160,7 +163,13 @@ NON_VAX_CMPL = 1
 	@ write sys$output ""
 	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
 .ELSE                                       # LARGE_VAX
-.IFDEF IZ_BZIP2                                 # IZ_BZIP2
+.IFDEF LZMA_VAX                                 # LZMA_VAX
+	@ write sys$output -
+ "   Macro ""LZMA"" is invalid on VAX."
+	@ write sys$output ""
+	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
+.ELSE                                           # LZMA_VAX
+.IFDEF IZ_BZIP2                                     # IZ_BZIP2
 	@ @[.VMS]FIND_BZIP2_LIB.COM $(IZ_BZIP2) $(SEEK_BZ) -
 	   LIBBZ2_NS.OLB lib_bzip2
 	@ if (f$trnlnm( "lib_bzip2") .eqs. "") then -
@@ -172,8 +181,8 @@ NON_VAX_CMPL = 1
 	@ write sys$output "   BZIP2 dir: ''f$trnlnm( "lib_bzip2")'"
 	@ write sys$output ""
 	@ define incl_bzip2 $(IZ_BZIP2)
-.ENDIF                                          # IZ_BZIP2
-.IFDEF IZ_ZLIB                                  # IZ_ZLIB
+.ENDIF                                              # IZ_BZIP2
+.IFDEF IZ_ZLIB                                      # IZ_ZLIB
 	@ @[.VMS]FIND_BZIP2_LIB.COM $(IZ_ZLIB) $(SEEK_BZ) LIBZ.OLB lib_zlib
 	@ if (f$trnlnm( "lib_zlib") .eqs. "") then -
 	   write sys$output "   Can not find ZLIB object library."
@@ -184,11 +193,12 @@ NON_VAX_CMPL = 1
 	@ write sys$output "   ZLIB dir:  ''f$trnlnm( "lib_zlib")'"
 	@ write sys$output ""
 	@ define incl_zlib $(IZ_ZLIB)
-.ENDIF                                          # IZ_ZLIB
+.ENDIF                                              # IZ_ZLIB
 	@ write sys$output "   Destination: [.$(DEST)]"
 	@ write sys$output ""
 	if (f$search( "$(DEST).DIR;1") .eqs. "") then -
 	 create /directory [.$(DEST)]
+.ENDIF                                          # LZMA_VAX
 .ENDIF                                      # LARGE_VAX
 .ENDIF                                  # NON_VAX_CMPL
 .ENDIF                              # VAX_MULTI_CMPL
@@ -210,6 +220,7 @@ LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2_NS.OLB /library,
 # LZMA options.
 
 .IFDEF LZMA                     # LZMA
+LZMA_PPMD = 1
 .IFDEF __VAX__                      # __VAX__
 CDEFS_LZMA = , LZMA_SUPPORT, _7ZIP_ST, _SZ_NO_INT_64
 .ELSE                               # __VAX__
@@ -223,6 +234,7 @@ CDEFS_LZMA = , LZMA_SUPPORT, _7ZIP_ST
 .IFDEF LZMA                         # LZMA
 CDEFS_PPMD = , PPMD_SUPPORT
 .ELSE                               # LZMA
+LZMA_PPMD = 1
 .IFDEF __VAX__                          # __VAX__
 CDEFS_PPMD = , PPMD_SUPPORT, _SZ_NO_INT_64
 .ELSE                                   # __VAX__
@@ -382,8 +394,7 @@ MODS_OBJS_LIB_ZIP_AES = \
 .IFDEF LZMA                     # LZMA
 MODS_OBJS_LIB_ZIP_LZMA = \
  LZFIND=[.$(DEST)]LZFIND.OBJ \
- LZMAENC=[.$(DEST)]LZMAENC.OBJ \
- SZFILE=[.$(DEST)]SZFILE.OBJ
+ LZMAENC=[.$(DEST)]LZMAENC.OBJ
 .ENDIF                          # LZMA
 
 #    Primary object library, [.PPMD].

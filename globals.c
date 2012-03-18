@@ -41,8 +41,10 @@ int verbose = 0;        /* 1=report oddities in zip file structure */
 int fix = 0;            /* 1=fix the zip file, 2=FF, 3=ZipNote */
 int filesync = 0;       /* 1=file sync, delete entries not on file system */
 int adjust = 0;         /* 1=adjust offsets for sfx'd file (keep preamble) */
-int level = 6;          /* 0=fastest compression, 9=best compression */
 int translate_eol = 0;  /* Translate end-of-line LF -> CR LF */
+int level = 6;          /* 0=fastest compression, 9=best compression */
+int levell;             /* Compression level, adjusted by method, suffix. */
+
 #ifdef VMS
    int vmsver = 0;      /* 1=append VMS version number to file names */
    int vms_native = 0;  /* 1=store in VMS format */
@@ -171,19 +173,38 @@ int force_ansi_key = 1;       /* Only ANSI characters for password (32 - 126) */
 #ifdef NTSD_EAS
   int use_privileges = 0;     /* 1=use security privilege overrides */
 #endif
+
+/* STORE method file name suffixes. */
 #ifndef RISCOS
-#ifndef QDOS
-#ifndef TANDEM
-char *special = ".Z:.zip:.zoo:.arc:.lzh:.arj"; /* List of special suffixes */
-#else /* TANDEM */
-char *special = " Z: zip: zoo: arc: lzh: arj"; /* List of special suffixes */
-#endif
-#else /* QDOS */
-char *special = "_Z:_zip:_zoo:_arc:_lzh:_arj"; /* List of special suffixes */
-#endif
-#else /* RISCOS */
-char *special = "DDC:D96:68E";
-#endif /* ?RISCOS */
+# ifndef QDOS
+#  ifndef TANDEM
+#   define MTHD_SUFX_0 ".Z:.zip:.zoo:.arc:.lzh:.arj"    /* Normal. */
+#  else /* ndef TANDEM */
+#   define MTHD_SUFX_0 " Z: zip: zoo: arc: lzh: arj";   /* Tandem. */
+#  endif /* ndef TANDEM [else] */
+# else /* ndef QDOS */
+#  define MTHD_SUFX_0 "_Z:_zip:_zoo:_arc:_lzh:_arj";    /* QDOS. */
+# endif /* ndef QDOS [else] */
+#else /* ndef RISCOS */
+# define MTHD_SUFX_0 "DDC:D96:68E";                     /* RISCOS. */
+#endif /* ndef RISCOS [else] */
+
+/* Compression method and level (with file name suffixes). */
+mthd_lvl_t mthd_lvl[] = {
+/* method, level, level_sufx, method_str, suffixes. */
+ { STORE, -1, -1, "store", MTHD_SUFX_0 },   /* STORE.  (Must be element 0.) */
+ { DEFLATE, -1, -1, "deflate", NULL },      /* DEFLATE. */
+#ifdef BZIP2_SUPPORT
+ { BZIP2, -1, -1, "bzip2", NULL },          /* Bzip2. */
+#endif /* def BZIP2_SUPPORT */
+#ifdef LZMA_SUPPORT
+ { LZMA, -1, -1, "lzma", NULL },            /* LZMA. */
+#endif /* def LZMA_SUPPORT */
+#ifdef PPMD_SUPPORT
+ { PPMD, -1, -1, "ppmd", NULL },            /* PPMd. */
+#endif /* def PPMD_SUPPORT */
+ { -1, -1, -1, NULL, NULL } };              /* List terminator. */
+
 char *tempath = NULL;   /* Path for temporary files */
 FILE *mesg;             /* stdout by default, stderr for piping */
 

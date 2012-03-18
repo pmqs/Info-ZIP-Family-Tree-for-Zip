@@ -33,6 +33,10 @@
  wild(n) : procname(n, filter_match_case))
 
 
+/* Progress dot control.  See fileio.c for details. */
+#define PROGRESS_DOTS_PER_FLUSH 64
+
+
 /* 2004-11-09 SMS.
    Large file support.
 */

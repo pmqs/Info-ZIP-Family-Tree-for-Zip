@@ -84,6 +84,76 @@ local int ucs4_string_to_utf8 OF((ZCONST ulg *ucs4, char *utf8buf,
 #endif
 #endif /* UNICODE_SUPPORT */
 
+/* Progress dot display. */
+
+#ifdef PROGRESS_DOTS_PER_FLUSH
+local int dots_this_group;
+#endif /* def PROGRESS_DOTS_PER_FLUSH */
+
+local void display_dot_char( chr)
+  int chr;
+{
+#ifdef WINDLL
+  fprintf( stdout, "%c", chr);
+#else
+  putc( chr, mesg);
+
+  /* If PROGRESS_DOTS_PER_FLUSH is defined, then flush only when that
+   * many dots have accumulated.  If not, then flush every time.
+   */
+# ifdef PROGRESS_DOTS_PER_FLUSH
+  if (dots_this_group >= (PROGRESS_DOTS_PER_FLUSH))
+  {
+    /* Reset the dots-in-this-group count. */
+    dots_this_group = 0;
+# endif /* def PROGRESS_DOTS_PER_FLUSH */
+  fflush( mesg);
+# ifdef PROGRESS_DOTS_PER_FLUSH
+  }
+# endif /* def PROGRESS_DOTS_PER_FLUSH */
+#endif
+}
+
+void display_dot( condition, size)
+  int condition;
+  int size;
+{
+  if (dot_size > 0)
+  {
+    /* initial space */
+    if (noisy && dot_count == -1)
+    {
+      display_dot_char( ' ');
+      dot_count++;
+# ifdef PROGRESS_DOTS_PER_FLUSH
+      /* Reset the dots-in-this-group count. */
+      dots_this_group = 0;
+# endif /* def PROGRESS_DOTS_PER_FLUSH */
+    }
+    dot_count++;
+    if ((condition <= 1) && (dot_size <= (dot_count+ 1)* size))
+    {
+      dot_count = 0;
+    }
+  }
+
+  /* condition == 0: (verbose || noisy)
+   * condition == 1: noisy
+   * (I have no idea if these different conditions actually make sense,
+   * but I'm only consolidating the stuff.)
+   */
+  if ((((condition == 0) && verbose) || noisy) && dot_size && !dot_count)
+  {
+# ifdef PROGRESS_DOTS_PER_FLUSH
+    /* Increment the dots-in-this-group count. */
+    dots_this_group++;
+# endif /* def PROGRESS_DOTS_PER_FLUSH */
+    display_dot_char( '.');
+    mesg_line_started = 1;
+  }
+}
+
+
 #ifndef UTIL    /* the companion #endif is a bit of ways down ... */
 
 local int fqcmp  OF((ZCONST zvoid *, ZCONST zvoid *));
@@ -103,6 +173,7 @@ int zipstate;
 #endif
 /* -1 unknown, 0 old zip file exists, 1 new zip file */
 
+
 #if 0
 char *getnam(n, fp)
 char *n;                /* where to put name (must have >=FNMAX+1 bytes) */
@@ -111,10 +182,15 @@ char *n;                /* where to put name (must have >=FNMAX+1 bytes) */
 /* converted to return string pointer from malloc to avoid
    size limitation - 11/8/04 EG */
 #define GETNAM_MAX 9000 /* hopefully big enough for now */
+
+/* GETNAM_MAX should probably be set to the max path length for the
+   system we are running on - 9/3/2011 EG */
+
 char *getnam(fp)
   FILE *fp;
-  /* Read a \n or \r delimited name from stdin into n, and return
-     n.  If EOF, then return NULL.  Also, if problem return NULL. */
+  /* Read a \n or \r delimited name from stdin (or whereever fp points)
+     into n, and return n.  If EOF, then return NULL.  Also, if problem
+     return NULL. */
 {
   char name[GETNAM_MAX + 1];
   int c;                /* last character read */
@@ -127,8 +203,13 @@ char *getnam(fp)
   if (c == EOF)
     return NULL;
   do {
-    if (p - name >= GETNAM_MAX)
+    if (p - name >= GETNAM_MAX) {
+      name[GETNAM_MAX - 1] = '\0';
+      sprintf(errbuf, "name read from file greater than max path length:  %d\n          %s",
+              GETNAM_MAX, name);
+      ZIPERR(ZE_PARMS, errbuf);
       return NULL;
+    }
     *p++ = (char) c;
     c = getc(fp);
   } while (c != EOF && (c != '\n' && c != '\r'));
@@ -1750,8 +1831,10 @@ int bfcopy(n)
 
     des_start = zftello(in_file);
 
-    if ((k = fread(b, 1, brd, in_file)) == 0)
+    k = fread(b, 1, brd, in_file);
+    if ((k == 0) && !feof( in_file))
     {
+      /* fread() returned no data, but not normal end-of-file. */
       if (fix == 2 && k < brd) {
         free((zvoid *)b);
         return ZE_READ;
@@ -1951,24 +2034,14 @@ int bfcopy(n)
       if (dot_size > 0) {
         /* initial space */
         if (noisy && dot_count == -1) {
-#ifndef WINDLL
-          putc(' ', mesg);
-          fflush(mesg);
-#else
-          fprintf(stdout,"%c",' ');
-#endif
+          display_dot_char( ' ');
           dot_count++;
         }
         dot_count += k;
         if (dot_size <= dot_count) dot_count = 0;
       }
       if ((verbose || noisy) && dot_size && !dot_count) {
-#ifndef WINDLL
-        putc('.', mesg);
-        fflush(mesg);
-#else
-        fprintf(stdout,"%c",'.');
-#endif
+        display_dot_char( '.');
         mesg_line_started = 1;
       }
     }
@@ -2928,12 +3001,7 @@ size_t bfwrite(buffer, size, count, mode)
     if (dot_size > 0) {
       /* initial space */
       if (dot_count == -1) {
-#ifndef WINDLL
-        putc(' ', mesg);
-        fflush(mesg);
-#else
-        fprintf(stdout,"%c",' ');
-#endif
+        display_dot_char( ' ');
         /* assume a header will be written first, so avoid 0 */
         dot_count = 1;
       }
@@ -2945,12 +3013,7 @@ size_t bfwrite(buffer, size, count, mode)
     }
     if (dot_size && !dot_count) {
       dot_count++;
-#ifndef WINDLL
-      putc('.', mesg);
-      fflush(mesg);
-#else
-      fprintf(stdout,"%c",'.');
-#endif
+      display_dot_char( '.');
       mesg_line_started = 1;
     }
   }
@@ -3877,15 +3940,15 @@ zwchar *utf8_to_wide_string(utf8_string)
 /* function get_args_from_arg_file() can return this in depth parameter */
 #define ARG_FILE_ERR -1
 
-/* internal settings for optchar */
-#define SKIP_VALUE_ARG   -1
-#define THIS_ARG_DONE    -2
-#define START_VALUE_LIST -3
-#define IN_VALUE_LIST    -4
-#define NON_OPTION_ARG   -5
-#define STOP_VALUE_LIST  -6
-/* 7/25/04 EG */
-#define READ_REST_ARGS_VERBATIM -7
+/* Symbolic values for optchar. */
+#define SKIP_VALUE_ARG           -1
+#define THIS_ARG_DONE            -2
+#define START_VALUE_LIST         -3
+#define IN_VALUE_LIST            -4
+#define NON_OPTION_ARG           -5
+#define STOP_VALUE_LIST          -6
+#define READ_REST_ARGS_VERBATIM  -7     /* 7/25/04 EG */
+#define SKIP_VALUE_ARG2          -8     /* 2012-03-08 SMS.  (Re-order?) */
 
 
 /* global veriables */
@@ -4283,14 +4346,65 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
           strcpy(*value, arg + (*optchar) + clen);
         }
         *optchar = THIS_ARG_DONE;
-      } else if (args[argnum + 1] && args[argnum + 1][0] != '-') {
-        /* use next arg for value */
-        if ((*value = (char *)malloc(strlen(args[argnum + 1]) + 1)) == NULL) {
+      }
+    } else if (options[match].value_type == o_OPT_EQ_VALUE) {
+      /* Optional value, but "=" required with detached value. */
+      int have_eq = 0;
+
+      if (arg[(*optchar) + clen]) {
+        /* "-optXXXX".  May have attached value. */
+        if (arg[(*optchar) + clen] == '=') {
+          /* Skip '=' (but remember it). */
+          clen++;
+          have_eq = 1;
+        }
+        if (arg[(*optchar) + clen]) {
+          /* "-opt[=]value".  Have attached value. */
+          if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1))
+              == NULL) {
+            oERR(ZE_MEM, "gso");
+          }
+          strcpy(*value, arg + (*optchar) + clen);
+          *optchar = THIS_ARG_DONE;
+        }
+        else if (have_eq && args[argnum + 1] && args[argnum + 1][0] != '-') {
+          /* "-opt= value".  Have detached value. */
+          if ((*value = (char *)malloc(strlen(args[argnum + 2])+ 1)) == NULL) {
+            oERR(ZE_MEM, "gso");
+          }
+          /* Set value.  Skip value arg. */
+          strcpy(*value, args[argnum + 1]);
+          *optchar = SKIP_VALUE_ARG;
+        } else {
+          /* "-opt[=] -opt".  No "=" or no (non-option) value specified. */
+          *optchar = THIS_ARG_DONE;
+        }
+      } else if (args[argnum + 1] && (strcmp( args[argnum + 1], "=") == 0)) {
+        /* "-opt = ".  Loose "=" token.  Look for detached value. */
+        if (args[argnum + 2] && args[argnum + 2][0] != '-') {
+          /* "-opt = value".  Have detached value. */
+          if ((*value = (char *)malloc(strlen(args[argnum + 2])+ 1)) == NULL) {
+            oERR(ZE_MEM, "gso");
+          }
+          /* Set value.  Skip "=" and value args. */
+          strcpy(*value, args[argnum + 2]);
+          *optchar = SKIP_VALUE_ARG2;
+        } else {
+          /* "-opt =", but no (non-option) value.  Skip "=" arg. */
+          *optchar = SKIP_VALUE_ARG;
+        }
+      } else if (args[argnum + 1] && args[argnum + 1][0] == '=') {
+        /* "-opt =[XXXX]".  Have detached "=value".  Skip '='. */
+        if ((*value = (char *)malloc(strlen(args[argnum + 1]))) == NULL)
+        {
           oERR(ZE_MEM, "gso");
         }
-        /* using next arg as value */
-        strcpy(*value, args[argnum + 1]);
+        /* Using next arg (less '=') as value. */
+        strcpy(*value, args[argnum + 1]+ 1);
         *optchar = SKIP_VALUE_ARG;
+      } else {
+        /* No "=", therefore no value. */
+        *optchar = THIS_ARG_DONE;
       }
     } else if (options[match].value_type == o_REQUIRED_VALUE ||
                options[match].value_type == o_VALUE_LIST) {
@@ -4826,14 +4940,17 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
 
     /* permute non-option args after option args so options are returned first */
     } else if (enable_permute) {
-      if (optc == SKIP_VALUE_ARG || optc == THIS_ARG_DONE ||
+      if (optc == SKIP_VALUE_ARG || optc == SKIP_VALUE_ARG2 ||
+          optc == THIS_ARG_DONE ||
           optc == START_VALUE_LIST || optc == IN_VALUE_LIST ||
           optc == STOP_VALUE_LIST) {
         /* moved to new arg */
         if (first_nonoption_arg > -1 && args[first_nonoption_arg]) {
           /* do the permuting - move non-options after this option */
           /* if option and value separate args or starting list skip option */
-          if (optc == SKIP_VALUE_ARG || optc == START_VALUE_LIST) {
+          if (optc == SKIP_VALUE_ARG2) {
+            v = 2;
+          } else if (optc == SKIP_VALUE_ARG || optc == START_VALUE_LIST) {
             v = 1;
           } else {
             v = 0;
@@ -4902,7 +5019,10 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
     }
 
     /* move to next arg */
-    if (optc == SKIP_VALUE_ARG) {
+    if (optc == SKIP_VALUE_ARG2) {
+      argn += 3;
+      optc = 0;
+    } else if (optc == SKIP_VALUE_ARG) {
       argn += 2;
       optc = 0;
     } else if (optc == THIS_ARG_DONE) {

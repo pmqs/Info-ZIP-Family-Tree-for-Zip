@@ -18,7 +18,8 @@ Define	Verb		ZIP
 	Qualifier	BEFORE, NonNegatable, VALUE(type=$DATETIME)
 	Qualifier	COMMENTS, NonNegatable,
 			VALUE(list,type=COMMENTS_OPTS)
-	Qualifier	COMPRESSION, NonNegatable, VALUE(type=COMPRESS_OPTS)
+	Qualifier	COMPRESSION, NonNegatable,
+			 VALUE(type=COMPRESS_OPTS, list)
 	Qualifier	COPY_ENTRIES, NonNegatable
 	Qualifier	DESCRIPTORS, NonNegatable
 	Qualifier	DIFFERENCE, NonNegatable
@@ -36,7 +37,7 @@ Define	Verb		ZIP
 	Qualifier	JUNK, Negatable
 	Qualifier	KEEP_VERSION, Negatable
 	Qualifier	LATEST, NonNegatable
-	Qualifier	LEVEL, VALUE(type=$NUMBER,required)
+	Qualifier	LEVEL, VALUE(type=LEVEL_OPTS, required, list)
 	Qualifier	LICENSE, NonNegatable
 	Qualifier	LOG_FILE, NonNegatable,
 			VALUE(list, required, type=LOG_OPTS)
@@ -68,6 +69,7 @@ Define	Verb		ZIP
 	Qualifier	YYZ_ZIP, NonNegatable, Default
 	Qualifier	ZIP64, Negatable
 
+	Disallow	COMPRESSION.STORE.LEVEL
 	Disallow	COPY_ENTRIES and (DELETE or FRESHEN or UPDATE)
 	Disallow	DELETE and (COPY_ENTRIES or FRESHEN or UPDATE)
 	Disallow	FRESHEN and (COPY_ENTRIES or DELETE or UPDATE)
@@ -82,6 +84,19 @@ Define	Verb		ZIP
 			 (neg OUTPUT)
 	Disallow	TRANSLATE_EOL.LF and TRANSLATE_EOL.CRLF
 	Disallow	FULL_PATH and JUNK
+	Disallow	LEVEL.0.DEFLATE
+	Disallow	LEVEL.0.BZIP2
+	Disallow	LEVEL.0.LZMA
+	Disallow	LEVEL.0.PPMD
+	Disallow	LEVEL.1.STORE
+	Disallow	LEVEL.2.STORE
+	Disallow	LEVEL.3.STORE
+	Disallow	LEVEL.4.STORE
+	Disallow	LEVEL.5.STORE
+	Disallow	LEVEL.6.STORE
+	Disallow	LEVEL.7.STORE
+	Disallow	LEVEL.8.STORE
+	Disallow	LEVEL.9.STORE
 	Disallow	RECURSE.PATH and RECURSE.FILENAMES
 	Disallow	(neg EXTRA_FIELDS) and
 			 (KEEP_EXISTING or EXTRA_FIELDS.NORMAL)
@@ -96,11 +111,11 @@ Define	Type		COMMENTS_OPTS
 	Keyword		FILES
 	Keyword		ZIP_FILE
 
-Define	Type		COMPRESS_OPTS
+Define	Type		LEVEL_MTHD_OPTS
 #ifdef BZIP2_SUPPORT
 	Keyword		BZIP2
 #endif /* def BZIP2_SUPPORT */
-	Keyword		DEFLATE, DEFAULT
+	Keyword		DEFLATE
 #ifdef LZMA_SUPPORT
 	Keyword		LZMA
 #endif /* def LZMA_SUPPORT */
@@ -108,6 +123,34 @@ Define	Type		COMPRESS_OPTS
 	Keyword		PPMD
 #endif /* def PPMD_SUPPORT */
 	Keyword		STORE
+
+Define	Type		COMPRESS_MTHD_LEVEL_OPTS
+	Keyword		1
+	Keyword		2
+	Keyword		3
+	Keyword		4
+	Keyword		5
+	Keyword		6
+	Keyword		7
+	Keyword		8
+	Keyword		9
+
+Define	Type		COMPRESS_MTHD_OPTS
+	Keyword		LEVEL, VALUE(required, type=COMPRESS_MTHD_LEVEL_OPTS)
+	Keyword		SUFFIX, VALUE(required, list)
+
+Define	Type		COMPRESS_OPTS
+#ifdef BZIP2_SUPPORT
+	Keyword		BZIP2, VALUE(type=COMPRESS_MTHD_OPTS, list)
+#endif /* def BZIP2_SUPPORT */
+	Keyword		DEFLATE, VALUE(type=COMPRESS_MTHD_OPTS, list)
+#ifdef LZMA_SUPPORT
+	Keyword		LZMA, VALUE(type=COMPRESS_MTHD_OPTS, list)
+#endif /* def LZMA_SUPPORT */
+#ifdef PPMD_SUPPORT
+	Keyword		PPMD, VALUE(type=COMPRESS_MTHD_OPTS, list)
+#endif /* def PPMD_SUPPORT */
+	Keyword		STORE, VALUE(type=COMPRESS_MTHD_OPTS, list)
 
 Define	Type		DISPLAY_OPTS
 	Keyword		BYTES
@@ -145,6 +188,18 @@ Define	Type		FIX_OPTS
 Define	Type		HELP_OPTS
 	Keyword		NORMAL, DEFAULT
 	Keyword		EXTENDED
+
+Define	Type		LEVEL_OPTS
+	Keyword		0, VALUE(type=LEVEL_MTHD_OPTS, list)
+	Keyword		1, VALUE(type=LEVEL_MTHD_OPTS, list)
+	Keyword		2, VALUE(type=LEVEL_MTHD_OPTS, list)
+	Keyword		3, VALUE(type=LEVEL_MTHD_OPTS, list)
+	Keyword		4, VALUE(type=LEVEL_MTHD_OPTS, list)
+	Keyword		5, VALUE(type=LEVEL_MTHD_OPTS, list)
+	Keyword		6, VALUE(type=LEVEL_MTHD_OPTS, list)
+	Keyword		7, VALUE(type=LEVEL_MTHD_OPTS, list)
+	Keyword		8, VALUE(type=LEVEL_MTHD_OPTS, list)
+	Keyword		9, VALUE(type=LEVEL_MTHD_OPTS, list)
 
 Define	Type		LOG_OPTS
 	Keyword		APPEND, Negatable

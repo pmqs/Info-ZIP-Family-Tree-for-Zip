@@ -1,7 +1,7 @@
 /*
   zip.c - Zip 3
 
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -140,7 +140,7 @@ ZCONST uLongf *crc_32_tab;
  * hence 7zVersion.h is now SzVersion.h.
  */
 # include "lzma/SzVersion.h"
-#endif /* defined( USE_LZMA) || defined( USE_PPMD) */
+#endif /* defined( LZMA_SUPPORT) || defined( PPMD_SUPPORT) */
 
 /* Local functions */
 
@@ -1309,8 +1309,6 @@ local void version_info()
 #endif
 #ifdef PPMD_SUPPORT
     ppmd_opt_ver,
-#endif
-#if defined(BZIP2_SUPPORT) || defined(LZMA_SUPPORT) || defined(PPMD_SUPPORT)
 #endif
 #ifdef S_IFLNK
 # ifdef VMS
@@ -2548,18 +2546,19 @@ int set_filetype(out_path)
 #define o_so            0x149
 #define o_sp            0x14a
 #define o_spc           0x150
-#define o_su            0x151
-#define o_sU            0x152
-#define o_sv            0x153
-#define o_tt            0x154
-#define o_TT            0x155
-#define o_UN            0x156
-#define o_ve            0x157
-#define o_VV            0x158
-#define o_ws            0x159
-#define o_ww            0x160
-#define o_z64           0x161
-#define o_atat          0x162
+#define o_ss            0x151
+#define o_su            0x152
+#define o_sU            0x153
+#define o_sv            0x154
+#define o_tt            0x155
+#define o_TT            0x156
+#define o_UN            0x157
+#define o_ve            0x158
+#define o_VV            0x159
+#define o_ws            0x160
+#define o_ww            0x161
+#define o_z64           0x162
+#define o_atat          0x163
 
 
 /* the below is mainly from the old main command line
@@ -2576,16 +2575,16 @@ struct option_struct far options[] = {
 #ifdef TANDEM
     {"B",  "",            o_NUMBER_VALUE,   o_NOT_NEGATABLE, 'B',  "nsk"},
 #endif
-    {"0",  "store",       o_NO_VALUE,       o_NOT_NEGATABLE, '0',  "store"},
-    {"1",  "compress-1",  o_NO_VALUE,       o_NOT_NEGATABLE, '1',  "compress 1"},
-    {"2",  "compress-2",  o_NO_VALUE,       o_NOT_NEGATABLE, '2',  "compress 2"},
-    {"3",  "compress-3",  o_NO_VALUE,       o_NOT_NEGATABLE, '3',  "compress 3"},
-    {"4",  "compress-4",  o_NO_VALUE,       o_NOT_NEGATABLE, '4',  "compress 4"},
-    {"5",  "compress-5",  o_NO_VALUE,       o_NOT_NEGATABLE, '5',  "compress 5"},
-    {"6",  "compress-6",  o_NO_VALUE,       o_NOT_NEGATABLE, '6',  "compress 6"},
-    {"7",  "compress-7",  o_NO_VALUE,       o_NOT_NEGATABLE, '7',  "compress 7"},
-    {"8",  "compress-8",  o_NO_VALUE,       o_NOT_NEGATABLE, '8',  "compress 8"},
-    {"9",  "compress-9",  o_NO_VALUE,       o_NOT_NEGATABLE, '9',  "compress 9"},
+    {"0",  "store",       o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '0',  "store"},
+    {"1",  "compress-1",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '1',  "compress 1"},
+    {"2",  "compress-2",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '2',  "compress 2"},
+    {"3",  "compress-3",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '3',  "compress 3"},
+    {"4",  "compress-4",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '4',  "compress 4"},
+    {"5",  "compress-5",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '5',  "compress 5"},
+    {"6",  "compress-6",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '6',  "compress 6"},
+    {"7",  "compress-7",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '7',  "compress 7"},
+    {"8",  "compress-8",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '8',  "compress 8"},
+    {"9",  "compress-9",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '9',  "compress 9"},
     {"A",  "adjust-sfx",  o_NO_VALUE,       o_NOT_NEGATABLE, 'A',  "adjust self extractor offsets"},
 #if defined(WIN32)
     {"AC", "archive-clear", o_NO_VALUE,     o_NOT_NEGATABLE, o_AC, "clear DOS archive bit of included files"},
@@ -2714,6 +2713,7 @@ struct option_struct far options[] = {
     {"si", "show-pid",    o_NO_VALUE,       o_NEGATABLE,     o_si, "show process ID"},
 #endif /* !defined( VMS) && defined( ENABLE_USER_PROGRESS) */
     {"so", "show-options",o_NO_VALUE,       o_NOT_NEGATABLE, o_so, "show options"},
+    {"ss", "show-suffixes",o_NO_VALUE,      o_NOT_NEGATABLE, o_ss, "show method-level suffix lists"},
 #ifdef UNICODE_SUPPORT
     {"su", "show-unicode", o_NO_VALUE,      o_NEGATABLE,     o_su, "as -sf but also show escaped Unicode"},
     {"sU", "show-just-unicode", o_NO_VALUE, o_NEGATABLE,     o_sU, "as -sf but only show escaped Unicode"},
@@ -2829,8 +2829,9 @@ char **argv;            /* command line tokens */
   int fna = 0;          /* current first non-opt arg */
   int optnum = 0;       /* index in table */
 
-  int show_options = 0; /* show options */
   int show_args = 0;    /* show command line */
+  int show_options = 0; /* show options */
+  int show_suffixes = 0;/* Show method-level suffix lists. */
   int seen_doubledash = 0; /* seen -- argument */
   int key_needed = 0;   /* prompt for encryption key */
   int have_out = 0;     /* if set in_path and out_path different archive */
@@ -2851,7 +2852,10 @@ char **argv;            /* command line tokens */
   _setargv(&argc, &argv);
   setlocale(LC_CTYPE, "I");
 #else
+  /* This is undefined in Win32.  Will try to address it in the next beta. */
+# ifndef WIN32
   SETLOCALE(LC_CTYPE, "");
+# endif
 #endif
 
 #ifdef UNICODE_SUPPORT
@@ -3143,7 +3147,6 @@ char **argv;            /* command line tokens */
   before = 0;             /* 0=ignore, else exclude files before this time */
   after = 0;              /* 0=ignore, else exclude files newer than this time */
 
-  special = ".Z:.zip:.zoo:.arc:.lzh:.arj"; /* List of special suffixes */
   key = NULL;             /* Scramble password if scrambling */
   key_needed = 0;         /* Need scramble password */
   tempath = NULL;         /* Path for temporary files */
@@ -3567,11 +3570,69 @@ char **argv;            /* command line tokens */
 #endif
 
         case '0':
-          method = STORE; level = 0; break;
+          method = STORE; level = 0;
+          break;
         case '1':  case '2':  case '3':  case '4':
         case '5':  case '6':  case '7':  case '8':  case '9':
-          /* Set the compression efficacy */
-          level = (int)option - '0';  break;
+          {
+            char *dp1;
+            char *dp2;
+            char t;
+            int j;
+            int lvl;
+
+            /* Calculate the integer compression level value. */
+            lvl = (int)option - '0';
+
+            /* Analyze any option value (method names). */
+            if (value == NULL)
+            {
+              /* No value.  Set the global compression level. */
+              level = lvl;
+            }
+            else
+            {
+              /* Set the by-method compression level for the specified
+               * method names in "value" ("mthd1:mthd2:...:mthdn").
+               */
+              dp1 = value;
+              while (*dp1 != '\0')
+              {
+                /* Advance dp2 to the next delimiter.  t = delimiter. */
+                for (dp2 = dp1;
+                 (((t = *dp2) != ':') && (*dp2 != ';') && (*dp2 != '\0'));
+                 dp2++);
+
+                /* NUL-terminate the latest list segment. */
+                *dp2 = '\0';
+
+                /* Check for a match in the method-by-suffix array. */
+                for (j = 0; mthd_lvl[ j].method >= 0; j++)
+                {
+                  if (abbrevmatch( mthd_lvl[ j].method_str, dp1, 0, 1))
+                  {
+                    /* Matched method name.  Set the by-method level. */
+                    mthd_lvl[ j].level = lvl;
+                    break;
+                  }
+                }
+
+                if (mthd_lvl[ j].method < 0)
+                {
+                  sprintf( errbuf, "Invalid compression method: \"%s\"", dp1);
+                  free( value);
+                  ZIPERR( ZE_PARMS, errbuf);
+                }
+
+                /* Quit at end-of-string. */
+                if (t == '\0') break;
+
+                /* Otherwise, advance dp1 to the next list segment. */
+                dp1 = dp2+ 1;
+              }
+            }
+          }
+          break;
         case 'A':   /* Adjust unzipsfx'd zipfile:  adjust offsets only */
           adjust = 1; break;
 #if defined(WIN32)
@@ -3905,9 +3966,88 @@ char **argv;            /* command line tokens */
           free(value);
           break;
 #endif /* CMS_MVS */
-        case 'n':   /* Don't compress files with a special suffix */
-          special = value;
-          /* special = NULL; */ /* will be set at next argument */
+        case 'n':   /* Specify compression-method-by-name-suffix list. */
+          {         /* Value format: "method[-lvl]=sfx1:sfx2;sfx3". */
+            int i;
+            int j;
+            int lvl;
+            char *sfx_list;
+
+            lvl = -1;                   /* Assume the default level. */
+            sfx_list = value;
+
+            /* Find the first special character in value. */
+            for (i = 0; value[ i] != '\0'; i++)
+            {
+              if ((value[ i] == '=') ||
+               (value[ i] == ':') || (value[ i] == ';'))
+                break;
+            }
+
+            j = 0;                      /* Default = STORE. */
+            if (value[ i] == '=')
+            {
+              /* Found "method[-lvl]=".  Replace "=" with NUL. */
+              value[ i] = '\0';
+
+              /* Look for "-n" level specifier.
+               *  Must be "--" or "-0" - "-9".
+               */
+              if ((value[ i- 2] == '-') && ((value[ i- 1] == '-') ||
+               ((value[ i- 1] >= '0') && (value[ i- 1] <= '9'))))
+              {
+                if (value[ i- 1] != '-')
+                {
+                  /* Some explicit level, 0-9. */
+                  lvl = value[ i- 1]- '0';
+                }
+                value[ i- 2] = '\0';
+              }
+
+              /* Check for a match in the method-by-suffix array. */
+              for (j = 0; mthd_lvl[ j].method >= 0; j++)
+              {
+                if (abbrevmatch( mthd_lvl[ j].method_str, value, 0, 1))
+                {
+                  /* Matched method name. */
+                  sfx_list = value+ (i+ 1);     /* Stuff after "=". */
+                  break;
+                }
+              }
+              if (mthd_lvl[ j].method < 0)
+              {
+                sprintf( errbuf, "Invalid compression method: %s", value);
+                free( value);
+                ZIPERR( ZE_PARMS, errbuf);
+              }
+            }
+
+            /* Check for a valid "-n" level value, and store it. */
+            if (lvl < 0)
+            {
+              /* Restore the default level setting. */
+              mthd_lvl[ j].level_sufx = -1;
+            }
+            else
+            {
+              if (((j == 0) && (lvl != 0)) || ((j != 0) && (lvl == 0)))
+              {
+                sprintf( errbuf, "Invalid \"%s\" compression level: %d",
+                 mthd_lvl[ j].method_str, lvl);
+                free( value);
+                ZIPERR( ZE_PARMS, errbuf);
+              }
+              else
+              {
+                mthd_lvl[ j].level_sufx = lvl;
+              }
+            }
+
+            /* Set suffix list value. */
+            if (*sfx_list == '\0')     /* Store NULL for an empty list. */
+              sfx_list = NULL;         /* (Worry about white space?) */
+            mthd_lvl[ j].suffixes = sfx_list;
+          }
           break;
         case o_nw:  /* no wildcards - wildcards are handled like other characters */
           no_wild = 1;
@@ -3919,8 +4059,20 @@ char **argv;            /* command line tokens */
         case 'o':   /* Set zip file time to time of latest file in it */
           latest = 1;  break;
         case 'O':   /* Set output file different than input archive */
-          out_path = ziptyp(value);
-          free(value);
+          if (strcmp( value, "-") == 0)
+          {
+            mesg = stderr;
+            if (isatty(1))
+              ziperr(ZE_PARMS, "cannot write zip file to terminal");
+            if ((out_path = malloc(4)) == NULL)
+              ziperr(ZE_MEM, "was processing arguments");
+            strcpy( out_path, "-");
+          }
+          else
+          {
+            out_path = ziptyp(value);
+            free(value);
+          }
           have_out = 1;
           break;
         case 'p':   /* Store path with name */
@@ -4025,6 +4177,8 @@ char **argv;            /* command line tokens */
 
         case o_so:  /* show all options */
           show_options = 1; break;
+        case o_ss:  /* show all options */
+          show_suffixes = 1; break;
 #ifdef UNICODE_SUPPORT
         case o_su:  /* -sf but also show Unicode if exists */
           if (!negated)
@@ -4608,6 +4762,37 @@ char **argv;            /* command line tokens */
     fflush(mesg);
   }
 
+  /* Show method-level suffix lists. */
+  if (show_suffixes)
+  {
+    char level_str[ 8];
+    char *suffix_str;
+    int sufx_i;
+
+    fprintf( mesg, "   Method[-lvl]=Suffix_list\n");
+    for (sufx_i = 0; mthd_lvl[ sufx_i].method >= 0; sufx_i++)
+    {
+      suffix_str = mthd_lvl[ sufx_i].suffixes;
+      /* "-v": Show all methods.  Otherwise, only those with a suffix list. */
+      if (verbose || (suffix_str != NULL))
+      {
+        /* "-lvl" string, if a non-default level was specified. */
+        if ((mthd_lvl[ sufx_i].level_sufx <= 0) || (suffix_str == NULL))
+          strcpy( level_str, "  ");
+        else
+          sprintf( level_str, "-%d", mthd_lvl[ sufx_i].level_sufx);
+
+        /* Display an empty string, if none specified. */
+        if (suffix_str == NULL)
+          suffix_str = "";
+
+        fprintf( mesg, "     %8s%s=%s\n",
+         mthd_lvl[ sufx_i].method_str, level_str, suffix_str);
+      }
+    }
+    fprintf( mesg, "\n");
+  }
+
   /* show command line args */
   if (show_args) {
     fprintf(mesg, "command line:\n");
@@ -5048,11 +5233,12 @@ char **argv;            /* command line tokens */
 
 
   /* Check option combinations */
-  if (special == NULL) {
+  if (mthd_lvl[ 0].suffixes == NULL) {
     ZIPERR(ZE_PARMS, "missing suffix list");
   }
-  if (level == 9 || !strcmp(special, ";") || !strcmp(special, ":"))
-    special = NULL; /* compress everything */
+  if (level == 9 || !strcmp( mthd_lvl[ 0].suffixes, ";") ||
+   !strcmp( mthd_lvl[ 0].suffixes, ":"))
+    mthd_lvl[ 0].suffixes = NULL; /* compress everything */
 
   if (action == DELETE && (method != BEST || dispose || recurse ||
       key != NULL || comadd || zipedit)) {
@@ -5321,7 +5507,7 @@ char **argv;            /* command line tokens */
     }
 
     /* Replace old zip file with new zip file, leaving only the new one */
-    if (strcmp(zipfile, "-") && !d)
+    if (strcmp(out_path, "-") && !d)
     {
       diag("replacing old zip file with new zip file");
       if ((r = replace(out_path, tempzip)) != ZE_OK)
@@ -6288,7 +6474,7 @@ char **argv;            /* command line tokens */
    * so when the zipfile does not exist already and when -b is specified,
    * the writability check is made in replace().
    */
-  if (strcmp(zipfile, "-"))
+  if (strcmp(out_path, "-"))
   {
     if (tempdir && zfiles == NULL && zipbeg == 0) {
       zip_attributes = 0;
@@ -6319,7 +6505,7 @@ char **argv;            /* command line tokens */
   diag("opening zip file and creating temporary zip file");
   x = NULL;
   tempzn = 0;
-  if (strcmp(zipfile, "-") == 0)
+  if (strcmp(out_path, "-") == 0)
   {
 #ifdef MSDOS
     /* It is nonsense to emit the binary data stream of a zipfile to
@@ -7568,7 +7754,7 @@ char **argv;            /* command line tokens */
     check_zipfile(tempzip, argv[0]);
 #endif
   /* Replace old zip file with new zip file, leaving only the new one */
-  if (strcmp(zipfile, "-") && !d)
+  if (strcmp(out_path, "-") && !d)
   {
     diag("replacing old zip file with new zip file");
     if (show_what_doing) {
@@ -7712,13 +7898,12 @@ int arg;
 #  define U_P_NODENAME_LEN 32
 
   static int not_first = 0;                             /* First time flag. */
-  static char u_p_nodename[ U_P_NODENAME_LEN+ 1];	/* "hoat::tty". */
+  static char u_p_nodename[ U_P_NODENAME_LEN+ 1];	/* "host::tty". */
   static char u_p_prog_name[] = "zip";                  /* Program name. */
 
   struct utsname u_p_utsname;
   struct tm u_p_loc_tm;
   struct tms u_p_tms;
-  char u_p_intro[ 128];
   char *cp;
   char *tty_name;
   time_t u_p_time;
