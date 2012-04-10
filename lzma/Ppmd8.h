@@ -17,11 +17,11 @@ EXTERN_C_BEGIN
 struct CPpmd8_Context_;
 
 typedef
-  #ifdef PPMD_32BIT
+#ifdef PPMD_32BIT
     struct CPpmd8_Context_ *
-  #else
+#else
     UInt32
-  #endif
+#endif
   CPpmd8_Context_Ref;
 
 typedef struct CPpmd8_Context_
@@ -43,9 +43,9 @@ enum
 {
   PPMD8_RESTORE_METHOD_RESTART,
   PPMD8_RESTORE_METHOD_CUT_OFF
-  #ifdef PPMD8_FREEZE_SUPPORT
+#ifdef PPMD8_FREEZE_SUPPORT
   , PPMD8_RESTORE_METHOD_FREEZE
-  #endif
+#endif
 };
 
 typedef struct
@@ -93,13 +93,13 @@ void Ppmd8_Init(CPpmd8 *p, unsigned maxOrder, unsigned restoreMethod);
 extern const Byte PPMD8_kExpEscape[16];
 
 #ifdef PPMD_32BIT
-  #define Ppmd8_GetPtr(p, ptr) (ptr)
-  #define Ppmd8_GetContext(p, ptr) (ptr)
-  #define Ppmd8_GetStats(p, ctx) ((ctx)->Stats)
+#  define Ppmd8_GetPtr(p, ptr) (ptr)
+#  define Ppmd8_GetContext(p, ptr) (ptr)
+#  define Ppmd8_GetStats(p, ctx) ((ctx)->Stats)
 #else
-  #define Ppmd8_GetPtr(p, offs) ((void *)((p)->Base + (offs)))
-  #define Ppmd8_GetContext(p, offs) ((CPpmd8_Context *)Ppmd8_GetPtr((p), (offs)))
-  #define Ppmd8_GetStats(p, ctx) ((CPpmd_State *)Ppmd8_GetPtr((p), ((ctx)->Stats)))
+#  define Ppmd8_GetPtr(p, offs) ((void *)((p)->Base + (offs)))
+#  define Ppmd8_GetContext(p, offs) ((CPpmd8_Context *)Ppmd8_GetPtr((p), (offs)))
+#  define Ppmd8_GetStats(p, ctx) ((CPpmd_State *)Ppmd8_GetPtr((p), ((ctx)->Stats)))
 #endif
 
 void Ppmd8_Update1(CPpmd8 *p);

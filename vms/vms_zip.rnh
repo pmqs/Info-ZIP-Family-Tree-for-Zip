@@ -52,6 +52,10 @@
 .!              Minor tidying for version 3.1.
 .!      Steven Schweda          30 June 2011
 .!              AES_WG encryption.
+.!      Steven Schweda          29 March 2012
+.!              Added LZMA, PPMd compression.
+.!              Added -ss, and the new -n and -0/-9 extensions.
+.!              Added error codes 21 (CRYPT) and 22 (COMPRESS).
 .!
 .noflags
 .lm4 .rm72
@@ -116,12 +120,14 @@ archive with a single command.
 Compression
 .sk
 Compression ratios of 2:1 to 3:1 are common for text files.  Zip has one
-standard compression method ("deflate") and can also store files without
+standard compression method ("Deflate") and can also store files without
 compression.  Zip (and UnZip) may be built with optional support for the
-bzip2 compression method.  Then, the user may select bzip2 compression
-instead of the default "deflate" method.  Zip automatically chooses
-simple storage over compression for a file, if the specified compression
-method does not actually compress the data in that file.
+bzip2, LZMA, and/or PPMd compression methods.  Then, the user may select
+bzip2, LZMA, or PPMd compression instead of the default "Deflate"
+method.  Zip automatically chooses simple storage over compression for a
+file, if the specified compression method does not actually compress the
+data in that file (except currently for LZMA compression, which may
+waste a few bytes, typically on very small files).
 .sk
 Compatibility
 .sk
@@ -133,9 +139,10 @@ better compatibility).  Zip version 3.0 is compatible with PKZIP 2.04
 and also supports the Zip64 extensions of PKZIP 4.5 which allows
 archives as well as files to exceed the previous 2 GB limit (4 GB in
 some cases).  Zip also supports bzip2 compression if the bzip2 library
-is included when Zip is built.  Note that PKUNZIP 1.10 cannot extract
-files produced by PKZIP 2.04 or Zip 3.0.  You must use PKUNZIP 2.04g or
-UnZip 5.0p1 (or later versions) to extract them.
+is included when Zip is built, and LZMA and PPMd compression if either
+or both of them are enabled when Zip is built.  Note that PKUNZIP 1.10
+cannot extract files produced by PKZIP 2.04 or Zip 3.0.  You must use
+PKUNZIP 2.04g or UnZip 5.0p1 (or later versions) to extract them.
 .sk
 Large Archives and Zip64
 .sk
@@ -308,56 +315,95 @@ SYS$INPUT (stdin)) can't be used together (successfully).
 2 Compression
 .br
 Zip can archive files with or without compression.  The standard
-compression method ("deflate") is compatible with all UnZip versions
-(except really old ones that only understand the "store" method).
+compression method ("Deflate") is compatible with all UnZip versions
+(except very old ones that understand only the "Store" method).
 Current Zip and UnZip versions may be built with optional support for
-the bzip2 compression method.  (The bzip2 method can compress better,
-especially when compressing smaller files, but uses more CPU time, and
-requires an UnZip which includes the optional bzip2 support.  See the
-installation instructions for details on adding bzip2 compression
-support at build time.)
+the bzip2, LZMA, and PPMd compression methods.  (These methods can
+compress better than Deflate, but normally use more CPU time, and
+require an UnZip which includes support for the optional method.  See
+the installation instructions for details on adding support for the
+optional compression methods at build time.)
 .sk
 Numeric compression level options control the effort put into data
 compression, with -1 being the fastest, and -9 giving the most
-compression.
-.sk
-Compression control options:
-.sk;.lm +10;.literal
--Z cm                        use compression method "cm",
---compression-method cm      "bzip2" or "deflate" (default)
-
--0  (--store)                no compression
--1  (--compress-1)           compression level 1
--2  (--compress-2)           compression level 2
--3  (--compress-3)           compression level 3
--4  (--compress-4)           compression level 4
--5  (--compress-5)           compression level 5
--6  (--compress-6)           compression level 6
--7  (--compress-7)           compression level 7
--8  (--compress-8)           compression level 8
--9  (--compress-9)           compression level 9
-.end literal;.lm -10
+compression.  Different compression levels can be specified for
+different compression methods.
 .sk
 Normally, a file which is already compressed will not be compressed much
 further (if at all) by Zip, and trying to do it can waste considerable
-CPU time.  Zip can suppress compression on files with particular types,
-specified as a colon- or semi-colon-separated list of file types:
-.sk;.indent 10
--n type1[:type2[...]]  (--suffixes type1[:type2[...]])
+CPU time.  Zip can suppress compression (that is, use method Store) on
+files with particular file name suffixes.  Zip can also choose a
+compression method (and level) according to file name suffixes.  For
+details on how to specify suffix lists for different compression
+methods, see -n, below.
 .sk
-For example:
-.sk;.indent 10
-zip -n .bz2:.gz:.jpeg:.jpg:.mp3:.zip foo [.foo]*.*
+Compression control options:
+.sk;.literal
+   -Z, Set global compression method
+
+-Z cm                        Use compression method "cm": "Store",
+--compression-method cm      "Deflate", "Bzip2", "LZMA", or "PPMd".
+                             Default: "Deflate".  Methods are
+                             case-insensitive.
+
+   -<L> (-0, ..., -9), Set global compression level
+
+-0  (--store)                No compression  (Equivalent to "-Zstore".)
+-1  (--compress-1)           Compression level 1
+-2  (--compress-2)           Compression level 2
+[...]
+-9  (--compress-9)           Compression level 9
+
+   -<L>=mthd_list, Set compression level for methods in the
+                   (colon- or semi-colon-separated) list.
+                   Methods are case-insensitive.
+Example:
+ -8=lzma:ppmd                Use level 8 for methods LZMA and PPMd.
+
+   -n (--suffixes), Set compression method (and level)
+                    by file name suffix.
+
+-n sufx_list                 Set compression method (and level, if
+-n mthd=sufx_list            specified) for file name suffixes in the
+-n mthd-lvl=sufx_list        (colon- or semi-colon-separated) list.
+                             Default mthd = Store.  (Method Store
+                             implies level zero, no no level may be
+                             specified for method Store.  Level 0
+                             implies method Store, so level 0 may not
+                             be specified with any method.)
+                             Specifying only ":" (or ";") as the
+                             suffix list clears that suffix list.
+                             Multiple "-n" options are allowed.
+                             Default:
+                             -n store=.Z:.zip:.zoo:.arc:.lzh:.arj
+Example:
+-n ppmd-5=.c:.h:.txt         Set method to PPMd level 5 for file
+                             names ending with ".c", ".h", or ".txt".
+.end literal
 .sk
-will put everything (";0") from [.foo] into foo.zip, but will store any
-files that end in .bz2, .gz, .jpeg, .jpg, .mp3, or .zip, without trying
-to compress them.
-.sk
-The default type list is .Z:.zip:.zoo:.arc:.lzh:.arj, and the comparison
-is case-insensitive.
-.sk
--9 (--compress-9) will override -n (--suffixes), causing compression to
-be attempted for all files.
+Rules used to determine compression method and level for a file:
+.sk;.lm +10;.literal
+0. Assume defaults: Method = Deflate, level = 6.
+
+1. If a global -<L> (-1/-9) compression level was specified,
+   then tentatively choose the specified level.  If a
+-Z/--compression-method global compression method was
+specified, then tentatively choose the specified method.
+(Specifying "-0" is equivalent to "-Zstore".)
+
+2. If a file name matches a -n/--suffixes suffix list,
+   then use the method for that suffix list.  If a level
+was specified with that method, then use that level.
+Suffix lists are searched in the order: Store, Deflate,
+then the (optional) other methods alphabetically, so,
+currently: Store, Deflate, Bzip2, LZMA, PPMd (as enabled).
+By default, the Store suffix list is
+".Z:.zip:.zoo:.arc:.lzh:.arj".
+
+3. If the compression level has not yet been determined,
+and a -L/--store/--compress-<L> level was specified for
+the chosen method, then use the level for that method.
+.end literal;.lm -10
 .!------------------------------------------------------------------------------
 .indent -4
 2 Encryption
@@ -485,6 +531,7 @@ defined by PKWARE, as shown in the following table:
                        this system
   Fatal        20      Attempt to read unsupported Zip64 archive
   Error        21      Encryption error
+  Error        22      Compression error
 .end literal
 .!------------------------------------------------------------------------------
 .indent -4
@@ -575,14 +622,15 @@ include -R (--recurse-patterns), -d (--delete), -i (--include), -x
 (--exclude), and -U (--copy-entries).
 .sk
 Note: By default, on VMS, archive name pattern matching (-R, -d, -i, -x,
-and -U) is case sensitive, even when the file system is not case
-sensitive (or even case preserving).  This allows accurate matching of
-mixed-case names in an archive which may have been created on a system
-with a case sensitive file system, but it can involve extra effort on
-VMS, where it may be necessary to use unnatural case names (or the same
-names in multiple cases, like "*.obj *.OBJ") for this kind of pattern
-matching to give the desired behavior.  If completely case-blind pattern
-matching behavior is desired, specify the -ic (--ignore-case) option.
+and -U) is case-sensitive, even when the file system is not
+case-sensitive (or even case-preserving).  This allows accurate matching
+of mixed-case names in an archive which may have been created on a
+system with a case-sensitive file system, but it can involve extra
+effort on VMS, where it may be necessary to use unnatural case names (or
+the same names in multiple cases, like "*.obj *.OBJ") for this kind of
+pattern matching to give the desired behavior.  If completely case-blind
+pattern matching behavior is desired, specify the -ic (--ignore-case)
+option.
 .!------------------------------------------------------------------------------
 .indent -4
 3 Case
@@ -611,10 +659,10 @@ options give the user control over these conversions:
 .sk
 Case is handled differently for archive member names, which the user
 specifies with the -R, -d, -i, -x, and -U options.  By default, on VMS,
-archive name pattern matching is case sensitive, even when the file
-system is not case sensitive (or even case preserving).  This allows
+archive name pattern matching is case-sensitive, even when the file
+system is not case-sensitive (or even case-preserving).  This allows
 accurate matching of mixed-case names in an archive which may have been
-created on a system with a case sensitive file system, but it can
+created on a system with a case-sensitive file system, but it can
 involve extra effort on VMS, where it may be necessary to use unnatural
 case names (or the same names in multiple cases, like "*.obj *.OBJ") for
 this kind of pattern matching to give the desired behavior.  If
@@ -867,10 +915,10 @@ will copy all .obj entries from foo.zip and put them into the new
 archive, fooobj.zip.
 .sk
 Note: By default, on VMS, archive name pattern matching (-R, -d, -i, -x,
-and -U) is case sensitive, even when the file system is not case
-sensitive (or even case preserving).  This allows accurate matching of
+and -U) is case-sensitive, even when the file system is not
+case-sensitive (or even case-preserving).  This allows accurate matching of
 mixed-case names in an archive which may have been created on a system
-with a case sensitive file system, but it can involve extra effort on
+with a case-sensitive file system, but it can involve extra effort on
 VMS, where it may be necessary to use unnatural case names (or the same
 names in multiple cases, like "*.obj *.OBJ") for this kind of pattern
 matching to give the desired behavior.  If completely case-blind pattern
@@ -921,6 +969,8 @@ be separated by a space or "=".  For example:
  0   store               store (instead of compress)
  1   compress-1          compress faster (-2, -3, -4, ...)
  9   compress-9          compress better
+ 1   compress-1=[mthd1[:mthd2][...]]  set compression level for these
+                                      methods
  ?                       show the Zip help screen
  @   names-stdin         read input file patterns from SYS$INPUT (1/line)
  A   adjust-sfx          adjust self-extracting executable
@@ -967,6 +1017,8 @@ be separated by a space or "=".  For example:
  MM  must-match          input file spec must exist (wildcards must match)
  m   move                delete files added to archive
  n   suffixes  sfx1[:sfx2[...]]  don't compress files with these suffixes
+ n   suffixes mthd=sfx1[:sfx2[...]]  use compression method "mthd" for
+                                     files with these suffixes
  nw  no-wild             no wildcards during add or update
  O   output-file  ozf  use "ozf" as the output archive (dflt = inp archive)
  o   latest-time         set archive date-time to match oldest entry
@@ -981,6 +1033,7 @@ be separated by a space or "=".  For example:
  sf  show-files          show files to process (only)
  so  show-options        show list of all command-line options
  sp  split-pause         pause to select split destination(s)
+ ss  show-suffixes       show -n suffix lists (only)
  sv  split-verbose       be verbose about creating splits
  T   test                test archive integrity (runs UnZip -T)
  t   from-date  mmddyyyy  only do files since (at or after) "mmddyyyy"
@@ -996,7 +1049,8 @@ be separated by a space or "=".  For example:
  x   exclude  pat1 [pat2 [...]]  exclude all names matching the patterns
  Y   encryption-method em  use encryption method "em" (Traditional, AES128,
                            AES192, or AES256)
- Z   compression-method cm  use compress method "cm" (bzip2 or deflate)
+ Z   compression-method cm  use compress method "cm" (Store, Deflate,
+                            Bzip2, LZMA, PPMd)
  z   archive-comment     ask for archive comment
 .end literal;.lm +4
 .!------------------------------------------------------------------------------

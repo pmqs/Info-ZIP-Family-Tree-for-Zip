@@ -307,7 +307,7 @@
 -------------------------- October 31st 1997 version 2.2y --------------------
  1. amiga/time_lib.c from izshr029 (Christian)
  2. Turbo C++ version code clarification (E-Yen Tan)
- 3. Fix spelling in cmsvms/zipname.conven (Rodney Brown)
+ 3. Fix spelling in cmsmvs/zipname.conven (Rodney Brown)
  4. Fix memset check in unix/configure for Unixware 2.1.1 (Rodney Brown)
  5. Forward declaration fixes for HP-UX bundled compiler (Rodney Brown)
 -------------------------- November 3rd 1997 version 2.2 --------------------
@@ -4404,7 +4404,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  8. Update IZ_AES_WG files to version 1.0 code.  aes_wg/iz_aes_wg.h,
     aes_wg/prng.c, aes_wg/pwd2key.c, aes_wg/readme_aes_wg.txt, aes_wg/sha1.c,
     aes_wg/usexport.msg, aes_wg/zip-comment.txt (SMS)
- 9. Add new file cmsmvs.c.  cmsvms/cmsmvs.c (AD)
+ 9. Add new file cmsmvs.c.  cmsmvs/cmsmvs.c (AD)
 10. Change VMS builders to generate module-ID link options file.
     vms/build_zip.com, vms/descrip.mms, vms/optgen.com (new),
     vms/zip.opt (removed) (SMS)
@@ -4437,7 +4437,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  6. Add and conditionally include keywords for BZIP2, LZMA, and CRYPT_AES_WG.
     vms/zip_cli.cld (SMS)
 -------------------- August 11th 2011 version 3.1d16 -----------------------
- 1. Remove bogus cmsvms directory.  Redistribute files from cmsmvs to new zos
+ 1. Remove bogus cmsmvs directory.  Redistribute files from cmsmvs to new zos
     and zvm ports and remove old cmsmvs directory.  Add initial versions of
     some zos and zvm files.  zos/cczip.job, zos/cmsmvs.job, zos/cmsmvs.h,
     zos/mvs.c, zos/mvs.h, zos/mki, zos/readme.mvs, zos/readme.mvs.le,
@@ -4739,148 +4739,10 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     disabling just TRADITIONAL crypt code.  Minor update of
     currently unused CRYPT_AES_NEW section.  Update -Y option to use
     CRYPT_TRAD.  crypt.c, zip.c (SMS)
- 2. If NO_TRADITIONAL_CRYPT is not defined, define CRYPT_TRAD.  crypt.h
-    (SMS)
- 3. If ENABLE_USER_PROGRESS defined, include progress globals u_p_phase,
-    u_p_task, and u_p_name.  Add globals_dummy() for VMS to handle a
-    linking problem.  Add USER_PROGRESS_CLASS that is set to extern if
-    VMS, otherwise local.  Define user_progress().  Include pointless
-    globals_dummy reference to ensure linking.  If VMS, define
-    establish_ctrl_t(), otherwise use signal().  globals.c, zip.c,
-    zip.h (SMS)
- 4. For non-VMS, remove quotes around "-L" in copyright notice.
-    revision.h (SMS)
- 5. Small commented code reformatting.  tailor.h (SMS)
- 6. Add PPMD_SUPPORT macro define for PPMD compression method and apply
-    in many places similar to LZMA_SUPPORT.  Add PPMd compression to
-    extended help.  Add ppmd_opt_ver for version information.  zip.c (SMS)
- 7. Add zipwarn_i() that allows controlling indentation on console and in
-    log file.  Define zipwarn_indent() as shortcut for zipwarn_i(1, a, b).
-    zip.c (SMS)
-xxx 8. Add "#if defined(BZIP2_SUPPORT) || defined(LZMA_SUPPORT) ||
-xxx    defined(PPMD_SUPPORT)" that doesn't seem to control anything.
-xxx    zip.c (SMS)
- 9. Print additional blank line after version information and before the
-    environment information.  zip.c (SMS)
-10. Add o_si define for new show process ID option -si (--show-pid).  If
-    not VMS, add command line option case o_si that sets show_pid = 1.
-    Print PID if show_pid set.  zip.c (SMS)
-11. Disable -e (--encrypt) and -P (--password) if CRYPT not defined.
-    Disable -Y (--encryption-method) if CRYPT not defined.  zip.c (SMS)
-12. Add "encryption (-e) not supported" error, though if the -e option
-    should not exist if encryption not defined and so may never get here.
-    Same for "encryption (-P) not supported" message.  Maybe also for
-    "encryption (-Y) not supported" message.
-    zip.c (SMS)
-13. Add more code to the -Z option cases to handle additional choices
-    and messages created by adding PPMd compression.  zip.c (SMS)
-14. If ENABLE_USER_PROGRESS set, set u_p_phase and u_p_task as step
-    through the various steps.  Set u_p_name to z->oname of file being
-    processed.  zip.c (SMS)
-15. Use zipwarn_indent() to format warnings.  zip.c (SMS)
-16. Add user_progress() function to output progress messages.  For VMS,
-    Ctrl-T is used to signal desire to output progress message.  Not
-    sure what is used for other systems that support progress reports.
-    Seems there should be something to set up a keystroke to create a
-    kill(pid, SIGUSR1) or something.  Not sure what "hoat::tty" is.
-    zip.c (SMS)
-
-   I know of nothing like Ctrl/T on a UNIX(-like) OS.  All I know of is
-   a command like the following, issued in a separate process:
-      kill -USR1 <pid>
-   (Hence the new "-si" option, to provide the victim with the PID value
-   to use in his "kill -USR1" command.
-
-   "hoat::tty" was supposed to be "host::tty".  VMS shows the
-   DECnet/cluster node name and terminal device name that way.  For
-   example:
-   ALP::_FTA81: 16:26:15   (DCL)   CPU=00:00:00.35 PF=778 IO=1318 MEM=115
-   It seemed reasonable to retain the general format on non-VMS systems.
-
-17. If no crypts, define NO_CRYPT.  Define PPMD as method 98.  Set
-    LAST_KNOWN_COMPMETHOD to account for new PPMD method.  zip.h (SMS)
-18. If CRYPT_AES_WG, include aes/iz_aes_wg.h.  If VMS, include reference
-    to globals_dummy().  (Should this reference be in some #if PROGRESS
-    block?)  Update to account for CRYPT_TRAD.  Add aes_gw_opt_ver[] and
-    crypt_opt_ver[].  Add information to version_info().  Replace old
-    "[encryption, version ...]" message.  If VMS, add pointless
-    globals_dummy().  Update no CRYPT section.  Add do-nothing functions
-    for the following to quiet compilers when no CRYPT used:
-    rename_split(), set_fieltype(), ziperr(), zipmessage(), zipmessage_nl(),
-    and zipwarn().  Update no CRYPT main().  zipcloak.c (SMS)
-
-   The globals_dummy() stuff is unrelated to the progress stuff.
-
-19. Check if UTIL defined before defining it.  Add reference to globals_dummy().
-    (Should this be in some #if block?)  zipnote.c, zipsplit.c (SMS)
-
-   It's in a #ifdef VMS block.
-
-20. If either LZMA_SUPPORT or PPMD_SUPPORT, include lzma/Types.h.  For WIN32,
-    define _CRT_SECURE_NO_WARNINGS.  For PPMD_SUPPORT, also include lzma/Ppmd8.h
-    and ppmd_filecompress().  Only include crypthead() if CRYPT_TRAD.  Another
-    "impossible happens" that may need updating later.  If PPMD_SUPPORT, a
-    "return 0" ppmd_filecompress() is defined.  zipup.c (SMS)
-21. Add PPMD to Zip optional feature configuration list and LIB_PPMD to
-    configuration flags list.  Add PPMD to valid_vars list.  Set default PPMD
-    variable value if not already set.  Add "option -s is obsolete" warning for
-    Mac OS X shared library.  Change LFLAGS_LPFX_TRY to lflags2_try, with some
-    other minor changes.  Add code for configuring optional PPMd compression
-    library.  unix/configure (SMS)
-22. Add PPMd compression to top instructions.  Update build dependencies list.
-    Remove some right side comments and add section comments instead.  Change
-    "LN = ln -s" to "LN = ln" for symbolic links.  (Not sure about this one.)
-
-   I believe that the stuff which was being done using "ln -s" is now
-   gone from unix/Makefile:
-
-.c_.o:
-	rm -f $*_.c; $(LN) $< $*_.c
-	$(CC) -c $(CFLAGS) -DUTIL $*_.c
-	rm -f $*_.c
-
-   Further simplification is probably possible.  ("LN=ln".)
-
-    Remove lzma/Alloc.h from H_LZMA.  Add H_PPMD for lzma/Ppmd.h and
-    lzma/Ppmd8.h.  Add O_PPMD for Ppmd8.o and PPmd8Enc.o.  Change MAN_ZIP and
-    other MAN_ to explicitly include the file extension dot.  Add PPMd compile
-    rules.  Add PPMd object archive rule.  Add LIB_PPMD to PGM_ZIP.  Add
-    PPMD variable to call to unix/configure.  Change UNZIP_MANS to ZIP_MANS.
-    unix/Makefile (SMS)
-23. Add PPMd compression.  Remove incl_bzip2_m.  Remove (GLOBALS) include.
-    vms/build_zip.com, vms/descrip.mms (SMS)
-xxx 24. Add [.VMS]BZLIB.H.  Add [.AES_WG]IZ_AES_WG.H.  Remove [.LZMA]ALLOC.H and
-xxx     [.LZMA]ALLOC.C.  Add [.LZMA]PPMD8.H, [.LZMA]PPMD.H, and [.LZMA]CPUARCH.H.
-xxx     Add [.LZMA]TYPES.H.  vms/descrip_deps.mms (SMS)
-
-   vms/descrip_deps.mms is generated automatically, so its changes are
-not tracked.
-
-25. Add IZ_BZIP2 and PPMD to /MACRO.  Add MODS_LIB_ZIP_PPMD.  Add space to P4
-    to prevent immediate macro expansion.  vms/descrip_mkdeps.mms (SMS)
-26. Remove INCL_BZIP2_M and ALLOC.OBJ.  Add PPMD.  vms/descrip_src.mms (SMS)
-27. Add ENABLE_USER_PROGRESS.  Add vms_fopen() to replace use of zopen() to
-    better handle files with Record Format.  Update comments for lib$getdvi().
-    Add establish_ctrl_t() to handle user progress.  Move "DIAG_FLAG (verbose
-    >= 2)" to top of file.  vms/vms.c, vms/vms.h (SMS)
-28. Add PPMD_SUPPORT and PPMD keyword.  vms/zip_cli.cld (SMS)
-29. Define fhow.  Redefine zopen() to use vms_open().  Remove old fhow macro
-    definitions.  vms/zipup.h (SMS)
-
-The above should be integrated with the below in the next beta.  Some of the
-above may be more detail than needed, but probably the below could use some
-additional detail.  The below is more descriptive of the big picture, so I
-hope the below can, more or less, be kept intact.  I should get to it in the
-next beta, but am hoping the author does it.  By the way, there seems no new
-function zipwarn_unc().
-
--------------------- November 7th 2011 version 3.1dxx -----------------------
- 1. Added C macro CRYPT_TRAD (defined in crypt.h according to
-    CRYPT/NO_CRYPT and NO_TRADITIONAL_CRYPT) to control traditional-only
-    encryption code.  crypt.c, crypt.h, zip.c, zipup.c (SMS)
  2. Changed NO_TRADITIONAL_CRYPT processing to make defining
     NO_TRADITIONAL_CRYPT with no other (AES_WG) encryption enabled
-    equivalent to defining NO_CRYPT.  zip.h (SMS)
+    equivalent to defining NO_CRYPT.  If NO_TRADITIONAL_CRYPT is not defined,
+    define CRYPT_TRAD.  crypt.h, zip.h (SMS)
  3. Reformed the error message emitted when ZipCloak is built without any
     encryption support.  Writing the message to an uninitialized-variable
     file pointer ("mesg") tended to cause the message to be lost, possibly
@@ -4894,17 +4756,111 @@ function zipwarn_unc().
     LARGE_FILE_SUPPORT and ZIP64_SUPPORT, as appropriate.  Changed the
     "-h" help text for the "-Y" option to show only the excryption methods
     enabled in the program as built.  zipcloak.c (SMS)
- 4. Changed copyright[] text to quote "-L" only on VMS.  revision.h (SMS)
- 5. Changed open-fail "zip warning:" message to include the file name, even
+ 4. If ENABLE_USER_PROGRESS defined, include progress globals u_p_phase,
+    u_p_task, and u_p_name.  Add globals_dummy() for VMS to handle a
+    linking problem.  Add USER_PROGRESS_CLASS that is set to extern if
+    VMS, otherwise local.  Define user_progress().  Include pointless
+    globals_dummy reference to ensure linking.  If VMS, define
+    establish_ctrl_t(), otherwise use signal().  globals.c, zip.c,
+    zip.h (SMS)
+ 5. Changed copyright[] text to quote "-L" only on VMS.  revision.h (SMS)
+ 6. For non-VMS, remove quotes around "-L" in copyright notice.
+    revision.h (SMS)
+ 7. Small commented code reformatting.  tailor.h (SMS)
+ 8. Add PPMD_SUPPORT macro define for PPMD compression method and apply
+    in many places similar to LZMA_SUPPORT.  Add PPMd compression to
+    extended help.  Add ppmd_opt_ver for version information.  zip.c (SMS)
+ 9. Changed open-fail "zip warning:" message to include the file name, even
     when "-q" is in effect.  New function: zipwarn_unc().  zip.c (SMS)
- 6. Changed VMS builders to avoid explicit LINK /INCLUDE, to avoid case
+10. Add zipwarn_i() that allows controlling indentation on console and in
+    log file.  Define zipwarn_indent() as shortcut for zipwarn_i(1, a, b).
+    zip.c (SMS)
+11. Print additional blank line after version information and before the
+    environment information.  zip.c (SMS)
+12. Add o_si define for new show process ID option -si (--show-pid).  If
+    not VMS, add command line option case o_si that sets show_pid = 1.
+    Print PID if show_pid set.  zip.c (SMS)
+13. Disable -e (--encrypt) and -P (--password) if CRYPT not defined.
+    Disable -Y (--encryption-method) if CRYPT not defined.  zip.c (SMS)
+14. Add "encryption (-e) not supported" error, though if the -e option
+    should not exist if encryption not defined and so may never get here.
+    Same for "encryption (-P) not supported" message.  Maybe also for
+    "encryption (-Y) not supported" message.  zip.c (SMS)
+15. Add more code to the -Z option cases to handle additional choices
+    and messages created by adding PPMd compression.  zip.c (SMS)
+16. If ENABLE_USER_PROGRESS set, set u_p_phase and u_p_task as step
+    through the various steps.  Set u_p_name to z->oname of file being
+    processed.  zip.c (SMS)
+17. Use zipwarn_indent() to format warnings.  zip.c (SMS)
+18. Add user_progress() function to output progress messages.  For VMS,
+    Ctrl-T is used to signal desire to output progress message.  For other
+    ports, a command like the following, issued in a separate process, may
+    be needed:
+      kill -USR1 <pid>
+    (Hence the new "-si" option, to provide the victim with the PID value
+    to use in his "kill -USR1" command.)  Alternatively, this might be
+    set up for each port in code so a keystroke does it.  VMS shows the
+    DECnet/cluster node name and terminal device name as below:
+    ALP::_FTA81: 16:26:15   (DCL)   CPU=00:00:00.35 PF=778 IO=1318 MEM=115
+    It seemed reasonable to retain the general format on non-VMS systems.
+19. If no crypts, define NO_CRYPT.  Define PPMD as method 98.  Set
+    LAST_KNOWN_COMPMETHOD to account for new PPMD method.  zip.h (SMS)
+20. If CRYPT_AES_WG, include aes/iz_aes_wg.h.  If VMS, include reference
+    to globals_dummy().  Update to account for CRYPT_TRAD.
+    Add aes_gw_opt_ver[] and crypt_opt_ver[].  Add information to
+    version_info().  Replace old "[encryption, version ...]" message.  If
+    VMS, add pointless globals_dummy().  Update no CRYPT section.  Add
+    do-nothing functions for the following to quiet compilers when no CRYPT
+    used: rename_split(), set_fieltype(), ziperr(), zipmessage(),
+    zipmessage_nl(), and zipwarn().  Update no CRYPT main().  zipcloak.c (SMS)
+21. Check if UTIL defined before defining it.  Add reference to globals_dummy().
+    zipnote.c, zipsplit.c (SMS)
+22. If either LZMA_SUPPORT or PPMD_SUPPORT, include lzma/Types.h.  For WIN32,
+    define _CRT_SECURE_NO_WARNINGS.  For PPMD_SUPPORT, also include lzma/Ppmd8.h
+    and ppmd_filecompress().  Only include crypthead() if CRYPT_TRAD.  Another
+    "impossible happens" that may need updating later.  If PPMD_SUPPORT, a
+    "return 0" ppmd_filecompress() is defined.  zipup.c (SMS)
+23. Add PPMD to Zip optional feature configuration list and LIB_PPMD to
+    configuration flags list.  Add PPMD to valid_vars list.  Set default PPMD
+    variable value if not already set.  Add "option -s is obsolete" warning for
+    Mac OS X shared library.  Change LFLAGS_LPFX_TRY to lflags2_try, with some
+    other minor changes.  Add code for configuring optional PPMd compression
+    library.  unix/configure (SMS)
+24. Add PPMd compression to top instructions.  Update build dependencies list.
+    Remove some right side comments and add section comments instead.  Change
+    "LN = ln -s" to "LN = ln" for symbolic links.  (Believe that stuff being
+    done using "ln -s" is now gone from unix/Makefile:
+    .c_.o:
+	rm -f $*_.c; $(LN) $< $*_.c
+	$(CC) -c $(CFLAGS) -DUTIL $*_.c
+	rm -f $*_.c
+    Further simplification is probably possible.  ("LN=ln".))
+    Remove lzma/Alloc.h from H_LZMA.  Add H_PPMD for lzma/Ppmd.h and
+    lzma/Ppmd8.h.  Add O_PPMD for Ppmd8.o and PPmd8Enc.o.  Change MAN_ZIP and
+    other MAN_ to explicitly include the file extension dot.  Add PPMd compile
+    rules.  Add PPMd object archive rule.  Add LIB_PPMD to PGM_ZIP.  Add
+    PPMD variable to call to unix/configure.  Change UNZIP_MANS to ZIP_MANS.
+    unix/Makefile (SMS)
+25. Add PPMd compression.  Remove incl_bzip2_m.  Remove (GLOBALS) include.
+    vms/build_zip.com, vms/descrip.mms (SMS)
+26. Add IZ_BZIP2 and PPMD to /MACRO.  Add MODS_LIB_ZIP_PPMD.  Add space to P4
+    to prevent immediate macro expansion.  vms/descrip_mkdeps.mms (SMS)
+27. Remove INCL_BZIP2_M and ALLOC.OBJ.  Add PPMD.  vms/descrip_src.mms (SMS)
+28. Add ENABLE_USER_PROGRESS.  Add vms_fopen() to replace use of zopen() to
+    better handle files with Record Format.  Update comments for lib$getdvi().
+    Add establish_ctrl_t() to handle user progress.  Move "DIAG_FLAG (verbose
+    >= 2)" to top of file.  vms/vms.c, vms/vms.h (SMS)
+29. Add PPMD_SUPPORT and PPMD keyword.  vms/zip_cli.cld (SMS)
+29. Define fhow.  Redefine zopen() to use vms_open().  Remove old fhow macro
+    definitions.  vms/zipup.h (SMS)
+30. Changed VMS builders to avoid explicit LINK /INCLUDE, to avoid case
     problems with CC /NAMES = AS_IS.  Added VMS-specific globals_dummy() to
     globalc.c, and references to it in main programs, zip.c, zipcloak.c,
     zipnote.c, zipsplit.c to get the globals module linked in.  The
     rearrangement of the LINK commands also obviates the bzip2-related
     LINK /INCLUDE module (INCL_BZIP2_M = ZBZ2ERR) which has been removed.
     vms/build_zip.com, vms/descrip.mms, vms/descrip_src.mms (SMS)
- 7. Changed VMS file I/O details to cope better with input files having
+31. Changed VMS file I/O details to cope better with input files having
     record format Stream or Stream_CR, and long records.  Previously,
     errors like the following could occur:
       zip warning: non-translatable vms error code: 0x181A8
@@ -4916,27 +4872,140 @@ function zipwarn_unc().
     This seems to be the "some files" problem mentioned (but not well
     described) in TODO since at least as far back as Zip 2.3 (1999).
     vms/vms.c, vms/zipup.h (SMS)
--------------------- March xth 2012 version 3.1d24 --------------------------
- 1. Initial PPMd compression support.  INSTALL, zipup.c, lzma/CpuArch.h,
-    lzma/Ppmd8.c, lzma/Ppmd8.h, lzma/Ppmd8Enc.c, man/zip.1,
-    vms/INSTALL_VMS.txt, vms/cmdline.c, vms/zip_cli.cld (SMS)
- 2. Extended "-0"-"-9", "-n", and "-Z" syntax for more control over
+-------------------- March 18th 2012 version 3.1d24 --------------------------
+ 1. Initial PPMd compression support.  Restructured interface to LZMA
+    compression code, eliminating most changes to foreign code.  INSTALL,
+    zipup.c, lzma/CpuArch.h, lzma/Ppmd8.c, lzma/Ppmd8.h, lzma/Ppmd8Enc.c,
+    man/zip.1, vms/INSTALL_VMS.txt, vms/cmdline.c, vms/zip_cli.cld (SMS)
+ 2. Added missing binary-text determination for LZMA compression. 
+    zip.h, zipup.c (SMS)
+ 3. Fixed rounding of negative compression percentages.  zipup.c (SMS)
+ 4. Extended "-0"-"-9", "-n", and "-Z" syntax for more control over
     compression method and level.  Added compression level to
     "(XXXXed yy%)" message with "-sd" or "-v".  Now: "(XXXXed-L yy%)".
     zipup.c, vms/cmdline.c, vms/zip_cli.cld (SMS)
- 3. Updated the VMS error message text file to accord with the current
-    ziperr.h (ZE_COMPRESS, 3.1d18).  vms/zip_msg.msg (SMS)
- 4. Minor reformatting of VMS error message text file, vms/zip_msg.msg. 
-    vms/vms_msg_gen.c (SMS)
- 5. Added missing binary-text determination for LZMA compression. 
-    zip.h, zipup.c (SMS)
- 6. Collected some scattered progress-dot code into a new function,
-    fileio.c:display_dot().  deflate.c, fileio.c, zip.h, zipup.c (SMS)
- 7. Restructured interface to LZMA compression code, eliminating most
-    changes to foreign code.
- 8. Fixed rounding of negative compression percentages.  zipup.c (SMS)
- 9. Processing of a split archive could stop prematurely if the split
+ 5. Initialize salt_len, aes_mode, and aes_mthd to hush compiler.  Add
+    parentheses as definition of SALT_LENGTH() does not have them.
+    crypt.c (SMS)
+ 6. Collected some scattered progress-dot code into new functions
+    display_dot_char() and display_dot().  Define PROGRESS_DOTS_PER_FLUSH
+    that, when defined, sets how many dots to accumulate before flushing
+    (instead of flushing every dot).  deflate.c, fileio.c, zip.h, zipup.c (SMS)
+ 7. Add macro define PROGRESS_DOTS_PER_FLUSH and set to 64.  vms.osdep.h (SMS)
+    vms/descrip_mkdeps.mms, vms/descrip_deps.mms (SMS)
+ 8. Processing of a split archive could stop prematurely if the split
     size was a multiple of the I/O buffer size (16K), leaving a corrupt
-    output archive.  fileio.c (SMS)
-10. Added a uzoff_t variable, c_d_ents, to replace a type-cast use of
-    "int k" as an archive entry counter.  zipsplit.c (SMS)
+    output archive.  Fix bfwrite() by checking for case where fread()
+    returns 0 bytes but EOF has not yet been set.  fileio.c (SMS)
+ 9. Add SKIP_VALUE_ARG2 setting for get_option() optchar argument that
+    does same as SKIP_VALUE_ARG (skip arg that is value for previous arg)
+    but skips 2 args.  Add new value type o_OPT_EQ_VALUE that allows optional
+    value as long as value is preceeded by equal sign.  Currently only
+    implemented for short options.  Currently forms -ovalue, -o=value,
+    -o = value, and -o =value supported, but this may be reduced to only
+    -ovalue and -o=value forms, maybe also -o =value after some testing.
+    Need to implement for long options also.  (Last comments by EG.)
+    fileio.c (SMS)  
+10. Add parentheses to SALT_LENGTH() as definition does not include them.
+    zipcloak.c (SMS)
+11. Update Mac OS message.  Update PPMd.  unix/configure, unix/Makefile (SMS)
+12. Add time.h.  unix.unix.c (SMS)
+13. Update extended help for -@@.  Update description of -lF.  Move cases
+    for 'a' and 'B' after -0 through -9 cases in options switch.  Update
+    case o_DI.  zip.c (EG)
+17. Change option type for -0 through -9 from o_OPT_OPTIONAL_VALUE to
+    new o_OPT_EQ_VALUE.  (This may be modified in a later beta.)  Add new
+    option -ss (--show-suffixes) to show list of defined suffixes for special
+    handling and how they will be handled.  Add variable show_suffixes.
+    Update option -n to allow optional value of form "M[-L]=S1:S2",
+    meaning that compression method M should be used for files with suffixes
+    S1 and S2.  If optional -L (as in M-L) is used, then method is only used
+    when that level of compression is specified (separately using -0 through
+    -9).  Add show suffixes code to list suffixes with a suffix list, all if
+    -v.  zip.c, zip.h (SMS)
+18. Initial implementation of -BT and -BP for a managed backup utility.
+    Add options -BT (--backup-type) and -BP (--backup-path).  Backup type
+    is one of FULL (normal zip archive), DIFF (same as using --diff option),
+    and INCR (using new incremental archive support).  -BP sets the path
+    that the control file (generated to track backup status) and the output
+    archives go.  Backup support enabled by defining BACKUP_SUPPORT.  Add
+    variable apath for tracking list of backup archive paths.  Add variable
+    backup_type (0 = normal mode, 1 = BACKUP_FULL, 2 = BACKUP_DIFF, and
+    3 = BACKUP_INCR.)  Add cases for -BT and -BP in options switch.  When
+    doing a backup operation (-BT not 0) derive output paths of control file
+    and output archive (archives if splitting) from -BP path.  Allow code
+    for non-option argument case to drop through when -BT not 0 to handle
+    missing archive name (which is generated rather than user provided).
+    Build paths for input, control, and output based on which operation is
+    being done, storing paths in apath so control file can be generated or
+    updated once archive successfully created.  Control file lines have
+    format "xxxx: yyyy", where xxxx is a 4 letter operation (info, full,
+    diff, incr, etc.) and yyyy is the information or path.  Path names are
+    currently generated to include the -BT method (such as diff) and a date
+    and time stamp, though these long paths may not be usable on many ports.
+    Checks to prevent -BT from being used with --out and other conflicting
+    options.  Updates to archive reading code to allow zlist to be added to
+    when incremental archives are read, with sorting only done when the base
+    (full) archive is read (which is done last).  Add read_inc_file() to
+    read incremental archives.  When -BT not 0, output messages when reading
+    incremental and full archives.  Note that when using -BT and creating
+    DIFF or INCR archives, no file data is read from the archives as all
+    files to add to output archive are those not in any existing archive.
+    Add variables backup_start_datetime, backup_control_path, backup_full_path,
+    and backup_output_path for path names used by backup support.  Add
+    BACKUP_CONTROL_FILE_NAME that stores the default name of the control
+    file.  Add total_cd_total_entries to track total number of entries added
+    to zlist across all archives.  Add zfilesnext global to track where next
+    entry in zlist goes.  zip.c, zip.h globals.c (EG)
+19. Allow use of "-" with -O (--out) to force output to stdout.  This allows
+    updating an archive and having the output sent to stdout.  zip.c (SMS)
+20. Add display_dot() for displaying dots.  Rename iz_file_read() to
+    iz_file_read_bt().  zip.h (SMS)
+21. Uncomment out iz_file_read().  Include lzma/SzFile.h, lzma/LzmaDec.h.
+    Add local LZMA_Encode().  Comment out iz_file_read_bt().  Fixed rounding
+    of negative compression percentages.  Replace dot code with call to
+    display_dot().  Show level of method in verbose.  Add iz_file_read_bt()
+    to add missing binary-text determination for LZMA compression.  Add
+    lzma_read() and lzma_write() as 7-Zip-compatible I/O read and write.
+    Update LZMA_Encode().  Update lzma_filecompress().  Remove ppmd_prop_word
+    from ppmd_filecompress().  Adjust PPMd order, memory size, and restoration
+    method.  Add PPMd progress dots.  Revert from PPMd to STORE if not getting
+    any compression. zipup.c (SMS)
+22. Replace k with c_d_ents as central directory entry counter.
+    zipsplit.c (SMS)
+23. Restructured interface to LZMA compression code, eliminating most
+    changes to foreign code.  lzma/lzmaenc.c, lzma/lzmaenc.h (SMS)
+24. Updated the VMS error message text file to accord with the current
+    ziperr.h (ZE_COMPRESS, 3.1d18).  vms/zip_msg.msg (SMS)
+25. Close comment.  vms/vms.c (SMS)
+26. Minor reformatting of VMS error message text file, vms/zip_msg.msg. 
+    vms/vms_msg_gen.c (SMS)
+27. Add LZMA_PPMD.  Add LARGE parameter.  vms/descrip_src.mms,
+28. Add _7ZIP_ST to Windows vc6aes project to fix missing include error in
+    lzma/LzmaEnc.c.  Will need to make this fix in other places.
+    win32/vc6aes/zip.dsp (EG)
+29. Change iz_file_read() to iz_file_read_bt().  lzma/SzFile.c (EG)
+30. Add (ulg) cast to display_dot() UInt64 parameter bufsize.  zipup.c (EG)
+31. Define _7ZIP_ST to avoid inclusion of missing file in lzma/LzmaEnc.c.
+    lzma/Types.h (EG)
+32. Made attempt at documenting the -n and -ss options in extended help.
+    zip.c (EG)
+33. Add -BT and -BP to extended help.  zip.c (EG)
+-------------------- Xxxxx xxth 2012 version 3.1d25 --------------------------
+ 1. Restore lost (3.1d24) change to allow use of "-" with -O (--out) to
+    force output to stdout.  zip.c (SMS)
+ 2. Change compression-method-by-suffix list processing to convert
+    explicit null lists (":" or ";") to empty (NULL), before displaying
+    (-ss) them.  zip.c (SMS)
+ 3. Fix a spurious error message, "can't specify output file when using
+    -BP", when -BP wasn't specified.  zip.c (SMS)
+ 4. Change -9 not to clear the -n (STORE) suffix list.  zip.c (SMS)
+ 5. Remove "//" comments.  zipfile.c (SMS)
+ 6. Remove definition of _7ZIP_ST macro from builders.  (Now in lzma/Types.h.)
+    unix/configure, vms/build_zip.com, vms/descrip_src.mms (SMS)
+ 7. Add new /BACKUP qualifier, and new options for /COMPRESSION, and /LEVEL
+    qualifiers for VMS CLI.  vms/cmdline.c, vms/zip_cli.cld (SMS)
+ 8. Restructure VMS CLI option translation code to reduce size and
+    confusion.  Stop combining single-character options.  (/DELETE +
+    /VERBOSE now gives "-d" + "-v", instead of (defective) "-dv", for
+    example.)  vms/cmdline.c (SMS)

@@ -52,7 +52,25 @@ typedef int WRes;
 #define RINOK(x) { int __result__ = (x); if (__result__ != 0) return __result__; }
 #endif
 
+/* ================================================================== */
+
+/* 2011-09-15 SMS for Info-ZIP.
+ * Avoid conflict with (equivalent) zlib declaration of Byte.
+ */
+#ifndef ZLIB_H
 typedef unsigned char Byte;
+#endif
+
+/* 2012-03-20 EG, SMS for Info-ZIP.
+ * We need _7ZIP_ST for LzmaEnc.c (for Zip), and it's easier to define
+ * it here than in all the builders.
+ */
+#ifndef _7ZIP_ST
+# define _7ZIP_ST
+#endif
+
+/* ================================================================== */
+
 typedef short Int16;
 typedef unsigned short UInt16;
 

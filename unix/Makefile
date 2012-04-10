@@ -1,6 +1,6 @@
 #==============================================================================
 # unix/Makefile
-# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 17 Mar 2012
+# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 10 Apr 2012
 #==============================================================================
 
 # INSTRUCTIONS (such as they are):
@@ -883,15 +883,17 @@ zipsdoc:  zips docs
 flags: unix/configure
 	@echo "Running:  unix/configure"	
 	@sh unix/configure \
-	        "PROD=${PROD}" \
-	        "LIST=${LIST}" \
-	        "CC=${CC}" \
-	        "CFLAGS=${CF_NOOPT}" \
-	        "AES_WG=${AES_WG}" \
-	        "LZMA=${LZMA}" \
-	        "PPMD=${PPMD}" \
-	        "IZ_BZIP2=${IZ_BZIP2}" \
-	        "IZ_ZLIB=${IZ_ZLIB}"
+	        "PROD='$(PROD)'" \
+	        "LIST='$(LIST)'" \
+	        "CC='$(CC)'" \
+	        "CFLAGS='$(CF_NOOPT)'" \
+	        "LFLAGS1='$(LFLAGS1)'" \
+	        "LFLAGS2='$(LFLAGS2)'" \
+	        "AES_WG='$(AES_WG)'" \
+	        "LZMA='$(LZMA)'" \
+	        "PPMD='$(PPMD)'" \
+	        "IZ_BZIP2='$(IZ_BZIP2)'" \
+	        "IZ_ZLIB='$(IZ_ZLIB)'"
 
 
 # BZIP2 flags
@@ -929,10 +931,10 @@ clean:
 	rm -rf $(PKGDIR)/*
 
 clean_bzip2 :
-	@if [ -f bzip2/${MK_BZ} ]; then \
-	  ( cd bzip2; make -f ${MK_BZ} clean ); \
+	@if [ -f bzip2/$(MK_BZ) ]; then \
+	  ( cd bzip2; make -f $(MK_BZ) clean ); \
 	else \
-	  echo "No bzip2 make file found: bzip2/${MK_BZ}"; \
+	  echo "No bzip2 make file found: bzip2/$(MK_BZ)"; \
 	fi;
 
 clean_exe :

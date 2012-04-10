@@ -1,4 +1,4 @@
-#                                               2 March 2012.  SMS.
+#                                               20 March 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Source Description File.
 #
@@ -222,9 +222,9 @@ LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2_NS.OLB /library,
 .IFDEF LZMA                     # LZMA
 LZMA_PPMD = 1
 .IFDEF __VAX__                      # __VAX__
-CDEFS_LZMA = , LZMA_SUPPORT, _7ZIP_ST, _SZ_NO_INT_64
+CDEFS_LZMA = , LZMA_SUPPORT, _SZ_NO_INT_64
 .ELSE                               # __VAX__
-CDEFS_LZMA = , LZMA_SUPPORT, _7ZIP_ST
+CDEFS_LZMA = , LZMA_SUPPORT
 .ENDIF                              # __VAX__
 .ENDIF                          # LZMA
 

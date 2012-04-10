@@ -1134,7 +1134,7 @@ local int add_central_zip64_extra_field(pZipListEntry)
   }
 
   if (used_zip64 && force_zip64 == 0) {
-    zipwarn("Large entry support disabled using -fz- but needed", "");
+    zipwarn("Large entry support disabled (using --force-zip64-) but needed", "");
     return ZE_BIG;
   }
 
@@ -4333,11 +4333,16 @@ local int scanzipf_regnew()
   zoff_t zip64_eocdr_start;
   zoff_t z64eocdl_offset;
 #endif /* def ZIP64_SUPPORT */
+
+#if 0
+/* Now in globals.c, zip.h. */
   uzoff_t cd_total_entries;        /* num of entries as read from (Zip64) EOCDR */
-  ulg     in_cd_start_disk;        /* central directory start disk */
-  uzoff_t in_cd_start_offset;      /* offset of start of cd on cd start disk */
-  uzoff_t adjust_offset = 0;       /* bytes before first entry (size of sfx prefix) */
-  uzoff_t cd_total_size = 0;       /* total size of cd */
+#endif /* 0 */
+
+  ulg     in_cd_start_disk;     /* central directory start disk */
+  uzoff_t in_cd_start_offset;   /* offset of start of cd on cd start disk */
+  uzoff_t adjust_offset = 0;    /* bytes before first entry (sfx prefix size) */
+  uzoff_t cd_total_size = 0;    /* total size of cd */
 
 
   int first_CD = 1;           /* looking for first CD entry */
@@ -4469,6 +4474,8 @@ local int scanzipf_regnew()
   in_cd_start_offset = (uzoff_t)LG(scbuf + ENDOFF);
   cd_total_entries = (uzoff_t)SH(scbuf + ENDTOT);
   cd_total_size = (uzoff_t)LG(scbuf + ENDSIZ);
+
+  total_cd_total_entries += cd_total_entries;
 
   /* length of zipfile comment */
   zcomlen = SH(scbuf + ENDCOM);
@@ -4869,7 +4876,7 @@ local int scanzipf_regnew()
      */
 
     /* read the first 52 bytes of the Zip64 EOCDR (we don't support
-       version 2, which supports PKZip licensed features)
+       version 2, which is used for PKZip licensed features)
     */
     s = fread(scbuf, 1, EC64REC, in_file);
     if (s < EC64REC) {
@@ -5001,7 +5008,7 @@ local int scanzipf_regnew()
           return ZE_READ;
         }
         first_CD = 0;
-        x = &zfiles;                        /* first link */
+        x = zfilesnext;
       }
     }
 
@@ -5390,6 +5397,8 @@ local int scanzipf_regnew()
       z->nxt = NULL;
       x = &z->nxt;
 
+      zfilesnext = x;
+
     } /* while reading file */
 
     /* close disk and do next disk */
@@ -5405,12 +5414,12 @@ local int scanzipf_regnew()
 
   } /* for each disk */
 
-  if (zcount != cd_total_entries) {
+  if (zcount != total_cd_total_entries) {
     sprintf(errbuf, "expected %s entries but found %s",
       zip_fzofft(cd_total_entries, NULL, "u"),
       zip_fzofft(zcount, NULL, "u"));
     zipwarn(errbuf, "");
-    if (zcount % 0x10000 == cd_total_entries) {
+    if (zcount % 0x10000 == total_cd_total_entries) {
       /* could be old zip not counting higher than 64KB */
       zipwarn("Off by mod 64KB - assume archive from old zip, continuing ...", "");
     } else {
@@ -5453,8 +5462,6 @@ int readzipfile()
 
   /* Initialize zip file info */
   zipbeg = 0;
-  zfiles = NULL;                        /* Points to first header */
-  zcount = 0;                           /* number of files */
   zcomlen = 0;                          /* zip file comment length */
   retval = ZE_OK;
   f = NULL;                             /* shut up some compilers */
@@ -5584,6 +5591,7 @@ int readzipfile()
           (x = zsort = (struct zlist far **)malloc(zl_size)) == NULL)
         return ZE_MEM;
       for (z = zfiles; z != NULL; z = z->nxt)
+
         *x++ = z;
       qsort((char *)zsort, zcount, sizeof(struct zlist far *), zqcmp);
 
@@ -5605,10 +5613,171 @@ int readzipfile()
 } /* end of function readzipfile() */
 
 
+
+
+/*
+ * read_inc_file is a reduced version of readzipfile that just adds the
+ * entries in the archive to the z list.  This is only used for the
+ * incremental archive feature.
+ */
+int read_inc_file(inc_file)
+  char *inc_file;
+{
+  FILE *f;              /* zip file */
+  int retval;           /* return code */
+  int readable;         /* 1 if zipfile exists and is readable */
+  char *oldzipfile = NULL; /* the original path in zipfile */
+
+  /* Initialize zip file info */
+  zipbeg = 0;
+  zcomlen = 0;                          /* zip file comment length */
+  retval = ZE_OK;
+  f = NULL;                             /* shut up some compilers */
+  zipfile_exists = 0;
+  old_in_path = in_path;
+  in_path = inc_file;
+
+  /* If zip file exists, read headers and check structure */
+#ifdef VMS
+  {
+    int rtype;
+
+    if ((VMSmunch(inc_file, GET_RTYPE, (char *)&rtype) == RMS$_NORMAL) &&
+        (rtype == FAT$C_VARIABLE)) {
+      fprintf(mesg,
+     "\n     Error:  zipfile is in variable-length record format.  Please\n\
+     run \"bilf b %s\" to convert the zipfile to fixed-length\n\
+     record format.\n\n", inc_file);
+      return ZE_FORM;
+    }
+  }
+  readable = ((f = zfopen(inc_file, FOPR)) != NULL);
+#else /* !VMS */
+  readable = ((f = zfopen(zipfile, FOPR)) != NULL);
+#endif /* ?VMS */
+
+#ifdef MVS
+  /* Very nasty special case for MVS.  Just because the zipfile has been
+   * opened for reading does not mean that we can actually read the data.
+   * Typical JCL to create a zipfile is
+   *
+   * //ZIPFILE  DD  DISP=(NEW,CATLG),DSN=prefix.ZIP,
+   * //             SPACE=(CYL,(10,10))
+   *
+   * That creates a VTOC entry with an end of file marker (DS1LSTAR) of zero.
+   * Alas the VTOC end of file marker is only used when the file is opened in
+   * append mode.  When a file is opened in read mode, the "other" end of file
+   * marker is used, a zero length data block signals end of file when reading.
+   * With a brand new file which has not been written to yet, it is undefined
+   * what you read off the disk.  In fact you read whatever data was in the same
+   * disk tracks before the zipfile was allocated.  You would be amazed at the
+   * number of application programmers who still do not understand this.  Makes
+   * for interesting and semi-random errors, GIGO.
+   *
+   * Newer versions of SMS will automatically write a zero length block when a
+   * file is allocated.  However not all sites run SMS or they run older levels
+   * so we cannot rely on that.  The only safe thing to do is close the file,
+   * open in append mode (we already know that the file exists), close it again,
+   * reopen in read mode and try to read a data block.  Opening and closing in
+   * append mode will write a zero length block where DS1LSTAR points, making
+   * sure that the VTOC and internal end of file markers are in sync.  Then it
+   * is safe to read data.  If we cannot read one byte of data after all that,
+   * it is a brand new zipfile and must not be read.
+   */
+  if (readable)
+  {
+    char c;
+    fclose(f);
+    /* append mode */
+    if ((f = zfopen(inc_file, "ab")) == NULL) {
+      ZIPERR(ZE_OPEN, inc_file);
+    }
+    fclose(f);
+    /* read mode again */
+    if ((f = zfopen(inc_file, FOPR)) == NULL) {
+      ZIPERR(ZE_OPEN, inc_file);
+    }
+    if (fread(&c, 1, 1, f) != 1) {
+      /* no actual data */
+      readable = 0;
+      fclose(f);
+    }
+    else{
+      fseek(f, 0, SEEK_SET);  /* at least one byte in zipfile, back to the start */
+    }
+  }
+#endif /* MVS */
+
+  /* ------------------------ */
+  /* new file read */
+
+  if (readable)
+  {
+    /* close file as the new scan opens the splits as needed */
+    fclose(f);
+    retval = scanzipf_regnew();
+  }
+
+  /* sorting only done when base archive read, after any incremental archives */
+#if 0
+
+  if (fix != 2 && readable)
+  {
+    /* If one or more files, sort by name */
+    if (zcount)
+    {
+      struct zlist far * far *x;    /* pointer into zsort array */
+      struct zlist far *z;          /* pointer into zfiles linked list */
+      extent zl_size = zcount * sizeof(struct zlist far *);
+
+      if (zl_size / sizeof(struct zlist far *) != zcount ||
+          (x = zsort = (struct zlist far **)malloc(zl_size)) == NULL)
+        return ZE_MEM;
+      for (z = zfiles; z != NULL; z = z->nxt)
+        *x++ = z;
+      qsort((char *)zsort, zcount, sizeof(struct zlist far *), zqcmp);
+
+#ifdef UNICODE_SUPPORT
+      /* sort by zuname (local conversion of UTF-8 name) */
+      if (zl_size / sizeof(struct zlist far *) != zcount ||
+          (x = zusort = (struct zlist far **)malloc(zl_size)) == NULL)
+        return ZE_MEM;
+      for (z = zfiles; z != NULL; z = z->nxt)
+        *x++ = z;
+      qsort((char *)zusort, zcount, sizeof(struct zlist far *), zuqcmp);
+#endif
+    }
+  }
+
+#endif
+
+  /* ------------------------ */
+
+  in_path = old_in_path;
+
+
+  return retval;
+} /* end of function read_inc_file() */
+
+
+
+
+
+
+
+
+
+
 #ifdef CRYPT_AES_WG
   /* Determine the AES_WG vendor version.  (Currently based only on file
    * size, but bzip2 encryption should also select AE-2?)
    * AE-2 implies no use of CRC.
+   *
+   * The idea is to not include a CRC if it provides too much information
+   * about the file contents.  A very small file is such a case and handled
+   * below.  If a compression method includes additional checksum information
+   * sufficient to replace the CRC for integrity checks, then a CRC may not
+   * be needed and removing the extra information may improve security.
    */
 local ush get_aes_vendor_version( z)
   struct zlist far *z;    /* zip entry. */
@@ -5701,7 +5870,7 @@ int putlocal(z, rewrite)
       /* assume Zip64 */
       if (force_zip64 == 0) {
         zipwarn("Entry too big:", z->oname);
-        ZIPERR(ZE_BIG, "Large entry support disabled with -fz- but needed");
+        ZIPERR(ZE_BIG, "Large entry support disabled (with --force-zip64-) but needed");
       }
       zip64_entry = 1;        /* header of this entry has a field needing Zip64 */
       if (z->ver < ZIP64_MIN_VER)
@@ -5721,20 +5890,23 @@ int putlocal(z, rewrite)
     if (force_zip64 == 0 && zip64_entry) {
       /* tried to force into standard entry but needed Zip64 entry */
       zipwarn("Entry too big:", z->oname);
-      ZIPERR(ZE_BIG, "Large entry support disabled with -fz- but entry needs");
+      ZIPERR(ZE_BIG, "Large entry support disabled (with --force-zip64-) but entry needs");
     }
     /* Normally for a large archive if the input file is less than 4 GB then
        the compressed or stored version should be less than 4 GB.  If this
        assumption is wrong this catches it.  This is a problem even if not
        streaming as the Zip64 extra field was not written and now there's no
-       room for it. */
+       room for it.
+       
+       However, there may be a way around this and it may get implemented by
+       the next beta. */
     if (was_zip64 == 0 && zip64_entry == 1) {
       /* guessed wrong and need Zip64 */
       zipwarn("Entry too big:", z->oname);
       if (force_zip64 == 0) {
-        ZIPERR(ZE_BIG, "Compressed/stored entry unexpectedly large - do not use -fz-");
+        ZIPERR(ZE_BIG, "Compressed/stored entry unexpectedly large - do not use '--force-zip64-'");
       } else {
-        ZIPERR(ZE_BIG, "Poor compression resulted in unexpectedly large entry - try -fz");
+        ZIPERR(ZE_BIG, "Poor compression resulted in unexpectedly large entry - try --force-zip64");
       }
     }
     if (zip64_entry) {

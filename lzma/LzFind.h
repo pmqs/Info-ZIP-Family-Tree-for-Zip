@@ -10,13 +10,19 @@
 extern "C" {
 #endif
 
+
+/* ================================================================== */
+
 /* 2011-07-30 SMS for Info-ZIP.
  * Shorten names longer than 31 characters on VMS.
  */
-#ifdef __VMS
+#ifdef VMS
 # define MatchFinder_GetNumAvailableBytes MatchFinder_GetNumAvailBytes
 # define MatchFinder_GetPointerToCurrentPos MatchFinder_GetPtrToCurrentPos
-#endif /* def __VMS */
+#endif /* def VMS */
+
+/* ================================================================== */
+
 
 typedef UInt32 CLzRef;
 

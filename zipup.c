@@ -1815,7 +1815,7 @@ struct zlist far *z;    /* zip entry to compress */
 
 
 
-unsigned iz_file_read(buf, size)
+local unsigned iz_file_read(buf, size)
   char *buf;
   unsigned size;
 /* Read a new buffer from the current input file, perform end-of-line
@@ -2726,7 +2726,7 @@ int lzma_progress_function(void *v, UInt64 a, UInt64 b)
   /* display dots every so many bytes */
   if (!display_globaldots)
   {
-    display_dot( 0, bufsize);
+    display_dot( 0, (ulg)bufsize);
   }
   return 0;
 }

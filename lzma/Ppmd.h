@@ -11,7 +11,7 @@ This code is based on PPMd var.H (2001): Dmitry Shkarin : Public domain */
 EXTERN_C_BEGIN
 
 #ifdef MY_CPU_32BIT
-  #define PPMD_32BIT
+#  define PPMD_32BIT
 #endif
 
 #define PPMD_INT_BITS 7
@@ -49,27 +49,27 @@ typedef struct
 } CPpmd_State;
 
 typedef
-  #ifdef PPMD_32BIT
+#ifdef PPMD_32BIT
     CPpmd_State *
-  #else
+#else
     UInt32
-  #endif
+#endif
   CPpmd_State_Ref;
 
 typedef
-  #ifdef PPMD_32BIT
+#ifdef PPMD_32BIT
     void *
-  #else
+#else
     UInt32
-  #endif
+#endif
   CPpmd_Void_Ref;
 
 typedef
-  #ifdef PPMD_32BIT
+#ifdef PPMD_32BIT
     Byte *
-  #else
+#else
     UInt32
-  #endif
+#endif
   CPpmd_Byte_Ref;
 
 #define PPMD_SetAllBitsIn256Bytes(p) \

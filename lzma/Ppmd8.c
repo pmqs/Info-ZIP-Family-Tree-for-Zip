@@ -17,9 +17,9 @@ static const UInt16 kInitBinEsc[] = { 0x3CDD, 0x1F3F, 0x59BF, 0x48F3, 0x64A1, 0x
 #define I2U(indx) (p->Indx2Units[indx])
 
 #ifdef PPMD_32BIT
-  #define REF(ptr) (ptr)
+# define REF(ptr) (ptr)
 #else
-  #define REF(ptr) ((UInt32)((Byte *)(ptr) - (p)->Base))
+# define REF(ptr) ((UInt32)((Byte *)(ptr) - (p)->Base))
 #endif
 
 #define STATS_REF(ptr) ((CPpmd_State_Ref)REF(ptr))
@@ -34,11 +34,11 @@ typedef CPpmd8_Context * CTX_PTR;
 struct CPpmd8_Node_;
 
 typedef
-  #ifdef PPMD_32BIT
+# ifdef PPMD_32BIT
     struct CPpmd8_Node_ *
-  #else
+# else
     UInt32
-  #endif
+# endif
   CPpmd8_Node_Ref;
 
 typedef struct CPpmd8_Node_
@@ -49,9 +49,9 @@ typedef struct CPpmd8_Node_
 } CPpmd8_Node;
 
 #ifdef PPMD_32BIT
-  #define NODE(ptr) (ptr)
+# define NODE(ptr) (ptr)
 #else
-  #define NODE(offs) ((CPpmd8_Node *)(p->Base + (offs)))
+# define NODE(offs) ((CPpmd8_Node *)(p->Base + (offs)))
 #endif
 
 #define EMPTY_NODE 0xFFFFFFFF
@@ -97,11 +97,11 @@ Bool Ppmd8_Alloc(CPpmd8 *p, UInt32 size, ISzAlloc *alloc)
   {
     Ppmd8_Free(p, alloc);
     p->AlignOffset =
-      #ifdef PPMD_32BIT
+#ifdef PPMD_32BIT
         (4 - size) & 3;
-      #else
+#else
         4 - (size & 3);
-      #endif
+#endif
     if ((p->Base = (Byte *)alloc->Alloc(alloc, p->AlignOffset + size)) == 0)
       return False;
     p->Size = size;
@@ -269,9 +269,9 @@ static void SpecialFreeUnit(CPpmd8 *p, void *ptr)
     InsertNode(p, ptr, 0);
   else
   {
-    #ifdef PPMD8_FREEZE_SUPPORT
+#ifdef PPMD8_FREEZE_SUPPORT
     *(UInt32 *)ptr = EMPTY_NODE; /* it's used for (Flags == 0xFF) check in RemoveBinContexts */
-    #endif
+#endif
     p->UnitsStart += UNIT_SIZE;
   }
 }
@@ -410,10 +410,10 @@ static void Refresh(CPpmd8 *p, CTX_PTR ctx, unsigned oldNU, unsigned scale)
   unsigned i = ctx->NumStats, escFreq, sumFreq, flags;
   CPpmd_State *s = (CPpmd_State *)ShrinkUnits(p, STATS(ctx), oldNU, (i + 2) >> 1);
   ctx->Stats = REF(s);
-  #ifdef PPMD8_FREEZE_SUPPORT
+#ifdef PPMD8_FREEZE_SUPPORT
   /* fixed over Shkarin's code. Fixed code is not compatible with original code for some files in FREEZE mode. */
   scale |= (ctx->SummFreq >= ((UInt32)1 << 15));
-  #endif
+#endif
   flags = (ctx->Flags & (0x10 + 0x04 * scale)) + 0x08 * (s->Symbol >= 0x40);
   escFreq = ctx->SummFreq - s->Freq;
   sumFreq = (s->Freq = (Byte)((s->Freq + scale) >> scale));
@@ -536,15 +536,15 @@ static UInt32 GetUsedMemory(const CPpmd8 *p)
 }
 
 #ifdef PPMD8_FREEZE_SUPPORT
-  #define RESTORE_MODEL(c1, fSuccessor) RestoreModel(p, c1, fSuccessor)
+# define RESTORE_MODEL(c1, fSuccessor) RestoreModel(p, c1, fSuccessor)
 #else
-  #define RESTORE_MODEL(c1, fSuccessor) RestoreModel(p, c1)
+# define RESTORE_MODEL(c1, fSuccessor) RestoreModel(p, c1)
 #endif
 
 static void RestoreModel(CPpmd8 *p, CTX_PTR c1
-    #ifdef PPMD8_FREEZE_SUPPORT
+#ifdef PPMD8_FREEZE_SUPPORT
     , CTX_PTR fSuccessor
-    #endif
+#endif
     )
 {
   CTX_PTR c;
@@ -568,7 +568,7 @@ static void RestoreModel(CPpmd8 *p, CTX_PTR c1
     else if ((c->SummFreq += 4) > 128 + 4 * c->NumStats)
       Refresh(p, c, (c->NumStats + 2) >> 1, 1);
 
-  #ifdef PPMD8_FREEZE_SUPPORT
+#ifdef PPMD8_FREEZE_SUPPORT
   if (p->RestoreMethod > PPMD8_RESTORE_METHOD_FREEZE)
   {
     p->MaxContext = fSuccessor;
@@ -584,7 +584,7 @@ static void RestoreModel(CPpmd8 *p, CTX_PTR c1
     p->OrderFall = p->MaxOrder;
   }
   else
-  #endif
+#endif
   if (p->RestoreMethod == PPMD8_RESTORE_METHOD_RESTART || GetUsedMemory(p) < (p->Size >> 1))
     RestartModel(p);
   else
@@ -697,12 +697,12 @@ static CTX_PTR ReduceOrder(CPpmd8 *p, CPpmd_State *s1, CTX_PTR c)
   CTX_PTR c1 = c;
   CPpmd_Void_Ref upBranch = REF(p->Text);
   
-  #ifdef PPMD8_FREEZE_SUPPORT
+#ifdef PPMD8_FREEZE_SUPPORT
   /* The BUG in Shkarin's code was fixed: ps could overflow in CUT_OFF mode. */
   CPpmd_State *ps[PPMD8_MAX_ORDER + 1];
   unsigned numPs = 0;
   ps[numPs++] = p->FoundState;
-  #endif
+#endif
 
   SetSuccessor(p->FoundState, upBranch);
   p->OrderFall++;
@@ -719,14 +719,14 @@ static CTX_PTR ReduceOrder(CPpmd8 *p, CPpmd_State *s1, CTX_PTR c)
     {
       if (!c->Suffix)
       {
-        #ifdef PPMD8_FREEZE_SUPPORT
+#ifdef PPMD8_FREEZE_SUPPORT
         if (p->RestoreMethod > PPMD8_RESTORE_METHOD_FREEZE)
         {
           do { SetSuccessor(ps[--numPs], REF(c)); } while (numPs);
           RESET_TEXT(1);
           p->OrderFall = 1;
         }
-        #endif
+#endif
         return c;
       }
       c = SUFFIX(c);
@@ -748,14 +748,14 @@ static CTX_PTR ReduceOrder(CPpmd8 *p, CPpmd_State *s1, CTX_PTR c)
     }
     if (SUCCESSOR(s))
       break;
-    #ifdef PPMD8_FREEZE_SUPPORT
+#ifdef PPMD8_FREEZE_SUPPORT
     ps[numPs++] = s;
-    #endif
+#endif
     SetSuccessor(s, upBranch);
     p->OrderFall++;
   }
   
-  #ifdef PPMD8_FREEZE_SUPPORT
+#ifdef PPMD8_FREEZE_SUPPORT
   if (p->RestoreMethod > PPMD8_RESTORE_METHOD_FREEZE)
   {
     c = CTX(SUCCESSOR(s));
@@ -765,7 +765,7 @@ static CTX_PTR ReduceOrder(CPpmd8 *p, CPpmd_State *s1, CTX_PTR c)
     return c;
   }
   else
-  #endif
+#endif
   if (SUCCESSOR(s) <= upBranch)
   {
     CTX_PTR successor;
@@ -879,14 +879,14 @@ static void UpdateModel(CPpmd8 *p)
     successor = fSuccessor;
     p->Text -= (p->MaxContext != p->MinContext);
   }
-  #ifdef PPMD8_FREEZE_SUPPORT
+#ifdef PPMD8_FREEZE_SUPPORT
   else if (p->RestoreMethod > PPMD8_RESTORE_METHOD_FREEZE)
   {
     successor = fSuccessor;
     RESET_TEXT(0);
     p->OrderFall = 0;
   }
-  #endif
+#endif
   
   s0 = p->MinContext->SummFreq - (ns = p->MinContext->NumStats) - fFreq;
   flag = 0x08 * (fSymbol >= 0x40);
@@ -973,9 +973,9 @@ static void Rescale(CPpmd8 *p)
   escFreq = p->MinContext->SummFreq - s->Freq;
   s->Freq += 4;
   adder = (p->OrderFall != 0
-      #ifdef PPMD8_FREEZE_SUPPORT
+#ifdef PPMD8_FREEZE_SUPPORT
       || p->RestoreMethod > PPMD8_RESTORE_METHOD_FREEZE
-      #endif
+#endif
       );
   s->Freq = (Byte)((s->Freq + adder) >> 1);
   sumFreq = s->Freq;

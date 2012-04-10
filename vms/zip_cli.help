@@ -44,6 +44,12 @@
 .!      01-010          Steven Schweda          25-AUG-2011
 .!              Added NO and USIZE in /SHOW = [NO]FILES = USIZE.
 .!              Added LZMA compression.
+.!      01-011          Steven Schweda          28-MAR-2012
+.!              Added /BACKUP, PPMd compression, /SHOW = SUFFIXES, and
+.!              the new /COMPRESSION = mthd = (SUFFIX, LEVEL) and
+.!              /LEVEL = lvl = mthd options.
+.!              Added error codes 21 (CRYPT) and 22 (COMPRESS).
+.!
 .!
 <INIT>
 <MAIN>
@@ -107,13 +113,14 @@ archive with a single command.
 Compression
 
 Compression ratios of 2:1 to 3:1 are common for text files.  Zip has one
-standard compression method ("deflate") and can also store files without
+standard compression method ("Deflate") and can also store files without
 compression.  Zip (and UnZip) may be built with optional support for the
-bzip2 and/or LZMA compression methods.  Then, the user may select bzip2
-or LZMA compression instead of the default "deflate" method.  Zip
-automatically chooses simple storage over compression for a file, if the
-specified compression method does not actually compress the data in that
-file.
+bzip2, LZMA, and/or PPMd compression methods.  Then, the user may select
+bzip2, LZMA, or PPMd compression instead of the default "Deflate"
+method.  Zip automatically chooses simple storage over compression for a
+file, if the specified compression method does not actually compress the
+data in that file (except currently for LZMA compression, which may
+waste a few bytes, typically on very small files).
 
 Compatibility
 
@@ -125,17 +132,17 @@ better compatibility).  Zip version 3.0 is compatible with PKZIP 2.04
 and also supports the Zip64 extensions of PKZIP 4.5 which allows
 archives as well as files to exceed the previous 2 GB limit (4 GB in
 some cases).  Zip also supports bzip2 compression if the bzip2 library
-is included when Zip is built, and/or LZMA compression if that is enabled
-when Zip is built.  Note that PKUNZIP 1.10 cannot extract files produced
-by PKZIP 2.04 or Zip 3.0.  You must use PKUNZIP 2.04g or UnZip 5.0p1 (or
-later versions) to extract them.
+is included when Zip is built, and LZMA and PPMd compression if either
+or both of them are enabled when Zip is built.  Note that PKUNZIP 1.10
+cannot extract files produced by PKZIP 2.04 or Zip 3.0.  You must use
+PKUNZIP 2.04g or UnZip 5.0p1 (or later versions) to extract them.
 
 Large Archives and Zip64
 
 Where the operating system and C run-time support allow, Zip 3.0 and
 UnZip 6.0 (and later versions) support large files (input and archive),
 using the Zip64 extensions to the original .ZIP file format.  On VMS,
-this genarally means non-VAX systems with VMS V7.2 or later (perhaps
+this generally means non-VAX systems with VMS V7.2 or later (perhaps
 requiring a C RTL ECO before VMS V7.3-2).
 
 Zip automatically uses the Zip64 extensions when a file 4 GB or larger
@@ -289,6 +296,107 @@ See the /MUST_MATCH option for more on how Zip handles patterns that are
 not matched and files that are not readable.  If some files were
 skipped, a warning is issued at the end of the Zip operation noting how
 many files were read and how many skipped.
+
+<TOPIC>
+Comments
+
+One-line comments may be included in the archive for each file added,
+using the /COMMENTS=FILES option.  File operations (adding, updating)
+are done first, and the user is then prompted for a one-line comment for
+each file added or updated.  Enter the comment followed by
+<Return>, or just <Return> for no comment.
+
+A single multi-line comment may be included for the archive as a whole,
+using the /COMMENTS=ARCHIVE option.  UnZip (including UnZip SFX)
+will display this comment when it expands the archive.  The comment is
+read from SYS$INPUT (stdin), and is terminated by the usual end-of-file
+character, CTRL/Z.  As usual, in a DCL command procedure, these data can
+be included in-line in the procedure, or a user may DEFINE SYS$INPUT to
+a file to get the comment from that file.  Where supported, the DCL PIPE
+command can also be used to redirect SYS$INPUT from a file.
+
+Note that /COMMENTS=ARCHIVE and /BATCH (read file specifications from
+SYS$INPUT (stdin)) can't be used together (successfully).
+
+<TOPIC>
+Compression
+
+Zip can archive files with or without compression.  The standard
+compression method ("Deflate") is compatible with all UnZip versions
+(except very old ones that understand only the "Store" method).
+Current Zip and UnZip versions may be built with optional support for
+the bzip2, LZMA, and/or PPMd compression methods.  (These methods can
+compress better than Deflate, but normally use more CPU time, and
+require an UnZip which includes support for the optional method.  See
+the installation instructions for details on adding support for the
+optional compression methods at build time.)  See /COMPRESSION.
+
+Numeric compression levels control the effort put into data compression,
+with 1 being the fastest, and 9 giving the most compression.  Different
+compression levels can be specified for different compression methods. 
+For details, see /LEVEL.
+
+Normally, a file which is already compressed will not be compressed much
+further (if at all) by Zip, and trying to do it can waste considerable
+CPU time.  Zip can suppress compression (that is, use method Store) on
+files with particular file name suffixes.  Zip can also choose a
+compression method (and level) according to file name suffixes.  For
+details on how to specify suffix lists for different compression
+methods, see /COMPRESSION.
+
+Rules used to determine compression method and level for a file:
+
+<LITERAL>
+|  0. Assume defaults: Method = Deflate, level = 6.
+|
+|  1. If a global "/LEVEL = lvl" (lvl: 1, 2, ..., 9) compression
+|     level was specified, then tentatively choose the specified
+|  level.  If a "/COMPRESSION = mthd" global compression method
+|  was specified, then tentatively choose the specified method.
+|  (Specifying "/LEVEL = 0" is equivalent to
+|  "/COMPRESSION = STORE".)
+|
+|  2. If a file name matches a "/COMPRESSION = mthd = SUFFIX"
+|     suffix list, then use the method for that suffix list.  If
+|  a level was specified with that method, then use that level.
+|  Suffix lists are searched in the order: Store, Deflate, then
+|  the (optional) other methods alphabetically, so, currently:
+|  Store, Deflate, Bzip2, LZMA, PPMd (as enabled).  By default,
+|  the Store suffix list is ".Z, .zip, .zoo, .arc, .lzh, .arj".
+|
+|  3. If the compression level has not yet been determined, and
+|     a "/LEVEL = lvl = mthd" level was specified for the chosen
+|  method, then use the level for that method.
+<LARETIL>
+
+<TOPIC>
+Encryption
+
+Zip can encrypt files when they are added to an archive.  By default,
+Zip offers an encryption method called traditional zip encryption, which
+by modern standards is generally considered to be weak.
+
+Beginning with Zip version 3.1 (and UnZip version 6.1), Zip (and UnZip)
+offer optional support for Advanced Encryption Standard (AES)
+encryption, which is a stronger encryption method than traditional zip
+encryption.  A separate IZ_AES_WG source kit is required to enable this
+AES encryption option.  See README_AES_WG.txt for more on the optional
+AES encryption.  See /ENCRYPT.
+
+Traditional zip encryption is weak, so where security is truly
+important, use AES encryption, or use an external strong encryption
+program, such as GNU Privacy Guard (GnuPG, gpg), on an archive instead.
+
+Using /ENCRYPT = PASSWORD = "pwd" IS INSECURE!   Many multi-user
+operating systems provide ways for any user (or a privileged user) to
+see the current command line of any other user.  Even on more secure
+systems, there is always the threat of over-the-shoulder peeking. 
+Storing the plaintext password as part of a command line in a command
+procedure is even less secure.  Whenever possible, use the non-echoing,
+interactive password entry method.  Enclose the password string in
+quotation marks ("pass word"), to prevent automatic conversion to upper
+case or misinterpretation of punctuation characters by DCL.
+
 <TOPIC>
 Environment
 
@@ -380,6 +488,8 @@ defined by PKWARE, as shown in the following table:
 |                     supported on this system.
 |Fatal        20      (ZIP64) Attempt to read unsupported Zip64
 |                     archive.
+|Error        21      (CRYPT) Encryption error
+|Error        22      (COMPRESS) Compression error
 <0LARETIL>
 
 <TOPIC>
@@ -390,13 +500,13 @@ in Zip archives.  File names in a Zip archive are stored in a UNIX-like
 path-name format.  For example, a VMS file specification like this:
 
 <LITERAL>
-[.zip30.vms]descrip.mms
+[.zip31.vms]descrip.mms
 <LARETIL>
 
 could appear in a Zip archive as:
 
 <LITERAL>
-zip30/vms/descrip.mms
+zip31/vms/descrip.mms
 <LARETIL>
 
 For security reasons, paths in Zip archives are always stored as
@@ -406,14 +516,14 @@ For example, the following absolute directory specification would give
 the same archive path as the previous (relative) example:
 
 <LITERAL>
-[zip30.vms]descrip.mms
+[zip31.vms]descrip.mms
 <LARETIL>
 
 Also, device names are dropped, so the following file specification
 would also give the same archive path:
 
 <LITERAL>
-sys$sysdevice:[zip30.vms]descrip.mms
+sys$sysdevice:[zip31.vms]descrip.mms
 <LARETIL>
 
 If an archive is intended for use with PKUNZIP under MSDOS, then the
@@ -428,13 +538,13 @@ UNIX-like notation used in the archive.  For example, where a BACKUP
 command might look like this:
 
 <LITERAL>
-$ back [.zip30...]*.* /excl = [...vms]*.c stuff.bck /save
+$ back [.zip31...]*.* /excl = [...vms]*.c stuff.bck /save
 <LARETIL>
 
 a corresponding Zip command might look like this:
 
 <LITERAL>
-$ zip /exclude = "*/vms/*.c" stuff.zip [.zip30...]*.*
+$ zip /exclude = "*/vms/*.c" stuff.zip [.zip31...]*.*
 <LARETIL>
 
 because the files to be added to the Zip archive are specified using VMS
@@ -642,6 +752,44 @@ when at least one archive member must be updated or deleted.
 
 See also /DELETE /DIFFERENCE, /FRESHEN, /UPDATE.
 <QUALIFIER>
+/BACKUP
+
+/BACKUP=(PATH=path,TYPE=type_keyword]
+
+Perform a full, differential, or incremental backup operation.
+
+<LITERAL>
+|  PATH=path         specifies a path name, which serves as a
+|                    template for the input and/or output archive,
+|                    and for a separate backup control file.
+<LARETIL>
+
+TYPE Keywords:
+<LITERAL>
+|  DIFFERENTIAL      create a --diff archive against the FULL
+|                    archive listed in the control file, and update
+|                    the control file to list both the FULL and DIFF
+|                    archives.  A DIFF backup set consists of just
+|                    the FULL and the DIFF archives, as these two
+|                    archives capture all files.
+|
+|  FULL              Create a normal Zip archive, plus a (new)
+|                    backup control file.
+|
+|  INCREMENTAL       create a --diff archive against the FULL and
+|                    any DIFF or INCR archives in the control file,
+|                    and update the control file.  An INCR backup
+|                    set consists of the FULL archive and any INCR
+|                    (and DIFF) archives created to that point,
+|                    capturing just new and changed files each time
+|                    an INCR backup is run.
+<LARETIL>
+
+A FULL backup clears any DIFF and INCR entries from the control file,
+hence starting a new backup set.  A DIFF backup clears out any INCR
+archives listed in the control file.  INCR just adds the new incremental
+archive to the list of archives in the control file.
+<QUALIFIER>
 /BATCH
 
 /BATCH[=list_file]
@@ -682,21 +830,47 @@ line containing just a period, or by an end-of-file character (CTRL/Z).
 <QUALIFIER>
 /COMPRESSION
 
-/COMPRESSION = {BZIP2|DEFLATE|LZMA|STORE}
+/COMPRESSION = (mthd [=(SUFFIX=(sufx[,...]) [,LEVEL=lvl]) [,...]])
+
+<LITERAL>
+   mthd: { [STORE] | DEFLATE | BZIP2 | LZMA | PPMD }
+    lvl: { 1 | 2 | 3 | ... | 9 }
+<LARETIL>
 
 Specify the compression method to be used when adding or updating files
-in an archive.  STORE disables compression (like /LEVEL = 0).  Default:
-/COMPRESSION = DEFLATE.
+in an archive.  A method can be global, affecting all files, or specific
+to files whose names match a file name suffix list.  When a suffix list
+is specified, a compression level may also be specified.  (To specify a
+level in other situations, use /LEVEL.)  See also Compression.
+
+Method STORE is equivalent to level zero, so no level may be specified
+with a suffix list for method STORE, and level zero may not be specified
+for any other (real) compression method.
+
+On VMS, case and version numbers are ignored when comparing file names
+against suffix lists.  Typically, file types like ".xyz" are specified,
+but the comparison method is general, and any character string
+(excluding " ", ":", and ";") may be specified.  For example, "e.c"
+would match files with names like "deflate.c" and "zipnote.c".
+
+<LITERAL>
+Default: /COMPRESSION = (DEFLATE, -
+         STORE = SUFFIX = (.Z, .zip, .zoo, .arc, .lzh, .arj))
+<LARETIL>
 
 Zip can archive files with or without compression.  The standard
 compression method ("Deflate") is compatible with all UnZip versions
 (except really old ones that only understand the "Store" method).
 Current Zip and UnZip versions may be built with optional support for
-the bzip2 and LZMA compression methods.  The optional compression
-methods often compress better than the default Deflate method, but
-usually require more CPU time.  They also require an UnZip program which
-supports the method used.  See the installation instructions for details
-on adding support for optional compression methods at build time.)
+the bzip2, LZMA, and/or PPMd compression methods.  The optional
+compression methods often compress better than the default Deflate
+method, but usually require more CPU time.  They also require an UnZip
+program which supports the method used.  See the installation
+instructions for details on adding support for optional compression
+methods at build time.)
+
+The older, more limited form /STORE_TYPES=(sufx[,...]) is equivalent to
+/COMPRESSION = STORE = (SUFFIX=(sufx[,...])).
 <QUALIFIER>
 /COPY_ENTRIES
 
@@ -1027,17 +1201,23 @@ modification time of all archive members.
 <QUALIFIER>
 /LEVEL
 
-/LEVEL=number
+/LEVEL = (lvl[=(mthd[,...])[,...])
 
-Specifies the compression level:
 <LITERAL>
-|  0      Store
-|  1      Fastest compression (Defl:F)
-|  ...
-|  9      Best compression    (Defl:X)
+    lvl: { 0 | 1 | 2 | 3 | ... | 9 }
+   mthd: { DEFLATE | BZIP2 | LZMA | PPMD }
 <LARETIL>
 
-The default level is 6.
+Specifies the global compression level, or a compression level for
+specified compression methods.  The default global level is 6.
+
+Numeric compression-level options control the effort put into data
+compression, with 1 being the fastest, and 9 giving the most
+compression.  Compression level zero is equivalent to compression method
+Store, that is, no compression.
+
+Compression level may also be specified along with compression method,
+according to file name suffix lists.  For details, see /COMPRESSION.
 <QUALIFIER>
 /LICENSE
 
@@ -1212,6 +1392,7 @@ The keywords recognized are:
 |FILES    Show files to process (only, then exit).
 |FILES = USIZE   Include uncompressed file sizes in the FILES list.
 |OPTIONS  Show all available command-line options on this system.
+|SUFFIXES Show compression method-level suffix lists (only, then exit).
 <LARETIL>
 <QUALIFIER>
 /SINCE
@@ -1282,17 +1463,24 @@ the future.
 <QUALIFIER>
 /STORE_TYPES
 
-/STORE_TYPES=(.ext1,.ext2,... )
+/STORE_TYPES=(sufx[,...])
 
 Normally, a file which is already compressed will not be compressed much
 further (if at all) by Zip, and trying to do it can waste considerable
-CPU time.  Zip can suppress compression on files with particular types,
-specified with /STORE_TYPES.  The default list of types where
-compression is suppressed is /STORE_TYPES=(.Z, .zip, .zoo, .arc, .lzh,
- .arj), and the comparison is case-insensitive.
+CPU time.  Zip can suppress compression (that is, use method Store) on
+files with particular file name suffixes.  The default is:
+/STORE_TYPES = (.Z, .zip, .zoo, .arc, .lzh, .arj)
 
-/LEVEL=9 will override /STORE_TYPES, causing compression to be attempted
-for all files.
+On VMS, case and version numbers are ignored when comparing file names
+against suffix lists.  Typically, file types like ".xyz" are specified,
+but the comparison method is general, and any character string
+(excluding " ", ":", and ";") may be specified.  For example, "e.c"
+would match files with names like "deflate.c" and "zipnote.c".
+
+/STORE_TYPES =(sufx[,...]) is an older, more limited form, equivalent to
+/COMPRESSION = STORE = (SUFFIX=(sufx[,...])).  /COMPRESSION is newer and
+more versatile, allowing the user to choose any compression method (and
+level) for a list of file name suffixes.
 <QUALIFIER>
 /SYMLINKS
 
@@ -1495,17 +1683,27 @@ Controls wildcard processing.
 /ZIP64 forces the use of the Zip64 archive format, even for small files. 
 This may be needed if /TRANSLATE_EOL (-l) is used, and this pushes the
 effective file size over the small-file size limit, causing Zip to
-recommend using "-fz" (equivalent to /ZIP64).
+recommend using "-fz" ("--force-zip64") (equivalent to /ZIP64).
 
-/NOZIP64 (the default) causes Zip to use the Zip64 archive format when
-it is needed (normally for large files or many files).
+The default is to use the Zip64 archive format when it is needed
+(normally for large files or many files), but otherwise avoid them for
+compatibility as older applications may not support the extensions.
+
+/NOZIP64 ("-fz-" or "--force-zip64-") prevents use of the Zip64
+extensions.  Zip will exit with an error if a file or the archive
+requires the Zip64 extensions (a file is 4 GiB or larger, the
+archive would be 4 GiB or larger, or more than 64K entries would
+be in the archive).  This option is provided mainly to create backward
+compatible archives.  Streamed archives currently force use of the
+Zip64 extensions unless this option is specified.
 <TOPIC>
 UNIX_Options
 
 "zip -h" provides a concise list of common command-line options.  "zip
--h2" provides more details.  "zip -so" provides a list of all available
-options.  "zip -v" shows the program version and available features.
-(The list below was derived from a "zip -so" listing.)
+-h2" (or "zip -hh") provides more details.  "zip -so" provides a list
+of all available options for the current system.  "zip -v" shows the
+program version and available features.  (The list below was derived
+from a "zip -so" listing.)
 
 Short-form options begin with a single hyphen ("-").  Long-form option
 begin with a double hyphen ("--"), and may be abbreviated to any
@@ -1548,7 +1746,10 @@ be separated by a space or "=".  For example:
 | 9   compress-9          compress better
 | ?                       show the Zip help screen
 | @   names-stdin         read input file patterns from SYS$INPUT (1/line)
+| @@  names-file pfile    read input file patterns from "pfile" (1/line)
 | A   adjust-sfx          adjust self-extracting executable
+| BP  backup-path path    path/name of base backup archive name
+| BT  backup-type type    backup type (FULL, DIFF, or INCR)
 | b   temp-path  path     use "path" directory for temporary files
 | C   preserve-case       preserve case of all file names added to archive
 | C-  preserve-case-      down-case all file names added to archive
@@ -1557,8 +1758,10 @@ be separated by a space or "=".  For example:
 | C5  preserve-case-5     preserve case of ODS5 names added to arcv (dflt)
 | C5- preserve-case-5-    down-case ODS5 names added to archive
 | c   entry-comments      add a comment for each entry added to archive
+| cd  current-directory d set current dir ("d") for paths
 | D   no-dir-entries      do not add archive entries for directories
 | DF  difference-archive  difference archive: add only changed/new files
+| DI  incremental-list ls archive list ("ls") to exclude from -DF archive
 | d   delete              delete entries in archive
 | db  display-bytes       display running byte counts
 | dc  display-counts      display running file counts
@@ -1574,18 +1777,20 @@ be separated by a space or "=".  For example:
 | f   freshen             update existing entries (only changed files)
 | fd  force-descriptors   force data descriptors as if streaming
 | fz  force-zip64         force use of Zip64 format
-| g   grow                grow existing archive (unless update or delete)
+| g   grow                grow existing archive instead of replace
 | H                       show the Zip help screen
 | h   help                show the Zip help screen
 | h2  more-help           show extended Zip help
-| i   include  pat1 [pat2 [...]]  include only names matching the patterns
+| i   include  pat1 [pat2 [...]] include only names matching the patterns
+| ic  ignore-case         ignore case when matching archive entries
 | J   junk-sfx            junk (remove) archive preamble (unzipsfx)
 | j   junk-paths          junk (don't store) dir names, only file names
 | k   DOS-names           simulate PKZIP-made archive (DOS 8.3 names)
 | L   license             show software license
 | l   to-crlf             translate end-of-lines (LF -> CRLF)
 | la  log-append          append to existing log file
-| lf  logfile-path  lfile  log to log file at lfile (default: new version)
+| lF  log-output          log to OUTNAME.log (default: new version)
+| lf  logfile-path lfile  log to log file at lfile (default: new version)
 | li  log-info            include informational messages in log
 | ll  from-crlf           translate end-of-lines (CRLF -> LF)
 | MM  must-match          input file spec must exist (wildcrds must match)
@@ -1599,6 +1804,7 @@ be separated by a space or "=".  For example:
 | R   recurse-patterns    recurse subdirs from cur dir, match names only
 | r   recurse-paths       recurse directories from specified path pats
 | s   split-size  size    split archive at "size" (K/MB)  (0: don't split)
+| sF  sf-params           add info to -sf listing
 | sb  split-bell          ring termnl bell at pause for split medium chng
 | sc  show-command        show command line
 | sd  show-debug          show debug messages
@@ -1607,20 +1813,26 @@ be separated by a space or "=".  For example:
 | sp  split-pause         pause to select split destination(s)
 | sv  split-verbose       be verbose about creating splits
 | T   test                test archive integrity (runs UnZip -T)
+| TT  unzip-command cmd   unzip command to use (archv name is put at end)
 | t   from-date  mmddyyyy  only do files since (at or after) "mmddyyyy"
 | tt  before-date  mmddyyyy  only do files before "mmddyyyy"
+| U   copy-entries        select from archive instead of file system
 | u   update              update changed files, add new files (default)
 | V   VMS-portable        save VMS file attributes
 | VV  VMS-specific        save VMS file attributes and all allocated blks
 | v   verbose             verbose messages (version info if only arg)
+|     version             (if no other args) show version information
 | w   VMS-versions        save VMS version numbers in archive
-| ww  VMS-dot-versions    save VMS version numbers as ".nnn", not ";nnn"
+| ws  wild-stop-dirs      * stops at /, ** includes any /
+| ww  VMS-dot-versions    save VMS version numbers as ".nnn" (not ";nnn")
 | X   strip-extra         strip all but critical extra fields
 | X-  strip-extra-        keep all extra fields
 | x   exclude  pat1 [pat2 [...]]  exclude all names matching the patterns
 | Y   encryption-method em  use encryption method "em" (Traditional
 |                           (default), AES128, AES192, or AES256)
-| Z   compression-method cm  use cmprs method "cm" (bzip2, deflate, LZMA)
+| y   symlinks            store symbolic links
+| Z   compression-method cm  use cmprs method "cm"
+|                             (bzip2, deflate, LZMA, PPMd)  (case-blind)
 | z   archive-comment     ask for archive comment
 <0LARETIL>
 

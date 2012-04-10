@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2012-02-16  SMS.
+$!     Last revised:  2012-03-20  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -486,7 +486,7 @@ $! Set LZMA-related data.
 $!
 $ if (LZMA .ne. 0)
 $ then
-$     defs = defs+ ", LZMA_SUPPORT, _7ZIP_ST"
+$     defs = defs+ ", LZMA_SUPPORT"
 $     if (arch .eqs. "VAX")
 $     then
 $         defs = defs+ ", _SZ_NO_INT_64"
@@ -498,10 +498,6 @@ $!
 $ if (PPMD .ne. 0)
 $ then
 $     defs = defs+ ", PPMD_SUPPORT"
-$     if (LZMA .eq. 0)
-$     then
-$         defs = defs+ ", _7ZIP_ST"
-$     endif
 $     if ((arch .eqs. "VAX") .and. (LZMA .eq. 0))
 $     then
 $         defs = defs+ ", _SZ_NO_INT_64"

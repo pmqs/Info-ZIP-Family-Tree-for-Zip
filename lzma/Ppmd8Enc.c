@@ -49,7 +49,12 @@ static void RangeEnc_EncodeBit_1(CPpmd8 *p, UInt32 size0)
 }
 
 
-#define MASK(sym) ((signed char *)charMask)[sym]
+/* 2012-03-27 SMS for Info-ZIP.
+ * Old compilers don't like "signed char", and we don't compile with
+ * "unsigned char" as the default char type.
+ * #define MASK(sym) ((signed char *)charMask)[sym]
+ */
+#define MASK(sym) ((char *)charMask)[sym]
 
 void Ppmd8_EncodeSymbol(CPpmd8 *p, int symbol)
 {
