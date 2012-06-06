@@ -11,7 +11,7 @@ ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
 a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 
-Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -99,44 +99,22 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #  include "zlib.h"
 #endif
 
-/* Encryption rules.
- *
- * User-specified macros:
- * NO_CRYPT, NO_CRYPT_TRAD, CRYPT_AES_WG.
- *
- * Macros used in code: IZ_CRYPT_AES_WG, IZ_CRYPT_ANY, IZ_CRYPT_TRAD.
- *
- * By default, in normal Zip, enable Traditional, disable AES_WG.
- * NO_CRYPT disables all.
- * NO_CRYPT_TRAD disables Traditional.
- * CRYPT_AES_WG enables AES_WG in normal UnZip.
+/* If traditional CRYPT is disabled, and no other encryption method is
+ * enabled, then ensure that all encryption is disabled.
  */
-
-# ifdef NO_CRYPT
-   /* Disable all encryption. */
-#  undef IZ_CRYPT_AES_WG
-#  undef IZ_CRYPT_AES_WG_NEW
-#  undef IZ_CRYPT_TRAD
-# else /* def NO_CRYPT */
-   /* Enable some kind of encryption. */
-#  ifdef NO_CRYPT_TRAD
-    /* Disable Traditional encryption. */
-#   undef IZ_CRYPT_TRAD
-#  else /* def NO_CRYPT_TRAD */
-    /* Enable Traditional encryption. */
-#   define IZ_CRYPT_TRAD 1
-#  endif /* def NO_CRYPT_TRAD [else] */
-# endif /* def NO_CRYPT [else] */
+#ifdef NO_TRADITIONAL_CRYPT
+# if !defined( CRYPT_AES_WG) && !defined( CRYPT_AES_WG_NEW)
+#  define NO_CRYPT
+# endif
+#endif
 
 #ifdef CRYPT_AES_WG
-#  define IZ_CRYPT_AES_WG 1
 #  include "aes_wg/aes.h"
 #  include "aes_wg/fileenc.h"
 #  include "aes_wg/prng.h"
 #endif
 
 #ifdef CRYPT_AES_WG_NEW
-#  define IZ_CRYPT_AES_WG_NEW 1
 #  include "aesnew/ccm.h"
 #endif
 
@@ -273,24 +251,23 @@ struct plist {
 #define BINARY  0
 #define ASCII   1
 
-/* Extra field block ID codes: */
-#define EF_ACL       0x4C41   /* ACL, access control list ("AL") */
-#define EF_AES_WG    0x9901   /* AES (WinZip/Gladman) encryption ("c^!") */
-#define EF_AOSVS     0x5356   /* AOS/VS ("VS") */
-#define EF_ATHEOS    0x7441   /* AtheOS ("At") */
-#define EF_BEOS      0x6542   /* BeOS ("Be") */
-#define EF_IZUNIX    0x5855   /* UNIX ("UX") */
-#define EF_IZUNIX2   0x7855   /* Info-ZIP's new Unix ("Ux") */
-#define EF_MVS       0x470f   /* MVS ("G")   */
-#define EF_NTSD      0x4453   /* NT Security Descriptor ("SD") */
-#define EF_OS2EA     0x0009   /* OS/2 (extended attributes) */
-#define EF_QDOS      0xfb4a   /* SMS/QDOS ("J\373") */
-#define EF_SPARK     0x4341   /* David Pilling's Acorn/SparkFS ("AC") */
-#define EF_TANDEM    0x4154   /* Tandem NSK ("TA") */
-#define EF_THEOS     0x6854   /* THEOS ("Th") */
-#define EF_TIME      0x5455   /* Universal timestamp ("UT") */
-#define EF_UTFPTH    0x7075   /* Unicode UTF-8 path ("up") */
+/* extra field definitions */
 #define EF_VMCMS     0x4704   /* VM/CMS Extra Field ID ("G")*/
+#define EF_MVS       0x470f   /* MVS Extra Field ID ("G")   */
+#define EF_IZUNIX    0x5855   /* UNIX Extra Field ID ("UX") */
+#define EF_IZUNIX2   0x7855   /* Info-ZIP's new Unix ("Ux") */
+#define EF_TIME      0x5455   /* universal timestamp ("UT") */
+#define EF_OS2EA     0x0009   /* OS/2 Extra Field ID (extended attributes) */
+#define EF_ACL       0x4C41   /* ACL Extra Field ID (access control list, "AL") */
+#define EF_NTSD      0x4453   /* NT Security Descriptor Extra Field ID, ("SD") */
+#define EF_BEOS      0x6542   /* BeOS Extra Field ID ("Be") */
+#define EF_ATHEOS    0x7441   /* AtheOS Extra Field ID ("At") */
+#define EF_QDOS      0xfb4a   /* SMS/QDOS ("J\373") */
+#define EF_AOSVS     0x5356   /* AOS/VS ("VS") */
+#define EF_SPARK     0x4341   /* David Pilling's Acorn/SparkFS ("AC") */
+#define EF_THEOS     0x6854   /* THEOS ("Th") */
+#define EF_TANDEM    0x4154   /* Tandem NSK ("TA") */
+#define EF_AES_WG    0x9901   /* AES (WinZip/Gladman) encryption ("c^!") */
 
 /* Definitions for extra field handling: */
 #define EF_SIZE_MAX  ((unsigned)0xFFFF) /* hard limit of total e.f. length */
@@ -426,6 +403,7 @@ extern int scanimage;           /* Scan through image files */
 #define AESENCRED 99            /* AES (WG) encrypted */
 
 extern int method;              /* Restriction on compression method */
+
 extern ulg skip_this_disk;
 extern int des_good;            /* Good data descriptor found */
 extern ulg des_crc;             /* Data descriptor CRC */
@@ -439,9 +417,6 @@ extern int adjust;              /* Adjust the unzipsfx'd zip file */
 extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
 extern int level;               /* Compression level, global (-0, ..., -9) */
 extern int levell;              /* Compression level, adjusted by mthd, sufx. */
-#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
-extern int etwodd;              /* Encrypt Trad without data descriptor. */
-#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
 
 /* Compression method and level (with file name suffixes). */
 typedef struct
@@ -456,7 +431,6 @@ typedef struct
 extern mthd_lvl_t mthd_lvl[];   /* Compr. method, level, file name suffixes. */
 
 #ifdef VMS
-   extern int prsrv_vms;        /* Preserve idiosyncratic VMS file names. */
    extern int vmsver;           /* Append VMS version number to file names */
    extern int vms_native;       /* Store in VMS format */
    extern int vms_case_2;       /* ODS2 file name case in VMS. -1: down. */
@@ -529,7 +503,6 @@ extern int volume_label;        /* add volume label */
 extern int dirnames;            /* include directory names */
 extern int filter_match_case;   /* 1=match case when filter() */
 extern int diff_mode;           /* 1=diff mode - only store changed and add */
-extern char *label;             /* Volume label. */
 
 #ifdef BACKUP_SUPPORT
 extern char *backup_path;       /* path to save backup archives and control */
@@ -641,11 +614,7 @@ extern char *entry_name;        /* used by DLL to pass z->zname to iz_file_read(
  extern uzoff_t last_progress_chunk;  /* used to determine when to send next report */
 #endif
 
-/* User-triggered (Ctrl/T, SIGUSR1) progress.  (Expects localtime_r().) */
-
-#if defined( NO_LOCALTIME_R) && !defined( NO_USER_PROGRESS)
-# define NO_USER_PROGRESS
-#endif
+/* User-triggered (Ctrl/T, SIGUSR1) progress. */
 
 #ifndef NO_USER_PROGRESS
 # ifndef VMS
@@ -675,16 +644,12 @@ extern char *entry_name;        /* used by DLL to pass z->zname to iz_file_read(
 
 #define AES_MAX_ENCRYPTION      AES_256_ENCRYPTION      /* AES upper bound. */
 #define AES_MIN_ENCRYPTION      AES_128_ENCRYPTION      /* AES lower bound. */
-/* Note that code which tests "method >= AES_MIN_ENCRYPTION", must be
- * changed to test "AES_MAX_ENCRYPTION >= method >= AES_MIN_ENCRYPTION"
- * if a method beyond AES_MAX_ENCRYPTION is ever added.
- */
 
 extern char *key;               /* Encryption password.  (NULL, if none.) */
 extern int force_ansi_key;      /* Only ANSI characters for password (char codes 32 - 126) */
 extern int encryption_method;   /* See above defines */
 
-#ifdef IZ_CRYPT_AES_WG
+#ifdef CRYPT_AES_WG
 
   /* Values for aes_vendor_version. */
 # define AES_WG_VEND_VERS_AE1 0x0001    /* AE-1. */
@@ -701,7 +666,7 @@ extern int encryption_method;   /* See above defines */
  extern unsigned char auth_code[20]; /* returned authentication code */
 #endif
 
-#ifdef IZ_CRYPT_AES_WG_NEW
+#ifdef CRYPT_AES_WG_NEW
 # define PWD_VER_LENGTH 2
  extern int key_size;                 /* Size of strong encryption key */
  extern ccm_ctx aesnew_ctx;
@@ -799,21 +764,6 @@ extern int show_what_doing;     /* Diagnostic message flag. */
 #ifdef DEBUGNAMES
 #  define free(x) { int *v;Free(x); v=x;*v=0xdeadbeef;x=(void *)0xdeadbeef; }
 #endif
-
-#ifdef MEMDIAG
-void izz_free( void *ptr);
-void *izz_malloc( size_t siz);
-void *izz_realloc( void *ptr, size_t siz);
-void izz_md_check( void);
-#else /* def MEMDIAG */
-# define izz_free free
-# define izz_malloc malloc
-# define izz_realloc realloc
-#endif /* def MEMDIAG [else] */
-#define izc_free izz_free
-#define izc_malloc izz_malloc
-#define izc_realloc izz_realloc
-
 
 /* Public function prototypes */
 
@@ -964,32 +914,24 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
 # endif
    char *in2ex OF((char *));
    char *ex2in OF((char *, int, int *));
-# if defined(UNICODE_SUPPORT) && defined(WIN32)
+#if defined(UNICODE_SUPPORT) && defined(WIN32)
    int has_win32_wide OF((void));
    wchar_t *in2exw OF((wchar_t *));
    wchar_t *ex2inw OF((wchar_t *, int, int *));
    int procnamew OF((wchar_t *, int));
-# endif
+#endif
    int procname OF((char *, int));
    void stamp OF((char *, ulg));
 
    ulg filetime OF((char *, ulg *, zoff_t *, iztimes *));
    /* Windows Unicode */
 # ifdef UNICODE_SUPPORT
-#  ifdef WIN32
+# ifdef WIN32
    ulg filetimew OF((wchar_t *, ulg *, zoff_t *, iztimes *));
    char *get_win32_utf8path OF((char *));
    wchar_t *local_to_wchar_string OF ((char *));
-#  endif /* def WIN32 */
-# endif /* def UNICODE_SUPPORT */
-
-#if defined( UNIX) && defined( __APPLE__)
-   int make_apl_dbl_header( char *name, int *hdr_size);
-# endif /* defined( UNIX) && defined( __APPLE__) */
-
-# ifdef VMS
-   void decc_init( void);
-# endif /* def VMS */
+# endif
+# endif
 
 # if !(defined(VMS) && defined(VMS_PK_EXTRA))
    int set_extra_field OF((struct zlist far *, iztimes *));
@@ -1084,7 +1026,6 @@ void     bi_init      OF((char *, unsigned int, int));
   ---------------------------------------------------------------------------*/
 #ifdef VMS
    int    vms_stat        OF((char *, stat_t *));              /* vms.c */
-   int    vms_status      OF((int));                           /* vms.c */
    void   vms_exit        OF((int));                           /* vms.c */
 #ifndef UTIL
 #ifdef VMSCLI
@@ -1142,16 +1083,11 @@ void     bi_init      OF((char *, unsigned int, int));
 */
 #endif
 
-/* Universal (non-Windows) library function prototypes. */
-#if USE_ZIPMAIN && !(defined(WINDLL) || defined(DLL_ZIPAPI))
-# include "api.h"
-#endif /* USE_ZIPMAIN && !(defined(WINDLL) || defined(DLL_ZIPAPI)) */
-
 #ifdef ENABLE_ENTRY_TIMING
  uzoff_t get_time_in_usec OF(());
 #endif
 
-#ifdef IZ_CRYPT_AES_WG
+#ifdef CRYPT_AES_WG
  void aes_crypthead OF((ZCONST uch *, uch, ZCONST uch *));
  int entropy_fun OF((unsigned char buf[], unsigned int len));
 #endif

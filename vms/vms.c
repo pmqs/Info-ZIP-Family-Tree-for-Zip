@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -25,9 +25,7 @@
  *      Moved the VMS_PK_EXTRA test(s) into VMS_IM.C and VMS_PK.C to
  *      allow more general automatic dependency generation.
  *
- *  3.1         10-jun-2012     SMS
- *      Added (and changed to use) vms_status().
- *              23-apr-2011     SMS
+ *  3.1         23-apr-2011     SMS
  *      Added entropy_fun() for AES encryption.
  *              17-nov-2011     SMS
  *      Added establish_ctrl_t() for user-triggered progress reports.
@@ -271,8 +269,8 @@ int vms_stat( char *file, stat_t *s)
  *  Severity codes are 0 = Warning, 1 = Success, 2 = Error, 3 = Info,
  *  4 = Severe (fatal).
  *
- *  Zip versions before 3.0 used a generic ("chosen by
- *  experimentation)") Control+Facility code of 0x7FFF, which included 
+ *  Previous versions of Info-ZIP programs used a generic ("chosen (by
+ *  experimentation)") Control+Facility code of 0x7FFF, which included
  *  some reserved control bits, the inhibit-printing bit, and the
  *  customer-defined bit.
  *
@@ -285,6 +283,7 @@ int vms_stat( char *file, stat_t *s)
  *
  *  Now, unless the CTL_FAC_IZ_ZIP macro is defined at build-time, we
  *  will use the official Facility code.
+ *
  */
 
 /* Official HP-assigned Info-ZIP Zip Facility code. */
@@ -305,59 +304,6 @@ int vms_stat( char *file, stat_t *s)
 #endif /* ndef CTL_FAC_IZ_ZIP [else] */
 
 
-/* Translate a ZE_xxx code to the corresponding VMS status value. */
-
-int vms_status( int err)
-{
-    int sts;
-
-    /* 2013-06-13 SMS.
-     * Normal behavior is to return SS$_NORMAL for success (ZE_OK), or a
-     * status value with an official Facility code for any other result.
-     * Define OK_USE_FAC to return a success code with a Facility code
-     * (instead of SS$_NORMAL).
-     *
-     * Raw status codes are effectively multiplied by two ("<< 4"
-     * instead of "<< 3"), which makes them easier to read in a
-     * hexadecimal representation of the VMS status value.  For example,
-     * PK_PARAM = 10 (0x0a) -> %x17A280A2.
-     *                                ^^
-     *
-     * Zip versions before 3.0 (before an official Facility code was
-     * assigned) used 0x7FFF instead of the official Facility code.
-     * Define CTL_FAC_IZ_UZP as 0x7FFF (and/or MSG_FAC_SPEC) to get the
-     * old behavior.  (See above.)
-     */
-
-#ifdef OK_USE_FAC
-
-    /* Always return a status code comprising Control, Facility,
-     * Message, and Severity.
-     */
-    sts = (CTL_FAC_IZ_ZIP << 16) |              /* Facility                */
-          MSG_FAC_SPEC |                        /* Facility-specific (+?)  */
-          (err << 4) |                          /* Message code            */
-          (ziperrors[ err].severity & 0x07);    /* Severity                */
-
-#else /* def OK_USE_FAC */
-
-    /* Return simple SS$_NORMAL for ZE_OK.  Otherwise, return a status
-     * code comprising Control, Facility, Message, and Severity.
-     */
-    sts = (err == ZE_OK) ? SS$_NORMAL :         /* Success (others below)  */
-          ((CTL_FAC_IZ_ZIP << 16) |             /* Facility                */
-          MSG_FAC_SPEC |                        /* Facility-specific (+?)  */
-          (err << 4) |                          /* Message code            */
-          (ziperrors[ err].severity & 0x07));   /* Severity                */
-
-#endif /* ndef OLD_STATUS [else] */
-
-    return sts;
-}
-
-
-/* Exit with an intelligent status/severity code. */
-
 /* Declare __posix_exit() if <stdlib.h> won't, and we use it. */
 
 #if __CRTL_VER >= 70000000 && !defined(_POSIX_EXIT)
@@ -367,7 +313,10 @@ void     __posix_exit     (int __status);
 #endif /* __CRTL_VER >= 70000000 && !defined(_POSIX_EXIT) */
 
 
-void vms_exit( int err)
+/* Return an intelligent status/severity code. */
+
+void vms_exit(e)
+   int e;
 {
 #if !defined( NO_POSIX_EXIT) && (__CRTL_VER >= 70000000)
 
@@ -380,14 +329,58 @@ void vms_exit( int err)
     sh_ptr = getenv( "SHELL");
     if ((sh_ptr != NULL) && strcasecmp( sh_ptr, "DCL"))
     {
-        __posix_exit( err);
+        __posix_exit( e);
     }
     else
 
 #endif /* #if !defined( NO_POSIX_EXIT) && (__CRTL_VER >= 70000000) */
 
     {
-        exit( vms_status( err));
+#ifndef OLD_STATUS
+
+        /* If __posix_exit() is unavailable (__CRTL_VER < 70000000) or
+         * undesired (defined( NO_POSIX_EXIT)), or the environment
+         * variable "SHELL" is not defined, then:
+         *
+         * Exit with code comprising Control, Facility,
+         * (facility-specific) Message, and Severity.
+         */
+        exit( (CTL_FAC_IZ_ZIP << 16) |          /* Facility                */
+              MSG_FAC_SPEC |                    /* Facility-specific       */
+              (e << 4) |                        /* Message code            */
+              (ziperrors[ e].severity & 0x07)   /* Severity                */
+         );
+
+#else /* ndef OLD_STATUS */
+
+    /* 2007-01-17 SMS.
+     * Defining OLD_STATUS provides the same behavior as in Zip versions
+     * before an official VMS Facility code had been assigned, which
+     * means that Success (ZE_OK) gives a status value of 1 (SS$_NORMAL)
+     * with no Facility code, while any error or warning gives a status
+     * value which includes a Facility code.  (Curiously, under the old
+     * scheme, message codes were left-shifted by 4 instead of 3,
+     * resulting in all-even message codes.)  I don't like this, but I
+     * was afraid to remove it, as someone, somewhere may be depending
+     * on it.  Define CTL_FAC_IZ_ZIP as 0x7FFF to get the old behavior.
+     * Define only OLD_STATUS to get the old behavior for Success
+     * (ZE_OK), but using the official HP-assigned Facility code for an
+     * error or warning.  Define MSG_FAC_SPEC to get the desired
+     * behavior.
+     *
+     * Exit with simple SS$_NORMAL for ZE_OK.  Otherwise, exit with code
+     * comprising Control, Facility, Message, and Severity.
+     */
+        exit(
+         (e == ZE_OK) ? SS$_NORMAL :            /* Success (others below)  */
+          ((CTL_FAC_IZ_ZIP << 16) |             /* Facility                */
+          MSG_FAC_SPEC |                        /* Facility-specific (?)   */
+          (e << 4) |                            /* Message code            */
+          (ziperrors[ e].severity & 0x07)       /* Severity                */
+          )
+         );
+
+#endif /* ndef OLD_STATUS */
     }
 }
 
@@ -763,7 +756,7 @@ char *vms_file_version( char *s)
 } /* vms_file_version(). */
 
 
-# ifdef IZ_CRYPT_AES_WG
+# ifdef CRYPT_AES_WG
 
 /* Entropy gathering for VMS.  We use the system time, some memory usage
  * and process I/O statistics, the process CPU time, the process ID, and
@@ -930,6 +923,8 @@ int device_opcnt_32( unsigned int *ui)
  *    Fill the user's buffer with up to 8 bytes of stuff.
  */
 
+#  define EF_MIN( a, b) ((a) < (b) ? (a) : (b))
+
 int entropy_fun( unsigned char *buf, unsigned int len)
 {
     union
@@ -998,7 +993,7 @@ int entropy_fun( unsigned char *buf, unsigned int len)
     }
 
     /* Move the results into the user's buffer. */
-    i = IZ_MIN( 8, len);
+    i = EF_MIN( 8, len);
     memcpy( buf, &my_buf, i);
 
     /* Return the byte count. */
@@ -1006,7 +1001,7 @@ int entropy_fun( unsigned char *buf, unsigned int len)
 
 } /* entropy_fun(). */
 
-# endif /* def IZ_CRYPT_AES_WG */
+# endif /* def CRYPT_AES_WG */
 
 
 #ifdef ENABLE_USER_PROGRESS
@@ -1077,7 +1072,7 @@ int establish_ctrl_t( void ctrl_t_ast())
     }
 
 #define FUN_AST_ENA (IO$_SETMODE| IO$M_OUTBAND)
-
+					
     status = sys$qiow( 0,               /* Event flag. */
                        term_chan,       /* Channel. */
                        FUN_AST_ENA,     /* Function code. */
@@ -1382,7 +1377,7 @@ decc_feat_t decc_feat_array[] = {
 
 /* LIB$INITIALIZE initialization function. */
 
-void decc_init( void)
+static void decc_init( void)
 {
 int feat_index;
 int feat_value;
@@ -1434,6 +1429,36 @@ for (i = 0; decc_feat_array[ i].name != NULL; i++)
       }
    }
 }
+
+/* Get "decc_init()" into a valid, loaded LIB$INITIALIZE PSECT. */
+
+#pragma nostandard
+
+/* Establish the LIB$INITIALIZE PSECTs, with proper alignment and
+   other attributes.  Note that "nopic" is significant only on VAX.
+*/
+#pragma extern_model save
+
+#pragma extern_model strict_refdef "LIB$INITIALIZ" 2, nopic, nowrt
+const int spare[ 8] = { 0 };
+
+#pragma extern_model strict_refdef "LIB$INITIALIZE" 2, nopic, nowrt
+void (*const x_decc_init)() = decc_init;
+
+#pragma extern_model restore
+
+/* Fake reference to ensure loading the LIB$INITIALIZE PSECT. */
+
+#pragma extern_model save
+
+int LIB$INITIALIZE( void);
+
+#pragma extern_model strict_refdef
+int dmy_lib$initialize = (int) LIB$INITIALIZE;
+
+#pragma extern_model restore
+
+#pragma standard
 
 #endif /* !defined( __VAX) && (__CRTL_VER >= 70301000) */
 

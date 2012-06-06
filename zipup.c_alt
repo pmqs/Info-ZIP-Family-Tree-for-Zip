@@ -1117,11 +1117,14 @@ struct zlist far *z;    /* zip entry to compress */
 #if CRYPT
   if (!isdir && key != NULL) {
     z->flg |= 1;
+/* SMSd. */
+#if 0
     /* Since we do not yet know the crc here, we pretend that the crc
      * is the modification time:
      */
     z->crc = z->tim << 16;
     /* More than pretend.  File is encrypted using crypt header with that. */
+#endif /* 0 */
   }
 #endif /* CRYPT */
   z->lflg = z->flg;
@@ -1324,7 +1327,7 @@ struct zlist far *z;    /* zip entry to compress */
     } else {
 # endif
 # ifdef CRYPT_TRAD
-      crypthead(key, z->crc);
+      crypthead(key, (z->tim << 16));
       z->siz += RAND_HEAD_LEN;  /* to be updated later */
       tempzn += RAND_HEAD_LEN;
 # else /* def CRYPT_TRAD */

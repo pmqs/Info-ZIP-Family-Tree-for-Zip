@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -339,10 +339,8 @@ $DESCRIPTOR(cli_verbose,        "VERBOSE");             /* -v[v[v]] */
 $DESCRIPTOR(cli_verbose_normal, "VERBOSE.NORMAL");      /* -v */
 $DESCRIPTOR(cli_verbose_more,   "VERBOSE.MORE");        /* -vv */
 $DESCRIPTOR(cli_verbose_command,"VERBOSE.COMMAND");     /* (none) */
-$DESCRIPTOR(cli_volume_label,   "VOLUME_LABEL");        /* -$ */
 $DESCRIPTOR(cli_vms,            "VMS");                 /* -V */
 $DESCRIPTOR(cli_vms_all,        "VMS.ALL");             /* -VV */
-$DESCRIPTOR(cli_vnames,         "VNAMES");              /* -vn */
 $DESCRIPTOR(cli_wildcard,       "WILDCARD");            /* -nw */
 $DESCRIPTOR(cli_wildcard_nospan,"WILDCARD.NOSPAN");     /* -W */
 
@@ -1238,42 +1236,6 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /VMS */
             append_simple_opt( OPT_V_);
         }
-    }
-
-    /*
-    **  Preserve idiosyncratic VMS file names.
-    */
-#define OPT_VN  "-vn"           /* Preserve idiosyncratic VMS file names. */
-#define OPT_VNN "-vn-"          /* Adjust idiosyncratic VMS file names. */
-
-    status = cli$present( &cli_vnames);
-    if (status == CLI$_PRESENT)
-    {
-        /* /VNAMES */
-        append_simple_opt( OPT_VN);
-    }
-    else if (status == CLI$_NEGATED)
-    {
-        /* /NOVNAMES */
-        append_simple_opt( OPT_VNN);
-    }
-
-    /*
-    **  Volume label.
-    */
-#define OPT_DLR  "-$"           /* Record volume label. */
-#define OPT_DLRN "-$-"          /* Ignore volume label. */
-
-    status = cli$present( &cli_volume_label);
-    if (status == CLI$_PRESENT)
-    {
-        /* /VOLUME_LABEL */
-        append_simple_opt( OPT_DLR);
-    }
-    else if (status == CLI$_NEGATED)
-    {
-        /* /NOVOLUME_LABEL */
-        append_simple_opt( OPT_DLRN);
     }
 
     /*
@@ -2324,13 +2286,13 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /LATEST, /OUTPUT=out_archive, /SINCE=creation_time, /TEMP_PATH=directory,",
 "    /LOG_FILE=(FILE=log_file[,APPEND][,INFORMATIONAL]), /MUST_MATCH,",
 "    /PATTERN_CASE={BLIND|SENSITIVE}, /NORECURSE|/RECURSE[={PATH|FILENAMES}],",
-#ifdef IZ_CRYPT_ANY
+#if CRYPT
 "\
     /QUIET, /VERBOSE[=DEBUG], /[NO]DIRNAMES, /JUNK, /ENCRYPT[=\"pwd\"],\
 ",
-#else /* def IZ_CRYPT_ANY */
+#else /* !CRYPT */
 "    /QUIET, /VERBOSE[=DEBUG], /[NO]DIRNAMES, /JUNK,",
-#endif /* def IZ_CRYPT_ANY [else] */
+#endif /* ?CRYPT */
 "    /COMPRESSION=(mthd[=(SUFFIX=(sufx_list)[,LEVEL={1-9}])][,...]),",
 "    /LEVEL=(0|{1-9}[=(mthd_list)][,...]), STORE_TYPES=(sufx_list),",
 #ifdef BZIP2_SUPPORT

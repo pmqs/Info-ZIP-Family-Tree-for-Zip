@@ -1,4 +1,4 @@
-#                                               31 December 2012.  SMS.
+#                                               8 May 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Source Description File.
 #
@@ -232,23 +232,11 @@ CDEFS_LZMA = , LZMA_SUPPORT
 
 .IFDEF PPMD                     # PPMD
 .IFDEF LZMA                         # LZMA
-.IFDEF __VAX__                          # __VAX__
-.IFDEF VAXC_OR_FORCE_VAXC                   # VAXC_OR_FORCE_VAXC
-CDEFS_PPMD = , PPMD_SUPPORT, NO_SIGNED_CHAR
-.ELSE                                       # VAXC_OR_FORCE_VAXC
 CDEFS_PPMD = , PPMD_SUPPORT
-.ENDIF                                      # VAXC_OR_FORCE_VAXC
-.ELSE                                   # __VAX__
-CDEFS_PPMD = , PPMD_SUPPORT
-.ENDIF                                  # __VAX__
 .ELSE                               # LZMA
 LZMA_PPMD = 1
 .IFDEF __VAX__                          # __VAX__
-.IFDEF VAXC_OR_FORCE_VAXC                   # VAXC_OR_FORCE_VAXC
-CDEFS_PPMD = , PPMD_SUPPORT, NO_SIGNED_CHAR, _SZ_NO_INT_64
-.ELSE                                       # VAXC_OR_FORCE_VAXC
 CDEFS_PPMD = , PPMD_SUPPORT, _SZ_NO_INT_64
-.ENDIF                                      # VAXC_OR_FORCE_VAXC
 .ELSE                                   # __VAX__
 CDEFS_PPMD = , PPMD_SUPPORT
 .ENDIF                                  # __VAX__
@@ -305,8 +293,6 @@ CDEFS_CLI = /define = ($(CDEFS), VMSCLI)
 
 CDEFS_UTIL = /define = ($(CDEFS), UTIL)
 
-CDEFS_LIBZIP = /define = ($(CDEFS), USE_ZIPMAIN)
-
 # Other C compiler options.
 
 .IFDEF DECC                             # DECC
@@ -349,8 +335,8 @@ CFLAGS_LIST = /list = $*.LIS /show = (all)
 .ENDIF                              # DECC
 LINKFLAGS_LIST = /map = $*.MAP /cross_reference /full
 .ELSE                           # LIST
-CFLAGS_LIST = /nolist
-LINKFLAGS_LIST = /nomap
+CFLAGS_LIST =
+LINKFLAGS_LIST =
 .ENDIF                          # LIST
 
 # Common CFLAGS and LINKFLAGS.
@@ -381,12 +367,6 @@ MODS_OBJS_LIB_ZIP_N = \
  ZBZ2ERR=[.$(DEST)]ZBZ2ERR.OBJ \
  ZIPFILE=[.$(DEST)]ZIPFILE.OBJ \
  ZIPUP=[.$(DEST)]ZIPUP.OBJ
-
-.IFDEF LIBZIP                   # LIBZIP
-MODS_OBJS_LIB_LIBZIP_N = \
- API$(GCC_)=[.$(DEST)]API_.OBJ \
- ZIP$(GCC_)=[.$(DEST)]ZIP_.OBJ
-.ENDIF                          # LIBZIP
 
 #    Primary object library, [.VMS].
                     
@@ -425,8 +405,7 @@ MODS_OBJS_LIB_ZIP_PPMD = \
  PPMD8ENC=[.$(DEST)]PPMD8ENC.OBJ
 .ENDIF                          # PPMD
 
-MODS_OBJS_LIB_ZIP = $(MODS_OBJS_LIB_ZIP_N) $(MODS_OBJS_LIB_LIBZIP_N) \
- $(MODS_OBJS_LIB_ZIP_V) \
+MODS_OBJS_LIB_ZIP = $(MODS_OBJS_LIB_ZIP_N) $(MODS_OBJS_LIB_ZIP_V) \
  $(MODS_OBJS_LIB_ZIP_AES) $(MODS_OBJS_LIB_ZIP_LZMA) \
  $(MODS_OBJS_LIB_ZIP_PPMD)
 

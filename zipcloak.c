@@ -1,7 +1,7 @@
 /*
   zipcloak.c - Zip 3
 
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -31,7 +31,7 @@
 #ifndef NO_STDLIB_H
 #  include <stdlib.h>
 #endif
-#ifdef IZ_CRYPT_AES_WG
+#ifdef CRYPT_AES_WG
 #  include <time.h>
 #  include "aes_wg/iz_aes_wg.h"
 #endif
@@ -40,7 +40,7 @@
 extern void globals_dummy( void);
 #endif
 
-#ifdef IZ_CRYPT_ANY     /* Defined in "crypt.h". */
+#if CRYPT       /* defined (as TRUE or FALSE) in crypt.h */
 
 int main OF((int argc, char **argv));
 
@@ -235,14 +235,14 @@ static ZCONST char *help_info[] = {
 "  -b  --temp-path path  use \"path\" for the temporary zip file",
 #endif
 "  -O  --output-file file  write output to new zip file, \"file\"",
-#ifdef IZ_CRYPT_AES_WG
+#ifdef CRYPT_AES_WG
 "  -Y  --encryption-method em  use encryption method \"em\"",
-#  ifdef IZ_CRYPT_TRAD
+#  ifdef CRYPT_TRAD
 "                     Methods: Traditional, AES128, AES192, AES256",
-#  else /* def IZ_CRYPT_TRAD */
+#  else /* def CRYPT_TRAD */
 "                     Methods: AES128, AES192, AES256",
-#  endif /* def IZ_CRYPT_TRAD [else] */
-#endif /* def IZ_CRYPT_AES_WG */
+#  endif /* def CRYPT_TRAD [else] */
+#endif /* def CRYPT_AES_WG */
 "  -q  --quiet        quiet operation, suppress some informational messages",
 "  -h  --help         show this help",
 "  -v  --version      show version info",
@@ -271,23 +271,16 @@ local void version_info()
 
   /* AES_WG option string storage (with version). */
 
-#ifdef IZ_CRYPT_AES_WG
+#ifdef CRYPT_AES_WG
   static char aes_wg_opt_ver[81];
-#endif /* def IZ_CRYPT_AES_WG */
+#endif /* def CRYPT_AES_WG */
 
-#ifdef IZ_CRYPT_TRAD
+#ifdef CRYPT_TRAD
   static char crypt_opt_ver[81];
 #endif
 
   /* Options info array */
   static ZCONST char *comp_opts[] = {
-#ifdef ASM_CRC
-    "ASM_CRC              (Assembly code used for CRC calculation)",
-#endif
-#ifdef ASMV
-    "ASMV                 (Assembly code used for pattern matching)",
-#endif
-
 #ifdef DEBUG
     "DEBUG",
 #endif
@@ -303,38 +296,35 @@ local void version_info()
     "ZIP64_SUPPORT        (use Zip64 to store large files in archives)",
 #endif
 
-#ifdef IZ_CRYPT_TRAD
+#ifdef CRYPT_TRAD
     crypt_opt_ver,
-# ifdef ETWODD_SUPPORT
-    "ETWODD_SUPPORT       (Encrypt Trad without data descriptor if --etwodd)",
-# endif /* def ETWODD_SUPPORT */
 #endif
 
-#if IZ_CRYPT_AES_WG
+#if CRYPT_AES_WG
     aes_wg_opt_ver,
 #endif
 
-#if IZ_CRYPT_AES_WG_NEW
-    "IZ_CRYPT_AES_WG_NEW  (AES strong encryption (WinZip/Gladman new))",
+#if CRYPT_AES_WG_NEW
+    "CRYPT_AES_WG_NEW     (AES strong encryption (WinZip/Gladman new))",
 #endif
 
-#if defined(IZ_CRYPT_ANY) && defined(PASSWD_FROM_STDIN)
+#if CRYPT && defined(PASSWD_FROM_STDIN)
     "PASSWD_FROM_STDIN",
-#endif /* defined(IZ_CRYPT_ANY) && defined(PASSWD_FROM_STDIN) */
+#endif /* CRYPT && PASSWD_FROM_STDIN */
 
     NULL
   };
 
-#ifdef IZ_CRYPT_TRAD
+#ifdef CRYPT_TRAD
   sprintf(crypt_opt_ver,
-    "IZ_CRYPT_TRAD        (Traditional (weak) encryption, ver %d.%d%s)",
+    "CRYPT                (traditional (weak) encryption, ver %d.%d%s)",
     CR_MAJORVER, CR_MINORVER, CR_BETA_VER);
-#endif /* IZ_CRYPT_TRAD */
+#endif /* CRYPT_TRAD */
 
   /* Fill in IZ_AES_WG version. */
-#if IZ_CRYPT_AES_WG
+#if CRYPT_AES_WG
   sprintf( aes_wg_opt_ver,
-    "IZ_CRYPT_AES_WG      (AES encryption (WinZip/Gladman), ver %d.%d%s)",
+    "CRYPT_AES_WG         (AES encryption (WinZip/Gladman), ver %d.%d%s)",
     IZ_AES_WG_MAJORVER, IZ_AES_WG_MINORVER, IZ_AES_WG_BETA_VER);
 #endif
 
@@ -361,8 +351,6 @@ local void version_info()
 }
 
 
-#define o_et            0x170   /* See also zip.c. */
-
 /* options for zipcloak - 3/5/2004 EG */
 struct option_struct far options[] = {
   /* short longopt        value_type        negatable        ID    name */
@@ -372,17 +360,14 @@ struct option_struct far options[] = {
     {"b",  "temp-path",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'b',  "path for temp file"},
 #endif
     {"d",  "decrypt",     o_NO_VALUE,       o_NOT_NEGATABLE, 'd',  "decrypt"},
-#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
-    {"",   "etwodd",      o_NO_VALUE,       o_NOT_NEGATABLE, o_et, "encrypt Traditional without data descriptor"},
-#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
     {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     {"L",  "license",     o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
     {"l",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
     {"O",  "output-file", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'O',  "output to new archive"},
     {"v",  "version",     o_NO_VALUE,       o_NOT_NEGATABLE, 'v',  "version"},
-#ifdef IZ_CRYPT_AES_WG
+#ifdef CRYPT_AES_WG
     {"Y", "encryption-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Y', "set encryption method"},
-#endif /* def IZ_CRYPT_AES_WG */
+#endif /* def CRYPT_AES_WG */
     /* the end of the list */
     {NULL, NULL,          o_NO_VALUE,       o_NOT_NEGATABLE, 0,    NULL} /* end has option_ID = 0 */
   };
@@ -427,12 +412,12 @@ int main(argc, argv)
 
 #define IS_A_DIR (z->iname[ z->nam- 1] == (char)0x2f) /* ".". */
 
-#ifdef IZ_CRYPT_AES_WG
+#ifdef CRYPT_AES_WG
 # define REAL_PWLEN temp_pwlen
     int temp_pwlen;
-#else /* def IZ_CRYPT_AES_WG */
+#else /* def CRYPT_AES_WG */
 # define REAL_PWLEN IZ_PWLEN
-#endif /* def IZ_CRYPT_AES_WG [else] */
+#endif /* def CRYPT_AES_WG [else] */
 
 #ifdef THEOS
     setlocale(LC_CTYPE, "I");
@@ -543,11 +528,6 @@ int main(argc, argv)
                     break;
                 case 'd':
                     decrypt = 1;  break;
-#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
-                case o_et:      /* Encrypt Trad without data descriptor. */
-                    etwodd = 1;
-                    break;
-#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
                 case 'h':   /* Show help */
                     help();
                     EXIT(ZE_OK);
@@ -642,13 +622,13 @@ int main(argc, argv)
           version_info();
           EXIT(ZE_OK);
 
-#ifdef IZ_CRYPT_AES_WG
+#ifdef CRYPT_AES_WG
         case 'Y':   /* Encryption method */
-#  ifdef IZ_CRYPT_TRAD
+#  ifdef CRYPT_TRAD
           if (abbrevmatch("Traditional", value, 0, 1)) {
             encryption_method = TRADITIONAL_ENCRYPTION;
           } else
-#  endif /* def IZ_CRYPT_TRAD */
+#  endif /* def CRYPT_TRAD */
           if (abbrevmatch("AES128", value, 0, 5)) {
             encryption_method = AES_128_ENCRYPTION;
           } else if (abbrevmatch("AES192", value, 0, 5)) {
@@ -657,11 +637,11 @@ int main(argc, argv)
             encryption_method = AES_256_ENCRYPTION;
           } else {
             zipwarn(
-#  ifdef IZ_CRYPT_TRAD
+#  ifdef CRYPT_TRAD
  "valid encryption methods are:  Traditional, AES128, AES192, and AES256", "");
-#  else /* def IZ_CRYPT_TRAD */
+#  else /* def CRYPT_TRAD */
  "valid encryption methods are:  AES128, AES192, and AES256", "");
-#  endif /* def IZ_CRYPT_TRAD [else] */
+#  endif /* def CRYPT_TRAD [else] */
 
             free(value);
             ZIPERR(ZE_PARMS,
@@ -720,7 +700,7 @@ int main(argc, argv)
      *
      * prng_rand(zsalt, SALT_LENGTH(1), &aes_rnp);  Why "1"?
      */
-#ifdef IZ_CRYPT_AES_WG
+#ifdef CRYPT_AES_WG
     if ((encryption_method >= AES_MIN_ENCRYPTION) &&
      (encryption_method <= AES_MAX_ENCRYPTION))
     {
@@ -811,12 +791,12 @@ int main(argc, argv)
 #endif
 
     /* Get password */
-#ifdef IZ_CRYPT_AES_WG
+#ifdef CRYPT_AES_WG
     if (encryption_method <= TRADITIONAL_ENCRYPTION)
         REAL_PWLEN = IZ_PWLEN;
     else
         REAL_PWLEN = MAX_PWD_LENGTH;
-#endif /* def IZ_CRYPT_AES_WG */
+#endif /* def CRYPT_AES_WG */
 
     if (getp("Enter password: ", passwd, REAL_PWLEN) == NULL)
         ziperr(ZE_PARMS,
@@ -843,7 +823,7 @@ int main(argc, argv)
     }
     tempzn = zipbeg;
 
-#ifdef IZ_CRYPT_AES_WG
+#ifdef CRYPT_AES_WG
     if ((encryption_method >= AES_MIN_ENCRYPTION) &&
      (encryption_method <= AES_MAX_ENCRYPTION))
     {
@@ -852,7 +832,7 @@ int main(argc, argv)
          */
         aes_strength = encryption_method- (AES_MIN_ENCRYPTION- 1);
     }
-#endif /* def IZ_CRYPT_AES_WG */
+#endif /* def CRYPT_AES_WG */
 
     /* Go through local entries, copying, encrypting, or decrypting */
     for (z = zfiles; z != NULL; z = z->nxt)
@@ -941,7 +921,7 @@ int main(argc, argv)
     RETURN(0);
 }
 
-#else /* def IZ_CRYPT_ANY */
+#else /* CRYPT */
 
 /* ZipCloak with no CRYPT support is useless. */
 
@@ -1043,4 +1023,4 @@ int main()
     EXIT( ZE_COMPERR);  /* Error in compilation options. */
 }
 
-#endif /* def IZ_CRYPT_ANY [else] */
+#endif /* CRYPT [else] */
