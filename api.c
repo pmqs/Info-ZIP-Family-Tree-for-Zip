@@ -30,28 +30,32 @@
 
 #include "api.h"                /* this includes zip.h */
 
-#include <malloc.h>
 #ifdef WINDLL
-#  include <windows.h>
-#  include "windll/windll.h"
+# include <direct.h>
+# include <malloc.h>
+# include <windows.h>
+# include "windll/windll.h"
+#else /* def WINDLL */
+# include <stdlib.h>
 #endif
 
 #ifdef OS2
-#  define  INCL_DOSMEMMGR
-#  include <os2.h>
+# define  INCL_DOSMEMMGR
+# include <os2.h>
 #endif
 
 #ifdef __BORLANDC__
-#include <dir.h>
+# include <dir.h>
 #endif
-#include <direct.h>
+
 #include <ctype.h>
+
 #include "crypt.h"
 #include "revision.h"
+
 #ifdef USE_ZLIB
 #  include "zlib.h"
 #endif
-
 
 DLLPRNT *lpZipPrint;
 DLLPASSWORD *lpZipPassword;
@@ -299,9 +303,11 @@ getcwd(szOrigDir, PATH_MAX); /* Save current drive and directory */
 
 if ((szRootDir != NULL) && (szRootDir[0] != '\0'))
    {
+#ifdef WINDLL /* Is this the right condition? */
    /* Make sure there isn't a trailing slash */
    if (szRootDir[lstrlen(szRootDir)-1] == '\\')
        szRootDir[lstrlen(szRootDir)-1] = '\0';
+#endif /* def WINDLL */
 
    chdir(szRootDir);
 #ifdef __BORLANDC__
@@ -665,6 +671,7 @@ if ((szTempDir != NULL) && (szTempDir[0] != '\0')) /* Use temporary directory -b
         return ZE_MEM;
     }
 
+#ifdef ENABLE_DLL_PROGRESS
 if ((Options.szProgressSize != NULL) && (Options.szProgressSize[0] != '\0')) /* Progress chunk size */
     {
       progress_chunk_size = ReadNumString(Options.szProgressSize);
@@ -673,6 +680,7 @@ if ((Options.szProgressSize != NULL) && (Options.szProgressSize[0] != '\0')) /* 
     {
       progress_chunk_size = 0;
     }
+#endif /* def ENABLE_DLL_PROGRESS */
 
 if (AllocMemory(argCee, C.lpszZipFN, "Zip file name", FALSE) != ZE_OK)
     return ZE_MEM;
@@ -788,56 +796,129 @@ void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
 
     /* feature list */
     /* all features start and end with a semicolon for easy parsing */
-    strcpy(featurelist, ";");
-#ifdef CRYPT
-    strcat(featurelist, "crypt;");
-#endif
-#ifdef ZIP64_SUPPORT
-    strcat(featurelist, "zip64;");
-#endif
+    strcpy( featurelist, ";");
 #ifdef ASM_CRC
-    strcat(featurelist, "asm_crc;");
+    strcat( featurelist, "asm_crc;");
 #endif
 #ifdef ASMV
-    strcat(featurelist, "asmv;");
+    strcat( featurelist, "asmv;");
+#endif
+#ifdef BACKUP_SUPPORT
+    strcat( featurelist, "backup;");
 #endif
 #ifdef DEBUG
-    strcat(featurelist, "debug;");
+    strcat( featurelist, "debug;");
 #endif
 #ifdef USE_EF_UT_TIME
-    strcat(featurelist, "ef_ut_time;");
+    strcat( featurelist, "ef_ut_time;");
 #endif
 #ifdef NTSD_EAS
-    strcat(featurelist, "ntsd_eas;");
+    strcat( featurelist, "ntsd_eas;");
 #endif
 #if defined(WIN32) && defined(NO_W32TIMES_IZFIX)
-    strcat(featurelist, "no_w32times_izfix;");
+    strcat( featurelist, "no_w32times_izfix;");
 #endif
+#ifdef VMS
+# ifdef VMS_IM_EXTRA
+    strcat( featurelist, "vms_im_extra;");
+# endif
+# ifdef VMS_PK_EXTRA
+    strcat( featurelist, "vms_pk_extra;");
+# endif
+#endif /* VMS */
 #ifdef WILD_STOP_AT_DIR
-    strcat(featurelist, "wild_stop_at_dir;");
+    strcat( featurelist, "wild_stop_at_dir;");
 #endif
 #ifdef WIN32_OEM
-    strcat(featurelist, "win32_oem;");
-#endif
-#ifdef LARGE_FILE_SUPPORT
-    strcat(featurelist, "large_file;");
-#endif
-#ifdef UNICODE_SUPPORT
-    strcat(featurelist, "unicode;");
-#endif
-#ifdef USE_ZLIB
-    strcat(featurelist, "zlib;");
-    sprintf(tempstring, "zlib_version:%s,%s;", ZLIB_VERSION, zlibVersion());
-    strcat(featurelist, tempstring);
+    strcat( featurelist, "win32_oem;");
 #endif
 #ifdef BZIP2_SUPPORT
-    strcat(featurelist, "bzip2;");
-    strcat(featurelist, "compmethods:store,deflate,bzip2;");
-#else
-    strcat(featurelist, "compmethods:store,deflate;");
+    strcat( featurelist, "bzip2;");
 #endif
+    strcpy( tempstring, "compmethods:store,deflate");
+#ifdef BZIP2_SUPPORT
+    strcat( tempstring, ",bzip2");
+#endif
+#ifdef LZMA_SUPPORT
+    strcat( tempstring, ",lzma");
+#endif
+#ifdef PPMD_SUPPORT
+    strcat( tempstring, ",ppmd");
+#endif
+    strcat( tempstring, ";");
+    strcat( featurelist, tempstring);
+#ifdef LARGE_FILE_SUPPORT
+    strcat( featurelist, "large_file;");
+#endif
+#ifdef ZIP64_SUPPORT
+    strcat( featurelist, "zip64;");
+#endif
+#ifdef UNICODE_SUPPORT
+    strcat( featurelist, "unicode;");
+#endif
+#ifdef UNIX
+    strcat( featurelist, "store_unix_uids_gids;");
+# ifdef UIDGID_NOT_16BIT
+    strcat( featurelist, "uidgid_not_16bit;");
+# else
+    strcat( featurelist, "uidgid_16bit;");
+# endif
+#endif
+#ifdef CRYPT_TRAD
+    strcat( featurelist, "crypt;");
+#endif
+#ifdef CRYPT_AES_WG
+    strcat( featurelist, "crypt_aes_wg;");
+#endif
+#ifdef USE_ZLIB
+    strcat( featurelist, "zlib;");
+    sprintf( tempstring, "zlib_version:%s,%s;", ZLIB_VERSION, zlibVersion());
+    strcat( featurelist, tempstring);
+#endif
+
     p->szFeatures = malloc(strlen(featurelist) + 1);
     if (p->szFeatures != NULL) {
       strcpy(p->szFeatures, featurelist);
     }
 }
+
+
+/* windll/windll.[ch] stuff for non-Windows systems. */
+
+#ifndef WINDLL
+
+LPSTR szCommentBuf;
+HANDLE hStr;
+
+void comment(unsigned int comlen)
+{
+    unsigned int i;
+    if (comlen > 65534L)
+        comlen = (unsigned int) 65534L;
+    hStr = GlobalAlloc( GPTR, (DWORD)65535L);
+    if (!hStr)
+    {
+        hStr = GlobalAlloc( GPTR, (DWORD) 2);
+        szCommentBuf = GlobalLock(hStr);
+        szCommentBuf[0] = '\0';
+        return;
+    }
+    if (comlen)
+    {
+        for (i = 0; i < comlen; i++)
+        szCommentBuf[i] = zcomment[i];
+        szCommentBuf[comlen] = '\0';
+    }
+    else
+        szCommentBuf[0] = '\0';
+
+    free(zcomment);
+    zcomment = malloc(1);
+    *zcomment = 0;
+    if (lpZipUserFunctions->comment)
+    {
+        lpZipUserFunctions->comment(szCommentBuf);
+    }
+    return;
+}
+#endif /* ndef WINDLL */

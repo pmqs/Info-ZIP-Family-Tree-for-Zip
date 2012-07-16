@@ -1,6 +1,6 @@
 #==============================================================================
 # unix/Makefile
-# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 10 Apr 2012
+# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 05 Jul 2012
 #==============================================================================
 
 # INSTRUCTIONS (such as they are):
@@ -105,7 +105,6 @@
 # Be sure to test your new Zip (and ZipNote, ZipCloak and ZipSplit).  A
 # successful build does not guarantee a working or fully functional program.
 
-
 #####################
 # DEFAULT TARGETS   #
 #####################
@@ -193,7 +192,6 @@ list:
 	@echo 'in unix/Makefile.'
 	@echo ''
 
-
 #####################
 # MACRO DEFINITIONS #
 #####################
@@ -226,6 +224,7 @@ LIB_LZMA    =
 LIB_PPMD    =
 LIB_BZ      =
 LIB_Z       =
+LIB_ZIP     =
 
 # Build makefiles: bzip2 compression
 MK_BZ   = Makefile
@@ -241,11 +240,14 @@ MK_BZ   = Makefile
 #   set the correct OS-dependent files via unix/configure.  Or you can (very
 #   carefully) override as required.
 #    C header files
-#    C object files
+#    C object files for utilities (zipcloak, zipnote, zipsplit)
+#    C object files for zip
 #    Assembler object files
 OSDEP_H  = unix/osdep.h
-OSDEP_OC = ./unix.o
-OSDEP_OS =
+OSDEP_OCU = ./unix.o
+OSDEP_OCZ = ./unix.o
+OSDEP_OSU =
+OSDEP_OSZ =
 
 # OS-dependent file extensions
 # - This default may be customized by unix/configure based on PORT
@@ -326,71 +328,76 @@ H_AES    = aes_wg/aes.h     \
            aes_wg/sha1.h
 
 # C header files: LZMA compression
-H_LZMA   = lzma/SzVersion.h \
-           lzma/LzFind.h    \
-           lzma/LzHash.h    \
-           lzma/LzmaEnc.h   \
-           lzma/Types.h
+H_LZMA   = szip/SzVersion.h \
+           szip/LzFind.h    \
+           szip/LzHash.h    \
+           szip/LzmaEnc.h   \
+           szip/Types.h
 
 # C header files: PPMd compression
-H_PPMD   = lzma/CpuArch.h   \
-           lzma/Ppmd.h      \
-           lzma/Ppmd8.h     \
-           lzma/Types.h
+H_PPMD   = szip/CpuArch.h   \
+           szip/Ppmd.h      \
+           szip/Ppmd8.h     \
+           szip/Types.h
 
 #----------------------------------------------------------------------------
 #  Build configuration:  object files
 #----------------------------------------------------------------------------
 
-# OSDEP_OC and OSDEP_OS are port-dependent and can be updated by unix/configure
+# OSDEP_* are port-dependent and can be updated by unix/configure.
 
 # object files: zip
-O_ZIP    = zip.o       \
-           crc32.o     \
-           crypt.o     \
-           deflate.o   \
-           fileio.o    \
-           globals.o   \
-           trees.o     \
-           ttyio.o     \
-           util.o      \
-           zbz2err.o   \
-           zipfile.o   \
-           zipup.o     \
-           $(OSDEP_OC) \
-           $(OSDEP_OS)
+O_ZIPL   = crc32.o      \
+           crypt.o      \
+           deflate.o    \
+           fileio.o     \
+           globals.o    \
+           trees.o      \
+           ttyio.o      \
+           util.o       \
+           zbz2err.o    \
+           zipfile.o    \
+           zipup.o      \
+           $(OSDEP_OCZ) \
+           $(OSDEP_OSZ)
 
+O_ZIP    = zip.o        \
+           $(O_ZIPL)
+
+O_ZIPN   = api.o        \
+           zip_.o
+        
 # object files: zipcloak
-O_CLOAK  = zipcloak.o  \
-           crc32.o     \
-           crypt_.o    \
-           fileio_.o   \
-           globals.o   \
-           ttyio.o     \
-           util_.o     \
-           zipfile_.o  \
-           $(OSDEP_OC:.o=_.o) \
-           $(OSDEP_OS)
+O_CLOAK  = zipcloak.o   \
+           crc32.o      \
+           crypt_.o     \
+           fileio_.o    \
+           globals.o    \
+           ttyio.o      \
+           util_.o      \
+           zipfile_.o   \
+           $(OSDEP_OCU:.o=_.o) \
+           $(OSDEP_OSU)
 
 # object files: zipnote
-O_NOTE   = zipnote.o   \
-           crc32.o     \
-           fileio_.o   \
-           globals.o   \
-           util_.o     \
-           zipfile_.o  \
-           $(OSDEP_OC:.o=_.o) \
-           $(OSDEP_OS)
+O_NOTE   = zipnote.o    \
+           crc32.o      \
+           fileio_.o    \
+           globals.o    \
+           util_.o      \
+           zipfile_.o   \
+           $(OSDEP_OCU:.o=_.o) \
+           $(OSDEP_OSU)
 
 # object files: zipsplit
-O_SPLIT  = zipsplit.o \
-           crc32.o    \
-           fileio_.o  \
-           globals.o  \
-           util_.o    \
-           zipfile_.o \
-           $(OSDEP_OC:.o=_.o) \
-           $(OSDEP_OS)
+O_SPLIT  = zipsplit.o   \
+           crc32.o      \
+           fileio_.o    \
+           globals.o    \
+           util_.o      \
+           zipfile_.o   \
+           $(OSDEP_OCU:.o=_.o) \
+           $(OSDEP_OSU)
 
 # object files: Assembler Match (Source: match.S)
 # - All OS-dependent, by unix/configure based on PORT
@@ -422,7 +429,7 @@ O_LZMA   = LzFind.o   \
            LzmaEnc.o
 
 # object files: PPMd compression
-O_PPMD   = Ppmd8.o   \
+O_PPMD   = Ppmd8.o    \
            Ppmd8Enc.o
 
 # object files: ZLIB compression
@@ -447,6 +454,9 @@ AR_PPMD = libppmd.a
 # object archive: ZLIB compression
 AR_Z    = zlib/libz.a
 
+# object archive: Callable Zip
+AR_ZIP  = libizzip.a
+
 #----------------------------------------------------------------------------
 #  Build configuration:  Executable programs
 #----------------------------------------------------------------------------
@@ -458,7 +468,8 @@ PGM_SPLIT  = zipsplit$(PGMEXT)
 ZIP_PGMS   = $(PGM_ZIP)   \
              $(PGM_CLOAK) \
              $(PGM_NOTE)  \
-             $(PGM_SPLIT)
+             $(PGM_SPLIT) \
+             $(LIB_ZIP)
 
 #----------------------------------------------------------------------------
 #  Build configuration:  Manuals
@@ -472,7 +483,6 @@ ZIP_MANS   = $(MAN_ZIP)   \
              $(MAN_CLOAK) \
              $(MAN_NOTE)  \
              $(MAN_SPLIT)
-
 
 # Plain text versions go in the root directory for easy user access
 
@@ -513,7 +523,6 @@ INSTALLEDMAN = $(MANDIR)/zip.$(MANEXT)      \
 # Solaris 2.x package stuff:
 PKGDIR  = IZunzip
 VERSION = Version 3.1
-
 
 ###############################################
 # BASIC COMPILE INSTRUCTIONS AND DEPENDENCIES #
@@ -573,13 +582,18 @@ zipfile.o:   zipfile.c  $(H_ZIP) crc32.h
 zipup.o:     zipup.c    $(H_ZIP) crc32.h crypt.h revision.h unix/zipup.h
 	$(CC) -c $(CF) -o $@ zipup.c
 
+# A') Callable Zip C files
+
+api.o:       api.c      $(H_ZIP) api.h crc32.h crypt.h revision.h
+	$(CC) -c $(CF) -DUSE_ZIPMAIN -o $@ api.c
+
+zip_.o:      zip.c      $(H_ZIP) crc32.h crypt.h revision.h ttyio.h
+	$(CC) -c $(CF) -DUSE_ZIPMAIN -o $@ zip.c
+
 # B) C files for specific ports
 #    - Files under msdos and os2 are used when cross compiling for those ports
-#    - Generated when referenced by OSDEP_OC
-#    - OSDEP_OC is customized by unix/configure, based on PORT macro
-
-./unix.o: unix/unix.c   $(H_ZIP)
-	$(CC) -c $(CF) -o $@ unix/unix.c
+#    - Generated when referenced by OSDEP_OC*
+#    - OSDEP_OC* are customized by unix/configure, based on PORT macro
 
 ./msdos.o: msdos/msdos.c $(H_ZIP)
 	$(CC) -c $(CF) -o $@ msdos/msdos.c
@@ -587,6 +601,20 @@ zipup.o:     zipup.c    $(H_ZIP) crc32.h crypt.h revision.h unix/zipup.h
 ./os2.o: os2/os2.c      $(H_ZIP)
 	$(CC) -c $(CF) -o $@ os2/os2.c
 
+./unix.o: unix/unix.c   $(H_ZIP)
+	$(CC) -c $(CF) -o $@ unix/unix.c
+
+./nt.o: win32/nt.c  $(H_ZIP)
+	$(CC) -c $(CF) -o $@ win32/nt.c
+
+./win32.o: win32/win32.c  $(H_ZIP)
+	$(CC) -c $(CF) -o $@ win32/win32.c
+
+./win32i64.o: win32/win32i64.c  $(H_ZIP)
+	$(CC) -c $(CF) -o $@ win32/win32i64.c
+
+./win32zip.o: win32/win32zip.c  $(H_ZIP)
+	$(CC) -c $(CF) -o $@ win32/win32zip.c
 
 #----------------------------------------------------------------------------
 
@@ -620,10 +648,7 @@ zipfile_.o: zipfile.c   $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT) crc32.h
 
 # B) C files for specific ports
 #    - Generated when referenced by OSDEP_OC
-#    - OSDEP_OC is customized by unix/configure, based on PORT macro
-
-./unix_.o: unix/unix.c  $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
-	$(CC) -c $(CF) -DUTIL -o $@ unix/unix.c
+#    - OSDEP_OC* are customized by unix/configure, based on PORT macro
 
 ./msdos_.o: msdos/msdos.c $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
 	$(CC) -c $(CF) -DUTIL -o $@ msdos/msdos.c
@@ -631,6 +656,14 @@ zipfile_.o: zipfile.c   $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT) crc32.h
 ./os2_.o: os2/os2.c     $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
 	$(CC) -c $(CF) -DUTIL -o $@ os2/os2.c
 
+./unix_.o: unix/unix.c  $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
+	$(CC) -c $(CF) -DUTIL -o $@ unix/unix.c
+
+./win32_.o: win32/win32.c  $(H_ZIP)
+	$(CC) -c $(CF) -DUTIL -o $@ win32/win32.c
+
+./win32i64_.o: win32/win32i64.c  $(H_ZIP)
+	$(CC) -c $(CF) -DUTIL -o $@ win32/win32i64.c
 
 #----------------------------------------------------------------------------
 
@@ -660,35 +693,32 @@ pwd2key.o:  aes_wg/pwd2key.c  $(H_AES)
 sha1.o:     aes_wg/sha1.c     $(H_AES)
 	$(CC) -c $(CF) -o $@ aes_wg/sha1.c
 
-
 #----------------------------------------------------------------------------
 
 # C Compile rules: LZMA compression
 
-LzFind.o:   lzma/LzFind.c     $(H_LZMA)
-	$(CC) -c $(CF) -o $@ lzma/LzFind.c
+LzFind.o:   szip/LzFind.c     $(H_LZMA)
+	$(CC) -c $(CF) -o $@ szip/LzFind.c
 
-LzmaEnc.o:  lzma/LzmaEnc.c    $(H_LZMA)
-	$(CC) -c $(CF) -o $@ lzma/LzmaEnc.c
-
+LzmaEnc.o:  szip/LzmaEnc.c    $(H_LZMA)
+	$(CC) -c $(CF) -o $@ szip/LzmaEnc.c
 
 #----------------------------------------------------------------------------
 
 # C Compile rules: PPMd compression
 
-Ppmd8.o:  lzma/Ppmd8.c          $(H_PPMD)
-	$(CC) -c $(CF) -o $@ lzma/Ppmd8.c
+Ppmd8.o:  szip/Ppmd8.c          $(H_PPMD)
+	$(CC) -c $(CF) -o $@ szip/Ppmd8.c
 
-Ppmd8Enc.o:  lzma/Ppmd8Enc.c    $(H_PPMD)
-	$(CC) -c $(CF) -o $@ lzma/Ppmd8Enc.c
-
+Ppmd8Enc.o:  szip/Ppmd8Enc.c    $(H_PPMD)
+	$(CC) -c $(CF) -o $@ szip/Ppmd8Enc.c
 
 #----------------------------------------------------------------------------
 #  Build rules: Assemble (.S -> .o)
 #  - Optional assembler replacements for C routines
 #  - All are port-specific (for instance, msdos rule only used for msdos)
-#    - Generated when referenced by OSDEP_OS
-#    - OSDEP_OS is customized by unix/configure, based on PORT macro
+#    - Generated when referenced by OSDEP_OS*
+#    - OSDEP_OS* are customized by unix/configure, based on PORT macro
 #----------------------------------------------------------------------------
 
 # Assembler rule: Match
@@ -706,7 +736,6 @@ $(O_MCH_SV): match.S $(ACONF_DEP)
 	$(CPP) $(AF) match.S > _matchs.s
 	$(AS) -o $@ matchs.s
 	$(RM) matchs.s
-
 
 #----------------------------------------------------------------------------
 
@@ -726,7 +755,6 @@ $(O_CRC_SV): crc_i386.S $(ACONF_DEP)
 	$(AS) -o $@ crc_i386s.s
 	$(RM) crc_i386s.s
 
-
 #----------------------------------------------------------------------------
 #  Build rules: Object archives (.o -> .a)
 #----------------------------------------------------------------------------
@@ -739,7 +767,6 @@ $(AR_AES): $(O_AES)
 	$(AR) libaes.a $(O_AES)
 	-$(RANLIB) libaes.a
 
-
 # Object archive rule: LZMA compression
 
 $(AR_LZMA): $(O_LZMA)
@@ -748,7 +775,6 @@ $(AR_LZMA): $(O_LZMA)
 	$(AR) liblzma.a $(O_LZMA)
 	-$(RANLIB) liblzma.a
 
-
 # Object archive rule: PPMd compression
 
 $(AR_PPMD): $(O_PPMD)
@@ -756,7 +782,6 @@ $(AR_PPMD): $(O_PPMD)
 	-$(RM) libppmd.a
 	$(AR) libppmd.a $(O_PPMD)
 	-$(RANLIB) libppmd.a
-
 
 # Object archive rule: BZIP2 compression
 
@@ -774,7 +799,6 @@ $(AR_BZ):
 	  ); \
 	fi
 
-
 # Object archive rule: ZLIB compression
 
 $(AR_Z):
@@ -783,6 +807,12 @@ $(AR_Z):
 	  eval $(MAKE) -f Makefile libz.a ACONF_DEP=flags `cat ../flags`; \
 	)
 
+# Object archive rule: Callable Zip
+
+$(AR_ZIP): $(O_ZIPL) $(O_ZIPN) $(LIB_AES_WG) $(LIB_LZMA) $(LIB_PPMD)
+	@echo 'Building/updating Callable Zip object library...'
+	unix/mlz.sh "$(AR_ZIP)" "$(O_ZIPL) $(O_ZIPN)" \
+	 $(LIB_AES_WG) $(LIB_LZMA) $(LIB_PPMD)
 
 #----------------------------------------------------------------------------
 #  Build rules: Link programs (.o + .a -> zips)
@@ -794,24 +824,20 @@ $(PGM_ZIP): $(O_ZIP) $(LIB_AES_WG) $(LIB_BZ) $(LIB_LZMA) \
             $(LIB_PPMD) $(LIB_Z)
 	$(LD) -o $@ $(LF1) $(O_ZIP) $(LF2)
 
-
 # Link rule: zipnote
 
 $(PGM_NOTE): $(O_NOTE)
 	$(LD) -o $@ $(LF1) $(O_NOTE) $(LF2)
-
 
 # Link rule: zipcloak
 
 $(PGM_CLOAK): $(O_CLOAK) $(LIB_AES_WG)
 	$(LD) -o $@ $(LF1) $(O_CLOAK) $(LF2)
 
-
 # Link rule: zipsplit
 
 $(PGM_SPLIT): $(O_SPLIT)
 	$(LD) -o $@ $(LF1) $(O_SPLIT) $(LF2)
-
 
 #----------------------------------------------------------------------------
 #  Build rules: Documentation
@@ -841,7 +867,6 @@ $(DOC_NOTE):  man/zipnote.1
 $(DOC_SPLIT): man/zipsplit.1
 	man man/zipsplit.1 | col -bx | uniq | expand > $@
 
-
 # Zip man page generation rule
 # - Requires nroff, or GNU groff package
 
@@ -857,7 +882,6 @@ $(MAN_NOTE):  man/zipnote.1
 $(MAN_SPLIT): man/zipsplit.1
 	nroff -man man/zipsplit.1 | col -bx | uniq > $@
 
-
 #----------------------------------------------------------------------------
 #  Build rules: Standard build targets
 #----------------------------------------------------------------------------
@@ -869,7 +893,6 @@ docs:     manout $(ZIP_DOCS)
 manuals:  manout $(ZIP_MANS)
 zipsman:  zips manuals
 zipsdoc:  zips docs
-
 
 #----------------------------------------------------------------------------
 #  Build rules: Configuration flags
@@ -886,7 +909,7 @@ flags: unix/configure
 	        "PROD='$(PROD)'" \
 	        "LIST='$(LIST)'" \
 	        "CC='$(CC)'" \
-	        "CFLAGS='$(CF_NOOPT)'" \
+	        "CFLAGS='$(LOCAL_ZIP)'" \
 	        "LFLAGS1='$(LFLAGS1)'" \
 	        "LFLAGS2='$(LFLAGS2)'" \
 	        "AES_WG='$(AES_WG)'" \
@@ -895,11 +918,9 @@ flags: unix/configure
 	        "IZ_BZIP2='$(IZ_BZIP2)'" \
 	        "IZ_ZLIB='$(IZ_ZLIB)'"
 
-
 # BZIP2 flags
 
 flags_bz: flags
-
 
 # These symbols, when #defined using -D have these effects on compilation:
 # ZMEM                  - includes C language versions of memset(), memcpy(),
@@ -917,7 +938,6 @@ flags_bz: flags
 # NO_ZIP64_SUPPORT      - do not enable Zip64 archive support even if available.
 # NO_UNICODE_SUPPORT    - do not enable Unicode support even if available.
 # NO_BZIP2_SUPPORT      - do not compile in bzip2 code even if available.
-
 
 #----------------------------------------------------------------------------
 #  Build rules: Clean-up targets
@@ -943,7 +963,6 @@ clean_exe :
 clean_docs:
 	rm -f $(ZIP_DOCS)
 
-
 #----------------------------------------------------------------------------
 #  Build rules: Installation-related
 #----------------------------------------------------------------------------
@@ -959,7 +978,6 @@ install: zips manuals
 
 uninstall:
 	$(RM) $(INSTALLEDBIN) $(INSTALLEDMAN)
-
 
 #----------------------------------------------------------------------------
 #  Build rules: SVR4 Package generation Interface
@@ -994,7 +1012,6 @@ dist: $(DOC_ZIP)
 	eval zip -r9 zip`sed -e '/VERSION/!d' -e 's/.*"\(.*\)".*/\1/' \
 	         -e 's/[.]//g' -e 's/ .*//g' -e q revision.h` *
 
-
 ################################
 # INDIVIDUAL MACHINE MAKERULES #
 ################################
@@ -1015,13 +1032,11 @@ generic_msg:
 	@echo '  problems.'
 	@echo ''
 
-
 # generic
 # - Generate flags file (if doesn't exist), then Zip modules
 
 generic: flags
 	eval $(MAKE) $(MAKEF) zips PROD="$(PROD)" `cat flags`
-
 
 # generic_man
 # - Generate flags file (if doesn't exist), then man pages
@@ -1029,20 +1044,17 @@ generic: flags
 generic_man: flags
 	eval $(MAKE) $(MAKEF) manuals PROD="$(PROD)" `cat flags`
 
-
 # generic_docs
 # - Generate flags file (if doesn't exist), then plain text docs
 
 generic_docs: flags
 	eval $(MAKE) $(MAKEF) docs ACONF_DEP=flags`cat flags`
 
-
 # generic_pkg
 # - Generate flags file (if doesn't exist), then Zip modules, then perform
 #   SVR4 package-creation
 
 generic_pkg: generic svr4package
-
 
 #----------------------------------------------------------------------------
 #  Old static generic targets
@@ -1061,14 +1073,12 @@ att6300nodir:
 -DNO_CONST -DHAVE_TERMIO_H" \
 	"LF2="
 
-
 # Coherent
 
 # - AS definition not needed for gcc
 coherent:
 	$(MAKE) $(MAKEF) zips CF="-DUNIX -I. -O -DDIRENT -DASMV" \
 	 AS="as -gx" OBJA=match.o
-
 
 # Cray Unicos 6.1, Standard C compiler 3.0
 # - All routines except trees.c may be compiled with vector3
@@ -1078,19 +1088,16 @@ cray_v3:
 	$(MAKE) $(MAKEF) zips CC="scc" \
 	            CF="-DUNIX -I. -O -h vector2 -h scalar3 -DHAVE_DIRENT_H"
 
-
 # Cygwin
 
 cygwin:
 	$(MAKE) $(MAKEF) generic CC="gcc" CPP="gcc -E" PGMEXE=".exe"
-
 
 # LynxOS
 
 lynx:
 	$(MAKE) $(MAKEF) generic CC=gcc CPP="gcc -E" CF="$(CF) \
 	 -DNO_UNDERLINE -DLynx -DLYNX LF2="$LF2 -lc_p"
-
 
 # MINIX 1.5.10
 # - With Bruce Evans 386 patches and gcc/GNU make
@@ -1099,7 +1106,6 @@ minix:
 	$(MAKE) $(MAKEF) zips CC=gcc CF="-DUNIX -I. -O -DDIRENT -DMINIX"
 	chmem =262144 zip
 
-
 # QNX
 # - /bin/sh is ksh and it doesn't grok the configure script properly,
 #   generating a bad flags file.  [cjh]
@@ -1107,7 +1113,6 @@ minix:
 qnx:
 	$(MAKE) $(MAKEF) zips LN=ln CC=cc CF="-DUNIX -I. -O \
 	 -DHAVE_DIRENT_H -DHAVE_TERMIOS_H -DNO_MKTEMP"
-
 
 # QNX/Neutrino
 # - No native development tools, so cross-build environement is used.
@@ -1132,7 +1137,6 @@ qnxnto:
 	  CF="-g -DUNIX -I. -O -DHAVE_DIRENT_H -DHAVE_TERMIOS_H -DNO_MKTEMP" \
 	  LF2=-g ; \
 	fi
-
 
 # Solaris
 # - Generic unix build, plus generation of installable package.

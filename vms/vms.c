@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -25,7 +25,9 @@
  *      Moved the VMS_PK_EXTRA test(s) into VMS_IM.C and VMS_PK.C to
  *      allow more general automatic dependency generation.
  *
- *  3.1         23-apr-2011     SMS
+ *  3.1         10-jun-2012     SMS
+ *      Added (and changed to use) vms_status().
+ *              23-apr-2011     SMS
  *      Added entropy_fun() for AES encryption.
  *              17-nov-2011     SMS
  *      Added establish_ctrl_t() for user-triggered progress reports.
@@ -33,7 +35,10 @@
  *      Added vms_fopen() to solve %rms-w-rtb (or %rms-e-netbts for
  *      DECnet access) errors when zipping Record format: Stream or
  *      Stream_CR files (without "-V[V]").
- *
+ *              08-may-2012     SMS
+ *      Changed to write all "-vv" diagnostic messages to "mesg" instead
+ *      of "stderr", and added a "\n" prefix to the vms_fopen() message
+ *      to avoid overwritten and over-long "-vv" messages.
  */
 
 #ifdef VMS                      /* For VMS only ! */
@@ -167,8 +172,8 @@ FILE *vms_fopen( char *file_spec)
 
     if (DIAG_FLAG)
     {
-        fprintf( stderr,
-         "vms_fopen(): stat() = %d, rfm = %d.\n",
+        fprintf( mesg,
+         "\nvms_fopen(): stat() = %d, rfm = %d.\n",
          sts, stat_buf.st_fab_rfm);
     }
 
@@ -301,52 +306,21 @@ int vms_stat( char *file, stat_t *s)
 #endif /* ndef CTL_FAC_IZ_ZIP [else] */
 
 
-/* Declare __posix_exit() if <stdlib.h> won't, and we use it. */
+/* Translate a ZE_xxx code to the corresponding VMS status value. */
 
-#if __CRTL_VER >= 70000000 && !defined(_POSIX_EXIT)
-#  if !defined( NO_POSIX_EXIT)
-void     __posix_exit     (int __status);
-#  endif /* !defined( NO_POSIX_EXIT) */
-#endif /* __CRTL_VER >= 70000000 && !defined(_POSIX_EXIT) */
-
-
-/* Return an intelligent status/severity code. */
-
-void vms_exit(e)
-   int e;
+int vms_status( int err)
 {
-#if !defined( NO_POSIX_EXIT) && (__CRTL_VER >= 70000000)
+    int sts;
 
-    /* If the environment variable "SHELL" is defined, and not defined
-     * as "DCL" (by GNV "bash", for example), then use __posix_exit() to
-     * exit with the raw, UNIX-like status code.
-     */
-    char *sh_ptr;
-
-    sh_ptr = getenv( "SHELL");
-    if ((sh_ptr != NULL) && strcasecmp( sh_ptr, "DCL"))
-    {
-        __posix_exit( e);
-    }
-    else
-
-#endif /* #if !defined( NO_POSIX_EXIT) && (__CRTL_VER >= 70000000) */
-
-    {
 #ifndef OLD_STATUS
 
-        /* If __posix_exit() is unavailable (__CRTL_VER < 70000000) or
-         * undesired (defined( NO_POSIX_EXIT)), or the environment
-         * variable "SHELL" is not defined, then:
-         *
-         * Exit with code comprising Control, Facility,
-         * (facility-specific) Message, and Severity.
-         */
-        exit( (CTL_FAC_IZ_ZIP << 16) |          /* Facility                */
-              MSG_FAC_SPEC |                    /* Facility-specific       */
-              (e << 4) |                        /* Message code            */
-              (ziperrors[ e].severity & 0x07)   /* Severity                */
-         );
+    /* Return code comprising Control, Facility,
+     * (facility-specific) Message, and Severity.
+     */
+    sts = (CTL_FAC_IZ_ZIP << 16) |              /* Facility                */
+          MSG_FAC_SPEC |                        /* Facility-specific       */
+          (err << 4) |                          /* Message code            */
+          (ziperrors[ err].severity & 0x07);      /* Severity                */
 
 #else /* ndef OLD_STATUS */
 
@@ -365,19 +339,53 @@ void vms_exit(e)
      * error or warning.  Define MSG_FAC_SPEC to get the desired
      * behavior.
      *
-     * Exit with simple SS$_NORMAL for ZE_OK.  Otherwise, exit with code
+     * Return simple SS$_NORMAL for ZE_OK.  Otherwise, return code
      * comprising Control, Facility, Message, and Severity.
      */
-        exit(
-         (e == ZE_OK) ? SS$_NORMAL :            /* Success (others below)  */
+    sts = (err == ZE_OK) ? SS$_NORMAL :         /* Success (others below)  */
           ((CTL_FAC_IZ_ZIP << 16) |             /* Facility                */
           MSG_FAC_SPEC |                        /* Facility-specific (?)   */
-          (e << 4) |                            /* Message code            */
-          (ziperrors[ e].severity & 0x07)       /* Severity                */
-          )
-         );
+          (err << 4) |                          /* Message code            */
+          (ziperrors[ err].severity & 0x07));   /* Severity                */
 
-#endif /* ndef OLD_STATUS */
+#endif /* ndef OLD_STATUS [else] */
+
+    return sts;
+}
+
+
+/* Exit with an intelligent status/severity code. */
+
+/* Declare __posix_exit() if <stdlib.h> won't, and we use it. */
+
+#if __CRTL_VER >= 70000000 && !defined(_POSIX_EXIT)
+#  if !defined( NO_POSIX_EXIT)
+void     __posix_exit     (int __status);
+#  endif /* !defined( NO_POSIX_EXIT) */
+#endif /* __CRTL_VER >= 70000000 && !defined(_POSIX_EXIT) */
+
+
+void vms_exit( int err)
+{
+#if !defined( NO_POSIX_EXIT) && (__CRTL_VER >= 70000000)
+
+    /* If the environment variable "SHELL" is defined, and not defined
+     * as "DCL" (by GNV "bash", for example), then use __posix_exit() to
+     * exit with the raw, UNIX-like status code.
+     */
+    char *sh_ptr;
+
+    sh_ptr = getenv( "SHELL");
+    if ((sh_ptr != NULL) && strcasecmp( sh_ptr, "DCL"))
+    {
+        __posix_exit( err);
+    }
+    else
+
+#endif /* #if !defined( NO_POSIX_EXIT) && (__CRTL_VER >= 70000000) */
+
+    {
+        exit( vms_status( err));
     }
 }
 
@@ -1038,7 +1046,7 @@ int establish_ctrl_t( void ctrl_t_ast())
     status = sys$assign( &term_name_descr, &term_chan, 0, 0);
     if ((status& STS$M_SEVERITY) != STS$K_SUCCESS)
     {
-        fprintf( stderr, " establish_ctrl_t(): $ASSIGN sts =  %%x%08x .\n",
+        fprintf( mesg, " establish_ctrl_t(): $ASSIGN sts =  %%x%08x .\n",
          status);
         return status;
     }
@@ -1052,7 +1060,7 @@ int establish_ctrl_t( void ctrl_t_ast())
 
     if ((status& STS$M_SEVERITY) != STS$K_SUCCESS)
     {
-        fprintf( stderr, " establish_ctrl_t(): $GETDVI sts =  %%x%08x .\n",
+        fprintf( mesg, " establish_ctrl_t(): $GETDVI sts =  %%x%08x .\n",
          status);
         sys$dassgn( term_chan);
         return status;
@@ -1085,7 +1093,7 @@ int establish_ctrl_t( void ctrl_t_ast())
 
     if ((status& STS$M_SEVERITY) != STS$K_SUCCESS)
     {
-        fprintf( stderr, " establish_ctrl_t(): $QIOW sts =  %%x%08x .\n",
+        fprintf( mesg, " establish_ctrl_t(): $QIOW sts =  %%x%08x .\n",
          status);
         sys$dassgn( term_chan);
     }
@@ -1224,13 +1232,13 @@ if (rms_defaults_known > 0)
 
 if (DIAG_FLAG)
     {
-    fprintf( stderr,
+    fprintf( mesg,
      "Get RMS defaults.  getjpi sts = %%x%08x.\n",
      sts);
 
     if (rms_defaults_known > 0)
         {
-        fprintf( stderr,
+        fprintf( mesg,
          "               Default: deq = %6d, mbc = %3d, mbf = %3d.\n",
          rms_ext, rms_mbc, rms_mbf);
         }
@@ -1374,7 +1382,7 @@ decc_feat_t decc_feat_array[] = {
 
 /* LIB$INITIALIZE initialization function. */
 
-static void decc_init( void)
+void decc_init( void)
 {
 int feat_index;
 int feat_value;
@@ -1426,36 +1434,6 @@ for (i = 0; decc_feat_array[ i].name != NULL; i++)
       }
    }
 }
-
-/* Get "decc_init()" into a valid, loaded LIB$INITIALIZE PSECT. */
-
-#pragma nostandard
-
-/* Establish the LIB$INITIALIZE PSECTs, with proper alignment and
-   other attributes.  Note that "nopic" is significant only on VAX.
-*/
-#pragma extern_model save
-
-#pragma extern_model strict_refdef "LIB$INITIALIZ" 2, nopic, nowrt
-const int spare[ 8] = { 0 };
-
-#pragma extern_model strict_refdef "LIB$INITIALIZE" 2, nopic, nowrt
-void (*const x_decc_init)() = decc_init;
-
-#pragma extern_model restore
-
-/* Fake reference to ensure loading the LIB$INITIALIZE PSECT. */
-
-#pragma extern_model save
-
-int LIB$INITIALIZE( void);
-
-#pragma extern_model strict_refdef
-int dmy_lib$initialize = (int) LIB$INITIALIZE;
-
-#pragma extern_model restore
-
-#pragma standard
 
 #endif /* !defined( __VAX) && (__CRTL_VER >= 70301000) */
 

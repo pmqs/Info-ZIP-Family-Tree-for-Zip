@@ -1,7 +1,7 @@
 /*
   win32/win32zip.c - Zip 3
 
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -962,14 +962,16 @@ int has_win32_wide() {
   /* get attributes for this directory */
   r = GetFileAttributes(".");
 
+  /* Change == to & in below checks - stronghorse */
+
   /* r should be 16 = FILE_ATTRIBUTE_DIRECTORY */
-  if (r == FILE_ATTRIBUTE_DIRECTORY) {
+  if (r & FILE_ATTRIBUTE_DIRECTORY) {
     /* now see if it works for the wide version */
     r = GetFileAttributesW(L".");
     /* if this fails then we probably don't have wide functions */
     if (r == 0xFFFFFFFF) {
       /* error is probably "This function is only valid in Win32 mode." */
-    } else if (r == FILE_ATTRIBUTE_DIRECTORY) {
+    } else if (r & FILE_ATTRIBUTE_DIRECTORY) {
       /* worked, so assume we have wide support */
       no_win32_wide = 0;
     }
@@ -1869,7 +1871,12 @@ local void GetSD(char *path, char **bufptr, ush *size,
 
   if (noisy) {
     sprintf(errbuf, " (%ld bytes security)", bytes);
-    zipmessage_nl(errbuf, 0);
+    fprintf(mesg, "%s", errbuf);
+    mesg_line_started = 1;
+    if (logall) {
+      fprintf(logfile, "%s", errbuf);
+      logfile_line_started = 1;
+    }
   }
 
   if(DynBuffer) free(DynBuffer);

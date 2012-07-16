@@ -50,6 +50,12 @@
 .!              Minor updates for version 3.0.
 .!      Steven Schweda          12 December 2008
 .!              Minor tidying for version 3.1.
+.!      Steven Schweda          30 June 2011
+.!              AES_WG encryption.
+.!      Steven Schweda          29 March 2012
+.!              Added LZMA, PPMd compression.
+.!              Added -ss, and the new -n and -0/-9 extensions.
+.!              Added error codes 21 (CRYPT) and 22 (COMPRESS).
 .!
 .noflags
 .lm4 .rm72
@@ -57,7 +63,7 @@
 1 ZIP
 .br
 Zip is a compression and file packaging utility for several operating
-systems, including UNIX, VMS,  MSDOS, OS/2, Windows 9x/NT/XP, Minix, Atari,
+systems, including UNIX, VMS, MSDOS, OS/2, Windows 9x/NT/XP, Minix, Atari,
 Macintosh, Amiga, and Acorn RISC OS.  It is analogous to a combination of
 tar and compress and is compatible with PKZIP (Phil Katz's ZIP) for
 MSDOS systems.
@@ -114,12 +120,14 @@ archive with a single command.
 Compression
 .sk
 Compression ratios of 2:1 to 3:1 are common for text files.  Zip has one
-standard compression method ("deflate") and can also store files without
+standard compression method ("Deflate") and can also store files without
 compression.  Zip (and UnZip) may be built with optional support for the
-bzip2 compression method.  Then, the user may select bzip2 compression
-instead of the default "deflate" method.  Zip automatically chooses
-simple storage over compression for a file, if the specified compression
-method does not actually compress the data in that file.
+bzip2, LZMA, and/or PPMd compression methods.  Then, the user may select
+bzip2, LZMA, or PPMd compression instead of the default "Deflate"
+method.  Zip automatically chooses simple storage over compression for a
+file, if the specified compression method does not actually compress the
+data in that file (except currently for LZMA compression, which may
+waste a few bytes, typically on very small files).
 .sk
 Compatibility
 .sk
@@ -131,9 +139,10 @@ better compatibility).  Zip version 3.0 is compatible with PKZIP 2.04
 and also supports the Zip64 extensions of PKZIP 4.5 which allows
 archives as well as files to exceed the previous 2 GB limit (4 GB in
 some cases).  Zip also supports bzip2 compression if the bzip2 library
-is included when Zip is built.  Note that PKUNZIP 1.10 cannot extract
-files produced by PKZIP 2.04 or Zip 3.0.  You must use PKUNZIP 2.04g or
-UnZip 5.0p1 (or later versions) to extract them.
+is included when Zip is built, and LZMA and PPMd compression if either
+or both of them are enabled when Zip is built.  Note that PKUNZIP 1.10
+cannot extract files produced by PKZIP 2.04 or Zip 3.0.  You must use
+PKUNZIP 2.04g or UnZip 5.0p1 (or later versions) to extract them.
 .sk
 Large Archives and Zip64
 .sk
@@ -151,9 +160,9 @@ exceed about 64K.  Zip64 is also used for archives streamed to a
 non-seekable output device.  You must use a 4.5 compatible UnZip to
 extract files using the Zip64 extensions such as UnZip 6.0 or later.
 .sk
-In addition, streamed archives, entries encrypted with standard
+In addition, streamed archives, entries encrypted with traditional zip
 encryption, or split archives created with the pause option may not be
-compatible with PKZIP as data descriptors are used, and PKZIP at the 
+compatible with PKZIP as data descriptors are used, and PKZIP at the
 time of this writing does not support data descriptors (but recent
 changes in the PKWare published .ZIP file standard now include some
 support for the data descriptor format Zip uses).
@@ -306,62 +315,117 @@ SYS$INPUT (stdin)) can't be used together (successfully).
 2 Compression
 .br
 Zip can archive files with or without compression.  The standard
-compression method ("deflate") is compatible with all UnZip versions
-(except really old ones that only understand the "store" method). 
+compression method ("Deflate") is compatible with all UnZip versions
+(except very old ones that understand only the "Store" method).
 Current Zip and UnZip versions may be built with optional support for
-the bzip2 compression method.  (The bzip2 method can compress better,
-especially when compressing smaller files, but uses more CPU time, and
-requires an UnZip which includes the optional bzip2 support.  See the
-installation instructions for details on adding bzip2 compression
-support at build time.)
+the bzip2, LZMA, and PPMd compression methods.  (These methods can
+compress better than Deflate, but normally use more CPU time, and
+require an UnZip which includes support for the optional method.  See
+the installation instructions for details on adding support for the
+optional compression methods at build time.)
 .sk
 Numeric compression level options control the effort put into data
 compression, with -1 being the fastest, and -9 giving the most
-compression.
+compression.  Different compression levels can be specified for
+different compression methods.
+.sk
+Normally, a file which is already compressed will not be compressed much
+further (if at all) by Zip, and trying to do it can waste considerable
+CPU time.  Zip can suppress compression (that is, use method Store) on
+files with particular file name suffixes.  Zip can also choose a
+compression method (and level) according to file name suffixes.  For
+details on how to specify suffix lists for different compression
+methods, see -n, below.
 .sk
 Compression control options:
-.sk;.lm +10;.literal
--Z mthd                      use compress method "mthd",
---compression-method mthd    "bzip2" or "deflate" (default)
+.sk;.literal
+   -Z, Set global compression method
 
--0  (--store)                no compression
--1  (--compress-1)           compression level 1
--2  (--compress-2)           compression level 2
--3  (--compress-3)           compression level 3
--4  (--compress-4)           compression level 4
--5  (--compress-5)           compression level 5
--6  (--compress-6)           compression level 6
--7  (--compress-7)           compression level 7
--8  (--compress-8)           compression level 8
--9  (--compress-9)           compression level 9
+-Z cm                        Use compression method "cm": "Store",
+--compression-method cm      "Deflate", "Bzip2", "LZMA", or "PPMd".
+                             Default: "Deflate".  Methods are
+                             case-insensitive.
+
+   -<L> (-0, ..., -9), Set global compression level
+
+-0  (--store)                No compression  (Equivalent to "-Zstore".)
+-1  (--compress-1)           Compression level 1
+-2  (--compress-2)           Compression level 2
+[...]
+-9  (--compress-9)           Compression level 9
+
+   -<L>=mthd_list, Set compression level for methods in the
+                   (colon- or semi-colon-separated) list.
+                   Methods are case-insensitive.
+Example:
+ -8=lzma:ppmd                Use level 8 for methods LZMA and PPMd.
+
+   -n (--suffixes), Set compression method (and level)
+                    by file name suffix.
+
+-n sufx_list                 Set compression method (and level, if
+-n mthd=sufx_list            specified) for file name suffixes in the
+-n mthd-lvl=sufx_list        (colon- or semi-colon-separated) list.
+                             Default mthd = Store.  (Method Store
+                             implies level zero, no no level may be
+                             specified for method Store.  Level 0
+                             implies method Store, so level 0 may not
+                             be specified with any method.)
+                             Specifying only ":" (or ";") as the
+                             suffix list clears that suffix list.
+                             Multiple "-n" options are allowed.
+                             Default:
+                             -n store=.Z:.zip:.zoo:.arc:.lzh:.arj
+Example:
+-n ppmd-5=.c:.h:.txt         Set method to PPMd level 5 for file
+                             names ending with ".c", ".h", or ".txt".
+.end literal
+.sk
+Rules used to determine compression method and level for a file:
+.sk;.lm +10;.literal
+0. Assume defaults: Method = Deflate, level = 6.
+
+1. If a global -<L> (-1/-9) compression level was specified,
+   then tentatively choose the specified level.  If a
+-Z/--compression-method global compression method was
+specified, then tentatively choose the specified method.
+(Specifying "-0" is equivalent to "-Zstore".)
+
+2. If a file name matches a -n/--suffixes suffix list,
+   then use the method for that suffix list.  If a level
+was specified with that method, then use that level.
+Suffix lists are searched in the order: Store, Deflate,
+then the (optional) other methods alphabetically, so,
+currently: Store, Deflate, Bzip2, LZMA, PPMd (as enabled).
+By default, the Store suffix list is
+".Z:.zip:.zoo:.arc:.lzh:.arj".
+
+3. If the compression level has not yet been determined,
+and a -L/--store/--compress-<L> level was specified for
+the chosen method, then use the level for that method.
 .end literal;.lm -10
-.sk
-Normally, a file which is already compressed will not be compressed much 
-further (if at all) by Zip, and trying to do it can waste considerable
-CPU time.  Zip can suppress compression on files with particular types,
-specified as a colon- or semi-colon-separated list of file types:
-.sk;.indent 10
--n type1[:type2[...]]  (--suffixes type1[:type2[...]])
-.sk
-For example:
-.sk;.indent 10
-zip -n .bz2:.gz:.jpeg:.jpg:.mp3:.zip foo [.foo]*.*
-.sk
-will put everything (";0") from [.foo] into foo.zip, but will store any
-files that end in .bz2, .gz, .jpeg, .jpg, .mp3, or .zip, without trying
-to compress them.
-.sk
-The default type list is .Z:.zip:.zoo:.arc:.lzh:.arj, and the comparison
-is case-insensitive.
-.sk
--9 (--compress-9) will override -n (--suffixes), causing compression to
-be attempted for all files.
 .!------------------------------------------------------------------------------
 .indent -4
 2 Encryption
 .br
-Zip offers optional encryption, using a method which by modern standards
-is generally considered to be weak.
+Zip can encrypt files when they are added to an archive.  By default,
+Zip offers an encryption method called traditional zip encryption, which
+by modern standards is generally considered to be weak.
+.sk
+Beginning with Zip version 3.1 (and UnZip version 6.1), Zip (and UnZip)
+offer optional support for Advanced Encryption Standard (AES)
+encryption, which is a stronger encryption method than traditional zip
+encryption.  A separate IZ_AES_WG source kit is required to enable this
+AES encryption option.  See README_AES_WG.txt for more on the optional
+AES encryption.
+.sk
+Encryption control options:
+.sk;.literal
+-e           --encrypt                 Encrypt new archive entries.
+-P pwd       --password pwd            Use "pwd" as the password.
+-pn          --non-ansi-password       Allow non-ANSI password.
+-Y em        --encryption-method em    Use encryption method "em".
+.end literal
 .sk;.literal
 -e  --encrypt
 .end literal;.br
@@ -369,23 +433,46 @@ Encrypt new or updated archive entries using a password which is
 supplied by the user interactively on the terminal in response to a
 prompt.  (The password will not be echoed.)  If SYS$COMMAND is not a
 terminal, Zip will exit with an error.  The password is verified before
-being accepted.
-.sk;.literal
--P password  --password password
-.end literal;.br
-Use "password" to encrypt new or updated archive entries (if any). 
-USING -P IS INSECURE!   Many multi-user operating systems provide ways
-for any user (or a privileged user) to see the current command line of
-any other user.  Even on more secure systems, there is always the threat
-of over-the-shoulder peeking.  Storing the plaintext password as part of 
-a command line in a command procedure is even less secure.  Whenever
-possible, use the non-echoing, interactive password entry method.
+being accepted.  The default encryption method is traditional zip
+encryption.
 .sk
-Because standard Zip encryption is weak, where security is truly
-important, use a strong encryption program, such as Pretty Good Privacy
-(PGP) or GNU Privacy Guard (GnuPG), on an archive instead of standard
-Zip encryption.  A stronger encryption method, such as AES, is planned
-for Zip 3.1.
+Traditional zip encryption is weak, so where security is truly
+important, use AES encryption, or use an external strong encryption
+program, such as GNU Privacy Guard (GnuPG, gpg), on an archive instead.
+.sk;.literal
+-P pwd  --password pwd
+.end literal;.br
+Use "pwd" to encrypt new or updated archive entries (if any). 
+(-P/--password implies -e/--encrypt, but without the interactive
+password handling.)
+.sk
+USING -P/--password IS INSECURE!   Many multi-user operating systems
+provide ways for any user (or a privileged user) to see the current
+command line of any other user.  Even on more secure systems, there is
+always the threat of over-the-shoulder peeking.  Storing the plaintext
+password as part of a command line in a command procedure is even less
+secure.  Whenever possible, use the non-echoing, interactive password
+entry method.  Enclose the password string in quotation marks ("pass
+word"), to prevent automatic conversion to upper case or
+misinterpretation of punctuation characters by DCL.
+.sk;.literal
+-pn  --non-ansi-password
+.end literal;.br
+By default, an encryption password is restricted to "ANSI characters"
+(ASCII character codes 32-126).  -pn/--non-ansi-password allows any
+characters to be specified.  Note that use of non-ANSI characters in a
+password may cause problems if the UnZip program or either command-line
+interface has difficulty dealing with the special characters.
+.sk;.literal
+-Y em  --encryption-method em
+.end literal;.br
+Supported encryption methods, "em", are "Traditional" (weak), and
+WinZip-compatible AES (strong) with various key lengths: "AES128",
+"AES192", and "AES256".  (-Y/--encryption-method implies -e/--encrypt.)
+.sk
+AES encryption must be enabled at build time, and requires a compatible
+AES source kit.  An AES-capable UnZip program is needed to extract
+AES-encrypted entries.
 .!------------------------------------------------------------------------------
 .indent -4
 2 Exit_Status
@@ -443,6 +530,8 @@ defined by PKWARE, as shown in the following table:
   Fatal        19      Zip was built with options not supported  on
                        this system
   Fatal        20      Attempt to read unsupported Zip64 archive
+  Error        21      Encryption error
+  Error        22      Compression error
 .end literal
 .!------------------------------------------------------------------------------
 .indent -4
@@ -497,7 +586,7 @@ zip30/vms/descrip.mms
 .sk
 For security reasons, paths in Zip archives are always stored as
 relative paths, so an absolute VMS directory specification will be
-transformed to a relative path in the archive (that is, no leading "/"). 
+transformed to a relative path in the archive (that is, no leading "/").
 For example, the following absolute directory specification would give
 the same archive path as the previous (relative) example:
 .sk;.indent 10
@@ -533,14 +622,15 @@ include -R (--recurse-patterns), -d (--delete), -i (--include), -x
 (--exclude), and -U (--copy-entries).
 .sk
 Note: By default, on VMS, archive name pattern matching (-R, -d, -i, -x,
-and -U) is case sensitive, even when the file system is not case
-sensitive (or even case preserving).  This allows accurate matching of
-mixed-case names in an archive which may have been created on a system
-with a case sensitive file system, but it can involve extra effort on
-VMS, where it may be necessary to use unnatural case names (or the same
-names in multiple cases, like "*.obj *.OBJ") for this kind of pattern
-matching to give the desired behavior.  If completely case-blind pattern
-matching behavior is desired, specify the -ic (--ignore-case) option.
+and -U) is case-sensitive, even when the file system is not
+case-sensitive (or even case-preserving).  This allows accurate matching
+of mixed-case names in an archive which may have been created on a
+system with a case-sensitive file system, but it can involve extra
+effort on VMS, where it may be necessary to use unnatural case names (or
+the same names in multiple cases, like "*.obj *.OBJ") for this kind of
+pattern matching to give the desired behavior.  If completely case-blind
+pattern matching behavior is desired, specify the -ic (--ignore-case)
+option.
 .!------------------------------------------------------------------------------
 .indent -4
 3 Case
@@ -569,10 +659,10 @@ options give the user control over these conversions:
 .sk
 Case is handled differently for archive member names, which the user
 specifies with the -R, -d, -i, -x, and -U options.  By default, on VMS,
-archive name pattern matching is case sensitive, even when the file
-system is not case sensitive (or even case preserving).  This allows
+archive name pattern matching is case-sensitive, even when the file
+system is not case-sensitive (or even case-preserving).  This allows
 accurate matching of mixed-case names in an archive which may have been
-created on a system with a case sensitive file system, but it can
+created on a system with a case-sensitive file system, but it can
 involve extra effort on VMS, where it may be necessary to use unnatural
 case names (or the same names in multiple cases, like "*.obj *.OBJ") for
 this kind of pattern matching to give the desired behavior.  If
@@ -589,14 +679,14 @@ Two options can be used to fix a damaged Zip archive.
 .end literal;.sk
 The -F (--fix) option can be used if some portions of the archive are
 missing, but it requires a reasonably intact central directory.  The
-input archive is scanned as usual, but zip will ignore some problems. 
+input archive is scanned as usual, but zip will ignore some problems.
 The resulting archive should  be valid, but any inconsistent entries
 will be left out.
 .sk
 If the archive is too damaged or the end (where the central directory is
 situated) has been truncated, you must use -FF (--fixfix).  This is a
 change from zip 2.32, where the -F option is able to read a truncated
-archive.  The -F option now more reliably fixes archives with minor 
+archive.  The -F option now more reliably fixes archives with minor
 damage, and the -FF option is needed to fix archives where -F and -FF
 was used before.
 .sk
@@ -618,7 +708,7 @@ foo.zip,
 .sk;.indent 10
 zip -F foo --out foo_fix
 .sk
-tries to read the entries normally, copying good entries to the new 
+tries to read the entries normally, copying good entries to the new
 archive foo_fix.zip.  If this doesn't work, as when the archive is
 truncated, or if some entries are missed because of bad central
 directory entries, try -FF:
@@ -664,7 +754,7 @@ and errors, and the final status.
 .indent -4
 2 Modes_of_Operation
 .br
-Zip supports two distinct types of command modes, external and 
+Zip supports two distinct types of command modes, external and
 internal.  The external modes (update, grow, and freshen) read files
 from the file system (as well as from an existing archive) while the
 internal modes (delete and copy) operate exclusively on entries in an
@@ -679,7 +769,7 @@ exist, create it.  This is the default mode, so -u is optional.
 .end literal;.br
 Grow (append to) the specified Zip archive, instead of creating a new
 one.  If this operation fails, Zip attempts to restore the archive to
-its original state.  If the restoration fails, the archive might become 
+its original state.  If the restoration fails, the archive might become
 corrupted.  This option is ignored when there's no existing archive or
 when at least one archive member must be updated or deleted.
 .sk;.literal
@@ -694,9 +784,9 @@ Delete entries from an existing archive.
 .sk;.literal
 -DF  --difference-archive
 .end literal;.br
-Create an incremental-backup-style archive, where the resulting archive 
+Create an incremental-backup-style archive, where the resulting archive
 will contain all new and changed files since the original archive was
-created.  For this to work, the input file list and current directory 
+created.  For this to work, the input file list and current directory
 must be the same as during the original Zip operation.
 .sk
 For example, if the existing archive was created using
@@ -730,12 +820,12 @@ the old archive, it may be faster to create a new archive instead.
 This option deletes files from the archive.  If you need to preserve the
 original archive, make a copy of the archive first, or use the  -O
 (--output) option to output the new archive to a new file.  Even though
-it's slower, creating a new archive with a new archive name is safer, 
+it's slower, creating a new archive with a new archive name is safer,
 avoids mismatches between archive and OS paths, and is preferred.
 .sk;.literal
 -U  --copy-entries
 .end literal;.br
-Select entries in an existing archive and copy them to a new archive. 
+Select entries in an existing archive and copy them to a new archive.
 Copy mode is like update mode, but entries in the existing archive are
 selected by command line patterns rather than files from the file system
 and it uses the -O (--output-file) option to write the resulting archive
@@ -787,7 +877,7 @@ the same thing.
 .sk
 When these options are used, Zip should be run from the same directory
 as when the original Zip command was run, so that the path names in the
-archive will continue to agree with the path names in the file system. 
+archive will continue to agree with the path names in the file system.
 Normally, it's also a good idea to keep the other options the same (-V,
 -w, and the like), to keep the archive contents consistent.
 .sk
@@ -825,10 +915,10 @@ will copy all .obj entries from foo.zip and put them into the new
 archive, fooobj.zip.
 .sk
 Note: By default, on VMS, archive name pattern matching (-R, -d, -i, -x,
-and -U) is case sensitive, even when the file system is not case
-sensitive (or even case preserving).  This allows accurate matching of
+and -U) is case-sensitive, even when the file system is not
+case-sensitive (or even case-preserving).  This allows accurate matching of
 mixed-case names in an archive which may have been created on a system
-with a case sensitive file system, but it can involve extra effort on
+with a case-sensitive file system, but it can involve extra effort on
 VMS, where it may be necessary to use unnatural case names (or the same
 names in multiple cases, like "*.obj *.OBJ") for this kind of pattern
 matching to give the desired behavior.  If completely case-blind pattern
@@ -839,7 +929,7 @@ matching behavior is desired, specify the -ic (--ignore-case) option.
 .br
 "zip -h" provides a concise list of common command-line options.  "zip
 -h2" provides more details.  "zip -so" provides a list of all available
-options.  "zip -v" shows the program version and available features. 
+options.  "zip -v" shows the program version and available features.
 (The list below was derived from a "zip -so" listing.)
 .sk
 Short-form options begin with a single hyphen ("-").  Long-form option
@@ -879,6 +969,8 @@ be separated by a space or "=".  For example:
  0   store               store (instead of compress)
  1   compress-1          compress faster (-2, -3, -4, ...)
  9   compress-9          compress better
+ 1   compress-1=[mthd1[:mthd2][...]]  set compression level for these
+                                      methods
  ?                       show the Zip help screen
  @   names-stdin         read input file patterns from SYS$INPUT (1/line)
  A   adjust-sfx          adjust self-extracting executable
@@ -912,7 +1004,7 @@ be separated by a space or "=".  For example:
  h   help                show the Zip help screen
  h2  more-help           show extended Zip help
  i   include  pat1 [pat2 [...]]  include only names matching the patterns
- ic  ignore-case         ignore case (case-blind archive entry name matching)
+ ic  ignore-case         ignore case (case-blind archive entry name match)
  J   junk-sfx            junk (remove) archive preamble (unzipsfx)
  j   junk-paths          junk (don't store) directory names, only file names
  k   DOS-names           simulate PKZIP-made archive (DOS 8.3 names)
@@ -925,6 +1017,8 @@ be separated by a space or "=".  For example:
  MM  must-match          input file spec must exist (wildcards must match)
  m   move                delete files added to archive
  n   suffixes  sfx1[:sfx2[...]]  don't compress files with these suffixes
+ n   suffixes mthd=sfx1[:sfx2[...]]  use compression method "mthd" for
+                                     files with these suffixes
  nw  no-wild             no wildcards during add or update
  O   output-file  ozf  use "ozf" as the output archive (dflt = inp archive)
  o   latest-time         set archive date-time to match oldest entry
@@ -939,6 +1033,7 @@ be separated by a space or "=".  For example:
  sf  show-files          show files to process (only)
  so  show-options        show list of all command-line options
  sp  split-pause         pause to select split destination(s)
+ ss  show-suffixes       show -n suffix lists (only)
  sv  split-verbose       be verbose about creating splits
  T   test                test archive integrity (runs UnZip -T)
  t   from-date  mmddyyyy  only do files since (at or after) "mmddyyyy"
@@ -952,7 +1047,10 @@ be separated by a space or "=".  For example:
  X   strip-extra         strip all but critical extra fields
  X-  strip-extra-        keep all extra fields
  x   exclude  pat1 [pat2 [...]]  exclude all names matching the patterns
- Z   compression-method mthd  use compress method "mthd" (bzip2 or deflate)
+ Y   encryption-method em  use encryption method "em" (Traditional, AES128,
+                           AES192, or AES256)
+ Z   compression-method cm  use compress method "cm" (Store, Deflate,
+                            Bzip2, LZMA, PPMd)
  z   archive-comment     ask for archive comment
 .end literal;.lm +4
 .!------------------------------------------------------------------------------
@@ -970,12 +1068,12 @@ the destination system, rather than their original atributes.
 .sk;.literal
 -MM  --must-match
 .end literal;.br
-All input patterns must match at least one file and all input files 
+All input patterns must match at least one file and all input files
 found must be readable.  Normally when an input pattern does not match
 a file the "name not matched" warning is issued and when an input
 file has been found but later is missing or not readable a "missing or
 not readable" warning is issued.  In either case Zip continues
-creating the archive, with missing or unreadable new files being skipped 
+creating the archive, with missing or unreadable new files being skipped
 and files already in the archive remaining unchanged.  After the
 archive is created, if any files were not readable zip returns the OPEN
 error code (18 on most systems) instead of the normal success return (0
@@ -1036,7 +1134,7 @@ the entries in foo.zip.
 .sk;.literal
 -q  --quiet
 .end literal;.br
-Quiet mode.  Eliminates informational messages and comment prompts. 
+Quiet mode.  Eliminates informational messages and comment prompts.
 This mode may be useful in command procedures, or if the Zip operation
 is being performed as a background task ("$ spawn/nowait zip -q src.zip
 *.c").
@@ -1068,7 +1166,7 @@ to the end of the command.  The exit status is checked for success severity.
 .end literal;.br
 Verbose mode or print diagnostic version info.
 .sk
-Normally, when applied to real operations, this option enables the 
+Normally, when applied to real operations, this option enables the
 display of a progress indicator during compression (see -dd for more on
 dots) and requests verbose diagnostic info about archive structure
 oddities.
@@ -1121,7 +1219,7 @@ Display running count of entries processed and entries to go.
 .sk;.literal
 -dd  --display-dots
 .end literal;.br
-Display dots while each entry is processed (except on ports that have 
+Display dots while each entry is processed (except on ports that have
 their own progress indicator).  See -ds below for setting dot size.  The
 default is a dot every 10 MB of input file processed.  The -v
 (--verbose) option also displays dots and used to at a higher rate than
@@ -1150,7 +1248,7 @@ higher rate than this (at the same rate as in previous versions of Zip)
 but now the default is 10 MB and the -v dots are also controlled by this
 option.  A "size" of 0 turns dots off.
 .sk
-This option does not control the dots from the "Scanning files" message 
+This option does not control the dots from the "Scanning files" message
 as Zip scans for input files.  The dot size for that is fixed at 2
 seconds or a fixed number of entries, whichever is longer.
 .sk;.literal
@@ -1174,7 +1272,7 @@ The UnZip distribution includes a VMS command procedure,
 SFX archive from a normal Zip archive.
 .sk
 The .ZIP file format includes offsets to data structures in the archive,
-and these offsets are measured from the start of the archive file. 
+and these offsets are measured from the start of the archive file.
 Appending an archive to an UnZip SFX executable effectively moves the
 start of the archive file.  That makes the original offsets wrong, and
 that will cause the UnZip SFX program to emit warning messages when it
@@ -1217,7 +1315,7 @@ named ARCHIVE.z01, ARCHIVE.z02, ..., ARCHIVE.z19, ARCHIVE.zip, where
 "ARCHIVE" is the archive name specified by the user on the Zip command
 line.  Note that the last split file is the ".zip" file.  In contrast,
 "spanned" archives are the original multi-disk archive generally
-requiring floppy disks and using volume labels to store disk numbers. 
+requiring floppy disks and using volume labels to store disk numbers.
 Zip supports split archives but not spanned archives, though a procedure
 exists for converting split archives of the right size to spanned
 archives.  The reverse is also true, where each file of a spanned
@@ -1227,7 +1325,7 @@ split archive.
 .indent -4
 3 Options
 .br
-Use "-s size" to create a split archive (and to set the split size). 
+Use "-s size" to create a split archive (and to set the split size).
 The size is given as a number followed optionally by a multiplier suffix
 of k (KB), m (MB, the default if no suffix is specified), g (GB), or t
 (TB).  (All are powers of 1024, not 1000.)  64K is the minimum split
@@ -1250,7 +1348,7 @@ details of how the splitting is being done.  The -sb option can be used
 to ring the terminal bell when Zip pauses for the next split
 destination.
 .sk
-The -sp option can be used to pause Zip between splits to allow 
+The -sp option can be used to pause Zip between splits to allow
 changing removable media, for example, but read the descriptions and
 warnings for both -s and -sp below.
 .sk
@@ -1264,7 +1362,7 @@ reads archive inarchive.zip, even if split, adds the files foo.c and
 bar.c, and writes the resulting archive to outarchive.zip.  If
 inarchive.zip is split, then outarchive.zip defaults to the same split
 size.  Be aware that outarchive.zip and any split files that are created
-with it are always overwritten without warning.  This may be changed in 
+with it are always overwritten without warning.  This may be changed in
 the future.
 .!------------------------------------------------------------------------------
 .indent -4
@@ -1293,7 +1391,7 @@ directory as stuff.zip when it's complete.
 .indent -4
 2 Text_Files
 .br
-Zip offers some options to help deal with line endings in text files. 
+Zip offers some options to help deal with line endings in text files.
 These may have limited utility on VMS.
 .sk;.literal
 -l  --to-crlf
@@ -1332,13 +1430,13 @@ VMS File Attributes
 .end literal;.br
 The -V and -VV options cause Zip to store VMS file atributes (such as
 file organization, record format, carriage control, and so on) in
-VMS-specific "extra fields" in an archive along with the usual data. 
+VMS-specific "extra fields" in an archive along with the usual data.
 These extra fields are ignored on non-VMS systems, but on a VMS system,
 they allow UnZip to restore the files with their VMS attributes intact.
 .sk
 With -V, Zip ignores any data in the file after the end-of-file (EOF)
 point (defined by FAT$L_EFBLK and FAT$W_FFBYTE), which works well for
-well-formed files (that is, those with no valid data beyond EOF). 
+well-formed files (that is, those with no valid data beyond EOF).
 Portable-format files (Stream_LF, fixed-512) archived with -V should be
 extracted properly on a non-VMS system.  Files with more complex
 structures, such as indexed files and files with embedded byte counts
@@ -1381,14 +1479,14 @@ Zip has an option to display its copyright and license.
 .end literal;.br
 The license is reproduced below.
 .sk.lm +3
-This is version 2007-Mar-4 of the Info-ZIP license. The definitive
-version of this document should be available at
-ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and a copy
-at http://www.info-zip.org/pub/infozip/license.html.
+This is version 2009-Jan-02 of the Info-ZIP license.
+The definitive version of this document should be available at
+ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
+a copy at http://www.info-zip.org/pub/infozip/license.html.
 .lm -3;.sk
 --------------------------------------------------------
 .sk
-Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 .sk
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -1403,9 +1501,9 @@ the following set of individuals:
      Rich Wales, Mike White.
 .lm -3;.sk
 This software is provided "as is," without warranty of any kind, express
-or implied.  In no event shall Info-ZIP or its contributors be held
-liable for any direct, indirect, incidental, special or consequential
-damages arising out of the use of or inability to use this software.
+or implied.  In no event shall Info-ZIP or its contributors be held liable
+for any direct, indirect, incidental, special or consequential damages
+arising out of the use of or inability to use this software.
 .sk
 Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it
@@ -1418,19 +1516,21 @@ freely, subject to the above disclaimer and the following restrictions:
     2. Redistributions in binary form (compiled executables and libraries)
        must reproduce the above copyright notice, definition, disclaimer,
        and this list of conditions in documentation and/or other materials
-       provided with the distribution.  The sole exception to this condition
-       is redistribution of a standard UnZipSFX binary (including SFXWiz) as
-       part of a self-extracting archive; that is permitted without inclusion
-       of this license, as long as the normal SFX banner has not been removed
-       from the binary or disabled.
+       provided with the distribution.  Additional documentation is not needed
+       for executables where a command line license option provides these and
+       a note regarding this option is in the executable's startup banner.  The
+       sole exception to this condition is redistribution of a standard
+       UnZipSFX binary (including SFXWiz) as part of a self-extracting archive;
+       that is permitted without inclusion of this license, as long as the
+       normal SFX banner has not been removed from the binary or disabled.
 .sk;.indent -4
-    3. Altered versions -- including, but not limited to, ports to new operating
+    3. Altered versions--including, but not limited to, ports to new operating
        systems, existing ports with new graphical interfaces, versions with
        modified or added functionality, and dynamic, shared, or static library
-       versions not from Info-ZIP -- must be plainly marked as such and must not
+       versions not from Info-ZIP--must be plainly marked as such and must not
        be misrepresented as being the original source or, if binaries,
        compiled from the original source.  Such altered versions also must not
-       be misrepresented as being Info-ZIP releases -- including, but not
+       be misrepresented as being Info-ZIP releases--including, but not
        limited to, labeling of the altered versions with the names "Info-ZIP"
        (or any variation thereof, including, but not limited to, different
        capitalizations), "Pocket UnZip," "WiZ" or "MacZip" without the
@@ -1439,9 +1539,9 @@ freely, subject to the above disclaimer and the following restrictions:
        e-mail addresses or the Info-ZIP URL(s), such as to imply Info-ZIP
        will provide support for the altered versions.
 .sk;.indent -4
-       4. Info-ZIP retains the right to use the names "Info-ZIP", "Zip",
-       "UnZip", "UnZipSFX", "WiZ", "Pocket UnZip", "Pocket Zip", and
-       "MacZip" for its own source and binary releases.
+    4. Info-ZIP retains the right to use the names "Info-ZIP," "Zip," "UnZip,"
+       "UnZipSFX," "WiZ," "Pocket UnZip," "Pocket Zip," and "MacZip" for its
+       own source and binary releases.
 .lm -7;.sk
 .!------------------------------------------------------------------------------
 .indent -4
@@ -1474,5 +1574,5 @@ sent as unified or context diffs only (diff -u or diff -c).
 Any bug report should include the Zip version, any special compilation
 options (see "zip -v" report), the host system type and operating system
 version, and any other relevant information (compiler version, lunar
-phase, ...).  
+phase, ...).
 .!------------------------------------------------------------------------------

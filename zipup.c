@@ -168,7 +168,7 @@ local zoff_t bzfilecompress OF((struct zlist far *z_entry, int *cmpr_method));
 
 #if defined( LZMA_SUPPORT) || defined( PPMD_SUPPORT)
 
-#include "lzma/Types.h"
+#include "szip/Types.h"
 
 static void *SzAlloc(void *p, size_t size) { p = p; return malloc(size); }
 static void SzFree(void *p, void *address) { p = p; free(address); }
@@ -186,8 +186,8 @@ static ISzAlloc g_Alloc = { SzAlloc, SzFree };
 # include <stdlib.h>
 # include <string.h>
 
-# include "lzma/SzVersion.h"
-# include "lzma/LzmaEnc.h"
+# include "szip/SzVersion.h"
+# include "szip/LzmaEnc.h"
 
  const char *kCantReadMessage = "Can not read input file";
  const char *kCantWriteMessage = "Can not write output file";
@@ -201,7 +201,7 @@ static ISzAlloc g_Alloc = { SzAlloc, SzFree };
 
 #ifdef PPMD_SUPPORT
 
-# include "lzma/Ppmd8.h"
+# include "szip/Ppmd8.h"
 
  local zoff_t ppmd_filecompress OF((struct zlist far *z_entry,
   int *cmpr_method));
@@ -890,8 +890,8 @@ struct zlist far *z;    /* zip entry to compress */
 #    pragma options align=reset
 
         /* Truncate name at "/rsrc" for getattrlist(). */
-        btrbslash = z->name[ strlen( z->name)- strlen( APL_DBL_SFX)];
-        z->name[ strlen( z->name)- strlen( APL_DBL_SFX)] = '\0';
+        btrbslash = z->name[ strlen( z->name)- strlen( APL_DBL_SUFX)];
+        z->name[ strlen( z->name)- strlen( APL_DBL_SUFX)] = '\0';
 
         /* Get object type and Finder info. */
         /* Clear attribute list structure. */

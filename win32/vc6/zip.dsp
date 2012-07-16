@@ -4,7 +4,7 @@
 
 # TARGTYPE "Win32 (x86) Console Application" 0x0103
 
-CFG=zip - Win32 ASM Debug
+CFG=zip - Win32 lzma Debug
 !MESSAGE This is not a valid makefile. To build this project using NMAKE,
 !MESSAGE use the Export Makefile command and run
 !MESSAGE 
@@ -13,7 +13,7 @@ CFG=zip - Win32 ASM Debug
 !MESSAGE You can specify a configuration when running NMAKE
 !MESSAGE by defining the macro CFG on the command line. For example:
 !MESSAGE 
-!MESSAGE NMAKE /f "zip.mak" CFG="zip - Win32 ASM Debug"
+!MESSAGE NMAKE /f "zip.mak" CFG="zip - Win32 lzma Debug"
 !MESSAGE 
 !MESSAGE Possible choices for configuration are:
 !MESSAGE 
@@ -21,6 +21,8 @@ CFG=zip - Win32 ASM Debug
 !MESSAGE "zip - Win32 ASM Debug" (based on "Win32 (x86) Console Application")
 !MESSAGE "zip - Win32 Release" (based on "Win32 (x86) Console Application")
 !MESSAGE "zip - Win32 Debug" (based on "Win32 (x86) Console Application")
+!MESSAGE "zip - Win32 lzma Debug" (based on "Win32 (x86) Console Application")
+!MESSAGE "zip - Win32 lzma Release" (based on "Win32 (x86) Console Application")
 !MESSAGE 
 
 # Begin Project
@@ -89,7 +91,7 @@ LINK32=link.exe
 # PROP Intermediate_Dir "zip___Win32_Release"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /FD /c
-# ADD CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NO_ASM" /FD /c
+# ADD CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NO_ASM" /D "INCLUDE_LZMA_AS_SOURCE" /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -113,7 +115,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /FD /GZ /c
-# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "NO_ASM" /FR /FD /GZ /c
+# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "NO_ASM" /D "INCLUDE_LZMA_AS_SOURCE" /FR /FD /GZ /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -123,6 +125,54 @@ LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
 # ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
 
+!ELSEIF  "$(CFG)" == "zip - Win32 lzma Debug"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 1
+# PROP BASE Output_Dir "zip___Win32_lzma_Debug"
+# PROP BASE Intermediate_Dir "zip___Win32_lzma_Debug"
+# PROP BASE Ignore_Export_Lib 0
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 1
+# PROP Output_Dir "zip___Win32_lzma_Debug"
+# PROP Intermediate_Dir "zip___Win32_lzma_Debug"
+# PROP Ignore_Export_Lib 0
+# PROP Target_Dir ""
+# ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "NO_ASM" /FR /FD /GZ /c
+# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "NO_ASM" /D "LZMA_SUPPORT" /D "INCLUDE_LZMA_AS_SOURCE" /FR /FD /GZ /c
+# ADD BASE RSC /l 0x409 /d "_DEBUG"
+# ADD RSC /l 0x409 /d "_DEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+LINK32=link.exe
+# ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
+
+!ELSEIF  "$(CFG)" == "zip - Win32 lzma Release"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "zip___Win32_lzma_Release"
+# PROP BASE Intermediate_Dir "zip___Win32_lzma_Release"
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "zip___Win32_lzma_Release"
+# PROP Intermediate_Dir "zip___Win32_lzma_Release"
+# PROP Target_Dir ""
+# ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NO_ASM" /FD /c
+# ADD CPP /nologo /W3 /GX /O2 /D "BACKUP_SUPPORT" /D "WIN32" /D "NO_ASM" /D "LZMA_SUPPORT" /D "INCLUDE_LZMA_AS_SOURCE" /FR /FD /c
+# ADD BASE RSC /l 0x409 /d "NDEBUG"
+# ADD RSC /l 0x409 /d "NDEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+LINK32=link.exe
+# ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
+
 !ENDIF 
 
 # Begin Target
@@ -131,9 +181,15 @@ LINK32=link.exe
 # Name "zip - Win32 ASM Debug"
 # Name "zip - Win32 Release"
 # Name "zip - Win32 Debug"
+# Name "zip - Win32 lzma Debug"
+# Name "zip - Win32 lzma Release"
 # Begin Group "Source Files"
 
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
+# Begin Source File
+
+SOURCE=..\..\lzma\Alloc.c
+# End Source File
 # Begin Source File
 
 SOURCE=..\..\crc32.c
@@ -156,7 +212,19 @@ SOURCE=..\..\globals.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\lzma\LzFind.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\lzma\LzmaEnc.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\nt.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\lzma\SzFile.c
 # End Source File
 # Begin Source File
 
@@ -204,6 +272,10 @@ SOURCE=..\..\zipup.c
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
 # Begin Source File
 
+SOURCE=..\..\lzma\Alloc.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\crc32.h
 # End Source File
 # Begin Source File
@@ -213,6 +285,18 @@ SOURCE=..\..\crypt.h
 # Begin Source File
 
 SOURCE=..\..\ebcdic.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\lzma\LzFind.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\lzma\LzHash.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\lzma\LzmaEnc.h
 # End Source File
 # Begin Source File
 
@@ -228,11 +312,23 @@ SOURCE=..\..\revision.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\lzma\SzFile.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\lzma\SzVersion.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\tailor.h
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\ttyio.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\lzma\Types.h
 # End Source File
 # Begin Source File
 
@@ -290,6 +386,16 @@ InputName=crc_i386
 
 # PROP Exclude_From_Build 1
 
+!ELSEIF  "$(CFG)" == "zip - Win32 lzma Debug"
+
+# PROP BASE Exclude_From_Build 1
+# PROP Exclude_From_Build 1
+
+!ELSEIF  "$(CFG)" == "zip - Win32 lzma Release"
+
+# PROP BASE Exclude_From_Build 1
+# PROP Exclude_From_Build 1
+
 !ENDIF 
 
 # End Source File
@@ -327,6 +433,16 @@ InputName=match32
 
 !ELSEIF  "$(CFG)" == "zip - Win32 Debug"
 
+# PROP Exclude_From_Build 1
+
+!ELSEIF  "$(CFG)" == "zip - Win32 lzma Debug"
+
+# PROP BASE Exclude_From_Build 1
+# PROP Exclude_From_Build 1
+
+!ELSEIF  "$(CFG)" == "zip - Win32 lzma Release"
+
+# PROP BASE Exclude_From_Build 1
 # PROP Exclude_From_Build 1
 
 !ENDIF 

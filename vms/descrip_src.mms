@@ -1,4 +1,4 @@
-#                                               20 March 2012.  SMS.
+#                                               16 June 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Source Description File.
 #
@@ -293,6 +293,8 @@ CDEFS_CLI = /define = ($(CDEFS), VMSCLI)
 
 CDEFS_UTIL = /define = ($(CDEFS), UTIL)
 
+CDEFS_LIBZIP = /define = ($(CDEFS), USE_ZIPMAIN)
+
 # Other C compiler options.
 
 .IFDEF DECC                             # DECC
@@ -368,6 +370,12 @@ MODS_OBJS_LIB_ZIP_N = \
  ZIPFILE=[.$(DEST)]ZIPFILE.OBJ \
  ZIPUP=[.$(DEST)]ZIPUP.OBJ
 
+.IFDEF LIBZIP                   # LIBZIP
+MODS_OBJS_LIB_LIBZIP_N = \
+ API$(GCC_)=[.$(DEST)]API_.OBJ \
+ ZIP$(GCC_)=[.$(DEST)]ZIP_.OBJ
+.ENDIF                          # LIBZIP
+
 #    Primary object library, [.VMS].
                     
 MODS_OBJS_LIB_ZIP_V = \
@@ -389,7 +397,7 @@ MODS_OBJS_LIB_ZIP_AES = \
  SHA1=[.$(DEST)]SHA1.OBJ
 .ENDIF                          # AES_WG
 
-#    Primary object library, [.LZMA].
+#    Primary object library, [.SZIP], LZMA.
 
 .IFDEF LZMA                     # LZMA
 MODS_OBJS_LIB_ZIP_LZMA = \
@@ -397,7 +405,7 @@ MODS_OBJS_LIB_ZIP_LZMA = \
  LZMAENC=[.$(DEST)]LZMAENC.OBJ
 .ENDIF                          # LZMA
 
-#    Primary object library, [.PPMD].
+#    Primary object library, [.SZIP], PPMd.
 
 .IFDEF PPMD                     # PPMD
 MODS_OBJS_LIB_ZIP_PPMD = \
@@ -405,7 +413,8 @@ MODS_OBJS_LIB_ZIP_PPMD = \
  PPMD8ENC=[.$(DEST)]PPMD8ENC.OBJ
 .ENDIF                          # PPMD
 
-MODS_OBJS_LIB_ZIP = $(MODS_OBJS_LIB_ZIP_N) $(MODS_OBJS_LIB_ZIP_V) \
+MODS_OBJS_LIB_ZIP = $(MODS_OBJS_LIB_ZIP_N) $(MODS_OBJS_LIB_LIBZIP_N) \
+ $(MODS_OBJS_LIB_ZIP_V) \
  $(MODS_OBJS_LIB_ZIP_AES) $(MODS_OBJS_LIB_ZIP_LZMA) \
  $(MODS_OBJS_LIB_ZIP_PPMD)
 

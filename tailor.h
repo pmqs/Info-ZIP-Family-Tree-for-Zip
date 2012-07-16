@@ -134,7 +134,7 @@
 #endif
 
 #if defined(VMS) || defined(__VMS)
-#include "vms/osdep.h"
+#include "osdep.h"
 #endif
 
 #if defined(__VM__) || defined(VM_CMS) || defined(MVS)

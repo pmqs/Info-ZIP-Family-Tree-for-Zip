@@ -116,11 +116,26 @@ int hidden_files = 0;         /* process hidden and system files */
 int volume_label = 0;         /* add volume label */
 int dirnames = 1;             /* include directory entries by default */
 int filter_match_case = 1;    /* 1=match case when filter() */
-int diff_mode = 0;            /* 1=require --out and only store changed and add */
+
+/* diff and backup */
+int diff_mode = 0;            /* 1=diff mode - only store changed and add */
 #if defined(WIN32)
   int only_archive_set = 0;   /* include only files with DOS archive bit set */
   int clear_archive_bits = 0; /* clear DOS archive bit of included files */
 #endif
+#ifdef BACKUP_SUPPORT
+char *backup_path = NULL;     /* path to save backup archives and control */
+int backup_type = 0;          /* 0=no,1=full backup,2=diff,3=incr */
+char *backup_start_datetime = NULL; /* date/time stamp of start of backup */
+char *backup_control_path = NULL; /* control file used to store backup state */
+char *backup_full_path = NULL; /* full archive of backup set */
+char *backup_output_path = NULL; /* path of output archive before finalizing */
+#endif
+
+uzoff_t cd_total_entries;     /* num of entries as read from (Zip64) EOCDR */
+uzoff_t total_cd_total_entries; /* num of entries across all archives */
+
+
 int linkput = 0;              /* 1=store symbolic links as such */
 int noisy = 1;                /* 0=quiet operation */
 int extra_fields = 1;         /* 0=create minimum, 1=don't copy old, 2=keep old */
@@ -250,6 +265,7 @@ char *in_path = NULL;         /* base name of input archive file */
 char *in_split_path = NULL;   /* in split path */
 char *out_path = NULL;        /* base name of output file, usually same as zipfile */
 int zip_attributes = 0;
+char *old_in_path = NULL;     /* used to save in_path when doing incr archives */
 
 /* in split globals */
 
@@ -320,6 +336,7 @@ struct zlist far *zfiles = NULL;  /* Pointer to list of files in zip file */
    utilization issues limiting the practical number of central directory entries
    that can be sorted, the number of actual entries that can be stored probably
    can't exceed roughly 2^30 on 32-bit systems so extent is probably sufficient. */
+struct zlist far * far *zfilesnext = NULL;     /* Pointer to end of zfiles */
 extent zcount;                    /* Number of files in zip file */
 int zipfile_exists = 0;           /* 1 if zipfile exists */
 ush zcomlen;                      /* Length of zip file comment */

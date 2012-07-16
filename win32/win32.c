@@ -1302,7 +1302,7 @@ int gettimeofday(struct timevalstruct *tv, struct timezonestruct *tz)
   {
     GetSystemTimeAsFileTime(&ft);
 
-    tmpres = ft.dwHighDateTime << 32;
+    tmpres = (__int64)ft.dwHighDateTime << 32;
     tmpres |= ft.dwLowDateTime;
 
     tmpres /= 10;  /*convert into microseconds*/

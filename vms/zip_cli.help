@@ -315,9 +315,6 @@ be included in-line in the procedure, or a user may DEFINE SYS$INPUT to
 a file to get the comment from that file.  Where supported, the DCL PIPE
 command can also be used to redirect SYS$INPUT from a file.
 
-Note that /COMMENTS=ARCHIVE and /BATCH (read file specifications from
-SYS$INPUT (stdin)) can't be used together (successfully).
-
 <TOPIC>
 Compression
 
@@ -1603,7 +1600,7 @@ See also /DELETE /DIFFERENCE, /GROW, /FRESHEN.
 <QUALIFIER>
 /VERBOSE
 
-/VERBOSE[=NORMAL|MORE|DEBUG] [, COMMAND]]
+/VERBOSE[={NORMAL|MORE|DEBUG} [,COMMAND]]
 
 Verbose mode or print diagnostic version info.
 
@@ -1613,7 +1610,7 @@ for more on dots) and requests verbose diagnostic info about archive
 structure oddities.
 
 /VERBOSE with no value is equivalent to /VERBOSE=NORMAL.  MORE adds more
-messages, and DEBUG adds still more messages.
+messages related to VMS I/O details.
 
 When /VERBOSE is the only command line argument, a diagnostic report is
 displayed, showing:

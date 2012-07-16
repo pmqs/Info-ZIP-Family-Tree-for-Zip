@@ -1,56 +1,68 @@
 _____________________________________________________________________________
 
-  This is Info-ZIP's README.CR for zcrypt29.zip, last updated 27 March 2008.
+This is Info-ZIP's README.CR for zcrypt29.zip, last updated 3 September 2011.
 _____________________________________________________________________________
 
 
-The files described below contain the encryption/decryption code for Zip 2.31,
-UnZip 5.52, and WiZ 5.02 (and later).  These files are included in the main
-source distributions for all of these now, but the encryption patch is still
-available for earlier versions of these.  This file both describes the history
-of the encryption package and notes the current conditions for use.  Check
-the comments at the top of crypt.c and crypt.h for additional information.
+The files described below contain the encryption/decryption code for Zip 2.3,
+UnZip 5.4x, and WiZ 5.02 (and some earlier versions).  This code is
+included in the main source distributions for all of these now, but this
+encryption patch is still available for earlier versions of these (which need
+version 2.9 of this package, not a later one such as 3.0).  This file both
+describes the history of the encryption package and notes the current conditions
+for use.  Check the comments at the top of crypt.c and crypt.h for additional
+information.  The file README_CR.txt, included in the latest Zip and UnZip
+source kits, has additional information about the ZCRYPT 3.0 source code used
+in these versions.
 
 As of version 2.9, this encryption source code is copyrighted by Info-ZIP;
 see the enclosed LICENSE file for details.  Older versions remain in the pub-
 lic domain.  Zcrypt was originally written in Europe and, as of April 2000,
-can be freely distributed from the US as well as other countries.
+can be freely distributed from the US as well as other countries (as far as
+we know).
 
 (The ability to export from the US is new and is due to a change in the Bureau
 of Export Administration's regulations, as published in Volume 65, Number
 10, of the Federal Register [14 January 2000].  Info-ZIP filed the required
 notification via e-mail on 9 April 2000; see the USexport.msg file in this
 archive.  However, as of June 2002, it can now be freely distributed in both
-source and object forms from any country, including the USA under License
-Exception TSU of the U.S. Export Administration Regulations (section 740.13(e))
-of 6 June 2002.)
+source and object forms from the USA under License Exception TSU of the U.S.
+Export Administration Regulations (section 740.13(e)) of 6 June 2002.)  Export
+from the USA is regulated by those regulations.  As far as we know, ZCRYPT 2.9
+can be exported from any country, but check your local laws.
 
     LIKE ANYTHING ELSE THAT IS FREE, ZIP, UNZIP AND THEIR ASSOCIATED
     UTILITIES ARE PROVIDED AS IS AND COME WITH NO WARRANTY OF ANY KIND,
     EITHER EXPRESSED OR IMPLIED. IN NO EVENT WILL THE AUTHORS BE LIABLE
-    FOR ANY DAMAGES RESULTING FROM THE USE OF THIS SOFTWARE.
+    FOR ANY DAMAGES RESULTING FROM THE USE OF THIS SOFTWARE.  See the
+    latest version of the Info-ZIP license for conditions of use.
 
 The encryption code is a direct transcription of the algorithm from
 Roger Schlafly, described by Phil Katz in the file appnote.txt.  This
 file is distributed with the PKZIP program (even in the version without
-encryption capabilities).  Note that the encryption will probably resist
-attacks by amateurs if the password is well chosen and long enough (at 
-least 8 characters) but it will probably not resist attacks by experts.
-Paul Kocher has made available information concerning a known-plaintext
-attack for the PKWARE encryption scheme; see http://www.cryptography.com/
-for details.)  Short passwords consisting of lowercase letters only can be
-recovered in a few hours on any workstation.  But for casual cryptography
-designed to keep your mother from reading your mail, it's OK.
+encryption capabilities).  (This was true at the time of that writing.)
+Note that the encryption will probably resist attacks by amateurs if the
+password is well chosen and long enough (at least 8 characters) but it
+will probably not resist attacks by experts.  Paul Kocher has made available
+information concerning a known-plaintext attack for the PKWARE encryption
+scheme; see http://www.cryptography.com/ for details.)  Short passwords
+consisting of lowercase letters only can be recovered in a few hours on
+any workstation.  (Now adays it takes much less time.)  But for casual
+cryptography designed to keep your mother from reading your mail, it's OK
+(maybe).
 
-For more serious encryption, check into PGP (Pretty Good Privacy), a
-public-key-based encryption system available from various Internet sites.
-PGP has Zip and UnZip built into it.  The most recent version at the time
-this was originally written was 6.5, although older versions were still
-widespread.  At the time of this writing there are now GPG, PGP Universal
-2.0, and various others based on OpenPGP.
+What we now refer to as traditional zip encryption is considered weak by
+current standards.  For more serious encryption, check into PGP (Pretty
+Good Privacy), a public-key-based encryption system available from various
+Internet sites.  PGP has Zip and UnZip built into it.  The most recent
+version at the time this was originally written was 6.5, although older
+versions were still widespread.  At the time of this writing there are
+now GNU Privacy Guard (GPG), PGP Universal 2.0, and various others based
+on OpenPGP.
 
-We are looking at adding AES strong encryption to future versions of Zip and
-UnZip.
+We are currently adding AES strong encryption to Zip 3.1 and UnZip 6.1.
+See the README files in those distributions for more information.
+Traditional encryption must be enabled to add AES encryption.
 
 Zip 2.3x and UnZip 5.5x and later are compatible with PKZIP 2.04g.  (Thanks
 to Phil Katz for accepting our suggested minor changes to the zipfile format.)
@@ -87,7 +99,8 @@ later.  However, you will have to convert the files (using "unzip -a")
 to the CRLF format to compile with the older Turbo C 1.0 or 2.0.  You
 should be able to find Zip and UnZip in the same place you found this 
 (see ftp://ftp.info-zip.org/pub/infozip/Info-ZIP.html or the file
-"WHERE" for details).
+"WHERE" for details).  More information can be found on our web site,
+www.info-zip.org.
 
 Current releases all have encryption built in.  To update previous versions
 using the zcrypt sources:

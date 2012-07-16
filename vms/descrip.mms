@@ -1,4 +1,4 @@
-#                                               16 February 2012.  SMS.
+#                                               10 June 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Description File.
 #
@@ -40,6 +40,8 @@
 #                   example), or in that directory itself.
 #
 #    LARGE=1        Enable large-file (>2GB) support.  Non-VAX only.
+#
+#    LIBZIP=1       Build LIBIZZIP.OLB as a callable Zip library.
 #
 #    LINKOPTS=xxx   Link with LINK options xxx.  For example:
 #                   LINKOPTS=/NOINFO   
@@ -88,6 +90,8 @@
 #    CLEAN_EXE  deletes only the architecture-specific executables. 
 #               Handy if all you wish to do is re-link the executables.
 #
+#    HELP       generates HELP files.
+#
 # Example commands:
 #
 # To build the conventional small-file product using the DEC/Compaq/HP C
@@ -121,9 +125,18 @@ INCL_DESCRIP_SRC = 1
 
 # Object library names.
 
-LIB_ZIP = SYS$DISK:[.$(DEST)]ZIP.OLB
-LIB_ZIPCLI = SYS$DISK:[.$(DEST)]ZIPCLI.OLB
-LIB_ZIPUTILS = SYS$DISK:[.$(DEST)]ZIPUTILS.OLB
+.IFDEF LIBZIP                   # LIBZIP
+LIB_ZIP_NAME = LIBIZZIP.OLB
+.ELSE                           # LIBZIP
+LIB_ZIP_NAME = ZIP.OLB
+.ENDIF                          # LIBZIP
+
+LIB_ZIPCLI_NAME = ZIPCLI.OLB
+LIB_ZIPUTILS_NAME = ZIPUTILS.OLB
+
+LIB_ZIP = SYS$DISK:[.$(DEST)]$(LIB_ZIP_NAME)
+LIB_ZIPCLI = SYS$DISK:[.$(DEST)]$(LIB_ZIPCLI_NAME)
+LIB_ZIPUTILS = SYS$DISK:[.$(DEST)]$(LIB_ZIPUTILS_NAME)
 
 # Help file names.
 
@@ -135,13 +148,18 @@ ZIP_MSG_MSG = [.VMS]ZIP_MSG.MSG
 ZIP_MSG_EXE = [.$(DEST)]ZIP_MSG.EXE
 ZIP_MSG_OBJ = [.$(DEST)]ZIP_MSG.OBJ
 
+# Library link options file.
+
+.IFDEF LIBZIP                   # LIBZIP
+LIBZIP_OPT = [.$(DEST)]LIB_IZZIP.OPT
+.ENDIF                          # LIBZIP
 
 # TARGETS.
 
 # Default target, ALL.  Build All Zip executables, utility executables,
 # and help files.
 
-ALL : $(ZIP) $(ZIP_CLI) $(ZIPUTILS) $(ZIP_HELP) $(ZIP_MSG_EXE)
+ALL : $(ZIP) $(ZIP_CLI) $(ZIPUTILS) $(ZIP_HELP) $(ZIP_MSG_EXE) $(LIBZIP_OPT)
 	@ write sys$output "Done."
 
 # CLEAN target.  Delete the [.$(DEST)] directory and everything in it.
@@ -214,6 +232,11 @@ CLEAN_ALL : CLEAN
 CLEAN_EXE :
 	if (f$search( "[.$(DEST)]*.EXE") .nes. "") then -
 	 delete /noconfirm [.$(DEST)]*.EXE;*
+
+# HELP target.  Generate the HELP files.
+
+HELP : $(ZIP_HELP)
+	@ write sys$output "Done."
 
 
 # Object library module dependencies.
@@ -288,22 +311,30 @@ OPT_ID = SYS$DISK:[.$(DEST)]ZIP.OPT
 [.$(DEST)]ZIPSPLIT.OBJ : ZIPSPLIT.C
 	$(CC) $(CFLAGS) $(CDEFS_UTIL) $(MMS$SOURCE)
 
+# Library variant sources.
+
+[.$(DEST)]API_.OBJ : API.C
+	$(CC) $(CFLAGS) $(CDEFS_LIBZIP) $(MMS$SOURCE)
+
+[.$(DEST)]ZIP_.OBJ : ZIP.C
+	$(CC) $(CFLAGS) $(CDEFS_LIBZIP) $(MMS$SOURCE)
+
 # VAX C LINK options file.
 
 .IFDEF OPT_FILE
 $(OPT_FILE) :
-        open /write opt_file_ln  $(OPT_FILE)
-        write opt_file_ln "SYS$SHARE:VAXCRTL.EXE /SHARE"
-        close opt_file_ln
+	open /write opt_file_ln $(OPT_FILE)
+	write opt_file_ln "SYS$SHARE:VAXCRTL.EXE /SHARE"
+	close opt_file_ln
 .ENDIF
 
 # Module ID options files.
 
 $(OPT_ID) :
-        @[.vms]optgen.com Zip iz_zip_versn
-        open /write opt_file_ln $(OPT_ID)
-        write opt_file_ln "Ident = ""Zip ''f$trnlnm( "iz_zip_versn")'"""
-        close opt_file_ln
+	@[.vms]optgen.com Zip iz_zip_versn
+	open /write opt_file_ln $(OPT_ID)
+	write opt_file_ln "Ident = ""Zip ''f$trnlnm( "iz_zip_versn")'"""
+	close opt_file_ln
 
 # Normal Zip executable.
 
@@ -389,6 +420,28 @@ $(ZIP_MSG_MSG) : ZIPERR.H [.VMS]STREAM_LF.FDL [.VMS]VMS_MSG_GEN.C
 	run [.$(DEST)]VMS_MSG_GEN.EXE
 	purge $(MMS$TARGET)
 	delete [.$(DEST)]VMS_MSG_GEN.EXE;*, [.$(DEST)]VMS_MSG_GEN.OBJ;*
+
+# Library link options file.
+
+$(LIBZIP_OPT) : [.VMS]STREAM_LF.FDL
+	def_dev_dir_orig = f$environment( "default")
+	set default [.$(DEST)]
+	def_dev_dir = f$environment( "default")
+	set default 'def_dev_dir_orig'
+	create /fdl = [.VMS]STREAM_LF.FDL $(MMS$TARGET)
+	open /append opt_file_lib $(MMS$TARGET)
+	write opt_file_lib "! DEFINE LIB_IZZIP ''def_dev_dir'"
+	if ("$(LIB_BZIP2_OPTS)" .nes. "") then -
+         write opt_file_lib "! DEFINE LIB_BZIP2 ''f$trnlnm( "lib_bzip2")'"
+	if ("$(LIB_ZLIB_OPTS)" .nes. "") then -
+         write opt_file_lib "! DEFINE LIB_ZLIB ''f$trnlnm( "lib_zlib")'"
+	write opt_file_lib "LIB_IZZIP:$(LIB_ZIP_NAME) /library"
+	if ("$(LIB_BZIP2_OPTS)" .nes. "") then -
+         write opt_file_lib "$(LIB_BZIP2_OPTS)" - ","
+	write opt_file_lib "LIB_IZZIP:$(LIB_ZIP_NAME) /library"
+	if ("$(LIB_ZLIB_OPTS)" .nes. "") then -
+         write opt_file_lib "$(LIB_ZLIB_OPTS)" - ","
+	close opt_file_lib
 
 # Include generated source dependencies.
 

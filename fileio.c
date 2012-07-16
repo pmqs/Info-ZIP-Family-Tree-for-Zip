@@ -989,7 +989,7 @@ int newname(name, flags, casesensitive)
     if ((name_archv = malloc( strlen( name)+ pad_name)) == NULL)
       return ZE_MEM;
 
-    if ((name_flsys = malloc( strlen( name)+ sizeof( APL_DBL_SFX))) == NULL)
+    if ((name_flsys = malloc( strlen( name)+ sizeof( APL_DBL_SUFX))) == NULL)
       return ZE_MEM;
 
     /* Construct in-archive AppleDouble file name. */
@@ -1023,7 +1023,7 @@ int newname(name, flags, casesensitive)
     /* Construct in-file-system AppleDouble file name. */
     /* "name" -> "name/rsrc". */
     strcpy( name_flsys, name);
-    strcat( name_flsys, APL_DBL_SFX);
+    strcat( name_flsys, APL_DBL_SUFX);
   }
   else
   {
@@ -1221,7 +1221,7 @@ int newname(name, flags, casesensitive)
     if (isapldbl)
     {
        /* Add storage for AppleDouble name suffix. */
-       pad_name += strlen( APL_DBL_SFX);
+       pad_name += strlen( APL_DBL_SUFX);
     }
 #endif /* defined( UNIX) && defined( __APPLE__) */
 
@@ -3942,13 +3942,13 @@ zwchar *utf8_to_wide_string(utf8_string)
 
 /* Symbolic values for optchar. */
 #define SKIP_VALUE_ARG           -1
-#define THIS_ARG_DONE            -2
-#define START_VALUE_LIST         -3
-#define IN_VALUE_LIST            -4
-#define NON_OPTION_ARG           -5
-#define STOP_VALUE_LIST          -6
-#define READ_REST_ARGS_VERBATIM  -7     /* 7/25/04 EG */
-#define SKIP_VALUE_ARG2          -8     /* 2012-03-08 SMS.  (Re-order?) */
+#define SKIP_VALUE_ARG2          -2     /* 2012-03-08 SMS. */
+#define THIS_ARG_DONE            -3
+#define START_VALUE_LIST         -4
+#define IN_VALUE_LIST            -5
+#define NON_OPTION_ARG           -6
+#define STOP_VALUE_LIST          -7
+#define READ_REST_ARGS_VERBATIM  -8     /* 7/25/04 EG */
 
 
 /* global veriables */
@@ -4284,7 +4284,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
           }
         }
         if ((*value = (char *) malloc(2)) == NULL) {
-          oERR(ZE_MEM, "gso");
+          oERR(ZE_MEM, "gso-1");
         }
         (*value)[0] = *(arg + (*optchar) + clen);
         (*value)[1] = '\0';
@@ -4320,7 +4320,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
       }
       start = arg + (*optchar) + clen;
       if ((*value = (char *) malloc((int)(s - start) + 1)) == NULL) {
-        oERR(ZE_MEM, "gso");
+        oERR(ZE_MEM, "gso-2");
       }
       *optchar += (int)(s - start);
       strncpy(*value, start, (int)(s - start));
@@ -4341,7 +4341,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
         if (arg[(*optchar) + clen]) {
           if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1))
               == NULL) {
-            oERR(ZE_MEM, "gso");
+            oERR(ZE_MEM, "gso-3");
           }
           strcpy(*value, arg + (*optchar) + clen);
         }
@@ -4362,7 +4362,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
           /* "-opt[=]value".  Have attached value. */
           if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1))
               == NULL) {
-            oERR(ZE_MEM, "gso");
+            oERR(ZE_MEM, "gso-4");
           }
           strcpy(*value, arg + (*optchar) + clen);
           *optchar = THIS_ARG_DONE;
@@ -4370,7 +4370,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
         else if (have_eq && args[argnum + 1] && args[argnum + 1][0] != '-') {
           /* "-opt= value".  Have detached value. */
           if ((*value = (char *)malloc(strlen(args[argnum + 2])+ 1)) == NULL) {
-            oERR(ZE_MEM, "gso");
+            oERR(ZE_MEM, "gso-5");
           }
           /* Set value.  Skip value arg. */
           strcpy(*value, args[argnum + 1]);
@@ -4384,7 +4384,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
         if (args[argnum + 2] && args[argnum + 2][0] != '-') {
           /* "-opt = value".  Have detached value. */
           if ((*value = (char *)malloc(strlen(args[argnum + 2])+ 1)) == NULL) {
-            oERR(ZE_MEM, "gso");
+            oERR(ZE_MEM, "gso-6");
           }
           /* Set value.  Skip "=" and value args. */
           strcpy(*value, args[argnum + 2]);
@@ -4397,7 +4397,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
         /* "-opt =[XXXX]".  Have detached "=value".  Skip '='. */
         if ((*value = (char *)malloc(strlen(args[argnum + 1]))) == NULL)
         {
-          oERR(ZE_MEM, "gso");
+          oERR(ZE_MEM, "gso-7");
         }
         /* Using next arg (less '=') as value. */
         strcpy(*value, args[argnum + 1]+ 1);
@@ -4418,7 +4418,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
         }
           if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1))
               == NULL) {
-          oERR(ZE_MEM, "gso");
+          oERR(ZE_MEM, "gso-8");
         }
         strcpy(*value, arg + (*optchar) + clen);
         *optchar = THIS_ARG_DONE;
@@ -4426,7 +4426,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
         /* use next arg for value */
         if (args[argnum + 1]) {
           if ((*value = (char *)malloc(strlen(args[argnum + 1]) + 1)) == NULL) {
-            oERR(ZE_MEM, "gso");
+            oERR(ZE_MEM, "gso-9");
           }
           strcpy(*value, args[argnum + 1]);
           if (options[match].value_type == o_VALUE_LIST) {
@@ -4496,7 +4496,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
   }
   /* copy arg so can chop end if value */
   if ((arg = (char *)malloc(strlen(args[argnum]) + 1)) == NULL) {
-    oERR(ZE_MEM, "glo");
+    oERR(ZE_MEM, "glo-1");
   }
   strcpy(arg, args[argnum]);
 
@@ -4575,13 +4575,50 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
     }
   }
   /* get value */
-  if (options[match].value_type == o_OPTIONAL_VALUE) {
+  if (options[match].value_type == o_OPT_EQ_VALUE) {
+    /* Optional value, but "=" required with detached value. */
+    int have_eq = 0;
+    if (valuestart == NULL) {
+      /* "--opt ="? */
+      if (args[ argnum+ 1] != NULL) {
+        /* Next arg exists. */
+        if (*args[ argnum+ 1] == '=') {
+          /* Next arg is "=" or "=val". */
+          if (*(args[ ++argnum]+ 1) == '\0') {
+            /* No attached value.  Use next arg, if any. */
+            if (args[ argnum+ 1] != NULL) {
+              valuestart = args[ ++argnum];
+              *optchar = SKIP_VALUE_ARG2;
+            }
+          } else {
+            /* "=val". */
+            valuestart = args[ argnum]+ 1;
+            *optchar = SKIP_VALUE_ARG;
+          }
+        }
+      }
+    } else if (*valuestart == '\0') {
+      /* "--opt= val"? */
+      if (args[ argnum+ 1] != NULL) {
+        valuestart = args[ ++argnum];
+        *optchar = SKIP_VALUE_ARG;
+      }
+    }
+    if (valuestart) {
+      /* A value was specified somehow.  Save it. */
+      if ((*value = (char *)malloc(strlen(valuestart) + 1)) == NULL) {
+        free(arg);
+        oERR(ZE_MEM, "glo-2");
+      }
+      strcpy(*value, valuestart);
+    }
+  } else if (options[match].value_type == o_OPTIONAL_VALUE) {
     /* optional value in form option=value */
     if (valuestart) {
       /* option=value */
       if ((*value = (char *)malloc(strlen(valuestart) + 1)) == NULL) {
         free(arg);
-        oERR(ZE_MEM, "glo");
+        oERR(ZE_MEM, "glo-3");
       }
       strcpy(*value, valuestart);
     }
@@ -4594,7 +4631,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
       /* option=value */
       if ((*value = (char *)malloc(strlen(valuestart) + 1)) == NULL) {
         free(arg);
-        oERR(ZE_MEM, "glo");
+        oERR(ZE_MEM, "glo-4");
       }
       strcpy(*value, valuestart);
     } else {
@@ -4602,7 +4639,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
       if (args[argnum + 1]) {
         if ((*value = (char *)malloc(strlen(args[argnum + 1]) + 1)) == NULL) {
           free(arg);
-          oERR(ZE_MEM, "glo");
+          oERR(ZE_MEM, "glo-5");
         }
         /* using next arg as value */
         strcpy(*value, args[argnum + 1]);

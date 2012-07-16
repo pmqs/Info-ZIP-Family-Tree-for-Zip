@@ -1,9 +1,9 @@
 /*
   ziperr.h - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -57,8 +57,9 @@
 #define ZE_COMPERR      19      /* error in compilation options */
 #define ZE_ZIP64        20      /* Zip64 not supported */
 #define ZE_CRYPT        21      /* encryption error */
+#define ZE_COMPRESS     22      /* compression error */
 
-#define ZE_MAXERR       21      /* the highest error number */
+#define ZE_MAXERR       22      /* the highest error number */
 
 
 /* Error messages for the ziperr() function in the zip programs. */
@@ -95,7 +96,8 @@ struct
 /* 19 */ { "COMPERR", "Error in compilation options", ZE_S_SEVERE },
 /* 20 */ { "ZIP64",   "Attempt to read unsupported Zip64 archive",
                                                       ZE_S_SEVERE },
-/* 21 */ { "CRYPT",   "Encryption error",             ZE_S_ERROR }
+/* 21 */ { "CRYPT",   "Encryption error",             ZE_S_ERROR },
+/* 22 */ { "COMPRESS","Compression error",            ZE_S_ERROR }
 #  ifdef AZTEC_C
           ,     /* extremely lame compiler bug workaround */
 #  endif

@@ -53,11 +53,16 @@ local void version_info OF((void));
 local FILE *tempzf;
 
 /* Pointer to CRC-32 table (used for decryption/encryption) */
-#if (!defined(USE_ZLIB) || defined(USE_OWN_CRCTAB))
+# if (!defined(USE_ZLIB) || defined(USE_OWN_CRCTAB))
 ZCONST ulg near *crc_32_tab;
-#else
+# else
+   /* 2012-05-31 SMS.  See note in zip.c. */
+#  ifdef Z_U4
+ZCONST z_crc_t *crc_32_tab;
+#  else /* def Z_U4 */
 ZCONST uLongf *crc_32_tab;
-#endif
+#  endif /* def Z_U4 [else] */
+# endif
 
 int set_filetype(out_path)
   char *out_path;

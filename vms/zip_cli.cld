@@ -1,5 +1,5 @@
 	Module		ZIP_CLITABLE
-	Ident		"03-107"        ! 2012-03-27 SMS.
+	Ident		"03-108"	! /* 2012-05-08 SMS. */
 
 Define	Verb		ZIP
 	Parameter	P1, Label=ZIPFILE, Prompt="Zip file"
@@ -278,7 +278,6 @@ Define	Type		TEST_OPTS
 Define	Type		VERBOSE_OPTS
 	Keyword		NORMAL, Default
 	Keyword		MORE
-	Keyword		DEBUG
 	Keyword		COMMAND
 
 Define	Type		VMS_OPTS

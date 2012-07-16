@@ -45,6 +45,10 @@
 **
 **  Modified by:
 **
+**      02-014          Steven Schweda          08-MAY-2012
+**              Changed /BATCH = file to use (new) "-@@ file" option,
+**              instead of using freopen() here to get the effect.
+**
 **      02-013          Steven Schweda          27-MAR-2012
 **              Added /BACKUP = (TYPE = type, PATH = path).
 **              Added /SHOW = SUFFIXES.
@@ -221,7 +225,7 @@ $DESCRIPTOR(cli_backup_type_full, "BACKUP.TYPE.FULL");         /* -BT full */
 $DESCRIPTOR(cli_backup_type_incr, "BACKUP.TYPE.INCREMENTAL");  /* -BT incr */
 $DESCRIPTOR(cli_backup_type_none, "BACKUP.TYPE.NONE");         /* -BT none*/
 #endif /* def BACKUP_SUPPORT */
-$DESCRIPTOR(cli_batch,          "BATCH");               /* -@ */
+$DESCRIPTOR(cli_batch,          "BATCH");               /* -@, -@@ */
 $DESCRIPTOR(cli_before,         "BEFORE");              /* -tt */
 $DESCRIPTOR(cli_comments,       "COMMENTS");            /* -c,-z */
 $DESCRIPTOR(cli_comment_archive,"COMMENTS.ARCHIVE");    /* -z */
@@ -331,10 +335,9 @@ $DESCRIPTOR(cli_translate_eol,  "TRANSLATE_EOL");       /* -l[l] */
 $DESCRIPTOR(cli_transl_eol_lf,  "TRANSLATE_EOL.LF");    /* -l */
 $DESCRIPTOR(cli_transl_eol_crlf,"TRANSLATE_EOL.CRLF");  /* -ll */
 $DESCRIPTOR(cli_unsfx,          "UNSFX");               /* -J */
-$DESCRIPTOR(cli_verbose,        "VERBOSE");             /* -v (?) */
+$DESCRIPTOR(cli_verbose,        "VERBOSE");             /* -v[v[v]] */
 $DESCRIPTOR(cli_verbose_normal, "VERBOSE.NORMAL");      /* -v */
 $DESCRIPTOR(cli_verbose_more,   "VERBOSE.MORE");        /* -vv */
-$DESCRIPTOR(cli_verbose_debug,  "VERBOSE.DEBUG");       /* -vvv */
 $DESCRIPTOR(cli_verbose_command,"VERBOSE.COMMAND");     /* (none) */
 $DESCRIPTOR(cli_vms,            "VMS");                 /* -V */
 $DESCRIPTOR(cli_vms_all,        "VMS.ALL");             /* -VV */
@@ -1169,7 +1172,6 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     */
 #define OPT_V   "-v"            /* Verbose (normal). */
 #define OPT_VV  "-vv"           /* Verbose (more). */
-#define OPT_VVV "-vvv"          /* Verbose (debug). */
 
     status = cli$present( &cli_verbose);
     if (status & 1)
@@ -1193,9 +1195,6 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         if ((status = cli$present( &cli_verbose_more)) & 1)
             /* /VERBOSE = MORE */
             opt = OPT_VV;
-        if ((status = cli$present( &cli_verbose_debug)) & 1)
-            /* /VERBOSE = DEBUG */
-            opt = OPT_VVV;
 
         if (opt != NULL)
         {
@@ -1264,27 +1263,29 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
-    **  `Batch' processing: read filenames to archive from stdin
+    **  Batch processing: Read list of filenames to archive from stdin
     **  or the specified file.
     */
-#define OPT_AT  "-@"            /* Save symbolic links. */
+#define OPT_AT   "-@"           /* Read file names from stdin. */
+#define OPT_ATAT "-@@"          /* Read file names from specified file. */
 
     status = cli$present( &cli_batch);
-    if (status & 1) {
+    if (status & 1)
+    {
         /* /BATCH */
         status = cli$get_value( &cli_batch, &work_str);
         if (status & 1)
         {
             /* /BATCH = value */
             work_str.dsc$a_pointer[work_str.dsc$w_length] = '\0';
-            if ((stdin = freopen(work_str.dsc$a_pointer, "r", stdin)) == NULL)
-            {
-                sprintf(errbuf, "could not open list file: %s",
-                        work_str.dsc$a_pointer);
-                ziperr(ZE_PARMS, errbuf);
-            }
+            append_simple_opt( OPT_ATAT);
+            append_simple_opt( work_str.dsc$a_pointer);
         }
-        append_simple_opt( OPT_AT);
+        else
+        {
+            /* /BATCH (stdin) */
+            append_simple_opt( OPT_AT);
+        }
     }
 
     /*
@@ -2287,10 +2288,10 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /PATTERN_CASE={BLIND|SENSITIVE}, /NORECURSE|/RECURSE[={PATH|FILENAMES}],",
 #if CRYPT
 "\
-    /QUIET, /VERBOSE[={MORE|DEBUG}], /[NO]DIRNAMES, /JUNK, /ENCRYPT[=\"pwd\"],\
+    /QUIET, /VERBOSE[=DEBUG], /[NO]DIRNAMES, /JUNK, /ENCRYPT[=\"pwd\"],\
 ",
 #else /* !CRYPT */
-"    /QUIET, /VERBOSE[={MORE|DEBUG}], /[NO]DIRNAMES, /JUNK,",
+"    /QUIET, /VERBOSE[=DEBUG], /[NO]DIRNAMES, /JUNK,",
 #endif /* ?CRYPT */
 "    /COMPRESSION=(mthd[=(SUFFIX=(sufx_list)[,LEVEL={1-9}])][,...]),",
 "    /LEVEL=(0|{1-9}[=(mthd_list)][,...]), STORE_TYPES=(sufx_list),",

@@ -1,7 +1,7 @@
 /*
   revision.h - Zip 3
 
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -21,8 +21,8 @@
 #define Z_PATCHLEVEL 0
 #define Z_BETALEVEL "d BETA"
 
-#define VERSION "3.1d21 BETA"
-#define REVDATE "Sep 22nd 2011"
+#define VERSION "3.1d25 BETA"
+#define REVDATE "May 8th 2012"
 
 /* Setting these to the Zip version seems a waste, as the version
    structure already tells the user the Zip version through Z_MAJORVER,
@@ -60,9 +60,9 @@ extern ZCONST char * far cryptnote[7];
 
 ZCONST char *copyright[] = {
 # ifdef VMS
-"Copyright (c) 1990-2011 Info-ZIP - Type '%s \"-L\"' for software license."
+"Copyright (c) 1990-2012 Info-ZIP - Type '%s \"-L\"' for software license."
 # else /* def VMS */
-"Copyright (c) 1990-2011 Info-ZIP - Type '%s -L' for software license."
+"Copyright (c) 1990-2012 Info-ZIP - Type '%s -L' for software license."
 # endif /* def VMS [else] */
 /* XXX still necessary ???? */
 #ifdef AZTEC_C

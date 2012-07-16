@@ -303,5 +303,9 @@ _crc32:                         /* ulg crc32(ulg crc, uch *buf, extent len) */
 
 #endif /* !USE_ZLIB && !CRC_TABLE_ONLY */
 
+
+/* Exec Shield. */
+#if defined( __ELF__) && defined( __linux__)
 .section .note.GNU-stack, "", @progbits
 .previous
+#endif /* defined( __ELF__) && defined( __linux__) */

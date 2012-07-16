@@ -35,54 +35,78 @@ Below are some of the more significant items on the list for Zip 3.1
 MAJOR CHANGES BY BETA VERSION
 -----------------------------
 
+New things in Zip 3.1d
+
+- Optional support for WinZip-compatible AES (strong) encryption.  A new
+  -Y option specifies encryption method/strength.  For export-control
+  reasons, AES encryption source code is distributed separately.
+- Optional support for LZMA and PPMd compression methods.  Extended
+  -1/-9, -n, and -Z options offer more detailed control over compression
+  method and level.
+- Behavior change: -9 option no longer clears the -n (STORE) suffix
+  list.  Previously, with -9, Zip tried to compress all files, including
+  files whose name endings matched the -n (STORE) suffix list.  Now, -9
+  only sets the compression level.  Now, use "-n:" explicitly to clear the
+  default -n (STORE) suffix list, if you want Zip to try to compress all
+  files (with or without -9).
+- User-triggered progress messages provide some (limited) information to
+  an interactive user when -q is used to suppress mormal messages.  On
+  VMS, the usual Ctrl/T trigger is used.  On Unix(-like) systems, use a
+  "kill -USR1 <pid>" command in another process.  (A new -si option
+  reports the process ID for this purpose.)
+
 New things in Zip 3.1c
 
-- New EBCDIC -aa option to skip binary check.  Update EBCDIC message display code
-  to use standard display and logging functions.  Other EBCDIC updates, including
-  better handling of unprintable characters.
-- z/OS and MVS updates, including addition of 64-bit large file support.  Fixes
-  to -aa and -MV options to better support MVS.
-- MVS and z/OS makefile updates.  Create target for zos, which now works like the
-  generic target, and redirect os390 target to the zos target.  Detect z/OS or
-  OS/390 system, and set appropriate flags.  Detect IBM C compiler and set maximum
-  optimization level (this produced a 3-4x speedup in testing).
+- New EBCDIC -aa option to skip binary check.  Update EBCDIC message
+  display code to use standard display and logging functions.  Other
+  EBCDIC updates, including better handling of unprintable characters.
+- z/OS and MVS updates, including addition of 64-bit large file support.
+  Fixes to -aa and -MV options to better support MVS.
+- MVS and z/OS makefile updates.  Create target for zos, which now works
+  like the generic target, and redirect os390 target to the zos target. 
+  Detect z/OS or OS/390 system, and set appropriate flags.  Detect IBM C
+  compiler and set maximum optimization level (this produced a 3-4x
+  speedup in testing).
 - Add z/OS readme.
 - Update EXPENTRY entries for DLL.
 - Update extended help.
-- Fix file name memory leak.  Fix problem where patterns are not matching stored
-  paths when the -j option is used to strip the path.  Fix split_path bug and
-  memory leak.  Fix entries count rollover bug resulting in some archives with
-  large numbers of entries being rejected.
-- Add new options -dt (--display_time), -de (--display_est_to_go), and -dr
-  (--display_rate) options.  Option -dt displays the time each entry is started
-  and uses standard timing to one second resolution.  Option -de provides an
-  estimate of the time remaining to complete the operation based on the average
-  throughput rate so far.  Option -dr displays the current estimated throughput
-  rate.  Options -de and -dr use microsecond timing to get better rate estimates.
+- Fix file name memory leak.  Fix problem where patterns are not
+  matching stored paths when the -j option is used to strip the path.  Fix
+  split_path bug and memory leak.  Fix entries count rollover bug
+  resulting in some archives with large numbers of entries being rejected.
+- Add new options -dt (--display_time), -de (--display_est_to_go), and
+  -dr (--display_rate) options.  Option -dt displays the time each entry
+  is started and uses standard timing to one second resolution.  Option
+  -de provides an estimate of the time remaining to complete the operation
+  based on the average throughput rate so far.  Option -dr displays the
+  current estimated throughput rate.  Options -de and -dr use microsecond
+  timing to get better rate estimates.
 - Add Fedora stack markings patch from Debian to prevent stack from being
   executable.
-- For VMS, avoid saving a user-specified version (";1") when the user-specified
-  file is a directory.  Fix to eliminate annoying %SET-E-PRONOTCHG messages
-  when SET PROT failed during "zip -m" directory deletions.  Update handling of
-  exit codes.
+- For VMS, avoid saving a user-specified version (";1") when the
+  user-specified file is a directory.  Fix to eliminate annoying
+  %SET-E-PRONOTCHG messages when SET PROT failed during "zip -m" directory
+  deletions.  Update handling of exit codes.
 - Added checks for uname -m, uname -o, uname -p, uname -r, uname -s, and
   uname -v to version information.
 - Minor Apple fixes.
 - Update DLL interface.  Add feature list that is returned to user.  Add
   support for setting compression method from DLL.  Keep DLL Version fixed
-  at Zip 3.1 while DLL interface remains backward compatible, allowing DLL user
-  to check if DLL is compatible with calling code.  Add ProgressReport callback
-  giving user percent complete progress reports and allowing termination during
-  large file operations.  Add feature list string to Version callback so user
-  can check what features are compiled in and enabled.  Support separate Exclude
-  Before Date and Include Before Date so DLL user can set date range.  Fix bug
-  in DLL UTF-8 option bit checks.  Various cleanup changes.
+  at Zip 3.1 while DLL interface remains backward compatible, allowing DLL
+  user to check if DLL is compatible with calling code.  Add
+  ProgressReport callback giving user percent complete progress reports
+  and allowing termination during large file operations.  Add feature list
+  string to Version callback so user can check what features are compiled
+  in and enabled.  Support separate Exclude Before Date and Include Before
+  Date so DLL user can set date range.  Fix bug in DLL UTF-8 option bit
+  checks.  Various cleanup changes.
 - Add bzip2 support to Windows DLL and LIB MSVS 6 projects.
 - Incomplete update of WinDLL C example.  Should be completed next beta.
-- More or less complete update of VB example that uses latest DLL interface
-  structures, sets up a ProgressReport callback, and implements new UTF8 options.
-- If logfile is specified as "-", suppress normal output (as -q) and send log
-  output to stdout.
+- More or less complete update of VB example that uses latest DLL
+  interface structures, sets up a ProgressReport callback, and implements
+  new UTF8 options.
+- If logfile is specified as "-", suppress normal output (as -q) and
+  send log output to stdout.
 - Fix formatting of -dg global dot output.
 - Allow negating -j as replacement for -p, which is now deprecated.
 
@@ -407,15 +431,17 @@ New things in Zip 3.0c
 
 New things in Zip 3.0b
 
-- Fixed ifdefs so can test base code by compiling with NO_LARGE_FILE_SUPPORT, then
-  compiling with NO_ZIP64_SUPPORT to test 64-bit file calls (if port enables) but
-  otherwise use base code, and compiling normally to enable Zip64 code
+- Fixed ifdefs so can test base code by compiling with
+  NO_LARGE_FILE_SUPPORT, then compiling with NO_ZIP64_SUPPORT to test
+  64-bit file calls (if port enables) but otherwise use base code, and
+  compiling normally to enable Zip64 code
 - Unix Zip64 fixes - should now be able to create and read large files
 - WinDLL changes to support Zip64.  Zip 3.0 dll named Zip32z64.dll
 - New VB example to show use of Zip32z64.dll
 - New options -sc (show final command line and exit) and -sd (show each
-  step zip is doing, a little different than verbose which is still there) added
-  to help debug but both or at least -sd might go away in the release
+  step zip is doing, a little different than verbose which is still there)
+  added to help debug but both or at least -sd might go away in the
+  release
 - Some minor posted bugs fixed (see Changes)
 
 

@@ -237,7 +237,9 @@
    the epoch (to avoid rollover), so we need long long variables
    to do entry timing. - 2009 Aug 9 EG */
 #ifdef LARGE_FILE_SUPPORT
-# define ENABLE_ENTRY_TIMING
+# ifndef ENABLE_ENTRY_TIMING
+#  define ENABLE_ENTRY_TIMING
+# endif
 #endif
 
 
@@ -321,14 +323,14 @@
 #endif /* WINDLL */
 
 /* Enable use of optimized x86 assembler version of longest_match() for
-   MSDOS, WIN32 and OS2 per default.  */
-#if !defined(NO_ASM) && !defined(ASMV)
+   MSDOS, WIN32 and OS2 by default. */
+#if !defined(NO_ASM) && !defined(NO_ASMV) && !defined(ASMV)
 #  define ASMV
 #endif
 
 /* Enable use of optimized x86 assembler version of crc32() for
-   MSDOS, WIN32 and OS2 per default.  */
-#if !defined(NO_ASM) && !defined(ASM_CRC)  && !defined(NO_ASM_CRC)
+   MSDOS, WIN32 and OS2 by default. */
+#if !defined(NO_ASM) && !defined(NO_ASM_CRC) && !defined(ASM_CRC)
 #  define ASM_CRC
 #endif
 

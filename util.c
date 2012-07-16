@@ -1222,7 +1222,7 @@ char *zip_fuzofft( val, pre, post)
 }
 
 
-/* Display number to mesg stream
+/* Display number to a stream
    5/15/05 EG */
 
 int DisplayNumString(file, i)

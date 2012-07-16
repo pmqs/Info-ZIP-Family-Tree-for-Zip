@@ -1,7 +1,7 @@
 /*
   macosx.h - Zip 3
 
-  Copyright (c) 2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 2008-2012 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -19,7 +19,22 @@
 
 #    define APL_DBL_PFX "._"
 #    define APL_DBL_PFX_SQR "__MACOSX/"
-#    define APL_DBL_SFX "/rsrc"
+
+     /* Select modern ("/..namedfork/rsrc") or old ("/rsrc") suffix
+      * for resource fork access.
+      */
+#    ifndef APPLE_NFRSRC
+#     if defined( __ppc__) || defined( __ppc64__)
+#      define APPLE_NFRSRC 0
+#     else /* defined( __ppc__) || defined( __ppc64__) */
+#      define APPLE_NFRSRC 1
+#     endif /* defined( __ppc__) || defined( __ppc64__) [else] */
+#    endif /* ndef APPLE_NFRSRC */
+#    if APPLE_NFRSRC
+#      define APL_DBL_SUFX "/..namedfork/rsrc"
+#    else /* APPLE_NFRSRC */
+#      define APL_DBL_SUFX "/rsrc"
+#    endif /* APPLE_NFRSRC [else] */
 
 #    define APL_DBL_HDR_SIZE           82
 #    define APL_DBL_HDR_RSRC_FORK_SIZE 46

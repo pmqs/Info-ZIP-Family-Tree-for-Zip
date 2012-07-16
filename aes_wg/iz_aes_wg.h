@@ -14,23 +14,23 @@
 #ifndef __iz_aes_wg_h           /* Don't include more than once. */
 #define __iz_aes_wg_h
 
-#ifdef IZ_AES_WG_BETA
-#  undef IZ_AES_WG_BETA         /* This is not a beta version. */
-#endif
-
 #ifndef IZ_AES_WG_BETA
 #  define IZ_AES_WG_BETA        /* This is a beta version. */
 #endif
 
+#ifdef IZ_AES_WG_BETA
+#  undef IZ_AES_WG_BETA         /* This is not a beta version. */
+#endif
 
-#define IZ_AES_WG_MAJORVER      0
-#define IZ_AES_WG_MINORVER      4
+
+#define IZ_AES_WG_MAJORVER      1
+#define IZ_AES_WG_MINORVER      0
 #ifdef IZ_AES_WG_BETA
 #  define IZ_AES_WG_BETA_VER     "a BETA"
 #  define IZ_AES_WG_VERSION_DATE "29 Jun 2011"  /* Last real code change. */
 #else
 #  define IZ_AES_WG_BETA_VER     ""
-#  define IZ_AES_WG_VERSION_DATE "29 Jun 2011"  /* Last public release date. */
+#  define IZ_AES_WG_VERSION_DATE "07 Jul 2011"  /* Last public release date. */
 #  define IZ_AES_WG_RELEASE
 #endif
 

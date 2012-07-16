@@ -19,8 +19,10 @@
 #  define WIN32_LEAN_AND_MEAN
 #  include <windows.h>
 #endif
-#ifdef WINDLL
+#ifdef USE_ZIPMAIN
 #  include <setjmp.h>
+#endif /* def USE_ZIPMAIN */
+#ifdef WINDLL
 #  include "windll/windll.h"
 #endif
 #define DEFCPYRT        /* main module: enable copyright string defines! */
@@ -49,6 +51,10 @@ extern void globals_dummy( void);
 #    define P_WAIT _P_WAIT
 #  endif
 #endif
+
+#if defined( UNIX) && defined( __APPLE__)
+#  include "unix/macosx.h"
+#endif /* defined( UNIX) && defined( __APPLE__) */
 
 #include <signal.h>
 #include <stdio.h>
@@ -108,7 +114,7 @@ int bflag = 0;          /* Use text mode as default */
 char _version[] = VERSION;
 #endif
 
-#ifdef WINDLL
+#ifdef USE_ZIPMAIN
 jmp_buf zipdll_error_return;
 #ifdef ZIP64_SUPPORT
   unsigned long low, high; /* returning 64 bit values for systems without an _int64 */
@@ -121,7 +127,19 @@ jmp_buf zipdll_error_return;
 # if (!defined(USE_ZLIB) || defined(USE_OWN_CRCTAB))
 ZCONST ulg near *crc_32_tab;
 # else
+/* 2012-05-31 SMS.
+ * Zlib 1.2.7 changed the type of *get_crc_table() from uLongf to
+ * z_crc_t (to get a 32-bit type on systems with a 64-bit long).  To
+ * avoid complaints about mismatched (int-long) pointers (such as
+ * %CC-W-PTRMISMATCH on VMS, for example), we need to match the type
+ * zlib uses.  At zlib version 1.2.7, the only indicator available to
+ * CPP seems to be the Z_U4 macro.
+ */
+#  ifdef Z_U4
+ZCONST z_crc_t *crc_32_tab;
+#  else /* def Z_U4 */
 ZCONST uLongf *crc_32_tab;
+#  endif /* def Z_U4 [else] */
 # endif
 #endif /* CRYPT */
 
@@ -139,21 +157,21 @@ ZCONST uLongf *crc_32_tab;
 /* Some ports can't handle file names with leading numbers,
  * hence 7zVersion.h is now SzVersion.h.
  */
-# include "lzma/SzVersion.h"
+# include "szip/SzVersion.h"
 #endif /* defined( LZMA_SUPPORT) || defined( PPMD_SUPPORT) */
 
 /* Local functions */
 
 local void freeup  OF((void));
 local int  finish  OF((int));
-#if (!defined(MACOS) && !defined(WINDLL))
+#if !defined(MACOS) && !defined(USE_ZIPMAIN)
 local void handler OF((int));
 local void license OF((void));
 #ifndef VMSCLI
 local void help    OF((void));
 local void help_extended OF((void));
 #endif /* !VMSCLI */
-#endif /* !MACOS && !WINDLL */
+#endif /* !MACOS && !USE_ZIPMAIN */
 
 #ifdef ENABLE_USER_PROGRESS
 # ifdef VMS
@@ -181,14 +199,14 @@ local long add_name OF((char *filearg));
 local int DisplayRunningStats OF((void));
 local int BlankRunningStats OF((void));
 
-#if !defined(WINDLL)
+#if !defined(USE_ZIPMAIN)
 local void version_info OF((void));
 # if !defined(MACOS)
 local void zipstdout OF((void));
 # endif /* !MACOS */
 local int check_unzip_version OF((char *unzippath));
 local void check_zipfile OF((char *zipname, char *zippath));
-#endif /* !WINDLL */
+#endif /* !USE_ZIPMAIN */
 
 /* structure used by add_filter to store filters */
 struct filterlist_struct {
@@ -388,7 +406,7 @@ int c;                  /* error code from the ZE_ class */
 ZCONST char *h;         /* message about how it happened */
 /* Issue a message for the error, clean up files and memory, and exit. */
 {
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
 #ifndef MACOS
   static int error_level = 0;
 #endif
@@ -396,7 +414,7 @@ ZCONST char *h;         /* message about how it happened */
   if (error_level++ > 0)
      /* avoid recursive ziperr() printouts (his should never happen) */
      EXIT(ZE_LOGIC);  /* ziperr recursion is an internal logic error! */
-#endif /* !WINDLL */
+#endif /* ndef USE_ZIPMAIN */
 
   if (mesg_line_started) {
     fprintf(mesg, "\n");
@@ -465,10 +483,10 @@ ZCONST char *h;         /* message about how it happened */
   }
 
   freeup();
-#ifndef WINDLL
-  EXIT(c);
-#else
+#ifdef USE_ZIPMAIN
   longjmp(zipdll_error_return, c);
+#else
+  EXIT(c);
 #endif
 }
 
@@ -480,7 +498,7 @@ void error(h)
   ziperr(ZE_LOGIC, h);
 }
 
-#if (!defined(MACOS) && !defined(WINDLL) && !defined(NO_EXCEPT_SIGNALS))
+#if (!defined(MACOS) && !defined(USE_ZIPMAIN) && !defined(NO_EXCEPT_SIGNALS))
 local void handler(s)
 int s;                  /* signal number (ignored) */
 /* Upon getting a user interrupt, turn echo back on for tty and abort
@@ -497,7 +515,7 @@ int s;                  /* signal number (ignored) */
   ziperr(ZE_ABORT, "aborting");
   s++;                                  /* keep some compilers happy */
 }
-#endif /* !defined(MACOS) && !defined(WINDLL) && !defined(NO_EXCEPT_SIGNALS) */
+#endif /* !defined(MACOS) && !defined(USE_ZIPMAIN) && !defined(NO_EXCEPT_SIGNALS) */
 
 void zipmessage_nl(a, nl)
 ZCONST char *a;     /* message string to output */
@@ -616,7 +634,7 @@ ZCONST char *a, *b;
     zipwarn_i( 1, a, b);
 }
 
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
 local void license()
 /* Print license information to stdout. */
 {
@@ -866,9 +884,18 @@ local void help_extended()
 "  is used to avoid problems with file paths containing \"[\" and \"]\":",
 "    zip files_ending_with_number -RE foo[0-9].c",
 "",
+"Verbose/Version:",
+"  -v        either enable verbose mode or show version",
+"  The short option -v, when the only option, shows version info. This use",
+"  can be forced by using long form --version.  Otherwise -v tells Zip to be",
+"  verbose, providing additional info about what is going on.  (On VMS,",
+"  additional levels of verboseness are enabled using -vv and -vvv.)  This",
+"  info tends towards the debugging level and is probably not useful to the",
+"  average user.  Long option form of verbose use is --verbose.",
+"",
 "Input file lists:",
-"  -@        read names to zip from stdin (one path per line)",
-"  -@@ fpath open file at file path fpath and read names (one path per line)",
+"  -@        read names to zip from stdin (one name per line)",
+"  -@@ fpath open file at file path fpath and read names (one name per line)",
 "",
 "Include and Exclude:",
 "  -i pattern pattern ...   include files that match a pattern",
@@ -929,42 +956,46 @@ local void help_extended()
 "  are copied instead of being read and compressed so can be faster.",
 "      WARNING:  -FS deletes entries so make backup copy of archive first",
 "",
-"Compression:",
-"  -0        store files (no compression)",
-"  -1 to -9  compress fastest to compress best (default is 6)",
-"  -Z cm     set compression method to cm:",
-"              store   - store without compression, same as option -0",
-"              deflate - original zip deflate, same as -1 to -9 (default)",
-"            if bzip2 is enabled:",
-"              bzip2 - use bzip2 compression (need modern unzip)",
-"            if LZMA is enabled:",
-"              lzma - use LZMA compression (need modern unzip)",
-"            if PPMd is enabled:",
-"              ppmd - use PPMd compression (need modern unzip)",
-"",
-"  -9 always tries to compress all files.",
-"",
-"  Compression method to use with a particular file can be controlled:",
-"  -n suffixlist",
-"  where suffixlist is in the form:",
-"    .ext1:.ext2:.ext3:...",
-"  Files that have an extension in the list will be stored instead of",
+"Compression method, level:",
+"  Global compression method:",
+"    -Z cm     set global compression method to cm:",
+"                store   - store without compression, same as option -0",
+"                deflate - original zip deflate, same as -1 to -9 (default)",
+"              if bzip2 is enabled:",
+"                bzip2 - use bzip2 compression (need modern unzip)",
+"              if LZMA is enabled:",
+"                lzma - use LZMA compression (need modern unzip)",
+"              if PPMd is enabled:",
+"                ppmd - use PPMd compression (need modern unzip)",
+"  Global compression level:",
+"    -0        store files (no compression)",
+"    -1 to -9  compress fastest to compress best (default is 6)",
+"  Compression level to use for particular compression methods:",
+"    -L=methodlist",
+"    where L is a compression level (1, 2, ..., 9), and methodlist is a list",
+"    of compression methods in the form:",
+"      cm1:cm2:...",
+"    Examples: -4=deflate  -8=bzip2:lzma:ppmd",
+"  Compression method/level to use with particular file name suffixes:",
+"    -n suffixlist",
+"    where suffixlist is in the form:",
+"      .ext1:.ext2:.ext3:...",
+"  Files whose names end with a suffix in the list will be stored instead of",
 "  compressed.  Note that a list of just \":\" disables the default list and",
 "  forces compression of all extensions, including .zip files.  A more",
 "  advanced form is now supported:",
-"    -n M=suffixlist",
-"  where M is a compression method (such as bzip2), which specifies the use",
-"  of compression method M when one of those suffixes are found.  A yet more",
+"    -n cm=suffixlist",
+"  where cm is a compression method (such as bzip2), which specifies the use",
+"  of compression method cm when one of those suffixes is found.  A yet more",
 "  advanced form is supported:",
-"    -n M-L=suffixlist",
-"  where L is one of (0 through 9 or -), which specifies the use of method M",
-"  for those suffixes when level L is specified (-0 through -9), or for all",
-"  levels when M-- is used.  This allows setting up different methods to",
-"  use for different compression levels, which get used depending on which",
-"  compression level is selected.  Multiple -n options can be used:",
+"    -n cm-L=suffixlist",
+"  where L is one of (1 through 9 or -), which specifies the use of method cm",
+"  at level L when one of those suffixes is found.  (\"-\" specifies the",
+"  default level, to override a specific level in a previous \"-n\" option.)",
+"  Multiple -n options can be used:",
 "    -n deflate=.txt -nlzma-9=.c:.h",
 "",
-"  -ss      list the current compression mappings and exit.",
+"  -ss      list the current compression mappings (suffix lists), and exit.",
 "",
 "Encryption:",
 "  -e        use encryption, prompt for password",
@@ -1178,7 +1209,7 @@ local void help_extended()
 "               Can also use -sf to save file list before zipping files",
 "",
 "Show files:",
-"  -sf       show files to operate on and exit (-sf- logfile only)",
+"  -sf       show files to operate on, and exit (-sf- logfile only)",
 "  -sF       add info to -sf listing, currently only -sF=usize",
 "  List files that will be operated on.  Can list matching files on",
 "  file system, matching entries in input archive, or both.",
@@ -1260,7 +1291,7 @@ local void help_extended()
 "              slashes  - change aa.bb.cc.dd to aa/bb/cc/dd",
 "              lastdot  - change aa.bb.cc.dd to aa/bb/cc.dd (default)",
 "  -nw       no wildcards (wildcards are like any other character)",
-"  -sc       show command line arguments as processed and exit",
+"  -sc       show command line arguments as processed, and exit",
 "  -sd       show debugging as Zip does each step",
 "  -so       show all available options on this system",
 "  -X        default=strip old extra fields, -X- keep old, -X strip most",
@@ -1313,13 +1344,34 @@ local void version_info()
   static char crypt_opt_ver[81];
 #endif
 
+  /* Non-default AppleDouble resource fork suffix. */
+#if defined( UNIX) && defined( __APPLE__)
+# if defined( __ppc__) || defined( __ppc64__)
+#  if APPLE_NFRSRC
+#   define APPLE_NFRSRC_MSG \
+     "APPLE_NFRSRC         (\"/..namedfork/rsrc\" suffix for resource fork)"
+#  endif /* APPLE_NFRSRC */
+# else /* defined( __ppc__) || defined( __ppc64__) */
+#  if ! APPLE_NFRSRC
+#   define APPLE_NFRSRC_MSG \
+     "APPLE_NFRSRC         (NOT!  \"/rsrc\" suffix for resource fork)"
+#  endif /* ! APPLE_NFRSRC */
+# endif /* defined( __ppc__) || defined( __ppc64__) [else] */
+#endif /* defined( UNIX) && defined( __APPLE__) */
+
   /* Options info array */
   static ZCONST char *comp_opts[] = {
+#ifdef APPLE_NFRSRC_MSG
+    APPLE_NFRSRC_MSG,
+#endif
 #ifdef ASM_CRC
-    "ASM_CRC",
+    "ASM_CRC              (Assembly code used for CRC calculation)",
 #endif
 #ifdef ASMV
-    "ASMV",
+    "ASMV                 (Assembly code used for pattern matching)",
+#endif
+#ifdef BACKUP_SUPPORT
+    "BACKUP_SUPPORT",
 #endif
 #ifdef DYN_ALLOC
     "DYN_ALLOC",
@@ -1609,7 +1661,7 @@ local void version_info()
   check_for_windows("Zip");
 #endif
 }
-#endif /* !WINDLL */
+#endif /* !USE_ZIPMAIN */
 
 
 #ifndef PROCNAME
@@ -1626,7 +1678,7 @@ local void version_info()
                                   && filter_match_case)
 #endif /* PROCNAME */
 
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
 #ifndef MACOS
 local void zipstdout()
 /* setup for writing zip file on stdout */
@@ -1974,7 +2026,7 @@ local void check_zipfile(zipname, zippath)
     fflush(logfile);
   }
 }
-#endif /* !WINDLL */
+#endif /* !USE_ZIPMAIN */
 
 /* get_filters() is replaced by the following
 local int get_filters(argc, argv)
@@ -2272,8 +2324,11 @@ local int DisplayRunningStats()
     uzoff_t mins;
     uzoff_t hours;
     static uzoff_t lasttime = 0;
-    uzoff_t files_to_go = files_total - files_so_far;
+    uzoff_t files_to_go = 0;
 
+    /* Set files_to_go (if determinants are valid). */
+    if (files_total > files_so_far)
+      files_to_go = files_total - files_so_far;
 
     current_time = get_time_in_usec();
     lasttime = current_time;
@@ -2310,7 +2365,6 @@ local int DisplayRunningStats()
       time_to_go = bytes_to_go / bytes_per_second;
 
       /* add estimate for console listing of entries */
-      if (files_to_go < 0) files_to_go = 0;
       time_to_go += files_to_go / 40;
 
       secs = (time_to_go % 60);
@@ -2447,7 +2501,7 @@ local int BlankRunningStats()
 }
 
 #if CRYPT
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
 int encr_passwd(modeflag, pwbuf, size, zfn)
 int modeflag;
 char *pwbuf;
@@ -2467,7 +2521,7 @@ ZCONST char *zfn;
     }
     return IZ_PW_ENTERED;
 }
-#endif /* !WINDLL */
+#endif /* !USE_ZIPMAIN */
 #else /* !CRYPT */
 int encr_passwd(modeflag, pwbuf, size, zfn)
 int modeflag;
@@ -2564,68 +2618,70 @@ int set_filetype(out_path)
 #define o_as            0x102
 #define o_AC            0x103
 #define o_AS            0x104
-#define o_BP            0x105
-#define o_BT            0x106
-#define o_cd            0x107
-#define o_C2            0x108
-#define o_C5            0x109
-#define o_db            0x110
-#define o_dc            0x111
-#define o_dd            0x112
-#define o_de            0x113
-#define o_des           0x114
-#define o_df            0x115
-#define o_DF            0x116
-#define o_DI            0x117
-#define o_dg            0x118
-#define o_dr            0x119
-#define o_ds            0x120
-#define o_dt            0x121
-#define o_du            0x122
-#define o_dv            0x123
-#define o_FF            0x124
-#define o_FI            0x125
-#define o_FS            0x126
-#define o_h2            0x127
-#define o_ic            0x128
-#define o_jj            0x129
-#define o_la            0x130
-#define o_lf            0x131
-#define o_lF            0x132
-#define o_li            0x133
-#define o_ll            0x134
-#define o_lu            0x135
-#define o_mm            0x136
-#define o_MM            0x137
-#define o_MV            0x138
-#define o_nw            0x139
-#define o_pa            0x140
-#define o_pn            0x141
-#define o_pp            0x142
-#define o_RE            0x143
-#define o_sb            0x144
-#define o_sc            0x145
-#define o_sC            0x146
-#define o_sd            0x147
-#define o_sf            0x148
-#define o_sF            0x149
-#define o_si            0x150
-#define o_so            0x151
-#define o_sp            0x152
-#define o_spc           0x153
-#define o_ss            0x154
-#define o_su            0x155
-#define o_sU            0x156
-#define o_sv            0x157
-#define o_tt            0x158
-#define o_TT            0x159
-#define o_UN            0x160
-#define o_ve            0x161
-#define o_VV            0x162
-#define o_ws            0x163
-#define o_ww            0x164
-#define o_z64           0x165
-#define o_atat          0x166
+#define o_BC            0x105
+#define o_BL            0x106
+#define o_BP            0x107
+#define o_BT            0x108
+#define o_cd            0x109
+#define o_C2            0x110
+#define o_C5            0x111
+#define o_db            0x112
+#define o_dc            0x113
+#define o_dd            0x114
+#define o_de            0x115
+#define o_des           0x116
+#define o_df            0x117
+#define o_DF            0x118
+#define o_DI            0x119
+#define o_dg            0x120
+#define o_dr            0x121
+#define o_ds            0x122
+#define o_dt            0x123
+#define o_du            0x124
+#define o_dv            0x125
+#define o_FF            0x126
+#define o_FI            0x127
+#define o_FS            0x128
+#define o_h2            0x129
+#define o_ic            0x130
+#define o_jj            0x131
+#define o_la            0x132
+#define o_lf            0x133
+#define o_lF            0x134
+#define o_li            0x135
+#define o_ll            0x136
+#define o_lu            0x137
+#define o_mm            0x138
+#define o_MM            0x139
+#define o_MV            0x140
+#define o_nw            0x141
+#define o_pa            0x142
+#define o_pn            0x143
+#define o_pp            0x144
+#define o_RE            0x145
+#define o_sb            0x146
+#define o_sc            0x147
+#define o_sC            0x148
+#define o_sd            0x149
+#define o_sf            0x150
+#define o_sF            0x151
+#define o_si            0x152
+#define o_so            0x153
+#define o_sp            0x154
+#define o_spc           0x155
+#define o_ss            0x156
+#define o_su            0x157
+#define o_sU            0x158
+#define o_sv            0x159
+#define o_tt            0x160
+#define o_TT            0x161
+#define o_UN            0x162
+#define o_ve            0x163
+#define o_VV            0x164
+#define o_ws            0x165
+#define o_ww            0x166
+#define o_z64           0x167
+#define o_atat          0x168
 
 
 /* the below is mainly from the old main command line
@@ -2661,6 +2717,8 @@ struct option_struct far options[] = {
     {"B",  "",            o_NUMBER_VALUE,   o_NOT_NEGATABLE, 'B',  "nsk"},
 #endif
 #ifdef BACKUP_SUPPORT
+    {"BC",   "backup-control",o_REQUIRED_VALUE,o_NOT_NEGATABLE, o_BC,"path/name of backup control file"},
+    {"BL",   "backup-log", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_BL,  "path/name of backup log file"},
     {"BP",   "backup-path", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_BP,  "path/name of base backup archv name"},
     {"BT",   "backup-type", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_BT,  "backup type (FULL, DIFF, or INCR)"},
 #endif
@@ -2709,14 +2767,14 @@ struct option_struct far options[] = {
     {"fz", "force-zip64", o_NO_VALUE,       o_NEGATABLE,     o_z64,"force use of Zip64 format, negate prevents"},
 #endif
     {"g",  "grow",        o_NO_VALUE,       o_NOT_NEGATABLE, 'g',  "grow existing archive instead of replace"},
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
     {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     {"H",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     {"?",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     {"h2", "more-help",   o_NO_VALUE,       o_NOT_NEGATABLE, o_h2, "extended help"},
     {"hh", "",            o_NO_VALUE,       o_NOT_NEGATABLE, o_h2, "extended help"},
     {"HH", "",            o_NO_VALUE,       o_NOT_NEGATABLE, o_h2, "extended help"},
-#endif /* !WINDLL */
+#endif /* !USE_ZIPMAIN */
     {"i",  "include",     o_VALUE_LIST,     o_NOT_NEGATABLE, 'i',  "include only files matching patterns"},
 #if defined(VMS) || defined(WIN32)
     {"ic", "ignore-case", o_NO_VALUE,       o_NEGATABLE,     o_ic, "ignore case when matching archive entries"},
@@ -2737,7 +2795,7 @@ struct option_struct far options[] = {
     {"la", "log-append",  o_NO_VALUE,       o_NEGATABLE,     o_la, "append to existing log file"},
     {"li", "log-info",    o_NO_VALUE,       o_NEGATABLE,     o_li, "include informational messages in log"},
     {"lu", "log-utf8",    o_NO_VALUE,       o_NEGATABLE,     o_lu, "log names as UTF-8"},
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
     {"L",  "license",     o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "display license"},
 #endif
     {"m",  "move",        o_NO_VALUE,       o_NOT_NEGATABLE, 'm',  "add files to archive then delete files"},
@@ -2878,9 +2936,9 @@ char **argv;            /* command line tokens */
   FILE *x /*, *y */;    /* input and output zip files (y global) */
   struct zlist far *z;  /* steps through zfiles linked list */
   int bad_open_is_error = 0; /* if read fails, 0=warning, 1=error */
-#ifdef WINDLL
+#ifdef USE_ZIPMAIN
   int retcode;          /* return code for dll */
-#endif /* WINDLL */
+#endif /* def USE_ZIPMAIN */
 #if (!defined(VMS) && !defined(CMS_MVS))
   char *zipbuf;         /* stdio buffer for the zip file */
 #endif /* !VMS && !CMS_MVS */
@@ -3291,7 +3349,7 @@ char **argv;            /* command line tokens */
   filelist = NULL;            /* list of input files */
   filearg_count = 0;
 
-  apath_list  NULL;           /* list of incremental archive paths */
+  apath_list = NULL;          /* list of incremental archive paths */
   apath_count = 0;
 
   allow_empty_archive = 0;    /* if no files, allow creation of empty archive anyway */
@@ -3315,12 +3373,18 @@ char **argv;            /* command line tokens */
 
   encryption_method = NO_ENCRYPTION;
 
-# if defined(WINDLL)
+# ifdef USE_ZIPMAIN
+  /* Set up error return junp. */
   retcode = setjmp(zipdll_error_return);
   if (retcode) {
     return retcode;
   }
-# endif /* WINDLL */
+  /* Verify NULL termination of (user-supplied) argv[]. */
+  if (argv[ argc] != NULL)
+  {
+    ZIPERR( ZE_PARMS, "argv[ argc] != NULL.");
+  }
+# endif /* def USE_ZIPMAIN */
 # ifdef BACKUP_SUPPORT
   backup_type = 0;  /* default to not using backup mode (using control file) */
 # endif
@@ -3429,7 +3493,7 @@ char **argv;            /* command line tokens */
   /* extract extended argument list from environment */
   expand_args(&argc, &argv);
 
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
   /* Process arguments */
   diag("processing arguments");
   /* First, check if just the help or version screen should be displayed */
@@ -3461,14 +3525,14 @@ char **argv;            /* command line tokens */
 # else /* VMS */
   envargs(&argc, &argv, "ZIPOPT", "ZIP_OPTS");  /* 4th arg for unzip compat. */
 # endif /* ?VMS */
-#endif /* !WINDLL */
+#endif /* !USE_ZIPMAIN */
 
   zipfile = tempzip = NULL;
   y = NULL;
   d = 0;                        /* disallow adding to a zip file */
 
 #ifndef NO_EXCEPT_SIGNALS
-# if (!defined(MACOS) && !defined(WINDLL) && !defined(NLM))
+# if (!defined(MACOS) && !defined(USE_ZIPMAIN) && !defined(NLM))
   signal(SIGINT, handler);
 #  ifdef SIGTERM                  /* AMIGADOS and others have no SIGTERM */
   signal(SIGTERM, handler);
@@ -3488,7 +3552,7 @@ char **argv;            /* command line tokens */
 #  ifdef SIGSEGV
    signal(SIGSEGV, handler);
 #  endif
-# endif /* !MACOS && !WINDLL && !NLM */
+# endif /* !MACOS && !USE_ZIPMAIN && !NLM */
 # ifdef NLM
   NLMsignals();
 # endif
@@ -3947,7 +4011,7 @@ char **argv;            /* command line tokens */
           break;
         case 'g':   /* Allow appending to a zip file */
           d = 1;  break;
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
         case 'h': case 'H': case '?':  /* Help */
 #ifdef VMSCLI
           VMSCLI_help();
@@ -3955,13 +4019,13 @@ char **argv;            /* command line tokens */
           help();
 #endif
           RETURN(finish(ZE_OK));
-#endif /* !WINDLL */
+#endif /* !USE_ZIPMAIN */
 
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
         case o_h2:  /* Extended Help */
           help_extended();
           RETURN(finish(ZE_OK));
-#endif /* !WINDLL */
+#endif /* !USE_ZIPMAIN */
 
         /* -i is with -x */
 #if defined(VMS) || defined(WIN32)
@@ -4040,7 +4104,7 @@ char **argv;            /* command line tokens */
             log_utf8 = 1;
           break;
 #endif
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
         case 'L':   /* Show license */
           license();
           RETURN(finish(ZE_OK));
@@ -4441,7 +4505,7 @@ char **argv;            /* command line tokens */
           if (option == o_ve ||      /* --version */
               (argcnt == 2 && strlen(args[1]) == 2)) { /* -v only */
             /* display version */
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
             version_info();
 #else
             zipwarn("version information not supported for dll", "");
@@ -4660,6 +4724,17 @@ char **argv;            /* command line tokens */
             if (value == NULL || strlen(value) == 0) {
               ZIPERR(ZE_PARMS, "-@@:  No file name to open to read names from");
             }
+
+#ifndef MACOS
+            /* Treat "-@@ -" as "-@". */
+            if (strcmp( value, "-") == 0)
+            {
+              comment_stream = NULL;
+              s = 1;          /* defer -@ until have zipfile name */
+              break;
+            }
+#endif /* ndef MACOS */
+
             infile = fopen(value, "r");
             if (infile == NULL) {
               sprintf(errbuf, "-@@:  Cannot open input file:  %s\n", value);
@@ -4752,12 +4827,12 @@ char **argv;            /* command line tokens */
               if (backup_type == 0)
               {
 #endif /* BACKUP_SUPPORT */
-#if (!defined(MACOS) && !defined(WINDLL))
+#if (!defined(MACOS) && !defined(USE_ZIPMAIN))
                 if (strcmp(value, "-") == 0) {  /* output zipfile is dash */
                   /* just a dash */
                   zipstdout();
                 } else
-#endif /* !MACOS && !WINDLL */
+#endif /* !MACOS && !USE_ZIPMAIN */
                 {
                   /* name of zipfile */
                   if ((zipfile = ziptyp(value)) == NULL) {
@@ -4931,7 +5006,8 @@ char **argv;            /* command line tokens */
 
         fprintf( mesg, "     %8s%s=%s\n",
          mthd_lvl[ i].method_str, level_str, suffix_str);
-        any = 1;
+        if (suffix_str != NULL)
+          any = 1;
       }
     }
     if (any == 0)
@@ -5001,6 +5077,9 @@ char **argv;            /* command line tokens */
           break;
         case o_NUMBER_VALUE:
           printf("%-4s ", "num");
+          break;
+        case o_OPT_EQ_VALUE:
+          printf("%-4s ", "=val");
           break;
         default:
           printf("%-4s ", "unk");
@@ -5670,7 +5749,7 @@ char **argv;            /* command line tokens */
     ZIPERR(ZE_PARMS, "can't use -V with -l or -ll");
 #endif
 
-#if (!defined(MACOS) && !defined(WINDLL))
+#if (!defined(MACOS) && !defined(USE_ZIPMAIN))
   if (kk < 3) {               /* zip used as filter */
     zipstdout();
     comment_stream = NULL;
@@ -5691,7 +5770,7 @@ char **argv;            /* command line tokens */
       ZIPERR(ZE_PARMS, "can't use - and -@ together");
     }
   }
-#endif /* !MACOS && !WINDLL */
+#endif /* !MACOS && !USE_ZIPMAIN */
 
   if (zipfile && !strcmp(zipfile, "-")) {
     if (show_what_doing) {
@@ -6778,7 +6857,7 @@ char **argv;            /* command line tokens */
       !(zfiles != NULL &&
         (latest || fix || adjust || junk_sfx || comadd || zipedit))) {
     if (test && (zfiles != NULL || zipbeg != 0)) {
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
       check_zipfile(zipfile, argv[0]);
 #endif
       RETURN(finish(ZE_OK));
@@ -6789,7 +6868,7 @@ char **argv;            /* command line tokens */
     else if (zfiles == NULL && (latest || fix || adjust || junk_sfx)) {
       ZIPERR(ZE_NAME, zipfile);
     }
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
     else if (recurse && (pcount == 0) && (first_listarg > 0)) {
 #ifdef VMS
       strcpy(errbuf, "try: zip \"");
@@ -6813,7 +6892,7 @@ char **argv;            /* command line tokens */
     else {
       ZIPERR(ZE_NONE, zipfile);
     }
-#endif /* !WINDLL */
+#endif /* !USE_ZIPMAIN */
   }
 
   if (filesync && all_current && fcount == 0) {
@@ -7193,7 +7272,7 @@ char **argv;            /* command line tokens */
           if (noisy)
           {
             if (mesg_line_started) {
-#if (!defined(MACOS) && !defined(WINDLL))
+#if (!defined(MACOS) && !defined(USE_ZIPMAIN))
               putc('\n', mesg);
               fflush(mesg);
 #else
@@ -7227,7 +7306,7 @@ char **argv;            /* command line tokens */
           if (noisy)
           {
             if (mesg_line_started) {
-#if (!defined(MACOS) && !defined(WINDLL))
+#if (!defined(MACOS) && !defined(USE_ZIPMAIN))
               putc('\n', mesg);
               fflush(mesg);
 #else
@@ -7253,7 +7332,7 @@ char **argv;            /* command line tokens */
           /*
           if (noisy)
           {
-#if (!defined(MACOS) && !defined(WINDLL))
+#if (!defined(MACOS) && !defined(USE_ZIPMAIN))
             putc('\n', mesg);
             fflush(mesg);
 #else
@@ -7421,8 +7500,8 @@ char **argv;            /* command line tokens */
           w = &z->nxt;
         }
 
-#ifdef WINDLL
-#ifdef ZIP64_SUPPORT
+#ifdef USE_ZIPMAIN
+# ifdef ZIP64_SUPPORT
         /* int64 support in caller */
         if (lpZipUserFunctions->ServiceApplication64 != NULL)
         {
@@ -7440,15 +7519,15 @@ char **argv;            /* command line tokens */
                       ZIPERR(ZE_ABORT, "User terminated operation");
           }
         }
-#else
+# else
         if (lpZipUserFunctions->ServiceApplication != NULL) {
           if ((*lpZipUserFunctions->ServiceApplication)(z->zname, z->siz))
             ZIPERR(ZE_ABORT, "User terminated operation");
         }
-#endif /* ZIP64_SUPPORT - I added comments around // comments - does that help below? EG */
+# endif /* ZIP64_SUPPORT - I added comments around // comments - does that help below? EG */
 /* strange but true: if I delete this and put these two endifs adjacent to
    each other, the Aztec Amiga compiler never sees the second endif!  WTF?? PK */
-#endif /* WINDLL */
+#endif /* USE_ZIPMAIN */
       }
       else
       {
@@ -7483,8 +7562,8 @@ char **argv;            /* command line tokens */
         files_so_far++;
         good_bytes_so_far += z->siz;
         bytes_so_far += z->siz;
-#ifdef WINDLL
-#ifdef ZIP64_SUPPORT
+#ifdef USE_ZIPMAIN
+# ifdef ZIP64_SUPPORT
         /* int64 support in caller */
         if (lpZipUserFunctions->ServiceApplication64 != NULL)
         {
@@ -7502,15 +7581,15 @@ char **argv;            /* command line tokens */
                       ZIPERR(ZE_ABORT, "User terminated operation");
           }
         }
-#else
+# else
         if (lpZipUserFunctions->ServiceApplication != NULL) {
           if ((*lpZipUserFunctions->ServiceApplication)(z->zname, z->siz))
             ZIPERR(ZE_ABORT, "User terminated operation");
         }
-#endif /* ZIP64_SUPPORT - I added comments around // comments - does that help below? EG */
+# endif /* ZIP64_SUPPORT - I added comments around // comments - does that help below? EG */
 /* strange but true: if I delete this and put these two endifs adjacent to
    each other, the Aztec Amiga compiler never sees the second endif!  WTF?? PK */
-#endif /* WINDLL */
+#endif /* USE_ZIPMAIN */
 
         v = z->nxt;                     /* delete entry from list */
         free((zvoid *)(z->iname));
@@ -7732,7 +7811,7 @@ char **argv;            /* command line tokens */
       /*
       if (noisy)
       {
-#if (!defined(MACOS) && !defined(WINDLL))
+#if (!defined(MACOS) && !defined(USE_ZIPMAIN))
         putc('\n', mesg);
         fflush(mesg);
 #else
@@ -7757,7 +7836,7 @@ char **argv;            /* command line tokens */
       /*
       if (noisy)
       {
-#if (!defined(MACOS) && !defined(WINDLL))
+#if (!defined(MACOS) && !defined(USE_ZIPMAIN))
         putc('\n', mesg);
         fflush(mesg);
 #else
@@ -7944,13 +8023,13 @@ char **argv;            /* command line tokens */
     int first_line = 1;
 #endif
 
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
     if (comment_stream == NULL) {
-#ifndef RISCOS
+# ifndef RISCOS
       comment_stream = (FILE*)fdopen(fileno(stderr), "r");
-#else
+# else
       comment_stream = stderr;
-#endif
+# endif
     }
     if ((e = malloc(MAXCOM + 1)) == NULL) {
       ZIPERR(ZE_MEM, "was reading comment lines");
@@ -7968,13 +8047,13 @@ char **argv;            /* command line tokens */
     zcomment[0] = '\0';
     if (noisy)
       fputs("enter new zip file comment (end with .):\n", mesg);
-#if (defined(AMIGA) && (defined(LATTICE)||defined(__SASC)))
+# if (defined(AMIGA) && (defined(LATTICE)||defined(__SASC)))
     flushall();  /* tty input/output is out of sync here */
-#endif
-#ifdef __human68k__
+# endif
+# ifdef __human68k__
     setmode(fileno(comment_stream), O_TEXT);
-#endif
-#ifdef MACOS
+# endif
+# ifdef MACOS
     printf("\n enter new zip file comment \n");
     if (fgets(e, MAXCOM+1, comment_stream) != NULL) {
         if ((p = malloc((k = strlen(e))+1)) == NULL) {
@@ -7985,7 +8064,7 @@ char **argv;            /* command line tokens */
         if (p[k-1] == '\n') p[--k] = 0;
         zcomment = p;
     }
-#else /* !MACOS */
+# else /* !MACOS */
     /* Read comment text lines until ".\n" or EOF. */
     while (fgets( e, (MAXCOM+ 1), comment_stream) != NULL && strcmp( e, ".\n"))
     {
@@ -8022,9 +8101,9 @@ char **argv;            /* command line tokens */
       free( (zvoid *)zcomment);
       zcomment = p;
     }
-#endif /* ?MACOS */
+# endif /* ?MACOS */
     free((zvoid *)e);
-#else /* WINDLL */
+#else /* USE_ZIPMAIN */
     comment(zcomlen);
     if ((p = malloc(strlen(szCommentBuf)+1)) == NULL) {
       ZIPERR(ZE_MEM, "was setting comments to null");
@@ -8037,12 +8116,12 @@ char **argv;            /* command line tokens */
     GlobalUnlock(hStr);
     GlobalFree(hStr);
     zcomment = p;
-#endif /* WINDLL */
+#endif /* def USE_ZIPMAIN */
     zcomlen = strlen(zcomment);
   }
 
   if (display_globaldots) {
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
     putc('\n', mesg);
 #else
     fprintf(stdout,"%c",'\n');
@@ -8128,7 +8207,7 @@ char **argv;            /* command line tokens */
 #endif
 
 
-#ifndef WINDLL
+#ifndef USE_ZIPMAIN
   /* Test new zip file before overwriting old one or removing input files */
   if (test)
     check_zipfile(tempzip, argv[0]);
@@ -8329,6 +8408,57 @@ char **argv;            /* command line tokens */
 #endif /* !VMS && !CMS_MVS */
   RETURN(finish(o ? ZE_OPEN : ZE_OK));
 }
+
+
+/* 2012-06-06 SMS.
+ * Moved VMS LIB$INITIALIZE set-up here from vms/vms.c to let
+ * USE_ZIPMAIN determine whether to use it, without adding USE_ZIPMAIN
+ * dependencies elsewhere.  (As with the signal handler, above.)
+ *
+ * A user-supplied LIB$INITIALIZE routine should be able to call our
+ * decc_init(), if desired.  Define USE_ZIP_LIB$INITIALIZE at build time
+ * (LOCAL_ZIP) to use ours even in the library.  (Or steal/adapt this
+ * code for use in your application.)
+ */
+#if !defined( USE_ZIPMAIN) || defined( USE_ZIP_LIB$INITIALIZE)
+# ifdef VMS
+#  ifdef __DECC
+#   if !defined( __VAX) && (__CRTL_VER >= 70301000)
+
+/* Get "decc_init()" into a valid, loaded LIB$INITIALIZE PSECT. */
+
+#pragma nostandard
+
+/* Establish the LIB$INITIALIZE PSECTs, with proper alignment and
+   other attributes.  Note that "nopic" is significant only on VAX.
+*/
+#pragma extern_model save
+
+#pragma extern_model strict_refdef "LIB$INITIALIZ" 2, nopic, nowrt
+const int spare[ 8] = { 0 };
+
+#pragma extern_model strict_refdef "LIB$INITIALIZE" 2, nopic, nowrt
+void (*const x_decc_init)() = decc_init;
+
+#pragma extern_model restore
+
+/* Fake reference to ensure loading the LIB$INITIALIZE PSECT. */
+
+#pragma extern_model save
+
+int LIB$INITIALIZE( void);
+
+#pragma extern_model strict_refdef
+int dmy_lib$initialize = (int) LIB$INITIALIZE;
+
+#pragma extern_model restore
+
+#pragma standard
+
+#   endif /* !defined( __VAX) && (__CRTL_VER >= 70301000) */
+#  endif /* def __DECC */
+# endif /* def VMS */
+#endif /* ndef USE_ZIPMAIN */
 
 
 /* Ctrl/T (VMS) AST or SIGUSR1 handler for user-triggered progress

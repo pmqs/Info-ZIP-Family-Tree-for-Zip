@@ -11,7 +11,7 @@ ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
 a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 
-Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -349,7 +349,12 @@ extern ZCONST uch ebcdic[256];
 #if (!defined(USE_ZLIB) || defined(USE_OWN_CRCTAB))
   extern ZCONST ulg near *crc_32_tab;
 #else
+  /* 2012-05-31 SMS.  See note in zip.c. */
+# ifdef Z_U4
+  extern ZCONST z_crc_t Far *crc_32_tab;
+# else /* def Z_U4 */
   extern ZCONST ulg Far *crc_32_tab;
+# endif /* def Z_U4 [else] */
 #endif
 
 /* Are these ever used?  6/12/05 EG */
@@ -497,7 +502,26 @@ extern int hidden_files;        /* process hidden and system files */
 extern int volume_label;        /* add volume label */
 extern int dirnames;            /* include directory names */
 extern int filter_match_case;   /* 1=match case when filter() */
-extern int diff_mode;           /* 1=require --out and only store changed and add */
+extern int diff_mode;           /* 1=diff mode - only store changed and add */
+
+#ifdef BACKUP_SUPPORT
+extern char *backup_path;       /* path to save backup archives and control */
+extern int backup_type;         /* 0=no,1=full backup,2=diff,3=incr */
+# define BACKUP_NONE 0
+# define BACKUP_FULL 1
+# define BACKUP_DIFF 2
+# define BACKUP_INCR 3
+extern char *backup_start_datetime; /* date/time stamp of start of backup */
+extern char *backup_control_path; /* control file used to store backup state */
+# define BACKUP_CONTROL_FILE_NAME ".zbc"
+extern char *backup_full_path;   /* full archive of backup set */
+extern char *backup_output_path; /* path of output archive before finalizing */
+#endif
+
+extern uzoff_t cd_total_entries; /* num of entries as read from (Zip64) EOCDR */
+extern uzoff_t total_cd_total_entries; /* num of entries across all archives */
+
+
 #if defined(WIN32)
 extern int only_archive_set;    /* only include if DOS archive bit set */
 extern int clear_archive_bits;   /* clear DOS archive bit of included files */
@@ -664,6 +688,7 @@ extern char *in_path;           /* Name of input archive, used to track reading 
 extern char *in_split_path;     /* in split path */
 extern char *out_path;          /* Name of output file, usually same as zipfile */
 extern int zip_attributes;
+extern char *old_in_path;       /* used to save in_path when doing incr archives */
 
 /* zip64 support 08/31/2003 R.Nausedat */
 extern uzoff_t zipbeg;          /* Starting offset of zip structures */
@@ -677,6 +702,7 @@ extern uzoff_t tempzn;          /* Count of bytes written to output zip file */
  */
 
 extern struct zlist far *zfiles;/* Pointer to list of files in zip file */
+extern struct zlist far * far *zfilesnext;/* Pointer to end of zfiles */
 extern extent zcount;           /* Number of files in zip file */
 extern int zipfile_exists;      /* 1 if zipfile exists */
 extern ush zcomlen;             /* Length of zip file comment */
@@ -907,6 +933,10 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
 # endif
 # endif
 
+#ifdef VMS
+   void decc_init( void);
+#endif /* def VMS */
+
 # if !(defined(VMS) && defined(VMS_PK_EXTRA))
    int set_extra_field OF((struct zlist far *, iztimes *));
 # endif /* ?(VMS && VMS_PK_EXTRA) */
@@ -1000,6 +1030,7 @@ void     bi_init      OF((char *, unsigned int, int));
   ---------------------------------------------------------------------------*/
 #ifdef VMS
    int    vms_stat        OF((char *, stat_t *));              /* vms.c */
+   int    vms_status      OF((int));                           /* vms.c */
    void   vms_exit        OF((int));                           /* vms.c */
 #ifndef UTIL
 #ifdef VMSCLI
@@ -1056,6 +1087,11 @@ void     bi_init      OF((char *, unsigned int, int));
 # endif
 */
 #endif
+
+/* Universal (non-Windows) library function prototypes. */
+#if USE_ZIPMAIN && !(defined(WINDLL) || defined(DLL_ZIPAPI))
+# include "api.h"
+#endif /* USE_ZIPMAIN && !(defined(WINDLL) || defined(DLL_ZIPAPI)) */
 
 #ifdef ENABLE_ENTRY_TIMING
  uzoff_t get_time_in_usec OF(());
@@ -1182,12 +1218,12 @@ size_t bfwrite OF((ZCONST void *buffer, size_t size, size_t count,
     See fileio.c
   --------------------------------------------------------------------*/
 
-/* Option value types.  See fileio.c:get_option() for details. */
+/* Option value types.  See get_option() in fileio.c for details. */
 
 /* value_type - value is always returned as a string. */
 #define o_NO_VALUE        0   /* this option does not take a value */
 #define o_REQUIRED_VALUE  1   /* this option requires a value */
-#define o_OPTIONAL_VALUE  2   /* value is optional */
+#define o_OPTIONAL_VALUE  2   /* value is optional (may be replaced by o_OPT_EQ_VALUE) */
 #define o_VALUE_LIST      3   /* this option takes a list of values */
 #define o_ONE_CHAR_VALUE  4   /* next char is value (does not end short opt string) */
 #define o_NUMBER_VALUE    5   /* value is integer (does not end short opt string) */

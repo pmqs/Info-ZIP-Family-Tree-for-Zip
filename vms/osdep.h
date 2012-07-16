@@ -89,11 +89,17 @@ typedef struct stat z_stat;
 
 #include <unixio.h>
 
-#if defined(__GNUC__) && !defined(ZCRYPT_INTERNAL)
-#  include <unixlib.h>          /* ctermid() declaration needed in ttyio.c */
+/* Need <unixlib.h> (on old VMS versions) for:
+ *    ctermid() declaration in ttyio.c,
+ *    getpid() declaration for srand seed,
+ *    getpwd() declaration in apiu.c.
+ */
+#if defined( __GNUC__) || defined( USE_ZIPMAIN) || defined( ZCRYPT_INTERNAL)
+#  define NEED_UNIXLIB_H
 #endif
-#ifdef ZCRYPT_INTERNAL
-#  include <unixlib.h>          /* getpid() declaration for srand seed */
+
+#ifdef NEED_UNIXLIB_H
+#  include <unixlib.h>
 #endif
 
 #if defined(_MBCS)
@@ -140,8 +146,14 @@ typedef struct stat z_stat;
 #endif /* defined(NO_UNISTD_H) || __CRTL_VER < 70000000) */
 
 #define SSTAT vms_stat
-#define EXIT(exit_code) vms_exit(exit_code)
-#define RETURN(exit_code) return (vms_exit(exit_code), 1)
+
+#ifdef USE_ZIPMAIN
+# define EXIT( exit_code) return( exit_code)
+# define RETURN( exit_code) return( exit_code)
+#else /* def USE_ZIPMAIN */
+# define EXIT( exit_code) vms_exit( exit_code)
+# define RETURN( exit_code) return (vms_exit( exit_code), 1)
+#endif /* def USE_ZIPMAIN [else] */
 
 /* 2011-04-21 SMS.
  * Moved strcasecmp() stuff from vmszip.c to here.

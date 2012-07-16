@@ -12,42 +12,66 @@
 #ifndef _ZIPAPI_H
 # define _ZIPAPI_H
 
-
 # include "zip.h"
 
-# ifdef WIN32
-#  ifndef PATH_MAX
-#   define PATH_MAX 260
+# ifdef WINDLL
+#  ifdef WIN32
+#   ifndef PATH_MAX
+#    define PATH_MAX 260
+#   endif
+#  else
+#   ifndef PATH_MAX
+#    define PATH_MAX 128
+#   endif
 #  endif
-# else
-#  ifndef PATH_MAX
-#   define PATH_MAX 128
-#  endif
-# endif
-
-
-# if defined(WINDLL) || defined(API)
-
-#  ifdef __cplusplus
-    extern "C"
-    {
-       void  EXPENTRY ZpVersion(ZpVer far *);
-       int   EXPENTRY ZpInit(LPZIPUSERFUNCTIONS lpZipUserFunc);
-       int   EXPENTRY ZpArchive(ZCL C, LPZPOPT Opts);
-    }
-#  endif
-
 
 #  include <windows.h>
+
 /* Porting definations between Win 3.1x and Win32 */
 #  ifdef WIN32
 #   define far
 #   define _far
-#   define __far
 #   define near
 #   define _near
 #   define __near
 #  endif
+# else /* def WINDLL */
+#  define USE_STATIC_LIB
+#  ifdef VMS
+#   /* Get a realistic value for PATH_MAX. */
+#   include <namdef.h>
+#   undef PATH_MAX
+#   ifdef NAML$C_MAXRSS
+#    define PATH_MAX (NAML$C_MAXRSS+1)
+#   else
+#    define PATH_MAX (NAM$C_MAXRSS+1)
+#   endif
+#  endif /* def VMS */
+
+   /* Adapt Windows-specific code to normal C RTL. */
+#  define far
+#  define _far
+#  define __far
+#  define _msize sizeof
+#  define _strnicmp strncasecmp
+#  define lstrcat strcat
+#  define lstrcpy strcpy
+#  define lstrlen strlen
+#  define GlobalAlloc( a, b) malloc( b)
+#  define GlobalFree( a) free( a)
+#  define GlobalLock( a) (a)
+#  define GlobalUnlock( a)
+#  define BOOL int
+#  define DWORD size_t
+#  define EXPENTRY
+#  define HANDLE void *
+#  define LPSTR char *
+#  define LPCSTR const char *
+#  define WINAPI
+# endif /* def WINDLL [else] */
+
+# if defined(WINDLL) || defined(API) || defined( USE_ZIPMAIN)
+
 
 /*---------------------------------------------------------------------------
     Prototypes for public Zip API (DLL) functions.
@@ -204,16 +228,9 @@
 
   extern LPZIPUSERFUNCTIONS lpZipUserFunctions;
 
-#  ifndef __cplusplus
-    void  EXPENTRY ZpVersion(ZpVer far *);
-    int   EXPENTRY ZpInit(LPZIPUSERFUNCTIONS lpZipUserFunc);
-    int   EXPENTRY ZpArchive(ZCL C, LPZPOPT Opts);
-#  endif
-
 #  if defined(ZIPLIB) || defined(COM_OBJECT)
 #   define ydays zp_ydays
 #  endif
-
 
 
 /* Functions not yet supported */
@@ -232,6 +249,31 @@
     extern void __far __cdecl perror(const char *);
 #  endif /* USE_STATIC_LIB */
 
-# endif /* WINDLL? || API? */
+
+/* Interface function prototypes. */
+#  ifdef __cplusplus
+    extern "C"
+    {
+#  endif /* def __cplusplus */
+  void  EXPENTRY ZpVersion(ZpVer far *);
+  int   EXPENTRY ZpInit(LPZIPUSERFUNCTIONS lpZipUserFunc);
+  int   EXPENTRY ZpArchive(ZCL C, LPZPOPT Opts);
+#  ifdef __cplusplus
+    }
+#  endif
+
+
+#ifndef WINDLL
+
+/* windll.[ch] stuff for non-Windows systems. */
+
+extern LPSTR szCommentBuf;
+extern HANDLE hStr;
+
+void comment( unsigned int);
+
+#endif /* ndef WINDLL */
+
+# endif /* defined(WINDLL) || defined(API) || defined( USE_ZIPMAIN) */
 
 #endif /* _ZIPAPI_H */

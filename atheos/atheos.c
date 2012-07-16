@@ -297,9 +297,6 @@ iztimes *t;             /* return value: access, modific. and creation times */
   free(name);
 
   if (a != NULL) {
-#ifndef OS390
-    *a = ((ulg)s.st_mode << 16) | !(s.st_mode & S_IWRITE);
-#else
 /*
 **  The following defines are copied from the unizip source and represent the
 **  legacy Unix mode flags.  These fixed bit masks are no longer required
@@ -336,7 +333,6 @@ iztimes *t;             /* return value: access, modific. and creation times */
       legacy_modes |= UNX_IFSOCK;
     *a = ((ulg)legacy_modes << 16) | !(s.st_mode & S_IWRITE);
     }
-#endif
     if ((s.st_mode & S_IFMT) == S_IFDIR) {
       *a |= MSDOS_DIR_ATTR;
     }
