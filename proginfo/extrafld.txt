@@ -284,7 +284,7 @@ The following are detailed descriptions of the known extra-field block types:
 
           Value         Size        Description
           -----         ----        -----------
-  (VMS2)  0x4d49        Short       tag for this extra block type ("JM")
+  (VMS2)  0x4d49        Short       tag for this extra block type ("IM")
           TSize         Short       total data size for this block
           ID            Long        block ID
           Flags         Short       info bytes

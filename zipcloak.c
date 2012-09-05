@@ -1,7 +1,7 @@
 /*
   zipcloak.c - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -40,7 +40,7 @@
 extern void globals_dummy( void);
 #endif
 
-#if CRYPT       /* defined (as TRUE or FALSE) in crypt.h */
+#ifdef CRYPT_ANY        /* defined in crypt.h */
 
 int main OF((int argc, char **argv));
 
@@ -308,16 +308,16 @@ local void version_info()
     "CRYPT_AES_WG_NEW     (AES strong encryption (WinZip/Gladman new))",
 #endif
 
-#if CRYPT && defined(PASSWD_FROM_STDIN)
+#if defined(CRYPT_ANY) && defined(PASSWD_FROM_STDIN)
     "PASSWD_FROM_STDIN",
-#endif /* CRYPT && PASSWD_FROM_STDIN */
+#endif /* defined(CRYPT_ANY) && defined(PASSWD_FROM_STDIN) */
 
     NULL
   };
 
 #ifdef CRYPT_TRAD
   sprintf(crypt_opt_ver,
-    "CRYPT                (traditional (weak) encryption, ver %d.%d%s)",
+    "CRYPT_TRAD           (Traditional (weak) encryption, ver %d.%d%s)",
     CR_MAJORVER, CR_MINORVER, CR_BETA_VER);
 #endif /* CRYPT_TRAD */
 
@@ -921,7 +921,7 @@ int main(argc, argv)
     RETURN(0);
 }
 
-#else /* CRYPT */
+#else /* def CRYPT_ANY */
 
 /* ZipCloak with no CRYPT support is useless. */
 
@@ -1023,4 +1023,4 @@ int main()
     EXIT( ZE_COMPERR);  /* Error in compilation options. */
 }
 
-#endif /* CRYPT [else] */
+#endif /* def CRYPT_ANY [else] */

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2000-Apr-09 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -696,7 +696,7 @@ char *p;
     return ZE_OK;
   }
 
-#if CRYPT
+#ifdef CRYPT_ANY
   /* getpid() only available on OSS so make up dummy version using NSK PID */
   unsigned zgetpid (void)
   {
@@ -720,4 +720,4 @@ char *p;
 
     return retval;
   }
-#endif  /* CRYPT */
+#endif  /* def CRYPT_ANY */

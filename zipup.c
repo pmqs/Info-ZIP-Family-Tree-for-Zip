@@ -1105,7 +1105,7 @@ struct zlist far *z;    /* zip entry to compress */
   /* standard says directories need minimum version 20 */
   if (isdir && z->ver == 10)
     z->ver = 20;
-  
+
   z->crc = 0;  /* to be updated later */
   /* Assume first that we will need an extended local header: */
   /* z->flg is now zeroed in zip.c */
@@ -1114,7 +1114,7 @@ struct zlist far *z;    /* zip entry to compress */
     z->flg &= ~8;
   else
     z->flg |= 8;  /* to be updated later */
-#if CRYPT
+#ifdef CRYPT_ANY
   if (!isdir && key != NULL) {
     z->flg |= 1;
     /* Since we do not yet know the crc here, we pretend that the crc
@@ -1123,7 +1123,7 @@ struct zlist far *z;    /* zip entry to compress */
     z->crc = z->tim << 16;
     /* More than pretend.  File is encrypted using crypt header with that. */
   }
-#endif /* CRYPT */
+#endif /* def CRYPT_ANY */
   z->lflg = z->flg;
   z->how = (ush)mthd;                           /* may be changed later  */
   z->siz = (zoff_t)(mthd == STORE && q >= 0 ? q : 0); /* will be changed later */
@@ -1312,7 +1312,7 @@ struct zlist far *z;    /* zip entry to compress */
   tempzn += 4 + LOCHEAD + z->nam + z->ext;
 
 
-#if CRYPT
+#ifdef CRYPT_ANY
   /* write out encryption header at top of file data */
   if (!isdir && key != NULL && z->encrypt_method) {
 # ifdef CRYPT_AES_WG
@@ -1332,9 +1332,9 @@ struct zlist far *z;    /* zip entry to compress */
 # endif /* def CRYPT_TRAD [else] */
 # ifdef CRYPT_AES_WG
     }
-# endif
+# endif /* def CRYPT_AES_WG */
   }
-#endif /* CRYPT */
+#endif /* def CRYPT_ANY */
   if (ferror(y)) {
     if (ifile != fbad)
       zclose(ifile);
@@ -1443,7 +1443,7 @@ struct zlist far *z;    /* zip entry to compress */
         }
 
         /* store */
-        
+
         /* Display progress dots. */
         if (!display_globaldots)
         {
@@ -1505,18 +1505,18 @@ struct zlist far *z;    /* zip entry to compress */
     /* Try to rewrite the local header with correct information */
     z->crc = crc;
     z->siz = s;
-#if CRYPT
+#ifdef CRYPT_ANY
     if (!isdir && key != NULL && z->encrypt_method > 0)
 # ifdef CRYPT_AES_WG
       if (z->encrypt_method > 1) {
         z->siz += salt_len + 2 + auth_len;
       } else {
-# endif
+# endif /* def CRYPT_AES_WG */
         z->siz += RAND_HEAD_LEN;
 # ifdef CRYPT_AES_WG
       }
-# endif
-#endif /* CRYPT */
+# endif /* def CRYPT_AES_WG */
+#endif /* def CRYPT_ANY */
     z->len = isize;
 
 #ifdef CRYPT_AES_WG
@@ -1530,7 +1530,7 @@ struct zlist far *z;    /* zip entry to compress */
       bfwrite(auth_code, 1, ret, BFWRITE_DATA);
       tempzn += ret;
     }
-#endif
+#endif /* def CRYPT_AES_WG */
 
 
     /* if can seek back to local header */
@@ -1555,19 +1555,19 @@ struct zlist far *z;    /* zip entry to compress */
       z->flg = z->lflg; /* if z->flg modified by deflate */
     } else {
       uzoff_t expected_size = (uzoff_t)s;
-#ifdef CRYPT
+#ifdef CRYPT_ANY
       if (key && z->encrypt_method > 0) {
 # ifdef CRYPT_AES_WG
         if (z->encrypt_method > 1) {
           expected_size += salt_len + 2 + auth_len;
         } else {
-# endif
+# endif /* def CRYPT_AES_WG */
           expected_size += 12;
 # ifdef CRYPT_AES_WG
         }
-# endif
+# endif /* def CRYPT_AES_WG */
       }
-#endif
+#endif /* def CRYPT_ANY */
 
       /* ftell() not as useful across splits */
       if (bytes_this_entry != expected_size) {
@@ -1619,7 +1619,7 @@ struct zlist far *z;    /* zip entry to compress */
       if (z->encrypt_method > 1) {
         z->flg &= ~8;
       }
-#endif
+#endif /* def CRYPT_AES_WG */
 
       /* deflate may have set compression level bit markers in z->flg,
          and we can't think of any reason central and local flags should
@@ -1642,7 +1642,7 @@ struct zlist far *z;    /* zip entry to compress */
       if ((z->flg & 1) != 0) {
 #ifdef CRYPT_AES_WG
         if (z->encrypt_method == 1)
-#endif
+#endif /* def CRYPT_AES_WG */
         {
           /* encrypted file, extended header still required */
           if ((r = putextended(z)) != ZE_OK)
@@ -1863,12 +1863,36 @@ local unsigned iz_file_read(buf, size)
     len = zread(ifile, buf, size);
     bytes_read_this_entry += len;
     if (len == (unsigned)EOF || len == 0) return len;
+
 #ifdef ZOS_UNIX
-    b = buf;
-    if (aflag == ASCII) {
-      while (*b != '\0') {
-        *b = (char)ascii[(uch)*b];
-        b++;
+    /* 2012-08-02 SMS.
+     * Added a binary-text test here (like those below for cases where
+     * TRANSLATE_EOL != 0).  Use "-aa" (setting "all_ascii") to evade
+     * the test in util.c:is_text_buf(), if the old (always-convert)
+     * behavior is preferred.
+     * Replaced old conversion code which looped until it found the
+     * first '\0' in a multi-line buffer with code which stops at "len".
+     * Zip Bugs forum topic: "BUG in zip 31c & 31d25 on z/OS Unix".  If
+     * detection and/or elimination of '\0' characters is needed, then
+     * it needs to be (much) smarter (multi-line, stateful, ...).
+     */
+    if (aflag == ASCII)
+    {
+      unsigned i;
+
+      /* Check buf for binary (once, at the first read operation). */
+      if (file_binary < 0)
+      {
+        file_binary = is_text_buf( buf, len) ? 0 : 1;
+      }
+
+      /* If text, then convert EBCDIC to ASCII. */
+      if (file_binary == 0)
+      {
+        for (i = 0; i < len; i++)
+        {
+          buf[ i] = (char)ascii[ (uch)buf[ i]];
+        }
       }
     }
 #endif
@@ -1881,13 +1905,15 @@ local unsigned iz_file_read(buf, size)
     bytes_read_this_entry += len;
     if (len == (unsigned)EOF || len == 0) return len;
 
-    /* check buf for binary - 12/16/04 */
-    if (file_binary == -1) {
-      /* first read */
-      file_binary = is_text_buf(b, size) ? 0 : 1;
+    /* Check b for binary (once, at the first read operation). */
+    if (file_binary < 0)
+    {
+      file_binary = is_text_buf( b, len) ? 0 : 1;
     }
 
-    if (file_binary != 1) {
+    /* If text, then convert EBCDIC to ASCII, and/or adjust line endings. */
+    if (file_binary == 0)
+    {
 #ifdef EBCDIC
       if (aflag == ASCII)
       {
@@ -1910,7 +1936,7 @@ local unsigned iz_file_read(buf, size)
       }
       buf -= len;
     } else { /* do not translate binary */
-      memcpy(buf, b, size);
+      memcpy(buf, b, len);
     }
 
   } else {
@@ -1921,13 +1947,15 @@ local unsigned iz_file_read(buf, size)
     bytes_read_this_entry += len;
     if (len == (unsigned)EOF || len == 0) return len;
 
-    /* check buf for binary - 12/16/04 */
-    if (file_binary == -1) {
-      /* first read */
-      file_binary = is_text_buf(b, size) ? 0 : 1;
+    /* Check buf for binary (once, at the first read operation). */
+    if (file_binary < 0)
+    {
+      file_binary = is_text_buf( b, len) ? 0 : 1;
     }
 
-    if (file_binary != 1) {
+    /* If text, then convert EBCDIC to ASCII, and/or adjust line endings. */
+    if (file_binary == 0)
+    {
       buf[len] = '\n'; /* I should check if next char is really a \n */
 #ifdef EBCDIC
       if (aflag == ASCII)
@@ -1974,7 +2002,7 @@ local unsigned iz_file_read(buf, size)
   if (isize < isize_prev) {
     ZIPERR(ZE_BIG, "overflow in byte count");
   }
-  
+
 #ifdef ENABLE_DLL_PROGRESS
   /* If progress_chunk_size is defined and ProgressReport() exists,
      see if time to send user progress information. */
@@ -2576,7 +2604,7 @@ int *cmpr_method;
 
 
                     /* bzip2 */
-                    
+
                     /* display dots */
                     if (!display_globaldots)
                     {
@@ -2754,7 +2782,7 @@ local SRes LZMA_Encode(struct zlist far *z_entry,
   /* Set the LZMA level to the Zip level - 1, which seems roughly
      appropriate.  So the Zip default level 6 becomes the LZMA
      default level 5.  Zip level 0 (store) should not get here.
-  
+
      This is just an initial mapping.  Initial testing suggests
      that it may be better to drift some from the standard LZMA
      level settings and change the settings in props directly to

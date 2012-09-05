@@ -1,4 +1,4 @@
-#                                               10 June 2012.  SMS.
+#                                               3 September 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Description File.
 #
@@ -173,7 +173,8 @@ CLEAN :
 	 delete /noconfirm $(DEST).DIR;*
 
 # CLEAN_ALL target.  Delete:
-#    The [.$(DEST)] directories and everything in them.
+#    The [.$(DEST)] directory and everything in it (CLEAN),
+#    The standard [.$(DEST)] directories and everything in them,
 #    All help-related derived files,
 #    All individual C dependency files.
 # Also mention:

@@ -1,7 +1,7 @@
 /*
   api.c - Zip 3
 
-  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -736,14 +736,14 @@ FreeArgVee();
 return ZipRet;
 }
 
-#if CRYPT
+#ifdef CRYPT_ANY
 int encr_passwd(int modeflag, char *pwbuf, int size, const char *zfn)
     {
     return (*lpZipUserFunctions->password)(pwbuf, size, ((modeflag == ZP_PW_VERIFY) ?
                   "Verify password: " : "Enter password: "),
                   (char *)zfn);
     }
-#endif /* CRYPT */
+#endif /* def CRYPT_ANY */
 
 void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
 {
@@ -759,7 +759,7 @@ void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
 #else
     p->flag = 0;
 #endif
-#ifdef CRYPT
+#ifdef CRYPT_ANY
     p->fEncryption = TRUE;
 #else
     p->fEncryption = FALSE;

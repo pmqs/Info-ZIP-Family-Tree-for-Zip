@@ -1,7 +1,7 @@
 /*
   ttyio.c - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -31,7 +31,7 @@
 #include "zip.h"
 #include "crypt.h"
 
-#if (CRYPT || (defined(UNZIP) && !defined(FUNZIP)))
+#if defined(CRYPT_ANY) || (defined(UNZIP) && !defined(FUNZIP))
 /* Non-echo console/keyboard input is needed for (en/de)cryption's password
  * entry, and for UnZip(SFX)'s MORE and Pause features.
  * (The corresponding #endif is found at the end of this module.)
@@ -507,7 +507,7 @@ int zgetch(__G__ f)
 #endif /* !HAVE_WORKING_GETCH */
 
 
-#if CRYPT                       /* getp() is only used with full encryption */
+#ifdef CRYPT_ANY                /* getp() is only used with full encryption */
 
 /*
  * Simple compile-time check for source compatibility between
@@ -704,5 +704,5 @@ char *getp(__G__ m, p, n)
 
 #endif /* VMS || CMS_MVS */
 #endif /* ?HAVE_WORKING_GETCH */
-#endif /* CRYPT */
-#endif /* CRYPT || (UNZIP && !FUNZIP) */
+#endif /* def CRYPT_ANY */
+#endif /* defined(CRYPT_ANY) || (defined(UNZIP) && !defined(FUNZIP)) */

@@ -1,7 +1,7 @@
 /*
   api.h - Zip 3
 
-  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -14,7 +14,7 @@
 
 # include "zip.h"
 
-# ifdef WINDLL
+# if defined( WINDLL) || (defined( WIN32) && defined( DLL_ZIPAPI))
 #  ifdef WIN32
 #   ifndef PATH_MAX
 #    define PATH_MAX 260
@@ -23,14 +23,15 @@
 #   ifndef PATH_MAX
 #    define PATH_MAX 128
 #   endif
-#  endif
+#  endif /* defined( WINDLL) || (defined( WIN32) && defined( DLL_ZIPAPI))
 
 #  include <windows.h>
 
-/* Porting definations between Win 3.1x and Win32 */
+/* Porting definitions between Win 3.1x and Win32 */
 #  ifdef WIN32
 #   define far
 #   define _far
+#   define __far
 #   define near
 #   define _near
 #   define __near
@@ -38,9 +39,10 @@
 # else /* def WINDLL */
 #  define USE_STATIC_LIB
 #  ifdef VMS
-#   /* Get a realistic value for PATH_MAX. */
+    /* Get a realistic value for PATH_MAX. */
 #   include <namdef.h>
 #   undef PATH_MAX
+    /* Some compilers may complain about the "$" in NAML$C_MAXRSS. */
 #   ifdef NAML$C_MAXRSS
 #    define PATH_MAX (NAML$C_MAXRSS+1)
 #   else

@@ -99,14 +99,34 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #  include "zlib.h"
 #endif
 
-/* If traditional CRYPT is disabled, and no other encryption method is
- * enabled, then ensure that all encryption is disabled.
+/* Encryption rules.
+ *
+ * User-specified macros:
+ * NO_CRYPT, NO_CRYPT_TRAD, CRYPT_AES_WG.
+ *
+ * Macros used in code: CRYPT_AES_WG, CRYPT_ANY, CRYPT_TRAD.
+ *
+ * By default, in normal Zip, enable Traditional, disable AES_WG.
+ * NO_CRYPT disables all.
+ * NO_CRYPT_TRAD disables Traditional.
+ * CRYPT_AES_WG enables AES_WG in normal UnZip.
  */
-#ifdef NO_TRADITIONAL_CRYPT
-# if !defined( CRYPT_AES_WG) && !defined( CRYPT_AES_WG_NEW)
-#  define NO_CRYPT
-# endif
-#endif
+
+# ifdef NO_CRYPT
+   /* Disable all encryption. */
+#  undef CRYPT_AES_WG
+#  undef CRYPT_AES_WG_NEW
+#  undef CRYPT_TRAD
+# else /* def NO_CRYPT */
+   /* Enable some kind of encryption. */
+#  ifdef NO_CRYPT_TRAD
+    /* Disable Traditional encryption. */
+#   undef CRYPT_TRAD
+#  else /* def NO_CRYPT_TRAD */
+    /* Enable Traditional encryption. */
+#   define CRYPT_TRAD 1
+#  endif /* def NO_CRYPT_TRAD [else] */
+# endif /* def NO_CRYPT [else] */
 
 #ifdef CRYPT_AES_WG
 #  include "aes_wg/aes.h"

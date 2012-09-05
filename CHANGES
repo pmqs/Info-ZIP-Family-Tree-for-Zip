@@ -5057,7 +5057,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     place than the backup path specified by -BP.  This is useful when the
     media used for the backup path may be swapped out when full.  Currently
     not implemented.  zip.c (EG)
--------------------- July 10th 2012 version 3.1d26 -------------------------
+-------------------- August 6th 2012 version 3.1d26 -------------------------
  1. Finish changing APL_DBL_SFX to APL_DBL_SUFX.  unix/macosx.h (SMS)
  2. Change Mac OS X system-specific code to use (C macro APL_DBL_SUFX)
     "/..namedfork/rsrc" as the suffix for resource fork access on Intel,
@@ -5123,3 +5123,23 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     some ZE_MEM error messages in option processing.  fileio.c (SMS)
 21. Added o_OPT_EQ_VALUE type to "--show-options" report: "=val".  zip.c
     (SMS)
+22. Reformed the multi-value C macro CRYPT into simpler CRYPT_ANY and
+    CRYPT_TRAD.  The actual encryption code should now use only
+    CRYPT_AES_WG and CRYPT_TRAD (plus CRYPT_ANY, derived from them).  At
+    build time, users specify more controlled options: CRYPT_AES_WG,
+    NO_CRYPT, NO_CRYPT_TRAD.  api.c, crypt.c, crypt.h, ebcdic.h,
+    INSTALL, ttyio.c, ttyio.h, zip.c, zip.h, zipcloak.c, zipup.c,
+    amiga/filedate.c, qdos/qdos.c, tandem/tanzip.c, vms/cmdline.c (SMS)
+23. Changed a z/OS-specific loop test in zipup.c:iz_file_read() to avoid
+    a possible (and, apparently, actual) buffer overrun with "-a".
+    http://www.info-zip.org/phpBB3/viewtopic.php?f=6&t=399  zipup.c (SMS)
+24. Changed the behavior with "-a" on z/OS to do a binary-text test on
+    files, and then do the EBCDIC-to-ASCII conversion on text files
+    only.  Use "-aa" to bypass the binary-text test, and convert every
+    file.  Previously, a binary-text test was done when "-a" was
+    specified with "-l" or "-ll", but not when only "-a" was specified. 
+    The new behavior is more consistent.
+25. Changed C macro USE_ZIP_LIB$INITIALIZE to USE_ZIP_LIB_INITIALIZE to
+    satisfy Sun C.  zip.c (SMS)
+28. Changed some assembler-related details, including the test for an
+    "_" prefix on global names.  unix/configure, unix/Makefile (SMS)

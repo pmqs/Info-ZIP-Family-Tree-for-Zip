@@ -1,6 +1,6 @@
 #==============================================================================
 # unix/Makefile
-# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 05 Jul 2012
+# - For Zip, ZipCloak, ZipNote, and ZipSplit            Revised: 2012-09-04
 #==============================================================================
 
 # INSTRUCTIONS (such as they are):
@@ -219,6 +219,7 @@ MAKEF = '-f unix/Makefile'
 #    PPMd compression
 #    BZIP2 compression
 #    ZLIB compression
+#    Callable Zip
 LIB_AES_WG  =
 LIB_LZMA    =
 LIB_PPMD    =
@@ -585,7 +586,7 @@ zipup.o:     zipup.c    $(H_ZIP) crc32.h crypt.h revision.h unix/zipup.h
 # A') Callable Zip C files
 
 api.o:       api.c      $(H_ZIP) api.h crc32.h crypt.h revision.h
-	$(CC) -c $(CF) -DUSE_ZIPMAIN -o $@ api.c
+	$(CC) -c $(CF) -DDLL_ZIPAPI -DUSE_ZIPMAIN -o $@ api.c
 
 zip_.o:      zip.c      $(H_ZIP) crc32.h crypt.h revision.h ttyio.h
 	$(CC) -c $(CF) -DUSE_ZIPMAIN -o $@ zip.c
@@ -725,16 +726,16 @@ Ppmd8Enc.o:  szip/Ppmd8Enc.c    $(H_PPMD)
 
 # 1) Assembler rule: Match, 16-bit only, MSDOS
 $(O_MCH_I):  msdos/match.asm
-	$(AS) $(AF) msdos/match.asm $(ASEOL)
+	$(AS) $(AF) -c msdos/match.asm $(ASEOL)
 
 # 2) Assembler rule: Match 32bit, GNU AS
 $(O_MCH_G):  match.S $(ACONF_DEP)
-	$(AS) $(AF) -x assembler-with-cpp -c -o $@ match.S
+	$(AS) $(AF) -c -o $@ match.S
 
 # 3) Assembler rule: Match 32bit, SysV AS
 $(O_MCH_SV): match.S $(ACONF_DEP)
 	$(CPP) $(AF) match.S > _matchs.s
-	$(AS) -o $@ matchs.s
+	$(AS) -c -o $@ matchs.s
 	$(RM) matchs.s
 
 #----------------------------------------------------------------------------
@@ -743,16 +744,16 @@ $(O_MCH_SV): match.S $(ACONF_DEP)
 
 # 1) Assembler rule: CRC, 16-bit only, MSDOS
 $(O_CRC_I):  msdos/crc_i86.asm
-	$(AS) $(AF) msdos/crc_i86.asm $(ASEOL)
+	$(AS) $(AF) -c msdos/crc_i86.asm $(ASEOL)
 
 # 2) Assembler rule: CRC 32bit, GNU AS
 $(O_CRC_G):  crc_i386.S $(ACONF_DEP)
-	$(AS) $(AF) -x assembler-with-cpp -c -o $@ crc_i386.S
+	$(AS) $(AF) -c -o $@ crc_i386.S
 
 # 3) Assembler rule: CRC 32bit, SysV AS
 $(O_CRC_SV): crc_i386.S $(ACONF_DEP)
 	$(CPP) $(AF) crc_i386.S > _crc_i386s.s
-	$(AS) -o $@ crc_i386s.s
+	$(AS) -c -o $@ crc_i386s.s
 	$(RM) crc_i386s.s
 
 #----------------------------------------------------------------------------
