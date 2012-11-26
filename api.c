@@ -106,7 +106,7 @@ if ((szRootDir != NULL) && (szRootDir[0] != '\0'))
 else
     root_flag = FALSE;
 
-str2 = strchr(str1, '\"'); /* get first occurance of double quote */
+str2 = strchr(str1, '\"'); /* get first occurrence of double quote */
 
 while ((str3 = strchr(str1, '\t')) != NULL)
     {

@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2012-07-10  SMS.
+$!     Last revised:  2012-11-19  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -49,6 +49,7 @@ $!     - choose a destination directory for architecture-specific
 $!       product files (.EXE, .OBJ,.OLB, and so on): "PROD=subdir", to
 $!       use "[.subdir]".  The default is a name automatically generated
 $!       using rules defined below.
+$!     - Create help output text files: "HELP_TEXT"
 $!
 $!     To specify additional options, define the global symbol
 $!     LOCAL_ZIP as a comma-separated list of the C macros to be
@@ -109,8 +110,7 @@ $     endif
 $ endif
 $!
 $! Check for the presence of "VMSCLI" in LOCAL_ZIP.  If yes, we will
-$! define the foreign command for "zip" to use the executable
-$! containing the CLI interface.
+$! define the foreign command for "zip" to use the VMS CLI executable.
 $!
 $ len_local_zip = f$length( LOCAL_ZIP)
 $!
@@ -158,6 +158,7 @@ $ LZMA = 0
 $ PPMD = 0
 $ MAKE_EXE = 1
 $ MAKE_HELP = 1
+$ MAKE_HELP_TEXT = 0
 $ MAKE_MSG = 1
 $ MAKE_OBJ = 1
 $ MAKE_SYM = 0
@@ -184,6 +185,12 @@ $     then
 $         opts = f$edit( curr_arg, "COLLAPSE")
 $         eq = f$locate( "=", opts)
 $         CCOPTS = f$extract( (eq+ 1), 1000, opts)
+$         goto argloop_end
+$     endif
+$!
+$     if (f$extract( 0, 9, curr_arg) .eqs. "HELP_TEXT")
+$     then
+$         MAKE_HELP_TEXT = 1
 $         goto argloop_end
 $     endif
 $!
@@ -647,17 +654,39 @@ $ tmp = f$verify( 1)    ! Turn echo on to see what's happening.
 $!
 $!-------------------------------- Zip section -------------------------------
 $!
-$! Process the help file, if desired.
-$!
 $ if (MAKE_HELP)
 $ then
+$!
+$! Process the Unix-style help file.
+$!
 $     runoff /out = ZIP.HLP [.VMS]VMS_ZIP.RNH
+$!
 $ endif
 $!
-$! Process the message file, if desired.
+$ if (MAKE_HELP .and. MAKE_HELP_TEXT)
+$ then
+$!
+$! Make the Unix-style help output text file.
+$!
+$     help_temp_name = "help_temp_"+ f$getjpi( 0, "PID")
+$     if (f$search( help_temp_name+ ".HLB") .nes. "") then -
+       delete 'help_temp_name'.HLB;*
+$     library /create /help 'help_temp_name'.HLB ZIP.HLP
+$     help /library = sys$disk:[]'help_temp_name'.HLB -
+       /output = 'help_temp_name'.OUT zip...
+$     delete 'help_temp_name'.HLB;*
+$     create /fdl = [.VMS]STREAM_LF.FDL ZIP.HTX
+$     open /append help_temp ZIP.HTX
+$     copy 'help_temp_name'.OUT help_temp
+$     close help_temp
+$     delete 'help_temp_name'.OUT;*
+$!
+$ endif
 $!
 $ if (MAKE_MSG)
 $ then
+$!
+$! Process the message file.
 $!
 $! Create the message source file first, if it's not found.
 $!
@@ -676,6 +705,7 @@ $     endif
 $!
 $     message /object = [.'dest']ZIP_MSG.OBJ /nosymbols [.VMS]ZIP_MSG.MSG
 $     link /shareable = [.'dest']ZIP_MSG.EXE [.'dest']ZIP_MSG.OBJ
+$!
 $ endif
 $!
 $ if (MAKE_OBJ)
@@ -729,7 +759,44 @@ $         cc 'DEF_UNX' /object = [.'dest']PPMD8.OBJ [.SZIP]PPMD8.C
 $         cc 'DEF_UNX' /object = [.'dest']PPMD8ENC.OBJ [.SZIP]PPMD8ENC.C
 $     endif
 $!
-$! Create the object library.
+$! Create the callable library link options file.
+$!
+$     if (LIBZIP .ne. 0)
+$     then
+$         def_dev_dir_orig = f$environment( "default")
+$         set default [.'dest']
+$         def_dev_dir = f$environment( "default")
+$         set default 'def_dev_dir_orig'
+$         create /fdl = [.VMS]STREAM_LF.FDL 'libzip_opt'
+$         open /append opt_file_lib 'libzip_opt'
+$         write opt_file_lib "! DEFINE LIB_IZZIP ''def_dev_dir'"
+$         if (IZ_BZIP2 .nes. "")
+$         then
+$             write opt_file_lib "! DEFINE LIB_BZIP2 ''f$trnlnm( "lib_bzip2")'"
+$         endif
+$         if (IZ_ZLIB .nes. "")
+$         then
+$             write opt_file_lib "! DEFINE LIB_ZLIB ''f$trnlnm( "lib_zlib")'"
+$         endif
+$         write opt_file_lib "LIB_IZZIP:''lib_zip_name' /library"
+$         if (IZ_BZIP2 .nes. "")
+$         then
+$             write opt_file_lib "''lib_bzip2_opts'" - ", " - ","
+$         endif
+$         write opt_file_lib "LIB_IZZIP:''lib_zip_name' /library"
+$         if (IZ_ZLIB .nes. "")
+$         then
+$             write opt_file_lib "''lib_zlib_opts'" - ", " - ","
+$         endif
+$         close opt_file_lib
+$     endif
+$!
+$ endif
+$!
+$ if (MAKE_EXE)
+$ then
+$!
+$! Create the primary object library.
 $!
 $     if (f$search( lib_zip) .eqs. "") then -
        libr /object /create 'lib_zip'
@@ -784,38 +851,6 @@ $         libr /object /replace 'lib_zip; -
            [.'dest']PPMD8ENC.OBJ
 $     endif
 $!
-$! Create the callable library link options file.
-$!
-$     if (LIBZIP .ne. 0)
-$     then
-$         def_dev_dir_orig = f$environment( "default")
-$         set default [.'dest']
-$         def_dev_dir = f$environment( "default")
-$         set default 'def_dev_dir_orig'
-$         create /fdl = [.VMS]STREAM_LF.FDL 'libzip_opt'
-$         open /append opt_file_lib 'libzip_opt'
-$         write opt_file_lib "! DEFINE LIB_IZZIP ''def_dev_dir'"
-$         if (IZ_BZIP2 .nes. "")
-$         then
-$             write opt_file_lib "! DEFINE LIB_BZIP2 ''f$trnlnm( "lib_bzip2")'"
-$         endif
-$         if (IZ_ZLIB .nes. "")
-$         then
-$             write opt_file_lib "! DEFINE LIB_ZLIB ''f$trnlnm( "lib_zlib")'"
-$         endif
-$         write opt_file_lib "LIB_IZZIP:''lib_zip_name' /library"
-$         if (IZ_BZIP2 .nes. "")
-$         then
-$             write opt_file_lib "''lib_bzip2_opts'" - ", " - ","
-$         endif
-$         write opt_file_lib "LIB_IZZIP:''lib_zip_name' /library"
-$         if (IZ_ZLIB .nes. "")
-$         then
-$             write opt_file_lib "''lib_zlib_opts'" - ", " - ","
-$         endif
-$         close opt_file_lib
-$     endif
-$!
 $ endif
 $!
 $ if (MAKE_EXE)
@@ -846,14 +881,36 @@ $ endif
 $!
 $!------------------------ Zip (CLI interface) section -----------------------
 $!
-$! Process the CLI help file, if desired.
-$!
 $ if (MAKE_HELP)
 $ then
+$!
+$! Process the CLI help file.
+$!
 $     set default [.VMS]
 $     edit /tpu /nosection /nodisplay /command = cvthelp.tpu zip_cli.help
 $     set default [-]
 $     runoff /output = ZIP_CLI.HLP [.VMS]ZIP_CLI.RNH
+$!
+$ endif
+$!
+$ if (MAKE_HELP .and. MAKE_HELP_TEXT)
+$ then
+$!
+$! Make the CLI help output text file.
+$!
+$     help_temp_name = "help_temp_"+ f$getjpi( 0, "PID")
+$     if (f$search( help_temp_name+ ".HLB") .nes. "") then -
+       delete 'help_temp_name'.HLB;*
+$     library /create /help 'help_temp_name'.HLB ZIP_CLI.HLP
+$     help /library = sys$disk:[]'help_temp_name'.HLB -
+       /output = 'help_temp_name'.OUT zip...
+$     delete 'help_temp_name'.HLB;*
+$     create /fdl = [.VMS]STREAM_LF.FDL ZIP_CLI.HTX
+$     open /append help_temp ZIP_CLI.HTX
+$     copy 'help_temp_name'.OUT help_temp
+$     close help_temp
+$     delete 'help_temp_name'.OUT;*
+$!
 $ endif
 $!
 $ if (MAKE_OBJ)
@@ -871,6 +928,11 @@ $     @ [.vms]cppcld.com "''cc'" [.VMS]ZIP_CLI.CLD -
        [.'dest']ZIP_CLI.CLD "''defs'"
 $     tmp = f$verify( cppcld_verify)
 $     set command /object = [.'dest']ZIP_CLI.OBJ [.'dest']ZIP_CLI.CLD
+$!
+$ endif
+$!
+$ if (MAKE_EXE)
+$ then
 $!
 $! Create the CLI object library.
 $!
@@ -914,6 +976,17 @@ $     cc 'DEF_UTIL' /object = [.'dest']UTIL_.OBJ UTIL.C
 $     cc 'DEF_UTIL' /object = [.'dest']ZIPFILE_.OBJ ZIPFILE.C
 $     cc 'DEF_UTIL' /object = [.'dest']VMS_.OBJ [.VMS]VMS.C
 $!
+$! Compile the Zip utilities main program sources.
+$!
+$     cc 'DEF_UTIL' /object = [.'dest']ZIPCLOAK.OBJ ZIPCLOAK.C
+$     cc 'DEF_UTIL' /object = [.'dest']ZIPNOTE.OBJ ZIPNOTE.C
+$     cc 'DEF_UTIL' /object = [.'dest']ZIPSPLIT.OBJ ZIPSPLIT.C
+$!
+$ endif
+$!
+$ if (MAKE_EXE)
+$ then
+$!
 $! Create the Zip utilities object library.
 $!
 $     if (f$search( lib_ziputils) .eqs. "") then -
@@ -956,12 +1029,6 @@ $         libr /object /replace 'lib_zip' -
            [.'dest']PPMD8.OBJ, -
            [.'dest']PPMD8ENC.OBJ
 $     endif
-$!
-$! Compile the Zip utilities main program sources.
-$!
-$     cc 'DEF_UTIL' /object = [.'dest']ZIPCLOAK.OBJ ZIPCLOAK.C
-$     cc 'DEF_UTIL' /object = [.'dest']ZIPNOTE.OBJ ZIPNOTE.C
-$     cc 'DEF_UTIL' /object = [.'dest']ZIPSPLIT.OBJ ZIPSPLIT.C
 $!
 $ endif
 $!

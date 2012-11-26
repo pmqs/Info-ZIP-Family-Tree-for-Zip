@@ -81,8 +81,8 @@ the main builder file, either [.VMS]BUILD_ZIP.COM or [.VMS]DESCRIP.MMS.
 
    On VAX, the builders attempt to cope with the various available C
 compilers, DEC/Compaq/HP C, VAX C, or GNU C.  If DEC/Compaq/HP C is not
-available or not desired, comments in the relevant builder file explain
-the command-line options used to select a different compiler.
+available or not desired, comments in each main builder file explain the
+command-line options used to select a different compiler.
 
       Note that on non-VAX systems with VMS V7.2 or later (and with a
       sufficiently new C compiler), Zip 3.0 (and later) can support
@@ -102,8 +102,8 @@ the command-line options used to select a different compiler.
 
    o Re-link the executables (small-file and large-file):
 
-        @ [.VMS]BUILD_ZIP LINK
-        @ [.VMS]BUILD_ZIP LARGE LINK
+        @ [.VMS]BUILD_ZIP NOCOMPILE
+        @ [.VMS]BUILD_ZIP LARGE NOCOMPILE
      or
         MMK /DESC = [.VMS] CLEAN_EXE  ! Delete existing executables.
         MMK /DESC = [.VMS]            ! Build new executables.
@@ -146,6 +146,21 @@ the command-line options used to select a different compiler.
          MMS /DESC = [.VMS] /MACRO = (LARGE=1, "CCOPTS=/NAMES=AS_IS", -
           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_6A_VMS])
 
+   o Other Optional Compression Methods (LZMA, PPMd)
+
+      LZMA and PPMd compression (new in Zip version 3.1) are not enabled
+      by default, but the required source code is included in the Zip
+      source kit.  To enable LZMA and/or PPMd compression, add the
+      appropriate option to the builder command line.  For example:
+
+         @ [.VMS]BUILD_ZIP LARGE LZMA PPMD
+      or:
+         MMS /DESC = [.VMS] /MACRO = (LARGE=1, LZMA=1, PPMD=1)
+
+      LZMA compression is not available on VAX systems.  The LZMA
+      compression code uses some 64-bit arithmetic, and needs a 64-bit
+      "long long" data type which is not available on VAX systems.
+
    o Encryption
 
       By default, Traditional Zip encryption is enabled.  To disable it,
@@ -167,22 +182,6 @@ the command-line options used to select a different compiler.
          @ [.VMS]BUILD_ZIP LARGE AES_WG
       or:
          MMS /DESC = [.VMS] /MACRO = (LARGE=1, AES_WG=1)
-
-   o LZMA and PPMd Compression
-
-      The LZMA and PPMd compression methods (new in Zip version 3.1) are
-      not enabled by default, but the required source code is included
-      in the Zip source kit.  To enable LZMA and/or PPMd compression,
-      add the appropriate LZMA and/or PPMd option(s) to the builder
-      command line.  For example:
-
-         @ [.VMS]BUILD_ZIP LARGE LZMA PPMD
-      or:
-         MMS /DESC = [.VMS] /MACRO = (LARGE=1, LZMA=1, PPMD=1)
-
-      LZMA compression is not available on VAX systems.  The LZMA
-      compression code uses some 64-bit arithmetic, and needs a 64-bit
-      "long long" data type which is not available on VAX systems.
 
 
    By default, system-architecture-specific files (like objects and
@@ -208,7 +207,7 @@ UNIX-like command-line interface, ZIP_CLI.HLP for the VMS-like
 command-line interface), are placed in the main directory.  With a
 mixed-architecture VMS cluster, the same main directory on a shared disk
 may be used by all system types.  (Using the NOHELP option with
-BUILD_ZIP.COM can keep it from making the same help files repeatedly.) 
+BUILD_ZIP.COM can keep it from making the same help files repeatedly.)
 Building the help files is detailed below.
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -235,10 +234,10 @@ small-file and large-file programs.  For example:
    ZIP*L :== $ dev:[dir.ALPHAL]ZIP.EXE  ! ZIP[L] = large-file Zip.
 
 
-   The builders create help text files, ZIP.HLP and ZIP_CLI.HLP. These
-may be incorporated into an existing help library, or a separate Zip
-help library may be created using commands like these, using either
-ZIP.HLP (as shown) or ZIP_CLI.HLP:
+   The builders create help library source files, ZIP.HLP and
+ZIP_CLI.HLP.  These may be incorporated into an existing help library,
+or a separate Zip help library may be created using commands like these,
+using either ZIP.HLP (as shown) or ZIP_CLI.HLP:
 
    $ LIBRARY /HELP dev:[dir]existing_library.HLB ZIP.HLP
 
@@ -251,7 +250,7 @@ command like:
 
    For greater ease, the user (or system manager) may define a
 HLP$LIBRARY logical name to allow the HELP utility to find the Zip help
-library automatically.  See HELP HELP /USERLIBRARY for more details.  
+library automatically.  See HELP HELP /USERLIBRARY for more details.
 The command procedure HLP_LIB_NEXT.COM may be used to determine the next
 available HLP$LIBRARY logical name, and could be adapted to define a
 HLP$LIBRARY logical name for a Zip help library.

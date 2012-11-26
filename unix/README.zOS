@@ -152,7 +152,7 @@ The z/OS UNIX port is based on (and replaces) the original updated ZIP 3.1
 - Improve configure support for the IBM compilers (z/OS, z/VM. AIX. iSeries)
 
 - Add support for listing file generation, with LIST=1 make parm
-  - Generates appropriate options to generate listings, and switches from	
+  - Generates appropriate options to generate listings, and switches from
     the generic cc driver to zos/zcc and zos/zld shell scripts that support
     compile and link listing capture (respectively).
 

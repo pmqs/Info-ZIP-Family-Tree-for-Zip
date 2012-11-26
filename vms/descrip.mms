@@ -1,4 +1,4 @@
-#                                               3 September 2012.  SMS.
+#                                               15 October 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Description File.
 #
@@ -92,6 +92,8 @@
 #
 #    HELP       generates HELP files.
 #
+#    HELP_TEXT  generates HELP output text files (.HTX).
+#
 # Example commands:
 #
 # To build the conventional small-file product using the DEC/Compaq/HP C
@@ -118,6 +120,11 @@
 #
 ########################################################################
 
+# Explicit suffix list.  (Added .HTX before .HLB.)
+
+.SUFFIXES
+.SUFFIXES : .EXE .OLB .HTX .HLB .OBJ .C .CLD .MSG .HLP .RNH
+
 # Include primary product description file.
 
 INCL_DESCRIP_SRC = 1
@@ -138,9 +145,13 @@ LIB_ZIP = SYS$DISK:[.$(DEST)]$(LIB_ZIP_NAME)
 LIB_ZIPCLI = SYS$DISK:[.$(DEST)]$(LIB_ZIPCLI_NAME)
 LIB_ZIPUTILS = SYS$DISK:[.$(DEST)]$(LIB_ZIPUTILS_NAME)
 
-# Help file names.
+# Help library source file names.
 
 ZIP_HELP = ZIP.HLP ZIP_CLI.HLP
+
+# Help output text file names.
+
+ZIP_HELP_TEXT = ZIP.HTX ZIP_CLI.HTX
 
 # Message file names.
 
@@ -199,6 +210,8 @@ CLEAN_ALL : CLEAN
 	 set protection = w:d VAX*.DIR;*
 	if (f$search( "VAX*.DIR", 2) .nes. "") then -
 	 delete /noconfirm VAX*.DIR;*
+	if (f$search( "help_temp_*.*") .nes. "") then -
+	 delete help_temp_*.*;*
 	if (f$search( "[.vms]ZIP_CLI.RNH") .nes. "") then -
 	 delete /noconfirm [.vms]ZIP_CLI.RNH;*
 	if (f$search( "ZIP_CLI.HLP") .nes. "") then -
@@ -237,6 +250,11 @@ CLEAN_EXE :
 # HELP target.  Generate the HELP files.
 
 HELP : $(ZIP_HELP)
+	@ write sys$output "Done."
+
+# HELP_TEXT target.  Generate the HELP output text files.
+
+HELP_TEXT : $(ZIP_HELP_TEXT)
 	@ write sys$output "Done."
 
 
@@ -389,7 +407,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
-# Help files.
+# Help library source files.
 
 ZIP.HLP : [.VMS]VMS_ZIP.RNH
 	runoff /output = $(MMS$TARGET) $(MMS$SOURCE)
@@ -401,6 +419,26 @@ ZIP_CLI.HLP : [.VMS]ZIP_CLI.HELP [.VMS]CVTHELP.TPU
 	rename /noconfirm ZIP_CLI.RNH; [.VMS];
 	purge /noconfirm /nolog /keep = 1 [.VMS]ZIP_CLI.RNH
 	runoff /output = $(MMS$TARGET) [.VMS]ZIP_CLI.RNH
+
+# Help output text files.
+
+.HLP.HTX :
+	help_temp_name = "help_temp_"+ f$getjpi( 0, "PID")
+	if (f$search( help_temp_name+ ".HLB") .nes. "") then -
+         delete 'help_temp_name'.HLB;*
+	library /create /help 'help_temp_name'.HLB $(MMS$SOURCE)
+	help /library = sys$disk:[]'help_temp_name'.HLB -
+         /output = 'help_temp_name'.OUT zip...
+	delete 'help_temp_name'.HLB;*
+	create /fdl = [.VMS]STREAM_LF.FDL $(MMS$TARGET)
+	open /append help_temp $(MMS$TARGET)
+	copy 'help_temp_name'.OUT help_temp
+	close help_temp
+	delete 'help_temp_name'.OUT;*
+
+ZIP.HTX : ZIP.HLP [.VMS]STREAM_LF.FDL
+
+ZIP_CLI.HTX : ZIP_CLI.HLP [.VMS]STREAM_LF.FDL
 
 # Message file.
 

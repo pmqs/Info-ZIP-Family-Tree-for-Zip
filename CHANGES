@@ -4831,9 +4831,9 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     "LN = ln -s" to "LN = ln" for symbolic links.  (Believe that stuff being
     done using "ln -s" is now gone from unix/Makefile:
     .c_.o:
-	rm -f $*_.c; $(LN) $< $*_.c
-	$(CC) -c $(CFLAGS) -DUTIL $*_.c
-	rm -f $*_.c
+            rm -f $*_.c; $(LN) $< $*_.c
+            $(CC) -c $(CFLAGS) -DUTIL $*_.c
+            rm -f $*_.c
     Further simplification is probably possible.  ("LN=ln".))
     Remove lzma/Alloc.h from H_LZMA.  Add H_PPMD for lzma/Ppmd.h and
     lzma/Ppmd8.h.  Add O_PPMD for Ppmd8.o and PPmd8Enc.o.  Change MAN_ZIP and
@@ -4891,7 +4891,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     display_dot_char() and display_dot().  Define PROGRESS_DOTS_PER_FLUSH
     that, when defined, sets how many dots to accumulate before flushing
     (instead of flushing every dot).  deflate.c, fileio.c, zip.h, zipup.c (SMS)
- 7. Add macro define PROGRESS_DOTS_PER_FLUSH and set to 64.  vms.osdep.h (SMS)
+ 7. Add macro define PROGRESS_DOTS_PER_FLUSH and set to 64.  vms/osdep.h (SMS)
     vms/descrip_mkdeps.mms, vms/descrip_deps.mms (SMS)
  8. Processing of a split archive could stop prematurely if the split
     size was a multiple of the I/O buffer size (16K), leaving a corrupt
@@ -5057,7 +5057,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     place than the backup path specified by -BP.  This is useful when the
     media used for the backup path may be swapped out when full.  Currently
     not implemented.  zip.c (EG)
--------------------- August 6th 2012 version 3.1d26 -------------------------
+-------------------- November 19th 2012 version 3.1d26 -----------------------
  1. Finish changing APL_DBL_SFX to APL_DBL_SUFX.  unix/macosx.h (SMS)
  2. Change Mac OS X system-specific code to use (C macro APL_DBL_SUFX)
     "/..namedfork/rsrc" as the suffix for resource fork access on Intel,
@@ -5143,3 +5143,24 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     satisfy Sun C.  zip.c (SMS)
 28. Changed some assembler-related details, including the test for an
     "_" prefix on global names.  unix/configure, unix/Makefile (SMS)
+29. On VMS, added HELP_TEXT as a builder option/target.  Specifying
+    HELP_TEXT creates the text files ZIP.HTX and ZIP_CLI.HTX, which
+    are the output from "help zip..." commands using the corresponding
+    .HLP help library source files.  vms/build_zip.com,
+    vms/descrip.mms (SMS)
+30. <Tentative change (currently still conditional on CRYPT_NOEXT)>
+30. Zip had used data descriptors for encrypted archive members, even
+    when the output archive was seekable, which added 16 bytes to the
+    archive per encrypted member.  Thanks to Thomas Klausner for
+    reporting this problem.  zipup.c (SMS)
+31. Regression since Zip 3.1c caused Zip to produce an empty archive
+    when used as a filter.  Specifying arguments "- -" worked, but
+    specifying no arguments triggered the failure.  zip.c (SMS)
+32. Revised VMS DCL builder to recreate object libraries when not
+    compiling (NOCOMPILE).  vms/build_zip.com (SMS)
+33. Fixed some potential bad behavior (program aborts or loops) in
+    ZipCloak (-d) caused by (intentionally) defective/corrupt archives.
+    Reported (for corresponding code in UnZip) by OUSPG
+    ("https://www.ee.oulu.fi/research/ouspg/").  crypt.c, crypt.h
+    (Aki Helin, SMS)
+

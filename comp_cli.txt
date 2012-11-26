@@ -150,7 +150,7 @@ then use the level for that method.
    Examples
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-			
+
    (no options)                 For files matching suffixes in
                                 ".Z:.zip:.zoo:.arc:.lzh:.arj":
                                 Method = Store.  For other files:

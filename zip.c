@@ -3829,7 +3829,7 @@ char **argv;            /* command line tokens */
           free(value);
           break;
 #endif
-		    case 'c':   /* Add comments for new files in zip file */
+        case 'c':   /* Add comments for new files in zip file */
           comadd = 1;  break;
 
         case o_cd:  /* Change default directory */
@@ -5753,6 +5753,12 @@ char **argv;            /* command line tokens */
   if (kk < 3) {               /* zip used as filter */
     zipstdout();
     comment_stream = NULL;
+
+    if (s) {
+      ZIPERR(ZE_PARMS, "can't use - and -@ together");
+    }
+
+    /* Add stdin ("-") to the member list. */
     if ((r = procname("-", 0)) != ZE_OK) {
       if (r == ZE_MISS) {
         if (bad_open_is_error) {
@@ -5765,10 +5771,16 @@ char **argv;            /* command line tokens */
         ZIPERR(r, "-");
       }
     }
+
+    /* Specify stdout ("-") as the archive. */
+    /* Unreached/unreachable message? */
+    if (isatty(1))
+      ziperr(ZE_PARMS, "cannot write zip file to terminal");
+    if ((out_path = malloc(4)) == NULL)
+      ziperr(ZE_MEM, "was processing (fake) arguments");
+    strcpy( out_path, "-");
+
     kk = 4;
-    if (s) {
-      ZIPERR(ZE_PARMS, "can't use - and -@ together");
-    }
   }
 #endif /* !MACOS && !USE_ZIPMAIN */
 
@@ -8103,7 +8115,7 @@ char **argv;            /* command line tokens */
     }
 # endif /* ?MACOS */
     free((zvoid *)e);
-#else /* USE_ZIPMAIN */
+#else /* ndef USE_ZIPMAIN */
     comment(zcomlen);
     if ((p = malloc(strlen(szCommentBuf)+1)) == NULL) {
       ZIPERR(ZE_MEM, "was setting comments to null");
@@ -8116,7 +8128,7 @@ char **argv;            /* command line tokens */
     GlobalUnlock(hStr);
     GlobalFree(hStr);
     zcomment = p;
-#endif /* def USE_ZIPMAIN */
+#endif /* ndef USE_ZIPMAIN */
     zcomlen = strlen(zcomment);
   }
 
@@ -8494,7 +8506,7 @@ int arg;
 #  define U_P_NODENAME_LEN 32
 
   static int not_first = 0;                             /* First time flag. */
-  static char u_p_nodename[ U_P_NODENAME_LEN+ 1];	/* "host::tty". */
+  static char u_p_nodename[ U_P_NODENAME_LEN+ 1];       /* "host::tty". */
   static char u_p_prog_name[] = "zip";                  /* Program name. */
 
   struct utsname u_p_utsname;

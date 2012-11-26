@@ -757,7 +757,7 @@ _EOF_
 
     if [ -z "${CFLAGS_OPT}" ]; then
       # Other GNU C
-      CFLAGS_OPT='-O3'		
+      CFLAGS_OPT='-O3'
       echo "  GNU C ($CFLAGS_OPT)"
     fi
   fi

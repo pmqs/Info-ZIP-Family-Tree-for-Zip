@@ -1107,6 +1107,8 @@ struct zlist far *z;    /* zip entry to compress */
     z->ver = 20;
 
   z->crc = 0;  /* to be updated later */
+/* SMSd. */
+#ifndef CRYPT_NOEXT
   /* Assume first that we will need an extended local header: */
   /* z->flg is now zeroed in zip.c */
   if (isdir)
@@ -1114,14 +1116,26 @@ struct zlist far *z;    /* zip entry to compress */
     z->flg &= ~8;
   else
     z->flg |= 8;  /* to be updated later */
+#else /* ndef CRYPT_NOEXT */
+  if (use_descriptors)
+    z->flg |= 8;
+#endif /* ndef CRYPT_NOEXT [else] */
 #ifdef CRYPT_ANY
   if (!isdir && key != NULL) {
     z->flg |= 1;
+/* SMSd. */
+#ifndef CRYPT_NOEXT
     /* Since we do not yet know the crc here, we pretend that the crc
      * is the modification time:
      */
     z->crc = z->tim << 16;
     /* More than pretend.  File is encrypted using crypt header with that. */
+    /* 2012-10-17 SMS.
+     * Actually, even less than pretend.  crypthead() uses these two
+     * bytes as pseudo-random seed data.  No one uses this stuff as a
+     * real CRC. so there's no reason to save it in z->crc.
+     */
+#endif /* ndef CRYPT_NOEXT */
   }
 #endif /* def CRYPT_ANY */
   z->lflg = z->flg;
@@ -1324,7 +1338,17 @@ struct zlist far *z;    /* zip entry to compress */
     } else {
 # endif
 # ifdef CRYPT_TRAD
+/* SMSd. */
+#ifndef CRYPT_NOEXT
       crypthead(key, z->crc);
+#else /* ndef CRYPT_NOEXT */
+      /* Use MS-DOS modification time as pseudo-random seed data.
+       * (crypthead() calls it "crc", but we don't have the real CRC,
+       * so we use this substitute.  crypthead() uses only the high 16
+       * bits, so we put the data there.)
+       */
+      crypthead(key, (z->tim << 16));
+#endif /* ndef CRYPT_NOEXT [else] */
       z->siz += RAND_HEAD_LEN;  /* to be updated later */
       tempzn += RAND_HEAD_LEN;
 # else /* def CRYPT_TRAD */
@@ -1602,6 +1626,8 @@ struct zlist far *z;    /* zip entry to compress */
         z->ver = 46; break;
 #endif
       }
+/* SMSd. */
+#ifndef CRYPT_NOEXT
       /*
        * The encryption header needs the crc, but we don't have it
        * for a new file.  The file time is used instead and the encryption
@@ -1614,6 +1640,7 @@ struct zlist far *z;    /* zip entry to compress */
         /* not encrypting so don't need extended local header */
         z->flg &= ~8;
       }
+#endif /* ndef CRYPT_NOEXT */
 
 #ifdef CRYPT_AES_WG
       if (z->encrypt_method > 1) {
@@ -1639,6 +1666,8 @@ struct zlist far *z;    /* zip entry to compress */
       if (zfseeko(y, bytes_this_split, SEEK_SET))
         return ZE_READ;
 
+/* SMSd. */
+#ifndef CRYPT_NOEXT
       if ((z->flg & 1) != 0) {
 #ifdef CRYPT_AES_WG
         if (z->encrypt_method == 1)
@@ -1657,6 +1686,7 @@ struct zlist far *z;    /* zip entry to compress */
         tempzn += 16L;
 #endif
       }
+#endif /* ndef CRYPT_NOEXT */
     }
   } /* isdir */
   /* Free the local extra field which is no longer needed */

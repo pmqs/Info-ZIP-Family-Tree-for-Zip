@@ -1,0 +1,36 @@
+--- zipup.c;-2	2012-08-02 17:48:28 -0500
++++ zipup.c	2012-10-17 15:55:04 -0500
+@@ -1602,6 +1602,8 @@
+         z->ver = 46; break;
+ #endif
+       }
++/* SMSd. */
++#ifndef CRYPT_NOEXT
+       /*
+        * The encryption header needs the crc, but we don't have it
+        * for a new file.  The file time is used instead and the encryption
+@@ -1614,6 +1616,7 @@
+         /* not encrypting so don't need extended local header */
+         z->flg &= ~8;
+       }
++#endif /* ndef CRYPT_NOEXT */
+ 
+ #ifdef CRYPT_AES_WG
+       if (z->encrypt_method > 1) {
+@@ -1639,6 +1642,8 @@
+       if (zfseeko(y, bytes_this_split, SEEK_SET))
+         return ZE_READ;
+ 
++/* SMSd. */
++#ifndef CRYPT_NOEXT
+       if ((z->flg & 1) != 0) {
+ #ifdef CRYPT_AES_WG
+         if (z->encrypt_method == 1)
+@@ -1657,6 +1662,7 @@
+         tempzn += 16L;
+ #endif
+       }
++#endif /* ndef CRYPT_NOEXT */
+     }
+   } /* isdir */
+   /* Free the local extra field which is no longer needed */
