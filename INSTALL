@@ -51,10 +51,10 @@ Installation on Unix (see below for installation on other systems)
      ----------------------
 
      This Zip release includes the traditional encryption code
-     ("CRYPT_TRAD") previously supplied in the separate package
+     ("IZ_CRYPT_TRAD") previously supplied in the separate package
      zcrypt29.zip, but you still can decide whether to activate the
-     CRYPT_TRAD code or not.  CRYPT_TRAD is enabled by default, but you
-     may disable it by specifying the option -DNO_CRYPT_TRAD (or
+     IZ_CRYPT_TRAD code or not.  IZ_CRYPT_TRAD is enabled by default,
+     but you may disable it by specifying the option -DNO_CRYPT_TRAD (or
      -DNO_CRYPT) in the "make" macro LOCAL_ZIP (or by adding this option
      to the compilation options in the appropriate makefile).  See
      README.CR for more on CRYPT 2.9 (provided to allow encryption to be
@@ -484,7 +484,7 @@ Compiler Flags
     this flag forces "[list]" matching to be always on as in previous
     releases.
 
-  CRYPT_AES_WG
+  IZ_CRYPT_AES_WG
     Enable AES_WG encryption capability.  See README_AES_WG.txt for
     details.
 

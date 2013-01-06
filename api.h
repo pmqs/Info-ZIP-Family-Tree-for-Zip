@@ -40,7 +40,14 @@
 #  define USE_STATIC_LIB
 #  ifdef VMS
     /* Get a realistic value for PATH_MAX. */
-#   include <namdef.h>
+    /* 2012-12-31 SMS.
+     * Use <nam.h> instead of <namdef.h> to avoid conflicts on some old
+     * systems (like, say, VMS V5.5-2, DEC C V4.0-000), where <nam.h>
+     * and <namdef.h> are incompatible, and [.vms]vms.h gets <rms.h>,
+     * which gets <nam.h>.  (On modern systems, <nam.h> is a wrapper for
+     * <namdef.h>.)
+     */
+#   include <nam.h>
 #   undef PATH_MAX
     /* Some compilers may complain about the "$" in NAML$C_MAXRSS. */
 #   ifdef NAML$C_MAXRSS

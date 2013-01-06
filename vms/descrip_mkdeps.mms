@@ -1,4 +1,4 @@
-#                                               16 June 2012.  SMS.
+#                                               20 December 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS Dependency Description File.
 #

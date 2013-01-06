@@ -5057,7 +5057,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     place than the backup path specified by -BP.  This is useful when the
     media used for the backup path may be swapped out when full.  Currently
     not implemented.  zip.c (EG)
--------------------- November 19th 2012 version 3.1d26 -----------------------
+-------------------- December 19th 2012 version 3.1d26 -----------------------
  1. Finish changing APL_DBL_SFX to APL_DBL_SUFX.  unix/macosx.h (SMS)
  2. Change Mac OS X system-specific code to use (C macro APL_DBL_SUFX)
     "/..namedfork/rsrc" as the suffix for resource fork access on Intel,
@@ -5123,13 +5123,16 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     some ZE_MEM error messages in option processing.  fileio.c (SMS)
 21. Added o_OPT_EQ_VALUE type to "--show-options" report: "=val".  zip.c
     (SMS)
-22. Reformed the multi-value C macro CRYPT into simpler CRYPT_ANY and
-    CRYPT_TRAD.  The actual encryption code should now use only
-    CRYPT_AES_WG and CRYPT_TRAD (plus CRYPT_ANY, derived from them).  At
-    build time, users specify more controlled options: CRYPT_AES_WG,
-    NO_CRYPT, NO_CRYPT_TRAD.  api.c, crypt.c, crypt.h, ebcdic.h,
-    INSTALL, ttyio.c, ttyio.h, zip.c, zip.h, zipcloak.c, zipup.c,
-    amiga/filedate.c, qdos/qdos.c, tandem/tanzip.c, vms/cmdline.c (SMS)
+22. Reformed the multi-value C macro CRYPT into simpler IZ_CRYPT_ANY and
+    IZ_CRYPT_TRAD.  (Plain CRYPT_ANY would collide with a Microsoft
+    system header file.)  The actual encryption code should now use only
+    IZ_CRYPT_AES_WG and IZ_CRYPT_TRAD (plus IZ_CRYPT_ANY, derived from
+    them).  At build time, users specify more controlled options:
+    CRYPT_AES_WG, NO_CRYPT, NO_CRYPT_TRAD.  api.c, crypt.c, crypt.h,
+    ebcdic.h, globals.c, INSTALL, revision.h, ttyio.c, ttyio.h, zip.c,
+    zip.h, zipcloak.c, zipfile.c, zipup.c, amiga/filedate.c,
+    qdos/qdos.c, tandem/tanzip.c, unix/unix.c, vms/cmdline.c, vms/vms.c,
+    win32/win32.c (SMS)
 23. Changed a z/OS-specific loop test in zipup.c:iz_file_read() to avoid
     a possible (and, apparently, actual) buffer overrun with "-a".
     http://www.info-zip.org/phpBB3/viewtopic.php?f=6&t=399  zipup.c (SMS)
@@ -5137,7 +5140,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     files, and then do the EBCDIC-to-ASCII conversion on text files
     only.  Use "-aa" to bypass the binary-text test, and convert every
     file.  Previously, a binary-text test was done when "-a" was
-    specified with "-l" or "-ll", but not when only "-a" was specified. 
+    specified with "-l" or "-ll", but not when only "-a" was specified.
     The new behavior is more consistent.
 25. Changed C macro USE_ZIP_LIB$INITIALIZE to USE_ZIP_LIB_INITIALIZE to
     satisfy Sun C.  zip.c (SMS)
@@ -5163,4 +5166,14 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     Reported (for corresponding code in UnZip) by OUSPG
     ("https://www.ee.oulu.fi/research/ouspg/").  crypt.c, crypt.h
     (Aki Helin, SMS)
+34. Optimized code in fileio.c:copy_args(). fileio.c (SMS)
+35. In Unix builders, accept user-specified CFLAGS_OPT macro to override
+    automatic compiler optimization options setting.  For debugging, for
+    example, one might specify "CFLAGS_OPT='-g -O0' LFLAGS2=-L.".  (A
+    non-null value is required for each.  "-L." should be harmless.)
+    Stopped putting redundant "-L." linker options into "flags".
+    unix/configure (SMS)
+36. Changed VMS builders to use explicit (CC) /NOLIST and (LINK) /NOMAP
+    qualifiers by default, to reduce unexpected clutter in batch mode.
+    vms/build_zip.com, vms/descrip_src.mms (SMS)
 

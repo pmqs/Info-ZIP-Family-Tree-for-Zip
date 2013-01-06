@@ -1297,7 +1297,7 @@ void version_local()
 } /* end function version_local() */
 
 
-# ifdef CRYPT_AES_WG
+# ifdef IZ_CRYPT_AES_WG
 
 /* 2011-04-24 SMS.
  *
@@ -1355,7 +1355,7 @@ int entropy_fun( unsigned char *buf, unsigned int len)
     return len_ret;
 }
 
-# endif /* def CRYPT_AES_WG */
+# endif /* def IZ_CRYPT_AES_WG */
 
 
 /* 2006-03-23 SMS.

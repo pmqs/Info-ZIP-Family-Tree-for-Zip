@@ -122,7 +122,7 @@ jmp_buf zipdll_error_return;
 #endif
 #endif
 
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
 /* Pointer to crc_table, needed in crypt.c */
 # if (!defined(USE_ZLIB) || defined(USE_OWN_CRCTAB))
 ZCONST ulg near *crc_32_tab;
@@ -141,15 +141,15 @@ ZCONST z_crc_t *crc_32_tab;
 ZCONST uLongf *crc_32_tab;
 #  endif /* def Z_U4 [else] */
 # endif
-#endif /* def CRYPT_ANY */
+#endif /* def IZ_CRYPT_ANY */
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
 # include "aes_wg/aes.h"
 # include "aes_wg/aesopt.h"
 # include "aes_wg/iz_aes_wg.h"
 #endif
 
-#ifdef CRYPT_AES_WG_NEW
+#ifdef IZ_CRYPT_AES_WG_NEW
 # include "aesnew/ccm.h"
 #endif
 
@@ -674,7 +674,7 @@ local void help()
 "                                    -o   make zipfile as old as latest entry",
 "  -F   fix zipfile (-FF try harder) -D   do not add directory entries",
 "  -T   test zipfile integrity       -X   eXclude eXtra file attributes",
-#  ifdef CRYPT_ANY
+#  ifdef IZ_CRYPT_ANY
 "  -e   encrypt                      -n   don't compress these suffixes"
 #  else
 "  -h   show this help               -n   don't compress these suffixes"
@@ -743,14 +743,14 @@ local void help()
 "  -$   include volume label         -S   include system and hidden files",
 #endif
 #ifdef AMIGA
-#  ifdef CRYPT_ANY
+#  ifdef IZ_CRYPT_ANY
 "  -N   store filenotes as comments  -e   encrypt",
 "  -h   show this help               -n   don't compress these suffixes"
 #  else
 "  -N   store filenotes as comments  -n   don't compress these suffixes"
 #  endif
 #else /* !AMIGA */
-#  ifdef CRYPT_ANY
+#  ifdef IZ_CRYPT_ANY
 "  -e   encrypt                      -n   don't compress these suffixes"
 #  else
 "  -h   show this help               -n   don't compress these suffixes"
@@ -1320,9 +1320,9 @@ local void version_info()
 
   /* AES_WG option string storage (with version). */
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
   static char aes_wg_opt_ver[81];
-#endif /* def CRYPT_AES_WG */
+#endif /* def IZ_CRYPT_AES_WG */
 
   /* Bzip2 option string storage (with version). */
 
@@ -1340,7 +1340,7 @@ local void version_info()
   static char ppmd_opt_ver[81];
 #endif
 
-#ifdef CRYPT_TRAD
+#ifdef IZ_CRYPT_TRAD
   static char crypt_opt_ver[81];
 #endif
 
@@ -1458,21 +1458,21 @@ local void version_info()
 # endif
 #endif
 
-#ifdef CRYPT_TRAD
+#ifdef IZ_CRYPT_TRAD
     crypt_opt_ver,
 #endif
 
-#if CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
     aes_wg_opt_ver,
 #endif
 
-#if CRYPT_AES_WG_NEW
-    "CRYPT_AES_WG_NEW     (AES strong encryption (WinZip/Gladman new))",
+#ifdef IZ_CRYPT_AES_WG_NEW
+    "IZ_CRYPT_AES_WG_NEW  (AES strong encryption (WinZip/Gladman new))",
 #endif
 
-#if defined(CRYPT_ANY) && defined(PASSWD_FROM_STDIN)
+#if defined(IZ_CRYPT_ANY) && defined(PASSWD_FROM_STDIN)
     "PASSWD_FROM_STDIN",
-#endif /* defined(CRYPT_ANY) && defined(PASSWD_FROM_STDIN) */
+#endif /* defined(IZ_CRYPT_ANY) && defined(PASSWD_FROM_STDIN) */
 
     NULL
   };
@@ -1556,9 +1556,9 @@ local void version_info()
 
 
   /* Fill in IZ_AES_WG version. */
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
   sprintf( aes_wg_opt_ver,
-    "CRYPT_AES_WG         (AES encryption (WinZip/Gladman), ver %d.%d%s)",
+    "IZ_CRYPT_AES_WG      (AES encryption (WinZip/Gladman), ver %d.%d%s)",
     IZ_AES_WG_MAJORVER, IZ_AES_WG_MINORVER, IZ_AES_WG_BETA_VER);
 #endif
 
@@ -1588,11 +1588,11 @@ local void version_info()
   i++;
 #endif
 
-#ifdef CRYPT_TRAD
+#ifdef IZ_CRYPT_TRAD
   sprintf(crypt_opt_ver,
-    "CRYPT_TRAD           (Traditional (weak) encryption, ver %d.%d%s)",
+    "IZ_CRYPT_TRAD        (Traditional (weak) encryption, ver %d.%d%s)",
     CR_MAJORVER, CR_MINORVER, CR_BETA_VER);
-#endif /* def CRYPT_TRAD */
+#endif /* def IZ_CRYPT_TRAD */
 
   for (i = 0; (int)i < (int)(sizeof(comp_opts)/sizeof(char *) - 1); i++)
   {
@@ -1613,34 +1613,34 @@ local void version_info()
 
 /* Any CRYPT option sets "i", indicating at least one compilation option. */
 
-#ifdef CRYPT_TRAD
+#ifdef IZ_CRYPT_TRAD
   for (i = 0; i < sizeof(cryptnote)/sizeof(char *); i++)
   {
     printf("%s\n", cryptnote[i]);
   }
-#endif /* def CRYPT_TRAD */
+#endif /* def IZ_CRYPT_TRAD */
 
-#ifdef CRYPT_AES_WG
-# ifdef CRYPT_TRAD
+#ifdef IZ_CRYPT_AES_WG
+# ifdef IZ_CRYPT_TRAD
   printf( "\n");
-# endif /* def CRYPT_TRAD */
+# endif /* def IZ_CRYPT_TRAD */
   for (i = 0; i < sizeof(cryptAESnote)/sizeof(char *); i++)
   {
     printf("%s\n", cryptAESnote[i]);
   }
-#endif /* def CRYPT_AES_WG */
+#endif /* def IZ_CRYPT_AES_WG */
 
-#ifdef CRYPT_AES_WG_NEW
-# if defined( CRYPT_TRAD) || defined( CRYPT_AES_WG)
+#ifdef IZ_CRYPT_AES_WG_NEW
+# if defined( IZ_CRYPT_TRAD) || defined( IZ_CRYPT_AES_WG)
   printf( "\n");
-# endif /* defined( CRYPT_TRAD) || defined( CRYPT_AES_WG) */
+# endif /* defined( IZ_CRYPT_TRAD) || defined( IZ_CRYPT_AES_WG) */
   for (i = 0; i < sizeof(cryptAESnote)/sizeof(char *); i++)
   {
     printf("%s\n", cryptAESnote[i]);
   }
-#endif /* def CRYPT_AES_WG_NEW */
+#endif /* def IZ_CRYPT_AES_WG_NEW */
 
-#if defined( CRYPT_TRAD) || defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW)
+#if defined( IZ_CRYPT_ANY) || defined( IZ_CRYPT_AES_WG_NEW)
   printf( "\n");
 #endif
 
@@ -2500,7 +2500,7 @@ local int BlankRunningStats()
   return 0;
 }
 
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
 #ifndef USE_ZIPMAIN
 int encr_passwd(modeflag, pwbuf, size, zfn)
 int modeflag;
@@ -2522,7 +2522,7 @@ ZCONST char *zfn;
     return IZ_PW_ENTERED;
 }
 #endif /* !USE_ZIPMAIN */
-#else /* def CRYPT_ANY */
+#else /* def IZ_CRYPT_ANY */
 int encr_passwd(modeflag, pwbuf, size, zfn)
 int modeflag;
 char *pwbuf;
@@ -2534,7 +2534,7 @@ ZCONST char *zfn;
 
     return ZE_LOGIC;    /* This function should never be called! */
 }
-#endif /* def CRYPT_ANY [else] */
+#endif /* def IZ_CRYPT_ANY [else] */
 
 
 /* rename a split
@@ -2751,9 +2751,9 @@ struct option_struct far options[] = {
     {"D",  "no-dir-entries", o_NO_VALUE,    o_NOT_NEGATABLE, 'D',  "no entries for dirs themselves (-x */)"},
     {"DF", "difference-archive",o_NO_VALUE, o_NOT_NEGATABLE, o_DF, "create diff archive with changed/new files"},
     {"DI", "incremental-list",o_VALUE_LIST, o_NOT_NEGATABLE, o_DI, "archive list to exclude from -DF archive"},
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
     {"e",  "encrypt",     o_NO_VALUE,       o_NOT_NEGATABLE, 'e',  "encrypt entries, ask for password"},
-#endif /* def CRYPT_ANY */
+#endif /* def IZ_CRYPT_ANY */
 #ifdef OS2
     {"E",  "longnames",   o_NO_VALUE,       o_NOT_NEGATABLE, 'E',  "use OS2 longnames"},
 #endif
@@ -2815,9 +2815,9 @@ struct option_struct far options[] = {
     {"",   "prefix-new-path",o_REQUIRED_VALUE,o_NOT_NEGATABLE,o_pa,"add prefix to added/updated paths"},
     {"pn", "non-ansi-password", o_NO_VALUE, o_NEGATABLE,     o_pn, "allow non-ANSI password"},
     {"pp", "prefix-path", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_pp, "add prefix to all paths in archive"},
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
     {"P",  "password",    o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'P',  "encrypt entries, option value is password"},
-#endif /* def CRYPT_ANY */
+#endif /* def IZ_CRYPT_ANY */
 #if defined(QDOS) || defined(QLZIP)
     {"Q",  "Q-flag",      o_NUMBER_VALUE,   o_NOT_NEGATABLE, 'Q',  "Q flag"},
 #endif
@@ -2875,9 +2875,9 @@ struct option_struct far options[] = {
 #ifdef S_IFLNK
     {"y",  "symlinks",    o_NO_VALUE,       o_NOT_NEGATABLE, 'y',  "store symbolic links"},
 #endif /* S_IFLNK */
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
     {"Y", "encryption-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Y', "set encryption method"},
-#endif /* def CRYPT_ANY */
+#endif /* def IZ_CRYPT_ANY */
     {"z",  "archive-comment", o_NO_VALUE,   o_NOT_NEGATABLE, 'z',  "ask for archive comment"},
     {"Z",  "compression-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Z', "compression method"},
 #if defined(MSDOS) || defined(OS2)
@@ -3413,7 +3413,7 @@ char **argv;            /* command line tokens */
   }
 
 
-#if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW)
+#if defined( IZ_CRYPT_AES_WG) || defined( IZ_CRYPT_AES_WG_NEW)
   /* Verify the AES_WG compile-time endian decision. */
   {
     union {
@@ -3445,7 +3445,7 @@ char **argv;            /* command line tokens */
       ZIPERR( ZE_COMPERR, errbuf);
     }
   }
-#endif /* defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW) */
+#endif /* defined( IZ_CRYPT_AES_WG) || defined( IZ_CRYPT_AES_WG_NEW) */
 
 
 #if (defined(WIN32) && defined(USE_EF_UT_TIME))
@@ -3979,16 +3979,16 @@ char **argv;            /* command line tokens */
 
           break;
         case 'e':   /* Encrypt */
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
           if (key)
             free(key);
           key_needed = 1;
           if (encryption_method == NO_ENCRYPTION) {
             encryption_method = TRADITIONAL_ENCRYPTION;
           }
-#else /* def CRYPT_ANY */
+#else /* def IZ_CRYPT_ANY */
           ZIPERR(ZE_PARMS, "encryption (-e) not supported");
-#endif /* def CRYPT_ANY [else] */
+#endif /* def IZ_CRYPT_ANY [else] */
           break;
         case 'F':   /* fix the zip file */
           fix = 1; break;
@@ -4273,15 +4273,15 @@ char **argv;            /* command line tokens */
           if (key != NULL) {
             free(key);
           }
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
           key = value;
           key_needed = 0;
           if (encryption_method == NO_ENCRYPTION) {
             encryption_method = TRADITIONAL_ENCRYPTION;
           }
-#else /* def CRYPT_ANY */
+#else /* def IZ_CRYPT_ANY */
           ZIPERR(ZE_PARMS, "encryption (-P) not supported");
-#endif /* def CRYPT_ANY [else] */
+#endif /* def IZ_CRYPT_ANY [else] */
           break;
 #if defined(QDOS) || defined(QLZIP)
         case 'Q':
@@ -4601,17 +4601,17 @@ char **argv;            /* command line tokens */
           linkput = 1;  break;
 #endif /* S_IFLNK */
 
-#ifdef CRYPT_ANY
-# if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW)
+#ifdef IZ_CRYPT_ANY
+# if defined( IZ_CRYPT_AES_WG) || defined( IZ_CRYPT_AES_WG_NEW)
         case 'Y':   /* Encryption method */
           if (abbrevmatch("traditional", value, 0, 1)) {
-#  ifdef CRYPT_TRAD
+#  ifdef IZ_CRYPT_TRAD
             encryption_method = TRADITIONAL_ENCRYPTION;
-#  else /* def CRYPT_TRAD */
+#  else /* def IZ_CRYPT_TRAD */
             free(value);
             ZIPERR(ZE_PARMS, 
                    "Traditional zip encryption not supported in this build");
-#  endif /* def CRYPT_TRAD [else] */
+#  endif /* def IZ_CRYPT_TRAD [else] */
           } else if (abbrevmatch("AES128", value, 0, 5)) {
             encryption_method = AES_128_ENCRYPTION;
           } else if (abbrevmatch("AES192", value, 0, 5)) {
@@ -4620,7 +4620,7 @@ char **argv;            /* command line tokens */
             encryption_method = AES_256_ENCRYPTION;
 
           } else {
-#  ifdef CRYPT_TRAD
+#  ifdef IZ_CRYPT_TRAD
             zipwarn(
  "valid encryption methods are:  Traditional, AES128, AES192, and AES256", "");
 #  else
@@ -4633,10 +4633,10 @@ char **argv;            /* command line tokens */
           }
           free(value);
           break;
-# endif /* if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW) */
-#else /* def CRYPT_ANY */
+# endif /* if defined( IZ_CRYPT_AES_WG) || defined( IZ_CRYPT_AES_WG_NEW) */
+#else /* def IZ_CRYPT_ANY */
           ZIPERR(ZE_PARMS, "encryption (-Y) not supported");
-#endif /* def CRYPT_ANY [else] */
+#endif /* def IZ_CRYPT_ANY [else] */
 
         case 'z':   /* Edit zip file comment */
           zipedit = 1;  break;
@@ -5437,23 +5437,23 @@ char **argv;            /* command line tokens */
   /* process command line options */
 
 
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
 
-# if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW)
+# if defined( IZ_CRYPT_AES_WG) || defined( IZ_CRYPT_AES_WG_NEW)
   if ((key == NULL) && (encryption_method != NO_ENCRYPTION)) {
     key_needed = 1;
   }
-# endif /* defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW) */
+# endif /* defined( IZ_CRYPT_AES_WG) || defined( IZ_CRYPT_AES_WG_NEW) */
 
   if (key_needed) {
     int i;
 
-# ifdef CRYPT_AES_WG_NEW
+# ifdef IZ_CRYPT_AES_WG_NEW
     /* may be pulled from the new code later */
 #  define MAX_PWD_LENGTH 128
-# endif /* def CRYPT_AES_WG_NEW */
+# endif /* def IZ_CRYPT_AES_WG_NEW */
 
-# if defined(CRYPT_AES_WG) || defined(CRYPT_AES_WG_NEW)
+# if defined(IZ_CRYPT_AES_WG) || defined(IZ_CRYPT_AES_WG_NEW)
 #  define REAL_PWLEN temp_pwlen
     int temp_pwlen;
 
@@ -5461,9 +5461,9 @@ char **argv;            /* command line tokens */
         REAL_PWLEN = IZ_PWLEN;
     else
         REAL_PWLEN = MAX_PWD_LENGTH;
-# else /* defined(CRYPT_AES_WG) || defined(CRYPT_AES_WG_NEW) */
+# else /* defined(IZ_CRYPT_AES_WG) || defined(IZ_CRYPT_AES_WG_NEW) */
 #  define REAL_PWLEN IZ_PWLEN
-# endif /* defined(CRYPT_AES_WG) || defined(CRYPT_AES_WG_NEW) [else] */
+# endif /* defined(IZ_CRYPT_AES_WG) || defined(IZ_CRYPT_AES_WG_NEW) [else] */
 
     if ((key = malloc(REAL_PWLEN+1)) == NULL) {
       ZIPERR(ZE_MEM, "was getting encryption password");
@@ -5522,7 +5522,7 @@ char **argv;            /* command line tokens */
       ZIPERR(ZE_PARMS, "zero length password not allowed");
     }
   }
-#endif /* def CRYPT_ANY */
+#endif /* def IZ_CRYPT_ANY */
 
   /* Check path prefix */
   if (path_prefix) {
@@ -5733,7 +5733,7 @@ char **argv;            /* command line tokens */
     }
 #endif /* defined( UNIX) && defined( __APPLE__) */
 
-#if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW)
+#if defined( IZ_CRYPT_AES_WG) || defined( IZ_CRYPT_AES_WG_NEW)
   if (!extra_fields && encryption_method >= AES_MIN_ENCRYPTION) {
     zipwarn("can't use -X- with -Y AES encryption, -X- ignored", "");
     extra_fields = 1;
@@ -6172,7 +6172,7 @@ char **argv;            /* command line tokens */
     }
   }
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
   if (encryption_method >= AES_MIN_ENCRYPTION) {
     /*
     time_t pool_init_start;
@@ -6213,7 +6213,7 @@ char **argv;            /* command line tokens */
   }
 #endif
 
-#ifdef CRYPT_AES_WG_NEW
+#ifdef IZ_CRYPT_AES_WG_NEW
   if (encryption_method >= AES_MIN_ENCRYPTION) {
     time_t pool_init_start;
     time_t pool_init_time;
@@ -6915,7 +6915,7 @@ char **argv;            /* command line tokens */
   /* d true if appending */
   d = (d && k == 0 && (zipbeg || zfiles != NULL));
 
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
   /* Initialize the crc_32_tab pointer, when encryption was requested. */
   if (key != NULL) {
     crc_32_tab = get_crc_table();
@@ -6924,7 +6924,7 @@ char **argv;            /* command line tokens */
     strtoasc(key, key);
 #endif /* EBCDIC */
   }
-#endif /* def CRYPT_ANY */
+#endif /* def IZ_CRYPT_ANY */
 
   /* Just ignore the spanning signature if a multi-disk archive */
   if (zfiles && total_disks != 1 && zipbeg == 4) {
@@ -8373,7 +8373,7 @@ char **argv;            /* command line tokens */
   }
 #endif
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
   /* close random pool */
   if (encryption_method >= AES_MIN_ENCRYPTION) {
     if (show_what_doing) {
@@ -8383,12 +8383,12 @@ char **argv;            /* command line tokens */
     prng_end(&aes_rnp);
     free(zsalt);
   }
-#endif /* def CRYPT_AES_WG */
+#endif /* def IZ_CRYPT_AES_WG */
 
-#ifdef CRYPT_AES_WG_NEW
+#ifdef IZ_CRYPT_AES_WG_NEW
   /* clean up and end operation   */
   ccm_end(&aesnew_ctx);  /* the mode context             */
-#endif /* def CRYPT_AES_WG_NEW */
+#endif /* def IZ_CRYPT_AES_WG_NEW */
 
   /* finish logfile (it gets closed in freeup() called by finish()) */
   if (logfile) {

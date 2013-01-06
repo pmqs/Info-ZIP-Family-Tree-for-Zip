@@ -4,7 +4,7 @@
 
 #==============================================================================
 # unix/configure: Detect feature support and pass that information to Makefile.
-# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 06 Aug 2012
+# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 13 Dec 2012
 #==============================================================================
 
 #==============================================================================
@@ -86,6 +86,7 @@
 #    RANLIB      - Archive index program name (default: ranlib)
 #
 #    CFLAGS      - C Compiler flag initial values
+#    CFLAGS_OPT  - C Compiler optimization option override (non-null)
 #    LOCAL_ZIP   - C compiler flag user override values
 #
 #    AFLAGS      - Assembler flag initial values
@@ -167,8 +168,8 @@ echo ''
 echo 'Generating system-dependent flags...'
 
 # Evaluate only variables in this list.  Complain about others, but continue.
-valid_vars1='|AES_WG|AFLAGS|AS|CC|CC_BZ|CFLAGS|CPP|DLLEXT|IZ_BZIP2|IZ_ZLIB'
-valid_vars2='|LD|LFLAGS1|LFLAGS2|LIST|LOCAL_ZIP|LZMA'
+valid_vars1='|AES_WG|AFLAGS|AS|CC|CC_BZ|CFLAGS|CFLAGS_OPT|CPP|DLLEXT'
+valid_vars2='|IZ_BZIP2|IZ_ZLIB|LD|LFLAGS1|LFLAGS2|LIST|LOCAL_ZIP|LZMA'
 valid_vars3='|OSDEP_H|OSDEP_OCU|OSDEP_OCZ|OSDEP_OSU|OSDEP_OSZ'
 valid_vars4='|PGMEXT|PPMD|PROD|RANLIB|'
 valid_vars="${valid_vars1}${valid_vars2}${valid_vars3}${valid_vars4}"
@@ -194,7 +195,7 @@ CC_BZ=${CC_BZ:-${CC}}                      # C compiler name (BZIP2 components)
 CC_LIST=''                                 # C compiler name, if LIST enabled
 CFLAGS=${CFLAGS:-}' -I.'                   # C compiler flags (core components)
 CFLAGS_BZ=${CFLAGS_BZ:-}' -I'              # C cmplr flags (BZIP2 components)
-CFLAGS_OPT=''                              # C cmplr optimze (and list) options
+CFLAGS_OPT=${CFLAGS_OPT:-}                 # C cmplr optimze (and list) options
 CFLAGS_USR=${LOCAL_ZIP:-}                  # C compiler user override options
 
 CPP=${CPP:-"${CC} -E"}                     # C preprocessor name
@@ -1254,6 +1255,7 @@ _EOF_
       ;;
 esac
 
+lprod=0
 #------------------------------------------------------------------------------
 # E) Configure optional AES (WinZip/Gladman) encryption library.
 #------------------------------------------------------------------------------
@@ -1278,7 +1280,10 @@ _EOF_
       if [ $status -eq 0 ]; then
         LIB_AES_WG="libaes.a"
         CFLAGS_TST="${CFLAGS_TST} -DCRYPT_AES_WG"
-        LFLAGS1="${LFLAGS1} -L."
+        if [ $lprod -eq 0 ]; then
+          lprod=1
+          LFLAGS1="${LFLAGS1} -L${PROD}"
+        fi
         LFLAGS2="${LFLAGS2} -laes"
         echo "-- Including AES_WG encryption support"
         echo "-- Building libaes.a in ${PROD}"
@@ -1323,7 +1328,10 @@ _EOF_
       if [ $status -eq 0 ]; then
         LIB_LZMA="liblzma.a"
         CFLAGS_TST="${CFLAGS_TST} -DLZMA_SUPPORT"
-        LFLAGS1="${LFLAGS1} -L."
+        if [ $lprod -eq 0 ]; then
+          lprod=1
+          LFLAGS1="${LFLAGS1} -L${PROD}"
+        fi
         LFLAGS2="${LFLAGS2} -llzma"
         echo "-- Including LZMA compression support"
         echo "-- Building liblzma.a in ${PROD}"
@@ -1368,7 +1376,10 @@ _EOF_
       if [ $status -eq 0 ]; then
         LIB_PPMD="libppmd.a"
         CFLAGS_TST="${CFLAGS_TST} -DPPMD_SUPPORT"
-        LFLAGS1="${LFLAGS1} -L."
+        if [ $lprod -eq 0 ]; then
+          lprod=1
+          LFLAGS1="${LFLAGS1} -L${PROD}"
+        fi
         LFLAGS2="${LFLAGS2} -lppmd"
         echo "-- Including PPMd compression support"
         echo "-- Building libppmd.a in ${PROD}"

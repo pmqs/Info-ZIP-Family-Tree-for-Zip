@@ -1,7 +1,7 @@
             Zip Installation Supplement for VMS (OpenVMS)
             ---------------------------------------------
 
-   Zip version 3.1.  Revised: 2012-09-04.
+   Zip version 3.1.  Revised: 2012-12-29.
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -146,6 +146,9 @@ command-line options used to select a different compiler.
          MMS /DESC = [.VMS] /MACRO = (LARGE=1, "CCOPTS=/NAMES=AS_IS", -
           IZ_BZIP2=SYS$SYSDEVICE:[UTILITY.SOURCE.BZIP2.BZIP2-1_0_6A_VMS])
 
+      The %CC-I-UNKNOWNPRAGMA complaints are still emitted, but the link
+      (and the program) should work.
+
    o Other Optional Compression Methods (LZMA, PPMd)
 
       LZMA and PPMd compression (new in Zip version 3.1) are not enabled
@@ -171,7 +174,7 @@ command-line options used to select a different compiler.
          LOCAL_ZIP == "NO_CRYPT"
          @ [.VMS]BUILD_ZIP LARGE
       or:
-         MMS /DESC = [.VMS] /MACRO = (LARGE=1, "LOCAL_ZIP=NO_CRYPT=1")
+         MMS /DESC = [.VMS] /MACRO = (LARGE=1, "LOCAL_ZIP=NO_CRYPT")
 
       By default, AES encryption is not enabled.  To enable it, first
       download and unpack the separate IZ_AES_WG source kit, as

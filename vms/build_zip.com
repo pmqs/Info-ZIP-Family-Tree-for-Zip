@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2012-11-19  SMS.
+$!     Last revised:  2012-12-31  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -16,6 +16,8 @@ $!     - select large-file support: "LARGE" (Non-VAX only)
 $!     - select compiler listings: "LIST"  Note that the whole argument
 $!       is added to the compiler command, so more elaborate options
 $!       like "LIST/SHOW=ALL" (quoted or space-free) may be specified.
+$!       Default is "/NOLIST", but if the user specifies a LIST option,
+$!       then only the user-specified qualifier(s) will be included.
 $!     - supply additional compiler options: "CCOPTS=xxx"  Allows the
 $!       user to add compiler command options like /ARCHITECTURE or
 $!       /[NO]OPTIMIZE.  For example, CCOPTS=/ARCH=HOST/OPTI=TUNE=HOST
@@ -25,9 +27,9 @@ $!     - supply additional linker options: "LINKOPTS=xxx"  Allows the
 $!       user to add linker command options like /DEBUG or /MAP.  For
 $!       example: LINKOPTS=/DEBUG or LINKOPTS=/MAP/CROSS.  These options
 $!       must be quoted or space-free.  Default is
-$!       LINKOPTS=/NOTRACEBACK, but if the user specifies a LINKOPTS
-$!       string, /NOTRACEBACK will not be included unless specified by
-$!       the user.
+$!       LINKOPTS="/NOMAP /NOTRACEBACK", but if the user specifies a
+$!       LINKOPTS string, then only the user-specified qualifier(s) will
+$!       be included.
 $!     - select installation of CLI interface version of zip:
 $!       "VMSCLI" or "CLI"
 $!     - force installation of UNIX interface version of zip
@@ -62,12 +64,25 @@ $!     Valid VMS-specific options include VMS_PK_EXTRA and VMS_IM_EXTRA.
 $!     See the INSTALL file for other options.  (VMS_PK_EXTRA is the
 $!     default.)
 $!
-$!     If editing this procedure to set LOCAL_ZIP, be sure to use only
-$!     one "=", to avoid affecting other procedures.  For example:
+$!     If you edit this procedure to set LOCAL_ZIP here, be sure to
+$!     use only one "=", to avoid affecting other procedures.  For
+$!     example:
 $!             $ LOCAL_ZIP = "VMS_IM_EXTRA"
 $!
-$!     Note: This command procedure always generates both the "default"
-$!     Zip having the UNIX style command interface and the "VMSCLI" Zip
+$!     Note that on a Unix system, LOCAL_UNZIP contains compiler
+$!     options, such as "-g" or "-DCRYPT_AES_WG_SFX", but on a VMS
+$!     system, LOCAL_UNZIP contains only C macros, such as
+$!     "CRYPT_AES_WG_SFX", and CCOPTS is used for any other kinds of
+$!     compiler options, such as "/ARCHITECTURE".  Unix compilers accept
+$!     multiple "-D" options, but VMS compilers consider only the last
+$!     /DEFINE qualifier, so the C macros must be handled differently
+$!     from other compiler options on VMS.  Thus, when using the generic
+$!     installation instructions as a guide for controlling various
+$!     optional features, some adjustment may be needed to adapt them to
+$!     a VMS build environment.
+$!
+$!     This command procedure always generates both the "default" Zip
+$!     having the UNIX style command interface and the "VMSCLI" Zip
 $!     having the CLI compatible command interface.  There is no need to
 $!     add "VMSCLI" to the LOCAL_ZIP symbol.  (The only effect of
 $!     "VMSCLI" now is the selection of the CLI style Zip executable in
@@ -150,7 +165,7 @@ $ AES_WG = ""
 $ CCOPTS = ""
 $ IZ_BZIP2 = ""
 $ IZ_ZLIB = ""
-$ LINKOPTS = "/notraceback"
+$ LINKOPTS = "/nomap /notraceback"
 $ LISTING = " /nolist"
 $ LARGE_FILE = 0
 $ LIBZIP = 0
@@ -359,6 +374,7 @@ $ destl = ""
 $ destm = arch
 $ cmpl = "DEC/Compaq/HP C"
 $ opts = ""
+$ vaxc = 0
 $ if (arch .nes. "VAX")
 $ then
 $     HAVE_DECC_VAX = 0
@@ -423,6 +439,7 @@ $                 cc = "cc"
 $             endif
 $             destm = "''destm'V"
 $             cmpl = "VAC C"
+$             vaxc = 1
 $         endif
 $         opts = "VAXC"
 $     endif
@@ -534,9 +551,16 @@ $!
 $ if (PPMD .ne. 0)
 $ then
 $     defs = defs+ ", PPMD_SUPPORT"
-$     if ((arch .eqs. "VAX") .and. (LZMA .eq. 0))
+$     if (arch .eqs. "VAX")
 $     then
-$         defs = defs+ ", _SZ_NO_INT_64"
+$         if (vaxc .ne. 0)
+$         then
+$             defs = defs+ ", NO_SIGNED_CHAR"
+$         endif
+$         if (LZMA .eq. 0)
+$         then
+$             defs = defs+ ", _SZ_NO_INT_64"
+$         endif
 $     endif
 $ endif
 $!

@@ -104,7 +104,7 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
  * User-specified macros:
  * NO_CRYPT, NO_CRYPT_TRAD, CRYPT_AES_WG.
  *
- * Macros used in code: CRYPT_AES_WG, CRYPT_ANY, CRYPT_TRAD.
+ * Macros used in code: IZ_CRYPT_AES_WG, IZ_CRYPT_ANY, IZ_CRYPT_TRAD.
  *
  * By default, in normal Zip, enable Traditional, disable AES_WG.
  * NO_CRYPT disables all.
@@ -114,27 +114,29 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 
 # ifdef NO_CRYPT
    /* Disable all encryption. */
-#  undef CRYPT_AES_WG
-#  undef CRYPT_AES_WG_NEW
-#  undef CRYPT_TRAD
+#  undef IZ_CRYPT_AES_WG
+#  undef IZ_CRYPT_AES_WG_NEW
+#  undef IZ_CRYPT_TRAD
 # else /* def NO_CRYPT */
    /* Enable some kind of encryption. */
 #  ifdef NO_CRYPT_TRAD
     /* Disable Traditional encryption. */
-#   undef CRYPT_TRAD
+#   undef IZ_CRYPT_TRAD
 #  else /* def NO_CRYPT_TRAD */
     /* Enable Traditional encryption. */
-#   define CRYPT_TRAD 1
+#   define IZ_CRYPT_TRAD 1
 #  endif /* def NO_CRYPT_TRAD [else] */
 # endif /* def NO_CRYPT [else] */
 
 #ifdef CRYPT_AES_WG
+#  define IZ_CRYPT_AES_WG 1
 #  include "aes_wg/aes.h"
 #  include "aes_wg/fileenc.h"
 #  include "aes_wg/prng.h"
 #endif
 
 #ifdef CRYPT_AES_WG_NEW
+#  define IZ_CRYPT_AES_WG_NEW 1
 #  include "aesnew/ccm.h"
 #endif
 
@@ -669,7 +671,7 @@ extern char *key;               /* Encryption password.  (NULL, if none.) */
 extern int force_ansi_key;      /* Only ANSI characters for password (char codes 32 - 126) */
 extern int encryption_method;   /* See above defines */
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
 
   /* Values for aes_vendor_version. */
 # define AES_WG_VEND_VERS_AE1 0x0001    /* AE-1. */
@@ -686,7 +688,7 @@ extern int encryption_method;   /* See above defines */
  extern unsigned char auth_code[20]; /* returned authentication code */
 #endif
 
-#ifdef CRYPT_AES_WG_NEW
+#ifdef IZ_CRYPT_AES_WG_NEW
 # define PWD_VER_LENGTH 2
  extern int key_size;                 /* Size of strong encryption key */
  extern ccm_ctx aesnew_ctx;
@@ -1117,7 +1119,7 @@ void     bi_init      OF((char *, unsigned int, int));
  uzoff_t get_time_in_usec OF(());
 #endif
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
  void aes_crypthead OF((ZCONST uch *, uch, ZCONST uch *));
  int entropy_fun OF((unsigned char buf[], unsigned int len));
 #endif

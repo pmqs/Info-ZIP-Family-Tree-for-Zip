@@ -761,7 +761,7 @@ char *vms_file_version( char *s)
 } /* vms_file_version(). */
 
 
-# ifdef CRYPT_AES_WG
+# ifdef IZ_CRYPT_AES_WG
 
 /* Entropy gathering for VMS.  We use the system time, some memory usage
  * and process I/O statistics, the process CPU time, the process ID, and
@@ -1006,7 +1006,7 @@ int entropy_fun( unsigned char *buf, unsigned int len)
 
 } /* entropy_fun(). */
 
-# endif /* def CRYPT_AES_WG */
+# endif /* def IZ_CRYPT_AES_WG */
 
 
 #ifdef ENABLE_USER_PROGRESS

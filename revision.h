@@ -80,7 +80,7 @@ ZCONST char * far versinfolines[] = {
 ""
 };
 
-#if defined(CRYPT_AES_WG) || defined(CRYPT_AES_WG_NEW)
+#if defined(IZ_CRYPT_AES_WG) || defined(IZ_CRYPT_AES_WG_NEW)
 /* new notice - 27 September 2010 */
 ZCONST char * far cryptAESnote[] = {
 "AES Strong Encryption notice:",

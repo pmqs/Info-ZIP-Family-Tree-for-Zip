@@ -696,7 +696,7 @@ char *p;
     return ZE_OK;
   }
 
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
   /* getpid() only available on OSS so make up dummy version using NSK PID */
   unsigned zgetpid (void)
   {
@@ -720,4 +720,4 @@ char *p;
 
     return retval;
   }
-#endif  /* def CRYPT_ANY */
+#endif  /* def IZ_CRYPT_ANY */

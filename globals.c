@@ -163,7 +163,7 @@ int encryption_method = 0;    /* See definitions in zip.h */
 ush aes_vendor_version;
 uch aes_strength;
 int force_ansi_key = 1;       /* Only ANSI characters for password (32 - 126) */
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
   int key_size = 0;
   fcrypt_ctx zctx;
   unsigned char *zpwd;
@@ -175,7 +175,7 @@ int force_ansi_key = 1;       /* Only ANSI characters for password (32 - 126) */
   unsigned char auth_code[20]; /* returned authentication code */
 #endif
 
-#ifdef CRYPT_AES_WG_NEW
+#ifdef IZ_CRYPT_AES_WG_NEW
   int key_size = 0;
   ccm_ctx aesnew_ctx;
   unsigned char *zpwd;

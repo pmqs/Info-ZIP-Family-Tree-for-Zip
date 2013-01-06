@@ -1,4 +1,4 @@
-#                                               15 October 2012.  SMS.
+#                                               31 December 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Description File.
 #
@@ -90,6 +90,8 @@
 #    CLEAN_EXE  deletes only the architecture-specific executables. 
 #               Handy if all you wish to do is re-link the executables.
 #
+#    CLEAN_OLB  deletes only the architecture-specific object libraries. 
+#
 #    HELP       generates HELP files.
 #
 #    HELP_TEXT  generates HELP output text files (.HTX).
@@ -117,6 +119,19 @@
 #
 #    MMS /DESCRIP = [.VMS] CLEAN
 #    MMS /DESCRIP = [.VMS] /MACRO = (DBG=1, LIST=1)
+#
+#
+#    Note that on a Unix system, LOCAL_ZIP contains compiler
+#    options, such as "-g" or "-DNO_USER_PROGRESS", but on a VMS
+#    system, LOCAL_UNZIP contains only C macros, such as
+#    "NO_USER_PROGRESS", and CCOPTS is used for any other kinds of
+#    compiler options, such as "/ARCHITECTURE".  Unix compilers accept
+#    multiple "-D" options, but VMS compilers consider only the last
+#    /DEFINE qualifier, so the C macros must be handled differently
+#    from other compiler options on VMS.  Thus, when using the generic
+#    installation instructions as a guide for controlling various
+#    optional features, some adjustment may be needed to adapt them to
+#    a VMS build environment.
 #
 ########################################################################
 
@@ -246,6 +261,12 @@ CLEAN_ALL : CLEAN
 CLEAN_EXE :
 	if (f$search( "[.$(DEST)]*.EXE") .nes. "") then -
 	 delete /noconfirm [.$(DEST)]*.EXE;*
+
+# CLEAN_OLB target.  Delete the executables in [.$(DEST)].
+
+CLEAN_OLB :
+	if (f$search( "[.$(DEST)]*.OLB") .nes. "") then -
+	 delete /noconfirm [.$(DEST)]*.OLB;*
 
 # HELP target.  Generate the HELP files.
 

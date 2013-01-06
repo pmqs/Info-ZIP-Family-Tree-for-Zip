@@ -4033,26 +4033,30 @@ char **copy_args(args, max_args)
     return NULL;
   }
 
-  /* count args */
-  for (j = 0; args[j] && (max_args == 0 || j < max_args); j++) ;
+  /* Count non-NULL args.  Stop at max_args, if not zero. */
+  for (j = 0; args[ j] && (max_args == 0 || j < max_args); j++);
+  max_args = j;
 
-  if ((new_args = (char **) malloc((j + 1) * sizeof(char *))) == NULL) {
-    oERR(ZE_MEM, "ca");
+  if ((new_args = (char **) malloc((max_args + 1) * sizeof(char *))) == NULL)
+  {
+    oWARN("memory - ca.1");
+    return NULL;
   }
 
-  for (j = 0; args[j] && (max_args == 0 || j < max_args); j++) {
-    if (args[j] == NULL) {
-      /* null argument is end of args */
-      new_args[j] = NULL;
-      break;
+  /* Transfer (non-NULL) original args[] to new_args[]. */
+  for (j = 0; j < max_args; j++)
+  {
+    if ((new_args[ j] = malloc( strlen( args[ j])+ 1)) == NULL)
+    {
+      free_args( new_args);
+      oWARN("memory - ca.2");
+      return NULL;
     }
-    if ((new_args[j] = malloc(strlen(args[j]) + 1)) == NULL) {
-      free_args(new_args);
-      oERR(ZE_MEM, "ca");
-    }
-    strcpy(new_args[j], args[j]);
+    strcpy( new_args[ j], args[ j]);
   }
-  new_args[j] = NULL;
+
+  /* NULL_terminate new_args[]. */
+  new_args[ max_args] = NULL;
 
   return new_args;
 }
@@ -4239,7 +4243,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
     }
   }
 
-  if (match > -1) {
+  if (match >= 0) {
     /* match */
     clen = MB_CLEN(shortopt);
     nextchar = arg + (*optchar) + clen;
@@ -4284,7 +4288,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
           }
         }
         if ((*value = (char *) malloc(2)) == NULL) {
-          oERR(ZE_MEM, "gso-1");
+          oERR(ZE_MEM, "gso.1");
         }
         (*value)[0] = *(arg + (*optchar) + clen);
         (*value)[1] = '\0';
@@ -4320,7 +4324,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
       }
       start = arg + (*optchar) + clen;
       if ((*value = (char *) malloc((int)(s - start) + 1)) == NULL) {
-        oERR(ZE_MEM, "gso-2");
+        oERR(ZE_MEM, "gso.2");
       }
       *optchar += (int)(s - start);
       strncpy(*value, start, (int)(s - start));
@@ -4341,14 +4345,14 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
         if (arg[(*optchar) + clen]) {
           if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1))
               == NULL) {
-            oERR(ZE_MEM, "gso-3");
+            oERR(ZE_MEM, "gso.3");
           }
           strcpy(*value, arg + (*optchar) + clen);
         }
         *optchar = THIS_ARG_DONE;
       }
     } else if (options[match].value_type == o_OPT_EQ_VALUE) {
-      /* Optional value, but "=" required with detached value. */
+      /* Optional value, but "=" required with value. */
       int have_eq = 0;
 
       if (arg[(*optchar) + clen]) {
@@ -4359,18 +4363,25 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
           have_eq = 1;
         }
         if (arg[(*optchar) + clen]) {
-          /* "-opt[=]value".  Have attached value. */
-          if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1))
-              == NULL) {
-            oERR(ZE_MEM, "gso-4");
+          /* "-opt{=|X}XXX".  Have more chars.  Attached value? */
+          if (have_eq) {
+            /* "-opt=value".  Have attached value. */
+            if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1))
+             == NULL) {
+              oERR(ZE_MEM, "gso.4");
+            }
+            strcpy(*value, arg + (*optchar) + clen);
+            *optchar = THIS_ARG_DONE;
           }
-          strcpy(*value, arg + (*optchar) + clen);
-          *optchar = THIS_ARG_DONE;
+            /* else
+             * "-opt{^=}XXX".  Have more chars, but no attached value.
+             * Should be more short options.
+             */
         }
         else if (have_eq && args[argnum + 1] && args[argnum + 1][0] != '-') {
           /* "-opt= value".  Have detached value. */
           if ((*value = (char *)malloc(strlen(args[argnum + 2])+ 1)) == NULL) {
-            oERR(ZE_MEM, "gso-5");
+            oERR(ZE_MEM, "gso.5");
           }
           /* Set value.  Skip value arg. */
           strcpy(*value, args[argnum + 1]);
@@ -4384,7 +4395,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
         if (args[argnum + 2] && args[argnum + 2][0] != '-') {
           /* "-opt = value".  Have detached value. */
           if ((*value = (char *)malloc(strlen(args[argnum + 2])+ 1)) == NULL) {
-            oERR(ZE_MEM, "gso-6");
+            oERR(ZE_MEM, "gso.6");
           }
           /* Set value.  Skip "=" and value args. */
           strcpy(*value, args[argnum + 2]);
@@ -4397,7 +4408,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
         /* "-opt =[XXXX]".  Have detached "=value".  Skip '='. */
         if ((*value = (char *)malloc(strlen(args[argnum + 1]))) == NULL)
         {
-          oERR(ZE_MEM, "gso-7");
+          oERR(ZE_MEM, "gso.7");
         }
         /* Using next arg (less '=') as value. */
         strcpy(*value, args[argnum + 1]+ 1);
@@ -4418,7 +4429,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
         }
           if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1))
               == NULL) {
-          oERR(ZE_MEM, "gso-8");
+          oERR(ZE_MEM, "gso.8");
         }
         strcpy(*value, arg + (*optchar) + clen);
         *optchar = THIS_ARG_DONE;
@@ -4426,7 +4437,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
         /* use next arg for value */
         if (args[argnum + 1]) {
           if ((*value = (char *)malloc(strlen(args[argnum + 1]) + 1)) == NULL) {
-            oERR(ZE_MEM, "gso-9");
+            oERR(ZE_MEM, "gso.9");
           }
           strcpy(*value, args[argnum + 1]);
           if (options[match].value_type == o_VALUE_LIST) {
@@ -4496,7 +4507,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
   }
   /* copy arg so can chop end if value */
   if ((arg = (char *)malloc(strlen(args[argnum]) + 1)) == NULL) {
-    oERR(ZE_MEM, "glo-1");
+    oERR(ZE_MEM, "glo.1");
   }
   strcpy(arg, args[argnum]);
 
@@ -4533,7 +4544,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
       break;
     }
     if (options[op].longopt && strncmp(options[op].longopt, longopt, strlen(longopt)) == 0) {
-      if (match > -1) {
+      if (match >= 0) {
         sprintf(optionerrbuf, long_op_ambig_err, longopt);
         free(arg);
         if (depth > 0) {
@@ -4548,7 +4559,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
     }
   }
 
-  if (match == -1) {
+  if (match < 0) {
     sprintf(optionerrbuf, long_op_not_sup_err, longopt);
     free(arg);
     if (depth > 0) {
@@ -4577,7 +4588,6 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
   /* get value */
   if (options[match].value_type == o_OPT_EQ_VALUE) {
     /* Optional value, but "=" required with detached value. */
-    int have_eq = 0;
     if (valuestart == NULL) {
       /* "--opt ="? */
       if (args[ argnum+ 1] != NULL) {
@@ -4608,7 +4618,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
       /* A value was specified somehow.  Save it. */
       if ((*value = (char *)malloc(strlen(valuestart) + 1)) == NULL) {
         free(arg);
-        oERR(ZE_MEM, "glo-2");
+        oERR(ZE_MEM, "glo.2");
       }
       strcpy(*value, valuestart);
     }
@@ -4618,7 +4628,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
       /* option=value */
       if ((*value = (char *)malloc(strlen(valuestart) + 1)) == NULL) {
         free(arg);
-        oERR(ZE_MEM, "glo-3");
+        oERR(ZE_MEM, "glo.3");
       }
       strcpy(*value, valuestart);
     }
@@ -4631,7 +4641,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
       /* option=value */
       if ((*value = (char *)malloc(strlen(valuestart) + 1)) == NULL) {
         free(arg);
-        oERR(ZE_MEM, "glo-4");
+        oERR(ZE_MEM, "glo.4");
       }
       strcpy(*value, valuestart);
     } else {
@@ -4639,7 +4649,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
       if (args[argnum + 1]) {
         if ((*value = (char *)malloc(strlen(args[argnum + 1]) + 1)) == NULL) {
           free(arg);
-          oERR(ZE_MEM, "glo-5");
+          oERR(ZE_MEM, "glo.5");
         }
         /* using next arg as value */
         strcpy(*value, args[argnum + 1]);
@@ -4968,7 +4978,7 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
       }
       arg = args[argn];
       if ((*value = (char *)malloc(strlen(arg) + 1)) == NULL) {
-        oERR(ZE_MEM, "go");
+        oERR(ZE_MEM, "go.1");
       }
       strcpy(*value, arg);
       *option_num = o_NO_OPTION_MATCH;
@@ -5044,7 +5054,7 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
         /* - and -- are not allowed in value lists unless escaped */
         /* another value in value list */
         if ((*value = (char *)malloc(strlen(args[argn]) + 1)) == NULL) {
-          oERR(ZE_MEM, "go");
+          oERR(ZE_MEM, "go.1");
         }
         strcpy(*value, args[argn]);
         break;
@@ -5101,7 +5111,7 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
         break;
       }
       if ((*value = (char *)malloc(strlen(args[argn]) + 1)) == NULL) {
-        oERR(ZE_MEM, "go");
+        oERR(ZE_MEM, "go.3");
       }
       strcpy(*value, args[argn]);
       optc = NON_OPTION_ARG;
@@ -5127,7 +5137,7 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
         } else {
           /* not permute args so return non-option args when found */
           if ((*value = (char *)malloc(strlen(arg) + 1)) == NULL) {
-            oERR(ZE_MEM, "go");
+            oERR(ZE_MEM, "go.4");
           }
           strcpy(*value, arg);
           optc = NON_OPTION_ARG;
@@ -5169,7 +5179,7 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
             } else {
               /* not permute args so return non-option args when found */
               if ((*value = (char *)malloc(strlen(arg) + 1)) == NULL) {
-                oERR(ZE_MEM, "go");
+                oERR(ZE_MEM, "go.5");
               }
               strcpy(*value, arg);
               optc = NON_OPTION_ARG;
@@ -5225,7 +5235,7 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
       } else {
         /* no permute args so return non-option args when found */
         if ((*value = (char *)malloc(strlen(arg) + 1)) == NULL) {
-          oERR(ZE_MEM, "go");
+          oERR(ZE_MEM, "go.6");
         }
         strcpy(*value, arg);
         *option_num = o_NO_OPTION_MATCH;

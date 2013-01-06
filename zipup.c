@@ -151,11 +151,11 @@ local unsigned iz_file_read OF((char *buf, unsigned size));
 # endif
 #endif /* ?USE_ZLIB */
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
 # include "aes_wg/prng.h"
 #endif
 
-#ifdef CRYPT_AES_WG_NEW
+#ifdef IZ_CRYPT_AES_WG_NEW
 # include "aesnew/ccm.h"
 #endif
 
@@ -530,12 +530,12 @@ struct zlist far *z;    /* zip entry to compress */
   char *tempextra = NULL;
   char *tempcextra = NULL;
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
   uch salt_len;
   uch auth_len;
 #endif
 
-#ifdef CRYPT_AES_WG_NEW
+#ifdef IZ_CRYPT_AES_WG_NEW
   uch salt_len;
   uch auth_len;
 #endif
@@ -1108,7 +1108,7 @@ struct zlist far *z;    /* zip entry to compress */
 
   z->crc = 0;  /* to be updated later */
 /* SMSd. */
-#ifndef CRYPT_NOEXT
+#ifndef IZ_CRYPT_NOEXT
   /* Assume first that we will need an extended local header: */
   /* z->flg is now zeroed in zip.c */
   if (isdir)
@@ -1116,15 +1116,15 @@ struct zlist far *z;    /* zip entry to compress */
     z->flg &= ~8;
   else
     z->flg |= 8;  /* to be updated later */
-#else /* ndef CRYPT_NOEXT */
+#else /* ndef IZ_CRYPT_NOEXT */
   if (use_descriptors)
     z->flg |= 8;
-#endif /* ndef CRYPT_NOEXT [else] */
-#ifdef CRYPT_ANY
+#endif /* ndef IZ_CRYPT_NOEXT [else] */
+#ifdef IZ_CRYPT_ANY
   if (!isdir && key != NULL) {
     z->flg |= 1;
 /* SMSd. */
-#ifndef CRYPT_NOEXT
+#ifndef IZ_CRYPT_NOEXT
     /* Since we do not yet know the crc here, we pretend that the crc
      * is the modification time:
      */
@@ -1135,9 +1135,9 @@ struct zlist far *z;    /* zip entry to compress */
      * bytes as pseudo-random seed data.  No one uses this stuff as a
      * real CRC. so there's no reason to save it in z->crc.
      */
-#endif /* ndef CRYPT_NOEXT */
+#endif /* ndef IZ_CRYPT_NOEXT */
   }
-#endif /* def CRYPT_ANY */
+#endif /* def IZ_CRYPT_ANY */
   z->lflg = z->flg;
   z->how = (ush)mthd;                           /* may be changed later  */
   z->siz = (zoff_t)(mthd == STORE && q >= 0 ? q : 0); /* will be changed later */
@@ -1153,7 +1153,7 @@ struct zlist far *z;    /* zip entry to compress */
   z->atx = dosify ? a & 0xff : a | (z->atx & 0x0000ff00);
 #endif /* DOS || OS2 || WIN32 */
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
   /* Initialize AES encryption
    *
    * Data size: this value is currently 7, but vendors should not assume that it will always remain 7.
@@ -1228,7 +1228,7 @@ struct zlist far *z;    /* zip entry to compress */
 #endif
 
 
-#ifdef CRYPT_AES_WG_NEW
+#ifdef IZ_CRYPT_AES_WG_NEW
   /* Initialize AES encryption
    *
    * Data size: this value is currently 7, but vendors should not assume that it will always remain 7.
@@ -1326,10 +1326,10 @@ struct zlist far *z;    /* zip entry to compress */
   tempzn += 4 + LOCHEAD + z->nam + z->ext;
 
 
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
   /* write out encryption header at top of file data */
   if (!isdir && key != NULL && z->encrypt_method) {
-# ifdef CRYPT_AES_WG
+# ifdef IZ_CRYPT_AES_WG
     if (z->encrypt_method > 1) {
       aes_crypthead(zsalt, salt_len, zpwd_verifier);
 
@@ -1337,28 +1337,28 @@ struct zlist far *z;    /* zip entry to compress */
       tempzn += salt_len + 2;
     } else {
 # endif
-# ifdef CRYPT_TRAD
+# ifdef IZ_CRYPT_TRAD
 /* SMSd. */
-#ifndef CRYPT_NOEXT
+#ifndef IZ_CRYPT_NOEXT
       crypthead(key, z->crc);
-#else /* ndef CRYPT_NOEXT */
+#else /* ndef IZ_CRYPT_NOEXT */
       /* Use MS-DOS modification time as pseudo-random seed data.
        * (crypthead() calls it "crc", but we don't have the real CRC,
        * so we use this substitute.  crypthead() uses only the high 16
        * bits, so we put the data there.)
        */
       crypthead(key, (z->tim << 16));
-#endif /* ndef CRYPT_NOEXT [else] */
+#endif /* ndef IZ_CRYPT_NOEXT [else] */
       z->siz += RAND_HEAD_LEN;  /* to be updated later */
       tempzn += RAND_HEAD_LEN;
-# else /* def CRYPT_TRAD */
+# else /* def IZ_CRYPT_TRAD */
       /* Do something in case the impossible happens here? */
-# endif /* def CRYPT_TRAD [else] */
-# ifdef CRYPT_AES_WG
+# endif /* def IZ_CRYPT_TRAD [else] */
+# ifdef IZ_CRYPT_AES_WG
     }
-# endif /* def CRYPT_AES_WG */
+# endif /* def IZ_CRYPT_AES_WG */
   }
-#endif /* def CRYPT_ANY */
+#endif /* def IZ_CRYPT_ANY */
   if (ferror(y)) {
     if (ifile != fbad)
       zclose(ifile);
@@ -1529,21 +1529,21 @@ struct zlist far *z;    /* zip entry to compress */
     /* Try to rewrite the local header with correct information */
     z->crc = crc;
     z->siz = s;
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
     if (!isdir && key != NULL && z->encrypt_method > 0)
-# ifdef CRYPT_AES_WG
+# ifdef IZ_CRYPT_AES_WG
       if (z->encrypt_method > 1) {
         z->siz += salt_len + 2 + auth_len;
       } else {
-# endif /* def CRYPT_AES_WG */
+# endif /* def IZ_CRYPT_AES_WG */
         z->siz += RAND_HEAD_LEN;
-# ifdef CRYPT_AES_WG
+# ifdef IZ_CRYPT_AES_WG
       }
-# endif /* def CRYPT_AES_WG */
-#endif /* def CRYPT_ANY */
+# endif /* def IZ_CRYPT_AES_WG */
+#endif /* def IZ_CRYPT_ANY */
     z->len = isize;
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
     /* close encryption for this file */
     if (z->encrypt_method > 1)
     {
@@ -1554,7 +1554,7 @@ struct zlist far *z;    /* zip entry to compress */
       bfwrite(auth_code, 1, ret, BFWRITE_DATA);
       tempzn += ret;
     }
-#endif /* def CRYPT_AES_WG */
+#endif /* def IZ_CRYPT_AES_WG */
 
 
     /* if can seek back to local header */
@@ -1579,19 +1579,19 @@ struct zlist far *z;    /* zip entry to compress */
       z->flg = z->lflg; /* if z->flg modified by deflate */
     } else {
       uzoff_t expected_size = (uzoff_t)s;
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
       if (key && z->encrypt_method > 0) {
-# ifdef CRYPT_AES_WG
+# ifdef IZ_CRYPT_AES_WG
         if (z->encrypt_method > 1) {
           expected_size += salt_len + 2 + auth_len;
         } else {
-# endif /* def CRYPT_AES_WG */
+# endif /* def IZ_CRYPT_AES_WG */
           expected_size += 12;
-# ifdef CRYPT_AES_WG
+# ifdef IZ_CRYPT_AES_WG
         }
-# endif /* def CRYPT_AES_WG */
+# endif /* def IZ_CRYPT_AES_WG */
       }
-#endif /* def CRYPT_ANY */
+#endif /* def IZ_CRYPT_ANY */
 
       /* ftell() not as useful across splits */
       if (bytes_this_entry != expected_size) {
@@ -1627,7 +1627,7 @@ struct zlist far *z;    /* zip entry to compress */
 #endif
       }
 /* SMSd. */
-#ifndef CRYPT_NOEXT
+#ifndef IZ_CRYPT_NOEXT
       /*
        * The encryption header needs the crc, but we don't have it
        * for a new file.  The file time is used instead and the encryption
@@ -1640,13 +1640,13 @@ struct zlist far *z;    /* zip entry to compress */
         /* not encrypting so don't need extended local header */
         z->flg &= ~8;
       }
-#endif /* ndef CRYPT_NOEXT */
+#endif /* ndef IZ_CRYPT_NOEXT */
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
       if (z->encrypt_method > 1) {
         z->flg &= ~8;
       }
-#endif /* def CRYPT_AES_WG */
+#endif /* def IZ_CRYPT_AES_WG */
 
       /* deflate may have set compression level bit markers in z->flg,
          and we can't think of any reason central and local flags should
@@ -1667,11 +1667,11 @@ struct zlist far *z;    /* zip entry to compress */
         return ZE_READ;
 
 /* SMSd. */
-#ifndef CRYPT_NOEXT
+#ifndef IZ_CRYPT_NOEXT
       if ((z->flg & 1) != 0) {
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
         if (z->encrypt_method == 1)
-#endif /* def CRYPT_AES_WG */
+#endif /* def IZ_CRYPT_AES_WG */
         {
           /* encrypted file, extended header still required */
           if ((r = putextended(z)) != ZE_OK)
@@ -1686,7 +1686,7 @@ struct zlist far *z;    /* zip entry to compress */
         tempzn += 16L;
 #endif
       }
-#endif /* ndef CRYPT_NOEXT */
+#endif /* ndef IZ_CRYPT_NOEXT */
     }
   } /* isdir */
   /* Free the local extra field which is no longer needed */

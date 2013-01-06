@@ -29,7 +29,7 @@
 
 # include <qdos.h>
 
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
 
 char *getp(m, p, n)
     ZCONST char *m;              /* prompt for password */
@@ -72,7 +72,7 @@ char *getp(m, p, n)
 
 } /* end function getp() */
 
-#endif /* def CRYPT_ANY */
+#endif /* def IZ_CRYPT_ANY */
 
 
 #define __attribute__(p)

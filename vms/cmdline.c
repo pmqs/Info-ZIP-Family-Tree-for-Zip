@@ -2286,13 +2286,13 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /LATEST, /OUTPUT=out_archive, /SINCE=creation_time, /TEMP_PATH=directory,",
 "    /LOG_FILE=(FILE=log_file[,APPEND][,INFORMATIONAL]), /MUST_MATCH,",
 "    /PATTERN_CASE={BLIND|SENSITIVE}, /NORECURSE|/RECURSE[={PATH|FILENAMES}],",
-#ifdef CRYPT_ANY
+#ifdef IZ_CRYPT_ANY
 "\
     /QUIET, /VERBOSE[=DEBUG], /[NO]DIRNAMES, /JUNK, /ENCRYPT[=\"pwd\"],\
 ",
-#else /* def CRYPT_ANY */
+#else /* def IZ_CRYPT_ANY */
 "    /QUIET, /VERBOSE[=DEBUG], /[NO]DIRNAMES, /JUNK,",
-#endif /* def CRYPT_ANY [else] */
+#endif /* def IZ_CRYPT_ANY [else] */
 "    /COMPRESSION=(mthd[=(SUFFIX=(sufx_list)[,LEVEL={1-9}])][,...]),",
 "    /LEVEL=(0|{1-9}[=(mthd_list)][,...]), STORE_TYPES=(sufx_list),",
 #ifdef BZIP2_SUPPORT

@@ -165,7 +165,7 @@
  local int add_Unicode_Path_cen_extra_field OF((struct zlist far *));
 #endif
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
  local int add_crypt_aes_local_extra_field OF((struct zlist far *, ush,
   uch, ush));
  local int add_crypt_aes_cen_extra_field OF((struct zlist far *, ush,
@@ -1702,7 +1702,7 @@ local int add_Unicode_Path_cen_extra_field(pZEntry)
 
 
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
 /* Add WinZip AES_WG extra field
  * 2011-1-2
  *
@@ -1960,7 +1960,7 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
 }
 
 
-#endif /* CRYPT_AES_WG */
+#endif /* IZ_CRYPT_AES_WG */
 
 
 
@@ -5768,7 +5768,7 @@ int read_inc_file(inc_file)
 
 
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
   /* Determine the AES_WG vendor version.  (Currently based only on file
    * size, but bzip2 encryption should also select AE-2?)
    * AE-2 implies no use of CRC.
@@ -5800,7 +5800,7 @@ local ush get_aes_vendor_version( z)
   }
   return aes_vendor_version;
 } /* end of function get_aes_vendor_version() */
-#endif /* def CRYPT_AES_WG */
+#endif /* def IZ_CRYPT_AES_WG */
 
 
 int putlocal(z, rewrite)
@@ -5840,9 +5840,9 @@ int putlocal(z, rewrite)
   ush nam = z->nam;     /* size of name to write to header */
   char *iname = NULL;   /* name to write to header */
   ush how = z->how;
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
   ush aes_vendor_version;       /* AES_WG encryption strength. */
-#endif /* def CRYPT_AES_WG */
+#endif /* def IZ_CRYPT_AES_WG */
 #ifdef UNICODE_SUPPORT
   int use_uname = 0;    /* write uname to header */
 #endif
@@ -5999,7 +5999,7 @@ int putlocal(z, rewrite)
     nam = new_path_len;
   }
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
   if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
       /* Determine the AES_WG vendor version.  (Clear CRC, as appropriate.) */
       aes_vendor_version = get_aes_vendor_version( z);
@@ -6012,7 +6012,7 @@ int putlocal(z, rewrite)
       /* Set compression method to AES_WG (WinZip/Gladman) encryption. */
       how = 99;
   }
-#endif /* def CRYPT_AES_WG */
+#endif /* def IZ_CRYPT_AES_WG */
 
   append_ulong_to_mem(LOCSIG, &block, &offset, &blocksize);     /* local file header signature */
   append_ushort_to_mem(z->ver, &block, &offset, &blocksize);    /* version needed to extract */
@@ -6227,9 +6227,9 @@ int putcentral(z)
   uzoff_t off = 0;      /* offset to start of local header */
   ush nam = z->nam;     /* size of name to write to header */
   char *iname = NULL;   /* name to write to header */
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
   ush aes_vendor_version;       /* AES_WG encryption strength. */
-#endif /* def CRYPT_AES_WG */
+#endif /* def IZ_CRYPT_AES_WG */
 #ifdef UNICODE_SUPPORT
   int use_uname = 0;    /* write uname to header */
 #endif
@@ -6293,7 +6293,7 @@ int putcentral(z)
 
   off = z->off;
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
 
   if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
       /* Determine the AES_WG vendor version.  (Clear CRC, as appropriate.) */
@@ -6307,7 +6307,7 @@ int putcentral(z)
       /* Set compression method to AES_WG (WinZip/Gladman) encryption. */
       how = 99;
   }
-#endif /* def CRYPT_AES_WG */
+#endif /* def IZ_CRYPT_AES_WG */
 
 #ifdef ZIP64_SUPPORT        /* zip64 support 09/02/2003 R.Nausedat */
   if (z->siz > ZIP_UWORD32_MAX || z->len > ZIP_UWORD32_MAX ||

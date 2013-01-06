@@ -1384,7 +1384,7 @@ uzoff_t get_time_in_usec()
  * May 2011
  */
 
-#ifdef CRYPT_AES_WG
+#ifdef IZ_CRYPT_AES_WG
 
 /* Below is more or less the entropy function provided by WinZip and
    now suggested by Gladman.  This function is for use on Win32
@@ -1447,7 +1447,7 @@ int entropy_fun(unsigned char buf[], unsigned int len)
     return i;
 }
 
-#endif /* CRYPT_AES_WG */
+#endif /* IZ_CRYPT_AES_WG */
 
 
 
