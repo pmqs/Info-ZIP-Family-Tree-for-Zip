@@ -64,6 +64,7 @@ Define	Verb		ZIP
 	Qualifier	TRANSLATE_EOL, NonNegatable, VALUE(type=EOL_OPTS)
 	Qualifier	UNSFX, NonNegatable
 	Qualifier	VERBOSE, NonNegatable, VALUE(type=VERBOSE_OPTS, list)
+	Qualifier	VOLUME_LABEL, Negatable
 	Qualifier	VMS, NonNegatable, VALUE(type=VMS_OPTS)
 	Qualifier	WILDCARD, VALUE(type=WILDCARD_OPTS)
 	Qualifier	YYZ_ZIP, NonNegatable, Default

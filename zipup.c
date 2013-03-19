@@ -1,7 +1,7 @@
 /*
   zipup.c - Zip 3
 
-  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -499,7 +499,7 @@ char *sufx_list;                /* list of filetypes separated by : or ; */
 int zipup(z)
 struct zlist far *z;    /* zip entry to compress */
 /* Compress the file z->name into the zip entry described by *z and write
-   it to the file *y. Encrypt if requested.  Return an error code in the
+   it to the file *y.  Encrypt if requested.  Return an error code in the
    ZE_ class.  Also, update tempzn by the number of bytes written. */
 /* y is now global */
 {
@@ -612,7 +612,7 @@ struct zlist far *z;    /* zip entry to compress */
 #endif
 
 #if defined(UNICODE_SUPPORT) && defined(WIN32)
-  if (!no_win32_wide)
+  if ((!no_win32_wide) && (z->namew != NULL))
     tim = filetimew(z->namew, &a, &q, &f_utim);
   else
     tim = filetime(z->name, &a, &q, &f_utim);
@@ -1107,8 +1107,10 @@ struct zlist far *z;    /* zip entry to compress */
     z->ver = 20;
 
   z->crc = 0;  /* to be updated later */
-/* SMSd. */
-#ifndef IZ_CRYPT_NOEXT
+#ifdef IZ_CRYPT_NOEXT
+  if (use_descriptors)
+    z->flg |= 8;
+#else /* def IZ_CRYPT_NOEXT */
   /* Assume first that we will need an extended local header: */
   /* z->flg is now zeroed in zip.c */
   if (isdir)
@@ -1116,28 +1118,27 @@ struct zlist far *z;    /* zip entry to compress */
     z->flg &= ~8;
   else
     z->flg |= 8;  /* to be updated later */
-#else /* ndef IZ_CRYPT_NOEXT */
-  if (use_descriptors)
-    z->flg |= 8;
-#endif /* ndef IZ_CRYPT_NOEXT [else] */
+#endif /* def IZ_CRYPT_NOEXT [else] */
+
 #ifdef IZ_CRYPT_ANY
   if (!isdir && key != NULL) {
     z->flg |= 1;
-/* SMSd. */
 #ifndef IZ_CRYPT_NOEXT
-    /* Since we do not yet know the crc here, we pretend that the crc
-     * is the modification time:
+    /* Because we do not yet know the crc here, we use instead the
+     * MS-DOS modification time as pseudo-random seed data.  crypthead()
+     * uses only the high 16 bits, so we put the data there.
      */
     z->crc = z->tim << 16;
     /* More than pretend.  File is encrypted using crypt header with that. */
-    /* 2012-10-17 SMS.
-     * Actually, even less than pretend.  crypthead() uses these two
-     * bytes as pseudo-random seed data.  No one uses this stuff as a
-     * real CRC. so there's no reason to save it in z->crc.
+    /* 2013-02-06 SMS.
+     * crypthead() uses these two bytes as pseudo-random seed data.
+     * No one uses this stuff as a real CRC. so there's no good reason
+     * to save it in z->crc.
      */
 #endif /* ndef IZ_CRYPT_NOEXT */
   }
 #endif /* def IZ_CRYPT_ANY */
+
   z->lflg = z->flg;
   z->how = (ush)mthd;                           /* may be changed later  */
   z->siz = (zoff_t)(mthd == STORE && q >= 0 ? q : 0); /* will be changed later */
@@ -1173,7 +1174,7 @@ struct zlist far *z;    /* zip entry to compress */
     {
       if (q <= 0) {
         /* don't encrypt empty files */
-        z->encrypt_method = 0;
+        z->encrypt_method = NO_ENCRYPTION;
       }
       else
       {
@@ -1248,7 +1249,7 @@ struct zlist far *z;    /* zip entry to compress */
     {
       if (q <= 0) {
         /* don't encrypt empty files */
-        z->encrypt_method = 0;
+        z->encrypt_method = NO_ENCRYPTION;
       }
       else
       {
@@ -1328,9 +1329,9 @@ struct zlist far *z;    /* zip entry to compress */
 
 #ifdef IZ_CRYPT_ANY
   /* write out encryption header at top of file data */
-  if (!isdir && key != NULL && z->encrypt_method) {
+  if (!isdir && (key != NULL) && (z->encrypt_method != NO_ENCRYPTION)) {
 # ifdef IZ_CRYPT_AES_WG
-    if (z->encrypt_method > 1) {
+    if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
       aes_crypthead(zsalt, salt_len, zpwd_verifier);
 
       z->siz += salt_len + 2 + auth_len;  /* to be updated later */
@@ -1338,17 +1339,15 @@ struct zlist far *z;    /* zip entry to compress */
     } else {
 # endif
 # ifdef IZ_CRYPT_TRAD
-/* SMSd. */
-#ifndef IZ_CRYPT_NOEXT
-      crypthead(key, z->crc);
-#else /* ndef IZ_CRYPT_NOEXT */
+#  ifndef IZ_CRYPT_NOEXT
       /* Use MS-DOS modification time as pseudo-random seed data.
        * (crypthead() calls it "crc", but we don't have the real CRC,
        * so we use this substitute.  crypthead() uses only the high 16
-       * bits, so we put the data there.)
+       * bits, so we put the data there.  Note that there's no good
+       * reason to have saved it in z->crc.
        */
-      crypthead(key, (z->tim << 16));
-#endif /* ndef IZ_CRYPT_NOEXT [else] */
+      crypthead(key, z->crc);
+#  endif /* ndef IZ_CRYPT_NOEXT */
       z->siz += RAND_HEAD_LEN;  /* to be updated later */
       tempzn += RAND_HEAD_LEN;
 # else /* def IZ_CRYPT_TRAD */
@@ -1530,9 +1529,9 @@ struct zlist far *z;    /* zip entry to compress */
     z->crc = crc;
     z->siz = s;
 #ifdef IZ_CRYPT_ANY
-    if (!isdir && key != NULL && z->encrypt_method > 0)
+    if (!isdir && (key != NULL) && (z->encrypt_method != NO_ENCRYPTION))
 # ifdef IZ_CRYPT_AES_WG
-      if (z->encrypt_method > 1) {
+      if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
         z->siz += salt_len + 2 + auth_len;
       } else {
 # endif /* def IZ_CRYPT_AES_WG */
@@ -1545,7 +1544,7 @@ struct zlist far *z;    /* zip entry to compress */
 
 #ifdef IZ_CRYPT_AES_WG
     /* close encryption for this file */
-    if (z->encrypt_method > 1)
+    if (z->encrypt_method >= AES_MIN_ENCRYPTION)
     {
       int ret;
 
@@ -1580,9 +1579,9 @@ struct zlist far *z;    /* zip entry to compress */
     } else {
       uzoff_t expected_size = (uzoff_t)s;
 #ifdef IZ_CRYPT_ANY
-      if (key && z->encrypt_method > 0) {
+      if (key && (z->encrypt_method != NO_ENCRYPTION)) {
 # ifdef IZ_CRYPT_AES_WG
-        if (z->encrypt_method > 1) {
+        if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
           expected_size += salt_len + 2 + auth_len;
         } else {
 # endif /* def IZ_CRYPT_AES_WG */
@@ -1626,7 +1625,6 @@ struct zlist far *z;    /* zip entry to compress */
         z->ver = 46; break;
 #endif
       }
-/* SMSd. */
 #ifndef IZ_CRYPT_NOEXT
       /*
        * The encryption header needs the crc, but we don't have it
@@ -1636,6 +1634,18 @@ struct zlist far *z;    /* zip entry to compress */
        * either an existing entry in an archive or get the crc before
        * creating the encryption header and then encrypt the data.
        */
+      /* 2013-02-06 SMS.
+       * The normal UnZip algorithm for Traditional decryption expects
+       * the last byte (or two) of the encryption header to match that
+       * part of the crc.  When an extended header is used, UnZip
+       * expects the last byte of the encryption header to match that
+       * part of the MS-DOS mod time instead of the crc.
+       * To use the normal (non-extended-header) scheme, we would need
+       * to know the crc when the encryption header is written, or else
+       * we would need to know how to re-write the encryption header
+       * after the crc has been determined.  (Or else fiddle something
+       * to make the crc match what we did use.)
+       */
       if ((z->flg & 1) == 0) {
         /* not encrypting so don't need extended local header */
         z->flg &= ~8;
@@ -1643,7 +1653,7 @@ struct zlist far *z;    /* zip entry to compress */
 #endif /* ndef IZ_CRYPT_NOEXT */
 
 #ifdef IZ_CRYPT_AES_WG
-      if (z->encrypt_method > 1) {
+      if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
         z->flg &= ~8;
       }
 #endif /* def IZ_CRYPT_AES_WG */
@@ -1666,25 +1676,24 @@ struct zlist far *z;    /* zip entry to compress */
       if (zfseeko(y, bytes_this_split, SEEK_SET))
         return ZE_READ;
 
-/* SMSd. */
 #ifndef IZ_CRYPT_NOEXT
       if ((z->flg & 1) != 0) {
-#ifdef IZ_CRYPT_AES_WG
-        if (z->encrypt_method == 1)
-#endif /* def IZ_CRYPT_AES_WG */
+# ifdef IZ_CRYPT_AES_WG
+        if (z->encrypt_method == TRADITIONAL_ENCRYPTION)
+# endif /* def IZ_CRYPT_AES_WG */
         {
-          /* encrypted file, extended header still required */
+          /* Traditionally encrypted, so extended header still required. */
           if ((r = putextended(z)) != ZE_OK)
             return r;
         }
-#ifdef ZIP64_SUPPORT
+# ifdef ZIP64_SUPPORT
         if (zip64_entry)
           tempzn += 24L;
         else
           tempzn += 16L;
-#else
+# else
         tempzn += 16L;
-#endif
+# endif
       }
 #endif /* ndef IZ_CRYPT_NOEXT */
     }

@@ -66,8 +66,6 @@
 
 #ifndef UTIL
 
-extern int noisy;
-
 #ifndef S_IFMT
 #define S_IFMT 0xF000
 #endif

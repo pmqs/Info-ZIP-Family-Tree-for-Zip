@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 1999-Oct-05 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -20,8 +20,6 @@
 
 #define PAD 0
 #define PATH_END '/'
-
-extern char *label;     /* defined in fileio.c */
 
 local ulg label_time = 0;
 local ulg label_mode = 0;

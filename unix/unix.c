@@ -1,7 +1,7 @@
 /*
   unix/unix.c - Zip 3.1
 
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -60,7 +60,6 @@
    int utime OF((char *, time_t *));
 #endif
 
-extern char *label;
 local ulg label_time = 0;
 local ulg label_mode = 0;
 local time_t label_utim = 0;

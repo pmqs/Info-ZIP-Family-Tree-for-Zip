@@ -1,7 +1,7 @@
 /*
   fileio.c - Zip 3
 
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -161,7 +161,6 @@ local int fqcmpz OF((ZCONST zvoid *, ZCONST zvoid *));
 
 
 /* Local module level variables. */
-char *label = NULL;                /* global, but only used in `system'.c */
 local z_stat zipstatb;             /* now use z_stat globally - 7/24/04 EG */
 #if defined(UNICODE_SUPPORT) && defined(WIN32)
  local zw_stat zipstatbw;

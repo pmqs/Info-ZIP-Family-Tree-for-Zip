@@ -36,7 +36,6 @@ static      breakkey = FALSE;
 
 #define MATCH shmatch
 
-extern char *label;
 local ulg label_time = 0;
 local ulg label_mode = 0;
 local time_t label_utim = 0;

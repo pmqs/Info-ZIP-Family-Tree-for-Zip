@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2000-Apr-09 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -19,7 +19,6 @@
 local int wild_recurse(char *whole, char *wildtail);
 local int uxtime2acornftime(unsigned *pexadr, unsigned *pldadr, time_t ut);
 
-extern char *label;
 local ulg label_time = 0;
 local ulg label_mode = 0;
 local time_t label_utim = 0;

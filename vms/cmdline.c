@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -339,6 +339,7 @@ $DESCRIPTOR(cli_verbose,        "VERBOSE");             /* -v[v[v]] */
 $DESCRIPTOR(cli_verbose_normal, "VERBOSE.NORMAL");      /* -v */
 $DESCRIPTOR(cli_verbose_more,   "VERBOSE.MORE");        /* -vv */
 $DESCRIPTOR(cli_verbose_command,"VERBOSE.COMMAND");     /* (none) */
+$DESCRIPTOR(cli_volume_label,   "VOLUME_LABEL");        /* -$ */
 $DESCRIPTOR(cli_vms,            "VMS");                 /* -V */
 $DESCRIPTOR(cli_vms_all,        "VMS.ALL");             /* -VV */
 $DESCRIPTOR(cli_wildcard,       "WILDCARD");            /* -nw */
@@ -1236,6 +1237,24 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /VMS */
             append_simple_opt( OPT_V_);
         }
+    }
+
+    /*
+    **  Volume label.
+    */
+#define OPT_DLR  "-$"           /* Record volume label. */
+#define OPT_DLRN "-$-"          /* Ignore volume label. */
+
+    status = cli$present( &cli_volume_label);
+    if (status == CLI$_PRESENT)
+    {
+        /* /VOLUME_LABEL */
+        append_simple_opt( OPT_DLR);
+    }
+    else if (status == CLI$_NEGATED)
+    {
+        /* /NOVOLUME_LABEL */
+        append_simple_opt( OPT_DLRN);
     }
 
     /*

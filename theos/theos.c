@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 1999-Oct-05 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -39,7 +39,6 @@ extern struct dirent* _opendir(char* fname);
 #define RET_SUCCESS 0
 #define RET_EOF 0
 
-extern char *label;
 local ulg label_time = 0;
 local ulg label_mode = 0;
 local time_t label_utim = 0;

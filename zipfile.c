@@ -1,7 +1,7 @@
 /*
   zipfile.c - Zip 3
 
-  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -160,7 +160,6 @@
 #endif /* ZIP64_SUPPORT */
 
 #ifdef UNICODE_SUPPORT
-# define UTF8_PATH_EF_TAG                0x7075                        /* ID for Unicode path (up) extra field */
  local int add_Unicode_Path_local_extra_field OF((struct zlist far *));
  local int add_Unicode_Path_cen_extra_field OF((struct zlist far *));
 #endif
@@ -808,7 +807,7 @@ local void read_Unicode_Path_entry(pZipListEntry)
   ulg iname_chksum;
 
   /* check if we have a Unicode Path extra field ... */
-  pTemp = get_extra_field( UTF8_PATH_EF_TAG, pZipListEntry->cextra, pZipListEntry->cext );
+  pTemp = get_extra_field( EF_UTFPTH, pZipListEntry->cextra, pZipListEntry->cext );
   pZipListEntry->uname = NULL;
   if( pTemp == NULL ) {
     return;
@@ -837,9 +836,9 @@ local void read_Unicode_Path_entry(pZipListEntry)
   /*
    * Compute the CRC-32 checksum of iname
    */
-/*
+# if 0
   crc_16 = crc16f((uch *)(pZipListEntry->iname), strlen(pZipListEntry->iname));
- */
+# endif /* 0 */
 
   if ((iname = malloc(strlen(pZipListEntry->iname) + 1)) == NULL) {
     ZIPERR(ZE_MEM, "write Unicode");
@@ -850,9 +849,10 @@ local void read_Unicode_Path_entry(pZipListEntry)
 
   free(iname);
 
-/*  chksum = adler16(ADLERVAL_INITIAL,
+# if 0
+  chksum = adler16(ADLERVAL_INITIAL,
     (uch *)(pZipListEntry->iname), strlen(pZipListEntry->iname));
-*/
+# endif /* 0 */
 
   /* If the checksums's don't match then likely iname has been modified and
    * the Unicode Path is no longer valid
@@ -912,7 +912,7 @@ local void read_Unicode_Path_local_entry(pZipListEntry)
   ulg iname_chksum;
 
   /* check if we have a Unicode Path extra field ... */
-  pTemp = get_extra_field( UTF8_PATH_EF_TAG, pZipListEntry->extra, pZipListEntry->ext );
+  pTemp = get_extra_field( EF_UTFPTH, pZipListEntry->extra, pZipListEntry->ext );
   pZipListEntry->uname = NULL;
   if( pTemp == NULL ) {
     return;
@@ -941,10 +941,10 @@ local void read_Unicode_Path_local_entry(pZipListEntry)
   /*
    * Compute 32-bit crc of iname and AND halves to make 16-bit version
    */
-  /*
+# if 0
   chksum = adler16(ADLERVAL_INITIAL,
     (uch *)(pZipListEntry->iname), strlen(pZipListEntry->iname));
-  */
+# endif /* 0 */
 
   if ((iname = malloc(strlen(pZipListEntry->iname) + 1)) == NULL) {
     ZIPERR(ZE_MEM, "write Unicode");
@@ -1465,7 +1465,7 @@ local int add_Unicode_Path_local_extra_field(pZEntry)
   else
   {
     /* check if we have a Unicode Path extra field ... */
-    pOldUExtra = get_extra_field( UTF8_PATH_EF_TAG, pZEntry->extra, pZEntry->ext );
+    pOldUExtra = get_extra_field( EF_UTFPTH, pZEntry->extra, pZEntry->ext );
     if (pOldUExtra == NULL)
     {
       /* ... we don't, so re-malloc enough memory for the old extra data plus */
@@ -1520,10 +1520,10 @@ local int add_Unicode_Path_local_extra_field(pZEntry)
   /*
    * Compute the Adler-16 checksum of iname
    */
-/*
+# if 0
   chksum = adler16(ADLERVAL_INITIAL,
                    (uch *)(pZEntry->iname), strlen(pZEntry->iname));
-*/
+# endif /* 0 */
 
 # ifdef WIN32_OEM
   if ((inameLocal = malloc(strlen(pZEntry->iname) + 1)) == NULL) {
@@ -1550,7 +1550,7 @@ local int add_Unicode_Path_local_extra_field(pZEntry)
 
   /* set/update UTF-8 Path extra field members */
   /* tag header */
-  write_ushort_to_mem(UTF8_PATH_EF_TAG, pUExtra);
+  write_ushort_to_mem(EF_UTFPTH, pUExtra);
   /* data size */
   write_ushort_to_mem((ush) (ULocalLen - ZIP_EF_HEADER_SIZE), pUExtra + 2);
   /* version */
@@ -1597,7 +1597,7 @@ local int add_Unicode_Path_cen_extra_field(pZEntry)
   else
   {
     /* check if we have a Unicode Path extra field ... */
-    pOldUExtra = get_extra_field( UTF8_PATH_EF_TAG, pZEntry->cextra, pZEntry->cext );
+    pOldUExtra = get_extra_field( EF_UTFPTH, pZEntry->cextra, pZEntry->cext );
     if (pOldUExtra == NULL)
     {
       /* ... we don't, so re-malloc enough memory for the old extra data plus */
@@ -1678,14 +1678,14 @@ local int add_Unicode_Path_cen_extra_field(pZEntry)
   /*
    * Compute the Adler-16 checksum of iname
    */
-/*
+# if 0
   chksum = adler16(ADLERVAL_INITIAL,
                    (uch *)(pZEntry->iname), strlen(pZEntry->iname));
-*/
+# endif /* 0 */
 
   /* set/update UTF-8 Path extra field members */
   /* tag header */
-  write_ushort_to_mem(UTF8_PATH_EF_TAG, pUExtra);
+  write_ushort_to_mem(EF_UTFPTH, pUExtra);
   /* data size */
   write_ushort_to_mem((ush) (UCenLen - ZIP_EF_HEADER_SIZE), pUExtra + 2);
   /* version */
@@ -2140,7 +2140,7 @@ struct zlist far *z;
                     z->ext ? (z->cext ? "" : "local ") : "central ");
         }
     }
-# endif
+# endif /* 0 */
 }
 
 
@@ -2879,9 +2879,9 @@ local int scanzipf_reg(f)
  */
     /* start of central directory */
     cenbeg = zipbeg - LG(ENDSIZ + b);
-/*
+#  if 0
 printf("start of central directory cenbeg %ld\n", cenbeg);
-*/
+#  endif /* 0 */
 
     /* offset to first entry of archive */
     deltaoff = adjust ? cenbeg - LG(b + ENDOFF) : 0L;
@@ -3252,17 +3252,17 @@ local int find_next_signature(f)
   FILE *f;
 {
   int m;
-  /*
+#if 0
   zoff_t here;
-  */
+#endif /* 0 */
 
   /* look for P K ? ? signature */
 
   m = getc(f);
 
-  /*
+#if 0
   here = zftello(f);
-  */
+#endif /* 0 */
 
   while (m != EOF)
   {
@@ -3333,9 +3333,9 @@ local int find_signature(f, signature)
 {
   int i;
   char sig[4];
-  /*
+#if 0
   zoff_t here = zftello(f);
-  */
+#endif /* 0 */
 
   for (i = 0; i < 4; i++)
     sig[i] = signature[i];
@@ -4149,24 +4149,24 @@ local int scanzipf_fixnew()
           /* PKZIP does not care of the version set in a CDH: if  */
           /* there is a zip64 extra field assigned to a CDH PKZIP */
           /* uses it, we should do so, too.                       */
-  /*
+#  if 0
           adjust_zip_central_entry(z);
-   */
-# endif
+#  endif /* 0 */
+# endif /* def ZIP64_SUPPORT */
 
         /* Update zipbeg beginning of archive offset, prepare for next header */
-/*
+# if 0
           if (z->dsk == 0 && (!zipbegset || z->off < zipbeg)) {
             zipbeg = z->off;
             zipbegset = 1;
           }
           zcount++;
- */
+# endif /* 0 */
 
 # ifndef UTIL
           if (verbose)
             zipoddities(z);
-# endif
+# endif /* ndef UTIL */
 
           current_offset = zftello(y);
 
@@ -4335,8 +4335,8 @@ local int scanzipf_regnew()
 #endif /* def ZIP64_SUPPORT */
 
 #if 0
-/* Now in globals.c, zip.h. */
-  uzoff_t cd_total_entries;        /* num of entries as read from (Zip64) EOCDR */
+  /* Now in globals.c, zip.h. */
+  uzoff_t cd_total_entries;     /* num of entries as read from (Zip64) EOCDR */
 #endif /* 0 */
 
   ulg     in_cd_start_disk;     /* central directory start disk */
@@ -5019,18 +5019,18 @@ local int scanzipf_regnew()
 
       if (is_signature(sigbuf, "PK\05\06")) {
         /* End Of Central Directory Record */
-        /*
+#if 0
           fprintf(mesg, "EOCDR signature at %d / %I64d\n",
                   current_in_disk, current_in_offset - 4);
-        */
+#endif /* 0 */
         break;
 
       } else if (is_signature(sigbuf, "PK\06\06")) {
         /* Zip64 End Of Central Directory Record */
-        /*
+#if 0
           fprintf(mesg, "Zip64 EOCDR signature at %d / %I64d\n",
                   current_in_disk, current_in_offset - 4);
-        */
+#endif /* 0 */
         break;
 
       } else if (!is_signature(sigbuf, "PK\01\02")) {
@@ -5283,9 +5283,9 @@ local int scanzipf_regnew()
           name = utf8_to_local_string(z->uname);
 
           if (name == NULL) {
-            /*
+# if 0
             zipwarn("illegal UTF-8 name: ", z->uname);
-            */
+# endif /* 0 */
             /* not able to convert name, so use iname */
             if ((name = malloc(strlen(z->iname) + 1)) == NULL) {
               zipwarn("could not allocate memory: scanzipf_reg", "");
@@ -5745,11 +5745,11 @@ int read_inc_file(inc_file)
       for (z = zfiles; z != NULL; z = z->nxt)
         *x++ = z;
       qsort((char *)zusort, zcount, sizeof(struct zlist far *), zuqcmp);
-#endif
+#endif /* def UNICODE_SUPPORT */
     }
   }
 
-#endif
+#endif /* 0 */
 
   /* ------------------------ */
 
@@ -5944,17 +5944,17 @@ int putlocal(z, rewrite)
   /* clear the UTF-8 flag */
   z->flg &= ~UTF8_BIT;
   z->lflg &= ~UTF8_BIT;
-# endif
+# endif /* 0 */
 
   if (z->uname) {
+# if 0
     /* This bit should be already set now */
     /* need UTF-8 name */
-    /*
     if (utf8_native || using_utf8) {
       z->lflg |= UTF8_BIT;
       z->flg |= UTF8_BIT;
     }
-    */
+# endif /* 0 */
     if (z->flg & UTF8_BIT) {
       /* If this flag is set, then restore UTF-8 as path name */
       use_uname = 1;
@@ -5972,8 +5972,8 @@ int putlocal(z, rewrite)
     z->flg &= ~UTF8_BIT;
     z->lflg &= ~UTF8_BIT;
   }
-# endif
-#endif
+# endif /* 0 */
+#endif /* def UNICODE_SUPPORT */
 
   /* determine name to write */
   iname = z->iname;
@@ -5982,7 +5982,7 @@ int putlocal(z, rewrite)
     /* path is UTF-8 */
     iname = z->uname;
   }
-#endif
+#endif /* def UNICODE_SUPPORT */
 
   if (path_prefix && !(path_prefix_mode == 1 && z->mark == 0)) {
     int path_prefix_len = strlen(path_prefix);
@@ -6243,11 +6243,11 @@ int putcentral(z)
 #ifdef UNICODE_SUPPORT
   if (z->uname) {
     /* this bit should already be set */
-    /*
+# if 0
     if (utf8_native) {
       z->flg |= UTF8_BIT;
     }
-    */
+# endif /* 0 */
     if (z->flg & UTF8_BIT) {
       /* If this flag is set, then restore UTF-8 as path name */
       use_uname = 1;
@@ -6264,8 +6264,8 @@ int putcentral(z)
     z->flg &= ~UTF8_BIT;
     z->lflg &= ~UTF8_BIT;
   }
-# endif
-#endif
+# endif /* 0 */
+#endif /* def UNICODE_SUPPORT */
 
   /* determine name to write */
   iname = z->iname;
@@ -6274,7 +6274,7 @@ int putcentral(z)
     /* path is UTF-8 */
     iname = z->uname;
   }
-#endif
+#endif /* def UNICODE_SUPPORT */
 
   if (path_prefix && !(path_prefix_mode == 1 && z->mark == 0)) {
     int path_prefix_len = strlen(path_prefix);
@@ -6944,7 +6944,7 @@ int zipcopy(z)
     z->off = tempzn;
     n += z->siz;
   }
-#endif
+#endif /* 0 */
 
   /* from zipnote */
   if (fix == 3) {
@@ -7024,14 +7024,14 @@ int zipcopy(z)
   if (putlocal(localz, PUTLOCAL_WRITE) != ZE_OK)
       return ZE_TEMP;
 
-  /*
+#if 0
   if (zfseeko(in_file, start_offset, SEEK_SET) != 0) {
     fclose(in_file);
     in_file = NULL;
     zipwarn("reading archive fseek: ", strerror(errno));
     return ZE_READ;
   }
-  */
+#endif /* 0 */
 
   /* copy the data */
   if (fix == 2 && localz->lflg & 8)

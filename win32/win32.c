@@ -1,7 +1,7 @@
 /*
   win32/win32.c - Zip 3
 
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -50,8 +50,6 @@
 #endif
 
 #ifndef UTIL
-
-extern int noisy;
 
 #ifdef NT_TZBUG_WORKAROUND
 local int FSusesLocalTime(const char *path);
@@ -685,18 +683,34 @@ char *getVolumeLabel(drive, vtime, vmode, vutim)
 
 /* If a volume label exists for the given drive, return its name and
    pretend to set its time and mode. The returned name is static data. */
+
+/* 2013-02-13 SMS.
+ * Why have arguments other than "drive"?
+ * Why request "fnlen" or "flags"?
+ * Why a 14-character buffer for the volume name?
+ * Changed to pass the actual buffer size ("sizeof vol", now 33) instead
+ * of a hard-coded one-less-than the actual buffer size ("13"). 
+ * Microsoft says that the maximum label length is 32 characters (11 for
+ * FAT).
+ */
 {
-  char rootpath[4];
-  static char vol[14];
+  char rootpath[] = "?:\\";
+  static char vol[ 33];
+#if 0
   DWORD fnlen, flags;
+#endif /* 0 */
 
   *vmode = A_ARCHIVE | A_LABEL;           /* this is what msdos returns */
   *vtime = dostime(1980, 1, 1, 0, 0, 0);  /* no true date info available */
   *vutim = dos2unixtime(*vtime);
-  strcpy(rootpath, "x:\\");
   rootpath[0] = (char)drive;
-  if (GetVolumeInformation(drive ? rootpath : NULL, vol, 13, NULL,
-                           &fnlen, &flags, NULL, 0))
+#if 0
+  if (GetVolumeInformation((drive ? rootpath : NULL),
+   vol, (sizeof vol), NULL, &fnlen, &flags, NULL, 0))
+#else /* 0 */
+  if (GetVolumeInformation((drive ? rootpath : NULL),
+   vol, (sizeof vol), NULL, NULL, NULL, NULL, 0))
+#endif /* 0 [else] */
 #if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
     return (AnsiToOem(vol, vol), vol);
 #else

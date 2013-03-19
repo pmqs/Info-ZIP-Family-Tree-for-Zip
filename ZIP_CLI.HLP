@@ -1515,6 +1515,18 @@
    With /VMS[=ALL], the VMS-specific extra  field  includes  a  file's
    access control list (ACL).
 
+/VOLUME_LABEL
+
+   /NOVOLUME_LABEL (default)
+   [MSDOS,  OS/2,  VMS,  WIN32]  Include  the  volume  label  for  the
+   drive/device holding the first file to be added to the archive.  If
+   you want to include only the volume label (or to  take  the  volume
+   label  from  a  specific drive/device other than the one containing
+   the  first  file),  use  the  drive/device  name   (including   the
+   terminating colon) as first file name, as in:
+         zip -$ foo a: c:bar                          [MSDOS, ...]
+         zip /volume_label foo dka0: dkc0:[bar]*.*    [VMS]
+
 /WILDCARD
 
    /NOWILDCARD

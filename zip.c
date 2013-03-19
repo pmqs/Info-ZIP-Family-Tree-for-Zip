@@ -1,7 +1,7 @@
 /*
   zip.c - Zip 3
 
-  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -1371,7 +1371,7 @@ local void version_info()
     "ASMV                 (Assembly code used for pattern matching)",
 #endif
 #ifdef BACKUP_SUPPORT
-    "BACKUP_SUPPORT",
+    "BACKUP_SUPPORT       (Enable backup options: -BC, -BL, -BP, -BT)",
 #endif
 #ifdef DYN_ALLOC
     "DYN_ALLOC",
@@ -1450,11 +1450,11 @@ local void version_info()
 #endif
 
 #ifdef UNIX
-    "STORE_UNIX_UIDs_GIDs (store UID/GID sizes/values using new extra field)",
+    "STORE_UNIX_UIDs_GIDs (Store UID, GID > 16-bit using \"ux\" extra field)",
 # ifdef UIDGID_NOT_16BIT
-    "UIDGID_NOT_16BIT     (old Unix 16-bit UID/GID extra field not used)",
+    "UIDGID_NOT_16BIT     (Old Unix 16-bit UID/GID extra field not used)",
 # else
-    "UIDGID_16BIT         (old Unix 16-bit UID/GID extra field also used)",
+    "UIDGID_16BIT         (Old Unix 16-bit UID/GID extra field also used)",
 # endif
 #endif
 
@@ -1687,7 +1687,7 @@ local void zipstdout()
   if (isatty(1))
     ziperr(ZE_PARMS, "cannot write zip file to terminal");
   if ((zipfile = malloc(4)) == NULL)
-    ziperr(ZE_MEM, "was processing arguments");
+    ziperr(ZE_MEM, "was processing arguments (1)");
   strcpy(zipfile, "-");
   /*
   if ((r = readzipfile()) != ZE_OK)
@@ -1785,7 +1785,7 @@ local void check_zipfile(zipname, zippath)
     here = strstr(unzip_path, "{}");
 
     if ((cmd = (char *)malloc(strlen(unzip_path) + strlen(zipnam) + 3)) == NULL)
-      ziperr(ZE_MEM, "was creating unzip cmd");
+      ziperr(ZE_MEM, "was creating unzip cmd (1)");
 
     if (here) {
       /* have {} so replace with temp name */
@@ -1813,7 +1813,7 @@ local void check_zipfile(zipname, zippath)
       if (passwd_here) {
         /* have {p} so replace with password */
         if ((cmd2 = (char *)malloc(strlen(cmd) + strlen(key) + 2)) == NULL)
-          ziperr(ZE_MEM, "was creating unzip cmd2");
+          ziperr(ZE_MEM, "was creating unzip cmd (2)");
         len = passwd_here - cmd;
         strcpy(cmd2, cmd);
         cmd2[len] = '\0';
@@ -1845,7 +1845,7 @@ local void check_zipfile(zipname, zippath)
 
       /* Put quotes around password */
       if ((k = (char *)malloc(strlen(key) + 3)) == NULL)
-          ziperr(ZE_MEM, "was creating unzip k");
+          ziperr(ZE_MEM, "was creating unzip k (1)");
       strcpy(k, "\"");
       strcat(k, key);
       strcat(k, "\"");
@@ -1886,7 +1886,7 @@ local void check_zipfile(zipname, zippath)
 
           /* Put quotes around password */
           if ((k = (char *)malloc(strlen(key) + 3)) == NULL)
-              ziperr(ZE_MEM, "was creating unzip k");
+              ziperr(ZE_MEM, "was creating unzip k (2)");
           strcpy(k, "\"");
           strcat(k, key);
           strcat(k, "\"");
@@ -1925,7 +1925,7 @@ local void check_zipfile(zipname, zippath)
     here = strstr(unzip_path, "{}");
 
     if ((cmd = malloc(strlen(unzip_path) + strlen(zipname) + 3)) == NULL) {
-      ziperr(ZE_MEM, "building command string for testing archive");
+      ziperr(ZE_MEM, "building command string for testing archive (1)");
     }
 
     if (here) {
@@ -1960,7 +1960,7 @@ local void check_zipfile(zipname, zippath)
 
   } else {
     if ((cmd = malloc(20 + strlen(zipname))) == NULL) {
-      ziperr(ZE_MEM, "building command string for testing archive");
+      ziperr(ZE_MEM, "building command string for testing archive (2)");
     }
 
     strcpy(cmd, "unzip -t ");
@@ -1991,7 +1991,7 @@ local void check_zipfile(zipname, zippath)
     if (passwd_here) {
       /* have {p} so replace with password */
       if ((cmd2 = (char *)malloc(strlen(cmd) + strlen(key) + 2)) == NULL)
-        ziperr(ZE_MEM, "was creating unzip cmd2");
+        ziperr(ZE_MEM, "was creating unzip cmd (3)");
       len = passwd_here - cmd;
       strcpy(cmd2, cmd);
       cmd2[len] = '\0';
@@ -2069,7 +2069,7 @@ local int add_filter(flag, pattern)
     }
     while ((p = getnam(fp)) != NULL) {
       if ((filter = (struct filterlist_struct *) malloc(sizeof(struct filterlist_struct))) == NULL) {
-        ZIPERR(ZE_MEM, "adding filter");
+        ZIPERR(ZE_MEM, "adding filter (1)");
       }
       if (filterlist == NULL) {
         /* first filter */
@@ -2101,7 +2101,7 @@ local int add_filter(flag, pattern)
   } else {
     /* single pattern */
     if ((filter = (struct filterlist_struct *) malloc(sizeof(struct filterlist_struct))) == NULL) {
-      ZIPERR(ZE_MEM, "adding filter");
+      ZIPERR(ZE_MEM, "adding filter (2)");
     }
     if (filterlist == NULL) {
       /* first pattern */
@@ -2175,10 +2175,10 @@ local long add_name(filearg)
   struct filelist_struct *fileentry = NULL;
 
   if ((fileentry = (struct filelist_struct *) malloc(sizeof(struct filelist_struct))) == NULL) {
-    ZIPERR(ZE_MEM, "adding file");
+    ZIPERR(ZE_MEM, "adding file (1)");
   }
   if ((name = malloc(strlen(filearg) + 1)) == NULL) {
-    ZIPERR(ZE_MEM, "adding file");
+    ZIPERR(ZE_MEM, "adding file (2)");
   }
   strcpy(name, filearg);
   fileentry->next = NULL;
@@ -2880,7 +2880,7 @@ struct option_struct far options[] = {
 #endif /* def IZ_CRYPT_ANY */
     {"z",  "archive-comment", o_NO_VALUE,   o_NOT_NEGATABLE, 'z',  "ask for archive comment"},
     {"Z",  "compression-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Z', "compression method"},
-#if defined(MSDOS) || defined(OS2)
+#if defined(MSDOS) || defined(OS2) || defined( VMS)
     {"$",  "volume-label", o_NO_VALUE,      o_NOT_NEGATABLE, '$',  "store volume label"},
 #endif
 #ifndef MACOS
@@ -3649,7 +3649,7 @@ char **argv;            /* command line tokens */
           opt = options[optnum].longopt;
         }
         if ((parsed_args[parsed_arg_count - 1] = (char *)malloc(strlen(opt) + 3)) == NULL) {
-          ZIPERR(ZE_MEM, "parse command line");
+          ZIPERR(ZE_MEM, "parse command line (1)");
         }
         if (use_short) {
           strcpy(parsed_args[parsed_arg_count - 1], "-");
@@ -3662,7 +3662,7 @@ char **argv;            /* command line tokens */
           parsed_arg_count++;
  
           if ((parsed_args[parsed_arg_count - 1] = (char *)malloc(strlen(value) + 1)) == NULL) {
-            ZIPERR(ZE_MEM, "parse command line");
+            ZIPERR(ZE_MEM, "parse command line (2)");
           }
           strcpy(parsed_args[parsed_arg_count - 1], value);
         }
@@ -3671,7 +3671,7 @@ char **argv;            /* command line tokens */
         parsed_arg_count++;
 
         if ((parsed_args[parsed_arg_count - 1] = (char *)malloc(strlen(value) + 1)) == NULL) {
-          ZIPERR(ZE_MEM, "parse command line");
+          ZIPERR(ZE_MEM, "parse command line (3)");
         }
         strcpy(parsed_args[parsed_arg_count - 1], value);
       }
@@ -3980,9 +3980,8 @@ char **argv;            /* command line tokens */
           break;
         case 'e':   /* Encrypt */
 #ifdef IZ_CRYPT_ANY
-          if (key)
-            free(key);
-          key_needed = 1;
+          if (key == NULL)
+            key_needed = 1;
           if (encryption_method == NO_ENCRYPTION) {
             encryption_method = TRADITIONAL_ENCRYPTION;
           }
@@ -4237,7 +4236,7 @@ char **argv;            /* command line tokens */
             if (isatty(1))
               ziperr(ZE_PARMS, "cannot write zip file to terminal");
             if ((out_path = malloc(4)) == NULL)
-              ziperr(ZE_MEM, "was processing arguments");
+              ziperr(ZE_MEM, "was processing arguments (2)");
             strcpy( out_path, "-");
           }
           else
@@ -4705,7 +4704,7 @@ char **argv;            /* command line tokens */
           }
           free(value);
           break;
-#if defined(MSDOS) || defined(OS2)
+#if defined(MSDOS) || defined(OS2) || defined( VMS)
         case '$':   /* Include volume label */
           volume_label = 1; break;
 #endif
@@ -4836,7 +4835,7 @@ char **argv;            /* command line tokens */
                 {
                   /* name of zipfile */
                   if ((zipfile = ziptyp(value)) == NULL) {
-                    ZIPERR(ZE_MEM, "was processing arguments");
+                    ZIPERR(ZE_MEM, "was processing arguments (3)");
                   }
                   /* read zipfile if exists */
                   /*
@@ -4854,7 +4853,7 @@ char **argv;            /* command line tokens */
                 /* in_path is used as the base path to find splits */
                 if (in_path == NULL) {
                   if ((in_path = malloc(strlen(zipfile) + 1)) == NULL) {
-                    ZIPERR(ZE_MEM, "was processing arguments");
+                    ZIPERR(ZE_MEM, "was processing arguments (4)");
                   }
                   strcpy(in_path, zipfile);
                 }
@@ -4862,7 +4861,7 @@ char **argv;            /* command line tokens */
                 /* out_path is where the output archive is written */
                 if (out_path == NULL) {
                   if ((out_path = malloc(strlen(zipfile) + 1)) == NULL) {
-                    ZIPERR(ZE_MEM, "was processing arguments");
+                    ZIPERR(ZE_MEM, "was processing arguments (5)");
                   }
                   strcpy(out_path, zipfile);
                 }
@@ -5126,7 +5125,7 @@ char **argv;            /* command line tokens */
       backup_control_path = NULL;
     }
     if ((backup_control_path = malloc(i)) == NULL) {
-      ZIPERR(ZE_MEM, "backup control path");
+      ZIPERR(ZE_MEM, "backup control path (1)");
     }
     strcpy(backup_control_path, backup_path);
     strcat(backup_control_path, "_");
@@ -5180,7 +5179,7 @@ char **argv;            /* command line tokens */
           ZIPERR(ZE_PARMS, "more than one full backup entry in control file");
         }
         if ((backup_full_path = (char *)malloc(strlen(linebuf) + 1)) == NULL) {
-          ZIPERR(ZE_MEM, "backup archive path");
+          ZIPERR(ZE_MEM, "backup archive path (1)");
         }
         for (j = 6; linebuf[j]; j++) backup_full_path[j - 6] = linebuf[j];
         backup_full_path[j - 6] = '\0';
@@ -5196,7 +5195,7 @@ char **argv;            /* command line tokens */
         if (backup_type == BACKUP_INCR) {
           char *path;
           if ((path = (char *)malloc(strlen(linebuf))) == NULL) {
-            ZIPERR(ZE_MEM, "backup archive path");
+            ZIPERR(ZE_MEM, "backup archive path (2)");
           }
           for (j = 6; linebuf[j]; j++) path[j - 6] = linebuf[j];
           path[j - 6] = '\0';
@@ -5238,7 +5237,7 @@ char **argv;            /* command line tokens */
                    
     i = strlen(backup_path);
     if ((backup_output_path = malloc(i + 290)) == NULL) {
-      ZIPERR(ZE_MEM, "backup control path");
+      ZIPERR(ZE_MEM, "backup control path (2)");
     }
 
     if (backup_type == BACKUP_FULL) {
@@ -5291,7 +5290,7 @@ char **argv;            /* command line tokens */
       fflush(mesg);
     }
     if ((in_path = malloc(strlen(zipfile) + 1)) == NULL) {
-      ZIPERR(ZE_MEM, "was processing arguments");
+      ZIPERR(ZE_MEM, "was processing arguments (6)");
     }
     strcpy(in_path, zipfile);
 
@@ -5466,13 +5465,13 @@ char **argv;            /* command line tokens */
 # endif /* defined(IZ_CRYPT_AES_WG) || defined(IZ_CRYPT_AES_WG_NEW) [else] */
 
     if ((key = malloc(REAL_PWLEN+1)) == NULL) {
-      ZIPERR(ZE_MEM, "was getting encryption password");
+      ZIPERR(ZE_MEM, "was getting encryption password (1)");
     }
     r = encr_passwd(ZP_PW_ENTER, key, REAL_PWLEN, zipfile);
     if (r != IZ_PW_ENTERED) {
       if (r < IZ_PW_ENTERED)
         r = ZE_PARMS;
-      ZIPERR(r, "was getting encryption password");
+      ZIPERR(r, "was getting encryption password (2)");
     }
     if (*key == '\0') {
       ZIPERR(ZE_PARMS, "zero length password not allowed");
@@ -5502,13 +5501,13 @@ char **argv;            /* command line tokens */
     }
 
     if ((e = malloc(REAL_PWLEN+1)) == NULL) {
-      ZIPERR(ZE_MEM, "was verifying encryption password");
+      ZIPERR(ZE_MEM, "was verifying encryption password (1)");
     }
     r = encr_passwd(ZP_PW_VERIFY, e, REAL_PWLEN, zipfile);
     if (r != IZ_PW_ENTERED && r != IZ_PW_SKIPVERIFY) {
       free((zvoid *)e);
       if (r < ZE_OK) r = ZE_PARMS;
-      ZIPERR(r, "was verifying encryption password");
+      ZIPERR(r, "was verifying encryption password (2)");
     }
     r = ((r == IZ_PW_SKIPVERIFY) ? 0 : strcmp(key, e));
     free((zvoid *)e);
@@ -5677,7 +5676,7 @@ char **argv;            /* command line tokens */
     recurse = 0;
     if (key != NULL) {
       free((zvoid *)key);
-      key   = NULL;
+      key = NULL;
     }
     comadd  = 0;
     zipedit = 0;
@@ -5845,7 +5844,7 @@ char **argv;            /* command line tokens */
       {
         /* if -b used to set temp file dir use that for split temp */
         if ((tempzip = malloc(strlen(tempath) + 12)) == NULL) {
-          ZIPERR(ZE_MEM, "allocating temp filename");
+          ZIPERR(ZE_MEM, "allocating temp filename (1)");
         }
         strcpy(tempzip, tempath);
         if (lastchar(tempzip) != '/')
@@ -5855,7 +5854,7 @@ char **argv;            /* command line tokens */
       {
         /* create path by stripping name and appending template */
         if ((tempzip = malloc(strlen(out_path) + 12)) == NULL) {
-        ZIPERR(ZE_MEM, "allocating temp filename");
+        ZIPERR(ZE_MEM, "allocating temp filename (2)");
         }
         strcpy(tempzip, out_path);
         for (i = strlen(tempzip); i > 0; i--) {
@@ -5879,7 +5878,7 @@ char **argv;            /* command line tokens */
     }
 #else
     if ((tempzip = tempname(out_path)) == NULL) {
-      ZIPERR(ZE_MEM, "allocating temp filename");
+      ZIPERR(ZE_TEMP, out_path);
     }
     if (show_what_doing) {
       fprintf(mesg, "sd: Temp file (1n): %s\n", tempzip);
@@ -6330,7 +6329,7 @@ char **argv;            /* command line tokens */
 #  endif /* def RISCOS [else] */
 # endif /* defined(MSDOS) || defined(__human68k__) || defined(AMIGA) [else] */
     if ((tempath = (char *)malloc((int)(p - zipfile) + 1)) == NULL) {
-      ZIPERR(ZE_MEM, "was processing arguments");
+      ZIPERR(ZE_MEM, "was processing arguments (7)");
     }
     r = *p;  *p = 0;
     strcpy(tempath, zipfile);
@@ -6455,7 +6454,7 @@ char **argv;            /* command line tokens */
 
 #ifdef USE_EF_UT_TIME
 # if defined(UNICODE_SUPPORT) && defined(WIN32)
-        if (!no_win32_wide)
+        if ((!no_win32_wide) && (z->namew != NULL))
           tf = filetimew(z->namew, (ulg *)NULL, (zoff_t *)&usize, &f_utim);
         else
           tf = filetime(z->name, (ulg *)NULL, (zoff_t *)&usize, &f_utim);
@@ -6464,7 +6463,7 @@ char **argv;            /* command line tokens */
 # endif
 #else /* !USE_EF_UT_TIME */
 # if defined(UNICODE_SUPPORT) && defined(WIN32)
-        if (!no_win32_wide)
+        if ((!no_win32_wide) && (z->namew != NULL))
           tf = filetimew(z->namew, (ulg *)NULL, (zoff_t *)&usize, NULL);
         else
           tf = filetime(z->name, (ulg *)NULL, (zoff_t *)&usize, NULL);
@@ -6581,7 +6580,7 @@ char **argv;            /* command line tokens */
 #endif /* defined( UNIX) && defined( __APPLE__) */
      ) {
 #if defined(UNICODE_SUPPORT) && defined(WIN32)
-      if (!no_win32_wide)
+      if ((!no_win32_wide) && (f->namew != NULL))
         tf = filetimew(f->namew, (ulg *)NULL, (zoff_t *)&usize, NULL);
       else
         tf = filetime(f->name, (ulg *)NULL, (zoff_t *)&usize, NULL);
@@ -6696,7 +6695,7 @@ char **argv;            /* command line tokens */
 
           if (!no_win32_wide) {
             if ((fnw = malloc((wcslen(z->znamew) + 120) * sizeof(wchar_t))) == NULL)
-              ZIPERR(ZE_MEM, "sC");
+              ZIPERR(ZE_MEM, "sC (1)");
             wcscpy(fnw, L"testdir/");
             wcscat(fnw, z->znamew);
             if (fnw[wcslen(fnw) - 1] == '/')
@@ -6707,7 +6706,7 @@ char **argv;            /* command line tokens */
               f = _wfopen(fnw, L"w");
           } else {
             if ((fn = malloc(strlen(z->zname) + 120)) == NULL)
-              ZIPERR(ZE_MEM, "sC");
+              ZIPERR(ZE_MEM, "sC (2)");
             strcpy(fn, "testdir/");
             strcat(fn, z->zname);
             if (fn[strlen(fn) - 1] == '/')
@@ -6720,7 +6719,7 @@ char **argv;            /* command line tokens */
 # else
           char *fn = NULL;
           if ((fn = malloc(strlen(z->zname) + 120)) == NULL)
-            ZIPERR(ZE_MEM, "sC");
+            ZIPERR(ZE_MEM, "sC (3)");
           strcpy(fn, "testdir/");
           if (z->uname)
             strcat(fn, z->uname);
@@ -6998,7 +6997,7 @@ char **argv;            /* command line tokens */
     /* tempzip must be malloced so a later free won't barf */
     tempzip = malloc(4);
     if (tempzip == NULL) {
-      ZIPERR(ZE_MEM, "allocating temp filename");
+      ZIPERR(ZE_MEM, "allocating temp filename (4)");
     }
     strcpy(tempzip, "-");
   }
@@ -7055,7 +7054,7 @@ char **argv;            /* command line tokens */
       {
         /* if -b used to set temp file dir use that for split temp */
         if ((tempzip = malloc(strlen(tempath) + 12)) == NULL) {
-          ZIPERR(ZE_MEM, "allocating temp filename");
+          ZIPERR(ZE_MEM, "allocating temp filename (5)");
         }
         strcpy(tempzip, tempath);
         if (lastchar(tempzip) != '/')
@@ -7065,7 +7064,7 @@ char **argv;            /* command line tokens */
       {
         /* create path by stripping name and appending template */
         if ((tempzip = malloc(strlen(out_path) + 12)) == NULL) {
-        ZIPERR(ZE_MEM, "allocating temp filename");
+        ZIPERR(ZE_MEM, "allocating temp filename (6)");
         }
         strcpy(tempzip, out_path);
         for (i = strlen(tempzip); i > 0; i--) {
@@ -7089,7 +7088,7 @@ char **argv;            /* command line tokens */
     }
 #else
     if ((tempzip = tempname(out_path)) == NULL) {
-      ZIPERR(ZE_MEM, "allocating temp filename");
+      ZIPERR(ZE_TEMP, out_path);
     }
     if (show_what_doing) {
       fprintf(mesg, "sd: Temp file (2n): %s\n", tempzip);
@@ -7971,7 +7970,7 @@ char **argv;            /* command line tokens */
 #endif
       }
       if ((e = malloc(MAXCOM + 1)) == NULL) {
-        ZIPERR(ZE_MEM, "was reading comment lines");
+        ZIPERR(ZE_MEM, "was reading comment lines (1)");
       }
     }
 #ifdef __human68k__
@@ -8006,7 +8005,7 @@ char **argv;            /* command line tokens */
             if ((p = malloc((comment_size = strlen(e))+1)) == NULL)
             {
               free((zvoid *)e);
-              ZIPERR(ZE_MEM, "was reading comment lines");
+              ZIPERR(ZE_MEM, "was reading comment lines (2)");
             }
             strcpy(p, e);
             if (p[comment_size - 1] == '\n')
@@ -8044,7 +8043,7 @@ char **argv;            /* command line tokens */
 # endif
     }
     if ((e = malloc(MAXCOM + 1)) == NULL) {
-      ZIPERR(ZE_MEM, "was reading comment lines");
+      ZIPERR(ZE_MEM, "was reading comment lines (3)");
     }
     if (noisy && zcomlen)
     {
@@ -8055,7 +8054,7 @@ char **argv;            /* command line tokens */
       free((zvoid *)zcomment);
     }
     if ((zcomment = malloc(1)) == NULL)
-      ZIPERR(ZE_MEM, "was setting comments to null");
+      ZIPERR(ZE_MEM, "was setting comments to null (1)");
     zcomment[0] = '\0';
     if (noisy)
       fputs("enter new zip file comment (end with .):\n", mesg);
@@ -8070,7 +8069,7 @@ char **argv;            /* command line tokens */
     if (fgets(e, MAXCOM+1, comment_stream) != NULL) {
         if ((p = malloc((k = strlen(e))+1)) == NULL) {
             free((zvoid *)e);
-            ZIPERR(ZE_MEM, "was reading comment lines");
+            ZIPERR(ZE_MEM, "was reading comment lines (4)");
         }
         strcpy(p, e);
         if (p[k-1] == '\n') p[--k] = 0;
@@ -8090,7 +8089,7 @@ char **argv;            /* command line tokens */
       if ((p = malloc( (first_line ? 1 : strlen( zcomment)+ 3) + r)) == NULL)
       {
         free( (zvoid *)e);
-        ZIPERR(ZE_MEM, "was reading comment lines");
+        ZIPERR(ZE_MEM, "was reading comment lines (5)");
       }
 
       /* Append the new text line to the old data (if any). */
@@ -8118,7 +8117,7 @@ char **argv;            /* command line tokens */
 #else /* ndef USE_ZIPMAIN */
     comment(zcomlen);
     if ((p = malloc(strlen(szCommentBuf)+1)) == NULL) {
-      ZIPERR(ZE_MEM, "was setting comments to null");
+      ZIPERR(ZE_MEM, "was setting comments to null (2)");
     }
     if (szCommentBuf[0] != '\0')
        lstrcpy(p, szCommentBuf);

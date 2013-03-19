@@ -971,6 +971,7 @@ be separated by a space or "=".  For example:
  9   compress-9          compress better
  1   compress-1=[mthd1[:mthd2][...]]  set compression level for these
                                       methods
+ $   volume-label        add (first member's) volume label to archive
  ?                       show the Zip help screen
  @   names-stdin         read input file patterns from SYS$INPUT (1/line)
  A   adjust-sfx          adjust self-extracting executable
@@ -1056,6 +1057,19 @@ be separated by a space or "=".  For example:
 .!------------------------------------------------------------------------------
 .indent -4
 2 Miscellaneous_Options
+.sk;.literal
+-$  --volume-label
+.end literal;.br
+[MSDOS, OS/2, VMS, WIN32] Include the volume label for the drive/device
+holding the first file to be added to the archive.  If you want to
+include only the volume label (or to take the volume label from a
+specific drive/device other than the one containing the first file), use
+the drive/device name (including the terminating colon) as first file
+name, as in:
+.lm +10;.literal
+zip -$ foo a: c:bar                     [MSDOS, ...]
+zip -$ foo dka0: dkc0:[bar]*.*          [VMS]
+.end literal;.lm -10
 .sk;.literal
 -D  --no-dir-entries
 .end literal;.br

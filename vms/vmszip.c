@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -166,7 +166,6 @@ typedef struct zdirent {
   char d_name[ NAMX_MAXRSS+ 1];
 } zDIR;
 
-extern char *label;
 local ulg label_time = 0;
 local ulg label_mode = 0;
 local time_t label_utim = 0;
@@ -548,6 +547,54 @@ local int file_sys_type( char *path)
   return acp_code;
 }
 
+
+/* 2013-02-18 SMS.
+ * get_volume_label( int len, char *pth)
+ *
+ * Return pointer to static volume name for the specified device.
+ */
+local char *get_volume_label( int len, char *pth)
+{
+  char *lbl = NULL;
+  int sts;
+  char vol_nam[ 33];    /* Include NUL-term.  Actual max = ??? */
+
+  /* Volume label descriptor. */
+  struct dsc$descriptor_s vol_nam_descr =
+   { ((sizeof vol_nam)- 1), DSC$K_DTYPE_T, DSC$K_CLASS_S, NULL };
+  unsigned short vol_nam_len;
+
+  struct dsc$descriptor_s dev_descr =
+   { 0, DSC$K_DTYPE_T, DSC$K_CLASS_S, 0 };
+
+  vol_nam_descr.dsc$a_pointer = vol_nam;
+
+  /* Load path arguments into device descriptor. */
+  dev_descr.dsc$a_pointer = pth;
+  dev_descr.dsc$w_length = len;
+
+  /* Get volume name. */
+  sts = lib$getdvi( &((int) DVI$_VOLNAM),       /* Item code. */
+                    0,                          /* Channel. */
+                    &dev_descr,                 /* Device name. */
+                    0,                          /* Result buffer (int). */
+                    &vol_nam_descr,             /* Result buffer (str). */
+                    &vol_nam_len,               /* Result length. */
+                    0);                         /* Path name. */
+
+  if ((sts & STS$M_SUCCESS) == STS$K_SUCCESS)
+  {
+    *(vol_nam+ vol_nam_len) = '\0';     /* NUL-terminate the label. */
+    lbl = vol_nam;
+    /* Set (fake) mode, time, and utim for the label. */
+    label_mode = (ulg)(0x28);
+    label_time = (ulg)(1);
+    label_utim = (time_t)(1);
+  }
+  return lbl;
+}
+
+
 /*---------------------------------------------------------------------------
 
     _vms_findfirst() and _vms_findnext(), based on public-domain DECUS C
@@ -718,6 +765,35 @@ int wild( char *p)
     return ZE_MEM;
   vms_wild(p, d);       /* pattern may be more than just directory name */
 
+  /* 2013-02-18 SMS.
+   * If wanting a volume label, then get it from this (first) file.
+   * MSDOS/Windows allows a drive letter with no file spec ("A:") to
+   * specify a drive to provide a volume label without adding a file.
+   * We look for a bare device name (with a colon), like "xxxx:".
+   */
+  if (volume_label == 1)
+  {
+    volume_label = 2;
+    label = get_volume_label( d->nam.NAMX_B_DEV, d->nam.NAMX_L_DEV);
+    if ((label != NULL) && (*label != '\0'))
+    {
+      newname( label, 0, 0);
+    }
+    /* If only a device name (last char is ":", no name, no type), then
+     * pretend that all is well, and leave early.  (Using $PARSE results
+     * obviates looking for "^:" and other quirky elements.)
+     */
+    if ((p == NULL) ||                  /* Not a real name. */
+     ((strlen( p) > 1) &&               /* More than ":". */
+     (p[ strlen( p)- 1] == ':') &&      /* Ends with ":", */
+     (d->nam.NAMX_B_DEV > 0) &&         /* Some device characters. */
+     (d->nam.NAMX_B_NAME == 0) &&       /* No name characters. */
+     (d->nam.NAMX_B_TYPE <= 1)))        /* No (non-dot) .type characters. */
+    {
+      return ZE_OK;
+    }
+  }
+
   /*
    * For a non-directory file, save the version specified by the user
    * for use in recursive drops into subdirectories.  (If the user
@@ -757,6 +833,9 @@ int procname( char *n, int caseflag)
   char *p;              /* path for recursion */
   struct stat s;        /* result of stat() */
   struct zlist far *z;  /* steps through zfiles list */
+
+  if (n == NULL)        /* volume_label request in freshen|delete mode ?? */
+    return ZE_OK;
 
   if (strcmp(n, "-") == 0)   /* if compressing stdin */
     return newname(n, 0, caseflag);

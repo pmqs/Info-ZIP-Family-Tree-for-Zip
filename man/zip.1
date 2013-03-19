@@ -2621,13 +2621,16 @@ Take the list of input files from standard input. Only one filename per line.
 .TP
 .PD
 .B \-\-volume\-label
-[MSDOS, OS/2, WIN32] Include the volume label for the drive holding
-the first file to be compressed.  If you want to include only the volume
-label or to force a specific drive, use the drive name as first file name,
-as in:
+[MSDOS, OS/2, VMS, WIN32] Include the volume label for the drive/device
+holding the first file to be added to the archive.  If you want to
+include only the volume label (or to take the volume label from a
+specific drive/device other than the one containing the first file), use
+the drive/device name (including the terminating colon) as first file
+name, as in:
 .RS
 .IP
-\fCzip -$ foo a: c:bar\fP
+\fCzip -$ foo a: c:bar               [MSDOS, ...]\fP
+\fCzip -$ foo dka0: dkc0:[bar]*.*    [VMS]\fP
 .RE
 .IP
 .SH "EXAMPLES"

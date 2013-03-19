@@ -1,7 +1,7 @@
 /*
   win32/win32zip.c - Zip 3
 
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -98,7 +98,6 @@ local int procname_win32w OF((wchar_t *n, int caseflag, DWORD attribs));
 #endif
 
 /* Module level variables */
-extern char *label /* = NULL */ ;       /* defined in fileio.c */
 local ulg label_time = 0;
 local ulg label_mode = 0;
 local time_t label_utim = 0;
@@ -778,7 +777,7 @@ local int wild_recursew(whole, wildtail)
     int amatch = 0, e = ZE_MISS;
 
     if (!isshexpw(wildtail)) {
-        if (GetFileAttributesW(whole) != 0xFFFFFFFF) {    /* file exists? */
+        if (GetFileAttributesW(whole) != INVALID_FILE_ATTRIBUTES) {
 #if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
             CharToOemW(whole, whole);
 #endif
@@ -868,7 +867,7 @@ local int wild_recurse(whole, wildtail)
     int amatch = 0, e = ZE_MISS;
 
     if (!isshexp(wildtail)) {
-        if (GetFileAttributes(whole) != 0xFFFFFFFF) {    /* file exists? */
+        if (GetFileAttributes(whole) != INVALID_FILE_ATTRIBUTES) {
 #if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
             AnsiToOem(whole, whole);
 #endif
@@ -965,14 +964,13 @@ int has_win32_wide() {
   /* Change == to & in below checks - stronghorse */
 
   /* r should be 16 = FILE_ATTRIBUTE_DIRECTORY */
-  if (r & FILE_ATTRIBUTE_DIRECTORY) {
+  if ((r != INVALID_FILE_ATTRIBUTES) && (r & FILE_ATTRIBUTE_DIRECTORY)) {
     /* now see if it works for the wide version */
     r = GetFileAttributesW(L".");
     /* if this fails then we probably don't have wide functions */
-    if (r == 0xFFFFFFFF) {
-      /* error is probably "This function is only valid in Win32 mode." */
-    } else if (r & FILE_ATTRIBUTE_DIRECTORY) {
-      /* worked, so assume we have wide support */
+    /* error is probably "This function is only valid in Win32 mode." */
+    if ((r != INVALID_FILE_ATTRIBUTES) && (r & FILE_ATTRIBUTE_DIRECTORY)) {
+      /* worked, so conclude we have wide support */
       no_win32_wide = 0;
     }
   }

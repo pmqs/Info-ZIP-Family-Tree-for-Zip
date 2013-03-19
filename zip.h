@@ -11,7 +11,7 @@ ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
 a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 
-Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -273,23 +273,24 @@ struct plist {
 #define BINARY  0
 #define ASCII   1
 
-/* extra field definitions */
-#define EF_VMCMS     0x4704   /* VM/CMS Extra Field ID ("G")*/
-#define EF_MVS       0x470f   /* MVS Extra Field ID ("G")   */
-#define EF_IZUNIX    0x5855   /* UNIX Extra Field ID ("UX") */
-#define EF_IZUNIX2   0x7855   /* Info-ZIP's new Unix ("Ux") */
-#define EF_TIME      0x5455   /* universal timestamp ("UT") */
-#define EF_OS2EA     0x0009   /* OS/2 Extra Field ID (extended attributes) */
-#define EF_ACL       0x4C41   /* ACL Extra Field ID (access control list, "AL") */
-#define EF_NTSD      0x4453   /* NT Security Descriptor Extra Field ID, ("SD") */
-#define EF_BEOS      0x6542   /* BeOS Extra Field ID ("Be") */
-#define EF_ATHEOS    0x7441   /* AtheOS Extra Field ID ("At") */
-#define EF_QDOS      0xfb4a   /* SMS/QDOS ("J\373") */
-#define EF_AOSVS     0x5356   /* AOS/VS ("VS") */
-#define EF_SPARK     0x4341   /* David Pilling's Acorn/SparkFS ("AC") */
-#define EF_THEOS     0x6854   /* THEOS ("Th") */
-#define EF_TANDEM    0x4154   /* Tandem NSK ("TA") */
+/* Extra field block ID codes: */
+#define EF_ACL       0x4C41   /* ACL, access control list ("AL") */
 #define EF_AES_WG    0x9901   /* AES (WinZip/Gladman) encryption ("c^!") */
+#define EF_AOSVS     0x5356   /* AOS/VS ("VS") */
+#define EF_ATHEOS    0x7441   /* AtheOS ("At") */
+#define EF_BEOS      0x6542   /* BeOS ("Be") */
+#define EF_IZUNIX    0x5855   /* UNIX ("UX") */
+#define EF_IZUNIX2   0x7855   /* Info-ZIP's new Unix ("Ux") */
+#define EF_MVS       0x470f   /* MVS ("G")   */
+#define EF_NTSD      0x4453   /* NT Security Descriptor ("SD") */
+#define EF_OS2EA     0x0009   /* OS/2 (extended attributes) */
+#define EF_QDOS      0xfb4a   /* SMS/QDOS ("J\373") */
+#define EF_SPARK     0x4341   /* David Pilling's Acorn/SparkFS ("AC") */
+#define EF_TANDEM    0x4154   /* Tandem NSK ("TA") */
+#define EF_THEOS     0x6854   /* THEOS ("Th") */
+#define EF_TIME      0x5455   /* Universal timestamp ("UT") */
+#define EF_UTFPTH    0x7075   /* Unicode UTF-8 path ("up") */
+#define EF_VMCMS     0x4704   /* VM/CMS Extra Field ID ("G")*/
 
 /* Definitions for extra field handling: */
 #define EF_SIZE_MAX  ((unsigned)0xFFFF) /* hard limit of total e.f. length */
@@ -525,6 +526,7 @@ extern int volume_label;        /* add volume label */
 extern int dirnames;            /* include directory names */
 extern int filter_match_case;   /* 1=match case when filter() */
 extern int diff_mode;           /* 1=diff mode - only store changed and add */
+extern char *label;             /* Volume label. */
 
 #ifdef BACKUP_SUPPORT
 extern char *backup_path;       /* path to save backup archives and control */
@@ -666,6 +668,10 @@ extern char *entry_name;        /* used by DLL to pass z->zname to iz_file_read(
 
 #define AES_MAX_ENCRYPTION      AES_256_ENCRYPTION      /* AES upper bound. */
 #define AES_MIN_ENCRYPTION      AES_128_ENCRYPTION      /* AES lower bound. */
+/* Note that code which tests "method >= AES_MIN_ENCRYPTION", must be
+ * changed to test "AES_MAX_ENCRYPTION >= method >= AES_MIN_ENCRYPTION"
+ * if a method beyond AES_MAX_ENCRYPTION is ever added.
+ */
 
 extern char *key;               /* Encryption password.  (NULL, if none.) */
 extern int force_ansi_key;      /* Only ANSI characters for password (char codes 32 - 126) */
@@ -786,6 +792,17 @@ extern int show_what_doing;     /* Diagnostic message flag. */
 #ifdef DEBUGNAMES
 #  define free(x) { int *v;Free(x); v=x;*v=0xdeadbeef;x=(void *)0xdeadbeef; }
 #endif
+
+#ifdef MEMDIAG
+void izu_free( void *ptr);
+void *izu_malloc( size_t siz);
+void *izu_realloc( void *ptr, size_t siz);
+void izu_md_check( void);
+#else /* def MEMDIAG */
+# define izu_free free
+# define izu_malloc malloc
+# define izu_realloc realloc
+#endif /* def MEMDIAG [else] */
 
 /* Public function prototypes */
 

@@ -1,7 +1,7 @@
 /*
   globals.c - Zip 3
 
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -116,6 +116,7 @@ int hidden_files = 0;         /* process hidden and system files */
 int volume_label = 0;         /* add volume label */
 int dirnames = 1;             /* include directory entries by default */
 int filter_match_case = 1;    /* 1=match case when filter() */
+char *label = NULL;           /* Volume label. */
 
 /* diff and backup */
 int diff_mode = 0;            /* 1=diff mode - only store changed and add */

@@ -5057,7 +5057,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     place than the backup path specified by -BP.  This is useful when the
     media used for the backup path may be swapped out when full.  Currently
     not implemented.  zip.c (EG)
--------------------- December 19th 2012 version 3.1d26 -----------------------
+-------------------- March 18th 2013 version 3.1d26 -----------------------
  1. Finish changing APL_DBL_SFX to APL_DBL_SUFX.  unix/macosx.h (SMS)
  2. Change Mac OS X system-specific code to use (C macro APL_DBL_SUFX)
     "/..namedfork/rsrc" as the suffix for resource fork access on Intel,
@@ -5151,7 +5151,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     are the output from "help zip..." commands using the corresponding
     .HLP help library source files.  vms/build_zip.com,
     vms/descrip.mms (SMS)
-30. <Tentative change (currently still conditional on CRYPT_NOEXT)>
+30. <Tentative change.  Define IZ_CRYPT_EXT to restore old behavior.>
 30. Zip had used data descriptors for encrypted archive members, even
     when the output archive was seekable, which added 16 bytes to the
     archive per encrypted member.  Thanks to Thomas Klausner for
@@ -5176,4 +5176,30 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 36. Changed VMS builders to use explicit (CC) /NOLIST and (LINK) /NOMAP
     qualifiers by default, to reduce unexpected clutter in batch mode.
     vms/build_zip.com, vms/descrip_src.mms (SMS)
-
+37. On Windows, volume labels (-$, --volume-label) longer than 12
+    characters were not processed.  Now, labels up to 32 characters
+    should be accepted (and slightly more efficiently).  On Windows with
+    Unicode support, a null pointer reference could cause the program to
+    fail.  win32/win32.c, zip.c, zipup.c (SMS)
+38. Minor Windows-specific code tidying, mostly for consistency with
+    UnZip.  win32/win32zip.c (SMS)
+39. Code tidying.  Moved volume label string ("label") declarations out
+    of various system-specific files into central locations.  fileio.c,
+    globals.c, zip.h, acorn/acornzip.c, amiga/amigazip.c, atari/atari.c,
+    atheos/atheos.c, beos/beos.c, msdos/msdos.c, novell/Netware.c,
+    os2/os2.c, qdos/qfileio.c, theos/theos.c, tops20/tops20.c,
+    unix/unix.c, vms/vmszip.c, win32/win32zip.c (SMS)
+40. Added initial support for volume labels (-$, --volume_label) on VMS.
+    vms/cmdline.c, vms/VMS_ZIP.RNH, vms/vmszip.c, vms/zip_cli.cld, 
+    vms/zip_cli.help, zip.c (SMS)
+41. Specifying "-e" after "-P password" caused Zip to forget the "-P"
+    password, and query the user for a password.  Now, if "-P" is
+    specified, then "-e" is redundant but harmless, and its position is
+    not significant.  https://sourceforge.net/tracker/?func=detail
+    &aid=2865769&group_id=118012&atid=679786  zip.c (SMS)
+42. Disambiguated some ZE_MEM error messages.  Changed a tempname()
+    failure code from ZE_MEM to ZE_TEMP.  zip.c (SMS)
+43. Removed redundant declarations of global variable "noisy" from some
+    OS-specific modules.  os2/os2zip.c, win32/win32.c (SMS)
+44. Changed a header file and Traditional encryption code to accommodate
+    UnZip dynamic memory developer diagnostics.  crypt.c, zip.h (SMS)
