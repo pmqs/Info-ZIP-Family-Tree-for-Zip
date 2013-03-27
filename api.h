@@ -57,6 +57,22 @@
 #   endif
 #  endif /* def VMS */
 
+#  ifndef PATH_MAX
+#   ifdef MAXPATHLEN
+#    define PATH_MAX      MAXPATHLEN    /* in <sys/param.h> on some systems */
+#   else /* def MAXPATHLEN */
+#    ifdef _MAX_PATH
+#     define PATH_MAX    _MAX_PATH
+#    else /* def _MAX_PATH */
+#     if FILENAME_MAX > 255
+#      define PATH_MAX  FILENAME_MAX    /* used like PATH_MAX on some systems */
+#     else /* FILENAME_MAX > 255 */
+#      define PATH_MAX  1024
+#     endif /* FILENAME_MAX > 255 [else] */
+#    endif /* def _MAX_PATH [else] */
+#   endif /* def MAXPATHLEN [else] */
+#  endif /* ndef PATH_MAX */
+
    /* Adapt Windows-specific code to normal C RTL. */
 #  define far
 #  define _far

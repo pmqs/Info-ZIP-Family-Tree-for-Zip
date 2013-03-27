@@ -1189,6 +1189,10 @@ char *ex2in( char *x, int isdir, int *pdosflag)
       *ext_dir_and_name = '.';
   }
 
+  /* 2013-03-23 SMS.
+   * Added option -pv (prsrv_vms) to bypass adjustment of idiosyncratic
+   * VMS file names.
+   */
   /* 2008-10-15 SMS.
    * Changed the scheme here to remove a trailing dot only if there's
    * no escaped dot in the name field.  This covers a case like "x^.y.",
@@ -1202,7 +1206,8 @@ char *ex2in( char *x, int isdir, int *pdosflag)
   /* Remove a null-type (trailing "."), unless the name is null or there
    * is an unescaped dot in the name.
    */
-  if ((strlen( n) > 1) &&               /* Won't leave a null result. */
+  if ((prsrv_vms <= 0) &&               /* User wants VMS names adjusted. */
+   (strlen( n) > 1) &&                  /* Won't leave a null result. */
    (escaped_dot_in_name == 0) &&        /* No escaped dot in name. */
    ((ext_dir_and_name = strrchr( n, '.')) != NULL))
   {

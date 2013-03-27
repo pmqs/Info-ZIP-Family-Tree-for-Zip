@@ -5057,7 +5057,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     place than the backup path specified by -BP.  This is useful when the
     media used for the backup path may be swapped out when full.  Currently
     not implemented.  zip.c (EG)
--------------------- March 18th 2013 version 3.1d26 -----------------------
+-------------------- March 23th 2013 version 3.1d26 -----------------------
  1. Finish changing APL_DBL_SFX to APL_DBL_SUFX.  unix/macosx.h (SMS)
  2. Change Mac OS X system-specific code to use (C macro APL_DBL_SUFX)
     "/..namedfork/rsrc" as the suffix for resource fork access on Intel,
@@ -5203,3 +5203,9 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     OS-specific modules.  os2/os2zip.c, win32/win32.c (SMS)
 44. Changed a header file and Traditional encryption code to accommodate
     UnZip dynamic memory developer diagnostics.  crypt.c, zip.h (SMS)
+45. New option on VMS, -vn (--vms-names, /[NO]VNAMES) allows
+    preservation of idiosyncratic VMS file names which, by default, are
+    adjusted (some in non-reversible ways) for better compatibility with
+    non-VMS systems.  For example, "a^.b." is normally archived as
+    "a.b", but with -vn it would be archived as "a.b.".  globals.c,
+    vms/cmdline.c, vms/vmszip.c, vms/zip_cli.cld, zip.c, zip.h (SMS)

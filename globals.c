@@ -46,6 +46,7 @@ int level = 6;          /* 0=fastest compression, 9=best compression */
 int levell;             /* Compression level, adjusted by method, suffix. */
 
 #ifdef VMS
+   int prsrv_vms = 0;   /* 1=preserve idiosyncratic VMS file names. */
    int vmsver = 0;      /* 1=append VMS version number to file names */
    int vms_native = 0;  /* 1=store in VMS format */
    int vms_case_2 = 0;  /* ODS2 file name case in VMS.  -1: down. */

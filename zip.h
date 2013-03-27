@@ -454,6 +454,7 @@ typedef struct
 extern mthd_lvl_t mthd_lvl[];   /* Compr. method, level, file name suffixes. */
 
 #ifdef VMS
+   extern int prsrv_vms;        /* Preserve idiosyncratic VMS file names. */
    extern int vmsver;           /* Append VMS version number to file names */
    extern int vms_native;       /* Store in VMS format */
    extern int vms_case_2;       /* ODS2 file name case in VMS. -1: down. */
@@ -794,15 +795,19 @@ extern int show_what_doing;     /* Diagnostic message flag. */
 #endif
 
 #ifdef MEMDIAG
-void izu_free( void *ptr);
-void *izu_malloc( size_t siz);
-void *izu_realloc( void *ptr, size_t siz);
-void izu_md_check( void);
+void izz_free( void *ptr);
+void *izz_malloc( size_t siz);
+void *izz_realloc( void *ptr, size_t siz);
+void izz_md_check( void);
 #else /* def MEMDIAG */
-# define izu_free free
-# define izu_malloc malloc
-# define izu_realloc realloc
+# define izz_free free
+# define izz_malloc malloc
+# define izz_realloc realloc
 #endif /* def MEMDIAG [else] */
+#define izc_free izz_free
+#define izc_malloc izz_malloc
+#define izc_realloc izz_realloc
+
 
 /* Public function prototypes */
 

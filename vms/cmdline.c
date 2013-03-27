@@ -342,6 +342,7 @@ $DESCRIPTOR(cli_verbose_command,"VERBOSE.COMMAND");     /* (none) */
 $DESCRIPTOR(cli_volume_label,   "VOLUME_LABEL");        /* -$ */
 $DESCRIPTOR(cli_vms,            "VMS");                 /* -V */
 $DESCRIPTOR(cli_vms_all,        "VMS.ALL");             /* -VV */
+$DESCRIPTOR(cli_vnames,         "VNAMES");              /* -vn */
 $DESCRIPTOR(cli_wildcard,       "WILDCARD");            /* -nw */
 $DESCRIPTOR(cli_wildcard_nospan,"WILDCARD.NOSPAN");     /* -W */
 
@@ -1237,6 +1238,24 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /VMS */
             append_simple_opt( OPT_V_);
         }
+    }
+
+    /*
+    **  Preserve idiosyncratic VMS file names.
+    */
+#define OPT_VN  "-vn"           /* Preserve idiosyncratic VMS file names. */
+#define OPT_VNN "-vn-"          /* Adjust idiosyncratic VMS file names. */
+
+    status = cli$present( &cli_vnames);
+    if (status == CLI$_PRESENT)
+    {
+        /* /VNAMES */
+        append_simple_opt( OPT_VN);
+    }
+    else if (status == CLI$_NEGATED)
+    {
+        /* /NOVNAMES */
+        append_simple_opt( OPT_VNN);
     }
 
     /*

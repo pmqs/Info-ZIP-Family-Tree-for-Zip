@@ -1529,7 +1529,7 @@ struct zlist far *z;    /* zip entry to compress */
     z->crc = crc;
     z->siz = s;
 #ifdef IZ_CRYPT_ANY
-    if (!isdir && (key != NULL) && (z->encrypt_method != NO_ENCRYPTION))
+    if (!isdir && (key != NULL) && (z->encrypt_method != NO_ENCRYPTION)) {
 # ifdef IZ_CRYPT_AES_WG
       if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
         z->siz += salt_len + 2 + auth_len;
@@ -1539,6 +1539,7 @@ struct zlist far *z;    /* zip entry to compress */
 # ifdef IZ_CRYPT_AES_WG
       }
 # endif /* def IZ_CRYPT_AES_WG */
+    }
 #endif /* def IZ_CRYPT_ANY */
     z->len = isize;
 

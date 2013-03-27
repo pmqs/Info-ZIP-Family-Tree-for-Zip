@@ -733,9 +733,18 @@ local void help()
 #ifdef OS2
 "  -E   use the .LONGNAME Extended attribute (if found) as filename",
 #endif /* OS2 */
-#ifdef S_IFLNK
+#ifdef VMS
+# ifdef S_IFLNK
+"  -vn  preserve all VMS file names  -y   store (don't follow) symlinks",
+# else /* def S_IFLNK */
+"  -vn  preserve all VMS file names",
+# endif /* def S_IFLNK [else] */
+#else /* def VMS */
+# ifdef S_IFLNK
 "  -y   store symbolic links as the link instead of the referenced file",
-#endif /* !S_IFLNK */
+# endif /* def S_IFLNK */
+#endif /* def VMS [else] */
+
 /*
 "  -R   PKZIP recursion (see manual)",
 */
@@ -2682,6 +2691,7 @@ int set_filetype(out_path)
 #define o_ww            0x166
 #define o_z64           0x167
 #define o_atat          0x168
+#define o_vn            0x169
 
 
 /* the below is mainly from the old main command line
@@ -2703,13 +2713,13 @@ struct option_struct far options[] = {
     {"AC", "archive-clear", o_NO_VALUE,     o_NOT_NEGATABLE, o_AC, "clear DOS archive bit of included files"},
     {"AS", "archive-set", o_NO_VALUE,       o_NOT_NEGATABLE, o_AS, "include only files with archive bit set"},
 #endif
-#if defined( UNIX) && defined( __APPLE__)
-    {"as", "sequester",   o_NO_VALUE,       o_NEGATABLE,     o_as, "sequester AppleDouble files in __MACOSX"},
-#endif /* defined( UNIX) && defined( __APPLE__) */
 #ifdef EBCDIC
     {"a",  "ascii",       o_NO_VALUE,       o_NOT_NEGATABLE, 'a',  "to ASCII"},
     {"aa", "all-ascii",   o_NO_VALUE,       o_NOT_NEGATABLE, o_aa, "all files ASCII text (skip bin check)"},
 #endif /* EBCDIC */
+#if defined( UNIX) && defined( __APPLE__)
+    {"as", "sequester",   o_NO_VALUE,       o_NEGATABLE,     o_as, "sequester AppleDouble files in __MACOSX"},
+#endif /* defined( UNIX) && defined( __APPLE__) */
 #ifdef CMS_MVS
     {"B",  "binary",      o_NO_VALUE,       o_NOT_NEGATABLE, 'B',  "binary"},
 #endif /* CMS_MVS */
@@ -2864,6 +2874,7 @@ struct option_struct far options[] = {
 #ifdef VMS
     {"V",  "VMS-portable", o_NO_VALUE,      o_NOT_NEGATABLE, 'V',  "store VMS attributes, portable file format"},
     {"VV", "VMS-specific", o_NO_VALUE,      o_NOT_NEGATABLE, o_VV, "store VMS attributes, VMS specific format"},
+    {"vn", "vms-names",    o_NO_VALUE,      o_NEGATABLE,     o_vn, "preserve idiosyncratic VMS file names"},
     {"w",  "VMS-versions", o_NO_VALUE,      o_NOT_NEGATABLE, 'w',  "store VMS versions"},
     {"ww", "VMS-dot-versions", o_NO_VALUE,  o_NOT_NEGATABLE, o_ww, "store VMS versions as \".nnn\""},
 #endif /* VMS */
@@ -4220,6 +4231,15 @@ char **argv;            /* command line tokens */
             mthd_lvl[ j].suffixes = sfx_list;
           }
           break;
+#ifdef VMS
+        case o_vn:  /* Preserve idiosyncratic VMS file names. */
+          if (negated) {
+            prsrv_vms = 0;
+          } else {
+            prsrv_vms = 1;
+          }
+          break;
+#endif /* def VMS */
         case o_nw:  /* no wildcards - wildcards are handled like other characters */
           no_wild = 1;
           break;
@@ -6674,15 +6694,18 @@ char **argv;            /* command line tokens */
         if (noisy && (show_files == 1 || show_files == 3))
           /* sf, su */
           fprintf(mesg, "  %s\n", z->oname);
-        if (logfile && !(show_files == 5 || show_files == 6))
+        if (logfile && !(show_files == 5 || show_files == 6)) {
           /* not sU or sU- show normal name in log */
 #ifdef UNICODE_SUPPORT
-          if (log_utf8 && z->uname)
+          if (log_utf8 && z->uname) {
             fprintf(logfile, "  %s\n", z->uname);
-          else
-#endif
+          } else {
             fprintf(logfile, "  %s\n", z->oname);
-
+          }
+#else /* def UNICODE_SUPPORT */
+          fprintf(logfile, "  %s\n", z->oname);
+#endif /* def UNICODE_SUPPORT [else[ */
+        }
 #ifdef UNICODE_TEST
         if (create_files) {
           int r;
@@ -6760,13 +6783,16 @@ char **argv;            /* command line tokens */
           /* su, su- */
           /* Include escaped Unicode name (if exists) under standard name */
           if (z->ouname) {
-            if (noisy && show_files == 3)
+            if (noisy && show_files == 3) {
               fprintf(mesg, "     Escaped Unicode:  %s\n", z->ouname);
-            if (logfile)
-              if (log_utf8)
+            }
+            if (logfile) {
+              if (log_utf8) {
                 fprintf(logfile, "     Unicode:  %s\n", z->uname);
-              else
+              } else {
                 fprintf(logfile, "     Escaped Unicode:  %s\n", z->ouname);
+              }
+            }
           }
         }
         if (show_files == 5 || show_files == 6) {
@@ -6807,27 +6833,35 @@ char **argv;            /* command line tokens */
       if (unicode_escape_all) {
         char *escaped_unicode;
         escaped_unicode = local_to_escape_string(f->zname);
-        if (noisy && (show_files == 1 || show_files == 3 || show_files == 5))
+        if (noisy && (show_files == 1 || show_files == 3 || show_files == 5)) {
           /* sf, su, sU */
           fprintf(mesg, "  %s", escaped_unicode);
-        if (logfile)
-          if (log_utf8 && f->uname)
+        }
+        if (logfile) {
+          if (log_utf8 && f->uname) {
             fprintf(logfile, "  %s", f->uname);
-          else
+          } else {
             fprintf(logfile, "  %s", escaped_unicode);
+          }
+        }
         free(escaped_unicode);
       } else {
 #endif
-        if (noisy && (show_files == 1 || show_files == 3 || show_files == 5))
+        if (noisy && (show_files == 1 || show_files == 3 || show_files == 5)) {
           /* sf, su, sU */
           fprintf(mesg, "  %s", f->oname);
-        if (logfile)
+        }
+        if (logfile) {
 #ifdef UNICODE_SUPPORT
-          if (log_utf8 && f->uname)
+          if (log_utf8 && f->uname) {
             fprintf(logfile, "  %s", f->uname);
-          else
-#endif
+          } else {
             fprintf(logfile, "  %s", f->oname);
+          }
+#else /* def UNICODE_SUPPORT */
+          fprintf(logfile, "  %s", f->oname);
+#endif /* def UNICODE_SUPPORT [else] */
+        }
 #ifdef UNICODE_SUPPORT
       }
 #endif
