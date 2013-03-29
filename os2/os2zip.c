@@ -1048,11 +1048,22 @@ int GetExtraTime(struct zlist far *z, iztimes *z_utim)
 
 int set_extra_field(struct zlist far *z, iztimes *z_utim)
 {
+  char szName[CCHMAXPATH];
+  struct stat s;
+
+  strcpy( szName, z->name);
+  // check if file is a symlink, query EAs from resolved file.
+  if (linkput == 0 && lstat(z->name, &s) == 0)
+  {
+    if ((s.st_mode & S_IFLNK) == S_IFLNK)
+      realpath( z->name, szName);
+  }
+
   /* store EA data in local header, and size only in central headers */
-  GetEAs(z->name, &z->extra, &z->ext, &z->cextra, &z->cext);
+  GetEAs(szName, &z->extra, &z->ext, &z->cextra, &z->cext);
 
   /* store ACL data in local header, and size only in central headers */
-  GetACL(z->name, &z->extra, &z->ext, &z->cextra, &z->cext);
+  GetACL(szName, &z->extra, &z->ext, &z->cextra, &z->cext);
 
 #ifdef USE_EF_UT_TIME
   /* store extended time stamps in both headers */
