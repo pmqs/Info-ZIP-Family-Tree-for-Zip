@@ -58,9 +58,6 @@ char *wildtail;
     char *subwild, *name, *newwhole = NULL, *glue = NULL, plug = 0, plug2;
     extent newlen;
     int amatch = 0, e = ZE_MISS;
-#ifdef __KLIBC__
-    linkput = 1;              /* 1=store symbolic links as such */
-#endif
 
     if (!isshexp(wildtail)) {
 #ifdef LARGE_FILE_SUPPORT         
