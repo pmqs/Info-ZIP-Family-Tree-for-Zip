@@ -155,6 +155,10 @@ local unsigned file_read OF((char *buf, unsigned size));
 # include "aes_wg/prng.h"
 #endif
 
+#ifdef CRYPT_AES_WG_NEW
+# include "aesnew/ccm.h"
+#endif
+
 /* zip64 support 08/29/2003 R.Nausedat */
 local zoff_t filecompress OF((struct zlist far *z_entry, int *cmpr_method));
 
@@ -455,6 +459,11 @@ struct zlist far *z;    /* zip entry to compress */
   char *tempcextra = NULL;
 
 #ifdef CRYPT_AES_WG
+  uch salt_len;
+  uch auth_len;
+#endif
+
+#ifdef CRYPT_AES_WG_NEW
   uch salt_len;
   uch auth_len;
 #endif
@@ -1014,10 +1023,6 @@ struct zlist far *z;    /* zip entry to compress */
    *     0x02 	192-bit encryption key
    *     0x03 	256-bit encryption key
    * Compression method: the compression method is the one that would otherwise have been stored.
-   *
-   * The decision on the vendor version is made later, when the local or
-   * central header is written out, because it depends on the
-   * uncompressed size of the file, which is not yet known.
    */
 
   {
@@ -1078,6 +1083,91 @@ struct zlist far *z;    /* zip entry to compress */
     }
   }
 #endif
+
+
+#ifdef CRYPT_AES_WG_NEW
+  /* Initialize AES encryption
+   *
+   * Data size: this value is currently 7, but vendors should not assume that it will always remain 7.
+   * Vendor ID: the vendor ID field should always be set to the two ASCII characters "AE".
+   * Vendor version: the vendor version for AE-1 is 0x0001. The vendor version for AE-2 is 0x0002.
+   *       (The handling of the CRC value is the only difference between the AE-1 and AE-2 formats.)
+   * Encryption strength: the mode values (encryption strength) for AE-1 and AE-2 are:
+   *     Value 	Strength
+   *     0x01 	128-bit encryption key
+   *     0x02 	192-bit encryption key
+   *     0x03 	256-bit encryption key
+   * Compression method: the compression method is the one that would otherwise have been stored.
+   */
+
+  {
+    if (encryption_method > 1)
+    {
+      if (q <= 0) {
+        /* don't encrypt empty files */
+        z->encrypt_method = 0;
+      }
+      else
+      {
+        int ret;
+
+        zpwd = (unsigned char *)key;
+        zpwd_len = strlen(key);
+
+        /* these values probably need tweeking */
+
+        /* check if password length supports requested encryption strength */
+        if (encryption_method == AES_192_ENCRYPTION && zpwd_len < 20) {
+            ZIPERR(ZE_CRYPT, "AES192 requires minimum 20 character password");
+        } else if (encryption_method == AES_256_ENCRYPTION && zpwd_len < 24) {
+            ZIPERR(ZE_CRYPT, "AES256 requires minimum 24 character password");
+        }
+        if (encryption_method == AES_128_ENCRYPTION) {
+            aes_strength = 0x01;
+            key_size = 128;
+        } else if (encryption_method == AES_192_ENCRYPTION) {
+            aes_strength = 0x02;
+            key_size = 192;
+        } else if (encryption_method == AES_256_ENCRYPTION) {
+            aes_strength = 0x03;
+            key_size = 256;
+        } else {
+            ZIPERR(ZE_CRYPT, "Bad encryption method");
+        }
+
+        salt_len = SALT_LENGTH(aes_strength);
+        auth_len = MAC_LENGTH(aes_strength);
+
+        ccm_init_message(                  /* initialise for a new message */
+            const unsigned char iv[],       /* the initialisation vector    */
+            unsigned long iv_len,           /* the nonce length             */
+            length_t hdr_len,               /* the associated data length   */
+            length_t msg_len,               /* message data length          */
+            unsigned long tag_len,          /* authentication field length  */
+            ccm_ctx ctx[1]);                /* the mode context             */
+
+        
+        /* get the salt */
+        prng_rand(zsalt, salt_len, &aes_rnp);
+
+        /* initialize encryption context for this file */
+        ret = fcrypt_init(
+          aes_strength,           /* extra data value indicating key size */
+          zpwd,                   /* the password */
+          zpwd_len,               /* number of bytes in password */
+          zsalt,                  /* the salt */
+          zpwd_verifier,          /* on return contains password verifier */
+          &zctx);                 /* encryption context */
+        if (ret == PASSWORD_TOO_LONG) {
+            ZIPERR(ZE_CRYPT, "Password too long");
+        } else if (ret == BAD_MODE) {
+            ZIPERR(ZE_CRYPT, "Bad mode");
+        }
+      }
+    }
+  }
+#endif
+
 
   if ((r = putlocal(z, PUTLOCAL_WRITE)) != ZE_OK) {
     if (ifile != fbad)

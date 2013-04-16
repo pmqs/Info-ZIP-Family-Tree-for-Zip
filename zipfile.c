@@ -1703,7 +1703,7 @@ local int add_Unicode_Path_cen_extra_field(pZEntry)
 
 
 #ifdef CRYPT_AES_WG
-/* Add WinZip AES extra field
+/* Add WinZip AES_WG extra field
  * 2011-1-2
  *
  * EF structure:
@@ -1752,7 +1752,7 @@ local int add_crypt_aes_local_extra_field( OFT( struct zlist far *)pZEntry,
                      1 +                   /* AES mode */
                      2;                    /* actual compression method */
 
-  /* find start of AES extra field */
+  /* find start of AES_WG extra field */
   if (pZEntry->ext == 0 || pZEntry->extra == NULL)
   {
     /* get new extra field */
@@ -4763,6 +4763,14 @@ local int scanzipf_regnew()
     z64eocdr_offset = LLG(scbuf + 4) + adjust_offset;
     total_disks = LG(scbuf + 12);
 
+    /* Total disks is a count that starts at 1.  Some archive creators
+       apparently still confuse this with disk numbers that start at
+       0 however.  So if we find 0 here, change it to 1.
+     */
+    if (total_disks == 0) {
+      total_disks = 1;
+    }
+
     /* set the current disk */
     current_in_disk = total_disks - 1;
 
@@ -6129,7 +6137,6 @@ int putcentral(z)
       how = 99;
   }
 #endif /* def CRYPT_AES_WG */
-
 
 #ifdef ZIP64_SUPPORT        /* zip64 support 09/02/2003 R.Nausedat */
   if (z->siz > ZIP_UWORD32_MAX || z->len > ZIP_UWORD32_MAX ||

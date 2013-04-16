@@ -124,6 +124,10 @@ ZCONST uLongf *crc_32_tab;
 # include "aes_wg/iz_aes_wg.h"
 #endif
 
+#ifdef CRYPT_AES_WG_NEW
+# include "aesnew/ccm.h"
+#endif
+
 /* Local functions */
 
 local void freeup  OF((void));
@@ -1213,6 +1217,10 @@ local void version_info()
     aes_wg_opt_ver,
 #endif
 
+#if CRYPT_AES_WG_NEW
+    "CRYPT_AES_WG_NEW     (AES strong encryption (WinZip/Gladman new))",
+#endif
+
 #if CRYPT && defined(PASSWD_FROM_STDIN)
     "PASSWD_FROM_STDIN",
 #endif /* CRYPT & PASSWD_FROM_STDIN */
@@ -1300,8 +1308,8 @@ local void version_info()
   /* Fill in IZ_AES_WG version. */
 #if CRYPT_AES_WG
   sprintf( aes_wg_opt_ver,
-    "CRYPT_AES_WG         (AES encryption (WinZip/Gladman), ver %s)",
-    IZ_AES_WG_VERSION);
+    "CRYPT_AES_WG         (AES encryption (WinZip/Gladman), ver %d.%d%s)",
+    IZ_AES_WG_MAJORVER, IZ_AES_WG_MINORVER, IZ_AES_WG_BETA_VER);
 #endif
 
   /* Fill in bzip2 version.  (32-char limit valid as of bzip 1.0.3.) */
@@ -1340,6 +1348,16 @@ local void version_info()
 #endif /* CRYPT */
 
 #ifdef CRYPT_AES_WG
+  putchar('\n');
+  for (i = 0; i < sizeof(cryptAESnote)/sizeof(char *); i++)
+  {
+    printf(cryptAESnote[i]);
+    putchar('\n');
+  }
+  ++i;  /* crypt support means there IS at least one compilation option */
+#endif /* CRYPT */
+
+#ifdef CRYPT_AES_WG_NEW
   putchar('\n');
   for (i = 0; i < sizeof(cryptAESnote)/sizeof(char *); i++)
   {
@@ -2977,7 +2995,7 @@ char **argv;            /* command line tokens */
     ZIPERR(ZE_COMPERR, "uzoff_t not same size as zoff_t");
   }
 
-#ifdef CRYPT_AES_WG
+#if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW)
   /* Verify the AES_WG compile-time endian decision. */
   {
     union {
@@ -3009,7 +3027,7 @@ char **argv;            /* command line tokens */
       ZIPERR( ZE_COMPERR, errbuf);
     }
   }
-#endif /* def CRYPT_AES_WG */
+#endif /* defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW) */
 
 #if (defined(WIN32) && defined(USE_EF_UT_TIME))
   /* For the Win32 environment, we may have to "prepare" the environment
@@ -3861,7 +3879,7 @@ char **argv;            /* command line tokens */
           linkput = 1;  break;
 #endif /* S_IFLNK */
 
-#ifdef CRYPT_AES_WG
+#if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW)
         case 'Y':   /* Encryption method */
           if (abbrevmatch("traditional", value, 0, 1)) {
             encryption_method = TRADITIONAL_ENCRYPTION;
@@ -3887,7 +3905,7 @@ char **argv;            /* command line tokens */
           }
           free(value);
           break;
-#endif
+#endif /* if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW) */
 
         case 'z':   /* Edit zip file comment */
           zipedit = 1;  break;
@@ -4302,14 +4320,21 @@ char **argv;            /* command line tokens */
 
 #if CRYPT
 
-# ifdef CRYPT_AES_WG
+# if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW)
   if ((key == NULL) && (encryption_method != NO_ENCRYPTION)) {
     key_needed = 1;
   }
-# endif
+# endif /* defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW) */
+
   if (key_needed) {
     int i;
-# ifdef CRYPT_AES_WG
+
+# ifdef CRYPT_AES_WG_NEW
+    /* may be pulled from the new code later */
+#  define MAX_PWD_LENGTH 128
+# endif
+
+# if defined(CRYPT_AES_WG) || defined(CRYPT_AES_WG_NEW)
 #  define REAL_PWLEN temp_pwlen
     int temp_pwlen;
 
@@ -4317,9 +4342,10 @@ char **argv;            /* command line tokens */
         REAL_PWLEN = IZ_PWLEN;
     else
         REAL_PWLEN = MAX_PWD_LENGTH;
-# else /* def CRYPT_AES_WG */
+# else /* defined(CRYPT_AES_WG) || defined(CRYPT_AES_WG_NEW) */
 #  define REAL_PWLEN IZ_PWLEN
-# endif /* def CRYPT_AES_WG [else] */
+# endif /* defined(CRYPT_AES_WG) || defined(CRYPT_AES_WG_NEW) [else] */
+    
     if ((key = malloc(REAL_PWLEN+1)) == NULL) {
       ZIPERR(ZE_MEM, "was getting encryption password");
     }
@@ -4623,12 +4649,14 @@ char **argv;            /* command line tokens */
       sequester = 0;
     }
 #endif /* defined( UNIX) && defined( __APPLE__) */
-#if CRYPT_AES_WG
+
+#if defined( CRYPT_AES_WG) || defined( CRYPT_AES_WG_NEW)
   if (!extra_fields && encryption_method >= AES_MIN_ENCRYPTION) {
     zipwarn("can't use -X- with -Y AES encryption, -X- ignored", "");
     extra_fields = 1;
   }
 #endif
+
 #ifdef VMS
   if (!extra_fields && vms_native) {
     zipwarn("can't use -V with -X-, -V ignored", "");
@@ -4971,6 +4999,32 @@ char **argv;            /* command line tokens */
     if (show_what_doing) {
         fprintf(mesg, "sd: AES_WG random number pool initialized in %d s\n",
          pool_init_time);
+        fflush(mesg);
+    }
+  }
+#endif
+
+#ifdef CRYPT_AES_WG_NEW
+  if (encryption_method >= AES_MIN_ENCRYPTION) {
+    time_t pool_init_start;
+    time_t pool_init_time;
+
+    if (show_what_doing) {
+        fprintf(mesg, "sd: Initializing AES_WG\n");
+        fflush(mesg);
+    }
+    
+    pool_init_start = time(NULL);
+
+    /* initialise mode and set key  */
+    ccm_init_and_key(key,            /* the key value                */
+                     key_size,       /* and its length in bytes      */
+                     &aesnew_ctx);   /* the mode context             */
+
+    pool_init_time = time(NULL) - pool_init_start;
+
+    if (show_what_doing) {
+        fprintf(mesg, "sd: AES initialized in %d s\n", pool_init_time);
         fflush(mesg);
     }
   }
@@ -6952,6 +7006,11 @@ char **argv;            /* command line tokens */
     prng_end(&aes_rnp);
     free(zsalt);
   }
+#endif
+
+#ifdef CRYPT_AES_WG_NEW
+  /* clean up and end operation   */
+  ccm_end(&aesnew_ctx);  /* the mode context             */
 #endif
 
   /* finish logfile (it gets closed in freeup() called by finish()) */

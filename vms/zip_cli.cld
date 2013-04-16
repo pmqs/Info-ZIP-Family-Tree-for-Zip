@@ -1,5 +1,5 @@
 	Module		ZIP_CLITABLE
-	Ident		"03-101"
+	Ident		"03-102"
 
 Define	Verb		ZIP
 	Parameter	P1, Label=ZIPFILE, Prompt="Zip file"
@@ -109,7 +109,7 @@ Define	Type		DISPLAY_OPTS
 	Keyword		VOLUME
 
 Define	Type		ENCRYPT_METHOD_OPTS
-	Keyword		STANDARD, DEFAULT
+	Keyword		TRADITIONAL, DEFAULT
 	Keyword		AES128
 	Keyword		AES192
 	Keyword		AES256

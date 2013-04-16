@@ -106,7 +106,11 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #  ifndef NO_AES192
 #    define AES192_OK 1         /* Enable (non-standard?) AES192 mode. */
 #  endif /* ndef NO_AES192 */
-#endif /* def CRYPT_AES_WG */
+#endif
+
+#ifdef CRYPT_AES_WG_NEW
+#  include "aesnew/ccm.h"
+#endif
 
 /* In the utilities, the crc32() function is only used for UNICODE_SUPPORT. */
 #if defined(UTIL) && !defined(UNICODE_SUPPORT)
@@ -587,6 +591,16 @@ extern int encryption_method;   /* See above defines */
  extern unsigned char auth_code[20]; /* returned authentication code */
 #endif
 
+#ifdef CRYPT_AES_WG_NEW
+# define PWD_VER_LENGTH 2
+ extern int key_size;                 /* Size of strong encryption key */
+ extern ccm_ctx aesnew_ctx;
+ extern unsigned char *zpwd;
+ extern int zpwd_len;
+ extern unsigned char *zsalt;
+ extern unsigned char zpwd_verifier[PWD_VER_LENGTH];
+ extern unsigned char auth_code[20]; /* returned authentication code */
+#endif
 
 extern char **args;             /* Copy of argv that can be updated and freed */
 

@@ -13,7 +13,7 @@
 
 .TITLE  Info-ZIP Zip Error Messages
 .FACILITY IZ_ZIP, 1955 /SYSTEM
-.IDENT 'V3.0-000'
+.IDENT 'V3.1-000'
 
 .BASE 0
 OK      /SUCCESS      <Normal successful completion>
@@ -50,8 +50,10 @@ PARMS   /ERROR        <Invalid command arguments>
 .BASE 36
 OPEN    /ERROR        <File not found or no read permission>
 .BASE 38
-COMPERR /FATAL        <Not supported>
+COMPERR /FATAL        <Error in compilation options>
 .BASE 40
 ZIP64   /FATAL        <Attempt to read unsupported Zip64 archive>
+.BASE 42
+CRYPT   /ERROR        <Encryption error>
 
 .END
