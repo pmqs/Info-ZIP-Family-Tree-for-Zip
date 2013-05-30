@@ -1,7 +1,7 @@
 /*
   unix/zipup.h - Zip 3
 
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -21,4 +21,5 @@ typedef int ftype;
 #define zread(f,b,n) read(f,b,n)
 #define zclose(f) close(f)
 #define zerr(f) (k == (extent)(-1L))
+#define zrewind( f) (isatty( f) ? -1 : lseek(f, 0, SEEK_SET))
 #define zstdin 0

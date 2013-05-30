@@ -30,10 +30,10 @@
  */
 
 /*
-  crypt.c now includes part of the AES encryption implementation (in
+  crypt.c now includes part of the AES_WG encryption implementation (in
   IZ_CRYPT_AES_WG blocks).  This code is provided under the Info-ZIP
-  license, though it calls the Gladman AES code which needs to be added
-  to the aes directory.
+  license.  If this code enabled, it uses the Gladman AES code (or
+  equivalent), which is distributed separately.
  */
 
 #define ZCRYPT_INTERNAL         /* Ensure <windows.h>, where applicable. */

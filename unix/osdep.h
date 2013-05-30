@@ -1,7 +1,7 @@
 /*
   unix/osdep.h - Zip 3
 
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -80,3 +80,9 @@
 #if !defined(NO_EF_UT_TIME) && !defined(USE_EF_UT_TIME)
 #  define USE_EF_UT_TIME
 #endif
+
+
+/* 2013-04-11 SMS.  Have zrewind() in zipup.h. */
+#ifndef NO_ETWODD_SUPPORT
+# define ETWODD_SUPPORT
+#endif /* ndef NO_ETWODD_SUPPORT */

@@ -360,22 +360,16 @@ int procnamehho (char *n)
     return m ? ZE_MISS : ZE_OK;
   }
 
-  /* Live name--use if file, recurse if directory */
+  /* Live name.  Recurse if directory.  Use if file. */
   for (p = n; *p; p++)          /* use / consistently */
     if (*p == '\\')
       *p = '/';
 
   //printf ("\nHHO %s\n", n);
-  if ((s.st_mode & S_IFDIR) == 0)
-  {
-    //printf ("\nHHO1 %s\n", n);
-    /* add or remove name of file */
-    //printf ("\nAdding name %s to list.\n", n);
-    if ((m = newname(n, 0)) != ZE_OK)
-      return m;
-  } else {
 
-    /* Add trailing / to the directory name */
+  if (S_ISDIR( s.st_mode))
+  {
+    /* Directory.  Add trailing / to the directory name. */
     if ((p = malloc(strlen(n)+2)) == NULL)
      return ZE_MEM;
     if (strcmp(n, ".") == 0 || strcmp(n, "/.") == 0) {
@@ -392,9 +386,15 @@ int procnamehho (char *n)
       }
       free ((zvoid *)p);
     }
-
-    return ZE_OK;
-  }
+  } /* S_ISDIR( s.st_mode) */
+  else
+  {
+    /* Non-directory.  Add or remove name of file. */
+    //printf ("\nHHO1 %s\n", n);
+    //printf ("\nAdding name %s to list.\n", n);
+    if ((m = newname(n, 0)) != ZE_OK)
+      return m;
+  } /* S_ISDIR( s.st_mode) [else] */
   return ZE_OK;
 }
 
@@ -440,17 +440,14 @@ char *n;                /* name to process */
     return m ? ZE_MISS : ZE_OK;
   }
 
-  /* Live name--use if file, recurse if directory */
+  /* Live name.  Recurse if directory.  Use if file. */
   for (p = n; *p; p++)          /* use / consistently */
     if (*p == '\\')
       *p = '/';
-  if ((s.st_mode & S_IFDIR) == 0)
+
+  if (S_ISDIR( s.st_mode))
   {
-    /* add or remove name of file */
-    if ((m = newname(n, 0)) != ZE_OK)
-      return m;
-  } else {
-    /* Add trailing / to the directory name */
+    /* Directory.  Add trailing / to the directory name. */
     if ((p = malloc(strlen(n)+2)) == NULL)
       return ZE_MEM;
     if (strcmp(n, ".") == 0 || strcmp(n, "/.") == 0) {
@@ -491,7 +488,13 @@ char *n;                /* name to process */
       closedir(d);
     }
     free((zvoid *)p);
-  } /* (s.st_mode & S_IFDIR) == 0) */
+  } /* S_ISDIR( s.st_mode) */
+  else
+  {
+    /* Non-directory.  Add or remove name of file. */
+    if ((m = newname(n, 0)) != ZE_OK)
+      return m;
+  } /* S_ISDIR( s.st_mode) [else] */
   return ZE_OK;
 }
 
@@ -682,12 +685,12 @@ iztimes *t;             /* return value: access, modific. and creation times */
   if (a != NULL) {
       *a = s.st_attr; // << 16) | !(s.st_mode & S_IWRITE);
     //*a = ((ulg)s.st_mode << 16) | !(s.st_mode & S_IWRITE);
-    //if ((s.st_mode & S_IFMT) == S_IFDIR) {
+    //if (S_ISDIR( s.st_mode)) {
     //*a |= MSDOS_DIR_ATTR;
     //}
   }
   if (n != NULL)
-      *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1L;
+      *n = (S_ISREG( s.st_mode) ? s.st_size : -1L);
   if (t != NULL) {
     t->atime = s.st_atime;
     t->mtime = s.st_mtime;
@@ -760,7 +763,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
   printf ("\nDette er en test LINE : 721 \n"); getch();
 
   if (n != NULL)
-    *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1L;
+    *n = (S_ISREG( s.st_mode) ? s.st_size : -1L);
 #ifdef __WATCOMC__
   /* of course, Watcom always has to make an exception */
   if (s.st_atime == 312764400)

@@ -167,7 +167,7 @@ int caseflag;           /* true to force case-sensitive match */
     return m ? ZE_MISS : ZE_OK;
   }
 
-  /* Live name--use if file, recurse if directory or library */
+  /* Live name.  Use if file.  Recurse if directory or library. */
   if (S_ISREG(s.st_mode)) {
     if ((path = malloc(strlen(n) + 2)) == NULL)
       return ZE_MEM;
@@ -446,8 +446,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
 
   if (a != NULL) {
     *a = ((ulg)s.st_mode << 16) | !(s.st_mode & S_IWRITE);
-    if ((s.st_mode & S_IFMT) == S_IFDIR
-     || (s.st_mode & S_IFMT) == S_IFLIB) {
+    if (S_ISDIR( st_mode) || S_ISLIB( s.st_mode))
       *a |= MSDOS_DIR_ATTR;
     }
     /* Map Theos' hidden attribute to DOS's hidden attribute */
@@ -456,7 +455,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
     *a |= ((ulg) s.st_protect) << 8;
   }
   if (n != NULL)
-    *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1L;
+    *n = (S_ISREG( s.st_mode) ? s.st_size : -1L);
   if (t != NULL) {
     t->atime = s.st_atime;
     t->mtime = s.st_mtime;

@@ -426,7 +426,6 @@ extern int scanimage;           /* Scan through image files */
 #define AESENCRED 99            /* AES (WG) encrypted */
 
 extern int method;              /* Restriction on compression method */
-
 extern ulg skip_this_disk;
 extern int des_good;            /* Good data descriptor found */
 extern ulg des_crc;             /* Data descriptor CRC */
@@ -440,6 +439,9 @@ extern int adjust;              /* Adjust the unzipsfx'd zip file */
 extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
 extern int level;               /* Compression level, global (-0, ..., -9) */
 extern int levell;              /* Compression level, adjusted by mthd, sufx. */
+#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+extern int etwodd;              /* Encrypt Trad without data descriptor. */
+#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
 
 /* Compression method and level (with file name suffixes). */
 typedef struct
@@ -639,7 +641,11 @@ extern char *entry_name;        /* used by DLL to pass z->zname to iz_file_read(
  extern uzoff_t last_progress_chunk;  /* used to determine when to send next report */
 #endif
 
-/* User-triggered (Ctrl/T, SIGUSR1) progress. */
+/* User-triggered (Ctrl/T, SIGUSR1) progress.  (Expects localtime_r().) */
+
+#if defined( NO_LOCALTIME_R) && !defined( NO_USER_PROGRESS)
+# define NO_USER_PROGRESS
+#endif
 
 #ifndef NO_USER_PROGRESS
 # ifndef VMS

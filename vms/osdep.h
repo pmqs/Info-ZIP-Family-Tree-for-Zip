@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -146,6 +146,11 @@ typedef struct stat z_stat;
 #endif /* defined(NO_UNISTD_H) || __CRTL_VER < 70000000) */
 
 #define SSTAT vms_stat
+
+/* 2013-04-11 SMS.  Have zrewind() in zipup.h. */
+#ifndef NO_ETWODD_SUPPORT
+# define ETWODD_SUPPORT
+#endif /* ndef NO_ETWODD_SUPPORT */
 
 #ifdef USE_ZIPMAIN
 # define EXIT( exit_code) return( exit_code)

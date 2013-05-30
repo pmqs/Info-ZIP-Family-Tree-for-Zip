@@ -285,9 +285,14 @@ local void version_info()
 
   /* Options info array */
   static ZCONST char *comp_opts[] = {
+#ifdef ASM_CRC
+    "ASM_CRC              (Assembly code used for CRC calculation)",
+#endif
+
 #ifdef DEBUG
     "DEBUG",
 #endif
+
     NULL
   };
 

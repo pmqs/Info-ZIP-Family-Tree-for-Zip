@@ -4894,7 +4894,12 @@ local int scanzipf_regnew()
     version_made = SH(scbuf + 8);
     version_needed = SH(scbuf + 10);
     in_cd_start_disk = LG(scbuf + 16);
+
+    /* need to update total entries with Zip64 information */
+    total_cd_total_entries -= cd_total_entries;
     cd_total_entries = LLG(scbuf + 28);
+    total_cd_total_entries += cd_total_entries;
+
     in_cd_start_offset = LLG(scbuf + 44) + adjust_offset;
 
     if (version_needed > 46) {
@@ -5416,7 +5421,7 @@ local int scanzipf_regnew()
 
   if (zcount != total_cd_total_entries) {
     sprintf(errbuf, "expected %s entries but found %s",
-      zip_fzofft(cd_total_entries, NULL, "u"),
+      zip_fzofft(total_cd_total_entries, NULL, "u"),
       zip_fzofft(zcount, NULL, "u"));
     zipwarn(errbuf, "");
     if (zcount % 0x10000 == total_cd_total_entries) {

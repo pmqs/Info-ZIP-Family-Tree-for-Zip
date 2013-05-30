@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -928,8 +928,6 @@ int device_opcnt_32( unsigned int *ui)
  *    Fill the user's buffer with up to 8 bytes of stuff.
  */
 
-#  define EF_MIN( a, b) ((a) < (b) ? (a) : (b))
-
 int entropy_fun( unsigned char *buf, unsigned int len)
 {
     union
@@ -998,7 +996,7 @@ int entropy_fun( unsigned char *buf, unsigned int len)
     }
 
     /* Move the results into the user's buffer. */
-    i = EF_MIN( 8, len);
+    i = IZ_MIN( 8, len);
     memcpy( buf, &my_buf, i);
 
     /* Return the byte count. */

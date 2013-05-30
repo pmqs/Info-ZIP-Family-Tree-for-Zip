@@ -384,17 +384,14 @@ unsigned attribs;       /* file attributes, if available */
     return m ? ZE_MISS : ZE_OK;
   }
 
-  /* Live name--use if file, recurse if directory */
+  /* Live name.  Recurse if directory.  Use if file. */
   for (p = n; *p; p++)          /* use / consistently */
     if (*p == '\\')
       *p = '/';
-  if ((s.st_mode & S_IFDIR) == 0)
+
+  if (S_ISDIR( s.st_mode))
   {
-    /* add or remove name of file */
-    if ((m = newname(n, 0, caseflag)) != ZE_OK)
-      return m;
-  } else {
-    /* Add trailing / to the directory name */
+    /* Directory.  Add trailing / to the directory name. */
     if ((p = malloc(strlen(n)+2)) == NULL)
       return ZE_MEM;
     if (strcmp(n, ".") == 0 || strcmp(n, "/.") == 0) {
@@ -447,7 +444,14 @@ unsigned attribs;       /* file attributes, if available */
       free((zvoid *)d);
     }
     free((zvoid *)p);
-  } /* (s.st_mode & S_IFDIR) == 0) */
+  } /* S_ISDIR( s.st_mode) */
+  else
+  {
+    /* Non-directory.  Add or remove name of file. */
+    if ((m = newname(n, 0, caseflag)) != ZE_OK)
+      return m;
+  } /* S_ISDIR( s.st_mode) [else] */
+
   return ZE_OK;
 }
 
@@ -618,12 +622,12 @@ iztimes *t;             /* return value: access, modific. and creation times */
     *a = ((ulg)s.st_mode << 16) | (isstdin ? 0L : (ulg)GetFileMode(name));
 #if (S_IFREG != 0x8000)
     /* kludge to work around non-standard S_IFREG flag used in DJGPP V2.x */
-    if ((s.st_mode & S_IFMT) == S_IFREG) *a |= 0x80000000L;
+    if (S_ISREG( s.st_mode) *a |= 0x80000000L;
 #endif
   }
   free(name);
   if (n != NULL)
-    *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1L;
+    *n = (S_ISREG( s.st_mode) ? s.st_size : -1L);
   if (t != NULL) {
     t->atime = s.st_atime;
     t->mtime = s.st_mtime;

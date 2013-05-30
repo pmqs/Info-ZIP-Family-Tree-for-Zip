@@ -44,6 +44,9 @@ int adjust = 0;         /* 1=adjust offsets for sfx'd file (keep preamble) */
 int translate_eol = 0;  /* Translate end-of-line LF -> CR LF */
 int level = 6;          /* 0=fastest compression, 9=best compression */
 int levell;             /* Compression level, adjusted by method, suffix. */
+#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+int etwodd;             /* Encrypt Traditional without data descriptor. */
+#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
 
 #ifdef VMS
    int prsrv_vms = 0;   /* 1=preserve idiosyncratic VMS file names. */

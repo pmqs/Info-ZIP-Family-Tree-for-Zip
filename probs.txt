@@ -1,0 +1,65 @@
+1>------ Build started: Project: zip, Configuration: Debug Win32 ------
+1>  win32zip.c
+1>c:\zip\zip31d25_l_sf\win32\win32zip.c(181): warning C4133: 'function' : incompatible types - from 'char *' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32zip.c(297): warning C4133: 'function' : incompatible types - from 'WCHAR [260]' to 'const char *'
+1>c:\zip\zip31d25_l_sf\win32\win32zip.c(301): warning C4133: 'return' : incompatible types - from 'WCHAR [14]' to 'char *'
+1>c:\zip\zip31d25_l_sf\win32\win32zip.c(303): warning C4133: 'return' : incompatible types - from 'WCHAR [260]' to 'char *'
+1>c:\zip\zip31d25_l_sf\win32\win32zip.c(870): warning C4133: 'function' : incompatible types - from 'char *' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32zip.c(962): warning C4133: 'function' : incompatible types - from 'char [2]' to 'LPCWSTR'
+1>  win32i64.c
+1>  win32.c
+1>c:\zip\zip31d25_l_sf\win32\win32.c(98): warning C4133: 'function' : incompatible types - from 'char [4]' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(167): warning C4133: 'function' : incompatible types - from 'char *' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(239): warning C4133: 'function' : incompatible types - from 'char *' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(245): warning C4133: 'function' : incompatible types - from 'char *' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(272): warning C4133: 'function' : incompatible types - from 'const char *' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(272): warning C4133: 'function' : incompatible types - from 'char [260]' to 'LPWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(272): warning C4133: 'function' : incompatible types - from 'char **' to 'LPWSTR *'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(672): warning C4133: 'function' : incompatible types - from 'char *' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(711): warning C4133: 'function' : incompatible types - from 'char *' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(712): warning C4133: 'function' : incompatible types - from 'char [33]' to 'LPWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(831): warning C4133: 'function' : incompatible types - from 'const char *' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(891): warning C4133: 'function' : incompatible types - from 'const char *' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(1129): warning C4133: 'function' : incompatible types - from 'char [7]' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(1667): warning C4133: 'function' : incompatible types - from 'char *' to 'LPWSTR'
+1>c:\zip\zip31d25_l_sf\win32\win32.c(1685): warning C4133: 'function' : incompatible types - from 'char *' to 'LPCWSTR'
+1>  nt.c
+1>c:\zip\zip31d25_l_sf\win32\nt.c(230): warning C4133: 'function' : incompatible types - from 'char *' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\nt.c(299): warning C4133: 'function' : incompatible types - from 'char [261]' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\nt.c(299): warning C4133: 'function' : incompatible types - from 'char [261]' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\nt.c(311): warning C4133: 'function' : incompatible types - from 'char *' to 'LPCWSTR'
+1>c:\zip\zip31d25_l_sf\win32\nt.c(321): warning C4133: 'function' : incompatible types - from 'char *' to 'LPCWSTR'
+1>  zipup.c
+1>c:\zip\zip31d25_l_sf\zipup.c(519): warning C4244: 'function' : conversion from 'zoff_t' to 'extent', possible loss of data
+1>c:\zip\zip31d25_l_sf\zipup.c(3237): warning C4244: 'function' : conversion from 'zoff_t' to 'extent', possible loss of data
+1>  zipfile.c
+1>  zip.c
+1>  zbz2err.c
+1>  sha1.c
+1>  pwd2key.c
+1>  prng.c
+1>  Ppmd8Enc.c
+1>  Ppmd8.c
+1>  LzmaEnc.c
+1>  LzFind.c
+1>  hmac.c
+1>  fileenc.c
+1>  crc_i386.c
+1>  aestab.c
+1>  aeskey.c
+1>  Generating Code...
+1>  Compiling...
+1>  aescrypt.c
+1>  util.c
+1>  ttyio.c
+1>  trees.c
+1>  globals.c
+1>  fileio.c
+1>  deflate.c
+1>  crypt.c
+1>  crc32.c
+1>  Generating Code...
+1>deflate.obj : error LNK2019: unresolved external symbol _match_init referenced in function _lm_init
+1>deflate.obj : error LNK2019: unresolved external symbol _longest_match referenced in function _deflate
+1>C:\zip\zip31d25_l_sF\win32\vc10\Debug\zip.exe : fatal error LNK1120: 2 unresolved externals
+========== Build: 0 succeeded, 1 failed, 1 up-to-date, 0 skipped ==========

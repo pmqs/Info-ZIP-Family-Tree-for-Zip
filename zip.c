@@ -1469,6 +1469,9 @@ local void version_info()
 
 #ifdef IZ_CRYPT_TRAD
     crypt_opt_ver,
+# ifdef ETWODD_SUPPORT
+    "ETWODD_SUPPORT       (Encrypt Trad without data descriptor if --etwodd)",
+# endif /* def ETWODD_SUPPORT */
 #endif
 
 #ifdef IZ_CRYPT_AES_WG
@@ -2692,6 +2695,7 @@ int set_filetype(out_path)
 #define o_z64           0x167
 #define o_atat          0x168
 #define o_vn            0x169
+#define o_et            0x170
 
 
 /* the below is mainly from the old main command line
@@ -2764,6 +2768,9 @@ struct option_struct far options[] = {
 #ifdef IZ_CRYPT_ANY
     {"e",  "encrypt",     o_NO_VALUE,       o_NOT_NEGATABLE, 'e',  "encrypt entries, ask for password"},
 #endif /* def IZ_CRYPT_ANY */
+#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+    {"",   "etwodd",      o_NO_VALUE,       o_NOT_NEGATABLE, o_et, "encrypt Traditional without data descriptor"},
+#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
 #ifdef OS2
     {"E",  "longnames",   o_NO_VALUE,       o_NOT_NEGATABLE, 'E',  "use OS2 longnames"},
 #endif
@@ -4000,6 +4007,11 @@ char **argv;            /* command line tokens */
           ZIPERR(ZE_PARMS, "encryption (-e) not supported");
 #endif /* def IZ_CRYPT_ANY [else] */
           break;
+#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+        case o_et:      /* Encrypt Traditional without data descriptor. */
+          etwodd = 1;
+          break;
+#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
         case 'F':   /* fix the zip file */
           fix = 1; break;
         case o_FF:  /* try harder to fix file */
@@ -7399,7 +7411,8 @@ char **argv;            /* command line tokens */
               ZIPERR(r, errbuf);
             }
           } else {
-            zipwarn_indent("file and directory with the same name: ", z->oname);
+            zipwarn_indent("file and directory with the same name (1): ",
+             z->oname);
           }
           zipwarn_indent("will just copy entry over: ", z->oname);
           if ((r = zipcopy(z)) != ZE_OK)
@@ -7904,7 +7917,8 @@ char **argv;            /* command line tokens */
           ZIPERR(r, errbuf);
         }
       } else {
-        zipwarn_indent("file and directory with the same name: ", z->oname);
+        zipwarn_indent("file and directory with the same name (2): ",
+         z->oname);
       }
       files_so_far++;
       bytes_so_far += len;
@@ -8061,13 +8075,9 @@ char **argv;            /* command line tokens */
 #endif
   }
 
-  /* Get multi-line comment for the zip file */
+  /* Get (multi-line) archive comment. */
   if (zipedit)
   {
-#ifndef MACOS
-    int first_line = 1;
-#endif
-
 #ifndef USE_ZIPMAIN
     if (comment_stream == NULL) {
 # ifndef RISCOS
@@ -8076,20 +8086,19 @@ char **argv;            /* command line tokens */
       comment_stream = stderr;
 # endif
     }
-    if ((e = malloc(MAXCOM + 1)) == NULL) {
-      ZIPERR(ZE_MEM, "was reading comment lines (3)");
-    }
+
     if (noisy && zcomlen)
-    {
+    { /* Display old archive comment, if any. */
       fputs("current zip file comment is:\n", mesg);
       fwrite(zcomment, 1, zcomlen, mesg);
       if (zcomment[zcomlen-1] != '\n')
         putc('\n', mesg);
-      free((zvoid *)zcomment);
     }
-    if ((zcomment = malloc(1)) == NULL)
-      ZIPERR(ZE_MEM, "was setting comments to null (1)");
-    zcomment[0] = '\0';
+    if (zcomment)
+    { /* Free old archive comment storage. */
+      izz_free( zcomment);
+    }
+
     if (noisy)
       fputs("enter new zip file comment (end with .):\n", mesg);
 # if (defined(AMIGA) && (defined(LATTICE)||defined(__SASC)))
@@ -8098,7 +8107,15 @@ char **argv;            /* command line tokens */
 # ifdef __human68k__
     setmode(fileno(comment_stream), O_TEXT);
 # endif
+
 # ifdef MACOS
+    /* 2014-04-15 SMS.
+     * Apparently, on old MacOS we accept only one line.
+     * The code looks sub-optimal, but who cares?
+     */
+    if ((e = malloc(MAXCOM + 1)) == NULL) {
+      ZIPERR(ZE_MEM, "was reading comment lines (3)");
+    }
     printf("\n enter new zip file comment \n");
     if (fgets(e, MAXCOM+1, comment_stream) != NULL) {
         if ((p = malloc((k = strlen(e))+1)) == NULL) {
@@ -8109,45 +8126,83 @@ char **argv;            /* command line tokens */
         if (p[k-1] == '\n') p[--k] = 0;
         zcomment = p;
     }
-# else /* !MACOS */
-    /* Read comment text lines until ".\n" or EOF. */
-    while (fgets( e, (MAXCOM+ 1), comment_stream) != NULL && strcmp( e, ".\n"))
-    {
-      /* Strip off a terminating newline character. */
-      if (e[ (r = strlen( e))- 1] == '\n')
-        e[ --r] = 0;
-
-      /* Reallocate "p" string storage.  Always +1 for terminating NUL.
-       * Add 2 more for "\r\n" after the first line (even if it was empty).
-       */
-      if ((p = malloc( (first_line ? 1 : strlen( zcomment)+ 3) + r)) == NULL)
-      {
-        free( (zvoid *)e);
-        ZIPERR(ZE_MEM, "was reading comment lines (5)");
-      }
-
-      /* Append the new text line to the old data (if any). */
-      if (first_line)
-      {
-        /* Clear the first-line flag, and store the first text line. */
-        first_line = 0;
-        strcpy( p, e);
-      }
-      else
-      {
-        /* After the first line (even if it was empty), re-store the old
-         * data in the new buffer, append "\r\n", and then append the
-         * new text line.
-         */
-        strcat( strcat( strcpy( p, zcomment), "\r\n"), e);
-      }
-
-      /* Free the old data storage, and point to the new data storage. */
-      free( (zvoid *)zcomment);
-      zcomment = p;
-    }
-# endif /* ?MACOS */
     free((zvoid *)e);
+    zcomlen = strlen(zcomment);
+# else /* !MACOS */
+    /* 2014-04-15 SMS.
+     * Changed to stop adding "\r\n" within lines longer than MAXCOM.
+     * Now:
+     * Read comment text lines until ".\n" or EOF.
+     * Allocate (additional) storage in increments of MAXCOM+3.
+     * Read pieces up to MAXCOM+1.
+     * Convert a read-terminating "\n" character to "\r\n".
+     * (If too long, truncate at maximum allowed length (and complain)?)
+     */
+    zcomment = NULL;
+    zcomlen = 0;
+    while (1)
+    {
+      /* Allocate (initial or more) space for the file comment. */
+      if ((zcomment = izz_realloc( zcomment, (zcomlen+ MAXCOM+ 3))) == NULL)
+      {
+        ZIPERR(ZE_MEM, "was reading comment lines (5)");
+        zcomlen = 0;
+        break;
+      }
+
+      /* Read up to (MAXCOM+ 1) characters.  Quit if none available. */
+      if (fgets( (zcomment+ zcomlen), (MAXCOM+ 1), comment_stream) == NULL)
+        break;
+
+      /* Detect ".\n" comment terminator.  Quit, if found. */
+      if (strcmp( (zcomment+ zcomlen), ".\n") == 0)
+        break;
+
+      /* Calculate the new length (old_length + strlen( newly_read)). */
+      zcomlen += strlen( zcomment+ zcomlen);
+
+      /* Convert (bare) terminating "\n" to "\r\n". */
+      if (*(zcomment+ zcomlen- 1) == '\n')
+      { /* Have terminating "\n". */
+        if ((zcomlen <= 1) || (*(zcomment+ zcomlen- 2) != '\r'))
+        { /* "\n" is not already preceded by "\r", so insert "\r". */
+          *(zcomment+ (zcomlen++)) = '\r';
+          *(zcomment+ zcomlen) = '\n';
+        }
+      }
+    } /* while (1) */
+
+    /* If unsuccessful, make tidy.
+     * If successful, terminate the file comment string as desired.
+     */
+    if (zcomlen == 0)
+    {
+      if (zcomment)
+      { /* Free any old archive comment storage.  (Empty line read?) */
+        free( zcomment);
+      }
+    }
+    else
+    { /* If it's missing, add a final "\r\n".
+       * (Do we really want this?  We could add one only if we've seen
+       * one before, so that a normal one- or multi-line comment would
+       * always end with our usual line ending, but one-line,
+       * EOF-terminated input would not.  (Need to add a flag.))
+       */
+      if (*(zcomment+ zcomlen) != '\n')
+      {
+        *(zcomment+ (zcomlen++)) = '\r';
+        *(zcomment+ zcomlen) = '\n';
+      }
+      /* We could NUL-terminate the string here, but no one cares. */
+      /* *(zcomment+ zcomlen+ 1) = '\0'; */
+    }
+
+/* SMSd. */ /*
+fprintf( stderr, " zcl = %d, zc: >%.*s<.\n", zcomlen, zcomlen, zcomment);
+*/
+# endif /* ?MACOS */
+
 #else /* ndef USE_ZIPMAIN */
     comment(zcomlen);
     if ((p = malloc(strlen(szCommentBuf)+1)) == NULL) {
@@ -8161,8 +8216,8 @@ char **argv;            /* command line tokens */
     GlobalUnlock(hStr);
     GlobalFree(hStr);
     zcomment = p;
-#endif /* ndef USE_ZIPMAIN */
     zcomlen = strlen(zcomment);
+#endif /* ndef USE_ZIPMAIN */
   }
 
   if (display_globaldots) {

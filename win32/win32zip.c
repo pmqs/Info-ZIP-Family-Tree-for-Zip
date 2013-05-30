@@ -1167,27 +1167,14 @@ local int procname_win32(n, caseflag, attribs)
     return m ? ZE_MISS : ZE_OK;
   }
 
-  /* Live name--use if file, recurse if directory */
+  /* Live name.  Recurse if directory.  Use if file. */
   for (p = n; *p; INCSTR(p))    /* use / consistently */
     if (*p == '\\')
       *p = '/';
-  if ((s.st_mode & S_IFDIR) == 0)
+
+  if (S_ISDIR( s.st_mode))
   {
-    /* add exclusions in directory recurse but ignored for single file */
-    DWORD dwAttr;
-
-    dwAttr = GetFileMode(n);
-
-    if ((hidden_files ||
-         !(dwAttr & FILE_ATTRIBUTE_HIDDEN || dwAttr & FILE_ATTRIBUTE_SYSTEM)) &&
-        (!only_archive_set || (dwAttr & FILE_ATTRIBUTE_ARCHIVE)))
-    {
-      /* add or remove name of file */
-      if ((m = newname(n, 0, caseflag)) != ZE_OK)
-        return m;
-    }
-  } else {
-    /* Add trailing / to the directory name */
+    /* Directory.  Add trailing / to the directory name. */
     if ((p = (char *) malloc(strlen(n)+2)) == NULL)
       return ZE_MEM;
     if (strcmp(n, ".") == 0 || strcmp(n, "/.") == 0) {
@@ -1229,7 +1216,24 @@ local int procname_win32(n, caseflag, attribs)
       CloseDirScan(d);
     }
     free((zvoid *)p);
-  } /* (s.st_mode & S_IFDIR) == 0) */
+  } /* S_ISDIR( s.st_mode) */
+  else
+  {
+    /* Non-directory. */
+    /* Add exclusions in directory recurse but ignored for single file. */
+    DWORD dwAttr;
+
+    dwAttr = GetFileMode(n);
+
+    if ((hidden_files ||
+         !(dwAttr & FILE_ATTRIBUTE_HIDDEN || dwAttr & FILE_ATTRIBUTE_SYSTEM)) &&
+        (!only_archive_set || (dwAttr & FILE_ATTRIBUTE_ARCHIVE)))
+    {
+      /* add or remove name of file */
+      if ((m = newname(n, 0, caseflag)) != ZE_OK)
+        return m;
+    }
+  } /* S_ISDIR( s.st_mode) [else] */
   return ZE_OK;
 }
 
@@ -1308,27 +1312,14 @@ local int procname_win32w(nw, caseflag, attribs)
     return m ? ZE_MISS : ZE_OK;
   }
 
-  /* Live name--use if file, recurse if directory */
+  /* Live name.  Recurse if directory.  Use if file. */
   for (pw = nw; *pw; pw++)    /* use / consistently */
     if (*pw == (wchar_t)'\\')
       *pw = (wchar_t)'/';
-  if ((s.st_mode & S_IFDIR) == 0)
+
+  if (S_ISDIR( s.st_mode))
   {
-    /* add exclusions in directory recurse but ignored for single file */
-    DWORD dwAttr;
-
-    dwAttr = GetFileModeW(nw);
-
-    if ((hidden_files ||
-         !(dwAttr & FILE_ATTRIBUTE_HIDDEN || dwAttr & FILE_ATTRIBUTE_SYSTEM)) &&
-        (!only_archive_set || (dwAttr & FILE_ATTRIBUTE_ARCHIVE)))
-    {
-      /* add or remove name of file */
-      if ((m = newnamew(nw, 0, caseflag)) != ZE_OK)
-        return m;
-    }
-  } else {
-    /* Add trailing / to the directory name */
+    /* Directory.  Add trailing / to the directory name. */
     pw = (wchar_t *)malloc( (wcslen(nw)+2) * sizeof(wchar_t) );
     if (pw == NULL)
       return ZE_MEM;
@@ -1379,7 +1370,24 @@ local int procname_win32w(nw, caseflag, attribs)
       CloseDirScanW(dw);
     }
     free((zvoid *)pw);
-  } /* (s.st_mode & S_IFDIR) == 0) */
+  } /* S_ISDIR( s.st_mode) */
+  else
+  {
+    /* Non-directory. */
+    /* add exclusions in directory recurse but ignored for single file */
+    DWORD dwAttr;
+
+    dwAttr = GetFileModeW(nw);
+
+    if ((hidden_files ||
+         !(dwAttr & FILE_ATTRIBUTE_HIDDEN || dwAttr & FILE_ATTRIBUTE_SYSTEM)) &&
+        (!only_archive_set || (dwAttr & FILE_ATTRIBUTE_ARCHIVE)))
+    {
+      /* add or remove name of file */
+      if ((m = newnamew(nw, 0, caseflag)) != ZE_OK)
+        return m;
+    }
+  } /* S_ISDIR( s.st_mode) [else] */
   return ZE_OK;
 }
 #endif
@@ -1670,7 +1678,7 @@ ulg filetime(f, a, n, t)
   }
   if (n != NULL)
     /* device return -1 */
-    *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1L;
+    *n = (S_ISREG( s.st_mode) ? s.st_size : -1L);
   if (t != NULL) {
     t->atime = s.st_atime;
     t->mtime = s.st_mtime;
@@ -1753,7 +1761,7 @@ ulg filetimew(fw, a, n, t)
   }
   if (n != NULL)
     /* device return -1 */
-    *n = (sw.st_mode & S_IFMT) == S_IFREG ? sw.st_size : -1L;
+    *n = (S_ISREG( sw.st_mode) ? sw.st_size : -1L);
   if (t != NULL) {
     t->atime = sw.st_atime;
     t->mtime = sw.st_mtime;

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -189,7 +189,7 @@ char *file;
 
     if ( (ctx=(ioctx_t *)malloc(sizeof(ioctx_t))) == NULL )
         return NULL;
-    ctx -> PKi = PK_def_info;
+    ctx->PKi = PK_def_info;
 
 #define FILL_REQ( ix, id, b)   {     \
     Atr[ ix].atr$w_type = (id);      \
@@ -256,10 +256,16 @@ char *file;
     /* 2007-02-28 SMS.
      * If processing symlinks as symlinks ("-y"), then $SEARCH for the
      * link, not the target file.
+     * 2013-14-10 SMS.
+     * If following symlinks ("-y-"), then $SEARCH for the link target.
      */
     if (linkput)
     {
         Nam.naml$v_open_special = 1;
+    }
+    else
+    {
+        Nam.naml$v_search_symlink = 1;
     }
 #endif /* def NAML$M_OPEN_SPECIAL */
 
@@ -299,7 +305,7 @@ char *file;
     }
 
     /* Move the FID (and not the DID) into the FIB.
-       2005=02-08 SMS.
+       2005-02-08 SMS.
        Note that only the FID is needed, not the DID, and not the file
        name.  Setting these other items causes failures on ODS5.
     */
@@ -348,7 +354,7 @@ char *file;
         return NULL;
     }
 
-    fat = (struct fatdef *)&(ctx -> PKi.ra);
+    fat = (struct fatdef *)&(ctx->PKi.ra);
 
 #define SWAPW(x)        ( (((x)>>16)&0xFFFF) + ((x)<<16) )
 
@@ -360,8 +366,8 @@ char *file;
         /* Only known size is all allocated blocks.
            (This occurs with a zero-length file, for example.)
         */
-        ctx -> size =
-        ctx -> rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
+        ctx->size =
+        ctx->rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
     }
     else
     {
@@ -369,13 +375,13 @@ char *file;
            If only one -V, store normal (used) size in ->rest.
            If multiple -V, store allocated-blocks size in ->rest.
         */
-        ctx -> size =
-         (((uzoff_t) efblk)- 1)* BLOCK_BYTES+ fat -> fat$w_ffbyte;
+        ctx->size =
+         (((uzoff_t) efblk)- 1)* BLOCK_BYTES+ fat->fat$w_ffbyte;
 
         if (vms_native < 2)
-            ctx -> rest = ctx -> size;
+            ctx->rest = ctx->size;
         else
-            ctx -> rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
+            ctx->rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
     }
 
     /* If ACL data exist, fill an allocated buffer with them. */
@@ -398,13 +404,12 @@ char *file;
         ctx->aclbuf = acl_buf;
         ctx->aclseg = 0;
 
-#define MIN( a, b) ((a < b) ? (a) : (b))
-
+        /* Process the ACL data. */
         while (acl_bytes_read < ctx->acllen)
         {
             /* Point the item list to the next buffer segment. */
             Atr_readacl[ 0].atr$w_size =
-             MIN( ATR$S_READACL, (ctx->acllen- acl_bytes_read));
+             IZ_MIN( ATR$S_READACL, (ctx->acllen- acl_bytes_read));
 
             Atr_readacl[ 0].atr$l_addr = GVTC acl_buf;
 
@@ -462,8 +467,8 @@ char *file;
         }
     }
 
-    ctx -> status = SS$_NORMAL;
-    ctx -> vbn = 1;
+    ctx->status = SS$_NORMAL;
+    ctx->vbn = 1;
     return ctx;
 }
 
@@ -491,11 +496,11 @@ size_t size;
     size_t bytes_read = 0;
 
     /* If previous read hit EOF, fail early. */
-    if (ctx -> status == SS$_ENDOFFILE)
+    if (ctx->status == SS$_ENDOFFILE)
         return 0;               /* EOF. */
 
     /* If no more expected to be read, fail early. */
-    if (ctx -> rest == 0)
+    if (ctx->rest == 0)
         return 0;               /* Effective EOF. */
 
     /* If request is smaller than a whole block, fail.
@@ -524,7 +529,7 @@ size_t size;
         */
         size = (size+ BLOCK_BYTES- 1)& ~(BLOCK_BYTES- 1);
     }
-    rest_rndup = (ctx -> rest+ BLOCK_BYTES- 1)& ~(BLOCK_BYTES- 1);
+    rest_rndup = (ctx->rest+ BLOCK_BYTES- 1)& ~(BLOCK_BYTES- 1);
 
     /* Read (QIOW) until error or "size" bytes have been read. */
     do
@@ -564,16 +569,16 @@ size_t size;
     if (!ERR(status))
     {
         /* Record any successful status as SS$_NORMAL. */
-        ctx -> status = SS$_NORMAL;
+        ctx->status = SS$_NORMAL;
     }
     else if (status == SS$_ENDOFFILE)
     {
         /* Record EOF as SS$_ENDOFFILE.  (Ignore error status codes?) */
-        ctx -> status = SS$_ENDOFFILE;
+        ctx->status = SS$_ENDOFFILE;
     }
 
     /* Decrement bytes-to-read.  Return the total bytes read. */
-    ctx -> rest -= bytes_read;
+    ctx->rest -= bytes_read;
 
     return bytes_read;
 }
@@ -599,9 +604,10 @@ ioctx_t *ctx;
 int vms_rewind(ctx)
 ioctx_t *ctx;
 {
-    ctx -> vbn = 1;
-    ctx -> rest = ctx -> size;
-    return 0;
+    ctx->vbn = 1;               /* Next VBN to read = 1. */
+    ctx->rest = ctx->size;      /* Bytes left to read = size. */
+    ctx->status = SS$_NORMAL;   /* Clear SS$_ENDOFFILE from status. */
+    return 0;                   /* Claim success. */
 }
 
 /*--------------------------*

@@ -221,13 +221,10 @@ int caseflag;           /* true to force case-sensitive match */
     return m ? ZE_MISS : ZE_OK;
   }
 
-  /* Live name--use if file, recurse if directory */
-  if ((s.st_mode & S_IFDIR) == 0)
+  /* Live name.  Recurse if directory.  Use if file. */
+  if (S_ISDIR( s.st_mode))
   {
-    /* add or remove name of file */
-    if ((m = newname(n, 0, caseflag)) != ZE_OK)
-      return m;
-  } else {
+    /* Directory. */
     if (dirnames && (m = newname(n, 1, caseflag)) != ZE_OK) {
       return m;
     }
@@ -243,7 +240,13 @@ int caseflag;           /* true to force case-sensitive match */
       }
       closedir(d);
     }
-  } /* (s.st_mode & S_IFDIR) == 0) */
+  } /* S_ISDIR( s.st_mode) */
+  else
+  {
+    /* Non-directory.  Add or remove name of file. */
+    if ((m = newname(n, 0, caseflag)) != ZE_OK)
+      return m;
+  } /* S_ISDIR( s.st_mode) [else] */
   return ZE_OK;
 }
 
@@ -458,12 +461,12 @@ iztimes *t;             /* return value: access, modific. and creation times */
 
   if (a != NULL) {
     *a = ((ulg)s.st_mode << 16) | !(s.st_mode & S_IWRITE);
-    if ((s.st_mode & S_IFDIR) != 0) {
+    if (S_ISDIR( s.st_mode)) {
       *a |= MSDOS_DIR_ATTR;
     }
   }
   if (n != NULL)
-    *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1L;
+    S_ISREG( s.st_mode) ? s.st_size : -1L);
   if (t != NULL) {
     t->atime = s.st_atime;
     t->mtime = s.st_mtime;

@@ -868,13 +868,10 @@ int procname( char *n, int caseflag)
     return m ? ZE_MISS : ZE_OK;
   }
 
-  /* Live name--use if file, recurse if directory */
-  if ((s.st_mode & S_IFDIR) == 0)
+  /* Live name.  Recurse if directory.  Use if file. */
+  if (S_ISDIR( s.st_mode))
   {
-    /* add or remove name of file */
-    if ((m = newname(n, 0, caseflag)) != ZE_OK)
-      return m;
-  } else {
+    /* Directory. */
     if (dirnames && (m = newname(n, 1, caseflag)) != ZE_OK) {
       return m;
     }
@@ -890,7 +887,13 @@ int procname( char *n, int caseflag)
       }
       free(d);
     }
-  } /* (s.st_mode & S_IFDIR) == 0) */
+  }
+  else /* S_ISDIR( s.st_mode) */
+  {
+    /* Non-directory.  Add or remove name of file. */
+    if ((m = newname(n, 0, caseflag)) != ZE_OK)
+      return m;
+  } /* S_ISDIR( s.st_mode) [else] */
   return ZE_OK;
 }
 
@@ -1538,12 +1541,12 @@ ulg filetime( char *f, ulg *a, zoff_t *n, iztimes *t)
 
   if (a != NULL) {
     *a = ((ulg)s.st_mode << 16) | !(s.st_mode & S_IWRITE);
-    if ((s.st_mode & S_IFDIR) != 0) {
+    if (S_ISDIR( s.st_mode)) {
       *a |= MSDOS_DIR_ATTR;
     }
   }
   if (n != NULL)
-    *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1;
+    *n = (S_ISREG( s.st_mode) ? s.st_size : -1);
   if (t != NULL) {
     t->atime = s.st_mtime;
 #ifdef USE_MTIME

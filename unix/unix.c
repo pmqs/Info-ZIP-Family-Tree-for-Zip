@@ -208,18 +208,10 @@ int caseflag;           /* true to force case-sensitive match */
     return m ? ZE_MISS : ZE_OK;
   }
 
-  /* Live name--use if file, recurse if directory */
-#ifdef ZOS_UNIX
-  if (S_ISREG(s.st_mode) || S_ISLNK(s.st_mode))
-#else
-#  ifdef S_IFLNK
-  if ((s.st_mode & S_IFREG) == S_IFREG || (s.st_mode & S_IFLNK) == S_IFLNK)
-#  else
-  if ((s.st_mode & S_IFREG) == S_IFREG)
-#  endif
-#endif
+  /* Live name.  Recurse if directory.  Use if file or symlink (or fifo?). */
+  if (S_ISREG( s.st_mode) || S_ISLNK( s.st_mode))
   {
-    /* add or remove name of file */
+    /* Regular file or symlink.  Add or remove name of file. */
     if ((m = newname(n, 0, caseflag)) != ZE_OK)
       return m;
 
@@ -239,14 +231,10 @@ int caseflag;           /* true to force case-sensitive match */
     }
 #endif /* def __APPLE__ */
 
-  }
-#ifdef ZOS_UNIX
-  else if (S_ISDIR(s.st_mode))
-#else
-  else if ((s.st_mode & S_IFDIR) == S_IFDIR)
-#endif
+  } /* S_ISREG( s.st_mode) || S_ISLNK( s.st_mode) */
+  else if (S_ISDIR( s.st_mode))
   {
-    /* Add trailing / to the directory name */
+    /* Directory.  Add trailing / to the directory name. */
     if ((p = malloc(strlen(n)+2)) == NULL)
       return ZE_MEM;
     if (strcmp(n, ".") == 0) {
@@ -287,12 +275,8 @@ int caseflag;           /* true to force case-sensitive match */
       closedir(d);
     }
     free((zvoid *)p);
-  } /* (s.st_mode & S_IFDIR) */
-#ifdef ZOS_UNIX
-  else if (S_ISFIFO(s.st_mode))
-#else
-  else if ((s.st_mode & S_IFIFO) == S_IFIFO)
-#endif
+  } /* S_ISDIR( s.st_mode) [else if] */
+  else if (S_ISFIFO( s.st_mode))
   {
     if (allow_fifo) {
       /* FIFO (Named Pipe) - handle as normal file */
@@ -305,9 +289,11 @@ int caseflag;           /* true to force case-sensitive match */
       zipwarn("ignoring FIFO (Named Pipe) - use -FI to read: ", n);
       return ZE_OK;
     }
-  } /* S_IFIFO */
+  } /* S_ISFIFO( s.st_mode) [else if] */
   else
+  {
     zipwarn("ignoring special file: ", n);
+  } /* S_IS<whatever>( s.st_mode) [else] */
   return ZE_OK;
 }
 
@@ -504,12 +490,12 @@ ulg filetime(f, a, n, t)
     *a = ((ulg)legacy_modes << 16) | !(s.st_mode & S_IWRITE);
     }
 #endif
-    if ((s.st_mode & S_IFMT) == S_IFDIR) {
+    if (S_ISDIR( s.st_mode)) {
       *a |= MSDOS_DIR_ATTR;
     }
   }
   if (n != NULL)
-    *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1L;
+    *n = (S_ISREG( s.st_mode) ? s.st_size : -1L);
   if (t != NULL) {
     t->atime = s.st_atime;
     t->mtime = s.st_mtime;
@@ -1307,8 +1293,6 @@ void version_local()
 
 #  include <time.h>
 
-#  define EF_MIN( a, b) ((a) < (b) ? (a) : (b))
-
 int entropy_fun( unsigned char *buf, unsigned int len)
 {
     int fd;
@@ -1347,7 +1331,7 @@ int entropy_fun( unsigned char *buf, unsigned int len)
         tbuf = rand();
 
         /* Move the results into the user's buffer. */
-        len_ret = EF_MIN( 4, len);
+        len_ret = IZ_MIN( 4, len);
         memcpy( buf, &tbuf, len_ret);
     }
 

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 1999-Oct-05 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -109,15 +109,11 @@ int caseflag;           /* true to force case-sensitive match */
     return m ? ZE_MISS : ZE_OK;
   }
 
-  /* Live name--use if file, recurse if directory */
+  /* Live name.  Recurse if directory.  Use if file. */
   _toslash(n);
-  if ((s.st_mode & S_IFDIR) == 0)
+  if (S_ISDIR( s.st_mode))
   {
-    /* add or remove name of file */
-    if ((m = newname(n, 0, caseflag)) != ZE_OK)
-      return m;
-  } else {
-    /* Add trailing / to the directory name */
+    /* Directory.  Add trailing / to the directory name. */
     if ((p = malloc(strlen(n)+2)) == NULL)
       return ZE_MEM;
     if (strcmp(n, ".") == 0) {
@@ -158,7 +154,13 @@ int caseflag;           /* true to force case-sensitive match */
       closedir(d);
     }
     free((zvoid *)p);
-  } /* (s.st_mode & S_IFDIR) == 0) */
+  } /* S_ISDIR( s.st_mode) */
+  else
+  {
+    /* Non-directory.  Add or remove name of file. */
+    if ((m = newname(n, 0, caseflag)) != ZE_OK)
+      return m;
+  } /* S_ISDIR( s.st_mode) [else] */
   return ZE_OK;
 }
 

@@ -491,6 +491,72 @@ char *sufx_list;                /* list of filetypes separated by : or ; */
 #endif /* ?RISCOS */
 
 
+/* SMSd. */
+#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+/*
+ * zread_file(): Pre-read a (non-directory) file and calculate its CRC.
+ */
+int zread_file( z, l)
+struct zlist far *z;    /* Zip entry being processed. */
+int l;                  /* True if this file is a symbolic link. */
+{
+  char *b;              /* Malloc'ed file buffer. */
+  int sts = ZE_OK;      /* Return value. */
+
+#ifndef NO_SYMLINKS
+  zoff_t k = 0;         /* Result of zread(). */
+
+  if (l)
+  {
+    /* Symlink.  Use special read function. */
+    /* Allocate a read buffer.  (Might be smarter to do this less often.) */
+    if ((b = malloc(SBSZ)) == NULL)
+      return ZE_MEM;
+    k = rdsymlnk( z->name, b, SBSZ);
+    if (k < 0)
+      sts = ZE_OPEN;
+    else
+      crc = crc32( crc, (uch *) b, k);
+  }
+  else
+#endif /* ndef NO_SYMLINKS */
+  {
+    /* Normal file.  Read whole file.  (iz_file_read() calculates CRC.) */
+    /* Check input seekability.  Can't rewind if not.
+     * (zrewind() should also fail for a terminal.)
+     */
+    if (zrewind( ifile) < 0)
+      return ZE_READ;
+
+    /* Allocate a read buffer.  (Might be smarter to do this less often.) */
+    if ((b = malloc(SBSZ)) == NULL)
+      return ZE_MEM;
+    while ((k = iz_file_read( b, SBSZ)) > 0 && k != (extent)EOF);
+
+#if defined( UNIX) && defined( __APPLE__)
+    file_read_fake_len = 0;             /* Reset Mac-specific size. */
+#endif /* defined( UNIX) && defined( __APPLE__) */
+
+    /* Rewind file, if appropriate. */
+    if (ifile != fbad)                  /* Necessary test? */
+    {
+      if (zrewind( ifile) < 0)
+        sts = ZE_READ;
+    }
+  }
+
+  /* Free the buffer. */
+  free( (zvoid *)b);
+
+/* SMSd. */
+/*
+fprintf( stderr, " zread_file().  crc = %08x .\n", crc);
+*/
+
+  return sts;
+}
+#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
+
 
 /* Note: a zip "entry" includes a local header (which includes the file
    name), an encryption header if encrypting, the compressed data
@@ -640,6 +706,10 @@ struct zlist far *z;    /* zip entry to compress */
 
   if (tim == 0 || q == (zoff_t) -3)
     return ZE_OPEN;
+
+/* SMSd. */ /*
+fprintf( stderr, " isdir = %d, a = %08x , q = %lld.\n", isdir, a, q);
+*/
 
   /* q is set to -1 if the input file is a device, -2 for a volume label */
   if (q == (zoff_t) -2) {
@@ -1095,11 +1165,11 @@ struct zlist far *z;    /* zip entry to compress */
 
 #if defined( LZMA_SUPPORT) || defined( PPMD_SUPPORT)
   if ((mthd == LZMA) || (mthd == PPMD))
-      z->ver = (ush)(mthd == STORE ? 10 : 63);
+    z->ver = (ush)(mthd == STORE ? 10 : 63);
 #endif
 #ifdef BZIP2_SUPPORT
   if (mthd == BZIP2)
-      z->ver = (ush)(mthd == STORE ? 10 : 46);
+    z->ver = (ush)(mthd == STORE ? 10 : 46);
 #endif
 
   /* standard says directories need minimum version 20 */
@@ -1107,37 +1177,66 @@ struct zlist far *z;    /* zip entry to compress */
     z->ver = 20;
 
   z->crc = 0;  /* to be updated later */
-#ifdef IZ_CRYPT_NOEXT
-  if (use_descriptors)
-    z->flg |= 8;
-#else /* def IZ_CRYPT_NOEXT */
-  /* Assume first that we will need an extended local header: */
-  /* z->flg is now zeroed in zip.c */
-  if (isdir)
-    /* If dir then q = 0 and extended header not needed */
-    z->flg &= ~8;
-  else
-    z->flg |= 8;  /* to be updated later */
-#endif /* def IZ_CRYPT_NOEXT [else] */
+
+  /* Set extended header (data descriptor) and encryption flag bits for
+   * non-directory entries.  (Directories are not encrypted, and need no
+   * extended headers.  zip.c does "z->flg = 0".)
+   */
+  if (!isdir)
+  {
+    /* Use extended header (data descriptor)? */
+    /* Check output seekability here? */
+
+/* Define (zip,h?) and use macros instead of numbers for flag bits?
+ * #define FLG_ENCRYPT       0x0001
+ * #define FLG_EXT_HEADER    0x0008
+ * [...]
+ * Or GPF_ (for General-Purpose Flags)?
+ */
+    if (use_descriptors)
+    {
+      z->flg |= 8;              /* Explicit request for extended header. */
+    }
+#ifdef IZ_CRYPT_TRAD
+    else
+    {
+      if (z->encrypt_method == TRADITIONAL_ENCRYPTION)
+      {
+        int have_crc = 0;
+# ifdef ETWODD_SUPPORT
+        if (etwodd)             /* Encrypt Trad without extended header. */
+        {
+          /* Pre-read the file to get the real CRC. */
+          crc = CRCVAL_INITIAL;         /* Set the initial CRC value. */
+          r = zread_file( z, l);        /* Read the file. */
+          /* Need some error handling here. */
+          z->crc = crc;                 /* Save the real CRC. */
+          have_crc = 1;
+        }
+# endif /* def ETWODD_SUPPORT */
+
+        if (have_crc == 0)      /* We want/need to use an extended header. */
+        {
+          z->flg |= 8;          /* Encrypt Trad with extended header. */
+          /* Traditional encryption with an extended header implies that
+           * we use (the low 16 bits of) the MS-DOS modification time
+           * instead of the real (unknown) CRC as the "CRC" for the
+           * pseudo-random seed datum.  (The high 16 bits of the "CRC"
+           * are used in the Traditional encryption header.)
+           */
+          z->crc = z->tim << 16;
+        }
+      } /* z->encrypt_method == TRADITIONAL_ENCRYPTION */
+    } /* use_descriptors [else] */
+#endif /* def IZ_CRYPT_TRAD */
 
 #ifdef IZ_CRYPT_ANY
-  if (!isdir && key != NULL) {
-    z->flg |= 1;
-#ifndef IZ_CRYPT_NOEXT
-    /* Because we do not yet know the crc here, we use instead the
-     * MS-DOS modification time as pseudo-random seed data.  crypthead()
-     * uses only the high 16 bits, so we put the data there.
-     */
-    z->crc = z->tim << 16;
-    /* More than pretend.  File is encrypted using crypt header with that. */
-    /* 2013-02-06 SMS.
-     * crypthead() uses these two bytes as pseudo-random seed data.
-     * No one uses this stuff as a real CRC. so there's no good reason
-     * to save it in z->crc.
-     */
-#endif /* ndef IZ_CRYPT_NOEXT */
-  }
+    /* Encrypt (any method)? */
+    if (key != NULL) {
+      z->flg |= 1;              /* Set the encrypt flag bit. */
+    }
 #endif /* def IZ_CRYPT_ANY */
+  } /* !isdir */
 
   z->lflg = z->flg;
   z->how = (ush)mthd;                           /* may be changed later  */
@@ -1157,72 +1256,75 @@ struct zlist far *z;    /* zip entry to compress */
 #ifdef IZ_CRYPT_AES_WG
   /* Initialize AES encryption
    *
-   * Data size: this value is currently 7, but vendors should not assume that it will always remain 7.
-   * Vendor ID: the vendor ID field should always be set to the two ASCII characters "AE".
-   * Vendor version: the vendor version for AE-1 is 0x0001. The vendor version for AE-2 is 0x0002.
-   *       (The handling of the CRC value is the only difference between the AE-1 and AE-2 formats.)
-   * Encryption strength: the mode values (encryption strength) for AE-1 and AE-2 are:
+   * Data size: this value is currently 7, but vendors should not assume
+   * that it will always remain 7.
+   * Vendor ID: the vendor ID field should always be set to the two
+   * ASCII characters "AE".
+   * Vendor version: the vendor version for AE-1 is 0x0001. The vendor
+   * version for AE-2 is 0x0002.  (The handling of the CRC value is the
+   * only difference between the AE-1 and AE-2 formats.)
+   * Encryption strength: the mode values (encryption strength) for AE-1
+   * and AE-2 are:
    *     Value  Strength
    *     0x01   128-bit encryption key
    *     0x02   192-bit encryption key
    *     0x03   256-bit encryption key
-   * Compression method: the compression method is the one that would otherwise have been stored.
+   * Compression method: the compression method is the one that would
+   * otherwise have been stored.
    */
-
+  if (encryption_method >= AES_MIN_ENCRYPTION)
   {
-    if (encryption_method > 1)
+    if (q <= 0)
     {
-      if (q <= 0) {
-        /* don't encrypt empty files */
-        z->encrypt_method = NO_ENCRYPTION;
+      /* don't encrypt empty files */
+      z->encrypt_method = NO_ENCRYPTION;
+    }
+    else
+    {
+      int ret;
+
+      zpwd = (unsigned char *)key;
+      zpwd_len = strlen(key);
+
+      /* these values probably need tweeking */
+
+      /* check if password length supports requested encryption strength */
+      if (encryption_method == AES_192_ENCRYPTION && zpwd_len < 20) {
+        ZIPERR(ZE_CRYPT, "AES192 requires minimum 20 character password");
+      } else if (encryption_method == AES_256_ENCRYPTION && zpwd_len < 24) {
+        ZIPERR(ZE_CRYPT, "AES256 requires minimum 24 character password");
       }
-      else
-      {
-        int ret;
+      if (encryption_method == AES_128_ENCRYPTION) {
+        aes_strength = 0x01;
+        key_size = 128;
+      } else if (encryption_method == AES_192_ENCRYPTION) {
+        aes_strength = 0x02;
+        key_size = 192;
+      } else if (encryption_method == AES_256_ENCRYPTION) {
+        aes_strength = 0x03;
+        key_size = 256;
+      } else {
+        ZIPERR(ZE_CRYPT, "Bad encryption method");
+      }
 
-        zpwd = (unsigned char *)key;
-        zpwd_len = strlen(key);
+      salt_len = SALT_LENGTH(aes_strength);
+      auth_len = MAC_LENGTH(aes_strength);
 
-        /* these values probably need tweeking */
+      /* get the salt */
+      prng_rand(zsalt, salt_len, &aes_rnp);
 
-        /* check if password length supports requested encryption strength */
-        if (encryption_method == AES_192_ENCRYPTION && zpwd_len < 20) {
-            ZIPERR(ZE_CRYPT, "AES192 requires minimum 20 character password");
-        } else if (encryption_method == AES_256_ENCRYPTION && zpwd_len < 24) {
-            ZIPERR(ZE_CRYPT, "AES256 requires minimum 24 character password");
-        }
-        if (encryption_method == AES_128_ENCRYPTION) {
-            aes_strength = 0x01;
-            key_size = 128;
-        } else if (encryption_method == AES_192_ENCRYPTION) {
-            aes_strength = 0x02;
-            key_size = 192;
-        } else if (encryption_method == AES_256_ENCRYPTION) {
-            aes_strength = 0x03;
-            key_size = 256;
-        } else {
-            ZIPERR(ZE_CRYPT, "Bad encryption method");
-        }
-
-        salt_len = SALT_LENGTH(aes_strength);
-        auth_len = MAC_LENGTH(aes_strength);
-
-        /* get the salt */
-        prng_rand(zsalt, salt_len, &aes_rnp);
-
-        /* initialize encryption context for this file */
-        ret = fcrypt_init(
-          aes_strength,           /* extra data value indicating key size */
-          zpwd,                   /* the password */
-          zpwd_len,               /* number of bytes in password */
-          zsalt,                  /* the salt */
-          zpwd_verifier,          /* on return contains password verifier */
-          &zctx);                 /* encryption context */
-        if (ret == PASSWORD_TOO_LONG) {
-            ZIPERR(ZE_CRYPT, "Password too long");
-        } else if (ret == BAD_MODE) {
-            ZIPERR(ZE_CRYPT, "Bad mode");
-        }
+      /* initialize encryption context for this file */
+      ret = fcrypt_init(
+       aes_strength,            /* extra data value indicating key size */
+       zpwd,                    /* the password */
+       zpwd_len,                /* number of bytes in password */
+       zsalt,                   /* the salt */
+       zpwd_verifier,           /* on return contains password verifier */
+       &zctx);                  /* encryption context */
+      if (ret == PASSWORD_TOO_LONG) {
+        ZIPERR(ZE_CRYPT, "Password too long");
+      } else if (ret == BAD_MODE) {
+        ZIPERR(ZE_CRYPT, "Bad mode");
       }
     }
   }
@@ -1232,80 +1334,83 @@ struct zlist far *z;    /* zip entry to compress */
 #ifdef IZ_CRYPT_AES_WG_NEW
   /* Initialize AES encryption
    *
-   * Data size: this value is currently 7, but vendors should not assume that it will always remain 7.
-   * Vendor ID: the vendor ID field should always be set to the two ASCII characters "AE".
-   * Vendor version: the vendor version for AE-1 is 0x0001. The vendor version for AE-2 is 0x0002.
-   *       (The handling of the CRC value is the only difference between the AE-1 and AE-2 formats.)
-   * Encryption strength: the mode values (encryption strength) for AE-1 and AE-2 are:
+   * Data size: this value is currently 7, but vendors should not assume
+   * that it will always remain 7.
+   * Vendor ID: the vendor ID field should always be set to the two
+   * ASCII characters "AE".
+   * Vendor version: the vendor version for AE-1 is 0x0001. The vendor
+   * version for AE-2 is 0x0002.  (The handling of the CRC value is the
+   * only difference between the AE-1 and AE-2 formats.)
+   * Encryption strength: the mode values (encryption strength) for AE-1
+   * and AE-2 are:
    *     Value  Strength
    *     0x01   128-bit encryption key
    *     0x02   192-bit encryption key
    *     0x03   256-bit encryption key
-   * Compression method: the compression method is the one that would otherwise have been stored.
+   * Compression method: the compression method is the one that would
+   * otherwise have been stored.
    */
-
+  if (encryption_method >= AES_MIN_ENCRYPTION)
   {
-    if (encryption_method > 1)
+    if (q <= 0)
     {
-      if (q <= 0) {
-        /* don't encrypt empty files */
-        z->encrypt_method = NO_ENCRYPTION;
+      /* don't encrypt empty files */
+      z->encrypt_method = NO_ENCRYPTION;
+    }
+    else
+    {
+      int ret;
+
+      zpwd = (unsigned char *)key;
+      zpwd_len = strlen(key);
+
+      /* these values probably need tweeking */
+
+      /* check if password length supports requested encryption strength */
+      if (encryption_method == AES_192_ENCRYPTION && zpwd_len < 20) {
+        ZIPERR(ZE_CRYPT, "AES192 requires minimum 20 character password");
+      } else if (encryption_method == AES_256_ENCRYPTION && zpwd_len < 24) {
+        ZIPERR(ZE_CRYPT, "AES256 requires minimum 24 character password");
       }
-      else
-      {
-        int ret;
+      if (encryption_method == AES_128_ENCRYPTION) {
+        aes_strength = 0x01;
+        key_size = 128;
+      } else if (encryption_method == AES_192_ENCRYPTION) {
+        aes_strength = 0x02;
+        key_size = 192;
+      } else if (encryption_method == AES_256_ENCRYPTION) {
+        aes_strength = 0x03;
+        key_size = 256;
+      } else {
+        ZIPERR(ZE_CRYPT, "Bad encryption method");
+      }
 
-        zpwd = (unsigned char *)key;
-        zpwd_len = strlen(key);
+      salt_len = SALT_LENGTH(aes_strength);
+      auth_len = MAC_LENGTH(aes_strength);
 
-        /* these values probably need tweeking */
+      ccm_init_message(                 /* initialise for a new message */
+       const unsigned char iv[],        /* the initialisation vector    */
+       unsigned long iv_len,            /* the nonce length             */
+       length_t hdr_len,                /* the associated data length   */
+       length_t msg_len,                /* message data length          */
+       unsigned long tag_len,           /* authentication field length  */
+       ccm_ctx ctx[1]);                 /* the mode context             */
 
-        /* check if password length supports requested encryption strength */
-        if (encryption_method == AES_192_ENCRYPTION && zpwd_len < 20) {
-            ZIPERR(ZE_CRYPT, "AES192 requires minimum 20 character password");
-        } else if (encryption_method == AES_256_ENCRYPTION && zpwd_len < 24) {
-            ZIPERR(ZE_CRYPT, "AES256 requires minimum 24 character password");
-        }
-        if (encryption_method == AES_128_ENCRYPTION) {
-            aes_strength = 0x01;
-            key_size = 128;
-        } else if (encryption_method == AES_192_ENCRYPTION) {
-            aes_strength = 0x02;
-            key_size = 192;
-        } else if (encryption_method == AES_256_ENCRYPTION) {
-            aes_strength = 0x03;
-            key_size = 256;
-        } else {
-            ZIPERR(ZE_CRYPT, "Bad encryption method");
-        }
+      /* get the salt */
+      prng_rand(zsalt, salt_len, &aes_rnp);
 
-        salt_len = SALT_LENGTH(aes_strength);
-        auth_len = MAC_LENGTH(aes_strength);
-
-        ccm_init_message(                  /* initialise for a new message */
-            const unsigned char iv[],       /* the initialisation vector    */
-            unsigned long iv_len,           /* the nonce length             */
-            length_t hdr_len,               /* the associated data length   */
-            length_t msg_len,               /* message data length          */
-            unsigned long tag_len,          /* authentication field length  */
-            ccm_ctx ctx[1]);                /* the mode context             */
-
-        /* get the salt */
-        prng_rand(zsalt, salt_len, &aes_rnp);
-
-        /* initialize encryption context for this file */
-        ret = fcrypt_init(
-          aes_strength,           /* extra data value indicating key size */
-          zpwd,                   /* the password */
-          zpwd_len,               /* number of bytes in password */
-          zsalt,                  /* the salt */
-          zpwd_verifier,          /* on return contains password verifier */
-          &zctx);                 /* encryption context */
-        if (ret == PASSWORD_TOO_LONG) {
-            ZIPERR(ZE_CRYPT, "Password too long");
-        } else if (ret == BAD_MODE) {
-            ZIPERR(ZE_CRYPT, "Bad mode");
-        }
+      /* initialize encryption context for this file */
+      ret = fcrypt_init(
+       aes_strength,            /* extra data value indicating key size */
+       zpwd,                    /* the password */
+       zpwd_len,                /* number of bytes in password */
+       zsalt,                   /* the salt */
+       zpwd_verifier,           /* on return contains password verifier */
+       &zctx);                  /* encryption context */
+      if (ret == PASSWORD_TOO_LONG) {
+        ZIPERR(ZE_CRYPT, "Password too long");
+      } else if (ret == BAD_MODE) {
+        ZIPERR(ZE_CRYPT, "Bad mode");
       }
     }
   }
@@ -1339,15 +1444,7 @@ struct zlist far *z;    /* zip entry to compress */
     } else {
 # endif
 # ifdef IZ_CRYPT_TRAD
-#  ifndef IZ_CRYPT_NOEXT
-      /* Use MS-DOS modification time as pseudo-random seed data.
-       * (crypthead() calls it "crc", but we don't have the real CRC,
-       * so we use this substitute.  crypthead() uses only the high 16
-       * bits, so we put the data there.  Note that there's no good
-       * reason to have saved it in z->crc.
-       */
-      crypthead(key, z->crc);
-#  endif /* ndef IZ_CRYPT_NOEXT */
+      crypthead(key, z->crc);   /* Trad encrypt hdr with real or fake CRC. */
       z->siz += RAND_HEAD_LEN;  /* to be updated later */
       tempzn += RAND_HEAD_LEN;
 # else /* def IZ_CRYPT_TRAD */
@@ -1449,8 +1546,9 @@ struct zlist far *z;    /* zip entry to compress */
       }
       isize = k;
 
-#ifdef MINIX
+/* SMSd. */
       q = k;
+#ifdef MINIX
 #endif /* MINIX */
     }
     else
@@ -1512,6 +1610,26 @@ struct zlist far *z;    /* zip entry to compress */
 #endif /* !VMS && !CMS_MVS && !__mpexl */
 #endif /* (!MSDOS || OS2) */
 
+/* SMSd. */ /*
+fprintf( stderr, " Done.          crc = %08x .\n", crc);
+*/
+
+  /* Check real CRC against pre-read CRC. */
+#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+  if (etwodd)                   /* Encrypt Trad without extended header. */
+  {
+    if (!isdir && (z->crc != crc))
+    {
+      /* CRC mismatch on a non-directory file.  Complain. */
+      fprintf( mesg, " pre-read: %08x, read: %08x ", z->crc, crc);
+      error( "CRC mismatch");
+      /* Revert to using an extended header (data descriptor). */
+      z->flg |= 8;
+      z->lflg |= 8;
+    }
+  }
+#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
+
   if (isdir)
   {
     /* A directory */
@@ -1519,9 +1637,13 @@ struct zlist far *z;    /* zip entry to compress */
     z->len = 0;
     z->how = STORE;
     z->ver = 20;  /* AppNote requires version 2.0 for a directory */
+/* SMSd. */
+#if 0
+/* Following no longer needed? */
     /* never encrypt directory so don't need extended local header */
     z->flg &= ~8;
     z->lflg &= ~8;
+#endif /* 0 */
   }
   else
   {
@@ -1529,7 +1651,7 @@ struct zlist far *z;    /* zip entry to compress */
     z->crc = crc;
     z->siz = s;
 #ifdef IZ_CRYPT_ANY
-    if (!isdir && (key != NULL) && (z->encrypt_method != NO_ENCRYPTION)) {
+    if ((key != NULL) && (z->encrypt_method != NO_ENCRYPTION)) {
 # ifdef IZ_CRYPT_AES_WG
       if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
         z->siz += salt_len + 2 + auth_len;
@@ -1559,11 +1681,11 @@ struct zlist far *z;    /* zip entry to compress */
 
     /* if can seek back to local header */
 #ifdef BROKEN_FSEEK
-    if (use_descriptors || !fseekable(y) || zfseeko(y, z->off, SEEK_SET))
+    if ((z->flg & 8) || !fseekable(y) || zfseeko(y, z->off, SEEK_SET))
 #else
-    if (use_descriptors || zfseeko(y, z->off, SEEK_SET))
+    if ((z->flg & 8) || zfseeko(y, z->off, SEEK_SET))
 #endif
-    {
+    { /* Planning extended header (data descr), or unable to seek() back. */
       if (z->how != (ush) mthd)
          error("can't rewrite method");
       if (mthd == STORE && q < 0)
@@ -1577,7 +1699,9 @@ struct zlist far *z;    /* zip entry to compress */
       tempzn += 16L;
 #endif
       z->flg = z->lflg; /* if z->flg modified by deflate */
-    } else {
+    }
+    else
+    { /* Not using an extended header (data descriptor). */
       uzoff_t expected_size = (uzoff_t)s;
 #ifdef IZ_CRYPT_ANY
       if (key && (z->encrypt_method != NO_ENCRYPTION)) {
@@ -1626,6 +1750,7 @@ struct zlist far *z;    /* zip entry to compress */
         z->ver = 46; break;
 #endif
       }
+#if 0
 #ifndef IZ_CRYPT_NOEXT
       /*
        * The encryption header needs the crc, but we don't have it
@@ -1658,13 +1783,14 @@ struct zlist far *z;    /* zip entry to compress */
         z->flg &= ~8;
       }
 #endif /* def IZ_CRYPT_AES_WG */
+#endif /* 0 */
 
       /* deflate may have set compression level bit markers in z->flg,
          and we can't think of any reason central and local flags should
          be different. */
       z->lflg = z->flg;
 
-      /* If not using descriptors, back up and rewrite local header. */
+      /* Not using descriptors, so back up and rewrite local header. */
       if (split_method == 1 && current_local_file != y) {
         if (zfseeko(current_local_file, z->off, SEEK_SET))
           return ZE_READ;
@@ -1677,28 +1803,38 @@ struct zlist far *z;    /* zip entry to compress */
       if (zfseeko(y, bytes_this_split, SEEK_SET))
         return ZE_READ;
 
-#ifndef IZ_CRYPT_NOEXT
-      if ((z->flg & 1) != 0) {
-# ifdef IZ_CRYPT_AES_WG
-        if (z->encrypt_method == TRADITIONAL_ENCRYPTION)
-# endif /* def IZ_CRYPT_AES_WG */
+#if 0
+#ifdef IZ_CRYPT_TRAD
+      if (z->encrypt_method == TRADITIONAL_ENCRYPTION)
+      {
+/* #ifndef IZ_CRYPT_NOEXT */
+        if (!etwodd)
         {
-          /* Traditionally encrypted, so extended header still required. */
-          if ((r = putextended(z)) != ZE_OK)
-            return r;
-        }
+          if ((z->flg & 1) != 0)
+          {
+# ifdef IZ_CRYPT_AES_WG
+            if (z->encrypt_method == TRADITIONAL_ENCRYPTION)
+# endif /* def IZ_CRYPT_AES_WG */
+            {
+              /* Traditionally encrypted, so extended header still required. */
+              if ((r = putextended(z)) != ZE_OK)
+                return r;
+            }
+          }
 # ifdef ZIP64_SUPPORT
-        if (zip64_entry)
-          tempzn += 24L;
-        else
-          tempzn += 16L;
+          if (zip64_entry)
+            tempzn += 24L;
+          else
+            tempzn += 16L;
 # else
-        tempzn += 16L;
+          tempzn += 16L;
 # endif
+        }
       }
-#endif /* ndef IZ_CRYPT_NOEXT */
-    }
-  } /* isdir */
+#endif /* def IZ_CRYPT_TRAD */
+#endif  /* 0 */
+    } /* Put out extended header. [else] */
+  } /* isdir [else] */
   /* Free the local extra field which is no longer needed */
   if (z->ext) {
     if (z->extra != z->cextra) {

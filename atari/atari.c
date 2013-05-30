@@ -249,7 +249,7 @@ static int ftwfunc( struct stat *stats, int ftw_status )
 #if 0
          char fn[FILENAME_MAX];
          int  k;
-         if (S_ISLNK(stats->st_mode) &&
+         if (S_ISLNK( stats->st_mode) &&
              (k = readlink(path, fn, FILENAME_MAX)) > 0) {
             int l = strlen(path);
             fn[k] = '\0';
@@ -284,7 +284,7 @@ static int myftw( int depth )
    if (LSSTAT(fullpath, &stats) < 0)
       return ftwfunc(&stats, FTW_NS);
 
-   if (!S_ISDIR(stats.st_mode))
+   if (!S_ISDIR( stats.st_mode))
       return ftwfunc(&stats, FTW_F);
 
    if ((dirp = opendir(fullpath)) == NULL)
@@ -386,17 +386,14 @@ int caseflag;           /* true to force case-sensitive match */
     return m ? ZE_MISS : ZE_OK;
   }
 
-  /* Live name--use if file, recurse if directory */
+  /* Live name.  Recurse if directory.  Use if file. */
   for (p = n; *p; p++)          /* use / consistently */
     if (*p == '\\')
       *p = '/';
-  if (!S_ISDIR(s.st_mode))
+
+  if (S_ISDIR( s.st_mode))
   {
-    /* add or remove name of file */
-    if ((m = newname(n, 0, caseflag)) != ZE_OK)
-      return m;
-  } else {
-    /* Add trailing / to the directory name */
+    /* Directory.  Add trailing / to the directory name */
     if ((p = malloc(strlen(n)+2)) == NULL)
       return ZE_MEM;
     if (strcmp(n, ".") == 0) {
@@ -437,7 +434,13 @@ int caseflag;           /* true to force case-sensitive match */
       closedir(d);
     }
     free((zvoid *)p);
-  } /* (s.st_mode & S_IFDIR) == 0) */
+  } /* S_ISDIR( s.st_mode) */
+  else
+  {
+    /* Non-directory.  Add or remove name of file. */
+    if ((m = newname(n, 0, caseflag)) != ZE_OK)
+      return m;
+  } /* S_ISDIR( s.st_mode) [else] */
   return ZE_OK;
 }
 
@@ -570,7 +573,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
   }
   free(name);
   if (n != NULL)
-    *n = S_ISREG(s.st_mode) ? s.st_size : -1L;
+    *n = (S_ISREG( s.st_mode) ? s.st_size : -1L);
   if (t != NULL) {
     t->atime = s.st_atime;
     t->mtime = s.st_mtime;

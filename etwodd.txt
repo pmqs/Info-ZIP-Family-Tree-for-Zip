@@ -1,0 +1,7 @@
+
+globals.c, zip.c, zip.h, zipup.c
+unix/osdep.h,  unix/zipup.h
+vms/osdep.h, vms/zipup.h
+win32/osdep.h, win32/zipup.h
+
+

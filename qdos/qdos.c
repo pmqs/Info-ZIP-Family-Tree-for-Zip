@@ -1,7 +1,7 @@
 /*
   qdos/qdos.c
 
-  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -339,7 +339,7 @@ char * ql2Unix (char *qlname)
     {
         *s = 0;
         sts = stat(name, &st);
-        if(deflen && sts ==0 && (st.st_mode & S_IFDIR))
+        if (deflen && (sts == 0) && S_ISDIR( st.st_mode))
         {
             *(path+(s-name)) = '/';
         }
@@ -362,7 +362,7 @@ char * ql2Unix (char *qlname)
             else
                 sts = -1;
 
-            if(sts ==0 && (st.st_mode & S_IFDIR))
+            if ((sts == 0) && S_ISDIR( st.st_mode))
             {
                 *(path+(r-name)) = '/';
                 ldp = r + 1;
@@ -392,7 +392,7 @@ char *LastDir(char *ws)
             p++;
             c = *p;
             *p = 0;
-            if(stat(ws, &s) == 0 && S_ISDIR(s.st_mode))
+            if ((stat(ws, &s) == 0) && S_ISDIR( s.st_mode))
             {
                 q = p;
             }
@@ -494,7 +494,7 @@ int qlwild (char *dnam, short dorecurse, short l)
                 struct stat s;
                 if (stat(dp, &s) == 0)
                 {
-                    if (!(s.st_mode & S_IFDIR))
+                    if (!S_ISDIR( s.st_mode))
                     {
                         return procname(dp, 0);
                     }

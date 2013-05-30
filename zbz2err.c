@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -32,6 +32,12 @@
 #include "zip.h"
 
 #ifdef BZIP2_SUPPORT
+
+/* Ask the MS VS linker to search for the bzip2 library. */
+# ifdef WIN32
+#  pragma comment( lib, "libbz2")
+# endif
+
   /* It is useless to include the normal bzlib.h header from the bzip2 library,
      because it does not provide a prototype for the bz_internal_error()
      callback.
@@ -42,16 +48,16 @@
      read before defining the function.
    */
 # ifdef VMS
-#   ifdef BZIP2_USEBZIP2DIR
-#     include "bzip2/bzlib.h"
-#   else
+#  ifdef BZIP2_USEBZIP2DIR
+#   include "bzip2/bzlib.h"
+#  else
       /* If IZ_BZIP2 is defined as the location of the bzip2 files then
          assume the location has been added to include path.  For Unix
          this is done by the configure script. */
       /* Also do not need path for bzip2 include if OS includes support
          for bzip2 library. */
-#     include "bzlib.h"
-#   endif
+#   include "bzlib.h"
+#  endif
 # endif
 
 /* Provide a prototype locally, to shut up potential compiler warnings. */
