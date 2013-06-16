@@ -5256,3 +5256,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     wrap/aescrypt.c, wrap/aeskey.c, wrap/aestab.c, wrap/fileenc.c,
     wrap/hmac.c, wrap/LzFind.c, wrap/LzmaDec.c, wrap/Ppmd8.c,
     wrap/Ppmd8Dec.c, wrap/prng.c, wrap/pwd2key.c, wrap/sha1.c (SMS)
+51. Changed VMS exit status code to SS$_NORMAL for success instead of a
+    facility-specific code (%x17A38001).  This agrees with most VMS
+    utilities, and with Zip versions before 3.0.  Define C macro
+    OK_USE_FAC to use the facility code in all cases.  vms/vms.c (SMS)

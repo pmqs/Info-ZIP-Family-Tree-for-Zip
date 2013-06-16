@@ -504,7 +504,7 @@ int l;                  /* True if this file is a symbolic link. */
   int sts = ZE_OK;      /* Return value. */
 
 #ifndef NO_SYMLINKS
-  zoff_t k = 0;         /* Result of zread(). */
+  int k = 0;            /* Result of zread().  (ssize_t?) */
 
   if (l)
   {

@@ -271,8 +271,8 @@ int vms_stat( char *file, stat_t *s)
  *  Severity codes are 0 = Warning, 1 = Success, 2 = Error, 3 = Info,
  *  4 = Severe (fatal).
  *
- *  Previous versions of Info-ZIP programs used a generic ("chosen (by
- *  experimentation)") Control+Facility code of 0x7FFF, which included
+ *  Zip versions before 3.0 used a generic ("chosen by
+ *  experimentation)") Control+Facility code of 0x7FFF, which included 
  *  some reserved control bits, the inhibit-printing bit, and the
  *  customer-defined bit.
  *
@@ -285,7 +285,6 @@ int vms_stat( char *file, stat_t *s)
  *
  *  Now, unless the CTL_FAC_IZ_ZIP macro is defined at build-time, we
  *  will use the official Facility code.
- *
  */
 
 /* Official HP-assigned Info-ZIP Zip Facility code. */
@@ -312,39 +311,42 @@ int vms_status( int err)
 {
     int sts;
 
-#ifndef OLD_STATUS
+    /* 2013-06-13 SMS.
+     * Normal behavior is to return SS$_NORMAL for success (ZE_OK), or a
+     * status value with an official Facility code for any other result.
+     * Define OK_USE_FAC to return a success code with a Facility code
+     * (instead of SS$_NORMAL).
+     *
+     * Raw status codes are effectively multiplied by two ("<< 4"
+     * instead of "<< 3"), which makes them easier to read in a
+     * hexadecimal representation of the VMS status value.  For example,
+     * PK_PARAM = 10 (0x0a) -> %x17A280A2.
+     *                                ^^
+     *
+     * Zip versions before 3.0 (before an official Facility code was
+     * assigned) used 0x7FFF instead of the official Facility code.
+     * Define CTL_FAC_IZ_UZP as 0x7FFF (and/or MSG_FAC_SPEC) to get the
+     * old behavior.  (See above.)
+     */
 
-    /* Return code comprising Control, Facility,
-     * (facility-specific) Message, and Severity.
+#ifdef OK_USE_FAC
+
+    /* Always return a status code comprising Control, Facility,
+     * Message, and Severity.
      */
     sts = (CTL_FAC_IZ_ZIP << 16) |              /* Facility                */
-          MSG_FAC_SPEC |                        /* Facility-specific       */
+          MSG_FAC_SPEC |                        /* Facility-specific (+?)  */
           (err << 4) |                          /* Message code            */
-          (ziperrors[ err].severity & 0x07);      /* Severity                */
+          (ziperrors[ err].severity & 0x07);    /* Severity                */
 
-#else /* ndef OLD_STATUS */
+#else /* def OK_USE_FAC */
 
-    /* 2007-01-17 SMS.
-     * Defining OLD_STATUS provides the same behavior as in Zip versions
-     * before an official VMS Facility code had been assigned, which
-     * means that Success (ZE_OK) gives a status value of 1 (SS$_NORMAL)
-     * with no Facility code, while any error or warning gives a status
-     * value which includes a Facility code.  (Curiously, under the old
-     * scheme, message codes were left-shifted by 4 instead of 3,
-     * resulting in all-even message codes.)  I don't like this, but I
-     * was afraid to remove it, as someone, somewhere may be depending
-     * on it.  Define CTL_FAC_IZ_ZIP as 0x7FFF to get the old behavior.
-     * Define only OLD_STATUS to get the old behavior for Success
-     * (ZE_OK), but using the official HP-assigned Facility code for an
-     * error or warning.  Define MSG_FAC_SPEC to get the desired
-     * behavior.
-     *
-     * Return simple SS$_NORMAL for ZE_OK.  Otherwise, return code
-     * comprising Control, Facility, Message, and Severity.
+    /* Return simple SS$_NORMAL for ZE_OK.  Otherwise, return a status
+     * code comprising Control, Facility, Message, and Severity.
      */
     sts = (err == ZE_OK) ? SS$_NORMAL :         /* Success (others below)  */
           ((CTL_FAC_IZ_ZIP << 16) |             /* Facility                */
-          MSG_FAC_SPEC |                        /* Facility-specific (?)   */
+          MSG_FAC_SPEC |                        /* Facility-specific (+?)  */
           (err << 4) |                          /* Message code            */
           (ziperrors[ err].severity & 0x07));   /* Severity                */
 
