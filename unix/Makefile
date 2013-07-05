@@ -1,6 +1,6 @@
 #==============================================================================
 # unix/Makefile
-# - For Zip, ZipCloak, ZipNote, and ZipSplit            Revised: 2012-09-04
+# - For Zip, ZipCloak, ZipNote, and ZipSplit            Revised: 2013-06-26
 #==============================================================================
 
 # INSTRUCTIONS (such as they are):
@@ -589,7 +589,7 @@ api.o:       api.c      $(H_ZIP) api.h crc32.h crypt.h revision.h
 	$(CC) -c $(CF) -DDLL_ZIPAPI -DUSE_ZIPMAIN -o $@ api.c
 
 zip_.o:      zip.c      $(H_ZIP) crc32.h crypt.h revision.h ttyio.h
-	$(CC) -c $(CF) -DUSE_ZIPMAIN -o $@ zip.c
+	$(CC) -c $(CF) -DDLL_ZIPAPI -DUSE_ZIPMAIN -o $@ zip.c
 
 # B) C files for specific ports
 #    - Files under msdos and os2 are used when cross compiling for those ports

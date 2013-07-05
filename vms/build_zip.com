@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2012-12-31  SMS.
+$!     Last revised:  2013-07-04  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -60,7 +60,7 @@ $!
 $!             $ LOCAL_ZIP == "VMS_IM_EXTRA"
 $!             $ @ [.VMS]BUILD_ZIP.COM
 $!
-$!     Valid VMS-specific options include VMS_PK_EXTRA and VMS_IM_EXTRA. 
+$!     Valid VMS-specific options include VMS_PK_EXTRA and VMS_IM_EXTRA.
 $!     See the INSTALL file for other options.  (VMS_PK_EXTRA is the
 $!     default.)
 $!
@@ -69,9 +69,9 @@ $!     use only one "=", to avoid affecting other procedures.  For
 $!     example:
 $!             $ LOCAL_ZIP = "VMS_IM_EXTRA"
 $!
-$!     Note that on a Unix system, LOCAL_UNZIP contains compiler
+$!     Note that on a Unix system, LOCAL_ZIP contains compiler
 $!     options, such as "-g" or "-DCRYPT_AES_WG_SFX", but on a VMS
-$!     system, LOCAL_UNZIP contains only C macros, such as
+$!     system, LOCAL_ZIP contains only C macros, such as
 $!     "CRYPT_AES_WG_SFX", and CCOPTS is used for any other kinds of
 $!     compiler options, such as "/ARCHITECTURE".  Unix compilers accept
 $!     multiple "-D" options, but VMS compilers consider only the last
@@ -82,11 +82,11 @@ $!     optional features, some adjustment may be needed to adapt them to
 $!     a VMS build environment.
 $!
 $!     This command procedure always generates both the "default" Zip
-$!     having the UNIX style command interface and the "VMSCLI" Zip
-$!     having the CLI compatible command interface.  There is no need to
-$!     add "VMSCLI" to the LOCAL_ZIP symbol.  (The only effect of
-$!     "VMSCLI" now is the selection of the CLI style Zip executable in
-$!     the foreign command definition.)
+$!     program with the UNIX style command interface and the "VMSCLI"
+$!     Zip program with the VMS CLI command interface.  There is no
+$!     need to add "VMSCLI" to the LOCAL_ZIP symbol.  (The only effect
+$!     of "VMSCLI" now is the selection of the VMS CLI style Zip
+$!     executable in the foreign command definition.)
 $!
 $!
 $!

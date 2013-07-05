@@ -1621,7 +1621,7 @@ fprintf( stderr, " Done.          crc = %08x .\n", crc);
     if (!isdir && (z->crc != crc))
     {
       /* CRC mismatch on a non-directory file.  Complain. */
-      fprintf( mesg, " pre-read: %08x, read: %08x ", z->crc, crc);
+      fprintf( mesg, " pre-read: %08lx, read: %08lx ", z->crc, crc);
       error( "CRC mismatch");
       /* Revert to using an extended header (data descriptor). */
       z->flg |= 8;

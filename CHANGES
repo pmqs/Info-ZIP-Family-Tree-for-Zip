@@ -5057,7 +5057,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     place than the backup path specified by -BP.  This is useful when the
     media used for the backup path may be swapped out when full.  Currently
     not implemented.  zip.c (EG)
--------------------- April 12th 2013 version 3.1d26 -----------------------
+-------------------- June 26th 2013 version 3.1d26 -----------------------
  1. Finish changing APL_DBL_SFX to APL_DBL_SUFX.  unix/macosx.h (SMS)
  2. Change Mac OS X system-specific code to use (C macro APL_DBL_SUFX)
     "/..namedfork/rsrc" as the suffix for resource fork access on Intel,
@@ -5098,7 +5098,9 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 12. Initial attempt to provide a callable-Zip interface on UNIX and VMS
     systems.  Specifying LIBZIP at build time creates libizzip.a or
     LIBIZZIP.OLB and LIBIZZIP.OPT, which may be linked with a
-    user-supplied program.
+    user-supplied program.  izzip_example.c, unix/configure,
+    unix/Makefile, vms/build_zip.com, vms/descrip.mms,
+    vms/descrip_mkdeps.mms, vms/descrip_src.mms (SMS)
 13. Initial attempt to support Windows MinGW environment with UNIX
     builders ("generic" target).  No DLL.  unix/configure, unix/Makefile,
     win32/osdep.h (SMS)
@@ -5242,14 +5244,12 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     "Release" v. "Release_ASM").  The "zip" project is used whether or
     not bzip2 compression support is desired.  There is now no separate
     "zipbz2" project for Zip with bzip2 support.  The "zip" project has
-    been marked as dependent on the "libbz2" project, which can't be
-    built without installing a bzip2 source kit (in the "bzip2/"
-    subdirectory), but, so long as the C macro BZIP2_SUPPORT is not
-    defined, the "unzip" build should succeed (with some error/warning
-    messages about the failing "libbz2" project), even if the bzip2
-    source kit is missing.  zbz2err.c, win32/vc10/zip.sln,
-    win32/vc10/zip/zip.vcxproj, win32/vc10/zip/zip.vcxproj.filters,
-    win32/vc10/zip/zipcloak.vcxproj,
+    been marked as dependent on the "libbz2" project.  If a bzip2 source
+    kit has not been installed in the "bzip2/" subdirectory, then the
+    "libbz2" project build will fail, but the "zip" project build should
+    still succeed, so long as the C macro BZIP2_SUPPORT is not defined.
+    zbz2err.c, win32/vc10/zip.sln, win32/vc10/zip/zip.vcxproj,
+    win32/vc10/zip/zip.vcxproj.filters, win32/vc10/zip/zipcloak.vcxproj,
     win32/vc10/zip/zipcloak.vcxproj.filters,
     win32/vc10/zip/zipnote.vcxproj,
     win32/vc10/zip/zipnote.vcxproj.filters,

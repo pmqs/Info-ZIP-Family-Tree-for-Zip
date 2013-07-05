@@ -4,7 +4,7 @@
    This document describes some VMS-specific behavior and implementation
 details of the Info-ZIP Zip and UnZip programs.
 
-   Last modified: 2013-06-07.
+   Last modified: 2013-07-03.
 
 
    Command-line Case
@@ -340,8 +340,9 @@ alp$ export GNV_DISABLE_DCL_FALLBACK=1
 alp$ unzipx -t fred.zip
 BASH.EXE: unzipx: command not found
 
-   The raw status codes are listed in "unzip.h" (UnZip) and "ziperr.h"
-(Zip). 
+   The raw status codes are defined in "unzip.h" (UnZip) and "ziperr.h"
+(Zip), and should be listed in each program's Unix "man" and VMS HELP
+documentation.
 
 
    VMS File Attribute Schemes

@@ -1,7 +1,7 @@
 /*
   api.h - Zip 3
 
-  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -19,11 +19,11 @@
 #   ifndef PATH_MAX
 #    define PATH_MAX 260
 #   endif
-#  else
+#  else /* def WIN32 */
 #   ifndef PATH_MAX
 #    define PATH_MAX 128
 #   endif
-#  endif /* defined( WINDLL) || (defined( WIN32) && defined( DLL_ZIPAPI)) */
+#  endif /* def WIN32 [else] */
 
 #  include <windows.h>
 
@@ -35,8 +35,8 @@
 #   define near
 #   define _near
 #   define __near
-#  endif
-# else /* def WINDLL */
+#  endif /* def WIN32 */
+# else /* defined( WINDLL) || (defined( WIN32) && defined( DLL_ZIPAPI)) */
 #  define USE_STATIC_LIB
 #  ifdef VMS
     /* Get a realistic value for PATH_MAX. */
@@ -93,10 +93,10 @@
 #  define LPSTR char *
 #  define LPCSTR const char *
 #  define WINAPI
-# endif /* def WINDLL [else] */
+# endif /* defined( WINDLL) || (defined( WIN32) && defined( DLL_ZIPAPI)) [else] */
+
 
 # if defined(WINDLL) || defined(API) || defined( USE_ZIPMAIN)
-
 
 /*---------------------------------------------------------------------------
     Prototypes for public Zip API (DLL) functions.
