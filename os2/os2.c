@@ -19,6 +19,9 @@
 #include <dirent.h>
 #endif
 
+#define INCL_DOS
+#include <os2.h>
+
 /* Extra malloc() space in names for cutpath() */
 #define PAD 0
 #define PATH_END '/'
@@ -383,9 +386,17 @@ int caseflag;           /* true to force case-sensitive match */
       *p = '/';
   if ((s.st_mode & S_IFDIR) == 0)
   {
-    /* add or remove name of file */
-    if ((m = newname(n, 0, caseflag)) != ZE_OK)
-      return m;
+    /* add exclusions in directory recurse but ignored for single file */
+    int dwAttr = GetFileMode(n);
+
+    if ((hidden_files ||
+         !(dwAttr & FILE_HIDDEN || dwAttr & FILE_SYSTEM)) &&
+        (!only_archive_set || (dwAttr & FILE_ARCHIVED)))
+    {
+      /* add or remove name of file */
+      if ((m = newname(n, 0, caseflag)) != ZE_OK)
+        return m;
+    }
   } else {
     /* Add trailing / to the directory name */
     if ((p = malloc(strlen(n)+2)) == NULL)

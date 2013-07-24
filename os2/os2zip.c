@@ -1231,4 +1231,28 @@ void version_local()
 
 } /* end function version_local() */
 
+int ClearArchiveBit(char *path)
+{
+    FILESTATUS3L fsts3l;
+    APIRET       rc;
+    ULONG        cbBuf = sizeof(FILESTATUS3L);
+    USHORT       nLength;
+    char         name[CCHMAXPATH];
+
+    strcpy(name, path);
+    nLength = strlen(name);
+    if (name[nLength - 1] == '/')
+    name[nLength - 1] = 0;
+
+    rc = DosQueryPathInfo(name, FIL_STANDARDL, &fsts3l, cbBuf);
+    if (rc != NO_ERROR)
+        return (0);
+
+    if (!(fsts3l.attrFile & FILE_ARCHIVED))
+        return (1);
+    fsts3l.attrFile &= ~FILE_ARCHIVED;
+    rc = DosSetPathInfo(name, FIL_STANDARDL, &fsts3l, cbBuf, 0);
+    return ((rc == NO_ERROR)? 1 : 0);
+}
+
 #endif /* OS2 */
