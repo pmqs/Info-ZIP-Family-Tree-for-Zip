@@ -52,10 +52,6 @@ extern void globals_dummy( void);
 #  endif
 #endif
 
-#if defined( UNIX) && defined( __APPLE__)
-#  include "unix/macosx.h"
-#endif /* defined( UNIX) && defined( __APPLE__) */
-
 #include <signal.h>
 #include <stdio.h>
 

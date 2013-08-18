@@ -5057,7 +5057,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     place than the backup path specified by -BP.  This is useful when the
     media used for the backup path may be swapped out when full.  Currently
     not implemented.  zip.c (EG)
--------------------- June 26th 2013 version 3.1d26 -----------------------
+-------------------- August 16th 2013 version 3.1d26 -----------------------
  1. Finish changing APL_DBL_SFX to APL_DBL_SUFX.  unix/macosx.h (SMS)
  2. Change Mac OS X system-specific code to use (C macro APL_DBL_SUFX)
     "/..namedfork/rsrc" as the suffix for resource fork access on Intel,
@@ -5260,3 +5260,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     facility-specific code (%x17A38001).  This agrees with most VMS
     utilities, and with Zip versions before 3.0.  Define C macro
     OK_USE_FAC to use the facility code in all cases.  vms/vms.c (SMS)
+52. On Mac OS X versions where extended file attributes are supported
+    (10.4 and later, we believe), Zip now includes these attributes in
+    AppleDouble ("._name") archive members (unless -df is specified).
+    unix/configure, unix/macosx.h, unix/unix.c, zip.h, zipup.c (SMS)

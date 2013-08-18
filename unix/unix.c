@@ -69,7 +69,7 @@ local char *readd OF((DIR *));
 
 #ifdef __APPLE__
 
-int get_apl_dbl_info( char *name)
+static int get_apl_dbl_info( char *name)
 {
   int sts;
   int ret = 1;                  /* Assume failure. */
@@ -128,7 +128,363 @@ int get_apl_dbl_info( char *name)
   }
   return ret;
 }
+
+
+
+unsigned char *apl_dbl_hdr;             /* AppleDouble header buffer. */
+int apl_dbl_hdr_alloc;                  /* Allocated size of apl_dbl_hdr. */
+
+# ifdef APPLE_XATTR
+char *apl_dbl_xattr_ignore[] =
+ { "com.apple.FinderInfo", "com.apple.ResourceFork", NULL };
+# endif /* def APPLE_XATTR */
+
+
+
+int make_apl_dbl_header( char *name, int *hdr_size)
+{
+
+  char btrbslash;               /* Saved character had better be a slash. */
+  int j;                        /* Misc. counter. */
+  int sts;
+  struct attrlist attr_list_fndr;
+  struct attrlist attr_list_rsrc;
+
+  attr_bufr_fndr_t attr_bufr_fndr;
+  attr_bufr_rsrc_t attr_bufr_rsrc;
+
+# ifdef APPLE_XATTR
+#  define APL_DBL_OFS_RSRC_FORK (xah_val_ofs+ xav_len)
+  char *xan_buf;                                /* Attribute name storage. */
+  char *xan_ptr;                                /* Attribute name pointer. */
+  unsigned short xa_cnt = 0;                    /* Attribute entry count. */
+  int xah_val_ofs = APL_DBL_SIZE_HDR;           /* Offset to value storage. */
+  int xan_len = 0;                              /* Attr name list size. */
+  int xav_len = 0;                              /* Attr value storage size. */
+  int xav_ofs;                                  /* Offset to value. */
+# else /* def APPLE_XATTR */
+#  define APL_DBL_OFS_RSRC_FORK APL_DBL_SIZE_HDR
+# endif /* def APPLE_XATTR [else] */
+
+  *hdr_size = 0;                        /* Clear the returned header size. */
+
+# ifdef APPLE_XATTR
+    /* Get AppleDouble header extended attribute storage requirement.
+     * Fixed:
+     *        2: Alignment (4) pad
+     *        4: Extended attribute magic
+     *        4: File ID
+     *        4: Total size
+     *        4: Values offset
+     *        4: Values total size
+     *       12: Reserved
+     *        2: Flags
+     *        2: Attribute count
+     * Per Entry (align 4):
+     *            4: Value offset
+     *            4: Value Size
+     *            2: Flags
+     *            1: Attribute name size (including NUL terminator)
+     *            ?: Attribute name (NUL-terminated)
+     *            ?: Alignment pad [0-3]
+     *        ?: Value storage
+     *
+     * Per-Entry size = (14+ name_size)& 0xfffffffc
+     */
+
+    /* Get extended attribute name list length. */
+    sts = listxattr( name,                      /* Real file name. */
+                     NULL,                      /* Name list buffer. */
+                     0,                         /* Name list buffer size. */
+                     XATTR_NOFOLLOW);           /* Options. */
+    if (sts < 0)
+    {
+      return ZE_OPEN;
+    }
+    else
+    {
+      /* Allocate storage for the extended attribute name list. */
+      xan_len = sts;
+      if (xan_len > 0)
+      {
+        xan_buf = malloc( xan_len);
+        if (xan_buf == NULL)
+        {
+          return ZE_MEM;
+        }
+        else
+        {
+          /* Get the extended attribute name list. */
+          sts = listxattr( name,                  /* Real file name. */
+                           xan_buf,               /* Name list buffer. */
+                           xan_len,               /* Name list buffer size. */
+                           XATTR_NOFOLLOW);       /* Options. */
+          if (sts >= 0)
+          {
+            xah_val_ofs += APL_DBL_SIZE_ATTR_HDR;     /* ATTR hdr, fixed. */
+            /* Accumulate extended attribute storage requirements. */
+            xan_ptr = xan_buf;              /* Attribute name pointer. */
+            while (xan_ptr < xan_buf+ xan_len)
+            {
+              sts = 0;
+              for (j = 0; apl_dbl_xattr_ignore[ j] != NULL; j++)
+              {
+                if (strcmp( apl_dbl_xattr_ignore[ j], xan_ptr) == 0)
+                {
+                  sts = 1;
+                  break;
+                }
+              }
+
+              if (sts == 0)
+              {
+                xa_cnt++;                       /* Count the attributes. */
+                sts = getxattr( name,           /* Real file name. */
+                                xan_ptr,        /* Attribute name. */
+                                NULL,           /* Attribute value. */
+                                0,              /* Attribute value size. */
+                                0,              /* Position. */
+                                XATTR_NOFOLLOW);    /* Options. */
+                if (sts > 0)
+                {
+                  xav_len += sts;       /* Increment value storage size. */
+                }
+                /* Increment value storage offset by xattr entry size.
+                 * 4 [value offset] + 4 [value size] + 2 [flags] +
+                 * 1 [name size (incl NUL)] + name_size =
+                 * 11 + strlen( name) + 1 [NUL] = 12 + strlen( name).
+                 * Then add 3, and mask off the low two bits to get
+                 * the next align-4 offset.
+                 */
+                xah_val_ofs += (15+ strlen( xan_ptr))& 0xfffffffc;
+              } /* if (sts == 0) */
+              xan_ptr += strlen( xan_ptr)+ 1;   /* Next attr name. */
+            } /* while */
+          } /* if (sts{listxattr()} >= 0) */
+        } /* if (xan_buf == NULL) [else] */
+      } /* if (xan_len > 0) */
+    } /* if (sts{listxattr()} < 0) [else] */
+# endif /* def APPLE_XATTR */
+
+    /* Allocate AppleDouble header buffer, if needed. */
+    if (apl_dbl_hdr_alloc < APL_DBL_OFS_RSRC_FORK)
+    {
+      apl_dbl_hdr = realloc( apl_dbl_hdr, APL_DBL_OFS_RSRC_FORK);
+      if (apl_dbl_hdr == NULL)
+      {
+        return ZE_MEM;
+      }
+      apl_dbl_hdr_alloc = APL_DBL_OFS_RSRC_FORK;
+    }
+    /* Set the fake-data buffer pointer to the allocated atorage. */
+    file_read_fake_buf = apl_dbl_hdr;
+
+    /* Get object type and Finder info. */
+    /* Clear attribute list structure. */
+    memset( &attr_list_fndr, 0, sizeof( attr_list_fndr));
+    /* Set attribute list bits for object type and Finder info. */
+    attr_list_fndr.bitmapcount = ATTR_BIT_MAP_COUNT;
+    attr_list_fndr.commonattr = ATTR_CMN_OBJTYPE| ATTR_CMN_FNDRINFO;
+
+    /* Get file type and Finder info. */
+    sts = getattrlist( name,                            /* Path. */
+                       &attr_list_fndr,                 /* Attrib list. */
+                       &attr_bufr_fndr,                 /* Dest buffer. */
+                       sizeof( attr_bufr_fndr),         /* Dest buffer size. */
+                       FSOPT_NOFOLLOW);                 /* Options. */
+
+    if ((sts != 0) || (attr_bufr_fndr.obj_type != VREG))
+    {
+      ZIPERR( ZE_OPEN, "getattrlist(fndr) failure");
+    }
+    else
+    {
+      /* Get resource fork size. */
+      /* Clear attribute list structure. */
+      memset( &attr_list_rsrc, 0, sizeof( attr_list_rsrc));
+      /* Set attribute list bits for resource fork size. */
+      attr_list_rsrc.bitmapcount = ATTR_BIT_MAP_COUNT;
+      attr_list_rsrc.fileattr = ATTR_FILE_RSRCLENGTH;
+
+      sts = getattrlist( name,                        /* Real file name. */
+                         &attr_list_rsrc,             /* Attrib list. */
+                         &attr_bufr_rsrc,             /* Dest buffer. */
+                         sizeof( attr_bufr_rsrc),     /* Dest buffer size. */
+                         FSOPT_NOFOLLOW);             /* Options. */
+      if (sts != 0)
+      {
+        ZIPERR( ZE_OPEN, "getattrlist(rsrc) failure");
+      }
+      else
+      {
+        /* Move Finder info into AppleDouble header buffer. */
+        memcpy( &apl_dbl_hdr[ APL_DBL_OFS_FNDR_INFO],
+        attr_bufr_fndr.fndr_info, APL_DBL_SIZE_FNDR_INFO);
+        /* Set fake I/O buffer size. */
+        file_read_fake_len = APL_DBL_OFS_RSRC_FORK;
+      }
+    }
+
+    /* AppleDouble header fixed/known elements. */
+    HOST32_TO_BIGC( apl_dbl_hdr+ APL_DBL_OFS_MAGIC,
+     APL_DBL_HDR_MAGIC);                                        /* Magic. */
+    HOST32_TO_BIGC( apl_dbl_hdr+ APL_DBL_OFS_VERSION,
+     APL_DBL_HDR_VERSION);                                      /* Version. */
+    memcpy( apl_dbl_hdr+ APL_DBL_OFS_FILE_SYS,
+     APL_DBL_HDR_FILE_SYS,                                      /* FS name. */
+     (sizeof( APL_DBL_HDR_FILE_SYS)- 1));
+    HOST16_TO_BIGC( apl_dbl_hdr+ APL_DBL_OFS_ENT_CNT, 2);       /* Entry cnt. */
+    /* Note: Alignment is now off by 2. */
+
+    /* AppleDouble entry 0: Finder info.  (Includes extended attributes.) */
+    HOST32_TO_BIGC( apl_dbl_hdr+ APL_DBL_OFS_ENT_ID0,
+     APL_DBL_HDR_EID_FI);                                       /* Ent ID 0. */
+    HOST32_TO_BIGC( apl_dbl_hdr+ APL_DBL_OFS_ENT_OFS0,
+     APL_DBL_OFS_FNDR_INFO);                                    /* Ent ofs 0. */
+    /* Finder info size = real Finder info size + ext attr size. */
+    HOST32_TO_BIGC( apl_dbl_hdr+ APL_DBL_OFS_ENT_LEN0,
+     APL_DBL_OFS_RSRC_FORK- APL_DBL_OFS_FNDR_INFO);             /* Ent len 0. */
+
+    /* AppleDouble entry 1: Resource fork. */
+    HOST32_TO_BIGC( apl_dbl_hdr+ APL_DBL_OFS_ENT_ID1,
+     APL_DBL_HDR_EID_RF);                                       /* Ent ID 1. */
+    HOST32_TO_BIGC( apl_dbl_hdr+ APL_DBL_OFS_ENT_OFS1,
+     APL_DBL_OFS_RSRC_FORK);                                    /* Ent ofs 1. */
+    HOST32_TO_BIGC( apl_dbl_hdr+ APL_DBL_OFS_ENT_LEN1,          /* Ent len 1. */
+     attr_bufr_rsrc.size);
+
+# ifdef APPLE_XATTR
+    if (xan_len > 0)
+    {
+      int ofs = APL_DBL_SIZE_HDR;   /* After end of Finder info. */
+      struct stat ax_stat;          /* lstat() buffer (for file ID). */
+
+      sts = lstat( name, &ax_stat);
+      if (sts != 0)
+      {
+        ax_stat.st_ino = 0;         /* If lstat() fails, use ID = 0. */
+      }
+
+      /* AppleDouble extended attributes fixed/known elements. */
+      /* Two-byte alignment (4) pad. */
+      HOST16_TO_BIGC( apl_dbl_hdr+ ofs, 0);
+      ofs += 2;
+
+      /* AppleDouble extended attributes magic. */
+      memcpy( apl_dbl_hdr+ ofs, APL_DBL_XA_MAGIC,
+       (sizeof( APL_DBL_XA_MAGIC)- 1));
+      ofs += sizeof( APL_DBL_XA_MAGIC)- 1;
+
+      /* File ID.  ("For debug", so not crucial.*/
+      HOST32_TO_BIGC( apl_dbl_hdr+ ofs, ax_stat.st_ino);
+      ofs += 4;
+
+      /* Total size (Finder info + extended attributes). */
+      HOST32_TO_BIGC( apl_dbl_hdr+ ofs, APL_DBL_OFS_RSRC_FORK);
+      ofs += 4;
+
+      /* Offset to value storage. */
+      HOST32_TO_BIGC( apl_dbl_hdr+ ofs, xah_val_ofs);
+      ofs += 4;
+
+      /* Size of value storage. */
+      HOST32_TO_BIGC( apl_dbl_hdr+ ofs, xav_len);
+      ofs += 4;
+
+      /* Reserved (12 byte). */
+      memset( apl_dbl_hdr+ ofs, 0, 12);
+      ofs += 12;
+
+      /* Flags. */
+      HOST16_TO_BIGC( apl_dbl_hdr+ ofs, 0);
+      ofs += 2;
+
+      /* Attribute count. */
+      HOST16_TO_BIGC( apl_dbl_hdr+ ofs, xa_cnt);
+      ofs += 2;
+
+      /* Loop through attributes.  Store per-entry info.
+       * Get/store attribute values.
+       */
+      xan_ptr = xan_buf;                /* Attribute name pointer. */
+      xav_ofs = xah_val_ofs;            /* Value offset. */
+      while (xan_ptr < xan_buf+ xan_len)
+      {
+        /* Recognize attributes which we don't want. */
+        sts = 0;
+        for (j = 0; apl_dbl_xattr_ignore[ j] != NULL; j++)
+        {
+          if (strcmp( apl_dbl_xattr_ignore[ j], xan_ptr) == 0)
+          {
+            sts = 1;
+            break;
+          }
+        }
+
+        if (sts == 0)
+        {
+          /* Not one of the unwanted attributes.  Process it. */
+          int nam_len;
+          int val_len;
+
+          /* We don't remember each value size from its earlier
+           * determination, so give it the whole remaining value space,
+           * which is the total allocation less the offset of the
+           * currently sought value).
+           */
+          sts = getxattr( name,                          /* Real file name. */
+                          xan_ptr,                       /* Attribute name. */
+                          (apl_dbl_hdr+ xav_ofs),        /* Attribute value. */
+                          (apl_dbl_hdr_alloc- xav_ofs),  /* Attr value size. */
+                          0,                             /* Position. */
+                          XATTR_NOFOLLOW);               /* Options. */
+          if (sts >= 0)
+          {
+            val_len = sts;
+
+            /* Offset to value. */
+            HOST32_TO_BIGC( apl_dbl_hdr+ ofs, xav_ofs);
+            xav_ofs += val_len;                 /* Increment value offset. */
+            ofs += 4;
+
+            /* Size of value. */
+            HOST32_TO_BIGC( apl_dbl_hdr+ ofs, val_len);
+            ofs += 4;
+
+            /* Flags. */
+            HOST16_TO_BIGC( apl_dbl_hdr+ ofs, 0);
+            ofs += 2;
+
+            /* Attribute name size (including NUL terminator). */
+            nam_len = strlen( xan_ptr) + 1;
+
+            *(apl_dbl_hdr+ ofs) = nam_len;
+            ofs += 1;
+
+            /* Attribute name (including NUL terminator). */
+            memcpy( apl_dbl_hdr+ ofs, xan_ptr, nam_len);
+            ofs += nam_len;
+
+            /* Alignment (4) pad. */
+            nam_len = ((ofs+ 3)& 0xfffffffc) - ofs;
+            if (nam_len > 0)
+            {
+              memset( apl_dbl_hdr+ ofs, 0, nam_len);
+              ofs += nam_len;
+            }
+          }
+        } /* if (sts == 0) */
+        xan_ptr += strlen( xan_ptr)+ 1;     /* Next attr name. */
+      } /* while */
+    }
+# endif /* def APPLE_XATTR */
+
+  *hdr_size = APL_DBL_OFS_RSRC_FORK;    /* Set the returned header size. */
+
+  return ZE_OK;
+}
 #endif /* def __APPLE__ */
+
 
 
 #ifdef NO_DIR                    /* for AT&T 3B1 */

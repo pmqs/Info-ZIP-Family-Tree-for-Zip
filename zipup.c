@@ -273,27 +273,8 @@ local unsigned char *f_obuf = NULL;
 #endif /* ?USE_ZLIB */
 
 #if defined( UNIX) && defined( __APPLE__)
-
-    /* Buffer for AppleDouble header (initialized where constant). */
-    unsigned char apl_dbl_hdr[ APL_DBL_HDR_SIZE] =
-     { 0x00, 0x05, 0x16, 0x07,          /*  0  AppleDouble magic.            */
-       0x00, 0x02, 0x00, 0x00,          /*  4  AppleDouble version.          */
-       0x00, 0x00, 0x00, 0x00,          /*  8  Filler (16 bytes) ...         */
-       0x00, 0x00, 0x00, 0x00,          /*     ... filler ...                */
-       0x00, 0x00, 0x00, 0x00,          /*     ... filler ...                */
-       0x00, 0x00, 0x00, 0x00,          /*     ... filler.                   */
-       0x00, 0x02,                      /* 24  Entry count (2).              */
-       0x00, 0x00, 0x00, 0x09,          /* 26  Entry ID (9 = Finder info).   */
-       0x00, 0x00, 0x00, 0x32,          /* 30  Offset (50).                  */
-       0x00, 0x00, 0x00, 0x20,          /* 34  Length (32).                  */
-       0x00, 0x00, 0x00, 0x02,          /* 38  Entry ID (2 = Resource fork). */
-       0x00, 0x00, 0x00, 0x52           /* 42  Offset (82).                  */
-    /* 0x00, 0x00, 0x00, 0x00 */        /* 46  Length (TBD).                 */
-                                        /* 50  Finder info (32 bytes).       */
-                                        /* 82  Resource fork (TBD bytes).    */
-     };
-
-    unsigned char *file_read_fake_buf = apl_dbl_hdr;
+    char btrbslash;             /* Saved character had better be a slash. */
+    unsigned char *file_read_fake_buf;
     size_t file_read_fake_len;
     local int translate_eol_lcl;
 
@@ -606,13 +587,11 @@ struct zlist far *z;    /* zip entry to compress */
   uch auth_len;
 #endif
 
-
 #ifdef ENABLE_DLL_PROGRESS
     long percent_all_entries_processed;
     long percent_this_entry_processed;
     uzoff_t bytetotal;
 #endif
-
 
 #ifdef WINDLL
 # ifdef ZIP64_SUPPORT
@@ -687,29 +666,50 @@ struct zlist far *z;    /* zip entry to compress */
 #endif
 
 #if defined( UNIX) && defined( __APPLE__)
-  /* Add AppleDouble header size to AppleDouble resource fork file size,
-   * as data for both will be stored in the AppleDouble "._" file.
+  /* Special treatment for AppleDouble "._" file:
+   * Never translate EOL in an (always binary) AppleDouble file.
+   * Add AppleDouble header size to AppleDouble resource fork file size,
+   * because data for both will be stored in the AppleDouble "._" file.
+   * (Determining this size requires analysis of the extended
+   * attributes, where they are available.)
    */
-  if (z->flags & FLAGS_APLDBL)
-    q += APL_DBL_HDR_SIZE;
-
-  /* Set translate_eol_lcl according to translate_eol and AppleDouble flag. */
-  if (z->flags & FLAGS_APLDBL) {
-    /* Never translate an (always binary) AppleDouble file. */
+  if ((z->flags& FLAGS_APLDBL) == 0)
+  {
+    /* Normal file, not an AppleDouble "._" file. */
+    translate_eol_lcl = translate_eol;  /* Translate EOL normally. */
+    file_read_fake_len = 0;             /* No fake AppleDouble file data. */
+  }
+  else
+  {
+    /* AppleDouble "._" file. */
+    /* Never translate EOL in an (always binary) AppleDouble file. */
     translate_eol_lcl = 0;
-  }
-  else {
-    /* Translate normal files normally. */
-    translate_eol_lcl = translate_eol;
-  }
+
+    /* Truncate name at "/rsrc" for getattrlist(). */
+    btrbslash = z->name[ strlen( z->name)- strlen( APL_DBL_SUFX)];
+    z->name[ strlen( z->name)- strlen( APL_DBL_SUFX)] = '\0';
+
+    /* Create the AppleDouble header (in allocated storage).  It will
+     * contain the Finder info, and, if available, any extended
+     * attributes.
+     */
+    r = make_apl_dbl_header( z->name, &j);
+
+    /* Restore name suffix ("/rsrc"). */
+    z->name[ strlen( z->name)] = btrbslash;
+
+    /* Increment the AppleDouble file size by the size of the header. */
+    q += j;
+  } /* if ((z->flags& FLAGS_APLDBL) == 0) [else] */
 #endif /* defined( UNIX) && defined( __APPLE__) */
 
   if (tim == 0 || q == (zoff_t) -3)
     return ZE_OPEN;
 
-/* SMSd. */ /*
+/* SMSd. */
+#if 0
 fprintf( stderr, " isdir = %d, a = %08x , q = %lld.\n", isdir, a, q);
-*/
+#endif /* 0 */
 
   /* q is set to -1 if the input file is a device, -2 for a volume label */
   if (q == (zoff_t) -2) {
@@ -937,93 +937,10 @@ fprintf( stderr, " isdir = %d, a = %08x , q = %lld.\n", isdir, a, q);
         if ((ifile = zopen(z->name, fhow)) == fbad)
           return ZE_OPEN;
       }
-#else
+#else /* defined(UNICODE_SUPPORT) && defined(WIN32) */
       if ((ifile = zopen(z->name, fhow)) == fbad)
         return ZE_OPEN;
-
-#  if defined( UNIX) && defined( __APPLE__)
-      /* Clear AppleDouble fake data byte count. */
-      if ((z->flags& FLAGS_APLDBL) == 0)
-      {
-        file_read_fake_len = 0;
-      }
-      else
-      {
-        char btrbslash;         /* Saved character had better be a slash. */
-        int sts;
-        struct attrlist attr_list_fndr;
-        struct attrlist attr_list_rsrc;
-
-#    pragma pack(4)             /* 32-bit alignment, regardless. */
-        attr_bufr_fndr_t attr_bufr_fndr;
-        attr_bufr_rsrc_t attr_bufr_rsrc;
-#    pragma options align=reset
-
-        /* Truncate name at "/rsrc" for getattrlist(). */
-        btrbslash = z->name[ strlen( z->name)- strlen( APL_DBL_SUFX)];
-        z->name[ strlen( z->name)- strlen( APL_DBL_SUFX)] = '\0';
-
-        /* Get object type and Finder info. */
-        /* Clear attribute list structure. */
-        memset( &attr_list_fndr, 0, sizeof( attr_list_fndr));
-        /* Set attribute list bits for object type and Finder info. */
-        attr_list_fndr.bitmapcount = ATTR_BIT_MAP_COUNT;
-        attr_list_fndr.commonattr = ATTR_CMN_OBJTYPE| ATTR_CMN_FNDRINFO;
-
-        /* Get file type and Finder info. */
-        sts = getattrlist( z->name,                   /* Path. */
-                           &attr_list_fndr,           /* Attrib list. */
-                           &attr_bufr_fndr,           /* Dest buffer. */
-                           sizeof( attr_bufr_fndr),   /* Dest buffer size. */
-                           0);                        /* Options. */
-
-        if ((sts != 0) || (attr_bufr_fndr.obj_type != VREG))
-        {
-          ZIPERR( ZE_OPEN, "getattrlist(fndr) failure");
-        }
-        else
-        {
-          /* Get resource fork size. */
-          /* Clear attribute list structure. */
-          memset( &attr_list_rsrc, 0, sizeof( attr_list_rsrc));
-          /* Set attribute list bits for resource fork size. */
-          attr_list_rsrc.bitmapcount = ATTR_BIT_MAP_COUNT;
-          attr_list_rsrc.fileattr = ATTR_FILE_RSRCLENGTH;
-
-          sts = getattrlist( z->name,                 /* Path. */
-                             &attr_list_rsrc,         /* Attrib list. */
-                             &attr_bufr_rsrc,         /* Dest buffer. */
-                             sizeof( attr_bufr_rsrc), /* Dest buffer size. */
-                             0);                      /* Options. */
-          if (sts != 0)
-          {
-            ZIPERR( ZE_OPEN, "getattrlist(rsrc) failure");
-          }
-          else
-          {
-            /* Move Finder info into AppleDouble header buffer. */
-            memcpy( &apl_dbl_hdr[ APL_DBL_HDR_FNDR_INFO_OFFS],
-             attr_bufr_fndr.fndr_info,
-             32);
-            /* Set fake I/O buffer size. */
-            file_read_fake_len = APL_DBL_HDR_SIZE;
-            /* Fill in resource fork size. */
-            apl_dbl_hdr[ APL_DBL_HDR_RSRC_FORK_SIZE+ 0] =
-             (attr_bufr_rsrc.size >> 24)& 0xff;
-            apl_dbl_hdr[ APL_DBL_HDR_RSRC_FORK_SIZE+ 1] =
-             (attr_bufr_rsrc.size >> 16)& 0xff;
-            apl_dbl_hdr[ APL_DBL_HDR_RSRC_FORK_SIZE+ 2] =
-             (attr_bufr_rsrc.size >>  8)& 0xff;
-            apl_dbl_hdr[ APL_DBL_HDR_RSRC_FORK_SIZE+ 3] =
-             (attr_bufr_rsrc.size)& 0xff;
-          }
-        }
-        /* Restore name suffix ("/rsrc"). */
-        z->name[ strlen( z->name)] = btrbslash;
-      }
-#  endif /* defined( UNIX) && defined( __APPLE__) */
-
-#endif
+#endif /* defined(UNICODE_SUPPORT) && defined(WIN32) [else] */
     }
 
     z->tim = tim;
