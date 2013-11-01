@@ -4,7 +4,7 @@
 
 #==============================================================================
 # unix/configure: Detect feature support and pass that information to Makefile.
-# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 08 May 2012
+# - For Zip, ZipNote, ZipCloak and ZipSplit             Revised: 2013-10-13
 #==============================================================================
 
 #==============================================================================
@@ -81,11 +81,12 @@
 #    CC_BZ       - C Compiler program name (for BZIP2 components)
 #                                          (default: cc)
 #    CPP         - C Preprocessor program name (default: $CC -E)
-#    AS          - Assembler program name (default: $CC -c)
+#    AS          - Assembler program name (default: $CC)
 #    LD          - Linker program name (default: $CC)
 #    RANLIB      - Archive index program name (default: ranlib)
 #
 #    CFLAGS      - C Compiler flag initial values
+#    CFLAGS_OPT  - C Compiler optimization option override (non-null)
 #    LOCAL_ZIP   - C compiler flag user override values
 #
 #    AFLAGS      - Assembler flag initial values
@@ -94,8 +95,10 @@
 #    LFLAGS2     - Linker flag initial values (after output file spec)
 #
 #    OSDEP_H     - OS-dependent C header file names
-#    OSDEP_OC    - OS-dependent C object file names
-#    OSDEP_OS    - OS-dependent Assembler object file names
+#    OSDEP_OCU   - OS-dependent C object file names for utilities
+#    OSDEP_OCZ   - OS-dependent C object file names for zip
+#    OSDEP_OSU   - OS-dependent Assembler object file names for utilities
+#    OSDEP_OSZ   - OS-dependent Assembler object file names for zip
 #
 #    PGMEXT      - Binary program file extension
 #    DLLEXT      - Binary program DLL (.so) file extension
@@ -106,6 +109,7 @@
 #    AES_WG      - Enable AES encryption (WinZip/Gladman)
 #    IZ_BZIP2    - Enable BZIP2 compression
 #    IZ_ZLIB     - Use ZLIB for deflate compression
+#    LIBZIP      - Build Zip object library
 #    LZMA        - Enable LZMA compression
 #    PPMD        - Enable PPMd compression
 #
@@ -138,10 +142,13 @@
 #  LIB_LZMA    - LZMA compression build dependencies
 #  LIB_PPMD    - PPMd compression build dependencies
 #  LIB_Z       - ZLIB compression build dependencies
+#  LIB_ZIP     - Zip object library
 #  MK_BZ       - BZIP2 compression build makefile
 #  OSDEP_H     - OS-dependent C header file names
-#  OSDEP_OC    - OS-dependent C object file names
-#  OSDEP_OS    - OS-dependent Assembler object file names
+#  OSDEP_OCU   - OS-dependent C object file names for utilities
+#  OSDEP_OCZ   - OS-dependent C object file names for zip
+#  OSDEP_OSU   - OS-dependent Assembler object file names for utilities
+#  OSDEP_OSZ   - OS-dependent Assembler object file names for zip
 #  PGMEXT      - Binary program file extension
 #  DLLEXT      - Binary program DLL (.so) file extension
 #  BINDIR      - Binary program installation directory
@@ -161,10 +168,11 @@ echo ''
 echo 'Generating system-dependent flags...'
 
 # Evaluate only variables in this list.  Complain about others, but continue.
-valid_vars1="|AES_WG|AFLAGS|AS|CC|CC_BZ|CFLAGS|CPP|DLLEXT|IZ_BZIP2|IZ_ZLIB"
-valid_vars2="|LD|LFLAGS1|LFLAGS2|LIST|LOCAL_ZIP|LZMA"
-valid_vars3="|OSDEP_H|OSDEP_OC|OSDEP_OS|PGMEXT|PPMD|PROD|RANLIB|"
-valid_vars="${valid_vars1}${valid_vars2}${valid_vars3}"
+valid_vars1='|AES_WG|AFLAGS|AS|CC|CC_BZ|CFLAGS|CFLAGS_OPT|CPP|DLLEXT'
+valid_vars2='|IZ_BZIP2|IZ_ZLIB|LD|LFLAGS1|LFLAGS2|LIST|LOCAL_ZIP|LZMA'
+valid_vars3='|OSDEP_H|OSDEP_OCU|OSDEP_OCZ|OSDEP_OSU|OSDEP_OSZ'
+valid_vars4='|PGMEXT|PPMD|PROD|RANLIB|'
+valid_vars="${valid_vars1}${valid_vars2}${valid_vars3}${valid_vars4}"
 
 argc=$#
 while [ ${argc} -gt 0 ]; do
@@ -187,12 +195,12 @@ CC_BZ=${CC_BZ:-${CC}}                      # C compiler name (BZIP2 components)
 CC_LIST=''                                 # C compiler name, if LIST enabled
 CFLAGS=${CFLAGS:-}' -I.'                   # C compiler flags (core components)
 CFLAGS_BZ=${CFLAGS_BZ:-}' -I'              # C cmplr flags (BZIP2 components)
-CFLAGS_OPT=''                              # C cmplr optimze (and list) options
+CFLAGS_OPT=${CFLAGS_OPT:-}                 # C cmplr optimze (and list) options
 CFLAGS_USR=${LOCAL_ZIP:-}                  # C compiler user override options
 
 CPP=${CPP:-"${CC} -E"}                     # C preprocessor name
 
-AS=${AS:-"${CC} -c"}                       # Assembler name (core components)
+AS=${AS:-"${CC}"}                          # Assembler name (core components)
 AFLAGS=${AFLAGS:-}                         # Assembler flags
 
 LD=${LD:-"${CC}"}                          # Linker name
@@ -243,6 +251,7 @@ LIB_BZ=''                                  # BZIP2 compression
 LIB_LZMA=''                                # LZMA compression
 LIB_PPMD=''                                # PPMd compression
 LIB_Z=''                                   # ZLIB compression
+LIB_ZIP=''                                 # Zip object library
 
 # Build makefiles.
 MK_BZ='Makefile'                           # BZIP2 compression
@@ -250,8 +259,10 @@ MK_BZ='Makefile'                           # BZIP2 compression
 # OS-dependent files.
 # Defaults to unix files, customized based on PORT and tests.
 OSDEP_H=${OSDEP_H:-'unix/osdep.h'}         # C header file names
-OSDEP_OC=${OSDEP_OC:-"${PROD}/unix.o"}     # C object file names
-OSDEP_OS=${OSDEP_OS:-}                     # Assembler object file names
+OSDEP_OCU=${OSDEP_OCU:-"${PROD}/unix.o"}   # C object file names, utilities
+OSDEP_OCZ=${OSDEP_OCZ:-"${PROD}/unix.o"}   # C object file names, zip
+OSDEP_OSU=${OSDEP_OSU:-}                   # Asm object file names, utilities
+OSDEP_OSZ=${OSDEP_OSZ:-}                   # Asm object file names, zip
 
 # OS-dependent file extensions.
 # Defaults to unix files, customized based on PORT and tests.
@@ -501,6 +512,7 @@ _EOF_
   status=$?
   if [ $status -eq 0 ]; then
     CFLAGS_OPT='-O3'
+    PORT='mingw64'
     echo "  MinGW 64 ($CFLAGS_OPT)"
   fi
 fi
@@ -521,6 +533,7 @@ _EOF_
   status=$?
   if [ $status -eq 0 ]; then
     CFLAGS_OPT='-O3'
+    PORT='mingw32'
     echo "  MinGW 32 ($CFLAGS_OPT)"
   fi
 fi
@@ -556,9 +569,6 @@ _EOF_
       $CC $CFLAGS -c conftest.c >/dev/null 2>/dev/null
       status=$?
       if [ $status -eq 0 ]; then
-        CC='clang'
-        LD='clang'
-        CC_TST='clang'
         CFLAGS_OPT='-O3'
         echo "  LLVM Clang ($CFLAGS_OPT)"
       fi
@@ -702,6 +712,24 @@ _EOF_
         CFLAGS_OPT='-O3'
         OSDEP_H="${OSDEP_H} unix/macosx.h"
 
+        # Have (and user wants) extended attribute support?  (OS X >= 10.4?)
+        cat > conftest.c << _EOF_
+#include <sys/xattr.h>
+int main()
+{
+#if defined( NO_APPLE_XATTR) || !defined( XATTR_NOFOLLOW)
+   bad code
+#endif
+   return 0;
+}
+_EOF_
+        $CC $CFLAGS -c conftest.c >/dev/null 2>/dev/null
+        status=$?
+        if [ $status -eq 0 ]; then
+          CC_TST="${CC_TST} -DAPPLE_XATTR"
+          CFLAGS_TST="${CFLAGS_TST} -DAPPLE_XATTR"
+        fi
+
         # "ld64: warning: option -s is obsolete and being ignored"
         if [ "${LFLAGS2}" = '-s' ]; then
           LFLAGS2=''
@@ -745,7 +773,7 @@ _EOF_
 
     if [ -z "${CFLAGS_OPT}" ]; then
       # Other GNU C
-      CFLAGS_OPT='-O3'		
+      CFLAGS_OPT='-O3'
       echo "  GNU C ($CFLAGS_OPT)"
     fi
   fi
@@ -1031,56 +1059,78 @@ if [ "${PORT}" = "unix" ]; then
 else
   echo "Set build configuration for target \"${PORT}\" port"
   case "${PORT}" in
-     'unix' )
+     unix )
         # UNIX values set in defaults, customized based on tests.
         ;;
 
-     'msdos' )
+     mingw* )
+        CFLAGS="${CFLAGS} -DWIN32"
+        CFLAGS_BZ="${CFLAGS_BZ} -D_WIN32"
+        OSDEP_H='win32/osdep.h win32/zipup.h'
+        OSDEP_OCU="${PROD}/win32.o ${PROD}/win32i64.o"
+        OSDEP_OCZ="${PROD}/nt.o ${OSDEP_OCU} ${PROD}/win32zip.o"
+        OSDEP_OSU=''
+        OSDEP_OSZ=''
+        PGMEXT='.exe'
+        DLLEXT='.dll'
+        ;;
+
+     msdos )
         CFLAGS="${CFLAGS} -DMSDOS"
         CFLAGS_BZ="${CFLAGS_BZ} -DMSDOS"
         OSDEP_H='msdos/osdep.h msdos/zipup.h'
-        OSDEP_OC="${PROD}/msdos.o"
-        OSDEP_OS=''
+        OSDEP_OCU="${PROD}/msdos.o"
+        OSDEP_OCZ="${PROD}/msdos.o"
+        OSDEP_OSU=''
+        OSDEP_OSZ=''
         PGMEXT='.EXE'
         DLLEXT='.DLL'
         ;;
 
-     'os2' )
+     os2 )
         CFLAGS="${CFLAGS} -DOS2"
         CFLAGS_BZ="${CFLAGS_BZ} -DOS2"
         OSDEP_H='os2/os2acl.h  os2/os2zip.h  os2/osdep.h  os2/zipup.h'
-        OSDEP_OC="${PROD}/os2.o"
-        OSDEP_OS=''
+        OSDEP_OCU="${PROD}/os2.o"
+        OSDEP_OCZ="${PROD}/os2.o"
+        OSDEP_OSU=''
+        OSDEP_OSZ=''
         PGMEXT='.EXE'
         DLLEXT='.DLL'
         ;;
 
-     'qdos' )
+     qdos )
         CFLAGS="${CFLAGS} -DQDOS"
         CFLAGS_BZ="${CFLAGS_BZ} -DQDOS"
         OSDEP_H='qdos/osdep.h  qdos/zipup.h'
-        OSDEP_OC="${PROD}/qdos.o ${PROD}/qfileio.o"
-        OSDEP_OS=''
+        OSDEP_OCU="${PROD}/qdos.o ${PROD}/qfileio.o"
+        OSDEP_OCZ="${PROD}/qdos.o ${PROD}/qfileio.o"
+        OSDEP_OSU=''
+        OSDEP_OSZ=''
         PGMEXT=''
         DLLEXT=''
         ;;
 
-     'zos' )
+     zos )
         CFLAGS="${CFLAGS} -DMVS"
         CFLAGS_BZ="${CFLAGS_BZ} -DMVS"
         OSDEP_H='zos/cmsmvs.h  zos/mvs.h  zos/zipup.h'
-        OSDEP_OC="${PROD}/mvs.o"
-        OSDEP_OS=''
+        OSDEP_OCU="${PROD}/mvs.o"
+        OSDEP_OCZ="${PROD}/mvs.o"
+        OSDEP_OSU=''
+        OSDEP_OSZ=''
         PGMEXT=''
         DLLEXT=''
         ;;
 
-     'zvm' )
+     zvm )
         CFLAGS="${CFLAGS} -DVM_CMS"
         CFLAGS_BZ="${CFLAGS_BZ} -DVM_CMS"
         OSDEP_H='zvm/cstat.h zos/cmsmvs.h  zos/zipup.h'
-        OSDEP_OC="${PROD}/cms.o"
-        OSDEP_OS=''
+        OSDEP_OCU="${PROD}/cms.o"
+        OSDEP_OCZ="${PROD}/cms.o"
+        OSDEP_OSU=''
+        OSDEP_OSZ=''
         PGMEXT=''
         DLLEXT=''
         ;;
@@ -1137,41 +1187,90 @@ case "${UNAME_S}" in
    *  )
       # Other UNIX systems.
       # FIX_ME: Need to customize for ports.
-      echo 'Check if we can use assembler match and CRC code'
-      if eval "$CPP_TST match.S > _match.s 2>/dev/null"; then
-        if [ -s _match.s ]; then
-          :
-        elif [ grep error < _match.s >/dev/null ]; then
-          :
-        elif eval "$CC -c  _match.s >/dev/null 2>/dev/null" \
-            && [ -f _match.o ]; then
-          # Check if CPP output builds directly with gcc
-          echo '-- Using assembler match code'
-          CFLAGS_TST="${CFLAGS_TST} -DASMV"
-          OSDEP_OS="${OSDEP_OS} ${PROD}/mch_gcc.o"
-
-          if eval "$CPP_TST crc_i386.S > _crc_i386.s 2>/dev/null"; then
-            # Check if CPP output builds directly with gcc
-            if eval "$CC -c _crc_i386.s >/dev/null 2>/dev/null" \
-                && [ -f _crc_i386.o ]; then
-              echo '-- Using assembler CRC code'
-              CFLAGS_TST="${CFLAGS_TST} -DASM_CRC"
-              OSDEP_OS="${OSDEP_OS} ${PROD}/crc_gcc.o"
-            fi
-          fi
-
-          echo 'Check if compiler generates underlines (CPP, for .S)'
-          echo "int foo() { return 0;}" > conftest.c
-          $AS conftest.c >/dev/null 2>/dev/null
-          nm conftest.o | grep "(^|[^_])foo" >/dev/null 2>/dev/null
+      echo 'Check if we can (and want to) use assembly code for CRC and match'
+      asm_crc=0
+      asmv=0
+      # CRC.  Fail intentionally, if NO_ASM or NO_ASM_CRC is defined.
+      cat > conftest.S << _EOF_
+#if defined( NO_ASM) || defined( NO_ASM_CRC)
+    bad code
+#else
+# include "crc_i386.S"
+#endif
+_EOF_
+      ${CPP_TST} ${CFLAGS} conftest.S > _crc_i386.s 2> /dev/null
+      status=$?
+      if [ $status -eq 0 -a -s _crc_i386.s ]; then
+        grep error _crc_i386.s > /dev/null
+        status=$?
+        if [ $status -ne 0 ]; then
+          $AS -c _crc_i386.s > /dev/null 2> /dev/null
           status=$?
-          [ $status -eq 0 ] && CPP="${CPP} -DNO_UNDERLINE"
+          if [ $status -eq 0 -a -f _crc_i386.o ]; then
+            echo '-- Using assembly code for CRC'
+            asm_crc=1
+            CFLAGS_TST="${CFLAGS_TST} -DASM_CRC"
+            OSDEP_OSU="${OSDEP_OSU} ${PROD}/crc_gcc.o"
+            OSDEP_OSZ="${OSDEP_OSZ} ${PROD}/crc_gcc.o"
+          fi
         fi
       fi
-      rm -f _match.s _match.o _crc_i386.s _crc_i386.o
+      # Match.  Fail intentionally, if NO_ASM or NO_ASMV is defined.
+      cat > conftest.S << _EOF_
+#if defined( NO_ASM) || defined( NO_ASMV)
+    bad code
+#else
+# include "match.S"
+#endif
+_EOF_
+      ${CPP_TST} ${CFLAGS} conftest.S > _match.s 2> /dev/null
+      status=$?
+      if [ $status -eq 0 -a -s _match.s ]; then
+        grep error _match.s > /dev/null
+        status=$?
+        if [ $status -ne 0 ]; then
+          $AS -c _match.s > /dev/null 2> /dev/null
+          status=$?
+          if [ $status -eq 0 -a -f _match.o ]; then
+            echo '-- Using assembly code for match'
+            asmv=1
+            CFLAGS_TST="${CFLAGS_TST} -DASMV"
+            OSDEP_OSZ="${OSDEP_OSZ} ${PROD}/mch_gcc.o"
+          fi
+        fi
+      fi
+      # If using assembler for anything, then check the C compiler for a
+      # "_" prefix on global names.
+      if [ $asmv -ne 0 -o $asm_crc -ne 0 ]; then
+        echo 'Check if C compiler adds "_" prefix to global names'
+        echo "int foo() { return 0;}" > conftest.c
+        $CC -c conftest.c >/dev/null 2>/dev/null
+        nm conftest.o | grep foo >/dev/null 2>/dev/null
+        status=$?
+        if [ $status -eq 0 ]; then
+          # Found "foo".  Look for "_foo".
+          nm conftest.o | grep _foo >/dev/null 2>/dev/null
+          status=$?
+          [ $status -ne 0 ] && AFLAGS="${AFLAGS} -DNO_UNDERLINE"
+        fi
+      fi
+      rm -f conftest.c conftest.S _match.s _match.o _crc_i386.s _crc_i386.o
+
+      # Windows (MinGW) assumes ASMV and ASM_CRC unless dissuaded.
+      if [ $asmv -eq 0 -a $asm_crc -eq 0 ]; then
+        CFLAGS_TST="${CFLAGS_TST} -DNO_ASM"
+      else
+        if [ $asmv -eq 0 ]; then
+          CFLAGS_TST="${CFLAGS_TST} -DNO_ASMV"
+        fi
+        if [ $asm_crc -eq 0 ]; then
+          CFLAGS_TST="${CFLAGS_TST} -DNO_ASM_CRC"
+        fi
+      fi
       ;;
 esac
 
+lprod=0
 #------------------------------------------------------------------------------
 # E) Configure optional AES (WinZip/Gladman) encryption library.
 #------------------------------------------------------------------------------
@@ -1194,9 +1293,12 @@ _EOF_
       $CC_TST $CFLAGS -DCRYPT_AES_WG -c conftest.c >/dev/null 2>/dev/null
       status=$?
       if [ $status -eq 0 ]; then
-        LIB_AES_WG="libaes.a"
+        LIB_AES_WG="${PROD}/libaes.a"
         CFLAGS_TST="${CFLAGS_TST} -DCRYPT_AES_WG"
-        LFLAGS1="${LFLAGS1} -L."
+        if [ $lprod -eq 0 ]; then
+          lprod=1
+          LFLAGS1="${LFLAGS1} -L${PROD}"
+        fi
         LFLAGS2="${LFLAGS2} -laes"
         echo "-- Including AES_WG encryption support"
         echo "-- Building libaes.a in ${PROD}"
@@ -1226,10 +1328,10 @@ if [ -n "${LZMA}" ]; then
     echo "  Check for LZMA header file in szip/"
     if [ -f "szip/LzmaDec.h" ]; then
       cat > conftest.c << _EOF_
+#include "szip/LzmaEnc.h"
 int main()
 {
    typedef int zoff_t;
-#include "szip/LzmaEnc.h"
 #ifndef LZMA_SUPPORT
    forget it
 #endif
@@ -1239,9 +1341,12 @@ _EOF_
       $CC_TST $CFLAGS -DLZMA_SUPPORT -c conftest.c >/dev/null 2>/dev/null
       status=$?
       if [ $status -eq 0 ]; then
-        LIB_LZMA="liblzma.a"
+        LIB_LZMA="${PROD}/liblzma.a"
         CFLAGS_TST="${CFLAGS_TST} -DLZMA_SUPPORT"
-        LFLAGS1="${LFLAGS1} -L."
+        if [ $lprod -eq 0 ]; then
+          lprod=1
+          LFLAGS1="${LFLAGS1} -L${PROD}"
+        fi
         LFLAGS2="${LFLAGS2} -llzma"
         echo "-- Including LZMA compression support"
         echo "-- Building liblzma.a in ${PROD}"
@@ -1271,10 +1376,10 @@ if [ -n "${PPMD}" ]; then
     echo "  Check for PPMd header file in szip/"
     if [ -f "szip/Ppmd.h" ]; then
       cat > conftest.c << _EOF_
+#include "szip/Ppmd.h"
 int main()
 {
    typedef int zoff_t;
-#include "szip/Ppmd.h"
 #ifndef PPMD_SUPPORT
    forget it
 #endif
@@ -1284,9 +1389,12 @@ _EOF_
       $CC_TST $CFLAGS -DPPMD_SUPPORT -c conftest.c >/dev/null 2>/dev/null
       status=$?
       if [ $status -eq 0 ]; then
-        LIB_PPMD="libppmd.a"
+        LIB_PPMD="${PROD}/libppmd.a"
         CFLAGS_TST="${CFLAGS_TST} -DPPMD_SUPPORT"
-        LFLAGS1="${LFLAGS1} -L."
+        if [ $lprod -eq 0 ]; then
+          lprod=1
+          LFLAGS1="${LFLAGS1} -L${PROD}"
+        fi
         LFLAGS2="${LFLAGS2} -lppmd"
         echo "-- Including PPMd compression support"
         echo "-- Building libppmd.a in ${PROD}"
@@ -1514,6 +1622,15 @@ else
 fi
 
 #------------------------------------------------------------------------------
+# H') Configure Zip object library.
+#------------------------------------------------------------------------------
+# Zip object library.  (User must request: "LIBZIP=1".)
+if [ -n "${LIBZIP}" ]; then
+  LIB_ZIP="${PROD}/libizzip.a"
+  echo "-- Building Zip object library (${LIB_ZIP})"
+fi
+
+#------------------------------------------------------------------------------
 # I) Common compiler feature checks.
 #------------------------------------------------------------------------------
 
@@ -1605,10 +1722,10 @@ status=$?
 # - Now we set the 64-bit file environment and check the size of off_t.
 echo 'Check for Large File Support'
 cat > conftest.c << _EOF_
-# define _LARGEFILE_SOURCE       /* Some OSes need this for fseeko().     */
-# define _LARGEFILE64_SOURCE
-# define _FILE_OFFSET_BITS 64    /* Select default interface as 64 bit.   */
-# define _LARGE_FILES            /* Some OSes need this for 64-bit off_t. */
+#define _LARGEFILE_SOURCE       /* Some OSes need this for fseeko().     */
+#define _LARGEFILE64_SOURCE
+#define _FILE_OFFSET_BITS 64    /* Select default interface as 64 bit.   */
+#define _LARGE_FILES            /* Some OSes need this for 64-bit off_t. */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -1659,10 +1776,10 @@ fi
 
 echo 'Check size of UIDs and GIDs'
 cat > conftest.c << _EOF_
-# define _LARGEFILE_SOURCE       /* Some OSes need this for fseeko       */
-# define _LARGEFILE64_SOURCE
-# define _FILE_OFFSET_BITS 64    /* Select default interface as 64 bit   */
-# define _LARGE_FILES            /* Some OSes need this for 64-bit off_t */
+#define _LARGEFILE_SOURCE       /* Some OSes need this for fseeko       */
+#define _LARGEFILE64_SOURCE
+#define _FILE_OFFSET_BITS 64    /* Select default interface as 64 bit   */
+#define _LARGE_FILES            /* Some OSes need this for 64-bit off_t */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -1671,14 +1788,14 @@ int main( )
 {
   struct stat s;
 
- #if !defined(__MVS__) && !defined(__VM__)
+#if !defined(__MVS__) && !defined(__VM__)
   /*
    2011/09/02 [AD] Comment out: Problem reported to IBM
                    - Over-optimized trivial program fails during printf()
    */
   printf("  s.st_uid is %u bytes\n", sizeof(s.st_uid));
   printf("  s.st_gid is %u bytes\n", sizeof(s.st_gid));
- #endif
+#endif
 
   /* See if have 16-bit UID. */
   if (sizeof(s.st_uid) != 2) {
@@ -1813,13 +1930,13 @@ if [ $status -eq 0 ]; then
 #include <stdlib.h>
 #include <stdio.h>
 #ifdef HAVE_CTYPE_H
-#  include <ctype.h>
+# include <ctype.h>
 #endif
 #ifdef HAVE_WCHAR_H
-#  include <wchar.h>
+# include <wchar.h>
 #endif
 #ifdef HAVE_WCTYPE_H
-#  include <wctype.h>
+# include <wctype.h>
 #endif
 int main()
 {
@@ -1847,13 +1964,13 @@ _EOF_
 #include <stdlib.h>
 #include <stdio.h>
 #ifdef HAVE_CTYPE_H
-#  include <ctype.h>
+# include <ctype.h>
 #endif
 #ifdef HAVE_WCHAR_H
-#  include <wchar.h>
+# include <wchar.h>
 #endif
 #ifdef HAVE_WCTYPE_H
-#  include <wctype.h>
+# include <wctype.h>
 #endif
 int main()
 {
@@ -1946,8 +2063,8 @@ status=$?
 
 # Check for missing functions.
 # - add NO_'function_name' to flags if missing.
-FUNCS='fchmod fchown lchown mktemp mktime mkstemp nl_langinfo rename rmdir'
-FUNCS="${FUNCS} strchr strrchr"
+FUNCS='fchmod fchown lchown localtime_r mktemp mktime mkstemp nl_langinfo'
+FUNCS="${FUNCS} rename rmdir strchr strrchr"
 #echo "Check for missing functions"
 for func in $FUNCS
 do
@@ -2118,16 +2235,16 @@ cat > conftest.c << _EOF_
 #include <stdlib.h>
 #include <stdio.h>
 #ifdef HAVE_CTYPE_H
-#  include <ctype.h>
+# include <ctype.h>
 #endif
 #ifdef HAVE_WCHAR_H
-#  include <wchar.h>
+# include <wchar.h>
 #endif
 #ifdef HAVE_WCTYPE_H
-#  include <wctype.h>
+# include <wctype.h>
 #endif
 #ifdef HAVE_MBSTRING_H
-#  include <mbstring.h>
+# include <mbstring.h>
 #endif
 int main()
 {
@@ -2154,7 +2271,7 @@ else
     cat > conftest.c << _EOF_
 #include <stdlib.h>
 #ifdef HAVE_MBSTR_H
-#  include <mbstr.h>
+# include <mbstr.h>
 #endif
 int main()
 {
@@ -2198,18 +2315,40 @@ status=$?
 
 # Check for OS-specific flags.
 echo 'Check for OS-specific flags'
-if [ -f /usr/bin/hostinfo ]; then
-  if /usr/bin/hostinfo | grep NeXT >/dev/null; then
-    CFLAGS_TST="${CFLAGS_TST} -posix"
-    LFLAGS1="${LFLAGS1} -posix -object"
-  fi
-# XXX ATT6300, Cray.
-elif [ -f /xenix ]; then
-  if echo "${UNAME_P}" | grep 286 >/dev/null; then
-    CFLAGS_TST="${CFLAGS_TST} -LARGE -Mel2 -DMEDIUM_MEM -DWSIZE=16384"
-    CFLAGS_TST="${CFLAGS_TST} -DNO_VOID"
-    LFLAGS1="${LFLAGS1} -LARGE -Mel2"
-  fi
+if [ -n "${UNAME_S}" ]; then
+  case "${UNAME_S}" in
+
+    OSF1|ULTRIX)
+      echo 'Check for -Olimit option...'
+      echo "int main() { return 0;}" > conftest.c
+      $CC_TST ${CFLAGS} -Olimit 1000 -o conftest conftest.c \
+       >/dev/null 2>/dev/null
+      status=$?
+      [ $status -eq 0 ] && CFLAGS_TST="${CFLAGS_TST} -Olimit 1000"
+      ;;
+
+    Darwin)
+      # Have (and user wants) extended attribute support?  (OS X >= 10.4?)
+      # "defined( XATTR_NOFOLLOW)" indicates feature availability.
+      # "defined( NO_APPLE_XATTR)" indicates user rejection.
+      cat > conftest.c << _EOF_
+#include <sys/xattr.h>
+int main()
+{
+#if defined( NO_APPLE_XATTR) || !defined( XATTR_NOFOLLOW)
+   bad code
+#endif
+   return 0;
+}
+_EOF_
+      $CC $CFLAGS -c conftest.c >/dev/null 2>/dev/null
+      status=$?
+      if [ $status -eq 0 ]; then
+        CC_TST="${CC_TST} -DAPPLE_XATTR"
+        CFLAGS_TST="${CFLAGS_TST} -DAPPLE_XATTR"
+      fi
+      ;;
+  esac
 elif [ -n "${UNAME_X}" ]; then
 # SCO shared library check.
   echo "int main() { return 0;}" > conftest.c
@@ -2217,18 +2356,21 @@ elif [ -n "${UNAME_X}" ]; then
   status=$?
   [ $status -eq 0 ] && LFLAGS2="-lc_s -nointl"
 else
-  echo "int main() { return 0;}" > conftest.c
-  case "${UNAME_S}" in
-     OSF1|ULTRIX)
-        echo 'Check for -Olimit option'
-        $CC_TST ${CFLAGS} -Olimit 1000 -o conftest conftest.c \
-          >/dev/null 2>/dev/null
-        status=$?
-        [ $status -eq 0 ] && CFLAGS_TST="${CFLAGS_TST} -Olimit 1000"
-        ;;
-  esac
+  # No explicit identification.  Test for files/directories.
+  if [ -f /usr/bin/hostinfo ]; then
+    if /usr/bin/hostinfo | grep NeXT >/dev/null; then
+      CFLAGS_TST="${CFLAGS_TST} -posix"
+      LFLAGS1="${LFLAGS1} -posix -object"
+    fi
+# XXX ATT6300, Cray.
+  elif [ -f /xenix ]; then
+    if echo "${UNAME_P}" | grep 286 >/dev/null; then
+      CFLAGS_TST="${CFLAGS_TST} -LARGE -Mel2 -DMEDIUM_MEM -DWSIZE=16384"
+      CFLAGS_TST="${CFLAGS_TST} -DNO_VOID"
+      LFLAGS1="${LFLAGS1} -LARGE -Mel2"
+    fi
+  fi
 fi
-
 
 #------------------------------------------------------------------------------
 # K) Configure system-specific resources.
@@ -2340,10 +2482,13 @@ echo "CC=\"${CC}\" CF=\"${CFLAGS}\"" \
      "LIB_LZMA=\"${LIB_LZMA}\"" \
      "LIB_PPMD=\"${LIB_PPMD}\"" \
      "LIB_Z=\"${LIB_Z}\"" \
+     "LIB_ZIP=\"${LIB_ZIP}\"" \
      "MK_BZ=\"${MK_BZ}\"" \
      "OSDEP_H=\"${OSDEP_H}\"" \
-     "OSDEP_OC=\"${OSDEP_OC}\"" \
-     "OSDEP_OS=\"${OSDEP_OS}\"" \
+     "OSDEP_OCU=\"${OSDEP_OCU}\"" \
+     "OSDEP_OCZ=\"${OSDEP_OCZ}\"" \
+     "OSDEP_OSU=\"${OSDEP_OSU}\"" \
+     "OSDEP_OSZ=\"${OSDEP_OSZ}\"" \
      "PGMEXT=\"${PGMEXT}\" DLLEXT=\"${DLLEXT}\"" \
      "BINDIR=\"${BINDIR}\" BINPERMS=\"${BINPERMS}\"" \
      "MANDIR=\"${MANDIR}\" MANPERMS=\"${MANPERMS}\"" \

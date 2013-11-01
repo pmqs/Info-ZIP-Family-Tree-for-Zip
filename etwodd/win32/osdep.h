@@ -1,7 +1,7 @@
 /*
   win32/osdep.h
 
-  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -256,6 +256,12 @@
   /* printf format size prefix for zoff_t values */
 # define ZOFF_T_FORMAT_SIZE_PREFIX "l"
 #endif
+
+
+/* 2013-04-11 SMS.  Have zrewind() in zipup.h. */
+#ifndef NO_ETWODD_SUPPORT
+# define ETWODD_SUPPORT
+#endif /* ndef NO_ETWODD_SUPPORT */
 
 
   /* UNICODE */
@@ -635,3 +641,14 @@ int getch_win32(void);
 #    include <wchar.h>
 #  endif
 #endif /* __WATCOMC__ */
+
+/* 2013-05-28 SMS.
+ * Define missing stat-related macros.
+ */
+#ifndef S_ISDIR
+# define S_ISDIR(m)  (((m)& _S_IFMT) == _S_IFDIR)
+#endif
+
+#ifndef S_ISREG
+# define S_ISREG(m)  (((m)& _S_IFMT) == _S_IFREG)
+#endif

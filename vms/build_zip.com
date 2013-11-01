@@ -2,19 +2,22 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2012-05-08  SMS.
+$!     Last revised:  2013-07-04  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
 $!     - suppress linking executables: "NOLINK"
 $!     - suppress help file processing: "NOHELP"
 $!     - suppress message file processing: "NOMSG"
+$!     - define DCL symbols: "SYMBOLS"  (Was default before Zip 3.1.)
 $!     - select compiler environment: "VAXC", "DECC", "GNUC"
 $!     - select AES (WinZip/Gladman) encryption support: "AES_WG"
 $!     - select large-file support: "LARGE" (Non-VAX only)
 $!     - select compiler listings: "LIST"  Note that the whole argument
 $!       is added to the compiler command, so more elaborate options
 $!       like "LIST/SHOW=ALL" (quoted or space-free) may be specified.
+$!       Default is "/NOLIST", but if the user specifies a LIST option,
+$!       then only the user-specified qualifier(s) will be included.
 $!     - supply additional compiler options: "CCOPTS=xxx"  Allows the
 $!       user to add compiler command options like /ARCHITECTURE or
 $!       /[NO]OPTIMIZE.  For example, CCOPTS=/ARCH=HOST/OPTI=TUNE=HOST
@@ -24,9 +27,9 @@ $!     - supply additional linker options: "LINKOPTS=xxx"  Allows the
 $!       user to add linker command options like /DEBUG or /MAP.  For
 $!       example: LINKOPTS=/DEBUG or LINKOPTS=/MAP/CROSS.  These options
 $!       must be quoted or space-free.  Default is
-$!       LINKOPTS=/NOTRACEBACK, but if the user specifies a LINKOPTS
-$!       string, /NOTRACEBACK will not be included unless specified by
-$!       the user.
+$!       LINKOPTS="/NOMAP /NOTRACEBACK", but if the user specifies a
+$!       LINKOPTS string, then only the user-specified qualifier(s) will
+$!       be included.
 $!     - select installation of CLI interface version of zip:
 $!       "VMSCLI" or "CLI"
 $!     - force installation of UNIX interface version of zip
@@ -43,10 +46,12 @@ $!       "dev:[dir]" (or a suitable logical name) tells where to find
 $!       "zlib.h".  The ZLIB object library (LIBZ.OLB) is expected to be
 $!       in a "[.dest]" directory under that one ("dev:[dir.ALPHAL]",
 $!       for example), or in that directory itself.
+$!     - build (and use) a callable-Zip library, LIBIZZIP.OLB: "LIBZIP"
 $!     - choose a destination directory for architecture-specific
 $!       product files (.EXE, .OBJ,.OLB, and so on): "PROD=subdir", to
 $!       use "[.subdir]".  The default is a name automatically generated
 $!       using rules defined below.
+$!     - Create help output text files: "HELP_TEXT"
 $!
 $!     To specify additional options, define the global symbol
 $!     LOCAL_ZIP as a comma-separated list of the C macros to be
@@ -55,20 +60,33 @@ $!
 $!             $ LOCAL_ZIP == "VMS_IM_EXTRA"
 $!             $ @ [.VMS]BUILD_ZIP.COM
 $!
-$!     Valid VMS-specific options include VMS_PK_EXTRA and VMS_IM_EXTRA. 
+$!     Valid VMS-specific options include VMS_PK_EXTRA and VMS_IM_EXTRA.
 $!     See the INSTALL file for other options.  (VMS_PK_EXTRA is the
 $!     default.)
 $!
-$!     If editing this procedure to set LOCAL_ZIP, be sure to use only
-$!     one "=", to avoid affecting other procedures.  For example:
+$!     If you edit this procedure to set LOCAL_ZIP here, be sure to
+$!     use only one "=", to avoid affecting other procedures.  For
+$!     example:
 $!             $ LOCAL_ZIP = "VMS_IM_EXTRA"
 $!
-$!     Note: This command procedure always generates both the "default"
-$!     Zip having the UNIX style command interface and the "VMSCLI" Zip
-$!     having the CLI compatible command interface.  There is no need to
-$!     add "VMSCLI" to the LOCAL_ZIP symbol.  (The only effect of
-$!     "VMSCLI" now is the selection of the CLI style Zip executable in
-$!     the foreign command definition.)
+$!     Note that on a Unix system, LOCAL_ZIP contains compiler
+$!     options, such as "-g" or "-DCRYPT_AES_WG_SFX", but on a VMS
+$!     system, LOCAL_ZIP contains only C macros, such as
+$!     "CRYPT_AES_WG_SFX", and CCOPTS is used for any other kinds of
+$!     compiler options, such as "/ARCHITECTURE".  Unix compilers accept
+$!     multiple "-D" options, but VMS compilers consider only the last
+$!     /DEFINE qualifier, so the C macros must be handled differently
+$!     from other compiler options on VMS.  Thus, when using the generic
+$!     installation instructions as a guide for controlling various
+$!     optional features, some adjustment may be needed to adapt them to
+$!     a VMS build environment.
+$!
+$!     This command procedure always generates both the "default" Zip
+$!     program with the UNIX style command interface and the "VMSCLI"
+$!     Zip program with the VMS CLI command interface.  There is no
+$!     need to add "VMSCLI" to the LOCAL_ZIP symbol.  (The only effect
+$!     of "VMSCLI" now is the selection of the VMS CLI style Zip
+$!     executable in the foreign command definition.)
 $!
 $!
 $!
@@ -107,8 +125,7 @@ $     endif
 $ endif
 $!
 $! Check for the presence of "VMSCLI" in LOCAL_ZIP.  If yes, we will
-$! define the foreign command for "zip" to use the executable
-$! containing the CLI interface.
+$! define the foreign command for "zip" to use the VMS CLI executable.
 $!
 $ len_local_zip = f$length( LOCAL_ZIP)
 $!
@@ -141,20 +158,25 @@ $!##################### Customizing section #############################
 $!
 $ zipx_unx = "ZIP"
 $ zipx_cli = "ZIP_CLI"
+$ lib_zipcli_name = "ZIPCLI.OLB"
+$ lib_ziputils_name = "ZIPUTILS.OLB"
 $!
 $ AES_WG = ""
 $ CCOPTS = ""
 $ IZ_BZIP2 = ""
 $ IZ_ZLIB = ""
-$ LINKOPTS = "/notraceback"
+$ LINKOPTS = "/nomap /notraceback"
 $ LISTING = " /nolist"
 $ LARGE_FILE = 0
+$ LIBZIP = 0
 $ LZMA = 0
 $ PPMD = 0
 $ MAKE_EXE = 1
 $ MAKE_HELP = 1
+$ MAKE_HELP_TEXT = 0
 $ MAKE_MSG = 1
 $ MAKE_OBJ = 1
+$ MAKE_SYM = 0
 $ MAY_USE_DECC = 1
 $ MAY_USE_GNUC = 0
 $ PROD = ""
@@ -181,6 +203,12 @@ $         CCOPTS = f$extract( (eq+ 1), 1000, opts)
 $         goto argloop_end
 $     endif
 $!
+$     if (f$extract( 0, 9, curr_arg) .eqs. "HELP_TEXT")
+$     then
+$         MAKE_HELP_TEXT = 1
+$         goto argloop_end
+$     endif
+$!
 $     if (f$extract( 0, 7, curr_arg) .eqs. "IZ_BZIP")
 $     then
 $         opts = f$edit( curr_arg, "COLLAPSE")
@@ -200,6 +228,12 @@ $!
 $     if (f$extract( 0, 5, curr_arg) .eqs. "LARGE")
 $     then
 $         LARGE_FILE = 1
+$         goto argloop_end
+$     endif
+$!
+$     if (f$extract( 0, 6, curr_arg) .eqs. "LIBZIP")
+$     then
+$         LIBZIP = 1
 $         goto argloop_end
 $     endif
 $!
@@ -229,7 +263,7 @@ $         MAKE_OBJ = 0
 $         goto argloop_end
 $     endif
 $!
-$     if (curr_arg .eqs. "NOEXE")
+$     if (curr_arg .eqs. "NOLINK")
 $     then
 $         MAKE_EXE = 0
 $         goto argloop_end
@@ -258,6 +292,12 @@ $     then
 $         opts = f$edit( curr_arg, "COLLAPSE")
 $         eq = f$locate( "=", opts)
 $         PROD = f$extract( (eq+ 1), 1000, opts)
+$         goto argloop_end
+$     endif
+$!
+$     if (curr_arg .eqs. "SYMBOLS")
+$     then
+$         MAKE_SYM = 1
 $         goto argloop_end
 $     endif
 $!
@@ -334,6 +374,7 @@ $ destl = ""
 $ destm = arch
 $ cmpl = "DEC/Compaq/HP C"
 $ opts = ""
+$ vaxc = 0
 $ if (arch .nes. "VAX")
 $ then
 $     HAVE_DECC_VAX = 0
@@ -398,6 +439,7 @@ $                 cc = "cc"
 $             endif
 $             destm = "''destm'V"
 $             cmpl = "VAC C"
+$             vaxc = 1
 $         endif
 $         opts = "VAXC"
 $     endif
@@ -428,6 +470,17 @@ $ then
 $     opts = "SYS$DISK:[.''dest']VAXCSHR.OPT /OPTIONS,"
 $ endif
 $!
+$ if (LIBZIP .eq. 0)
+$ then
+$     lib_zip_name = "ZIP.OLB"
+$ else
+$     lib_zip_name = "LIBIZZIP.OLB"
+$ endif
+$ lib_zip = "SYS$DISK:[.''dest']''lib_zip_name'"
+$ lib_zipcli = "SYS$DISK:[.''dest']''lib_zipcli_name'"
+$ lib_ziputils = "SYS$DISK:[.''dest']''lib_ziputils_name'"
+$ libzip_opt = "[.''dest']LIB_IZZIP.OPT"
+$!
 $! If BZIP2 support was selected, find the object library.
 $! Complain if things fail.
 $!
@@ -450,7 +503,7 @@ $         then
 $             say "Can't find BZIP2 object library.  Can't link."
 $             goto error
 $         else
-$             lib_bzip2_opts = "lib_bzip2:''bz2_olb' /library, "
+$             lib_bzip2_opts = "LIB_BZIP2:''bz2_olb' /library, "
 $         endif
 $     endif
 $ endif
@@ -471,7 +524,7 @@ $         say "Can't find ZLIB object library.  Can't link."
 $         goto error
 $     else
 $         say "ZLIB dir:  ''f$trnlnm( "lib_zlib")'"
-$         lib_zlib_opts = "lib_zlib:''zlib_olb' /library, "
+$         lib_zlib_opts = "LIB_ZLIB:''zlib_olb' /library, "
 $     endif
 $ endif
 $!
@@ -498,9 +551,16 @@ $!
 $ if (PPMD .ne. 0)
 $ then
 $     defs = defs+ ", PPMD_SUPPORT"
-$     if ((arch .eqs. "VAX") .and. (LZMA .eq. 0))
+$     if (arch .eqs. "VAX")
 $     then
-$         defs = defs+ ", _SZ_NO_INT_64"
+$         if (vaxc .ne. 0)
+$         then
+$             defs = defs+ ", NO_SIGNED_CHAR"
+$         endif
+$         if (LZMA .eq. 0)
+$         then
+$             defs = defs+ ", _SZ_NO_INT_64"
+$         endif
 $     endif
 $ endif
 $!
@@ -513,6 +573,7 @@ $!
 $     DEF_UNX = "/define = (''defs')"
 $     DEF_CLI = "/define = (''defs', VMSCLI)"
 $     DEF_UTIL = "/define = (''defs', UTIL)"
+$     DEF_LIBZIP = "/define = (''defs', USE_ZIPMAIN)"
 $ else
 $     if (MAKE_EXE .or. MAKE_MSG)
 $     then
@@ -617,17 +678,39 @@ $ tmp = f$verify( 1)    ! Turn echo on to see what's happening.
 $!
 $!-------------------------------- Zip section -------------------------------
 $!
-$! Process the help file, if desired.
-$!
 $ if (MAKE_HELP)
 $ then
+$!
+$! Process the Unix-style help file.
+$!
 $     runoff /out = ZIP.HLP [.VMS]VMS_ZIP.RNH
+$!
 $ endif
 $!
-$! Process the message file, if desired.
+$ if (MAKE_HELP .and. MAKE_HELP_TEXT)
+$ then
+$!
+$! Make the Unix-style help output text file.
+$!
+$     help_temp_name = "help_temp_"+ f$getjpi( 0, "PID")
+$     if (f$search( help_temp_name+ ".HLB") .nes. "") then -
+       delete 'help_temp_name'.HLB;*
+$     library /create /help 'help_temp_name'.HLB ZIP.HLP
+$     help /library = sys$disk:[]'help_temp_name'.HLB -
+       /output = 'help_temp_name'.OUT zip...
+$     delete 'help_temp_name'.HLB;*
+$     create /fdl = [.VMS]STREAM_LF.FDL ZIP.HTX
+$     open /append help_temp ZIP.HTX
+$     copy 'help_temp_name'.OUT help_temp
+$     close help_temp
+$     delete 'help_temp_name'.OUT;*
+$!
+$ endif
 $!
 $ if (MAKE_MSG)
 $ then
+$!
+$! Process the message file.
 $!
 $! Create the message source file first, if it's not found.
 $!
@@ -646,6 +729,7 @@ $     endif
 $!
 $     message /object = [.'dest']ZIP_MSG.OBJ /nosymbols [.VMS]ZIP_MSG.MSG
 $     link /shareable = [.'dest']ZIP_MSG.EXE [.'dest']ZIP_MSG.OBJ
+$!
 $ endif
 $!
 $ if (MAKE_OBJ)
@@ -669,6 +753,12 @@ $     cc 'DEF_UNX' /object = [.'dest']VMS.OBJ [.VMS]VMS.C
 $     cc 'DEF_UNX' /object = [.'dest']VMSMUNCH.OBJ [.VMS]VMSMUNCH.C
 $     cc 'DEF_UNX' /object = [.'dest']VMSZIP.OBJ [.VMS]VMSZIP.C
 $!
+$     if (LIBZIP .ne. 0)
+$     then
+$         cc 'DEF_LIBZIP' /object = [.'dest']API_.OBJ API.C
+$         cc 'DEF_LIBZIP' /object = [.'dest']ZIP_.OBJ ZIP.C
+$     endif
+$!
 $     if (AES_WG .ne. 0)
 $     then
 $         cc 'DEF_UNX' /object = [.'dest']AESCRYPT.OBJ [.AES_WG]AESCRYPT.C
@@ -685,7 +775,6 @@ $     if (LZMA .ne. 0)
 $     then
 $         cc 'DEF_UNX' /object = [.'dest']LZFIND.OBJ [.SZIP]LZFIND.C
 $         cc 'DEF_UNX' /object = [.'dest']LZMAENC.OBJ [.SZIP]LZMAENC.C
-$         cc 'DEF_UNX' /object = [.'dest']SZFILE.OBJ [.SZIP]SZFILE.C
 $     endif
 $!
 $     if (PPMD .ne. 0)
@@ -694,12 +783,49 @@ $         cc 'DEF_UNX' /object = [.'dest']PPMD8.OBJ [.SZIP]PPMD8.C
 $         cc 'DEF_UNX' /object = [.'dest']PPMD8ENC.OBJ [.SZIP]PPMD8ENC.C
 $     endif
 $!
-$! Create the object library.
+$! Create the callable library link options file.
 $!
-$     if (f$search( "[.''dest']ZIP.OLB") .eqs. "") then -
-       libr /object /create [.'dest']ZIP.OLB
+$     if (LIBZIP .ne. 0)
+$     then
+$         def_dev_dir_orig = f$environment( "default")
+$         set default [.'dest']
+$         def_dev_dir = f$environment( "default")
+$         set default 'def_dev_dir_orig'
+$         create /fdl = [.VMS]STREAM_LF.FDL 'libzip_opt'
+$         open /append opt_file_lib 'libzip_opt'
+$         write opt_file_lib "! DEFINE LIB_IZZIP ''def_dev_dir'"
+$         if (IZ_BZIP2 .nes. "")
+$         then
+$             write opt_file_lib "! DEFINE LIB_BZIP2 ''f$trnlnm( "lib_bzip2")'"
+$         endif
+$         if (IZ_ZLIB .nes. "")
+$         then
+$             write opt_file_lib "! DEFINE LIB_ZLIB ''f$trnlnm( "lib_zlib")'"
+$         endif
+$         write opt_file_lib "LIB_IZZIP:''lib_zip_name' /library"
+$         if (IZ_BZIP2 .nes. "")
+$         then
+$             write opt_file_lib "''lib_bzip2_opts'" - ", " - ","
+$         endif
+$         write opt_file_lib "LIB_IZZIP:''lib_zip_name' /library"
+$         if (IZ_ZLIB .nes. "")
+$         then
+$             write opt_file_lib "''lib_zlib_opts'" - ", " - ","
+$         endif
+$         close opt_file_lib
+$     endif
 $!
-$     libr /object /replace [.'dest']ZIP.OLB -
+$ endif
+$!
+$ if (MAKE_EXE)
+$ then
+$!
+$! Create the primary object library.
+$!
+$     if (f$search( lib_zip) .eqs. "") then -
+       libr /object /create 'lib_zip'
+$!
+$     libr /object /replace 'lib_zip' -
        [.'dest']CRC32.OBJ, -
        [.'dest']CRYPT.OBJ, -
        [.'dest']DEFLATE.OBJ, -
@@ -715,9 +841,16 @@ $     libr /object /replace [.'dest']ZIP.OLB -
        [.'dest']VMSMUNCH.OBJ, -
        [.'dest']VMSZIP.OBJ
 $!
+$     if (LIBZIP .ne. 0)
+$     then
+$         libr /object /replace 'lib_zip' -
+           [.'dest']API_.OBJ, -
+           [.'dest']ZIP_.OBJ
+$     endif
+$!
 $     if (AES_WG .ne. 0)
 $     then
-$         libr /object /replace [.'dest']ZIP.OLB -
+$         libr /object /replace 'lib_zip' -
            [.'dest']AESCRYPT.OBJ, -
            [.'dest']AESKEY.OBJ, -
            [.'dest']AESTAB.OBJ, -
@@ -730,15 +863,14 @@ $     endif
 $!
 $     if (LZMA .ne. 0)
 $     then
-$         libr /object /replace [.'dest']UNZIP.OLB -
-           [.'dest']7ZFILE.OBJ, -
+$         libr /object /replace 'lib_zip' -
            [.'dest']LZFIND.OBJ, -
            [.'dest']LZMAENC.OBJ
 $     endif
 $!
 $     if (PPMD .ne. 0)
 $     then
-$         libr /object /replace [.'dest']UNZIP.OLB -
+$         libr /object /replace 'lib_zip; -
            [.'dest']PPMD8.OBJ, -
            [.'dest']PPMD8ENC.OBJ
 $     endif
@@ -762,9 +894,9 @@ $! Link the executable.
 $!
 $     link /executable = [.'dest']'ZIPX_UNX'.EXE -
        SYS$DISK:[.'dest']ZIP.OBJ, -
-       SYS$DISK:[.'dest']ZIP.OLB /library, -
+       'lib_zip' /library, -
        'lib_bzip2_opts' -
-       SYS$DISK:[.'dest']ZIP.OLB /library, -
+       'lib_zip' /library, -
        'lib_zlib_opts' -
        'opts' -
        SYS$DISK:[.'dest']ZIP.OPT /options
@@ -773,14 +905,36 @@ $ endif
 $!
 $!------------------------ Zip (CLI interface) section -----------------------
 $!
-$! Process the CLI help file, if desired.
-$!
 $ if (MAKE_HELP)
 $ then
+$!
+$! Process the CLI help file.
+$!
 $     set default [.VMS]
 $     edit /tpu /nosection /nodisplay /command = cvthelp.tpu zip_cli.help
 $     set default [-]
 $     runoff /output = ZIP_CLI.HLP [.VMS]ZIP_CLI.RNH
+$!
+$ endif
+$!
+$ if (MAKE_HELP .and. MAKE_HELP_TEXT)
+$ then
+$!
+$! Make the CLI help output text file.
+$!
+$     help_temp_name = "help_temp_"+ f$getjpi( 0, "PID")
+$     if (f$search( help_temp_name+ ".HLB") .nes. "") then -
+       delete 'help_temp_name'.HLB;*
+$     library /create /help 'help_temp_name'.HLB ZIP_CLI.HLP
+$     help /library = sys$disk:[]'help_temp_name'.HLB -
+       /output = 'help_temp_name'.OUT zip...
+$     delete 'help_temp_name'.HLB;*
+$     create /fdl = [.VMS]STREAM_LF.FDL ZIP_CLI.HTX
+$     open /append help_temp ZIP_CLI.HTX
+$     copy 'help_temp_name'.OUT help_temp
+$     close help_temp
+$     delete 'help_temp_name'.OUT;*
+$!
 $ endif
 $!
 $ if (MAKE_OBJ)
@@ -799,12 +953,17 @@ $     @ [.vms]cppcld.com "''cc'" [.VMS]ZIP_CLI.CLD -
 $     tmp = f$verify( cppcld_verify)
 $     set command /object = [.'dest']ZIP_CLI.OBJ [.'dest']ZIP_CLI.CLD
 $!
+$ endif
+$!
+$ if (MAKE_EXE)
+$ then
+$!
 $! Create the CLI object library.
 $!
-$     if (f$search( "[.''dest']ZIPCLI.OLB") .eqs. "") then -
-       libr /object /create [.'dest']ZIPCLI.OLB
+$     if (f$search( lib_zipcli) .eqs. "") then -
+       libr /object /create 'lib_zipcli'
 $!
-$     libr /object /replace [.'dest']ZIPCLI.OLB -
+$     libr /object /replace 'lib_zipcli' -
        [.'dest']ZIPCLI.OBJ, -
        [.'dest']CMDLINE.OBJ, -
        [.'dest']ZIP_CLI.OBJ
@@ -818,10 +977,10 @@ $ then
 $!
 $     link /executable = [.'dest']'ZIPX_CLI'.EXE -
        SYS$DISK:[.'dest']ZIPCLI.OBJ, -
-       SYS$DISK:[.'dest']ZIPCLI.OLB /library, -
-       SYS$DISK:[.'dest']ZIP.OLB /library, -
+       'lib_zipcli' /library, -
+       'lib_zip' /library, -
        'lib_bzip2_opts' -
-       SYS$DISK:[.'dest']ZIP.OLB /library, -
+       'lib_zip' /library, -
        'lib_zlib_opts' -
        'opts' -
        SYS$DISK:[.'dest']ZIP.OPT /options
@@ -841,12 +1000,23 @@ $     cc 'DEF_UTIL' /object = [.'dest']UTIL_.OBJ UTIL.C
 $     cc 'DEF_UTIL' /object = [.'dest']ZIPFILE_.OBJ ZIPFILE.C
 $     cc 'DEF_UTIL' /object = [.'dest']VMS_.OBJ [.VMS]VMS.C
 $!
+$! Compile the Zip utilities main program sources.
+$!
+$     cc 'DEF_UTIL' /object = [.'dest']ZIPCLOAK.OBJ ZIPCLOAK.C
+$     cc 'DEF_UTIL' /object = [.'dest']ZIPNOTE.OBJ ZIPNOTE.C
+$     cc 'DEF_UTIL' /object = [.'dest']ZIPSPLIT.OBJ ZIPSPLIT.C
+$!
+$ endif
+$!
+$ if (MAKE_EXE)
+$ then
+$!
 $! Create the Zip utilities object library.
 $!
-$     if (f$search( "[.''dest']ZIPUTILS.OLB") .eqs. "") then -
-       libr /object /create [.'dest']ZIPUTILS.OLB
+$     if (f$search( lib_ziputils) .eqs. "") then -
+       libr /object /create 'lib_ziputils'
 $!
-$     libr /object /replace [.'dest']ZIPUTILS.OLB -
+$     libr /object /replace 'lib_ziputils' -
        [.'dest']CRC32.OBJ, -
        [.'dest']CRYPT_.OBJ, -
        [.'dest']FILEIO_.OBJ, -
@@ -859,7 +1029,7 @@ $     libr /object /replace [.'dest']ZIPUTILS.OLB -
 $!
 $     if (AES_WG .ne. 0)
 $     then
-$         libr /object /replace [.'dest']ZIPUTILS.OLB -
+$         libr /object /replace 'lib_ziputils' -
            [.'dest']AESCRYPT.OBJ, -
            [.'dest']AESKEY.OBJ, -
            [.'dest']AESTAB.OBJ, -
@@ -872,24 +1042,17 @@ $     endif
 $!
 $     if (LZMA .ne. 0)
 $     then
-$         libr /object /replace [.'dest']UNZIP.OLB -
-           [.'dest']7ZFILE.OBJ, -
+$         libr /object /replace 'lib_zip' -
            [.'dest']LZFIND.OBJ, -
            [.'dest']LZMAENC.OBJ
 $     endif
 $!
 $     if (PPMD .ne. 0)
 $     then
-$         libr /object /replace [.'dest']UNZIP.OLB -
+$         libr /object /replace 'lib_zip' -
            [.'dest']PPMD8.OBJ, -
            [.'dest']PPMD8ENC.OBJ
 $     endif
-$!
-$! Compile the Zip utilities main program sources.
-$!
-$     cc 'DEF_UTIL' /object = [.'dest']ZIPCLOAK.OBJ ZIPCLOAK.C
-$     cc 'DEF_UTIL' /object = [.'dest']ZIPNOTE.OBJ ZIPNOTE.C
-$     cc 'DEF_UTIL' /object = [.'dest']ZIPSPLIT.OBJ ZIPSPLIT.C
 $!
 $ endif
 $!
@@ -900,20 +1063,20 @@ $ then
 $!
 $     link /executable = [.'dest']ZIPCLOAK.EXE -
        SYS$DISK:[.'dest']ZIPCLOAK.OBJ, -
-       SYS$DISK:[.'dest']ZIPUTILS.OLB /library, -
+       'lib_ziputils' /library, -
        'lib_zlib_opts' -
        'opts' -
        SYS$DISK:[.'dest']ZIP.OPT /options
 $!
 $     link /executable = [.'dest']ZIPNOTE.EXE -
        SYS$DISK:[.'dest']ZIPNOTE.OBJ, -
-       SYS$DISK:[.'dest']ZIPUTILS.OLB /library, -
+       'lib_ziputils' /library, -
        'opts' -
        SYS$DISK:[.'dest']ZIP.OPT /OPTIONS
 $!
 $     LINK /EXECUTABLE = [.'DEST']ZIPSPLIT.EXE -
        SYS$DISK:[.'DEST']ZIPSPLIT.OBJ, -
-       SYS$DISK:[.'DEST']ZIPUTILS.OLB /LIBRARY, -
+       'lib_ziputils' /LIBRARY, -
        'opts' -
        SYS$DISK:[.'dest']ZIP.OPT /options
 $!
@@ -921,15 +1084,20 @@ $ endif
 $!
 $!------------------------------ Symbols section -----------------------------
 $!
-$ there = here- "]"+ ".''dest']"
+$ if (MAKE_SYM)
+$ then
 $!
-$! Define the foreign command symbols.  Similar commands may be useful
-$! in SYS$MANAGER:SYLOGIN.COM and/or users' LOGIN.COM.
+$     there = here- "]"+ ".''dest']"
 $!
-$ zip      == "$''there'''ZIPEXEC'.exe"
-$ zipcloak == "$''there'zipcloak.exe"
-$ zipnote  == "$''there'zipnote.exe"
-$ zipsplit == "$''there'zipsplit.exe"
+$!    Define the foreign command symbols.  Similar commands may be
+$!    useful in SYS$MANAGER:SYLOGIN.COM and/or users' LOGIN.COM.
+$!
+$     zip      == "$''there'''ZIPEXEC'.exe"
+$     zipcloak == "$''there'zipcloak.exe"
+$     zipnote  == "$''there'zipnote.exe"
+$     zipsplit == "$''there'zipsplit.exe"
+$!
+$ endif
 $!
 $! Deassign the temporary process logical names, restore the original
 $! default directory, and restore the DCL verify status.

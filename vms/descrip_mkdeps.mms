@@ -1,4 +1,4 @@
-#                                               8 May 2012.  SMS.
+#                                               20 December 2012.  SMS.
 #
 #    Zip 3.1 for VMS - MMS Dependency Description File.
 #
@@ -7,7 +7,8 @@
 #    is not specified.  Typical usage:
 #
 #    $ MMS /EXTEND /DESCRIP = [.VMS]DESCRIP_MKDEPS.MMS /SKIP -
-#       /MACRO = (LARGE=1, AES_WG=1, IZ_BZIP2=iz_bzip2, LZMA=1, PPMD=1)
+#       /MACRO = (LARGE=1, AES_WG=1, IZ_BZIP2=iz_bzip2, -
+#       LZMA=1, PPMD=1, LIBZIP=1)
 #
 # If the IZ_AES_WG encryption source kit has not been installed, then
 # the macro AES_WG should not be defined.
@@ -103,6 +104,9 @@ UNK_MMSD = 1
 MODS_LIB_ZIP_N = $(FILTER-OUT *], \
  $(PATSUBST *]*.OBJ, *] *, $(MODS_OBJS_LIB_ZIP_N)))
 
+MODS_LIB_LIBZIP_N = $(FILTER-OUT *], \
+ $(PATSUBST *]*.OBJ, *] *, $(MODS_OBJS_LIB_LIBZIP_N)))
+
 MODS_LIB_ZIP_V = $(FILTER-OUT *], \
  $(PATSUBST *]*.OBJ, *] [.VMS]*, $(MODS_OBJS_LIB_ZIP_V)))
 
@@ -140,7 +144,7 @@ MODS_ZIPUTILS = $(FILTER-OUT *], \
 # Note that the CLI Zip main program object file is a special case.
 
 DEPS = $(FOREACH NAME, \
- $(MODS_LIB_ZIP_N) $(MODS_LIB_ZIP_V) \
+ $(MODS_LIB_ZIP_N) $(MODS_LIB_LIBZIP_N) $(MODS_LIB_ZIP_V) \
  $(MODS_LIB_ZIP_AES) \
  $(MODS_LIB_ZIP_LZMA) \
  $(MODS_LIB_ZIP_PPMD) \
@@ -224,7 +228,7 @@ CLEAN_ALL :
 	if (f$search( "[.VMS]DESCRIP_DEPS.MMS") .nes. "") then -
          delete /log [.VMS]DESCRIP_DEPS.MMS;*
 
-# Explicit dependencies and rules for utility variant modules.
+# Explicit dependencies and rules for library and utility variant modules.
 #
 # The extra dependency on the normal dependency file obviates including
 # the /SKIP warning code in each rule here.
@@ -267,6 +271,20 @@ ZIPFILE_.MMSD : ZIPFILE.C ZIPFILE.MMSD
 
 ZIPCLI.MMSD : ZIP.C ZIP.MMSD
 	$(CC) $(CFLAGS_DEP) $(CDEFS_UNX) $(CFLAGS_CLI) $(MMS$SOURCE) -
+         /NOLIST /NOOBJECT /MMS_DEPENDENCIES = -
+         (FILE = $(MMS$TARGET), NOSYSTEM_INCLUDE_FILES)
+	@$(MOD_DEP) $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
+
+# Zip library modules.
+
+API_.MMSD : API.C
+	$(CC) $(CFLAGS_DEP) $(CDEFS_LIBZIP) $(MMS$SOURCE) -
+         /NOLIST /NOOBJECT /MMS_DEPENDENCIES = -
+         (FILE = $(MMS$TARGET), NOSYSTEM_INCLUDE_FILES)
+	@$(MOD_DEP) $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)
+
+ZIP_.MMSD : ZIP.C ZIP.MMSD
+	$(CC) $(CFLAGS_DEP) $(CDEFS_LIBZIP) $(MMS$SOURCE) -
          /NOLIST /NOOBJECT /MMS_DEPENDENCIES = -
          (FILE = $(MMS$TARGET), NOSYSTEM_INCLUDE_FILES)
 	@$(MOD_DEP) $(MMS$TARGET) $(MMS$TARGET_NAME).OBJ $(MMS$TARGET)

@@ -1,7 +1,7 @@
 /*
   zipcloak.c - Zip 3
 
-  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -281,6 +281,13 @@ local void version_info()
 
   /* Options info array */
   static ZCONST char *comp_opts[] = {
+#ifdef ASM_CRC
+    "ASM_CRC              (Assembly code used for CRC calculation)",
+#endif
+#ifdef ASMV
+    "ASMV                 (Assembly code used for pattern matching)",
+#endif
+
 #ifdef DEBUG
     "DEBUG",
 #endif
@@ -298,6 +305,9 @@ local void version_info()
 
 #ifdef IZ_CRYPT_TRAD
     crypt_opt_ver,
+# ifdef ETWODD_SUPPORT
+    "ETWODD_SUPPORT       (Encrypt Trad without data descriptor if --etwodd)",
+# endif /* def ETWODD_SUPPORT */
 #endif
 
 #if IZ_CRYPT_AES_WG
@@ -351,6 +361,8 @@ local void version_info()
 }
 
 
+#define o_et            0x170   /* See also zip.c. */
+
 /* options for zipcloak - 3/5/2004 EG */
 struct option_struct far options[] = {
   /* short longopt        value_type        negatable        ID    name */
@@ -360,6 +372,9 @@ struct option_struct far options[] = {
     {"b",  "temp-path",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'b',  "path for temp file"},
 #endif
     {"d",  "decrypt",     o_NO_VALUE,       o_NOT_NEGATABLE, 'd',  "decrypt"},
+#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+    {"",   "etwodd",      o_NO_VALUE,       o_NOT_NEGATABLE, o_et, "encrypt Traditional without data descriptor"},
+#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
     {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     {"L",  "license",     o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
     {"l",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
@@ -528,6 +543,11 @@ int main(argc, argv)
                     break;
                 case 'd':
                     decrypt = 1;  break;
+#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+                case o_et:      /* Encrypt Trad without data descriptor. */
+                    etwodd = 1;
+                    break;
+#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
                 case 'h':   /* Show help */
                     help();
                     EXIT(ZE_OK);

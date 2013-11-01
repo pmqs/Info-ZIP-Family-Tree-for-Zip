@@ -50,16 +50,17 @@ Installation on Unix (see below for installation on other systems)
      Encryption Source Kits
      ----------------------
 
-     This Zip release includes the traditional encryption code ("CRYPT")
-     previously supplied in the separate package zcrypt29.zip, but you
-     still can decide whether to activate the CRYPT code or not.  CRYPT
-     is enabled by default, but you may disable it by specifying the
-     option -DNO_CRYPT in the "make" macro LOCAL_ZIP (or by adding this
-     option to the compilation options in the appropriate makefile).
-     See README.CR for more on CRYPT 2.9 (provided to allow encryption
-     to be added to older releases) and README_CR.txt for more on
-     the latest version of CRYPT (the code of which is now included, so
-     acquiring this kit separately should not be needed).
+     This Zip release includes the traditional encryption code
+     ("IZ_CRYPT_TRAD") previously supplied in the separate package
+     zcrypt29.zip, but you still can decide whether to activate the
+     IZ_CRYPT_TRAD code or not.  IZ_CRYPT_TRAD is enabled by default,
+     but you may disable it by specifying the option -DNO_CRYPT_TRAD (or
+     -DNO_CRYPT) in the "make" macro LOCAL_ZIP (or by adding this option
+     to the compilation options in the appropriate makefile).  See
+     README.CR for more on CRYPT 2.9 (provided to allow encryption to be
+     added to older releases) and README_CR.txt for more on the latest
+     version of CRYPT (the code of which is now included, so acquiring
+     this kit separately should not be needed).
 
      This Zip release offers optional support for Advanced Encryption
      Standard (AES) encryption, which is considered relatively strong
@@ -161,11 +162,11 @@ Installation on Unix (see below for installation on other systems)
      ----------
 
      Traditional zip encryption is enabled by default.  To disable it,
-     the C macro NO_CRYPT must be defined at build time.  This can be
-     done by adding "LOCAL_ZIP=-DNO_CRYPT" to the "make" command.  For
-     example:
+     the C macro NO_CRYPT_TRAD (or NO_CRYPT) must be defined at build
+     time.  This can be done by adding "LOCAL_ZIP=-DNO_CRYPT_TRAD" (or
+     "LOCAL_ZIP=-DNO_CRYPT") to the "make" command.  For example:
 
-          make -f unix/Makefile LOCAL_ZIP=-DNO_CRYPT generic
+          make -f unix/Makefile LOCAL_ZIP=-DNO_CRYPT_TRAD generic
 
      AES encryption is not enabled by default.  To enable it, first
      download and install the separate IZ_AES_WG source kit, as
@@ -483,13 +484,22 @@ Compiler Flags
     this flag forces "[list]" matching to be always on as in previous
     releases.
 
-  CRYPT_AES_WG
+  IZ_CRYPT_AES_WG
     Enable AES_WG encryption capability.  See README_AES_WG.txt for
     details.
 
   NO_CRYPT
-    Disable traditional zip encryption capability.  (NO_CRYPT also
-    overrides CRYPT_AES_WG, and disables AES_WG encryption.)
+    Disable all encryption capability.
+
+  NO_CRYPT_TRAD
+    Disable Traditional zip encryption capability.
+
+  NO_ASM
+  NO_ASM_CRC
+  NO_ASMV
+    Used by unix/configure ("make generic") to disable automatic
+    selection of assembly code for CRC calculations (NO_ASM_CRC),
+    pattern matching (NO_ASMV), or both (NO_ASM).
 
   NO_MKSTEMP
     On Unix systems, the zip temporary file is normally created using mkstemp()

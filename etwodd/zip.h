@@ -964,28 +964,32 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
 # endif
    char *in2ex OF((char *));
    char *ex2in OF((char *, int, int *));
-#if defined(UNICODE_SUPPORT) && defined(WIN32)
+# if defined(UNICODE_SUPPORT) && defined(WIN32)
    int has_win32_wide OF((void));
    wchar_t *in2exw OF((wchar_t *));
    wchar_t *ex2inw OF((wchar_t *, int, int *));
    int procnamew OF((wchar_t *, int));
-#endif
+# endif
    int procname OF((char *, int));
    void stamp OF((char *, ulg));
 
    ulg filetime OF((char *, ulg *, zoff_t *, iztimes *));
    /* Windows Unicode */
 # ifdef UNICODE_SUPPORT
-# ifdef WIN32
+#  ifdef WIN32
    ulg filetimew OF((wchar_t *, ulg *, zoff_t *, iztimes *));
    char *get_win32_utf8path OF((char *));
    wchar_t *local_to_wchar_string OF ((char *));
-# endif
-# endif
+#  endif /* def WIN32 */
+# endif /* def UNICODE_SUPPORT */
 
-#ifdef VMS
+#if defined( UNIX) && defined( __APPLE__)
+   int make_apl_dbl_header( char *name, int *hdr_size);
+# endif /* defined( UNIX) && defined( __APPLE__) */
+
+# ifdef VMS
    void decc_init( void);
-#endif /* def VMS */
+# endif /* def VMS */
 
 # if !(defined(VMS) && defined(VMS_PK_EXTRA))
    int set_extra_field OF((struct zlist far *, iztimes *));

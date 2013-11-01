@@ -5057,7 +5057,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     place than the backup path specified by -BP.  This is useful when the
     media used for the backup path may be swapped out when full.  Currently
     not implemented.  zip.c (EG)
--------------------- April 3rd 2013 version 3.1d26 -----------------------
+-------------------- August 16th 2013 version 3.1d26 -----------------------
  1. Finish changing APL_DBL_SFX to APL_DBL_SUFX.  unix/macosx.h (SMS)
  2. Change Mac OS X system-specific code to use (C macro APL_DBL_SUFX)
     "/..namedfork/rsrc" as the suffix for resource fork access on Intel,
@@ -5098,7 +5098,9 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 12. Initial attempt to provide a callable-Zip interface on UNIX and VMS
     systems.  Specifying LIBZIP at build time creates libizzip.a or
     LIBIZZIP.OLB and LIBIZZIP.OPT, which may be linked with a
-    user-supplied program.
+    user-supplied program.  izzip_example.c, unix/configure,
+    unix/Makefile, vms/build_zip.com, vms/descrip.mms,
+    vms/descrip_mkdeps.mms, vms/descrip_src.mms (SMS)
 13. Initial attempt to support Windows MinGW environment with UNIX
     builders ("generic" target).  No DLL.  unix/configure, unix/Makefile,
     win32/osdep.h (SMS)
@@ -5151,7 +5153,14 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     are the output from "help zip..." commands using the corresponding
     .HLP help library source files.  vms/build_zip.com,
     vms/descrip.mms (SMS)
-30. <Tentative change removed.  Look for IZ_CRYPT_NOEXT.  zipup.c (SMS)>
+30. Experimental new option, --etwodd, to allow Traditional encryption
+    without an extended header (data descriptor).  This requires reading
+    an input file twice, but saves 16 bytes (24 bytes, for Zip64) per
+    archive entry.  Currently implemented on Unix, VMS, and Windows.
+    Disable by defining C macro NO_ETWODD_SUPPORT.
+    globals.c, unix/osdep.h, unix/zipup.h, vms/osdep.h, vms/vms_pk.c,
+    vms/zipup.h, win32/osdep.h, win32/zipup.h, zip.c, zip.h, zipcloak.c,
+    zipup.c (SMS)
 31. Regression since Zip 3.1c caused Zip to produce an empty archive
     when used as a filter.  Specifying arguments "- -" worked, but
     specifying no arguments triggered the failure.  zip.c (SMS)
@@ -5214,8 +5223,44 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     problems looked possible.  The new, OS-specific code has not been
     tested everywhere.  It uses stat()-related macros like S_ISDIR, so
     if these are missing on some system type, then please report what
-    goes wrong where.  amiga/amigazip.c, aosvs/aosvs.c, atari/atari.c,
-    atheos/atheos.c, beos/beos.c, human68k/human68k.c, msdos/msdos.c,
-    novell/Netware.c, os2/os2.c, os2/os2zip.c, qdos/qdos.c,
-    tandem/tanzip.c, theos/theos.c, tops20/tops20.c, unix/unix.c,
-    vms/vmszip.c, win32/win32zip.c, zos/mvs.c (SMS)
+    goes wrong where.  acorn/acornzip.c, amiga/amigazip.c,
+    aosvs/aosvs.c, atari/atari.c, atheos/atheos.c, beos/beos.c,
+    human68k/human68k.c, msdos/msdos.c, novell/Netware.c, os2/os2.c,
+    os2/os2zip.c, qdos/qdos.c, qdos/qfileio.c, tandem/tanzip.c,
+    theos/theos.c, tops20/tops20.c, unix/unix.c, vms/vmszip.c,
+    win32/win32zip.c, zos/mvs.c (SMS)
+48. Bad white space in Unix builder caused problems in UID/GID size
+    determination tests with old (K&R) compilers (SunOS 4.1.4 bundled C,
+    for example).  unix/configure (SMS)
+49. Changed AES_WG endian-determination code not to look for
+    <sys/isa_defs.h> on __sun systems with __sparc defined, because it's
+    missing on SunOS 4.1.4.  aes_wg/brg_endian.h (SMS)
+50. Experimental new builders for Microsoft Visual Studio (Visual C++)
+    2010.  Optional feature selection for each program (Project) is done
+    entirely using Configuration Properties > C/C++ > Preprocessor >
+    Preprocessor Definitions.  Some popular options are supplied disabled
+    by an easy to remove "x_" prefix.  Use of assembly code is still
+    controlled by choice of Configuration ("Debug" v. "Debug_ASM",
+    "Release" v. "Release_ASM").  The "zip" project is used whether or
+    not bzip2 compression support is desired.  There is now no separate
+    "zipbz2" project for Zip with bzip2 support.  The "zip" project has
+    been marked as dependent on the "libbz2" project.  If a bzip2 source
+    kit has not been installed in the "bzip2/" subdirectory, then the
+    "libbz2" project build will fail, but the "zip" project build should
+    still succeed, so long as the C macro BZIP2_SUPPORT is not defined.
+    zbz2err.c, win32/vc10/zip.sln, win32/vc10/zip/zip.vcxproj,
+    win32/vc10/zip/zip.vcxproj.filters, win32/vc10/zip/zipcloak.vcxproj,
+    win32/vc10/zip/zipcloak.vcxproj.filters,
+    win32/vc10/zip/zipnote.vcxproj,
+    win32/vc10/zip/zipnote.vcxproj.filters,
+    wrap/aescrypt.c, wrap/aeskey.c, wrap/aestab.c, wrap/fileenc.c,
+    wrap/hmac.c, wrap/LzFind.c, wrap/LzmaDec.c, wrap/Ppmd8.c,
+    wrap/Ppmd8Dec.c, wrap/prng.c, wrap/pwd2key.c, wrap/sha1.c (SMS)
+51. Changed VMS exit status code to SS$_NORMAL for success instead of a
+    facility-specific code (%x17A38001).  This agrees with most VMS
+    utilities, and with Zip versions before 3.0.  Define C macro
+    OK_USE_FAC to use the facility code in all cases.  vms/vms.c (SMS)
+52. On Mac OS X versions where extended file attributes are supported
+    (10.4 and later, we believe), Zip now includes these attributes in
+    AppleDouble ("._name") archive members (unless -df is specified).
+    unix/configure, unix/macosx.h, unix/unix.c, zip.h, zipup.c (SMS)
