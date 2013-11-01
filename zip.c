@@ -32,25 +32,30 @@
 #include "ttyio.h"
 #include <ctype.h>
 #include <errno.h>
-#ifdef VMS
-#  include <stsdef.h>
-#  include "vms/vmsmunch.h"
-#  include "vms/vms.h"
-extern void globals_dummy( void);
-#endif /* def VMS */
 
 #ifdef MACOS
-#  include "macglob.h"
-   extern MacZipGlobals MacZip;
-   extern int error_level;
+# include "macglob.h"
+extern MacZipGlobals MacZip;
+extern int error_level;
 #endif
 
 #if (defined(MSDOS) && !defined(__GO32__)) || defined(__human68k__)
-#  include <process.h>
-#  if (!defined(P_WAIT) && defined(_P_WAIT))
-#    define P_WAIT _P_WAIT
-#  endif
+# include <process.h>
+# if (!defined(P_WAIT) && defined(_P_WAIT))
+#  define P_WAIT _P_WAIT
+# endif
 #endif
+
+#if defined( UNIX) && defined( __APPLE__)
+# include "unix/macosx.h"
+#endif /* defined( UNIX) && defined( __APPLE__) */
+
+#ifdef VMS
+# include <stsdef.h>
+# include "vms/vmsmunch.h"
+# include "vms/vms.h"
+extern void globals_dummy( void);
+#endif /* def VMS */
 
 #include <signal.h>
 #include <stdio.h>
@@ -62,18 +67,17 @@ extern void globals_dummy( void);
 #endif
 
 #ifdef BZIP2_SUPPORT
-#  ifdef BZIP2_USEBZIP2DIR
-#    include "bzip2/bzlib.h"
-#  else
-
-  /* If IZ_BZIP2 is defined as the location of the bzip2 files then
-     assume the location has been added to include path.  For Unix
-     this is done by the configure script. */
-  /* Also do not need path for bzip2 include if OS includes support
-     for bzip2 library. */
-
-#    include "bzlib.h"
-#  endif
+# ifdef BZIP2_USEBZIP2DIR
+#  include "bzip2/bzlib.h"
+# else
+   /* If IZ_BZIP2 is defined as the location of the bzip2 files, then
+    * we assume that this location has been added to include path.  For
+    * Unix, this is done by the unix/configure script.
+    * If the OS includes support for a bzip2 library, then we assume
+    * that the bzip2 header file is also found naturally.
+    */
+#  include "bzlib.h"
+# endif
 #endif
 
 #define MAXCOM 256      /* Maximum one-line comment size */
@@ -1351,6 +1355,9 @@ local void version_info()
 
   /* Non-default AppleDouble resource fork suffix. */
 #if defined( UNIX) && defined( __APPLE__)
+# ifndef APPLE_NFRSRC
+   Bad code: error APPLE_NFRSRC not defined.
+# endif
 # if defined( __ppc__) || defined( __ppc64__)
 #  if APPLE_NFRSRC
 #   define APPLE_NFRSRC_MSG \
@@ -1760,6 +1767,46 @@ local int check_unzip_version(unzippath)
   return 1;
 }
 
+
+#ifdef UNIX
+
+/* strcpy_qu()
+ * Copy a string (src), adding apostrophe quotation, to dst.
+ * Return actual length.
+ */
+local int strcpy_qu( dst, src)
+ char *dst;
+ char *src;
+{
+  char *cp1;
+  char *cp2;
+  int len;
+
+  /* Surround the archive name with apostrophes.
+   * Convert an embedded apostrophe to the required mess.
+   */
+  *dst = '\'';                          /* Append an initial apostrophe. */
+  len = 1;                              /* Increment (set) the dst length. */
+  /* Copy src to dst, converting >'< to >'"'"'<. */
+  cp1 = src;
+  while ((cp2 = strchr( cp1, '\'')))    /* Find next apostrophe. */
+  {
+    strncpy( (dst +len), cp1, (cp2- cp1));  /* Append chars up to next apos. */
+    len += cp2- cp1;                    /* Increment the dst length. */
+    strncpy( (dst+ len), "'\"'\"'", 5); /* Replace src >'< with >'"'"'<. */
+    len += 5;				/* Increment the dst length. */
+    cp1 = cp2+ 1;                       /* Advance beyond src apostrophe. */
+  }
+  strcpy( (dst+ len), cp1);             /* Append the remainder of src. */
+  len += strlen( cp1);                  /* Increment the dst length. */
+  strcpy( (dst+ len), "'");             /* Append a final apostrophe. */
+  len += 1;                             /* Increment the dst length. */
+
+  return len;                           /* Help the caller count characters. */
+}
+#endif /* def UNIX */
+
+
 local void check_zipfile(zipname, zippath)
   char *zipname;
   char *zippath;
@@ -1784,26 +1831,26 @@ local void check_zipfile(zipname, zippath)
 
   if (unzip_path) {
     /* if user gave us the unzip to use go with it */
-    char *here;          /* where path of temp archive goes */
     int len;
+    char *brackets;             /* "{}" = where path of archive goes. */
     char *cmd;
     char *cmd2 = NULL;
 
     /* Replace first {} with archive name.  If no {} append name to string. */
-    here = strstr(unzip_path, "{}");
+    brackets = strstr(unzip_path, "{}");
 
     if ((cmd = (char *)malloc(strlen(unzip_path) + strlen(zipnam) + 3)) == NULL)
       ziperr(ZE_MEM, "was creating unzip cmd (1)");
 
-    if (here) {
+    if (brackets) {
       /* have {} so replace with temp name */
-      len = here - unzip_path;
+      len = brackets - unzip_path;
       strcpy(cmd, unzip_path);
       cmd[len] = '\0';
       strcat(cmd, " ");
       strcat(cmd, zipnam);
       strcat(cmd, " ");
-      strcat(cmd, here + 2);
+      strcat(cmd, brackets + 2);
     } else {
       /* No {} so append temp name to end */
       strcpy(cmd, unzip_path);
@@ -1829,6 +1876,11 @@ local void check_zipfile(zipname, zippath)
         strcat(cmd2, passwd_here + 3);
       }
     }
+    /* SMSd. */
+    /* 2013-10-19 SMS.  Why is this free() conditional and out here,
+     * instead of unconditional and in where cmd2 is allocated?
+     * Fix this or the simpler code below.  "cmd2 = NULL" then useless?
+     */
     if (cmd2) {
       free(cmd);
       cmd = cmd2;
@@ -1918,99 +1970,177 @@ local void check_zipfile(zipname, zippath)
 
 #else /* (MSDOS && !__GO32__) || __human68k__ */
   char *cmd;
+  char *cp1;
+  char *cp2;
+  int keylen;
+  int len;
   int result;
   char *cmd2 = NULL;
+
+# ifdef UNIX
+#  define STRCPY_QU strcpy_qu           /* Add apostrophe quotation. */
+# else /* def UNIX */
+#  define STRCPY_QU strcpy              /* Simply copy. */
+# endif /* def UNIX [else] */
 
   /* Tell picky compilers to shut up about unused variables */
   zippath = zippath;
 
-  if (unzip_path) {
-    /* user gave us a path to some unzip (may not be UnZip) */
-    char *here;
-    int len;
+  /* Calculate archive name length (including quotation). */
+  len = strlen( zipname);               /* Archive name. */
+# ifdef UNIX
+  /* 2013-10-18 SMS.
+   * Count apostrophes in the archive name.  With surrounding
+   * apostrophes (added below), an embedded apostrophe must be
+   * replaced by >'"'"'<
+   * (apostrophe+quotation+apostrophe+quotation+apostrophe).  (Gack.)
+   */
+  for (cp1 = zipname; *cp1; cp1++)
+  {
+    if (*cp1 == '\'')
+      len += 4;                         /* >'< -> >'"'"'<. */
+  }
+  /* Add two for the surrounding apostrophes. */
+  len += 2;
+# endif /* def UNIX */
 
-    /* Replace first {} with archive name.  If no {} append name to string. */
-    here = strstr(unzip_path, "{}");
+  /* Calculate password length (including quotation). */
+  if (key)
+  {
+#ifdef VMS
+    keylen = strlen( key)+ 2;                   /* Add 2 for quotation. */
+#else
+    keylen = strlen( key);
+#endif
 
-    if ((cmd = malloc(strlen(unzip_path) + strlen(zipname) + 3)) == NULL) {
+# ifdef UNIX
+    /* 2013-10-18 SMS.
+     * Count apostrophes in the password.  With surrounding
+     * apostrophes (added below), an embedded apostrophe must be
+     * replaced by >'"'"'<
+     * (apostrophe+quotation+apostrophe+quotation+apostrophe).  (Gack.)
+     */
+    for (cp1 = key; *cp1; cp1++)
+    {
+      if (*cp1 == '\'')
+        keylen += 4;                    /* >'< -> >'"'"'<. */
+    }
+    /* Add two for the surrounding apostrophes. */
+    keylen += 2;
+# endif /* def UNIX */
+  }
+
+  if (unzip_path)
+  {
+    /* User gave us an unzip command (which may not use our UnZip). */
+    char *brackets;             /* Pointer to "{}" or "{p}" marker. */
+
+    /* Size of UnZip path + space + archive name (=len) + NUL.
+     * (We might need two less, if "{}" is replaced in unzip_path.)
+     */
+    len += strlen( unzip_path)+ 2;
+
+    if ((cmd = malloc( len)) == NULL) {
       ziperr(ZE_MEM, "building command string for testing archive (1)");
     }
 
-    if (here) {
-      /* have {} so replace with temp name */
-      len = here - unzip_path;
-      strcpy(cmd, unzip_path);
-      cmd[len] = '\0';
+    /* Replace first {} with archive name.  If no {}, append name to string. */
+    brackets = strstr(unzip_path, "{}");
+    if (brackets)
+    {
+      /* Replace "{}" with the archive name. */
+      len = brackets- unzip_path;       /* Length, pre-{}. */
+      strncpy( cmd, unzip_path, len);   /* Command, pre-{}. */
+      cmd[ len] = '\0';                 /* NUL-terminate. */
+# if 0
+      /* The victim should supply a space here, if one is desired. */
       strcat(cmd, " ");
-# ifdef UNIX
-      strcat(cmd, "'");    /* accept space or $ in name */
-      strcat(cmd, zipname);
-      strcat(cmd, "'");
-# else
-      strcat(cmd, zipname);
-# endif
+# endif /* 0 */
+
+      /* Append the archive name (apostrophe-quoted on Unix) here. */
+      STRCPY_QU( (cmd+ strlen( cmd)), zipname);
+# if 0
+      /* The victim should supply a space here, if one is desired. */
       strcat(cmd, " ");
-      strcat(cmd, here + 2);
-    } else {
-      /* No {} so append temp name to end */
-      strcpy(cmd, unzip_path);
-      strcat(cmd, " ");
-# ifdef UNIX
-      strcat(cmd, "'");    /* accept space or $ in name */
-      strcat(cmd, zipname);
-      strcat(cmd, "'");
-# else
-      strcat(cmd, zipname);
-# endif
+# endif /* 0 */
+      strcat( cmd, brackets + 2);       /* Command, post-{}. */
+    }
+    else
+    {
+      /* No {}, so append a space and the archive name. */
+      strcpy( cmd, unzip_path);
+      strcat( cmd, " ");
+
+      /* Append the archive name (apostrophe-quoted on Unix) here. */
+      STRCPY_QU( (cmd+ strlen( cmd)), zipname);
+    }
+
+/* SMSd. */
+/* fprintf( stderr, " 1.  >%s<\n", cmd); */
+
+    /* Replace the first {p} with password given to zip.  If no password
+     * was given (-P or -e), any {p} remains in the command string.
+     */
+    if (key)
+    {
+      brackets = strstr( cmd, "{p}");
+      if (brackets) {
+        /* Have {p}, so replace with password.
+         * Allocate space for command plus (quoted?) password.
+         */
+        if ((cmd2 = (char *)malloc( strlen( cmd)+ keylen)) == NULL)
+          ziperr(ZE_MEM, "was creating unzip cmd (2)");
+        len = brackets- cmd;
+        strncpy( cmd2, cmd, len);               /* Command, pre-{p}. */
+        STRCPY_QU( (cmd2+ strlen( cmd2)), key); /* Password (quoted?). */
+        strcat( cmd2, (brackets+ + 3));         /* Command, post-{p}. */
+        free( cmd);                             /* Free original cmd storage. */
+        cmd = cmd2;                             /* Use revised cmd. */
+      }
     }
     free(unzip_path);
     unzip_path = NULL;
+  }
+  else
+  {
+    /* No -TT, so use local unzip command */
+    if (check_unzip_version("unzip") == 0)
+      ZIPERR(ZE_TEST, zipfile);
 
-  } else {
-    if ((cmd = malloc(20 + strlen(zipname))) == NULL) {
+    /* Size of UnZip command + -P pw + space + archive name (=len) + NUL. */
+    if ((cmd = malloc( 24+ keylen+ len)) == NULL) {
       ziperr(ZE_MEM, "building command string for testing archive (2)");
     }
 
-    strcpy(cmd, "unzip -t ");
+    strcpy( cmd, "unzip -t ");
 # ifdef QDOS
     strcat(cmd, "-Q4 ");
 # endif
     if (!verbose) strcat(cmd, "-qq ");
-    if (check_unzip_version("unzip") == 0)
-      ZIPERR(ZE_TEST, zipfile);
 
-# ifdef UNIX
-    strcat(cmd, "'");    /* accept space or $ in name */
-    strcat(cmd, zipname);
-    strcat(cmd, "'");
-# else
-    strcat(cmd, zipname);
-# endif
-  }
+/* SMSd. */
+/* fprintf( stderr, " 1.  >%s<\n", cmd); */
 
-  /* Replace first {p} with password given to zip.  If no password
-     was given, any {p} remains in the command string. */
-  if (key) {
-    char *passwd_here;
-    int len;
-
-    passwd_here = strstr(cmd, "{p}");
-
-    if (passwd_here) {
-      /* have {p} so replace with password */
-      if ((cmd2 = (char *)malloc(strlen(cmd) + strlen(key) + 2)) == NULL)
-        ziperr(ZE_MEM, "was creating unzip cmd (3)");
-      len = passwd_here - cmd;
-      strcpy(cmd2, cmd);
-      cmd2[len] = '\0';
-      strcat(cmd2, key);
-      strcat(cmd2, passwd_here + 3);
+    if (key)
+    {
+      /* Add -P password. */
+      strcat( cmd, "-P ");
+# ifdef VMS
+      strcat( cmd, "\"");                       /* Quote password on VMS. */
+# endif /* def VMS */
+      STRCPY_QU( (cmd+ strlen( cmd)), key);     /* Password (quoted?). */
+# ifdef VMS
+      strcat( cmd, "\"");                       /* Quote password on VMS. */
+# endif /* def VMS */
+      strcat( cmd, " ");
     }
+
+    /* Append the archive name (apostrophe-quoted on Unix) here. */
+    STRCPY_QU( (cmd+ strlen( cmd)), zipname);
   }
-  if (cmd2) {
-    free(cmd);
-    cmd = cmd2;
-  }
+
+/* SMSd. */
+/* fprintf( stderr, " 1p. >%s<\n", cmd); */
 
   result = system(cmd);
 # ifdef VMS
@@ -2035,6 +2165,7 @@ local void check_zipfile(zipname, zippath)
   }
 }
 #endif /* !USE_ZIPMAIN */
+
 
 /* get_filters() is replaced by the following
 local int get_filters(argc, argv)
@@ -3422,8 +3553,10 @@ char **argv;            /* command line tokens */
   }
 #endif
   /* test if sizes are the same - 12/30/04 */
-  if (sizeof(uzoff_t) != sizeof(zoff_t)){
-    ZIPERR(ZE_COMPERR, "uzoff_t not same size as zoff_t");
+  if (sizeof( uzoff_t) != sizeof( zoff_t)) {
+    sprintf( errbuf, "uzoff_t size (%d) not same as zoff_t (%d)",
+     (int)sizeof( uzoff_t), (int)sizeof( zoff_t));
+    ZIPERR( ZE_COMPERR, errbuf);
   }
 
 

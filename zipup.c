@@ -313,6 +313,23 @@ int is_seekable(y)
   }
 #endif
 
+  /* 2013-10-16 SMS.
+   * "zip - stuff >> archive.zip" fails (corrupt archive) because the
+   * seek-tell tests below misleadingly succeed.  Thus, if possible, we
+   * check for append access, and, if true, conclude non-seekable.
+   */
+#ifdef O_APPEND
+  {
+    int sts;
+
+    sts = fcntl( fileno( y), F_GETFL);  /* Get flags and access modes. */
+    if ((sts != -1) && (sts& O_APPEND))
+    {
+      return 0;                 /* fcntl() succeeded, and O_APPEND is set. */
+    }
+  }
+#endif /* def O_APPEND */
+
   pos = zftello(y);
   if (zfseeko(y, pos, SEEK_SET)) {
     return 0;

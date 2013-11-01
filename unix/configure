@@ -4,7 +4,7 @@
 
 #==============================================================================
 # unix/configure: Detect feature support and pass that information to Makefile.
-# - For Zip, ZipNote, ZipCloak and ZipSplit            Last update: 12 Aug 2013
+# - For Zip, ZipNote, ZipCloak and ZipSplit             Revised: 2013-10-13
 #==============================================================================
 
 #==============================================================================
@@ -569,9 +569,6 @@ _EOF_
       $CC $CFLAGS -c conftest.c >/dev/null 2>/dev/null
       status=$?
       if [ $status -eq 0 ]; then
-        CC='clang'
-        LD='clang'
-        CC_TST='clang'
         CFLAGS_OPT='-O3'
         echo "  LLVM Clang ($CFLAGS_OPT)"
       fi
@@ -1296,7 +1293,7 @@ _EOF_
       $CC_TST $CFLAGS -DCRYPT_AES_WG -c conftest.c >/dev/null 2>/dev/null
       status=$?
       if [ $status -eq 0 ]; then
-        LIB_AES_WG="libaes.a"
+        LIB_AES_WG="${PROD}/libaes.a"
         CFLAGS_TST="${CFLAGS_TST} -DCRYPT_AES_WG"
         if [ $lprod -eq 0 ]; then
           lprod=1
@@ -1344,7 +1341,7 @@ _EOF_
       $CC_TST $CFLAGS -DLZMA_SUPPORT -c conftest.c >/dev/null 2>/dev/null
       status=$?
       if [ $status -eq 0 ]; then
-        LIB_LZMA="liblzma.a"
+        LIB_LZMA="${PROD}/liblzma.a"
         CFLAGS_TST="${CFLAGS_TST} -DLZMA_SUPPORT"
         if [ $lprod -eq 0 ]; then
           lprod=1
@@ -1392,7 +1389,7 @@ _EOF_
       $CC_TST $CFLAGS -DPPMD_SUPPORT -c conftest.c >/dev/null 2>/dev/null
       status=$?
       if [ $status -eq 0 ]; then
-        LIB_PPMD="libppmd.a"
+        LIB_PPMD="${PROD}/libppmd.a"
         CFLAGS_TST="${CFLAGS_TST} -DPPMD_SUPPORT"
         if [ $lprod -eq 0 ]; then
           lprod=1
@@ -1629,7 +1626,7 @@ fi
 #------------------------------------------------------------------------------
 # Zip object library.  (User must request: "LIBZIP=1".)
 if [ -n "${LIBZIP}" ]; then
-  LIB_ZIP="libizzip.a"
+  LIB_ZIP="${PROD}/libizzip.a"
   echo "-- Building Zip object library (${LIB_ZIP})"
 fi
 
@@ -2318,18 +2315,40 @@ status=$?
 
 # Check for OS-specific flags.
 echo 'Check for OS-specific flags'
-if [ -f /usr/bin/hostinfo ]; then
-  if /usr/bin/hostinfo | grep NeXT >/dev/null; then
-    CFLAGS_TST="${CFLAGS_TST} -posix"
-    LFLAGS1="${LFLAGS1} -posix -object"
-  fi
-# XXX ATT6300, Cray.
-elif [ -f /xenix ]; then
-  if echo "${UNAME_P}" | grep 286 >/dev/null; then
-    CFLAGS_TST="${CFLAGS_TST} -LARGE -Mel2 -DMEDIUM_MEM -DWSIZE=16384"
-    CFLAGS_TST="${CFLAGS_TST} -DNO_VOID"
-    LFLAGS1="${LFLAGS1} -LARGE -Mel2"
-  fi
+if [ -n "${UNAME_S}" ]; then
+  case "${UNAME_S}" in
+
+    OSF1|ULTRIX)
+      echo 'Check for -Olimit option...'
+      echo "int main() { return 0;}" > conftest.c
+      $CC_TST ${CFLAGS} -Olimit 1000 -o conftest conftest.c \
+       >/dev/null 2>/dev/null
+      status=$?
+      [ $status -eq 0 ] && CFLAGS_TST="${CFLAGS_TST} -Olimit 1000"
+      ;;
+
+    Darwin)
+      # Have (and user wants) extended attribute support?  (OS X >= 10.4?)
+      # "defined( XATTR_NOFOLLOW)" indicates feature availability.
+      # "defined( NO_APPLE_XATTR)" indicates user rejection.
+      cat > conftest.c << _EOF_
+#include <sys/xattr.h>
+int main()
+{
+#if defined( NO_APPLE_XATTR) || !defined( XATTR_NOFOLLOW)
+   bad code
+#endif
+   return 0;
+}
+_EOF_
+      $CC $CFLAGS -c conftest.c >/dev/null 2>/dev/null
+      status=$?
+      if [ $status -eq 0 ]; then
+        CC_TST="${CC_TST} -DAPPLE_XATTR"
+        CFLAGS_TST="${CFLAGS_TST} -DAPPLE_XATTR"
+      fi
+      ;;
+  esac
 elif [ -n "${UNAME_X}" ]; then
 # SCO shared library check.
   echo "int main() { return 0;}" > conftest.c
@@ -2337,18 +2356,21 @@ elif [ -n "${UNAME_X}" ]; then
   status=$?
   [ $status -eq 0 ] && LFLAGS2="-lc_s -nointl"
 else
-  echo "int main() { return 0;}" > conftest.c
-  case "${UNAME_S}" in
-     OSF1|ULTRIX)
-        echo 'Check for -Olimit option'
-        $CC_TST ${CFLAGS} -Olimit 1000 -o conftest conftest.c \
-          >/dev/null 2>/dev/null
-        status=$?
-        [ $status -eq 0 ] && CFLAGS_TST="${CFLAGS_TST} -Olimit 1000"
-        ;;
-  esac
+  # No explicit identification.  Test for files/directories.
+  if [ -f /usr/bin/hostinfo ]; then
+    if /usr/bin/hostinfo | grep NeXT >/dev/null; then
+      CFLAGS_TST="${CFLAGS_TST} -posix"
+      LFLAGS1="${LFLAGS1} -posix -object"
+    fi
+# XXX ATT6300, Cray.
+  elif [ -f /xenix ]; then
+    if echo "${UNAME_P}" | grep 286 >/dev/null; then
+      CFLAGS_TST="${CFLAGS_TST} -LARGE -Mel2 -DMEDIUM_MEM -DWSIZE=16384"
+      CFLAGS_TST="${CFLAGS_TST} -DNO_VOID"
+      LFLAGS1="${LFLAGS1} -LARGE -Mel2"
+    fi
+  fi
 fi
-
 
 #------------------------------------------------------------------------------
 # K) Configure system-specific resources.

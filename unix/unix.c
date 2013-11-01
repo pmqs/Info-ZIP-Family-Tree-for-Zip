@@ -69,6 +69,13 @@ local char *readd OF((DIR *));
 
 #ifdef __APPLE__
 
+/* get_apl_dbl_info()
+ * Look for data which require an AppleDouble ("._name") file.
+ * Return zero if any are found.  Qualifying data:
+ *    Non-zero Finder info
+ *    Resource fork (size > 0)
+ *    Extended attributes (non-null list, where available)
+ */
 static int get_apl_dbl_info( char *name)
 {
   int sts;
@@ -106,24 +113,50 @@ static int get_apl_dbl_info( char *name)
     for (i = 0; i < 32; i++)
       fior |= attr_bufr_fndr.fndr_info[ i];
 
-    /* Clear attribute list structure. */
-    memset( &attr_list_rsrc, 0, sizeof( attr_list_rsrc));
-    /* Set attribute list bits for resource fork size. */
-    attr_list_rsrc.bitmapcount = ATTR_BIT_MAP_COUNT;
-    attr_list_rsrc.fileattr = ATTR_FILE_RSRCLENGTH;
-
-    sts = getattrlist( name,                    /* Path. */
-                       &attr_list_rsrc,         /* Attrib list. */
-                       &attr_bufr_rsrc,         /* Dest buffer. */
-                       sizeof( attr_bufr_rsrc), /* Dest buffer size. */
-                       0);                      /* Options. */
-
-    /* Continue processing if there is any non-zero Finder info,
-       or if the resource fork size is positive.
-    */
-    if ((sts == 0) && ((attr_bufr_rsrc.size > 0) || (fior != 0)))
+    if (fior != 0)
     {
+      /* Non-zero Finder info. */
       ret = 0;
+    }
+    else
+    {
+      /* Check resource fork size. */
+      /* Clear attribute list structure. */
+      memset( &attr_list_rsrc, 0, sizeof( attr_list_rsrc));
+      /* Set attribute list bits for resource fork size. */
+      attr_list_rsrc.bitmapcount = ATTR_BIT_MAP_COUNT;
+      attr_list_rsrc.fileattr = ATTR_FILE_RSRCLENGTH;
+
+      sts = getattrlist( name,                      /* Path. */
+                         &attr_list_rsrc,           /* Attrib list. */
+                         &attr_bufr_rsrc,           /* Dest buffer. */
+                         sizeof( attr_bufr_rsrc),   /* Dest buffer size. */
+                         0);                        /* Options. */
+
+      if ((sts == 0) && (attr_bufr_rsrc.size > 0))
+      {
+        /* Non-zero-size resource fork. */
+        ret = 0;
+      }
+# ifdef APPLE_XATTR
+      else
+      {
+        /* Check extended attribute list length.
+         * Note: If we decide to filter extended attributes, then a more
+         * complex test would be needed here.
+         */
+        sts = listxattr( name,                  /* Real file name. */
+                         NULL,                  /* Name list buffer. */
+                         0,                     /* Name list buffer size. */
+                         XATTR_NOFOLLOW);       /* Options. */
+
+        if (sts > 0)
+        {
+          /* Non-null list of extended attributes. */
+          ret = 0;
+        }
+      }
+# endif /* def APPLE_XATTR */
     }
   }
   return ret;

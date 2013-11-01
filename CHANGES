@@ -5200,8 +5200,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 41. Specifying "-e" after "-P password" caused Zip to forget the "-P"
     password, and query the user for a password.  Now, if "-P" is
     specified, then "-e" is redundant but harmless, and its position is
-    not significant.  https://sourceforge.net/tracker/?func=detail
-    &aid=2865769&group_id=118012&atid=679786  zip.c (SMS)
+    not significant.  http://sourceforge.net/p/infozip/bugs/28/
+    zip.c (SMS)
 42. Disambiguated some ZE_MEM error messages.  Changed a tempname()
     failure code from ZE_MEM to ZE_TEMP.  zip.c (SMS)
 43. Removed redundant declarations of global variable "noisy" from some
@@ -5264,3 +5264,9 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     (10.4 and later, we believe), Zip now includes these attributes in
     AppleDouble ("._name") archive members (unless -df is specified).
     unix/configure, unix/macosx.h, unix/unix.c, zip.h, zipup.c (SMS)
+53. On Unix, a command like "zip - files >> archive.zip" could produce a
+    corrupt archive, because Zip thought that it could seek in the
+    output archive, but it really could not.  zipup.c:is_seekable() now
+    checks for append access, and interprets it as precluding seeking.
+    http://www.info-zip.org/phpBB3/viewtopic.php?f=6&t=422&p=2603
+    zipup.c (SMS)

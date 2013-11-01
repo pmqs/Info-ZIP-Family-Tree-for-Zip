@@ -1,4 +1,4 @@
-#                                               31 December 2012.  SMS.
+#                                               13 October 2013.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Description File.
 #
@@ -92,9 +92,13 @@
 #
 #    CLEAN_OLB  deletes only the architecture-specific object libraries. 
 #
+#    DASHV      generates a "zip -v" report.
+#
 #    HELP       generates HELP files.
 #
 #    HELP_TEXT  generates HELP output text files (.HTX).
+#
+#    SLASHV     generates a "zip_cli /verbose" report.
 #
 # Example commands:
 #
@@ -268,6 +272,11 @@ CLEAN_OLB :
 	if (f$search( "[.$(DEST)]*.OLB") .nes. "") then -
 	 delete /noconfirm [.$(DEST)]*.OLB;*
 
+# DASHV target.  Generate an "unzip -v" report.
+
+DASHV :
+	mcr [.$(DEST)]zip -v
+
 # HELP target.  Generate the HELP files.
 
 HELP : $(ZIP_HELP)
@@ -278,6 +287,10 @@ HELP : $(ZIP_HELP)
 HELP_TEXT : $(ZIP_HELP_TEXT)
 	@ write sys$output "Done."
 
+# SLASHV target.  Generate a "zip_cli /verbose" report.
+
+SLASHV :
+	mcr [.$(DEST)]zip_cli /verbose
 
 # Object library module dependencies.
 

@@ -1,6 +1,6 @@
 #==============================================================================
-# unix/Makefile
-# - For Zip, ZipCloak, ZipNote, and ZipSplit            Revised: 2013-10-13
+# unix/Makefile2
+# - For Zip, ZipCloak, ZipNote, and ZipSplit            Revised: 2013-10-17
 #==============================================================================
 
 # INSTRUCTIONS (such as they are):
@@ -14,34 +14,36 @@
 # "make -f unix/Makefile help"            Limited advice on which targets to
 #                                         try if problems occur.
 #
-# CF are flags for the C compiler.  LF are flags for the linker.  LF2 are more
-# flags for the linker, if they need to be at the end of the line instead of
-# at the beginning (for example, some libraries).  LOCAL_ZIP is a "make" macro
-# that can be used to add default C flags to your compile without editing the
-# Makefile (e.g., -DDEBUG_STRUC, or -FPi87 on PCs using Microsoft C).
+# CF are flags for the C compiler.  LF are flags for the linker.  LF2
+# are more flags for the linker, if they need to be at the end of the
+# line instead of at the beginning (for example, some libraries).
+# LOCAL_ZIP is a "make" macro that can be used to add default C flags to
+# your compile without editing the Makefile (e.g., -DDEBUG_STRUC, or
+# -FPi87 on PCs using Microsoft C).
 #
-# The "generic" target invokes the "unix/configure" script to test the compile
-# and other parts of the environment to see what's supported.  The results are
-# used to adjust the build procedure and to enable or disable some program
-# features.  unix/configure builds a ./flags file with appropriate values for
-# a number of make variables, which is used by this Makefile when performing
-# the actual builds.  A separate flags file for building BZIP2 may also be
-# created.  This Makefile recursively invokes this Makefile to perform the
-# actual builds.
+# The "generic" target invokes the "unix/configure" script to test the
+# compile and other parts of the environment to see what's supported.
+# The results are used to adjust the build procedure and to enable or
+# disable some program features.  unix/configure builds a $(PROD)/flags
+# file with appropriate values for a number of make variables, which is
+# used by this Makefile when performing the actual builds.  A separate
+# flags file for building BZIP2 may also be created.  This Makefile
+# recursively invokes this Makefile to perform the actual builds.
 #
-# While oriented towards building unix (and unix work-alike) ports of Zip, this
-# file and/or unix/configure are also used by other ports of Zip.  See below.
+# While oriented towards building Unix (and Unix work-alike) ports of
+# Zip, this file and/or unix/configure are also used by other ports of
+# Zip.  See below.
 #
-# If at all possible, use the generic targets.  The other (older) targets are
-# less well tested, and may need considerable help from the user to get
-# optimal results (or any success at all).
+# If at all possible, use the generic targets.  The other (older)
+# targets are less well tested, and may need considerable help from the
+# user to get optimal results (or any success at all).
 #
-# The "generic_docs" and "generic_man" targets also invoke "unix/configure",
-# and generate the Zip documentation files.
+# The "generic_docs" and "generic_man" targets also invoke
+# "unix/configure", and generate the Zip documentation files.
 #
-# Optional Zip features are controlled by setting "make" macros as described
-# below or by the results of tests done by configure (such as checking if the
-# needed files are in an appropriate directory).
+# Optional Zip features are controlled by setting "make" macros as
+# described below or by the results of tests done by configure (such as
+# checking if the needed files are in an appropriate directory).
 #
 # Optional features include (see INSTALL for installation instructions):
 #
@@ -131,14 +133,16 @@ help:
 	@echo '   make -f unix/Makefile list'
 	@echo ''
 	@echo 'Optional overrides on "make" command (or environment variables):'
-	@echo '    "CC=gcc"          Use "gcc" instead of "cc" for C compiler'
 	@echo '    "AES_WG=1"        Add AES encryption (WinZip/Gladman)'
-	@echo '    "LZMA=1"          Add LZMA compression'
-	@echo '    "PPMD=1"          Add PPMd compression'
+	@echo '    "CC=gcc"          Use "gcc" instead of "cc" for C compiler'
 	@echo '    "IZ_BZIP2=bz2dir" Add BZIP2 compression from dir bz2dir'
 	@echo '    "IZ_ZLIB=zdir"    Use ZLIB from dir zdir for deflate'
-	@echo '    "LOCAL_ZIP=opts"  Add C compiler options and macro defines'
 	@echo '    "LIST=1"          Generate C compiler and linker listing'
+	@echo '    "LIBZIP=1"        Create UnZip object library.'
+	@echo '    "LOCAL_ZIP=opts"  Add C compiler options and macro defines'
+	@echo '    "LZMA=1"          Add LZMA compression'
+	@echo '    "PPMD=1"          Add PPMd compression'
+	@echo '    "PROD=subdir"     Build product files in "subdir", not ".".'
 	@echo ''
 	@echo 'Examples:'
 	@echo '   make -f unix/Makefile generic'
@@ -198,19 +202,18 @@ list:
 
 #----------------------------------------------------------------------------
 # For most systems:
-# - The generic target invokes unix/configure to build ./flags and
-#   ./flags_bz containing system derived settings that are used by
+# - The generic target invokes unix/configure to build $(PROD)/flags and
+#   $(PROD)/flags_bz containing system derived settings that are used by
 #   this makefile.
 # - Use "make" macro LOCAL_ZIP to add C compiler flags (such as
 #   -DDOSWILD).
 #----------------------------------------------------------------------------
 
 # This file name as make parameter, for recursion
-MAKEF = '-f unix/Makefile'
+MAKEF = '-f unix/Makefile2'
 
-# Build Directories
-# - Root    build directory is "."
-# - Manuals build directory is "./manout"
+# Product file directory default is "."
+PROD = .
 
 # Build Dependencies for make
 # - Contains archive library name, if enabled
@@ -236,17 +239,17 @@ MK_BZ   = Makefile
 #   The files in the Zip root and unix directories are used.
 # - The vast majority of you out there will likely use this configuration, and
 #   do not have to ever worry about this.
-# - Where required by a specific Zip port, a generic target (in this Makefile
-#   or a Makefile located in another port directory) uses the PORT macro to
-#   set the correct OS-dependent files via unix/configure.  Or you can (very
-#   carefully) override as required.
+# - Where required by a specific Zip port, a generic target (in this
+#   "make" file or a "make" file located in another port directory) uses
+#   the PORT macro to set the correct OS dependent files via
+#   unix/configure.  Or you can (very carefully) override as required.
 #    C header files
 #    C object files for utilities (zipcloak, zipnote, zipsplit)
 #    C object files for zip
 #    Assembler object files
 OSDEP_H  = unix/osdep.h
-OSDEP_OCU = ./unix.o
-OSDEP_OCZ = ./unix.o
+OSDEP_OCU = $(PROD)/unix.o
+OSDEP_OCZ = $(PROD)/unix.o
 OSDEP_OSU =
 OSDEP_OSZ =
 
@@ -271,6 +274,7 @@ MANPERMS = 644
 
 # C compiler and flags: core and bzip2
 # - CC and LD must match, else "unresolved symbol:  ___main" is possible.
+# - To use "gcc", specify "make" macro, "CC=gcc", instead of editing here.
 CC     = cc
 CC_BZ  = $(CC)
 
@@ -288,6 +292,7 @@ AF     = $(LOCAL_ZIP)
 
 # Linker and linker flags (early and late)
 # - CC and LD must match, else "unresolved symbol:  ___main" is possible)
+# - To use "gcc", specify "make" macro, "CC=gcc", instead of editing here.
 LD     = $(CC)
 LF1    =
 LF2    = -s
@@ -302,8 +307,8 @@ SHELL  = /bin/sh
 STRIP  = strip
 ZIP    = zip
 
-# Default for dependency on auto-configure result, is an empty symbol
-# so that the static non-autoconfigure targets continue to work
+# Default for dependency on unix/configure result, is an empty symbol
+# so that the static non-unix/configure targets continue to work
 ACONF_DEP =
 
 #----------------------------------------------------------------------------
@@ -348,90 +353,90 @@ H_PPMD   = szip/CpuArch.h   \
 # OSDEP_* are port-dependent and can be updated by unix/configure.
 
 # object files: zip
-O_ZIPL   = crc32.o      \
-           crypt.o      \
-           deflate.o    \
-           fileio.o     \
-           globals.o    \
-           trees.o      \
-           ttyio.o      \
-           util.o       \
-           zbz2err.o    \
-           zipfile.o    \
-           zipup.o      \
-           $(OSDEP_OCZ) \
+O_ZIPL   = $(PROD)/crc32.o      \
+           $(PROD)/crypt.o      \
+           $(PROD)/deflate.o    \
+           $(PROD)/fileio.o     \
+           $(PROD)/globals.o    \
+           $(PROD)/trees.o      \
+           $(PROD)/ttyio.o      \
+           $(PROD)/util.o       \
+           $(PROD)/zbz2err.o    \
+           $(PROD)/zipfile.o    \
+           $(PROD)/zipup.o      \
+           $(OSDEP_OCZ)         \
            $(OSDEP_OSZ)
 
-O_ZIP    = zip.o        \
+O_ZIP    = $(PROD)/zip.o        \
            $(O_ZIPL)
 
-O_ZIPN   = api.o        \
-           zip_.o
-        
+O_ZIPN   = $(PROD)/api.o        \
+           $(PROD)/zip_.o
+
 # object files: zipcloak
-O_CLOAK  = zipcloak.o   \
-           crc32.o      \
-           crypt_.o     \
-           fileio_.o    \
-           globals.o    \
-           ttyio.o      \
-           util_.o      \
-           zipfile_.o   \
-           $(OSDEP_OCU:.o=_.o) \
+O_CLOAK  = $(PROD)/zipcloak.o   \
+           $(PROD)/crc32.o      \
+           $(PROD)/crypt_.o     \
+           $(PROD)/fileio_.o    \
+           $(PROD)/globals.o    \
+           $(PROD)/ttyio.o      \
+           $(PROD)/util_.o      \
+           $(PROD)/zipfile_.o   \
+           $(OSDEP_OCU:.o=_.o)  \
            $(OSDEP_OSU)
 
 # object files: zipnote
-O_NOTE   = zipnote.o    \
-           crc32.o      \
-           fileio_.o    \
-           globals.o    \
-           util_.o      \
-           zipfile_.o   \
-           $(OSDEP_OCU:.o=_.o) \
+O_NOTE   = $(PROD)/zipnote.o    \
+           $(PROD)/crc32.o      \
+           $(PROD)/fileio_.o    \
+           $(PROD)/globals.o    \
+           $(PROD)/util_.o      \
+           $(PROD)/zipfile_.o   \
+           $(OSDEP_OCU:.o=_.o)  \
            $(OSDEP_OSU)
 
 # object files: zipsplit
-O_SPLIT  = zipsplit.o   \
-           crc32.o      \
-           fileio_.o    \
-           globals.o    \
-           util_.o      \
-           zipfile_.o   \
-           $(OSDEP_OCU:.o=_.o) \
+O_SPLIT  = $(PROD)/zipsplit.o   \
+           $(PROD)/crc32.o      \
+           $(PROD)/fileio_.o    \
+           $(PROD)/globals.o    \
+           $(PROD)/util_.o      \
+           $(PROD)/zipfile_.o   \
+           $(OSDEP_OCU:.o=_.o)  \
            $(OSDEP_OSU)
 
 # object files: Assembler Match (Source: match.S)
 # - All OS-dependent, by unix/configure based on PORT
-O_MCH_I  = ./mch_i86.o
-O_MCH_G  = ./mch_gcc.o
-O_MCH_SV = ./mch_sysv.o
+O_MCH_I  = $(PROD)/mch_i86.o
+O_MCH_G  = $(PROD)/mch_gcc.o
+O_MCH_SV = $(PROD)/mch_sysv.o
 
 # object files: Assembler CRC (Source: msdos/crc_i86.S)
 # - All OS-dependent, by unix/configure based on PORT
-O_CRC_I  = ./crc_i86.o
+O_CRC_I  = $(PROD)/crc_i86.o
 
 # object files: Assembler CRC (Source: crc_i386.S)
 # - All OS-dependent, by unix/configure based on PORT
-O_CRC_G  = ./crc_gcc.o
-O_CRC_SV = ./crc_sysv.o
+O_CRC_G  = $(PROD)/crc_gcc.o
+O_CRC_SV = $(PROD)/crc_sysv.o
 
 # object files: AES (WinZip/Gladman) encryption
-O_AES    = aescrypt.o \
-           aeskey.o   \
-           aestab.o   \
-           fileenc.o  \
-           hmac.o     \
-           prng.o     \
-           pwd2key.o  \
-           sha1.o
+O_AES    = $(PROD)/aescrypt.o \
+           $(PROD)/aeskey.o   \
+           $(PROD)/aestab.o   \
+           $(PROD)/fileenc.o  \
+           $(PROD)/hmac.o     \
+           $(PROD)/prng.o     \
+           $(PROD)/pwd2key.o  \
+           $(PROD)/sha1.o
 
 # object files: LZMA compression
-O_LZMA   = LzFind.o   \
-           LzmaEnc.o
+O_LZMA   = $(PROD)/LzFind.o   \
+           $(PROD)/LzmaEnc.o
 
 # object files: PPMd compression
-O_PPMD   = Ppmd8.o    \
-           Ppmd8Enc.o
+O_PPMD   = $(PROD)/Ppmd8.o    \
+           $(PROD)/Ppmd8Enc.o
 
 # object files: ZLIB compression
 # - N/A. ZLIB is not built as part of Zip
@@ -441,61 +446,75 @@ O_PPMD   = Ppmd8.o    \
 #----------------------------------------------------------------------------
 
 # object archive: AES (WinZip/Gladman) encryption
-AR_AES  = libaes.a
+AR_AES  = $(PROD)/libaes.a
 
 # object archive: BZIP2 compression
 AR_BZ   = bzip2/libbz2.a
 
 # object archive: LZMA compression
-AR_LZMA = liblzma.a
+AR_LZMA = $(PROD)/liblzma.a
 
 # object archive: PPMd compression
-AR_PPMD = libppmd.a
+AR_PPMD = $(PROD)/libppmd.a
 
 # object archive: ZLIB compression
 AR_Z    = zlib/libz.a
 
 # object archive: Callable Zip
-AR_ZIP  = libizzip.a
+AR_ZIP  = $(PROD)/libizzip.a
 
 #----------------------------------------------------------------------------
 #  Build configuration:  Executable programs
 #----------------------------------------------------------------------------
-PGM_ZIP    = zip$(PGMEXT)
 PGM_CLOAK  = zipcloak$(PGMEXT)
 PGM_NOTE   = zipnote$(PGMEXT)
 PGM_SPLIT  = zipsplit$(PGMEXT)
+PGM_ZIP    = zip$(PGMEXT)
 
-ZIP_PGMS   = $(PGM_ZIP)   \
-             $(PGM_CLOAK) \
-             $(PGM_NOTE)  \
-             $(PGM_SPLIT) \
-             $(LIB_ZIP)
+ZIP_PGMS   = $(LIB_ZIP)    \
+             $(PGM_CLOAK)  \
+             $(PGM_NOTE)   \
+             $(PGM_SPLIT)  \
+             $(PGM_ZIP)
+
+PPGM_CLOAK = $(PROD)/$(PGM_CLOAK)
+PPGM_NOTE  = $(PROD)/$(PGM_NOTE)
+PPGM_SPLIT = $(PROD)/$(PGM_SPLIT)
+PPGM_ZIP   = $(PROD)/$(PGM_ZIP)
+
+ZIP_PPGMS  = $(LIB_ZIP)    \
+             $(PPGM_CLOAK) \
+             $(PPGM_NOTE)  \
+             $(PPGM_SPLIT) \
+             $(PPGM_ZIP)
 
 #----------------------------------------------------------------------------
 #  Build configuration:  Manuals
 #----------------------------------------------------------------------------
-MAN_ZIP    = manout/zip.$(MANEXT)
-MAN_CLOAK  = manout/zipcloak.$(MANEXT)
-MAN_NOTE   = manout/zipnote.$(MANEXT)
-MAN_SPLIT  = manout/zipsplit.$(MANEXT)
+MAN_CLOAK  = zipcloak.$(MANEXT)
+MAN_NOTE   = zipnote.$(MANEXT)
+MAN_SPLIT  = zipsplit.$(MANEXT)
+MAN_ZIP    = zip.$(MANEXT)
 
-ZIP_MANS   = $(MAN_ZIP)   \
-             $(MAN_CLOAK) \
-             $(MAN_NOTE)  \
-             $(MAN_SPLIT)
+PMAN_CLOAK = $(PROD)/manout/$(MAN_CLOAK)
+PMAN_NOTE  = $(PROD)/manout/$(MAN_NOTE)
+PMAN_SPLIT = $(PROD)/manout/$(MAN_SPLIT)
+PMAN_ZIP   = $(PROD)/manout/$(MAN_ZIP)
 
-# Plain text versions go in the root directory for easy user access
+ZIP_PMANS  = $(PMAN_CLOAK) \
+             $(PMAN_NOTE)  \
+             $(PMAN_SPLIT) \
+             $(PMAN_ZIP)
 
-DOC_ZIP    = zip.txt
-DOC_CLOAK  = zipcloak.txt
-DOC_NOTE   = zipnote.txt
-DOC_SPLIT  = zipsplit.txt
+DOC_CLOAK  = $(PROD)/manout/zipcloak.txt
+DOC_NOTE   = $(PROD)/manout/zipnote.txt
+DOC_SPLIT  = $(PROD)/manout/zipsplit.txt
+DOC_ZIP    = $(PROD)/manout/zip.txt
 
-ZIP_DOCS   = $(DOC_ZIP)   \
-             $(DOC_CLOAK) \
-             $(DOC_NOTE)  \
-             $(DOC_SPLIT)
+ZIP_DOCS   = $(DOC_CLOAK)  \
+             $(DOC_NOTE)   \
+             $(DOC_SPLIT)  \
+             $(DOC_ZIP)
 
 #----------------------------------------------------------------------------
 #  Build configuration:  Installation
@@ -506,24 +525,20 @@ INSTALL   = cp
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_D = mkdir -p
 
-BIN_ZIP   = $(BINDIR)/zip$(PGMEXT)
-BIN_CLOAK = $(BINDIR)/zipcloak$(PGMEXT)
-BIN_NOTE  = $(BINDIR)/zipnote$(PGMEXT)
-BIN_SPLIT = $(BINDIR)/zipsplit$(PGMEXT)
+INSTALLEDBIN = $(BINDIR)/$(PGM_CLOAK) \
+               $(BINDIR)/$(PGM_NOTE)  \
+               $(BINDIR)/$(PGM_SPLIT) \
+               $(BINDIR)/$(PGM_ZIP)
 
-INSTALLEDBIN = $(BIN_ZIP)   \
-               $(BIN_CLOAK) \
-               $(BIN_NOTE)  \
-               $(BIN_SPLIT)
-
-INSTALLEDMAN = $(MANDIR)/zip.$(MANEXT)      \
-               $(MANDIR)/zipcloak.$(MANEXT) \
-               $(MANDIR)/zipnote.$(MANEXT)  \
-               $(MANDIR)/zipsplit.$(MANEXT)
+INSTALLEDMAN = $(MANDIR)/$(MAN_CLOAK) \
+               $(MANDIR)/$(MAN_NOTE)  \
+               $(MANDIR)/$(MAN_SPLIT) \
+               $(MANDIR)/$(MAN_ZIP)
 
 # Solaris 2.x package stuff:
 PKGDIR  = IZunzip
 VERSION = Version 3.1
+
 
 ###############################################
 # BASIC COMPILE INSTRUCTIONS AND DEPENDENCIES #
@@ -547,48 +562,48 @@ VERSION = Version 3.1
 
 # A) Core zip C files
 
-zip.o:       zip.c      $(H_ZIP) crc32.h crypt.h revision.h ttyio.h
+$(PROD)/zip.o:       zip.c      $(H_ZIP) crc32.h crypt.h revision.h ttyio.h
 	$(CC) -c $(CF) -o $@ zip.c
 
-crc32.o:     crc32.c    $(H_ZIP) crc32.h
+$(PROD)/crc32.o:     crc32.c    $(H_ZIP) crc32.h
 	$(CC) -c $(CF) -o $@ crc32.c
 
-crypt.o:     crypt.c    $(H_ZIP) crc32.h crypt.h ttyio.h
+$(PROD)/crypt.o:     crypt.c    $(H_ZIP) crc32.h crypt.h ttyio.h
 	$(CC) -c $(CF) -o $@ crypt.c
 
-deflate.o:   deflate.c  $(H_ZIP)
+$(PROD)/deflate.o:   deflate.c  $(H_ZIP)
 	$(CC) -c $(CF) -o $@ deflate.c
 
-fileio.o:    fileio.c   $(H_ZIP) crc32.h
+$(PROD)/fileio.o:    fileio.c   $(H_ZIP) crc32.h
 	$(CC) -c $(CF) -o $@ fileio.c
 
-globals.o:   globals.c  $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
+$(PROD)/globals.o:   globals.c  $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
 	$(CC) -c $(CF) -o $@ globals.c
 
-trees.o:     trees.c    $(H_ZIP)
+$(PROD)/trees.o:     trees.c    $(H_ZIP)
 	$(CC) -c $(CF) -o $@ trees.c
 
-ttyio.o:     ttyio.c    $(H_ZIP) $(H_CLOAK) crypt.h ttyio.h
+$(PROD)/ttyio.o:     ttyio.c    $(H_ZIP) $(H_CLOAK) crypt.h ttyio.h
 	$(CC) -c $(CF) -o $@ ttyio.c
 
-util.o:      util.c     $(H_ZIP)
+$(PROD)/util.o:      util.c     $(H_ZIP)
 	$(CC) -c $(CF) -o $@ util.c
 
-zbz2err.o:   zbz2err.c  $(H_ZIP)
+$(PROD)/zbz2err.o:   zbz2err.c  $(H_ZIP)
 	$(CC) -c $(CF) -o $@ zbz2err.c
 
-zipfile.o:   zipfile.c  $(H_ZIP) crc32.h
+$(PROD)/zipfile.o:   zipfile.c  $(H_ZIP) crc32.h
 	$(CC) -c $(CF) -o $@ zipfile.c
 
-zipup.o:     zipup.c    $(H_ZIP) crc32.h crypt.h revision.h unix/zipup.h
+$(PROD)/zipup.o:     zipup.c    $(H_ZIP) crc32.h crypt.h revision.h unix/zipup.h
 	$(CC) -c $(CF) -o $@ zipup.c
 
 # A') Callable Zip C files
 
-api.o:       api.c      $(H_ZIP) api.h crc32.h crypt.h revision.h
+$(PROD)/api.o:       api.c      $(H_ZIP) api.h crc32.h crypt.h revision.h
 	$(CC) -c $(CF) -DDLL_ZIPAPI -DUSE_ZIPMAIN -o $@ api.c
 
-zip_.o:      zip.c      $(H_ZIP) crc32.h crypt.h revision.h ttyio.h
+$(PROD)/zip_.o:      zip.c      $(H_ZIP) crc32.h crypt.h revision.h ttyio.h
 	$(CC) -c $(CF) -DDLL_ZIPAPI -DUSE_ZIPMAIN -o $@ zip.c
 
 # B) C files for specific ports
@@ -596,25 +611,25 @@ zip_.o:      zip.c      $(H_ZIP) crc32.h crypt.h revision.h ttyio.h
 #    - Generated when referenced by OSDEP_OC*
 #    - OSDEP_OC* are customized by unix/configure, based on PORT macro
 
-./msdos.o: msdos/msdos.c $(H_ZIP)
+$(PROD)/msdos.o: msdos/msdos.c $(H_ZIP)
 	$(CC) -c $(CF) -o $@ msdos/msdos.c
 
-./os2.o: os2/os2.c      $(H_ZIP)
+$(PROD)/os2.o: os2/os2.c      $(H_ZIP)
 	$(CC) -c $(CF) -o $@ os2/os2.c
 
-./unix.o: unix/unix.c   $(H_ZIP)
+$(PROD)/unix.o: unix/unix.c   $(H_ZIP)
 	$(CC) -c $(CF) -o $@ unix/unix.c
 
-./nt.o: win32/nt.c  $(H_ZIP)
+$(PROD)/nt.o: win32/nt.c  $(H_ZIP)
 	$(CC) -c $(CF) -o $@ win32/nt.c
 
-./win32.o: win32/win32.c  $(H_ZIP)
+$(PROD)/win32.o: win32/win32.c  $(H_ZIP)
 	$(CC) -c $(CF) -o $@ win32/win32.c
 
-./win32i64.o: win32/win32i64.c  $(H_ZIP)
+$(PROD)/win32i64.o: win32/win32i64.c  $(H_ZIP)
 	$(CC) -c $(CF) -o $@ win32/win32i64.c
 
-./win32zip.o: win32/win32zip.c  $(H_ZIP)
+$(PROD)/win32zip.o: win32/win32zip.c  $(H_ZIP)
 	$(CC) -c $(CF) -o $@ win32/win32zip.c
 
 #----------------------------------------------------------------------------
@@ -623,95 +638,95 @@ zip_.o:      zip.c      $(H_ZIP) crc32.h crypt.h revision.h ttyio.h
 
 # A) Core Zip utility C files
 
-zipcloak.o:  zipcloak.c $(H_ZIP) $(H_CLOAK) crc32.h crypt.h revision.h ttyio.h
+$(PROD)/zipcloak.o:  zipcloak.c $(H_ZIP) $(H_CLOAK) crc32.h crypt.h revision.h ttyio.h
 	$(CC) -c $(CF) -DUTIL -o $@ zipcloak.c
 
-zipnote.o:   zipnote.c  $(H_ZIP) $(H_NOTE) revision.h
+$(PROD)/zipnote.o:   zipnote.c  $(H_ZIP) $(H_NOTE) revision.h
 	$(CC) -c $(CF) -DUTIL -o $@ zipnote.c
 
-zipsplit.o:  zipsplit.c $(H_ZIP) $(H_SPLIT) revision.h
+$(PROD)/zipsplit.o:  zipsplit.c $(H_ZIP) $(H_SPLIT) revision.h
 	$(CC) -c $(CF) -DUTIL -o $@ zipsplit.c
 
-crc32_.o:   crc32.c     $(H_ZIP) $(H_CLOAK) crc32.h
+$(PROD)/crc32_.o:   crc32.c     $(H_ZIP) $(H_CLOAK) crc32.h
 	$(CC) -c $(CF) -DUTIL -o $@ crc32.c
 
-crypt_.o:   crypt.c     $(H_ZIP) $(H_CLOAK) crc32.h crypt.h ttyio.h
+$(PROD)/crypt_.o:   crypt.c     $(H_ZIP) $(H_CLOAK) crc32.h crypt.h ttyio.h
 	$(CC) -c $(CF) -DUTIL -o $@ crypt.c
 
-fileio_.o:  fileio.c    $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT) crc32.h
+$(PROD)/fileio_.o:  fileio.c    $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT) crc32.h
 	$(CC) -c $(CF) -DUTIL -o $@ fileio.c
 
-util_.o:    util.c      $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
+$(PROD)/util_.o:    util.c      $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
 	$(CC) -c $(CF) -DUTIL -o $@ util.c
 
-zipfile_.o: zipfile.c   $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT) crc32.h
+$(PROD)/zipfile_.o: zipfile.c   $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT) crc32.h
 	$(CC) -c $(CF) -DUTIL -o $@ zipfile.c
 
 # B) C files for specific ports
 #    - Generated when referenced by OSDEP_OC
 #    - OSDEP_OC* are customized by unix/configure, based on PORT macro
 
-./msdos_.o: msdos/msdos.c $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
+$(PROD)/msdos_.o: msdos/msdos.c $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
 	$(CC) -c $(CF) -DUTIL -o $@ msdos/msdos.c
 
-./os2_.o: os2/os2.c     $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
+$(PROD)/os2_.o: os2/os2.c     $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
 	$(CC) -c $(CF) -DUTIL -o $@ os2/os2.c
 
-./unix_.o: unix/unix.c  $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
+$(PROD)/unix_.o: unix/unix.c  $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
 	$(CC) -c $(CF) -DUTIL -o $@ unix/unix.c
 
-./win32_.o: win32/win32.c  $(H_ZIP)
+$(PROD)/win32_.o: win32/win32.c  $(H_ZIP)
 	$(CC) -c $(CF) -DUTIL -o $@ win32/win32.c
 
-./win32i64_.o: win32/win32i64.c  $(H_ZIP)
+$(PROD)/win32i64_.o: win32/win32i64.c  $(H_ZIP)
 	$(CC) -c $(CF) -DUTIL -o $@ win32/win32i64.c
 
 #----------------------------------------------------------------------------
 
 # C Compile rules: AES (WinZip/Gladman) encryption
 
-aescrypt.o: aes_wg/aescrypt.c $(H_AES)
+$(PROD)/aescrypt.o: aes_wg/aescrypt.c $(H_AES)
 	$(CC) -c $(CF) -o $@ aes_wg/aescrypt.c
 
-aeskey.o:   aes_wg/aeskey.c   $(H_AES)
+$(PROD)/aeskey.o:   aes_wg/aeskey.c   $(H_AES)
 	$(CC) -c $(CF) -o $@ aes_wg/aeskey.c
 
-aestab.o:   aes_wg/aestab.c   $(H_AES)
+$(PROD)/aestab.o:   aes_wg/aestab.c   $(H_AES)
 	$(CC) -c $(CF) -o $@ aes_wg/aestab.c
 
-fileenc.o:  aes_wg/fileenc.c  $(H_AES)
+$(PROD)/fileenc.o:  aes_wg/fileenc.c  $(H_AES)
 	$(CC) -c $(CF) -o $@ aes_wg/fileenc.c
 
-hmac.o:     aes_wg/hmac.c     $(H_AES)
+$(PROD)/hmac.o:     aes_wg/hmac.c     $(H_AES)
 	$(CC) -c $(CF) -o $@ aes_wg/hmac.c
 
-prng.o:     aes_wg/prng.c     $(H_AES)
+$(PROD)/prng.o:     aes_wg/prng.c     $(H_AES)
 	$(CC) -c $(CF) -o $@ aes_wg/prng.c
 
-pwd2key.o:  aes_wg/pwd2key.c  $(H_AES)
+$(PROD)/pwd2key.o:  aes_wg/pwd2key.c  $(H_AES)
 	$(CC) -c $(CF) -o $@ aes_wg/pwd2key.c
 
-sha1.o:     aes_wg/sha1.c     $(H_AES)
+$(PROD)/sha1.o:     aes_wg/sha1.c     $(H_AES)
 	$(CC) -c $(CF) -o $@ aes_wg/sha1.c
 
 #----------------------------------------------------------------------------
 
 # C Compile rules: LZMA compression
 
-LzFind.o:   szip/LzFind.c     $(H_LZMA)
+$(PROD)/LzFind.o:   szip/LzFind.c     $(H_LZMA)
 	$(CC) -c $(CF) -o $@ szip/LzFind.c
 
-LzmaEnc.o:  szip/LzmaEnc.c    $(H_LZMA)
+$(PROD)/LzmaEnc.o:  szip/LzmaEnc.c    $(H_LZMA)
 	$(CC) -c $(CF) -o $@ szip/LzmaEnc.c
 
 #----------------------------------------------------------------------------
 
 # C Compile rules: PPMd compression
 
-Ppmd8.o:  szip/Ppmd8.c          $(H_PPMD)
+$(PROD)/Ppmd8.o:  szip/Ppmd8.c          $(H_PPMD)
 	$(CC) -c $(CF) -o $@ szip/Ppmd8.c
 
-Ppmd8Enc.o:  szip/Ppmd8Enc.c    $(H_PPMD)
+$(PROD)/Ppmd8Enc.o:  szip/Ppmd8Enc.c    $(H_PPMD)
 	$(CC) -c $(CF) -o $@ szip/Ppmd8Enc.c
 
 #----------------------------------------------------------------------------
@@ -726,7 +741,7 @@ Ppmd8Enc.o:  szip/Ppmd8Enc.c    $(H_PPMD)
 
 # 1) Assembler rule: Match, 16-bit only, MSDOS
 $(O_MCH_I):  msdos/match.asm
-	$(AS) $(AF) -c msdos/match.asm $(ASEOL)
+	$(AS) $(AF) -c -o $@ msdos/match.asm $(ASEOL)
 
 # 2) Assembler rule: Match 32bit, GNU AS
 $(O_MCH_G):  match.S $(ACONF_DEP)
@@ -734,9 +749,9 @@ $(O_MCH_G):  match.S $(ACONF_DEP)
 
 # 3) Assembler rule: Match 32bit, SysV AS
 $(O_MCH_SV): match.S $(ACONF_DEP)
-	$(CPP) $(AF) match.S > _matchs.s
-	$(AS) -c -o $@ matchs.s
-	$(RM) matchs.s
+	$(CPP) $(AF) match.S > $(PROD)/_matchs.s
+	$(AS) -c -o $@ $(PROD)/matchs.s
+	$(RM) $(PROD)/matchs.s
 
 #----------------------------------------------------------------------------
 
@@ -744,7 +759,7 @@ $(O_MCH_SV): match.S $(ACONF_DEP)
 
 # 1) Assembler rule: CRC, 16-bit only, MSDOS
 $(O_CRC_I):  msdos/crc_i86.asm
-	$(AS) $(AF) -c msdos/crc_i86.asm $(ASEOL)
+	$(AS) $(AF) -c -o $@ msdos/crc_i86.asm $(ASEOL)
 
 # 2) Assembler rule: CRC 32bit, GNU AS
 $(O_CRC_G):  crc_i386.S $(ACONF_DEP)
@@ -752,9 +767,9 @@ $(O_CRC_G):  crc_i386.S $(ACONF_DEP)
 
 # 3) Assembler rule: CRC 32bit, SysV AS
 $(O_CRC_SV): crc_i386.S $(ACONF_DEP)
-	$(CPP) $(AF) crc_i386.S > _crc_i386s.s
-	$(AS) -c -o $@ crc_i386s.s
-	$(RM) crc_i386s.s
+	$(CPP) $(AF) crc_i386.S > $(PROD)/_crc_i386s.s
+	$(AS) -c -o $@ $(PROD)/crc_i386s.s
+	$(RM) $(PROD)/crc_i386s.s
 
 #----------------------------------------------------------------------------
 #  Build rules: Object archives (.o -> .a)
@@ -764,80 +779,90 @@ $(O_CRC_SV): crc_i386.S $(ACONF_DEP)
 
 $(AR_AES): $(O_AES)
 	@echo 'Building/updating AES (WinZip/Gladman) object library...'
-	-$(RM) libaes.a
-	$(AR) libaes.a $(O_AES)
-	-$(RANLIB) libaes.a
+	-$(RM) $@
+	$(AR) $@ $(O_AES)
+	-$(RANLIB) $@
 
 # Object archive rule: LZMA compression
 
 $(AR_LZMA): $(O_LZMA)
 	@echo 'Building/updating LZMA object library...'
-	-$(RM) liblzma.a
-	$(AR) liblzma.a $(O_LZMA)
-	-$(RANLIB) liblzma.a
+	-$(RM) $@
+	$(AR) $@ $(O_LZMA)
+	-$(RANLIB) $@
 
 # Object archive rule: PPMd compression
 
 $(AR_PPMD): $(O_PPMD)
 	@echo 'Building/updating PPMd object library...'
-	-$(RM) libppmd.a
-	$(AR) libppmd.a $(O_PPMD)
-	-$(RANLIB) libppmd.a
+	-$(RM) $@
+	$(AR) $@ $(O_PPMD)
+	-$(RANLIB) $@
 
 # Object archive rule: BZIP2 compression
 
 $(AR_BZ):
 	@echo 'Building/updating BZIP2 object library...'
-	@if [ -f flags_bz ]; then \
-	         ( cd bzip2/; \
-	    echo "Using flags_bz overrides"; \
-	    eval $(MAKE) -f $(MK_BZ) libbz2.a ACONF_DEP=flags_bz `cat ../flags_bz`; \
-	  ); \
-	else \
-	  ( cd bzip2/; \
-	    eval $(MAKE) -f $(MK_BZ) CC="$(CC_BZ)" CFLAGS="$(CF_BZ)" \
-	                 RANLIB="$(RANLIB)" RM="rm -f" libbz2.a; \
-	  ); \
-	fi
+	@if [ -f $(PROD)/flags_bz ]; then \
+          ( cd bzip2/; \
+            echo "Using flags_bz overrides"; \
+            eval $(MAKE) -f $(MK_BZ) libbz2.a ACONF_DEP=$(PROD)/flags_bz \
+             `cat ../$(PROD)/flags_bz`; \
+          ); \
+        else \
+          ( cd bzip2/; \
+            eval $(MAKE) -f $(MK_BZ) CC="$(CC_BZ)" CFLAGS="$(CF_BZ)" \
+             RANLIB="$(RANLIB)" RM="rm -f" libbz2.a; \
+          ); \
+        fi
 
 # Object archive rule: ZLIB compression
 
 $(AR_Z):
 	@echo 'Building/updating ZLIB object library...'
 	( cd zlib/; \
-	  eval $(MAKE) -f Makefile libz.a ACONF_DEP=flags `cat ../flags`; \
-	)
+          eval $(MAKE) -f Makefile libz.a ACONF_DEP=$(PROD)/flags \
+           `cat ../$(PROD)/flags`; \
+        )
 
 # Object archive rule: Callable Zip
 
 $(AR_ZIP): $(O_ZIPL) $(O_ZIPN) $(LIB_AES_WG) $(LIB_LZMA) $(LIB_PPMD)
 	@echo 'Building/updating Callable Zip object library...'
 	unix/mlz.sh "$(AR_ZIP)" "$(O_ZIPL) $(O_ZIPN)" \
-	 $(LIB_AES_WG) $(LIB_LZMA) $(LIB_PPMD)
+         $(LIB_AES_WG) $(LIB_LZMA) $(LIB_PPMD)
 
 #----------------------------------------------------------------------------
 #  Build rules: Link programs (.o + .a -> zips)
+#
+#  Note: Utility programs (ZipCloak, ZipNote, ZipSplit) don't really
+#  depend on all the optional libraries, $(LIB_*), but the rules do,
+#  because $(LF2) may include "-l" options for all of them, and some
+#  linkers complain/fail if the corresponding libraries can't be found.
 #----------------------------------------------------------------------------
 
 # Link rule: zip
 
-$(PGM_ZIP): $(O_ZIP) $(LIB_AES_WG) $(LIB_BZ) $(LIB_LZMA) \
-            $(LIB_PPMD) $(LIB_Z)
+$(PPGM_ZIP): $(O_ZIP) $(LIB_AES_WG) $(LIB_BZ) $(LIB_LZMA) \
+              $(LIB_PPMD) $(LIB_Z)
 	$(LD) -o $@ $(LF1) $(O_ZIP) $(LF2)
-
-# Link rule: zipnote
-
-$(PGM_NOTE): $(O_NOTE)
-	$(LD) -o $@ $(LF1) $(O_NOTE) $(LF2)
 
 # Link rule: zipcloak
 
-$(PGM_CLOAK): $(O_CLOAK) $(LIB_AES_WG)
+$(PPGM_CLOAK): $(O_CLOAK) $(LIB_AES_WG) $(LIB_BZ) $(LIB_LZMA) \
+                $(LIB_PPMD) $(LIB_Z)
 	$(LD) -o $@ $(LF1) $(O_CLOAK) $(LF2)
+
+# Link rule: zipnote
+
+$(PPGM_NOTE): $(O_NOTE) $(LIB_AES_WG) $(LIB_BZ) $(LIB_LZMA) \
+               $(LIB_PPMD) $(LIB_Z)
+	$(LD) -o $@ $(LF1) $(O_NOTE) $(LF2)
 
 # Link rule: zipsplit
 
-$(PGM_SPLIT): $(O_SPLIT)
+$(PPGM_SPLIT): $(O_SPLIT) $(LIB_AES_WG) $(LIB_BZ) $(LIB_LZMA) \
+                $(LIB_PPMD) $(LIB_Z)
 	$(LD) -o $@ $(LF1) $(O_SPLIT) $(LF2)
 
 #----------------------------------------------------------------------------
@@ -850,9 +875,9 @@ $(PGM_SPLIT): $(O_SPLIT)
 # Zip documentation output directory rules
 # - Creates manout directory if unix/configure not executed
 
-manout:
-	mkdir manout
-
+$(PROD)/manout:
+	if [ ! -d "$(PROD)" ]; then mkdir "$(PROD)"; fi
+	if [ ! -d "$@" ]; then mkdir "$@"; fi
 
 # Zip text documentation generation rules
 
@@ -888,10 +913,10 @@ $(MAN_SPLIT): man/zipsplit.1
 #----------------------------------------------------------------------------
 
 all:      generic_msg generic
-zips:     $(ZIP_PGMS)
+zips:     $(ZIP_PPGMS)
 objs:     $(O_ZIP)
-docs:     manout $(ZIP_DOCS)
-manuals:  manout $(ZIP_MANS)
+docs:     $(PROD)/manout $(ZIP_DOCS)
+manuals:  $(PROD)/manout $(ZIP_MANS)
 zipsman:  zips manuals
 zipsdoc:  zips docs
 
@@ -904,26 +929,30 @@ zipsdoc:  zips docs
 
 # Main flags
 
-flags: unix/configure
-	@echo "Running:  unix/configure"	
+flags: $(PROD)/flags
+
+$(PROD)/flags: unix/configure
+	@echo "Running:  unix/configure"
 	@sh unix/configure \
-	        "PROD='$(PROD)'" \
-	        "LIST='$(LIST)'" \
-	        "CC='$(CC)'" \
-	        "CFLAGS='$(LOCAL_ZIP)'" \
-	        "LFLAGS1='$(LFLAGS1)'" \
-	        "LFLAGS2='$(LFLAGS2)'" \
-	        "AES_WG='$(AES_WG)'" \
-	        "LZMA='$(LZMA)'" \
-	        "PPMD='$(PPMD)'" \
-	        "IZ_BZIP2='$(IZ_BZIP2)'" \
-	        "IZ_ZLIB='$(IZ_ZLIB)'"
+         "PROD='$(PROD)'" \
+         "LIST='$(LIST)'" \
+         "CC='$(CC)'" \
+         "CFLAGS='$(LOCAL_ZIP)'" \
+         "LFLAGS1='$(LFLAGS1)'" \
+         "LFLAGS2='$(LFLAGS2)'" \
+         "AES_WG='$(AES_WG)'" \
+         "LZMA='$(LZMA)'" \
+         "PPMD='$(PPMD)'" \
+         "IZ_BZIP2='$(IZ_BZIP2)'" \
+         "IZ_ZLIB='$(IZ_ZLIB)'"
 
 # BZIP2 flags
 
-flags_bz: flags
+flags_bz: $(PROD)/flags_bz
 
-# These symbols, when #defined using -D have these effects on compilation:
+$(PROD)/flags_bz: $(PROD)/flags
+
+# C macros, and their effects:
 # ZMEM                  - includes C language versions of memset(), memcpy(),
 #                         and memcmp() (util.c).
 # HAVE_DIRENT_H         - use <dirent.h> instead of <sys/dir.h>
@@ -947,16 +976,22 @@ flags_bz: flags
 #----------------------------------------------------------------------------
 
 clean:
-	rm -f *.o *.a $(ZIP_PGMS) flags flags_bz
-	rm -rf manout/*
+	rm -f $(PROD)/*.o $(PROD)/*.a $(ZIP_PGMS)
+	rm -f $(PROD)/flags $(PROD)/flags_bz
+	rm -rf $(PROD)/manout
+	@# Remove empty $(PROD) directory.
+	if test -d "$(PROD)" ; then \
+          ls -1 "${PROD}"/* > /dev/null 2>&1 || \
+          rm -r "$(PROD)" ; \
+        fi
 	rm -rf $(PKGDIR)/*
 
 clean_bzip2 :
 	@if [ -f bzip2/$(MK_BZ) ]; then \
-	  ( cd bzip2; make -f $(MK_BZ) clean ); \
-	else \
-	  echo "No bzip2 make file found: bzip2/$(MK_BZ)"; \
-	fi;
+         ( cd bzip2; make -f $(MK_BZ) clean ); \
+        else \
+          echo "No bzip2 make file found: bzip2/$(MK_BZ)"; \
+        fi;
 
 clean_exe :
 	rm -f $(ZIPS_PGMS)
@@ -970,8 +1005,7 @@ clean_docs:
 
 install: zips manuals
 	-$(INSTALL_D) $(BINDIR)
-	$(INSTALL_PROGRAM) $(ZIP_PGMS) $(BINDIR)
-	-cd $(BINDIR); $(CHMOD) $(BINPERMS) $(ZIP_PGMS)
+	$(INSTALL_PROGRAM) $(ZIP_PPGMS) $(BINDIR)
 	-$(INSTALL_D) $(MANDIR)
 	$(INSTALL) $(ZIP_MANS) $(MANDIR)
 	$(CHMOD) $(BINPERMS) $(INSTALLEDBIN)
@@ -992,18 +1026,19 @@ svr4package: zips
 	@echo "Creating SVR4 package for Unix ..."
 	-@rm -rf ./$(PKGDIR) ./$(PKGDIR)_`uname -p`.pkg
 	-@sed -e "s/.VERSION./$(VERSION)/g" \
-	      -e "s/.PSTAMP./$(LOGNAME)_`date | tr  ' ' '_'`/g" \
-	      -e "s/.ARCH./Solaris_`uname -rp | tr ' ' ','`/g" \
-	      ./unix/Packaging/pkginfo.in > ./unix/Packaging/pkginfo
+         -e "s/.PSTAMP./$(LOGNAME)_`date | tr  ' ' '_'`/g" \
+         -e "s/.ARCH./Solaris_`uname -rp | tr ' ' ','`/g" \
+         ./unix/Packaging/pkginfo.in > ./unix/Packaging/pkginfo
 	-@sed -e "s/.ARCH./`uname -p`/g" \
-	      ./unix/Packaging/preinstall.in > ./unix/Packaging/preinstall
+         ./unix/Packaging/preinstall.in > ./unix/Packaging/preinstall
 	/usr/bin/pkgmk -d . -b . -r . -f ./unix/Packaging/prototype $(PKGDIR)
 	/usr/bin/pkgtrans -o -s . $(PKGDIR)_`uname -p`.pkg $(PKGDIR)
 	@echo " "
-	@echo "To install, copy $(PKGDIR)_`uname -p`.pkg to the target system, and"
-	@echo "issue the command (as root):  pkgadd -d $(PKGDIR)_`uname -p`.pkg"
+	@echo \
+ "To install, copy $(PKGDIR)_`uname -p`.pkg to the target system, and"
+	@echo \
+ "issue the command (as root):  pkgadd -d $(PKGDIR)_`uname -p`.pkg"
 	@echo " "
-
 
 #----------------------------------------------------------------------------
 #  Build rules: Make a distribution
@@ -1011,14 +1046,14 @@ svr4package: zips
 
 dist: $(DOC_ZIP)
 	eval zip -r9 zip`sed -e '/VERSION/!d' -e 's/.*"\(.*\)".*/\1/' \
-	         -e 's/[.]//g' -e 's/ .*//g' -e q revision.h` *
+         -e 's/[.]//g' -e 's/ .*//g' -e q revision.h` *
 
 #----------------------------------------------------------------------------
 #  Build rules: Zip validation tests
 #----------------------------------------------------------------------------
 
 dashv:
-	./zip -v
+	$(PROD)/zip -v
 
 ################################
 # INDIVIDUAL MACHINE MAKERULES #
@@ -1043,20 +1078,20 @@ generic_msg:
 # generic
 # - Generate flags file (if doesn't exist), then Zip modules
 
-generic: flags
-	eval $(MAKE) $(MAKEF) zips PROD="$(PROD)" `cat flags`
+generic: $(PROD)/flags
+	eval $(MAKE) $(MAKEF) zips PROD="$(PROD)" `cat $(PROD)/flags`
 
 # generic_man
 # - Generate flags file (if doesn't exist), then man pages
 
-generic_man: flags
-	eval $(MAKE) $(MAKEF) manuals PROD="$(PROD)" `cat flags`
+generic_man: $(PROD)/flags
+	eval $(MAKE) $(MAKEF) manuals PROD="$(PROD)" `cat $(PROD)/flags`
 
 # generic_docs
 # - Generate flags file (if doesn't exist), then plain text docs
 
-generic_docs: flags
-	eval $(MAKE) $(MAKEF) docs ACONF_DEP=flags`cat flags`
+generic_docs: $(PROD)/flags
+	eval $(MAKE) $(MAKEF) docs ACONF_DEP=$(PROD)/flags `cat $(PROD)/flags`
 
 # generic_pkg
 # - Generate flags file (if doesn't exist), then Zip modules, then perform
@@ -1065,8 +1100,8 @@ generic_docs: flags
 generic_pkg: generic svr4package
 
 #----------------------------------------------------------------------------
-#  Old static generic targets
-#  - For those systems which do not work with the generic targets.
+#  Old, non-"generic" targets
+#  - For those systems which do not work with the "generic" targets.
 #  - Can not assume that the make utility groks "$(MAKE)"
 #----------------------------------------------------------------------------
 
@@ -1075,18 +1110,18 @@ generic_pkg: generic svr4package
 # - Do not know yet how to allocate 64K bytes:
 att6300nodir:
 	$(MAKE) $(MAKEF) zips LF1="-Ml -s" \
-	CF="-DUNIX -I. -O -Ml -DNO_RMDIR -DDYN_ALLOC -DMEDIUM_MEM \
--DWSIZE=16384 -DNO_STDLIB_H -DNO_STDDEF_H -DNO_RENAME \
--DNO_MKTIME -DNO_SIZE_T -DNO_VOID -DNO_PROTO -DNO_DIR \
--DNO_CONST -DHAVE_TERMIO_H" \
-	"LF2="
+         CF="-DUNIX -I. -O -Ml -DNO_RMDIR -DDYN_ALLOC -DMEDIUM_MEM \
+         -DWSIZE=16384 -DNO_STDLIB_H -DNO_STDDEF_H -DNO_RENAME \
+         -DNO_MKTIME -DNO_SIZE_T -DNO_VOID -DNO_PROTO -DNO_DIR \
+         -DNO_CONST -DHAVE_TERMIO_H" \
+         "LF2="
 
 # Coherent
 
 # - AS definition not needed for gcc
 coherent:
 	$(MAKE) $(MAKEF) zips CF="-DUNIX -I. -O -DDIRENT -DASMV" \
-	 AS="as -gx" OBJA=match.o
+         AS="as -gx" OBJA=match.o
 
 # Cray Unicos 6.1, Standard C compiler 3.0
 # - All routines except trees.c may be compiled with vector3
@@ -1094,7 +1129,7 @@ coherent:
 
 cray_v3:
 	$(MAKE) $(MAKEF) zips CC="scc" \
-	            CF="-DUNIX -I. -O -h vector2 -h scalar3 -DHAVE_DIRENT_H"
+         CF="-DUNIX -I. -O -h vector2 -h scalar3 -DHAVE_DIRENT_H"
 
 # Cygwin
 
@@ -1105,7 +1140,7 @@ cygwin:
 
 lynx:
 	$(MAKE) $(MAKEF) generic CC=gcc CPP="gcc -E" CF="$(CF) \
-	 -DNO_UNDERLINE -DLynx -DLYNX LF2="$LF2 -lc_p"
+         -DNO_UNDERLINE -DLynx -DLYNX LF2="$LF2 -lc_p"
 
 # MINIX 1.5.10
 # - With Bruce Evans 386 patches and gcc/GNU make
@@ -1120,7 +1155,7 @@ minix:
 
 qnx:
 	$(MAKE) $(MAKEF) zips LN=ln CC=cc CF="-DUNIX -I. -O \
-	 -DHAVE_DIRENT_H -DHAVE_TERMIOS_H -DNO_MKTEMP"
+         -DHAVE_DIRENT_H -DHAVE_TERMIOS_H -DNO_MKTEMP"
 
 # QNX/Neutrino
 # - No native development tools, so cross-build environement is used.
@@ -1133,18 +1168,18 @@ qnx:
 
 qnxnto:
 	@if [ "$(ARCH)" = "" ] ; then \
-	  echo "You didn't set ARCH; I'll assume you meant ARCH=x86..." ; \
-	  echo "" ; \
-	  $(MAKE) $(MAKEF) zips LN=ln CC="qcc -Vgcc_ntox86" \
-	  CF="-g -DUNIX -I. -O -DHAVE_DIRENT_H -DHAVE_TERMIOS_H -DNO_MKTEMP" \
-	  LF2=-g ; \
-	else \
-	  echo "Making Zip for $(ARCH)..." ; \
-	  echo "" ; \
-	  $(MAKE) $(MAKEF) zips LN=ln CC="qcc -Vgcc_nto$(ARCH)" \
-	  CF="-g -DUNIX -I. -O -DHAVE_DIRENT_H -DHAVE_TERMIOS_H -DNO_MKTEMP" \
-	  LF2=-g ; \
-	fi
+          echo "You didn't set ARCH; I'll assume you meant ARCH=x86..." ; \
+          echo "" ; \
+          $(MAKE) $(MAKEF) zips LN=ln CC="qcc -Vgcc_ntox86" \
+           CF="-g -DUNIX -I. -O -DHAVE_DIRENT_H -DHAVE_TERMIOS_H -DNO_MKTEMP" \
+           LF2=-g ; \
+        else \
+          echo "Making Zip for $(ARCH)..." ; \
+          echo "" ; \
+          $(MAKE) $(MAKEF) zips LN=ln CC="qcc -Vgcc_nto$(ARCH)" \
+           CF="-g -DUNIX -I. -O -DHAVE_DIRENT_H -DHAVE_TERMIOS_H -DNO_MKTEMP" \
+           LF2=-g ; \
+        fi
 
 # Solaris
 # - Generic unix build, plus generation of installable package.
