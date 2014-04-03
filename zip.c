@@ -3226,9 +3226,14 @@ char **argv;            /* command line tokens */
           /* if nothing matches include list then still create an empty archive */
           allow_empty_archive = 1;
         case 'x':   /* Exclude following files */
+        {
+          int old_pathput = pathput;
+          pathput = 1;
           add_filter((int) option, value);
+          pathput = old_pathput;
           free(value);
           break;
+        }
 #ifdef S_IFLNK
         case 'y':   /* Store symbolic links as such */
           linkput = 1;  break;
@@ -3331,8 +3336,11 @@ char **argv;            /* command line tokens */
             /* just ignore as just marks what follows as non-option arguments */
 
           } else if (kk == 6) {
+            int old_pathput = pathput;
+            pathput = 1;
             /* value is R pattern */
             add_filter((int)'R', value);
+            pathput = old_pathput;
             free(value);
             if (first_listarg == 0) {
               first_listarg = argnum;
@@ -3396,8 +3404,11 @@ char **argv;            /* command line tokens */
                 {
                   kk = 4;
                   if (recurse == 2) {
+                    int old_pathput = pathput;
+                    pathput = 1;
                     /* reading patterns from stdin */
                     add_filter((int)'R', pp);
+                    pathput = old_pathput;
                   } else {
                     /* file argument now processed later */
                     add_name(pp);
