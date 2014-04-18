@@ -1,7 +1,16 @@
 /*
  * VMS Message Source File Generator.
  *
- * 2007-01-29 SMS.
+ * Last revised: 2013-11-29
+ *
+ *----------------------------------------------------------------------
+ * Copyright (c) 2007-2013 Info-ZIP.  All rights reserved.
+ *
+ * See the accompanying file LICENSE, version 2009-Jan-2 or later (the
+ * contents of which are also included in zip.h) for terms of use.  If,
+ * for some reason, all these files are missing, the Info-ZIP license
+ * may also be found at: ftp://ftp.info-zip.org/pub/infozip/license.html
+ *----------------------------------------------------------------------
  *
  * Generates a VMS error message source file from data in "ziperr.h".
  *
@@ -38,7 +47,18 @@ main()
     };
 
     char *text1[] = {
+"! ZIP_MSG.MSG",
+"!",
 "!    VMS Error Message Source File for Zip",
+"!",
+"!----------------------------------------------------------------------",
+"! Copyright (c) 2007-2013 Info-ZIP.  All rights reserved.",
+"!",
+"! See the accompanying file LICENSE, version 2009-Jan-2 or later (the",
+"! contents of which are also included in zip.h) for terms of use.  If,",
+"! for some reason, all these files are missing, the Info-ZIP license",
+"! may also be found at: ftp://ftp.info-zip.org/pub/infozip/license.html",
+"!----------------------------------------------------------------------",
 "!",
 "! Because the facility code was formally assigned by HP, the .FACILITY",
 "! directive below specifies /SYSTEM.  Because the messages are, in",

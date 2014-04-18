@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2000-Apr-09 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -829,6 +829,7 @@ DIR *opendir(const char *dirname)
      /*  Create space for entry */
      if ((entry = malloc (sizeof(struct dirent))) == NULL) {
        end = FILENAME_FINDFINISH_(searchid);
+       free( dirp);
        return NULL;
      }
 

@@ -439,7 +439,9 @@ void version_local()
    char buf2[16];  /* revstamp */
    char buf3[16];  /* OS */
    char buf4[16];  /* Date */
-/*   char buf5[16];  /* Time */
+#if 0
+   char buf5[16];  /* Time */
+#endif /* 0 */
 
 /* format "with" name strings */
 
@@ -453,14 +455,14 @@ void version_local()
 #   ifdef AZTEC_C
      strcpy(buf1,"Manx Aztec C ");
 #   else
-     strcpy(buf1,"UNKNOWN ");
+     strcpy(buf1,"Unknown C ");
 #   endif
 #  endif
 # endif
 /* "under" */
   sprintf(buf3,"AmigaDOS v%d",WBversion);
 #else
-  strcpy(buf1,"Unknown compiler ");
+  strcpy(buf1,"Unknown C ");
   strcpy(buf3,"Unknown OS");
 #endif
 
@@ -485,13 +487,13 @@ void version_local()
   strcpy(buf4," unknown date");
 #endif
 
-/******
+#if 0
 #ifdef __TIME__
   sprintf(buf5," at %s",__TIME__);
 #else
   strcpy(buf5," unknown time");
 #endif
-******/
+#endif /* 0 */
 
 /* Print strings using "CompiledWith" mask defined above.
  *  ("Compiled with %s%s under %s%s%s%s.")
@@ -502,7 +504,7 @@ void version_local()
      buf2,
      buf3,
      buf4,
-     /* buf5, */ "",
+     "",    /* buf3 (time) not used. */
      "" );  /* buf6 not used */
 
 } /* end function version_local() */

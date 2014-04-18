@@ -4302,12 +4302,15 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     zipcloak.c (SMS)
  4. Define IZ_MIN() macro for implementing MIN.  Remove define from
     zipup.c.  zip.h, zipup.c (SMS)
- 5. Include time.h for CRYPE_AES_WG.  Define IS_A_DIR macro that looks for
+ 5. Include time.h for CRYPT_AES_WG.  Define IS_A_DIR macro that looks for
     an end "/".  Set default encryption method to TRADITIONAL_ENCRYPTION.
     Add AES random pool initialization.  *** there are (sometimes lame)
-    reasons for why 32 or 1 are used ***  Set AES globals.  Exclude
+    reasons for why 32 or 1 is used ***  Set AES globals.  Exclude
     directories from encryption.  *** probably should also exclude soft
     links and maybe pipes too ***  zipcloak.c (SMS)
+(Explain "32 and/or 1"?  Encrypting link text may be valuable -- Some
+folks want the file names (or the whole central directory) encrypted.
+SMS.)
  6. Change CRYPT_AES_WG_EF_TAG to EF_AES_WG.  Use NO_ENCRYPTION.  zipfile.c
     (SMS)
  7. Change i < n to i <= n.  qdos/qdos.c (SMS)
@@ -4891,7 +4894,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     display_dot_char() and display_dot().  Define PROGRESS_DOTS_PER_FLUSH
     that, when defined, sets how many dots to accumulate before flushing
     (instead of flushing every dot).  deflate.c, fileio.c, zip.h, zipup.c (SMS)
- 7. Add macro define PROGRESS_DOTS_PER_FLUSH and set to 64.  vms/osdep.h (SMS)
+ 7. Add macro define PROGRESS_DOTS_PER_FLUSH and set to 64.  vms.osdep.h (SMS)
     vms/descrip_mkdeps.mms, vms/descrip_deps.mms (SMS)
  8. Processing of a split archive could stop prematurely if the split
     size was a multiple of the I/O buffer size (16K), leaving a corrupt
@@ -4995,21 +4998,18 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  1. Remove // commented out lines marking code to be removed.  zipfile.c (SMS)
  2. Make iz_file_read() local.  zipup.c (SMS)
  3. Add missing comma to extended help.  Allow -O (--out) to handle stdout.
+    Replace empty suffix lists with NULL.  Add "All suffix lists empty" check.
+    Updates to backup checks.  Remove "missing suffix list" check.  Change
+    compression-method-by-suffix list processing to convert explicit null lists
+    (":" or ";") to empty (NULL), before displaying (-ss) them.  No longer
+    compress everything automatically with level 9.  (Not backward compatible.)
     Before replacing old zip with new zip, check if out_path is "-" (stdout)
-    rather than zipfile.  Updates to backup checks.  Replace empty suffix
-    lists with NULL.  Add "All suffix lists empty" check.  Remove "missing
-    suffix list" check.  Change compression-method-by-suffix list processing
-    to convert explicit null lists (":" or ";") to empty (NULL), before
-    displaying (-ss) them.
- 4. Change -9 not to clear the -n (STORE) suffix list, as was done in
-    previous Zip versions.  With this behavior change, -9 only sets the
-    compression level.  It no longer causes Zip to compress all files
-    unconditionally (ignoring the -n (STORE) suffix list).  Now, use "-n:"
-    explicitly to do this.  zip.c (SMS)
- 5. Fix a spurious error message, "can't specify output file when using
+    rather than zipfile.  zip.c (SMS)
+ 4. Fix a spurious error message, "can't specify output file when using
     -BP", when -BP wasn't specified.  zip.c (SMS)
+ 5. Change -9 not to clear the -n (STORE) suffix list.  zip.c (SMS)
  6. Add check to any suffix check.  zip.c (EG)
- 7. Change APL_DBL_SFX to APL_DBL_SUFX.  fileio.c, zipup.c (SMS)
+ 7. Change APL_DBL_SUFX to APL_DBL_SFX.  zipup.c (SMS)
  8. Change __VMS to VMS in MatchFinder guard macro.  lzma/lzfind.h (SMS)
  9. Change "  #ifdef" to "#  ifdef" and similar changes to ifdef endif blocks
     to make formatting more acceptable to some compilers.  lzma/ppmd8.c,
@@ -5041,25 +5041,137 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     storage.  Add note regarding "some files" and record format Stream or
     Stream_CR, and long records.  TODO (SMS)
 20. Minor (spelling) update.  tandem/HISTORY (SMS)
-21. Add VMS-specific <memory.h> for AES as may be missing on older systems.
+21. Remove _7ZIP_ST.  vms/build_zip.com (SMS)
+22. Add VMS-specific <memory.h> for AES as may be missing on older systems.
     vms/memory.h (SMS)
-22. Minor text edits.  Add variable LOCAL_ZIP.  Change eval ${arg} to
+23. Minor text edits.  Add variable LOCAL_ZIP.  Change eval ${arg} to
     eval ${1}.  Change ${CFLAGS:-"-I."} to ${CFLAGS:-}' -I.'.  Same with
     CFLAGS_BZ.  Add note for using standard pre-defined preprocessor
-    symbols and successful compilation of UnZip.  unix/configure (SMS)
-23. Update call of unix/configure to include LFLAGS1 and LFLAGS2.
+    symbols and successful compilation of Zip.  Remove -D_7ZIP_ST.
+    unix/configure (SMS)
+24. Update call of unix/configure to include LFLAGS1 and LFLAGS2.
     unix/Makefile (SMS)
-24. Add note to extended help regarding -v.  zip.c (EG)
-25. Change BACKUP_CONTROL_FILE_NAME suffix from "zip_backup_control.txt"
+25. Add note to extended help regarding -v.  zip.c (EG)
+26. Change BACKUP_CONTROL_FILE_NAME suffix from "zip_backup_control.txt"
     to ".zbc" so resulting names are shorter.  zip.h (EG)
-26. Add options -BC (--backup-control) and -BL (--backup-log) to allow
+27. Add options -BC (--backup-control) and -BL (--backup-log) to allow
     storing the control file and the log, respectively, in a different
     place than the backup path specified by -BP.  This is useful when the
     media used for the backup path may be swapped out when full.  Currently
     not implemented.  zip.c (EG)
--------------------- April 3rd 2013 version 3.1d26 -----------------------
- 1. Finish changing APL_DBL_SFX to APL_DBL_SUFX.  unix/macosx.h (SMS)
- 2. Change Mac OS X system-specific code to use (C macro APL_DBL_SUFX)
+-------------------- November 14th 2013 version 3.1d26 -----------------------
+ 1. Various comment updates.  Include file updates.  Look for both
+    / and \ (instead of just \) as trailing slash on Windows.  Wrap progress
+    option in ENABLE_DLL_PROGRESS.  Add "backup" for BACKUP_SUPPORT to feature
+    list.  Add "vms_im_extra" and "vms_pk_extra" to feature list.  Update how
+    bzip2, lzma, and ppmd are added to feature list.  Include
+    store_unix_uids_gids, uidgid_not_16bit, and uidgid_16bit in feature list.
+    Change "crypt" to "crypt_aes_wg" in feature list to reflect implementation.
+    Include comment() function for when ZPArchive() not used.  api.c (SMS, EG)
+ 2. Add comments describing API interface, including macros to set.  api.h (EG)
+ 3. USE_ZIPMAIN and DLL_ZIPAPI are replaced by ZIPLIB (to build a library) and
+    NO_ZPARCHIVE (to not use the ZPArchive() entry point).  Libraries will now
+    tend to call zipmain() directly rather than fill in the API structure.
+    DLLs need to call an entry point and so use ZPArchive() for now.  A new
+    entry point using zipmain() syntax is being worked.  api.h (EG)
+(USE_ZIPMAIN still used in zip.h, macos/osdep.h, vms/osdep.h,
+windll/windll.h, zos/cmsmvs.h?  Various compile/link problems on VMS. SMS.)
+ 4. windows.h is included for some non-WIN32 builds to allow them to
+    effectively use the API interface.  Add additional comments.  api.h (SMS)
+ 5. Change Options to ZipOpts to avoid confusion with Options structure that
+    contains the list of command line options (defined in zip.c).  api.c,
+    api.h (SMS)
+ 6. Change USE_ZIPMAIN to ZIP_DLL_LIB in many places.  Modify use of WINDLL
+    (still used to create a Win32 DLL) in some cases.  api.c, zip.c (EG)
+ 7. Update PATH_MAX calculations.  Provide WIN32 equivalents to some WIN32
+    functions used by the API (such as lstrcat).  Update _cplusplus wrapper
+    code.  api.h (SMS)
+ 8. Update formatting.  comp_cli.txt, comp_opt.txt (SMS)
+
+<These files were intended as source material for "man"/help docs, not
+for distribution.>
+
+ 9. Make changes for Exec Shield in assembly code (3.1c03) conditional on
+    __ELF__ and __linux__, to avoid "as" errors on MinGW, where COFF is used,
+    and the new ELF-specific .section directive is invalid.  crc_i386.S,
+    match.S (SMS)
+10. Update comments.  Update use of variable "calls".  Change eb_len
+    and ef_len in ef_scan_for_aes() and ef_strip_aes() to signed long to catch
+    underflow.  Add cast to IZ_MIN in zipcloak() to convert to size_t.  Minor
+    updates to zipbare().  In decrypt(), quit if unable to read missing
+    encryption header.  crypt.c (SMS)
+11. Comment updates.  Update crypt version information.  Formatting updates.
+    crypt.h (SMS)
+12. Update text.  file_id.diz (SMS, EG)
+
+<I'd still be amazed if anyone actually uses this file, but the format
+should be right, now.>
+
+13. Reorder optchar defines.  Update copy_args(), including propagating out
+    of memory errors up a level rather than exit.  fileio.c (SMS)
+  (exit is probably more appropriate here - this should be looked at - EG)
+14. In get_shortopt(), add comments regarding multi-byte matching.  fileio.c
+    (EG)
+15. Add o_OPT_EQ_VALUE (optional values requiring equal sign) processing for
+    long options.  Disambiguate some ZE_MEM error messages in option
+    processing.  fileio.c (SMS)
+16. Update optional values requiring equal sign (o_OPT_EQ_VALUE), where an
+    optional value is supported, but it must be flagged with a leading "="
+    to avoid ambiguity.  This is more or less a replacement for the (possibly
+    misleading) optional argument feature (o_OPT_VALUE) that has not been
+    used.  Both short and long option versions implemented.  A leading "="
+    forces whatever follows to be an option, even if it has a leading "-".
+    (Leaving the "=" off results in a NULL option value.)  fileio.c (SMS, EG)
+17. Optimize code in copy_args().  fileio.c (SMS)
+18. Experimental new option, --etwodd (encrypt traditional without data
+    descriptor), allows Traditional encryption without an extended header
+    (data descriptor).  This requires reading the input file twice, but saves
+    16 bytes (24 bytes, for Zip64) per archive entry and should create entries
+    more compatible with other unzip utilities.  Intended for small files only
+    as can greatly increase the time it takes to process files.  Not usable
+    with streaming.  Currently implemented on Unix, VMS, and Windows.  ETWODD
+    is only used if requested by the user via the --etwodd option.  Disable
+    by defining C macro NO_ETWODD_SUPPORT.  (Only applies to Traditional zip
+    encryption.  This issue does not exist for AES encryption, which should
+    now be used instead of weak traditional encryption.)  globals.c,
+    unix/osdep.h, unix/zipup.h, vms/osdep.h, vms/vms_pk.c, vms/zipup.h,
+    win32/osdep.h, win32/zipup.h, zip.c, zip.h, zipcloak.c, zipup.c (SMS)
+19. Add zread_file() to pre-read a file to calculate its CRC.  This is used
+    with the --etwodd encryption option.  zipup.c (SMS)
+20. Add zrewind() macro.  unix/zipup.h, vms/zipup.h, win32/zipup.h (SMS)
+21. Check if ENABLE_ENTRY_TIMING is defined before defining.  Minor updates to
+    use of ASM, ASMV, ASM_CRC, NO_ASMV, and NO_ASM_CRC.  win32/osdep.h (SMS)
+22. Text updates.  Include note on known PPMd problems.  INSTALL (SMS, EG)
+23. Initial attempt to provide a callable-Zip interface on UNIX and VMS
+    systems.  Specifying LIBZIP at build time creates libizzip.a or
+    LIBIZZIP.OLB and LIBIZZIP.OPT, which may be linked with a user-supplied
+    program.  Add example of use of VMS/Unix lib.  izzip_example.c,
+    unix/configure, unix/Makefile, vms/build_zip.com, vms/descrip.mms,
+    vms/descrip_mkdeps.mms, vms/descrip_src.mms (SMS)
+24. Move izzip_example.c lib example to new directory ziplib.
+    ziplib/izzip_example.c (EG)
+
+<Actually "zipmain", but should become "iz_lib".>
+
+25. Initial update of README.  This file will be fully updated by release.
+    README (SMS)
+26. Minor updates.  revision.h (SMS, EG)
+27. Change UNICODE_WIDE to UNICODE_WCHAR to reflect other changes.  Change
+    osdep.h to vms/osdep.h.  tailor.h (SMS)
+28. Initial updates.  This file should be fully updated by release.  TODO
+    (SMS, EG)
+29. Add pending traditional encryption package notification message.  This
+    message has not been sent yet.  The previous notification is still in
+    effect and covers the traditional encryption code.  The AES_WG code is
+    covered by a separate notification.  usexport_pending.msg (SMS)
+30. Initial update.  This file will be fully updated by release.  WhatsNew
+    (SMS, EG)
+
+<Around here, it's "WHATSNEW", not "WhatsNew".>
+
+31. Add WIN32 pragma to search for bzip2 library.  zbz2err.c (SMS)
+32. Finish changing APL_DBL_SFX to APL_DBL_SUFX.  unix/macosx.h (SMS)
+33. Change Mac OS X system-specific code to use (C macro APL_DBL_SUFX)
     "/..namedfork/rsrc" as the suffix for resource fork access on Intel,
     staying with "/rsrc" on PowerPC.  Define the C Macro APPLE_NFRSRC as 0
     (on Intel) or 1 (on PowerPC) at build time to override the automatic
@@ -5068,154 +5180,491 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     "/..namedfork/rsrc".)  Using "/rsrc" on Mac OS X 10.7 (Lion, Intel-only)
     caused spurious "Not a directory" messages, and resource forks were not
     properly stored.  zip.c, unix/macosx.h (SMS)
- 3. Rename "lzma" directory to "szip".  INSTALL, zip.c, zipup.c,
-    unix/configure, unix/Makefile, vms/build_zip.com, vms/descrip_deps.mms,
-    vms/descrip_mkdeps.mms, vms/descrip_src.mms (SMS)
- 4. Remove pointless unsigned < 0 test (with its attendant compiler
-    complaints).  zip.c (SMS)
- 5. Allow "-@@ -" as equivalent to "-@".  zip.c (SMS)
- 6. Change the VMS CLI /BATCH=file option to use the new "-@@ file" UNIX
-    option, instead of handling input redirection in VMS-specific code.  A
-    side benefit is that /BATCH=file no longer uses stdin, so it no longer
-    conflicts with /COMMENTS (which uses stdin).  vms/cmdline.c,
-    vms/zip_cli.help.  (SMS)
- 7. Remove useless VMS CLI /VERBOSE=DEBUG ("-vvv") option.  vms/cmdline.c,
-    vms/zip_cli.cld, vms/zip_cli.help.  (SMS)
- 8. Change VMS-specific /VERBOSE=MORE ("-vv") diagnostic messages to use
-    the usual message stream instead of stderr, to avoid having normal
-    messages overwrite diagnostic messages due to carriage control
-    differences.  Reformat the "vms_fopen(): stat()" message to avoid
-    over-long lines.  vms/vms.c (SMS)
- 9. Change VMS-specific CLD processing DCL script to create only StreamLF
-    files, to resolve a messy file-attribute problem with DEC C V4.0-000
-    when CC /PREPROCESS_ONLY hit an error.  A date comment in the CLD source
-    caused an error with CC /PREPROCESS_ONLY with that old compiler, so the
-    CLD "!" comment is now wrapped in "/*"+"*/".  vms/cppcld.com,
-    vms/zip_cli.cld (SMS)
-10. Revise extended help for extended -0/-9 and -n options.
-11. Change some declarations to accommodate a type change in zlib
-    version 1.2.7.  zip.c, zip.h, zipcloak.c (SMS)
-12. Initial attempt to provide a callable-Zip interface on UNIX and VMS
-    systems.  Specifying LIBZIP at build time creates libizzip.a or
-    LIBIZZIP.OLB and LIBIZZIP.OPT, which may be linked with a
-    user-supplied program.
-13. Initial attempt to support Windows MinGW environment with UNIX
-    builders ("generic" target).  No DLL.  unix/configure, unix/Makefile,
-    win32/osdep.h (SMS)
-14. Added a type cast to avoid a compiler complaint (and possible bad
-    behavior) when left-shifting a 32-bit value instead of a 64-bit
-    value by 32.  win32/win32.c (SMS)
-15. Made the changes for Exec Shield in assembly code (3.1c03)
-    conditional on __ELF__ and __linux__, to avoid "as" errors on MinGW,
-    where COFF is used, and the new ELF-specific .section directive is
-    invalid.  crc_i386.S, match.S (SMS)
-16. Fixed assembler testing in configure script, and use of assembly
-    object files at link time.  Defining NO_ASM, NO_ASM_CRC, or NO_ASMV
-    in LOCAL_ZIP disables use of assembly code for all, CRC, or match,
-    respectively.  unix/configure, unix/Makefile (SMS)
-17. Added descriptions to special compilation options ASM_CRC and ASMV
-    in the "-v" report.  zip.c (SMS)
-18. Added a check in zipmain() for proper NULL termination of argv[].
-    zip.c (SMS)
-19. Revised VMS builders to make it easier to generate the help files
-    (only).  vms/build_zip.com, vms/descrip.mms (SMS)
-20. Added o_OPT_EQ_VALUE processing for long options.  Disambiguated
-    some ZE_MEM error messages in option processing.  fileio.c (SMS)
-21. Added o_OPT_EQ_VALUE type to "--show-options" report: "=val".  zip.c
-    (SMS)
-22. Reformed the multi-value C macro CRYPT into simpler IZ_CRYPT_ANY and
-    IZ_CRYPT_TRAD.  (Plain CRYPT_ANY would collide with a Microsoft
-    system header file.)  The actual encryption code should now use only
-    IZ_CRYPT_AES_WG and IZ_CRYPT_TRAD (plus IZ_CRYPT_ANY, derived from
-    them).  At build time, users specify more controlled options:
-    CRYPT_AES_WG, NO_CRYPT, NO_CRYPT_TRAD.  api.c, crypt.c, crypt.h,
-    ebcdic.h, globals.c, INSTALL, revision.h, ttyio.c, ttyio.h, zip.c,
-    zip.h, zipcloak.c, zipfile.c, zipup.c, amiga/filedate.c,
-    qdos/qdos.c, tandem/tanzip.c, unix/unix.c, vms/cmdline.c, vms/vms.c,
-    win32/win32.c (SMS)
-23. Changed a z/OS-specific loop test in zipup.c:iz_file_read() to avoid
-    a possible (and, apparently, actual) buffer overrun with "-a".
-    http://www.info-zip.org/phpBB3/viewtopic.php?f=6&t=399  zipup.c (SMS)
-24. Changed the behavior with "-a" on z/OS to do a binary-text test on
-    files, and then do the EBCDIC-to-ASCII conversion on text files
-    only.  Use "-aa" to bypass the binary-text test, and convert every
-    file.  Previously, a binary-text test was done when "-a" was
-    specified with "-l" or "-ll", but not when only "-a" was specified.
-    The new behavior is more consistent.
-25. Changed C macro USE_ZIP_LIB$INITIALIZE to USE_ZIP_LIB_INITIALIZE to
-    satisfy Sun C.  zip.c (SMS)
-28. Changed some assembler-related details, including the test for an
-    "_" prefix on global names.  unix/configure, unix/Makefile (SMS)
-29. On VMS, added HELP_TEXT as a builder option/target.  Specifying
-    HELP_TEXT creates the text files ZIP.HTX and ZIP_CLI.HTX, which
-    are the output from "help zip..." commands using the corresponding
-    .HLP help library source files.  vms/build_zip.com,
-    vms/descrip.mms (SMS)
-30. <Tentative change removed.  Look for IZ_CRYPT_NOEXT.  zipup.c (SMS)>
-31. Regression since Zip 3.1c caused Zip to produce an empty archive
-    when used as a filter.  Specifying arguments "- -" worked, but
-    specifying no arguments triggered the failure.  zip.c (SMS)
-32. Revised VMS DCL builder to recreate object libraries when not
-    compiling (NOCOMPILE).  vms/build_zip.com (SMS)
-33. Fixed some potential bad behavior (program aborts or loops) in
-    ZipCloak (-d) caused by (intentionally) defective/corrupt archives.
-    Reported (for corresponding code in UnZip) by OUSPG
-    ("https://www.ee.oulu.fi/research/ouspg/").  crypt.c, crypt.h
-    (Aki Helin, SMS)
-34. Optimized code in fileio.c:copy_args(). fileio.c (SMS)
-35. In Unix builders, accept user-specified CFLAGS_OPT macro to override
-    automatic compiler optimization options setting.  For debugging, for
-    example, one might specify "CFLAGS_OPT='-g -O0' LFLAGS2=-L.".  (A
-    non-null value is required for each.  "-L." should be harmless.)
-    Stopped putting redundant "-L." linker options into "flags".
-    unix/configure (SMS)
-36. Changed VMS builders to use explicit (CC) /NOLIST and (LINK) /NOMAP
-    qualifiers by default, to reduce unexpected clutter in batch mode.
-    vms/build_zip.com, vms/descrip_src.mms (SMS)
-37. On Windows, volume labels (-$, --volume-label) longer than 12
-    characters were not processed.  Now, labels up to 32 characters
-    should be accepted (and slightly more efficiently).  On Windows with
-    Unicode support, a null pointer reference could cause the program to
-    fail.  win32/win32.c, zip.c, zipup.c (SMS)
-38. Minor Windows-specific code tidying, mostly for consistency with
-    UnZip.  win32/win32zip.c (SMS)
-39. Code tidying.  Moved volume label string ("label") declarations out
-    of various system-specific files into central locations.  fileio.c,
-    globals.c, zip.h, acorn/acornzip.c, amiga/amigazip.c, atari/atari.c,
-    atheos/atheos.c, beos/beos.c, msdos/msdos.c, novell/Netware.c,
-    os2/os2.c, qdos/qfileio.c, theos/theos.c, tops20/tops20.c,
-    unix/unix.c, vms/vmszip.c, win32/win32zip.c (SMS)
+(Need to check if the executable is appropriate for the platform it is run
+on.  This check probably should be done at startup.)
+
+<Huh?  I don't see a problem.  SMS.>
+
+34. If APPLE_XATTR, include sys/xattr.h.  Handle big-endian conversion.
+    Instead of array, allocate storage for apl_dbl_hdr dynamically.
+    unix/macosx.h (SMS)
+35. Disambiguate some ZE_MEM error messages.  Change a tempname() failure code
+    from ZE_MEM to ZE_TEMP.  zip.c (SMS)
+36. Change some declarations to accommodate a type change in zlib version
+    1.2.7.  Added detection code to determine correct type based on existence
+    of Z_U4 macro in zlib code.  zip.c, zip.h, zipcloak.c (SMS)
+37. Rename "lzma" directory to "szip" (7-Zip) as this includes both LZMA
+    and PPMd code.  INSTALL, zip.c, zipup.c, unix/configure, unix/Makefile,
+    vms/build_zip.com, vms/descrip_deps.mms, vms/descrip_mkdeps.mms,
+    vms/descrip_src.mms (SMS)
+38. On Windows, volume labels (-$, --volume-label) longer than 12 characters
+    were not processed.  Now, labels up to 32 characters should be accepted
+    (and slightly more efficiently).  Update getVolumeLabel() to use "?:\\"
+    as root path and to only return vol and sizeof vol (no fnlen or flags).
+    win32/win32.c, zip.c, zipup.c (SMS)
+39. On Windows with Unicode support, a null pointer reference could cause the
+    program to fail.  Now check for z->namew being null (no wide character name
+    for this entry).  zip.c, zipup.c (SMS)
 40. Added initial support for volume labels (-$, --volume_label) on VMS.
-    vms/cmdline.c, vms/VMS_ZIP.RNH, vms/vmszip.c, vms/zip_cli.cld, 
-    vms/zip_cli.help, zip.c (SMS)
-41. Specifying "-e" after "-P password" caused Zip to forget the "-P"
+    Add get_volume_label().  Removed the conflict between /BATCH and
+    /COMMENTS=ARCHIVE.  vms/cmdline.c, vms/VMS_ZIP.RNH, vms/vmszip.c,
+    vms/zip_cli.cld, vms/zip_cli.help, zip.c (SMS)
+
+<Duplication?  See 105.  SMS.>
+
+41. Update comments.  Update extended help to note use of new optional values.
+    Revise extended help for extended -0/-9 and -n options.  Other extended
+    help updates.  Add descriptions to some items in version feature list.
+    Minor fixes to logging code.  Change tempname() error from ZE_MEM to
+    ZE_TEMP.  Updates to archive comment code.  Change code that asks for new
+    archive comment to stop adding \r\n within lines longer than MAXCOM, to
+    allocate storage in increments of MAXCOM + 3, and to truncate too long
+    comments.  Unresolved issue - should new line be added at end of message?
+    zip.c (SMS)
+42. Add comment describing UNICODE_TEST code.  Additional updates to archive
+    comment code, including setting up to allow seeing and keeping original
+    comment, but not yet implemented.  Force comment to not exceed 65513
+    characters.  zip.c (EG)
+43. Add descriptions to special compilation options ASM_CRC and ASMV in the
+    "-v" report.  zip.c (SMS)
+44. Remove pointless unsigned < 0 test (with its attendant compiler
+    complaints).  zip.c (SMS)
+(This should be checked to make sure -1 (or the unsigned equivalent) is not
+flagging an error condition.)
+45. Allow "-@@ -" as equivalent to "-@".  zip.c (SMS)
+46. Add check in zipmain() for proper NULL termination of argv[].  (Needed
+    if argv being supplied by a user via USE_ZIPMAIN.)  zip.c (SMS)
+47. Add o_OPT_EQ_VALUE type to "--show-options" report: "=val".  zip.c (SMS)
+48. Specifying "-e" after "-P password" caused Zip to forget the "-P"
     password, and query the user for a password.  Now, if "-P" is
     specified, then "-e" is redundant but harmless, and its position is
-    not significant.  https://sourceforge.net/tracker/?func=detail
-    &aid=2865769&group_id=118012&atid=679786  zip.c (SMS)
-42. Disambiguated some ZE_MEM error messages.  Changed a tempname()
-    failure code from ZE_MEM to ZE_TEMP.  zip.c (SMS)
-43. Removed redundant declarations of global variable "noisy" from some
-    OS-specific modules.  os2/os2zip.c, win32/win32.c (SMS)
-44. Changed a header file and Traditional encryption code to accommodate
-    UnZip dynamic memory developer diagnostics.  crypt.c, zip.h (SMS)
-45. New option on VMS, -vn (--vms-names, /[NO]VNAMES) allows
-    preservation of idiosyncratic VMS file names which, by default, are
-    adjusted (some in non-reversible ways) for better compatibility with
-    non-VMS systems.  For example, "a^.b." is normally archived as
-    "a.b", but with -vn it would be archived as "a.b.".  globals.c,
-    vms/cmdline.c, vms/vmszip.c, vms/zip_cli.cld, zip.c, zip.h (SMS)
-46. Replaced remaining EF_MIN and MIN macros with IZ_MIN.  unix/unix.c,
-    vms/vms.c, vms/vms_pk.c (SMS)
-47. Bad code in many places could cause Zip to mischaracterize a regular
+    not significant.  http://sourceforge.net/p/infozip/bugs/28/
+    zip.c (SMS)
+    (This is not backward compatible, as the previous approach was to let the
+    last -e or -P on the parsed command line (including in an environment
+    variable) determine the action.  So -e could be in a variable and -P used
+    to override, or -P password in a variable and -e used to override.  As
+    such, this change is not consistent with how other options are handled.
+    The user should not be specifying -e after -P unless they mean it.  That
+    said, and given the past behavior, the change was made in this beta so it
+    can be evaluated. - EG)
+
+<Considering what a bad idea it would be to put a password into an
+environment variable, I don't feel very bad about hampering such use.
+Is there any other situation where the order of two _different_ options
+matters?  Now that we have o_OPT_EQ_VALUE, one might be able to use
+"-e=password" instead of -P, and then a later -e (or, if -e were
+negatable, -e-) could override an earier one in a consistent way.
+Note that the old way confused at least one actual victim, and if there
+was an explanation in the docs, then I missed it.>
+
+49. Change the behavior with "-a" on z/OS to do a binary-text test on files,
+    and then do the EBCDIC-to-ASCII conversion on text files only.  Use "-aa"
+    to bypass the binary-text test, and convert every file.  Previously, a
+    binary-text test was done when "-a" was specified with "-l" or "-ll", but
+    not when only "-a" was specified.  The new behavior is more consistent.
+    zipup.c (SMS)
+    (The approach used was recommended by a z/OS user.  This change needs to
+    be evaluated by z/OS users to verify it meets the needs. - EG)
+50. Add note on ZOS use of text translation.  zipup.c (EG)
+51. Move VMS LIB$INITIALIZE to end of zip.c.  Changed C macro
+    USE_ZIP_LIB$INITIALIZE to USE_ZIP_LIB_INITIALIZE to satisfy Sun C.
+    zip.c (SMS)
+52. Change a header file and Traditional encryption code to accommodate
+    UnZip dynamic memory developer diagnostics.  Change free() to izc_free()
+    in shared file crypt.c to be compatible with additional memory debugging
+    added to UnZip (but not yet in Zip), with izc_free() currently resolving
+    to free() in zip.  Same with izc_malloc(), izz_reallow(), and
+    izz_md_check().  crypt.c, zip.h (SMS)
+53. Add comments regarding encryption.  Define new encryption macros based on
+    build options.  Reorder extra field definitions, move some definitions
+    to here.  Add logic for controlling use of NO_USER_PROGRESS.  Add
+    vms_status().  zip.h (SMS)
+54. Add comment on traditional zip encryption.  Add comment for zcount and
+    fcount.  Add comment to izz_ memory functions.  Add comments regarding
+    LIB and DLL creation.  zip.h (EG)
+55. Add ETWOOD (Traditional Encryption without using data descriptor) support.
+    zipcloak.c (SMS)
+
+<And, on the whole, that's clearer than saying "Encrypt Traditional
+without data descriptor", which would match the acronym/option?>
+
+56. Update comments.  zipcloak.c (EG)
+57. Remove UTF8_PATH_EF_TAG as renamed to EF_UTFPTH and made global.  Change
+    /* */ to #if #endif to comment out code.  zipfile.c (SMS)
+58. Add comment about Adler16 CRC.  Add Zip64 comments.  Fix
+    total_cd_total_entries bug that did not account for Zip64 information and
+    so gave wrong counts for Zip64 archives.  zipfile.c (EG)
+59. Add description to ASM_CRC reporting.  zipnote.c (SMS)
+60. On Mac OS X versions where extended file attributes are supported (10.4
+    and later, we believe), Zip now includes these attributes in AppleDouble
+    ("._name") archive members (unless -df is specified).  Update
+    get_apl_dbl_info().  Add make_apl_dbl_header().  unix/configure,
+    unix/macosx.h, unix/unix.c, zip.h, zipup.c (SMS)
+61. Add comment regarding use of file time as CRC for encryption.  zipup.c (EG)
+62. Reformat AES encryption comments.  zipup.c (SMS, EG)
+63. Add note regarding updating q.  zipup.c (EG)
+64. Check calculated CRC against header provided CRC for mismatch.  Use
+    macros such as NO_ENCRYPTION for conditionals instead of testing for
+    specific numbers.  zipup.c  (SMS)
+65. Add note and remove IZ_CRYPT_NOEXT macro.  zipup.c (EG)
+66. Change a z/OS-specific loop test in iz_file_read() to avoid a possible
+    (and, apparently, actual) buffer overrun with "-a".
+    http://www.info-zip.org/phpBB3/viewtopic.php?f=6&t=399
+    zipup.c (SMS)
+67. Change CRYPT_DEBUG to IZ_CRYPT_DEBUG.  Change CRYPT_TRAD to IZ_CRYPT_TRAD.
+    Change CRYPT_AES_WG to IZ_CRYPT_AES_WG.  Reform the multi-value C macro
+    CRYPT into simpler IZ_CRYPT_ANY and IZ_CRYPT_TRAD.  (Plain CRYPT_ANY would
+    collide with a Microsoft system header file.)  The actual encryption code
+    should now use only IZ_CRYPT_AES_WG and IZ_CRYPT_TRAD (plus IZ_CRYPT_ANY,
+    derived from them).  At build time, users specify more controlled options:
+    CRYPT_AES_WG, NO_CRYPT, NO_CRYPT_TRAD.  api.c, api.h, crypt.c, crypt.h,
+    ebcdic.h, globals.c, INSTALL, revision.h, ttyio.c, ttyio.h, zip.c, zip.h,
+    zipcloak.c, zipfile.c, zipup.c, amiga/filedate.c, qdos/qdos.c,
+    tandem/tanzip.c, unix/unix.c, vms/cmdline.c, vms/vms.c, win32/win32.c
+    (SMS)
+68. Code tidying.  Moved volume label string ("label") declarations out
+    of various system-specific files into central locations (globals.c).
+    fileio.c, globals.c, zip.h, acorn/acornzip.c, amiga/amigazip.c,
+    atari/atari.c, atheos/atheos.c, beos/beos.c, msdos/msdos.c,
+    novell/Netware.c, os2/os2.c, qdos/qfileio.c, theos/theos.c,
+    tops20/tops20.c, unix/unix.c, vms/vmszip.c, win32/win32zip.c (SMS)
+69. Update description of volume label.  Update pattern matching option list.
+    zip.1 (SMS)
+70. Bad code in many places could cause Zip to mischaracterize a regular
     file v. directory v. symlink v. fifo, and so on.  First observed on
     VMS with a symlink, causing a spurious error message, "zip warning:
     file and directory with the same name: fred.slnk", but many other
     problems looked possible.  The new, OS-specific code has not been
     tested everywhere.  It uses stat()-related macros like S_ISDIR, so
     if these are missing on some system type, then please report what
-    goes wrong where.  amiga/amigazip.c, aosvs/aosvs.c, atari/atari.c,
-    atheos/atheos.c, beos/beos.c, human68k/human68k.c, msdos/msdos.c,
-    novell/Netware.c, os2/os2.c, os2/os2zip.c, qdos/qdos.c,
-    tandem/tanzip.c, theos/theos.c, tops20/tops20.c, unix/unix.c,
-    vms/vmszip.c, win32/win32zip.c, zos/mvs.c (SMS)
+    goes wrong where.  acorn/acornzip.c, amiga/amigazip.c, aosvs/aosvs.c,
+    atari/atari.c, atheos/atheos.c, beos/beos.c, human68k/human68k.c,
+    msdos/msdos.c, novell/Netware.c, os2/os2.c, os2/os2zip.c, qdos/qdos.c,
+    qdos/qfileio.c, tandem/tanzip.c, theos/theos.c, tops20/tops20.c,
+    unix/unix.c, vms/osdep.h, vms/vmszip.c, win32/osdep.h,
+    win32/win32zip.c, zos/mvs.c (SMS)
+71. Change AES_WG endian-determination code not to look for <sys/isa_defs.h>
+    on __sun systems with __sparc defined, because it's missing on SunOS 4.1.4.
+    aes_wg/brg_endian.h (SMS)
+72. Add top comment.  novell/netware.c (EG)
+73. Correct typo (JM to IM) for EF block type for VMS to match actual value
+    of extra field tag 0x4d49.  proginfo/extrafld.txt (SMS)
+74. Regression since Zip 3.1c caused Zip to produce an empty archive
+    when used as a filter.  Specifying arguments "- -" worked, but
+    specifying no arguments triggered the failure.  Fixed.  zip.c (SMS)
+
+<Of course it's "Fixed."  Documented defects go elsewhere.  Could be
+rephrased as "Fixed a regression ...".  SMS.>
+
+75. Add copyright.  Change reference to UnZip to Zip.  unix/configure (EG)
+76. Split out OSDEP_OC and OSDEP_OS to OSDEP_OCU, OSDEP_OCZ, OSDEP_OSU, and
+    OSDEP_OSZ, where U is for utilities and Z is for zip.  unix/configure (SMS)
+77. Initial attempt to support Windows MinGW environment with UNIX builders
+    ("generic" target).  Add rules for nt.o, win32.o, win32i64.o, and
+    win32zip.o.  Add rules for win32_.o and win32i64_.o for utilities.  No DLL.
+    unix/configure, unix/Makefile, win32/osdep.h (SMS)
+78. Remove redundant declarations of global variable "noisy" from some
+    OS-specific modules.  os2/os2zip.c, win32/win32.c (SMS)
+79. Fix assembler testing in configure script, and use of assembly object
+    files at link time.  Defining NO_ASM, NO_ASM_CRC, or NO_ASMV in LOCAL_ZIP
+    disables use of assembly code for all, CRC, or match, respectively.  Add
+    -c option to assembler rules.  unix/configure, unix/Makefile (SMS)
+80. Bad white space in Unix builder caused problems in UID/GID size
+    determination tests with old (K&R) compilers (SunOS 4.1.4 bundled C, for
+    example).  Fixed.  unix/configure (SMS)
+
+<Of course it's "Fixed."  Documented defects go elsewhere.  Could be
+rephrased as "Fixed bad ...".  SMS.>
+
+81. In Unix builders, accept user-specified CFLAGS_OPT macro to override
+    automatic compiler optimization options setting.  For debugging, for
+    example, one might specify "CFLAGS_OPT='-g -O0' LFLAGS2=-L.".  (A
+    non-null value is required for each.  "-L." should be harmless.)
+    Stop putting redundant "-L." linker options into "flags".
+    unix/configure (SMS)
+82. Allow building of Zip object library (LIB_ZIP).  Include check for
+    localtime_r.  unix/configure, unix/Makefile (SMS)
+83. Change some assembler-related details, including the test for an "_"
+    prefix on global names.  unix/configure, unix/Makefile (SMS)
+84. Fix some potential bad behavior (program aborts or loops) in ZipCloak
+    (-d) caused by (intentionally) defective/corrupt archives.  Reported
+    (for corresponding code in UnZip) by OUSPG
+    ("https://www.ee.oulu.fi/research/ouspg/").  crypt.c, crypt.h
+    (Aki Helin, SMS)
+85. Replace remaining EF_MIN and MIN macros with IZ_MIN.  unix/unix.c,
+    vms/vms.c, vms/vms_pk.c (SMS)
+86. Update cast of charMask, making this file of the szip package unique to
+    the Info-ZIP implementation.  szip/ppmd8enc.c (SMS)
+87. Add comment that this file was modified.  szip/ppmd8enc.c  (EG)
+88. Drop unneeded files from lzma (szip) subdirectory.  lzma/alloc.c,
+    lzma/alloc.h  (SMS)
+89. Add file to szip subdirectory (for consistency with UnZip).
+    szip/ppmd8dec.c (SMS)
+90. Rename readme_lzma.txt to readme_szip.txt. (SMS)
+91. Update top comments.  Update displayed instructions.  Split out building
+    base files (new O_ZIPL) from building apps (O_ZIP).  Add O_ZIPN to build
+    library.  Add AR_ZIP as destination of callible library.  In
+    unix/configure call, drop reading CF_NOOPT for flags and add reading
+    LOCAL_ZIP for flags.  unix/Makefile (SMS)
+92. Add copyright.  Fix IZ_ZLIB reference in comment.  Add comment regarding
+    generic targets.  Add suggestion to use "generic" first if no preference.
+    Add comment to AR_ZIP rule.  unix/Makefile (EG)
+93. Add unix/Makefile2 as potential update to unix/Makefile.  Untested and
+    subject to change.  Not recommended for use.  unix/Makefile2 (SMS)
+94. Add unix/mlz.sh as a simple script to combine a set of object libraries
+    and loose object files to make a new object library.  unix/mlz.sh (SMS)
+95. Comment updates.  Add newly supported args HELP_TEXT, LIBZIP, SYMBOLS.
+    Replace NOEXE with NOLINK.  vms/build_zip.com (SMS)
+96. Modify compiler options to use new ZIPLIB and NO_ZPARCHIVE defines.
+    vms/build_zip.com, vms/descrip_src.mms (EG)
+97. New option on VMS, -vn (--vms-names, /[NO]VNAMES) allows preservation of
+    idiosyncratic VMS file names which, by default, are adjusted (some in
+    non-reversible ways) for better compatibility with non-VMS systems.  For
+    example, "a^.b." is normally archived as "a.b", but with -vn it would be
+    archived as "a.b.".  globals.c, vms/cmdline.c, vms/vmszip.c,
+    vms/zip_cli.cld, zip.c, zip.h (SMS)
+98. Add "prsrv_vms" to flag the preserving of idiosyncratic VMS file names.
+    globals.c, zip.h (SMS)
+
+97 and 98 are two items instead of one, why?
+
+99. Add API_ definitions, including for AES_WG.  Add ZIP_ object definitions,
+    including for AES_WG.  vms/descrip_deps.mms (SMS)
+
+These files should be removed if not needed (EG).
+descrip_deps.mms_3, descrip_deps.mms_4, descrip_deps.mms_old (SMS)
+
+<descrip_deps.mms files are generated, and generating a new file could
+destroy an old file, so I routinely copy old ones for comparison
+purposes.  Delete them.  SMS.>
+
+100.Added NO_SIGNED_CHAR to C macros defined for PPMd compression code.
+    vms/descrip_src.mms (SMS)
+101.Update VMS install procedures and notes.  Added description of a
+    symlink problem on VMS V8.3[-1H1] Alpha and IA64.  Update -V and -VV
+    descriptions.  Update details of GNV exit status values.
+    vms/install_vms.txt, vms/notes.txt (SMS)
+102.Added USE_ZIPMAIN to the list of conditions where <unixlib.h> is
+    required.  vms/osdep.h (SMS)
+  (This probably needs to be changed to ZIPLIB. - EG)
+
+<Done.  See below.>
+
+103.On VMS, explicitly set naml$v_search_symlink when following symlinks
+    ("-y-", /[NO]SYMLINK).  Update vms_rewind() to clear context status.
+    vms/vms_pk.c (SMS)
+104.Add back zip_cli.rnh.  vms/zip_cli.rnh (SMS)
+
+<Huh?  SMS.  Note that ".rnh" must be ".RNH" to satisfy RUNOFF.>
+
+105.Change the VMS CLI /BATCH=file option to use the new "-@@ file" UNIX
+    option, instead of handling input redirection in VMS-specific code.  A
+    side benefit is that /BATCH=file no longer uses stdin, so it no longer
+    conflicts with /COMMENTS (which uses stdin).  vms/cmdline.c,
+    vms/zip_cli.help.  (SMS)
+106.Remove useless VMS CLI /VERBOSE=DEBUG ("-vvv") option.  vms/cmdline.c,
+    vms/zip_cli.cld, vms/zip_cli.help.  (SMS)
+107.Change VMS-specific /VERBOSE=MORE ("-vv") diagnostic messages to use
+    the usual message stream (mesg) instead of stderr, to avoid having normal
+    messages overwrite diagnostic messages due to carriage control
+    differences.  Reformat the "vms_fopen(): stat()" message to avoid
+    over-long lines.  vms/vms.c (SMS)
+108.Change VMS-specific CLD processing DCL script to create only Stream_LF
+    files, to resolve a messy file-attribute problem with DEC C V4.0-000
+    when CC /PREPROCESS_ONLY hit an error.  A date comment in the CLD source
+    caused an error with CC /PREPROCESS_ONLY with that old compiler, so the
+    CLD "!" comment is now wrapped in "/*"+"*/".  vms/cppcld.com,
+    vms/zip_cli.cld (SMS)
+109.Revise VMS builders to make it easier to generate the help files (only).
+    vms/build_zip.com, vms/descrip.mms (SMS)
+110.On VMS, add HELP_TEXT as a builder option/target.  Specifying HELP_TEXT
+    creates the text files ZIP.HTX and ZIP_CLI.HTX, which are the output
+    from "help zip..." commands using the corresponding .HLP help library
+    source files.  vms/build_zip.com, vms/descrip.mms (SMS)
+111.Revise VMS DCL builder to recreate object libraries when not compiling
+    (NOCOMPILE).  vms/build_zip.com (SMS)
+112.Change VMS builders to use explicit (CC) /NOLIST and (LINK) /NOMAP
+    qualifiers by default, to reduce unexpected clutter in batch mode.
+    vms/build_zip.com, vms/descrip_src.mms (SMS)
+113.Change VMS exit status code to SS$_NORMAL for success instead of a
+    facility-specific code (%x17A38001).  This agrees with most VMS
+    utilities, and with Zip versions before 3.0.  Define C macro OK_USE_FAC
+    to use the facility code in all cases.  Add vms_status().  Update
+    prototype for vms_exit().  Make decc_init() not static.  Remove numerous
+    pragma statements for decc_init().  vms/vms.c (SMS)
+114.Rearrange and update directory scanning in procname_win32w().
+    win32/win32zip.c (SMS)
+115.Add a type cast (__int64) to avoid a compiler complaint (and possible
+    bad behavior) when left-shifting a 32-bit value instead of a 64-bit
+    value by 32.  win32/win32.c (SMS)
+116.Minor Windows-specific code tidying, mostly for consistency with UnZip.
+    win32/win32zip.c (SMS)
+117.Experimental new builders for Microsoft Visual Studio (Visual C++) 2010.
+    Optional feature selection for each program (Project) is done entirely
+    using "Configuration Properties > C/C++ > Preprocessor > Preprocessor
+    Definitions".  Some popular options are supplied disabled by a "x_"
+    prefix.  Edit out the "x_" to enable the feature.  Use of assembly
+    code is still controlled by choice of Configuration ("Debug" v.
+    "Debug_ASM", "Release" v. "Release_ASM").  The "zip" project is used
+    whether or not bzip2 compression support is desired.  There is now no
+    separate "zipbz2" project for Zip with bzip2 support.  The "zip" project
+    has been marked as dependent on the "libbz2" project.  If a bzip2 source
+    kit has not been added to the "bzip2/" subdirectory, then the "libbz2"
+    project build will fail, but the "zip" project build should still
+    succeed, so long as the C macro BZIP2_SUPPORT is not defined.
+    zbz2err.c, win32/vc10/zip.sln, win32/vc10/zip/zip.vcxproj,
+    win32/vc10/zip/zip.vcxproj.filters, win32/vc10/zip/zipcloak.vcxproj,
+    win32/vc10/zip/zipcloak.vcxproj.filters, win32/vc10/zip/zipnote.vcxproj,
+    win32/vc10/zip/zipnote.vcxproj.filters, wrap/aescrypt.c, wrap/aeskey.c,
+    wrap/aestab.c, wrap/fileenc.c, wrap/hmac.c, wrap/LzFind.c, wrap/LzmaDec.c,
+    wrap/lzmaenc.c, wrap/Ppmd8.c, wrap/Ppmd8Dec.c, wrap/ppmd8enc.c,
+    wrap/prng.c, wrap/pwd2key.c, wrap/sha1.c (SMS)
+
+ZipSplit needs to be added to the VC10 projects. - EG
+
+<Does it work at all?  SMS.>
+
+118.Add dependent bzip2 project to Win32.  win32/vc10/libbz2/libbz2.vcxproj,
+    win32/vc10/libbz2/libbz2.vcxproj.filters (SMS)
+119.Add new VC8 projects.  Rename old projects to vc8_old.  win32/vc8/zip.sln,
+    win32/vc8/zip.vcproj, win32/vc8/vcxproj, win32/vc8/zip.vcxproj.filters,
+    win32/vc8/zip.vcxproj.user, win32/vc8/zipbz2.vcproj,
+    win32/vc8/zipbz2.vcxproj, win32/vc8/zipbz2.vcxproj.filters,
+    win32/vc8/zipbz2.vcxproj.user, win32/vc8/zipcloak.vcproj,
+    win32/vc8/zipcloak.vcxproj, win32/vc8/zipcloak.vcxproj.filters,
+    win32/vc8/zipcloak.vcxproj.user, win32/vc8/zipnote.vcproj,
+    win32/vc8/zipnote.vcxproj, win32/vc8/zipnote.vcxproj.filters,
+    win32/vc8/zipnote.vcxproj.user, win32/vc8/zipsplit.vcproj,
+    win32/vc8/zipsplit.vcxproj, win32/vc8/zipsplit.vcxproj.filters,
+    win32/vc8/zipsplit.vcxproj.user, win32/vc8_old/readmevc.txt,
+    win32/vc8_old/zip.sln, win32/vc8_old/zip.vcproj,
+    win32/vc8_old/zipbz2.vcproj, win32/vc8_old/zipcloak.vcproj,
+    win32/vc8_old/zipnote.vcproj, win32/vc8_old/zipsplit.vcproj (SMS)
+120.Add Win32 DLL project for VC10.  windll/vc10/zip32_dll.sln,
+    windll/vc10/zip32_dll/zip32_dll.vcxproj,
+    windll/vc10/zipzip32_dll/zip32_dll.vcxproj.filters (SMS)
+121.Check return from GetFileAttrributes() against INVALID_FILE_ATTRIBUTES
+    instead of 0xFFFFFFFF (-1).  win32/win32zip.c (SMS)
+122.Initial partial changes to support long paths z (long directory names
+    and long file names) in Win32.  Not working yet.  win32/win32zip.c (EG)
+123.Remove files from szip/orig.  szip/orig/7zfile.c, szip/orig/7zfile.h,
+    szip/orig/lzmaenc.c, szip/orig/lzmaenc.h (SMS)
+124.Add files to szip.  szip/ppmd.h, szip/ppmd8.c, szip/ppmd8.h,
+    szip/ppmd8dec.c, szip/ppmd8enc.c.  (SMS)
+125.Add note to readme_szip.  szip/readme_szip (EG)
+126.Add quote_quotes(), but not used currently.  zip.c (EG)
+("long enough to handle a large number" seems like daring someone to
+cause an overflow.  SMS.)
+
+2013-12-30 SMS.
+
+xx. Added a type cast to clear a compiler (Microsoft VS 2010) complaint.
+    zipup.c (SMS)
+xx. On Mac OS X, added "apple_xattr" to the API feature list, and
+    APPLE_XATTR to the "-v" report, to show support for extended
+    attributes.  api.c, zip.c (SMS)
+xx. Added "dashv" target to the Unix builders, and "DASHV" and "SLASHV"
+    targets/options to the VMS builders.  These generate a "zip -v" (or
+    "ZIP /VERBOSE") report using an already built program.
+    unix/Makefile, vms/build_zip.com, vms/descrip.mms (SMS)
+xx. In Unix- and VMS-specific header files, added directives to define C
+    macros NO_ZPARCHIVE and USE_ZIPMAIN when the new ZIPLIB macro is
+    defined.  On VMS, one existing use of USE_ZIPMAIN was converted to
+    ZIPLIB.  unix/osdep.h, vms/osdep.h (SMS)
+xx. Corrected comments describing API functions.  api.c (SMS)
+xx. Converted offensive "//" comment delimiters to more portable code.
+    api.h (SMS)
+xx. Changed comments in the object library example main program to show
+    definition of the new C macro, ZIPLIB (instead of old USE_ZIPMAIN).
+    iz_lib/izzip_example.c (SMS)
+xx. Rearranged some code to clear some "unreferenced local variable"
+    compiler complaints when building the Windows DLL.  zip.c (SMS)
+xx. Windows DLL builders for MS VS 2010 (and up) did not support bzip2
+    compression.  windll/vc10/zip32_dll.sln, windll/vc10/libbz2/ (new),
+    windll/vc10/libbz2/libbz2.vcxproj (new),
+    windll/vc10/libbz2/libbz2.vcxproj.filters (new),
+    windll/vc10/zip32_dll/zip32_dll.vcxproj,
+    windll/vc10/zip32_dll/zip32_dll.vcxproj.filters (SMS)
+xx. Changed the Unix "configure" script not to set CC=clang internally
+    when Clang is detected as the compiler.  Removed/adjusted some white
+    space.  unix/configure (SMS)
+xx. Changed Zip to show non-null option environment variables after a
+    command-line syntax error message.  This may help to reduce user
+    confusion when an otherwise invisible option (which is invalid or
+    conflicting) causes a command-line parsing error.  zip.c (SMS)
+xx. ZipZplit could fail with a spurious error: "zipsplit error:
+    Interrupted (aborting)".  Faulty linked list construction, null
+    pointer dereference.  zipsplit.c (SMS)
+xx. Some utility programs ignored the C macro NO_EXCEPT_SIGNALS, which
+    should disable the default signal handler (for debugging).
+    zipnote.c, zipsplit.c (SMS)
+xx, Windows builders were not building ZipSplit.  win32/vc10/zip.sln,
+    win32/vc10/zipsplit/ (new), win32/vc10/zipsplit/zipsplit.vcxproj
+    (new), win32/vc10/zipsplit/zipsplit.vcxproj.filters (new) (SMS)
+xx. Reconciled TPU macros in VMS help source and processor with
+    corresponding UnZip files.  vms/cvthelp.tpu, vms/zip_cli.help (SMS)
+xx. Added or updated copyright and license information in various files.
+    macos/source/extrafld.c, macos/source/macos.c, unix/mlz.sh,
+    vms/build_zip.com, vms/collect_deps.com, vms/cppcld.com,
+    vms/cvthelp.tpu, vms/descrip.mms, vms/descrip_mkdeps.mms,
+    vms/descrip_src.mms, vms/find_bzip2_lib.com, vms/hlp_lib_next.com,
+    vms/mod_dep.com, vms/optgen.com, vms/vms_msg_gen.c, vms/VMS_ZIP.RNH,
+    vms/zip_cli.cld, vms/zip_cli.help, vms/zip_msg.msg (SMS)
+xx. Fixed various problems (bad syntax, buffer overflow, memory leak,
+    plain bad code, ...) found by static code analysis (cppcheck)
+    contributed by Rickard S.
+    globals.c, zip.c, zip.h, zipup.c, amiga/amigazip.c, atheos/atheos.c,
+    qdos/qdos.c, tandem/tandem.c, theos/theos.c, unix/unix.c,
+    vms/vmszip.c, vms/vms_im.c, vms/vms_pk.c, win32/win32zip.c (SMS)
+xx. Many global variables (mostly recently added) were not being
+    re-initialized, which could cause unexpected behavior in DLL or
+    other object library usage.  globals.c, zip.c, zip.h (SMS)
+xx. Removed --show-parsed-command option.  Use two -sc/--show-command,
+    instead.  Simplified code for showing parsed command-line arguments,
+    and fixed some memory allocation problems in it.  zip.c, zip.h (SMS)
+xx. Extended -t and -tt option values to include an optional (24-hour,
+    local) time as well as a date.  New date-time format:
+    yyyy-mm-dd[:HH:MM[:SS]].  A time may be specified without a date
+    (HH:MM[:SS]), and today's date will be used.  The old, date-only
+    mmddyyyy format is still accepted if only a date is desired.  Time
+    values are converted internally to DOS times, which have only
+    two-second resolution (even seconds values only).  The new code may
+    catch more invalid time values than before.  The VMS CLI code now
+    translates to the new date-time format, instead of the old,
+    date-only format.  zip.c, vms/cmdline.c (SMS)
+xx. Misplaced declaration in ETWODD-related zipup.c:zread_file() caused
+    build failure if NO_SYMLINKS was defined.  zipup.c (SMS)
+xx. Files archived with no compression (-0/--store, /LEVEL=0) were
+    always marked as binary.  Now, the binary-text attribute of an
+    archive member should not depend on the compression method used.
+    zipup.c (SMS).
+xx. ZipSplit size options (-n, -r) now accept K, M, and G multiplier
+    suffixes on values.  (K: 2^10 = 1024, M: 2^20 = 1048576, G: 2^30 =
+    1073741824).  The default split size (-n) has been changed from
+    36000 (why?) to 1440K (the size of an HD diskette -- What could be
+    more modern?).  zipsplit.c (SMS)
+xx. ZipCloak now allows the same options related to an encryption
+    password as Zip does: -P/--password (still not secure) and
+    -pn/--non-ansi-password.  zipcloak.c (SMS)
+xx. VMS LIB$INITIALIZE set-up had been moved out of VMS-specific
+    vms/vms.c, and into zip.c, but not into the utility programs
+    (ZipCloak, ZipNote, ZipSplit), which could cause problems with them
+    (command-line case not preserved, mishandled ODS5 extended file
+    names, and so on).  zip.h, zipcloak.c, zipnote.c, zipsplit.c,
+    vms/decc_init.c (new) (SMS)
+xx. Added some parentheses to calm a fussy compiler.  zip.c (SMS)
+
+2014-04-18 SMS.
+
+xx. On VMS, specifying -V (/VMS) with LZMA compression could produce a
+    corrupt archive with no indication of an error.  The VMS-specific
+    file-read function, vms_read(), used with -V (/VMS), expected
+    requests to be a multiple of the disk-block size (512), but did not
+    enforce this restriction.  The LZMA compression code violated this
+    expectation (unlike the code for the Bzip2, Deflate, or PPMd
+    methods).  vms_read() should now work correctly with requests of any
+    size.  No corresponding changes have been made in the old (obsolete)
+    IM I/O code (vms/vms_im.c), but the build should now fail if
+    VMS_IM_EXTRA is defined with LZMA_SUPPORT.  vms/osdep.h,
+    vms/vms_pk.c, vms/zipup.h (SMS)

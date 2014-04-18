@@ -776,7 +776,20 @@ local int wild_recursew(whole, wildtail)
     extent newlen;
     int amatch = 0, e = ZE_MISS;
 
+#if 0
+    /* Enable longer file paths (from MAX_PATH to 32,767).  Requires paths
+       using this path to be increased accordingly, so not yet enabled.  Also
+       need to update the file open call. - EG */
+    wchar_t *longpath;
+
+    longpath = malloc(32800);
+    strcpyw(longpath,  L"\\\\?\\");
+    strcatw(longpath, whole);
+#endif
+
     if (!isshexpw(wildtail)) {
+        /* check if file exists */
+        /* use longpath here if above code enabled */
         if (GetFileAttributesW(whole) != INVALID_FILE_ATTRIBUTES) {
 #if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
             CharToOemW(whole, whole);
@@ -1167,7 +1180,7 @@ local int procname_win32(n, caseflag, attribs)
     return m ? ZE_MISS : ZE_OK;
   }
 
-  /* Live name.  Recurse if directory.  Use if file. */
+  /* Live name--recurse if directory, use if file */
   for (p = n; *p; INCSTR(p))    /* use / consistently */
     if (*p == '\\')
       *p = '/';
@@ -1312,11 +1325,10 @@ local int procname_win32w(nw, caseflag, attribs)
     return m ? ZE_MISS : ZE_OK;
   }
 
-  /* Live name.  Recurse if directory.  Use if file. */
+  /* Live name--recurse if directory, use if file */
   for (pw = nw; *pw; pw++)    /* use / consistently */
     if (*pw == (wchar_t)'\\')
       *pw = (wchar_t)'/';
-
   if (S_ISDIR( s.st_mode))
   {
     /* Directory.  Add trailing / to the directory name. */
@@ -1922,7 +1934,10 @@ local int GetExtraTime(struct zlist far *z, iztimes *z_utim)
     eb_c_ptr = malloc(EB_C_UT_SIZE);
 
   if (eb_c_ptr == NULL)
+  {
+    free( eb_l_ptr);
     return ZE_MEM;
+  }
 
   z->extra = eb_l_ptr;
   eb_l_ptr += z->ext;

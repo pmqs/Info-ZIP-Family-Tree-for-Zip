@@ -689,7 +689,7 @@ char *getVolumeLabel(drive, vtime, vmode, vutim)
  * Why request "fnlen" or "flags"?
  * Why a 14-character buffer for the volume name?
  * Changed to pass the actual buffer size ("sizeof vol", now 33) instead
- * of a hard-coded one-less-than the actual buffer size ("13"). 
+ * of a hard-coded one-less-than the actual buffer size ("13").
  * Microsoft says that the maximum label length is 32 characters (11 for
  * FAT).
  */

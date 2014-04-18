@@ -1844,7 +1844,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
                  * "-n" option, then put out "-Zmthd".
                  * Note that there's currently nothing here to avoid
                  * putting out multiple "-Zmthd" options, if the victim
-                 * specifies "/COMPRESSION = (mthd1, mthd2, ...)". 
+                 * specifies "/COMPRESSION = (mthd1, mthd2, ...)".
                  * We'll put them out alphabetically, and Zip will use
                  * the last one it sees.
                  */
@@ -1862,49 +1862,49 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
-    **  Handle "-t mmddyyyy".
+    **  Handle "-t yyyy-mm-dd:HH:MM:SS".
     */
 #define OPT_T   "-t"
 #define OPT_TT  "-tt"
 
-    status = cli$present(&cli_since);
+    status = cli$present( &cli_since);
     if (status & 1) {
         /* /SINCE = value */
-        char since_time[9];
+        char since_time[ 20];
 
-        status = get_time(&cli_since, &since_time[0]);
+        status = get_time( &cli_since, since_time);
         if (!(status & 1)) return (status);
 
         /*
-        **  Now let's add the option "-t mmddyyyy" to the new command line.
+        **  Add the option "-t yyyy-mm=dd:HH:MM:SS" to the new command line.
         */
         x = cmdl_len;
-        cmdl_len += (3 + 9);
+        cmdl_len += (sizeof( OPT_T)+ strlen( since_time));
         CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
-        strcpy(&the_cmd_line[x], OPT_T);
-        strcpy(&the_cmd_line[x+3], since_time);
+        strcpy( &the_cmd_line[ x], OPT_T);
+        strcpy( &the_cmd_line[ x+ sizeof( OPT_T)- 1], since_time);
     }
 
     /*
-    **  Handle "-tt mmddyyyy".
+    **  Handle "-tt yyyy-mm-dd:HH:MM:SS".
     */
 
-    status = cli$present(&cli_before);
+    status = cli$present( &cli_before);
     if (status & 1) {
         /* /BEFORE = value */
-        char before_time[9];
+        char before_time[ 20];
 
-        status = get_time(&cli_before, &before_time[0]);
+        status = get_time( &cli_before, before_time);
         if (!(status & 1)) return (status);
 
         /*
-        **  Now let's add the option "-tt mmddyyyy" to the new command line.
+        **  Add the option "-tt yyyy-mm=dd:HH:MM:SS" to the new command line.
         */
         x = cmdl_len;
-        cmdl_len += (4 + 9);
+        cmdl_len += (sizeof( OPT_TT)+ strlen( before_time));
         CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
-        strcpy(&the_cmd_line[x], OPT_TT);
-        strcpy(&the_cmd_line[x+4], before_time);
+        strcpy( &the_cmd_line[ x], OPT_TT);
+        strcpy( &the_cmd_line[ x+ sizeof( OPT_TT)- 1], before_time);
     }
 
     /*
@@ -2217,10 +2217,12 @@ get_time (struct dsc$descriptor_s *qual, char *timearg)
 **  Routine:    get_time
 **
 **  Function:   This routine reads the argument string of the qualifier
-**              "qual" that should be a VMS syntax date-time string.  The
-**              date-time string is converted into the standard format
-**              "mmddyyyy", specifying an absolute date.  The converted
-**              string is written into the 9 bytes wide buffer "timearg".
+**              "qual" that should be a VMS syntax date-time string. 
+**              The date-time string is converted into the standard
+**              format "yyyy-mm-dd:HH:MM:SS" (formerly "mmddyyyy"),
+**              specifying an absolute date-time.  The converted string
+**              is written into the 20- (formerly 9-) byte-wide buffer,
+**              "timearg".
 **
 **  Formal parameters:
 **
@@ -2240,41 +2242,43 @@ get_time (struct dsc$descriptor_s *qual, char *timearg)
 #pragma nomember_alignment
 #endif  /* __DECC */
     struct tim {
-        short year;
-        short month;
-        short day;
-        short hour;
-        short minute;
-        short second;
-        short hundred;
+        unsigned short year;
+        unsigned short month;
+        unsigned short day;
+        unsigned short hour;
+        unsigned short minute;
+        unsigned short second;
+        unsigned short hundred;
     } numtimbuf;
 #ifdef __DECC
 #pragma member_alignment restore
 #endif
 
-    status = cli$get_value(qual, &time_str);
+    status = cli$get_value( qual, &time_str);
     /*
     **  If a date is given, convert it to 64-bit binary.
     */
     if (time_str.dsc$w_length) {
-        status = sys$bintim(&time_str, &bintimbuf);
+        status = sys$bintim( &time_str, &bintimbuf);
         if (!(status & 1)) return (status);
-        str$free1_dx(&time_str);
+        str$free1_dx( &time_str);
     }
     /*
     **  Now call $NUMTIM to get the month, day, and year.
     */
-    status = sys$numtim(&numtimbuf, (bintimbuf.low ? &bintimbuf : NULL));
+    status = sys$numtim( &numtimbuf, (bintimbuf.low ? &bintimbuf : NULL));
     /*
-    **  Write the "mmddyyyy" string to the return buffer.
+    **  Write the "yyyy-mm-dd:HH:MM:SS" string to the return buffer.
+    **  (With a little care, we could trim insignificant parts.)
     */
     if (!(status & 1)) {
         *timearg = '\0';
     } else {
-        sprintf(timearg, "%02d%02d%04d", numtimbuf.month,
-                numtimbuf.day, numtimbuf.year);
+        sprintf( timearg, "%04u-%02u-%02u:%02u:%02u:%02u",
+         numtimbuf.year, numtimbuf.month, numtimbuf.day,
+         numtimbuf.hour, numtimbuf.minute, numtimbuf.second);
     }
-    return (status);
+    return status;
 }
 
 

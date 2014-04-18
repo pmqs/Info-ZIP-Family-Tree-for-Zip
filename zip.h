@@ -80,7 +80,8 @@ freely, subject to the above disclaimer and the following restrictions:
 
 #define ZIP   /* for crypt.c:  include zip password functions, not unzip */
 
-/* General-purpose MIN macro. */
+/* General-purpose MAX and MIN macros. */
+#  define IZ_MAX( a, b) (((a) > (b)) ? (a) : (b))
 #  define IZ_MIN( a, b) (((a) < (b)) ? (a) : (b))
 
 /* Types centralized here for easy modification */
@@ -109,16 +110,18 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
  * By default, in normal Zip, enable Traditional, disable AES_WG.
  * NO_CRYPT disables all.
  * NO_CRYPT_TRAD disables Traditional.
- * CRYPT_AES_WG enables AES_WG in normal UnZip.
+ * CRYPT_AES_WG enables AES_WG.
+ *
+ * CRYPT_AES_WG_NEW enables AES_WG encryption using newer code,
+ *   but is not completed.  Don't enable.
  */
-
 # ifdef NO_CRYPT
    /* Disable all encryption. */
 #  undef IZ_CRYPT_AES_WG
 #  undef IZ_CRYPT_AES_WG_NEW
 #  undef IZ_CRYPT_TRAD
 # else /* def NO_CRYPT */
-   /* Enable some kind of encryption. */
+   /* Allow encryption to be enabled. */
 #  ifdef NO_CRYPT_TRAD
     /* Disable Traditional encryption. */
 #   undef IZ_CRYPT_TRAD
@@ -369,10 +372,12 @@ extern uch lower[256];
 extern ZCONST uch ascii[256];   /* EBCDIC <--> ASCII translation tables */
 extern ZCONST uch ebcdic[256];
 #endif /* EBCDIC */
+
 #if (!defined(USE_ZLIB) || defined(USE_OWN_CRCTAB))
   extern ZCONST ulg near *crc_32_tab;
 #else
-  /* 2012-05-31 SMS.  See note in zip.c. */
+  /* 2012-05-31 SMS.  Z_U4 is defined in ZLIB and used here to choose the
+     right data type based on ZLIB version.  See note in zip.c. */
 # ifdef Z_U4
   extern ZCONST z_crc_t Far *crc_32_tab;
 # else /* def Z_U4 */
@@ -423,9 +428,25 @@ extern int scanimage;           /* Scan through image files */
 # define LAST_KNOWN_COMPMETHOD  PPMD
 #endif
 
+/* STORE method file name suffixes. */
+#ifndef RISCOS
+# ifndef QDOS
+#  ifndef TANDEM
+#   define MTHD_SUFX_0 ".Z:.zip:.zoo:.arc:.lzh:.arj"    /* Normal. */
+#  else /* ndef TANDEM */
+#   define MTHD_SUFX_0 " Z: zip: zoo: arc: lzh: arj";   /* Tandem. */
+#  endif /* ndef TANDEM [else] */
+# else /* ndef QDOS */
+#  define MTHD_SUFX_0 "_Z:_zip:_zoo:_arc:_lzh:_arj";    /* QDOS. */
+# endif /* ndef QDOS [else] */
+#else /* ndef RISCOS */
+# define MTHD_SUFX_0 "DDC:D96:68E";                     /* RISCOS. */
+#endif /* ndef RISCOS [else] */
+
 #define AESENCRED 99            /* AES (WG) encrypted */
 
 extern int method;              /* Restriction on compression method */
+
 extern ulg skip_this_disk;
 extern int des_good;            /* Good data descriptor found */
 extern ulg des_crc;             /* Data descriptor CRC */
@@ -439,6 +460,21 @@ extern int adjust;              /* Adjust the unzipsfx'd zip file */
 extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
 extern int level;               /* Compression level, global (-0, ..., -9) */
 extern int levell;              /* Compression level, adjusted by mthd, sufx. */
+
+/* Normally Traditional Zip encryption processes the entry in one pass,
+   resulting in the CRC.  However at this point the entry is encrypted, so
+   the CRC is stored in the following data descriptor.  ETWODD avoids
+   this by first calculating the CRC using a first pass, updating the CRC field,
+   then encrypting the file on a second pass.  Doing two passes takes longer,
+   but the ETWODD entries are more compatible with some utilities.  (Other
+   utilities can read the one pass entries with no problem.  Test any other
+   utilities you will be using with Traditional encryption before relying
+   on it.)
+
+   Given the weakness of Traditional encryption, and the more standard
+   structure of AES WG encrypted entries, it is suggested that Traditional
+   encryption just not be used for any sensitive information, which avoids
+   the issue. */
 #if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
 extern int etwodd;              /* Encrypt Trad without data descriptor. */
 #endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
@@ -461,6 +497,7 @@ extern mthd_lvl_t mthd_lvl[];   /* Compr. method, level, file name suffixes. */
    extern int vms_native;       /* Store in VMS format */
    extern int vms_case_2;       /* ODS2 file name case in VMS. -1: down. */
    extern int vms_case_5;       /* ODS5 file name case in VMS. +1: preserve. */
+   extern char **argv_cli;      /* New argv[] storage to free, if non-NULL. */
 #endif /* VMS */
 #if defined(OS2) || defined(WIN32)
    extern int use_longname_ea;   /* use the .LONGNAME EA as the file's name */
@@ -734,6 +771,7 @@ extern uzoff_t tempzn;          /* Count of bytes written to output zip file */
    This is an internal limitation built into Zip's action handling:
    Zip keeps "{z|f}count * struct {z|f}list" arrays in (flat) memory,
    for sorting, file matching, and building the central-dir structures.
+   Typically size_t is a long, allowing up to about 2^31 entries.
  */
 
 extern struct zlist far *zfiles;/* Pointer to list of files in zip file */
@@ -800,11 +838,15 @@ extern int show_what_doing;     /* Diagnostic message flag. */
 #  define free(x) { int *v;Free(x); v=x;*v=0xdeadbeef;x=(void *)0xdeadbeef; }
 #endif
 
+/* The MEMDIAG functions are currently not defined in Zip.  izz are
+   Info-ZIP Zip definitions and izc are Info-ZIP Common definitions
+   (common to Zip and UnZip). The below are mainly for compatibility
+   with modules common to both Zip and UnZip, such as encryption. */
 #ifdef MEMDIAG
-void izz_free( void *ptr);
-void *izz_malloc( size_t siz);
-void *izz_realloc( void *ptr, size_t siz);
-void izz_md_check( void);
+  void izz_free( void *ptr);
+  void *izz_malloc( size_t siz);
+  void *izz_realloc( void *ptr, size_t siz);
+  void izz_md_check( void);
 #else /* def MEMDIAG */
 # define izz_free free
 # define izz_malloc malloc
@@ -974,18 +1016,19 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
    void stamp OF((char *, ulg));
 
    ulg filetime OF((char *, ulg *, zoff_t *, iztimes *));
+
    /* Windows Unicode */
 # ifdef UNICODE_SUPPORT
 # ifdef WIN32
    ulg filetimew OF((wchar_t *, ulg *, zoff_t *, iztimes *));
    char *get_win32_utf8path OF((char *));
    wchar_t *local_to_wchar_string OF ((char *));
-# endif
-# endif
+# endif /* def WIN32 */
+# endif /* def UNICODE_SUPPORT */
 
-#ifdef VMS
-   void decc_init( void);
-#endif /* def VMS */
+# if defined( UNIX) && defined( __APPLE__)
+   int make_apl_dbl_header( char *name, int *hdr_size);
+# endif /* defined( UNIX) && defined( __APPLE__) */
 
 # if !(defined(VMS) && defined(VMS_PK_EXTRA))
    int set_extra_field OF((struct zlist far *, iztimes *));
@@ -1079,22 +1122,29 @@ void     bi_init      OF((char *, unsigned int, int));
     VMS-only functions:
   ---------------------------------------------------------------------------*/
 #ifdef VMS
-   int    vms_stat        OF((char *, stat_t *));              /* vms.c */
-   int    vms_status      OF((int));                           /* vms.c */
-   void   vms_exit        OF((int));                           /* vms.c */
-#ifndef UTIL
-#ifdef VMSCLI
-   unsigned int vms_zip_cmdline OF((int *, char ***));          /* cmdline.c */
-   void   VMSCLI_help     OF((void));                           /* cmdline.c */
-#endif /* VMSCLI */
-#endif /* !UTIL */
+  int    vms_stat        OF((char *, stat_t *));                /* vms.c */
+  int    vms_status      OF((int));                             /* vms.c */
+  void   vms_exit        OF((int));                             /* vms.c */
+# ifdef __DECC
+#  ifdef __CRTL_VER
+#   if !defined( __VAX) && (__CRTL_VER >= 70301000)             /* vms.c */
+  void decc_init( void);
+#   endif /* !defined( __VAX) && (__CRTL_VER >= 70301000) */
+#  endif /* def __CRTL_VER */
+# endif /* def __DECC */
+# ifndef UTIL
+#  ifdef VMSCLI
+  unsigned int vms_zip_cmdline OF((int *, char ***));           /* cmdline.c */
+  void   VMSCLI_help     OF((void));                            /* cmdline.c */
+#  endif /* VMSCLI */
+# endif /* !UTIL */
 #endif /* VMS */
 
-/*
+#if 0
 #ifdef ZIP64_SUPPORT
    update_local_Zip64_extra_field OF((struct zlist far *, FILE *));
 #endif
-*/
+#endif /* 0 */
 
 /*---------------------------------------------------------------------------
     WIN32-only functions:
@@ -1107,12 +1157,61 @@ void     bi_init      OF((char *, unsigned int, int));
 # endif
 #endif /* WIN32 */
 
-#if (defined(WINDLL) || defined(DLL_ZIPAPI))
+
+/* ============================================================================ */
+
+/* DLL, LIB, and ZIPMAIN
+
+   The following macros determine how this interface is compiled:
+     WINDLL               - Compile for WIN32 DLL, mainly for MS Visual Studio
+                            WINDLL implies WIN32 and ZIPDLL
+                            Set by the build environment
+     WIN32                - Running on WIN32
+                            The compiler usually sets this
+     ZIPDLL               - Compile the Zip DLL (WINDLL implies this)
+                            Set by the build environment
+     WIN32 && ZIPDLL      - A DLL for WIN32 (except MSVS - use WINDLL instead)
+                             - this is used for creating DLLs for other ports
+                            (such as OS2), but only the MSVS version is currently
+                            supported
+     USE_ZIPMAIN          - Use zipmain() instead of main() - for DLL and LIB, but
+                             could also be used to compile the source into another
+                             application directly
+                            Usually set by ZIPDLL or ZIPLIB, but can be set in the
+                             build environment in unique situations
+     ZIPLIB               - Compile as static library (LIB)
+                            For MSVS, WINDLL and ZIPLIB are both defined to create
+                             the LIB
+     ZIP_DLL_LIB          - Automatically set when ZIPDLL or ZIPLIB is defined and
+                             is used to include the API interface code
+     NO_ZPARCHIVE         - Set if not using ZpArchive - used with ZIPLIB (DLL has
+                             to call an established entry point)
+
+   DLL_ZIPAPI is deprecated.  USE_ZIPMAIN && DLL_ZIPAPI for UNIX and VMS is
+   replaced by ZIPLIB && NO_ZPARCHIVE (as they call zipmain() directly instead).
+*/
+
+/* WINDLL implies WIN32 && ZIPDLL */
+# ifdef WINDLL
+#  ifndef ZIPDLL
+#   define ZIPDLL
+#  endif
+# endif
+
+# if defined(ZIPDLL) || defined(ZIPLIB)
+#  ifndef ZIP_DLL_LIB
+#   define ZIP_DLL_LIB
+#  endif
+# endif
+
+#ifdef ZIP_DLL_LIB
 /*---------------------------------------------------------------------------
-    Prototypes for public Zip API (DLL) functions.
+    Prototypes for public Zip API (DLL and LIB) functions.
   ---------------------------------------------------------------------------*/
-#include "api.h"
-#endif /* WINDLL || DLL_ZIPAPI */
+# include "api.h"
+#endif /* ZIP_DLL_LIB */
+
+/* ============================================================================ */
 
 
    /* WIN32_OEM */
@@ -1137,11 +1236,6 @@ void     bi_init      OF((char *, unsigned int, int));
 # endif
 */
 #endif
-
-/* Universal (non-Windows) library function prototypes. */
-#if USE_ZIPMAIN && !(defined(WINDLL) || defined(DLL_ZIPAPI))
-# include "api.h"
-#endif /* USE_ZIPMAIN && !(defined(WINDLL) || defined(DLL_ZIPAPI)) */
 
 #ifdef ENABLE_ENTRY_TIMING
  uzoff_t get_time_in_usec OF(());

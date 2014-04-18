@@ -4,7 +4,14 @@
 
 #==============================================================================
 # unix/configure: Detect feature support and pass that information to Makefile.
-# - For Zip, ZipNote, ZipCloak and ZipSplit             Revised: 2013-10-13
+# - For Zip, ZipNote, ZipCloak and ZipSplit             Revised: 2013-11-19
+#
+# Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+#
+# See the accompanying file LICENSE, version 2009-Jan-2 or later
+# (the contents of which are also included in zip.h) for terms of use.
+# If, for some reason, all these files are missing, the Info-ZIP license
+# also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 #==============================================================================
 
 #==============================================================================
@@ -288,7 +295,6 @@ UNAME_P=''                                 # Processor name
 UNAME_X=''                                 # Expanded system info (not saved)
 SIZER_V=''                                 # Tru64 system/kernel info
 
-
 #==============================================================================
 # Check for build root directory.  Create if required.
 #==============================================================================
@@ -308,7 +314,6 @@ else
     exit $status
   fi
 fi
-
 
 #==============================================================================
 # Check for build manuals directory.  Create if required.
@@ -330,7 +335,6 @@ else
   fi
 fi
 
-
 #==============================================================================
 # Assign default PORT.  Note if explicit or implicit specification.
 #==============================================================================
@@ -340,7 +344,6 @@ if [ -z "${PORT}" ]; then
 else
   PORT_SPEC='E'
 fi
-
 
 #==============================================================================
 # Query the system information.
@@ -377,10 +380,10 @@ esac
 
 echo "  OS name: ${UNAME_S}"
 
-
 #==============================================================================
 # Validate basic compiler and linker operation.
 #==============================================================================
+
 echo "Check C compiler+linker operation"
 cat > conftest.c << _EOF_
 #include <stdio.h>
@@ -406,7 +409,6 @@ else
   fi
 fi
 
-
 #==============================================================================
 # Perform compile- and link-based configuration discovery tests.
 #==============================================================================
@@ -414,11 +416,10 @@ fi
 #------------------------------------------------------------------------------
 # A) Determine C compiler type, set appropriate compile and linker options.
 #------------------------------------------------------------------------------
-
 # Each compiler is recognized using standard pre-defined preprocessor symbols.
 #
 # The options set in for each compiler includes the basic options required for
-# successful compilation of UnZip, as well as the options for standard code
+# successful compilation of Zip, as well as the options for standard code
 # optimization.
 
 echo 'Check C compiler type (optimization and listing options)'
@@ -1059,6 +1060,7 @@ if [ "${PORT}" = "unix" ]; then
 else
   echo "Set build configuration for target \"${PORT}\" port"
   case "${PORT}" in
+
      unix )
         # UNIX values set in defaults, customized based on tests.
         ;;
@@ -1271,6 +1273,7 @@ _EOF_
 esac
 
 lprod=0
+
 #------------------------------------------------------------------------------
 # E) Configure optional AES (WinZip/Gladman) encryption library.
 #------------------------------------------------------------------------------
@@ -1633,7 +1636,6 @@ fi
 #------------------------------------------------------------------------------
 # I) Common compiler feature checks.
 #------------------------------------------------------------------------------
-
 # Feature macro common conventions:
 #
 # HAVE_HEADER_H
@@ -2308,11 +2310,9 @@ $CC_TST ${CFLAGS} -c conftest.c >/dev/null 2>/dev/null
 status=$?
 [ $status -ne 0 ] && CFLAGS_TST="${CFLAGS_TST} -DNO_VALLOC"
 
-
 #------------------------------------------------------------------------------
 # J) Perform OS-specific tests.
 #------------------------------------------------------------------------------
-
 # Check for OS-specific flags.
 echo 'Check for OS-specific flags'
 if [ -n "${UNAME_S}" ]; then
@@ -2375,7 +2375,6 @@ fi
 #------------------------------------------------------------------------------
 # K) Configure system-specific resources.
 #------------------------------------------------------------------------------
-
 # Check for /usr/local/bin.
 echo 'Check for /usr/local/bin'
 [ -d /usr/local/bin ] && BINDIR='/usr/local/bin'
@@ -2393,11 +2392,9 @@ ln -s /dev/null null >/dev/null 2>/dev/null || LN=ln
 # Remove work files from configuration tests.
 rm -f a.out conftest.c conftest.o conftest.err conftest.lst conftest null
 
-
 #------------------------------------------------------------------------------
 # L) Generate system identification.
 #------------------------------------------------------------------------------
-
 if [ -n "${UNAME_S}" ]; then
   CFLAGS_TST="${CFLAGS_TST} -DUNAME_S='\\\"${UNAME_S}\\\"'"
 fi
@@ -2426,11 +2423,9 @@ if [ -n "${SIZER_V}" ]; then
   CFLAGS_TST="${CFLAGS_TST} -DSIZER_V='\\\"${SIZER_V}\\\"'"
 fi
 
-
 #------------------------------------------------------------------------------
 # Finalize the configuration values.
 #------------------------------------------------------------------------------
-
 # Add optimization (and listing) flags to initial C flags.
 if [ -n "${CFLAGS_OPT}" ]; then
   CFLAGS="${CFLAGS} ${CFLAGS_OPT}"

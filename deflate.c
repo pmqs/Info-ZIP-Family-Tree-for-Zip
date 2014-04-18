@@ -1,7 +1,7 @@
 /*
   deflate.c - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -125,7 +125,7 @@
  * Local data used by the "longest match" routines.
  */
 
-/* 2012-02-10 SMS.  
+/* 2012-02-10 SMS.
  * Changed lm_init() to save its "pack_level" argument, and the
  * consumers to use that saved value instead of the global "level"
  * value.

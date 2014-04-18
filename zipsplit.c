@@ -1,7 +1,7 @@
 /*
   zipsplit.c - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -26,7 +26,7 @@
 extern void globals_dummy( void);
 #endif /* def VMS */
 
-#define DEFSIZ 36000L   /* Default split size (change in help() too) */
+#define DEFSIZ 1474560L /* Default split size (change in help() too) */
 #ifdef MSDOS
 #  define NL 2          /* Number of bytes written for a \n */
 #else /* !MSDOS */
@@ -67,10 +67,12 @@ void zipspliterr(int c, ZCONST char *h);
 #endif /* MACOS */
 
 /* Local functions */
+#ifndef NO_EXCEPT_SIGNALS
+local void handler OF((int));
+#endif /* ndef NO_EXCEPT_SIGNALS */
 local zvoid *talloc OF((extent));
 local void tfree OF((zvoid *));
 local void tfreeall OF((void));
-local void handler OF((int));
 local void license OF((void));
 local void help OF((void));
 local void version_info OF((void));
@@ -251,16 +253,18 @@ ZCONST char *h;         /* message about how it happened */
 }
 
 
+#ifndef NO_EXCEPT_SIGNALS
 local void handler(s)
 int s;                  /* signal number (ignored) */
 /* Upon getting a user interrupt, abort cleanly using ziperr(). */
 {
-#ifndef MSDOS
+# ifndef MSDOS
   putc('\n', mesg);
-#endif /* !MSDOS */
+# endif /* !MSDOS */
   ziperr(ZE_ABORT, "aborting");
   s++;                                  /* keep some compilers happy */
 }
+#endif /* ndef NO_EXCEPT_SIGNALS */
 
 
 void zipwarn(a, b)
@@ -301,7 +305,7 @@ local void help()
 #else
 "  -i   make index (zipsplit.idx) and count its size against first zip file",
 #endif
-"  -n   make zip files no larger than \"size\" (default = 36000)",
+"  -n   make zip files no larger than \"size\" (default = 1440K)",
 "  -r   leave room for \"room\" bytes on the first disk (default = 0)",
 #ifdef VM_CMS
 "  -b   use \"fm\" as the filemode for the output zip files",
@@ -602,26 +606,30 @@ char **argv;            /* command line tokens */
 
   init_upper();           /* build case map table */
 
-  /* Go through args */
+#ifndef NO_EXCEPT_SIGNALS
+  /* Establish signal handler (if desired). */
   signal(SIGINT, handler);
-#ifdef SIGTERM                 /* Amiga has no SIGTERM */
+# ifdef SIGTERM                 /* Amiga has no SIGTERM */
   signal(SIGTERM, handler);
-#endif
-#ifdef SIGABRT
+# endif
+# ifdef SIGABRT
   signal(SIGABRT, handler);
-#endif
-#ifdef SIGBREAK
+# endif
+# ifdef SIGBREAK
   signal(SIGBREAK, handler);
-#endif
-#ifdef SIGBUS
+# endif
+# ifdef SIGBUS
   signal(SIGBUS, handler);
-#endif
-#ifdef SIGILL
+# endif
+# ifdef SIGILL
   signal(SIGILL, handler);
-#endif
-#ifdef SIGSEGV
+# endif
+# ifdef SIGSEGV
   signal(SIGSEGV, handler);
-#endif
+# endif
+#endif /* ndef NO_EXCEPT_SIGNALS */
+
+  /* Go through args */
   k = h = x = d = u = 0;
   c = DEFSIZ;
   for (r = 1; r < argc; r++)
@@ -693,12 +701,19 @@ char **argv;            /* command line tokens */
           k = 0;
           break;
         case 2:
-          if ((c = (ulg)atol(argv[r])) < 100)   /* 100 is smallest zip file */
-            ziperr(ZE_PARMS, "invalid size given. Use option -h for help.");
+          /* Split size value.  100 is smallest allowed zip file size. */
+          c = ReadNumString( argv[r]);
+          if ((c == (uzoff_t)-1) || (c < 100))
+            ziperr( ZE_PARMS,
+             "invalid split size value.  Use option -h for help.");
           k = 0;
           break;
         default:        /* k must be 3 */
-          i = (ulg)atol(argv[r]);
+          /* Room to leave value. */
+          i = ReadNumString( argv[r]);
+          if (i == (uzoff_t)-1)
+            ziperr( ZE_PARMS,
+             "invalid room-to-leave value.  Use option -h for help.");
           k = 0;
           break;
       }
@@ -992,3 +1007,11 @@ char **argv;            /* command line tokens */
 
   RETURN(0);
 }
+
+
+/*
+ * VMS (DEC C) initialization.
+ */
+#ifdef VMS
+# include "decc_init.c"
+#endif

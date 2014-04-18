@@ -350,7 +350,7 @@ return err;
 
 void setfiletype(char *new_f, unsigned long Creator, unsigned long Type)
 {
-OSErr   err;
+OSErr   err = 0;
 
 if (strcmp(zipfile, new_f) == 0)
     err = FSpChangeCreatorType(&MacZip.ZipFileSpec, Creator, Type);

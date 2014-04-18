@@ -1528,6 +1528,7 @@ ulg filetime( char *f, ulg *a, zoff_t *n, iztimes *t)
   if (strcmp(f, "-") == 0) {
     if (fstat(fileno(stdin), &s) != 0) {
       free(name);
+      name = NULL;
       error("fstat(stdin)");
     }
   } else if (LSSTAT(name, &s) != 0) {
@@ -1537,7 +1538,8 @@ ulg filetime( char *f, ulg *a, zoff_t *n, iztimes *t)
     free(name);
     return 0;
   }
-  free(name);
+  if (name != NULL)
+    free(name);
 
   if (a != NULL) {
     *a = ((ulg)s.st_mode << 16) | !(s.st_mode & S_IWRITE);

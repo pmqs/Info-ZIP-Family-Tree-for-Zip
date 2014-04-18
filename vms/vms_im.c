@@ -143,7 +143,10 @@ int set_extra_field(z, z_utim)
             return ZE_MEM;
 
         if ((cxtra = (uch *) malloc( EB_HEADSIZE+ EB_UT_LEN( 1))) == NULL)
+        {
+            free( xtra);
             return ZE_MEM;
+        }
 
         /* Fill xtra[] with data. */
         xtra[ 0] = 'U';

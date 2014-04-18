@@ -11,6 +11,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zipcloak", "zipcloak\zipclo
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zipnote", "zipnote\zipnote.vcxproj", "{29A24273-E512-480B-A303-0C186054CA85}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zipsplit", "zipsplit\zipsplit.vcxproj", "{8229AA5B-C5E3-4D7F-B100-F5B7AC6A5568}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug_ASM|Win32 = Debug_ASM|Win32
@@ -51,6 +53,14 @@ Global
 		{29A24273-E512-480B-A303-0C186054CA85}.Release_ASM|Win32.Build.0 = Release_ASM|Win32
 		{29A24273-E512-480B-A303-0C186054CA85}.Release|Win32.ActiveCfg = Release|Win32
 		{29A24273-E512-480B-A303-0C186054CA85}.Release|Win32.Build.0 = Release|Win32
+		{8229AA5B-C5E3-4D7F-B100-F5B7AC6A5568}.Debug_ASM|Win32.ActiveCfg = Debug_ASM|Win32
+		{8229AA5B-C5E3-4D7F-B100-F5B7AC6A5568}.Debug_ASM|Win32.Build.0 = Debug_ASM|Win32
+		{8229AA5B-C5E3-4D7F-B100-F5B7AC6A5568}.Debug|Win32.ActiveCfg = Debug|Win32
+		{8229AA5B-C5E3-4D7F-B100-F5B7AC6A5568}.Debug|Win32.Build.0 = Debug|Win32
+		{8229AA5B-C5E3-4D7F-B100-F5B7AC6A5568}.Release_ASM|Win32.ActiveCfg = Release_ASM|Win32
+		{8229AA5B-C5E3-4D7F-B100-F5B7AC6A5568}.Release_ASM|Win32.Build.0 = Release_ASM|Win32
+		{8229AA5B-C5E3-4D7F-B100-F5B7AC6A5568}.Release|Win32.ActiveCfg = Release|Win32
+		{8229AA5B-C5E3-4D7F-B100-F5B7AC6A5568}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

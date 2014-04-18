@@ -5,6 +5,15 @@
 .!
 .!  Date:       05 Dec 95 (orig. ZIP.RNH, 22 Oct 91)
 .!
+.!----------------------------------------------------------------------
+.! Copyright (c) 1991-2013 Info-ZIP.  All rights reserved.
+.!
+.! See the accompanying file LICENSE, version 2009-Jan-2 or later (the
+.! contents of which are also included in zip.h) for terms of use.  If,
+.! for some reason, all these files are missing, the Info-ZIP license
+.! may also be found at: ftp://ftp.info-zip.org/pub/infozip/license.html
+.!----------------------------------------------------------------------
+.!
 .!  Description:
 .!
 .!      TPU-processable source file to produce VMS on-line help for
@@ -447,7 +456,7 @@ transformed into the VMS exit status %x17A38024.
 The Zip VMS exit codes include severity values which approximate those
 defined by PKWARE, as shown in the following table:
 
-<LITERAL0>
+<LITERALW>
 |  VMS      Zip err
 |severity    code     Error description
 |---------+---------+----------------------------------------------
@@ -487,7 +496,7 @@ defined by PKWARE, as shown in the following table:
 |                     archive.
 |Error        21      (CRYPT) Encryption error
 |Error        22      (COMPRESS) Compression error
-<0LARETIL>
+<WLARETIL>
 
 <TOPIC>
 File_Names
@@ -1750,7 +1759,7 @@ be separated by a space or "=".  For example:
 |-tt=mmddyyyy
 <LARETIL>
 
-<LITERAL0>
+<LITERALW>
 | Sh  Long                Description
 |----+-------------------+------------------------------------------------
 | 0   store               store (instead of compress)
@@ -1846,7 +1855,7 @@ be separated by a space or "=".  For example:
 | Z   compression-method cm  use cmprs method "cm"
 |                             (bzip2, deflate, LZMA, PPMd)  (case-blind)
 | z   archive-comment     ask for archive comment
-<0LARETIL>
+<WLARETIL>
 
 With SET PROCESS /PARSE_STYLE = EXTENDED (available on recent non-VAX
 systems), Zip preserves the case of the command line.  Otherwise, mixed-
@@ -1869,8 +1878,8 @@ ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely,
 and a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 --------------------------------------------------------
-<LITERAL0>
-|Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+<LITERALW>
+|Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 |
 |For the purposes of this copyright and license, "Info-ZIP" is defined as
 |the following set of individuals:
@@ -1927,6 +1936,6 @@ and a copy at http://www.info-zip.org/pub/infozip/license.html.
 |4. Info-ZIP retains the right to use the names "Info-ZIP", "Zip",
 |   "UnZip", "UnZipSFX", "WiZ", "Pocket UnZip", "Pocket Zip", and
 |   "MacZip" for its own source and binary releases.
-<0LARETIL>
+<WLARETIL>
 
 ===

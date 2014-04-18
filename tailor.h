@@ -1,7 +1,7 @@
 /*
   tailor.h - Zip 3
 
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -29,7 +29,7 @@
 
 /* UNICODE */
 #ifdef NO_UNICODE_SUPPORT
-/* NO_UNICODE_SUPPORT override disables Unicode support 
+/* NO_UNICODE_SUPPORT override disables Unicode support
    - Useful for environments like MS Visual Studio */
 # ifdef UNICODE_SUPPORT
 #   undef UNICODE_SUPPORT
@@ -422,10 +422,10 @@ IZ_IMP char *mktemp();
         will use the OS-provided version (if found by a unix/configure
         test, or equivalent) or will use a generic minimally-functional
         version provided as a utilio.c function.
-      - All references to this function Zip code are via the FUNCTION 
+      - All references to this function Zip code are via the FUNCTION
         name.
       - If unix/configure finds the OS-provided function, it will define
-        a macro in the form FUNCTION=function. 
+        a macro in the form FUNCTION=function.
       - If not defined:
         - A replacement is defined below pointing to the generic version.
         - The prototype for the generic function will be defined (below).
@@ -437,7 +437,7 @@ IZ_IMP char *mktemp();
 #  endif
 #  ifdef HAVE_MBSTR_H
 #   include <mbstr.h>
-#  endif 
+#  endif
 
     extern char *___tmp_ptr;
 

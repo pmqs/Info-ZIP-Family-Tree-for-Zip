@@ -3,7 +3,7 @@
 
   Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -748,7 +748,10 @@ local int GetExtraTime(struct zlist far *z, iztimes *z_utim, unsigned ut_flg)
       eb_c_ptr = malloc(EF_C_UT_UX2_SIZE);
 
     if (eb_c_ptr == NULL)
+    {
+      free( eb_l_ptr);
       return ZE_MEM;
+    }
 
     z->extra = eb_l_ptr;
     eb_l_ptr += z->ext;
@@ -826,7 +829,10 @@ int set_extra_field (struct zlist *z, iztimes *z_utim )
         if ((lq = (qdosextra *) calloc(sizeof(qdosextra), 1)) == NULL)
             return ZE_MEM;
         if ((cq = (qdosextra *) calloc(sizeof(qdosextra), 1)) == NULL)
+        {
+            free( lq);
             return ZE_MEM;
+        }
 
         rv = qlstat(z->name, &(lq->header), &flag);
 

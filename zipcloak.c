@@ -1,7 +1,7 @@
 /*
   zipcloak.c - Zip 3
 
-  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -31,6 +31,7 @@
 #ifndef NO_STDLIB_H
 #  include <stdlib.h>
 #endif
+
 #ifdef IZ_CRYPT_AES_WG
 #  include <time.h>
 #  include "aes_wg/iz_aes_wg.h"
@@ -53,10 +54,11 @@ local void version_info OF((void));
 local FILE *tempzf;
 
 /* Pointer to CRC-32 table (used for decryption/encryption) */
-# if (!defined(USE_ZLIB) || defined(USE_OWN_CRCTAB))
+#if (!defined(USE_ZLIB) || defined(USE_OWN_CRCTAB))
 ZCONST ulg near *crc_32_tab;
 # else
-   /* 2012-05-31 SMS.  See note in zip.c. */
+/* 2012-05-31 SMS.  See note in zip.c. */
+/* This is for compatibility with the new ZLIB 64-bit data type. */
 #  ifdef Z_U4
 ZCONST z_crc_t *crc_32_tab;
 #  else /* def Z_U4 */
@@ -235,6 +237,10 @@ static ZCONST char *help_info[] = {
 "  -b  --temp-path path  use \"path\" for the temporary zip file",
 #endif
 "  -O  --output-file file  write output to new zip file, \"file\"",
+"  -P  --password pswd  use \"pswd\" as password.  (NOT SECURE!  Many OS allow",
+"                       seeing what others type on command line.  See manual.)",
+"  -pn                allow non-ANSI chars in password.  Default: Restrict",
+"                     passwords to printable 7-bit ANSI chars for portability.",
 #ifdef IZ_CRYPT_AES_WG
 "  -Y  --encryption-method em  use encryption method \"em\"",
 #  ifdef IZ_CRYPT_TRAD
@@ -281,6 +287,13 @@ local void version_info()
 
   /* Options info array */
   static ZCONST char *comp_opts[] = {
+#ifdef ASM_CRC
+    "ASM_CRC              (Assembly code used for CRC calculation)",
+#endif
+#ifdef ASMV
+    "ASMV                 (Assembly code used for pattern matching)",
+#endif
+
 #ifdef DEBUG
     "DEBUG",
 #endif
@@ -298,6 +311,9 @@ local void version_info()
 
 #ifdef IZ_CRYPT_TRAD
     crypt_opt_ver,
+# ifdef ETWODD_SUPPORT
+    "ETWODD_SUPPORT       (Encrypt Trad without data descriptor if --etwodd)",
+# endif /* def ETWODD_SUPPORT */
 #endif
 
 #if IZ_CRYPT_AES_WG
@@ -305,7 +321,7 @@ local void version_info()
 #endif
 
 #if IZ_CRYPT_AES_WG_NEW
-    "IZ_CRYPT_AES_WG_NEW  (AES strong encryption (WinZip/Gladman new))",
+    "IZ_CRYPT_AES_WG_NEW  (AES strong encr (WinZip/Gladman new) - do not use)",
 #endif
 
 #if defined(IZ_CRYPT_ANY) && defined(PASSWD_FROM_STDIN)
@@ -351,6 +367,33 @@ local void version_info()
 }
 
 
+/* SMSd. */
+/* encr_passwd() stolen from zip.c.  Should be shared. */
+
+int encr_passwd(modeflag, pwbuf, size, zfn)
+int modeflag;
+char *pwbuf;
+int size;
+ZCONST char *zfn;
+{
+    char *prompt;
+
+    /* Tell picky compilers to shut up about unused variables */
+    zfn = zfn;
+
+    prompt = (modeflag == ZP_PW_VERIFY) ?
+              "Verify password: " : "Enter password: ";
+
+    if (getp(prompt, pwbuf, size) == NULL) {
+      ziperr(ZE_PARMS, "stderr is not a tty");
+    }
+    return IZ_PW_ENTERED;
+}
+
+
+#define o_pn            0x143   /* -pn/--non-ansi-password.  See also zip.c. */
+#define o_et            0x170   /* For ETWODD.  See also zip.c. */
+
 /* options for zipcloak - 3/5/2004 EG */
 struct option_struct far options[] = {
   /* short longopt        value_type        negatable        ID    name */
@@ -360,10 +403,15 @@ struct option_struct far options[] = {
     {"b",  "temp-path",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'b',  "path for temp file"},
 #endif
     {"d",  "decrypt",     o_NO_VALUE,       o_NOT_NEGATABLE, 'd',  "decrypt"},
+#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+    {"",   "etwodd",      o_NO_VALUE,       o_NOT_NEGATABLE, o_et, "encrypt Traditional without data descriptor"},
+#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
     {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     {"L",  "license",     o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
     {"l",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
+    {"pn", "non-ansi-password", o_NO_VALUE, o_NEGATABLE,     o_pn, "allow non-ANSI password"},
     {"O",  "output-file", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'O',  "output to new archive"},
+    {"P",  "password",    o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'P',  "encrypt entries, option value is password"},
     {"v",  "version",     o_NO_VALUE,       o_NOT_NEGATABLE, 'v',  "version"},
 #ifdef IZ_CRYPT_AES_WG
     {"Y", "encryption-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Y', "set encryption method"},
@@ -387,8 +435,6 @@ int main(argc, argv)
     zoff_t entry_offset;        /* Local header offset. */
     int decrypt;                /* decryption flag */
     int temp_path;              /* 1 if next argument is path for temp files */
-    char passwd[IZ_PWLEN+1];    /* password for encryption or decryption */
-    char verify[IZ_PWLEN+1];    /* password for encryption or decryption */
 #if 0
     char *q;                    /* steps through option arguments */
     int r;                      /* arg counter */
@@ -407,8 +453,10 @@ int main(argc, argv)
     int fna = 0;          /* current first non-opt arg */
     int optnum = 0;       /* index in table */
 
-    char **args;               /* copy of argv that can be freed */
+    char **args;                /* copy of argv that can be freed */
 
+    char *e = NULL;             /* Password verification storage. */
+    int key_needed = 1;         /* Request password, unless "-P password". */
 
 #define IS_A_DIR (z->iname[ z->nam- 1] == (char)0x2f) /* ".". */
 
@@ -418,6 +466,9 @@ int main(argc, argv)
 #else /* def IZ_CRYPT_AES_WG */
 # define REAL_PWLEN IZ_PWLEN
 #endif /* def IZ_CRYPT_AES_WG [else] */
+
+    force_ansi_key = 1;         /* Only ANSI chars for passwd (32 - 126) */
+    key = NULL;                 /* Password. */
 
 #ifdef THEOS
     setlocale(LC_CTYPE, "I");
@@ -514,7 +565,7 @@ int main(argc, argv)
     temp_path = decrypt = 0;
     encryption_method = TRADITIONAL_ENCRYPTION; /* Default method = Trad. */
 #if 0
-    /* old command line */
+    /* old command line - not updated - do not use */
     for (r = 1; r < argc; r++) {
         if (*argv[r] == '-') {
             if (!argv[r][1]) ziperr(ZE_PARMS, "zip file cannot be stdin");
@@ -615,6 +666,23 @@ int main(argc, argv)
             ziperr(ZE_MEM, "was processing arguments");
           }
           free(value);
+          break;
+        case 'P':   /* password for encryption */
+          if (key != NULL) {
+            free(key);
+          }
+          key = value;
+          key_needed = 0;
+          if (encryption_method == NO_ENCRYPTION) {
+            encryption_method = TRADITIONAL_ENCRYPTION;
+          }
+          break;
+        case o_pn:  /* Allow non-ANSI password */
+          if (negated) {
+            force_ansi_key = 1;
+          } else {
+            force_ansi_key = 0;
+          }
           break;
         case 'q':   /* Quiet operation, suppress info messages */
           noisy = 0;  break;
@@ -790,29 +858,82 @@ int main(argc, argv)
     }
 #endif
 
-    /* Get password */
+    /* Get password, if not already specified on the command line. */
+    if (key_needed) {
+
+      int i;
+      int r;
+
 #ifdef IZ_CRYPT_AES_WG
-    if (encryption_method <= TRADITIONAL_ENCRYPTION)
+      if (encryption_method <= TRADITIONAL_ENCRYPTION)
         REAL_PWLEN = IZ_PWLEN;
-    else
+      else
         REAL_PWLEN = MAX_PWD_LENGTH;
 #endif /* def IZ_CRYPT_AES_WG */
 
-    if (getp("Enter password: ", passwd, REAL_PWLEN) == NULL)
-        ziperr(ZE_PARMS,
-               "stderr is not a tty (you may never see this message!)");
+      if ((key = malloc(REAL_PWLEN+1)) == NULL) {
+        ziperr(ZE_MEM, "was getting encryption password (1)");
+      }
+      r = encr_passwd(ZP_PW_ENTER, key, REAL_PWLEN, zipfile);
+      if (r != IZ_PW_ENTERED) {
+        if (r < IZ_PW_ENTERED)
+          r = ZE_PARMS;
+        ZIPERR(r, "was getting encryption password (2)");
+      }
+      if (*key == '\0') {
+        ZIPERR(ZE_PARMS, "zero length password not allowed");
+      }
+      if (force_ansi_key) {
+        for (i = 0; key[i]; i++) {
+          if (key[i] < 32 || key[i] > 126) {
+            zipwarn("password must be ANSI (unless use --non-ansi-password)",
+             "");
+            ZIPERR(ZE_PARMS, "non-ANSI character in password");
+          }
+        }
+      }
+      if ((encryption_method == AES_256_ENCRYPTION) && (strlen(key) < 24)) {
+        zipwarn(
+         "AES256 password must be at least 24 chars (longer is better)", "");
+        ZIPERR(ZE_PARMS, "AES256 password too short");
+      }
+      if ((encryption_method == AES_192_ENCRYPTION) && (strlen(key) < 20)) {
+        zipwarn(
+         "AES192 password must be at least 20 chars (longer is better)", "");
+        ZIPERR(ZE_PARMS, "AES192 password too short");
+      }
+      if ((encryption_method == AES_128_ENCRYPTION) && (strlen(key) < 16)) {
+        zipwarn(
+         "AES128 password must be at least 16 chars (longer is better)", "");
+        ZIPERR(ZE_PARMS, "AES128 password too short");
+      }
 
-    if (decrypt == 0) {
-        if (getp("Verify password: ", verify, REAL_PWLEN) == NULL)
-               ziperr(ZE_PARMS,
-                      "stderr is not a tty (you may never see this message!)");
-
-        if (strcmp(passwd, verify))
-               ziperr(ZE_PARMS, "password verification failed");
-
-        if (*passwd == '\0')
-               ziperr(ZE_PARMS, "zero length password not allowed");
+      if ((e = malloc(REAL_PWLEN+1)) == NULL) {
+        ZIPERR(ZE_MEM, "was verifying encryption password (1)");
+      }
+      r = encr_passwd(ZP_PW_VERIFY, e, REAL_PWLEN, zipfile);
+      if (r != IZ_PW_ENTERED && r != IZ_PW_SKIPVERIFY) {
+        free((zvoid *)e);
+        if (r < ZE_OK) r = ZE_PARMS;
+        ZIPERR(r, "was verifying encryption password (2)");
+      }
+      r = ((r == IZ_PW_SKIPVERIFY) ? 0 : strcmp(key, e));
+      free((zvoid *)e);
+      if (r) {
+        ZIPERR(ZE_PARMS, "password verification failed");
+      }
     }
+    if (key) {
+      /* if -P "" could get here */
+      if (*key == '\0') {
+        ZIPERR(ZE_PARMS, "zero length password not allowed");
+      }
+    }
+
+/* SMSd. */
+#if 0
+fprintf( stderr, " key = %08x : >%s<.\n", key, key);
+#endif /* 0 */
 
     /* Open input zip file again, copy preamble if any */
     if ((in_file = fopen(zipfile, FOPR)) == NULL) ziperr(ZE_NAME, zipfile);
@@ -845,7 +966,7 @@ int main(argc, argv)
         if (decrypt && (z->flg & 1)) {
             printf("decrypting: %s", z->zname);
             fflush(stdout);
-            if ((res = zipbare(z, passwd)) != ZE_OK)
+            if ((res = zipbare(z, key)) != ZE_OK)
             {
                 if (res != ZE_MISS) ziperr(res, "was decrypting an entry");
                 printf(" (wrong password--just copying)");
@@ -856,7 +977,13 @@ int main(argc, argv)
         } else if ((!decrypt) && !(z->flg & 1) && (!IS_A_DIR)) {
             printf("encrypting: %s\n", z->zname);
             fflush(stdout);
-            if ((res = zipcloak(z, passwd)) != ZE_OK)
+
+/* SMSd. */
+#if 0
+fprintf( stderr, " pre-zc() key = %08x : >%s<.\n", key, key);
+#endif /* 0 */
+
+            if ((res = zipcloak(z, key)) != ZE_OK)
             {
                 ziperr(res, "was encrypting an entry");
             }
@@ -938,6 +1065,14 @@ ZCONST char * far no_cloak_msg[] =
 
 
 /* These dummy functions et al.  are not needed on VMS.  Elsewhere? */
+
+/* The structure here is needed if the old command line code is used, as
+   this structure needs to exist to make fileio.c happy.
+
+   These functions are provided for the case where a zipcloak without
+   encryption is being compiled.  The full versions could be used instead
+   if they are visible.
+ */
 
 #ifndef VMS
 
@@ -1023,4 +1158,12 @@ int main()
     EXIT( ZE_COMPERR);  /* Error in compilation options. */
 }
 
-#endif /* def IZ_CRYPT_ANY [else] */
+#endif /* CRYPT [else] */
+
+
+/*
+ * VMS (DEC C) initialization.
+ */
+#ifdef VMS
+# include "decc_init.c"
+#endif

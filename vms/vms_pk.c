@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -136,26 +136,40 @@ typedef struct
     uzoff_t             rest;
     int                 status;
     ush                 chan;
-    ush                 chan_pad;       /* alignment member */
-    int                 acllen;         /* ACL data byte count. */
-    int                 aclseg;         /* ACL data segment count. */
-    uch                 *aclbuf;        /* ACL data buffer. */
+    ush                 fract_blk_len;          /* Fractional block length. */
+    int                 acllen;                 /* ACL data byte count. */
+    int                 aclseg;                 /* ACL data segment count. */
+    uch                 *aclbuf;                /* ACL data buffer. */
+    char                fract_blk_buf[ 512];    /* Fractional block buffer. */
     PK_info_t           PKi;
 } ioctx_t;
 
 
-/* Forward declarations of public functions: */
-ioctx_t *vms_open(char *file);
-unsigned int  vms_read(register ioctx_t *ctx,
-                       register char *buf, register unsigned int size);
-int  vms_error(ioctx_t *ctx);
-int  vms_rewind(ioctx_t *ctx);
-int  vms_get_attributes(ioctx_t *ctx, struct zlist far *z,
-                        iztimes *z_utim);
-int  vms_close(ioctx_t *ctx);
-
-
 #define BLOCK_BYTES 512
+
+
+/*----------------*
+ |  vms_close()   |
+ *----------------*
+ |  Close file opened by vms_open().
+ |  Returns zero (currently always ignored).
+ */
+
+int vms_close( ctx)
+ioctx_t *ctx;
+{
+    /* Deassign the I/O channel. */
+    sys$dassgn(ctx->chan);
+
+    /* Free the ACL storage, if any. */
+    if ((ctx->acllen > 0) && (ctx->aclbuf != NULL))
+        free( ctx->aclbuf);
+
+    /* Free the main context structure. */
+    free(ctx);
+
+    return 0;
+}
 
 
 /*---------------*
@@ -189,7 +203,9 @@ char *file;
 
     if ( (ctx=(ioctx_t *)malloc(sizeof(ioctx_t))) == NULL )
         return NULL;
-    ctx -> PKi = PK_def_info;
+
+    ctx->fract_blk_len = 0;		/* Clear fractional block length. */
+    ctx->PKi = PK_def_info;
 
 #define FILL_REQ( ix, id, b)   {     \
     Atr[ ix].atr$w_type = (id);      \
@@ -249,6 +265,7 @@ char *file;
         /* Set errno (and friend) according to the bad VMS status value. */
         errno = EVMSERR;
         vaxc$errno = status;
+        free( ctx);
         return NULL;
     }
 
@@ -256,10 +273,16 @@ char *file;
     /* 2007-02-28 SMS.
      * If processing symlinks as symlinks ("-y"), then $SEARCH for the
      * link, not the target file.
+     * 2013-14-10 SMS.
+     * If following symlinks ("-y-"), then $SEARCH for the link target.
      */
     if (linkput)
     {
         Nam.naml$v_open_special = 1;
+    }
+    else
+    {
+        Nam.naml$v_search_symlink = 1;
     }
 #endif /* def NAML$M_OPEN_SPECIAL */
 
@@ -275,6 +298,7 @@ char *file;
         /* Set errno (and friend) according to the bad VMS status value. */
         errno = EVMSERR;
         vaxc$errno = status;
+        free( ctx);
         return NULL;
     }
 
@@ -295,11 +319,12 @@ char *file;
         /* Set errno (and friend) according to the bad VMS status value. */
         errno = EVMSERR;
         vaxc$errno = status;
+        free( ctx);
         return NULL;
     }
 
     /* Move the FID (and not the DID) into the FIB.
-       2005=02-08 SMS.
+       2005-02-08 SMS.
        Note that only the FID is needed, not the DID, and not the file
        name.  Setting these other items causes failures on ODS5.
     */
@@ -348,7 +373,7 @@ char *file;
         return NULL;
     }
 
-    fat = (struct fatdef *)&(ctx -> PKi.ra);
+    fat = (struct fatdef *)&(ctx->PKi.ra);
 
 #define SWAPW(x)        ( (((x)>>16)&0xFFFF) + ((x)<<16) )
 
@@ -360,8 +385,8 @@ char *file;
         /* Only known size is all allocated blocks.
            (This occurs with a zero-length file, for example.)
         */
-        ctx -> size =
-        ctx -> rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
+        ctx->size =
+        ctx->rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
     }
     else
     {
@@ -369,13 +394,13 @@ char *file;
            If only one -V, store normal (used) size in ->rest.
            If multiple -V, store allocated-blocks size in ->rest.
         */
-        ctx -> size =
-         (((uzoff_t) efblk)- 1)* BLOCK_BYTES+ fat -> fat$w_ffbyte;
+        ctx->size =
+         (((uzoff_t) efblk)- 1)* BLOCK_BYTES+ fat->fat$w_ffbyte;
 
         if (vms_native < 2)
-            ctx -> rest = ctx -> size;
+            ctx->rest = ctx->size;
         else
-            ctx -> rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
+            ctx->rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
     }
 
     /* If ACL data exist, fill an allocated buffer with them. */
@@ -461,8 +486,8 @@ char *file;
         }
     }
 
-    ctx -> status = SS$_NORMAL;
-    ctx -> vbn = 1;
+    ctx->status = SS$_NORMAL;
+    ctx->vbn = 1;
     return ctx;
 }
 
@@ -474,9 +499,15 @@ char *file;
  |   vms_read()   |
  *----------------*
  |   Reads file in (multi-)block-sized chunks into the buffer.
- |   Stops on EOF. Returns number of bytes actually read.
- |   Note: This function makes no sense (and will error) if the buffer
- |   size ("size") is not a multiple of the disk block size (512).
+ |   Stops on EOF.  Returns number of bytes actually read.
+ |   2014-04-18 SMS.
+ |   Added code to allow byte counts ("size") other than multiples of
+ |   the disk-block size, as required for LZMA compression code, making
+ |   the following note obsolete.
+ |XX Note: This function makes no sense (and will error) if the buffer XX
+ |XX size ("size") is not a multiple of the disk block size (512).     XX
+ |   Also added some VMS-specific error messages, to reduce the chance
+ |   that a future read error will go unnoticed.
  */
 
 size_t vms_read( ctx, buf, size)
@@ -484,98 +515,186 @@ ioctx_t *ctx;
 char *buf;
 size_t size;
 {
-    int act_cnt;
-    uzoff_t rest_rndup;
     int status;
+    size_t act_cnt;
     size_t bytes_read = 0;
 
-    /* If previous read hit EOF, fail early. */
-    if (ctx -> status == SS$_ENDOFFILE)
-        return 0;               /* EOF. */
+    /* If previous read hit EOF, or if no more data available, then
+     * return immediately. 
+     */
+    if ((ctx->status == SS$_ENDOFFILE) ||
+     ((ctx->rest == 0) && (ctx->fract_blk_len == 0)))
+        return 0;                               /* Actual or effective EOF. */
 
-    /* If no more expected to be read, fail early. */
-    if (ctx -> rest == 0)
-        return 0;               /* Effective EOF. */
-
-    /* If request is smaller than a whole block, fail.
-       This really should never happen.  (assert()?)
-    */
-    if (size < BLOCK_BYTES)
-        return 0;
-
-    /* Note that on old VMS VAX versions (like V5.5-2), QIO[W] may fail
-       with status %x0000034c (= %SYSTEM-F-IVBUFLEN, invalid buffer
-       length) when size is not a multiple of 512.  Thus the requested
-       size is boosted as needed, but the IOSB byte count returned is
-       reduced when it exceeds the actual bytes remaining (->rest).
-    */
-
-    /* Adjust request size as appropriate. */
-    if (size > MAX_READ_BYTES)
+    /* Take data from the fractional-block buffer, if available, as
+     * required.
+     */
+    if (ctx->fract_blk_len > 0)
     {
-        /* Restrict request to MAX_READ_BYTES. */
-        size = MAX_READ_BYTES;
+        act_cnt = IZ_MIN( size, ctx->fract_blk_len);
+        memmove( buf,                   /* Move data from fract-blk buffer. */
+         (ctx->fract_blk_buf+ sizeof( ctx->fract_blk_buf)- ctx->fract_blk_len),
+         act_cnt);
+        ctx->fract_blk_len -= act_cnt;  /* Decr fractional-block length. */
+        size -= act_cnt;                /* Decr bytes-to-read, this request. */
+        ctx->rest -= act_cnt;           /* Decr bytes-to-read, whole file. */
+        bytes_read += act_cnt;          /* Increment bytes-read count. */
+        buf += act_cnt;                 /* Advance buffer pointer. */
     }
-    else
+
+    if ((size > 0) && (ctx->rest > 0))
     {
-        /* Round odd-ball request up to the next whole block.
-           This really should never happen.  (assert()?)
-        */
-        size = (size+ BLOCK_BYTES- 1)& ~(BLOCK_BYTES- 1);
-    }
-    rest_rndup = (ctx -> rest+ BLOCK_BYTES- 1)& ~(BLOCK_BYTES- 1);
+        /* Read (QIOW) until error (including EOF), or "size" bytes have
+         * been read.  Begin with whole disk blocks.
+         */
+        do
+        {
+            /* Note that on old VMS VAX versions (like V5.5-2), QIO[W]
+             * may fail with status %x0000034c (= %SYSTEM-F-IVBUFLEN,
+             * invalid buffer length) when size is not a multiple of
+             * 512.  To avoid overflowing the user's buffer, any
+             * fractional block is read (separately) into the (local)
+             * fractional-block buffer, and then copied from there, as
+             * appropriate.
+             */
+            size_t size_wb;     /* Byte count of whole disk blocks to read. */
+            uzoff_t rest_rndup; /* ctx->rest rounded up to whole block. */
 
-    /* Read (QIOW) until error or "size" bytes have been read. */
-    do
-    {
-        /* Reduce "size" when next (last) read would overrun the EOF,
-           but never below one block (so we'll always get a nice EOF).
-        */
-        if (size > rest_rndup)
-            size = rest_rndup;
+            /* Read no more than MAX_READ_BYTES per QIOW. */
+            size_wb = IZ_MIN( size, MAX_READ_BYTES)& ~(BLOCK_BYTES- 1);
 
-        status = sys$qiow( 0, ctx->chan, IO$_READVBLK,
-            &ctx->iosb, 0, 0,
-            buf, size, ctx->vbn, 0, 0, 0);
+            /* Reduce "size" when next (last) read would overrun the
+             * EOF, but never below one block (so we'll always get a
+             * nice EOF).
+             */
+            rest_rndup = (ctx->rest+ BLOCK_BYTES- 1)& ~(BLOCK_BYTES- 1);
+            if (size_wb > rest_rndup)
+                size_wb = rest_rndup;
 
-        /* If initial status was good, use final status. */
-        if ( !ERR(status) )
+            /* Read whole disk blocks into user's buffer. */
+            if (size_wb > 0)
+            {
+                status = sys$qiow( 0,                   /* Event flag. */
+                                   ctx->chan,           /* Channel. */
+                                   IO$_READVBLK,        /* Function. */
+                                   &ctx->iosb,          /* IOSB. */
+                                   0,                   /* AST Address. */
+                                   0,                   /* AST parameter. */
+                                   buf,                 /* P1 = buffer. */
+                                   size_wb,             /* P2 = byte count. */
+                                   ctx->vbn,            /* P3 = virt blk nr. */
+                                   0,                   /* P4 (unused). */
+                                   0,                   /* P5 (unused). */
+                                   0);                  /* P6 (unused). */
+
+                /* If initial status was good, use final status. */
+                if (!ERR( status))
+                    status = ctx->iosb.status;
+
+                if (ERR( status) && (status != SS$_ENDOFFILE))
+                {
+                    /* Put out an operation-specific complaint. */
+                    fprintf( stderr,
+                     "\n vms_read(): $qiow(1) sts = %%x%08x.\n", status);
+                }
+                else
+                {
+                    /* Determine actual bytes read. */
+                    if (ctx->iosb.count <= ctx->rest)
+                    {
+                        act_cnt = ctx->iosb.count;
+                    }
+                    else
+                    {
+                        /* iosb.count exceeds file remainder. */
+                        act_cnt = ctx->rest;
+                        status = SS$_ENDOFFILE;
+                    }
+                    size -= act_cnt;        /* Decr bytes-to-rd, this reqst. */
+                    ctx->rest -= act_cnt;   /* Decr bytes-to-rd, whole file. */
+                    bytes_read += act_cnt;  /* Incr bytes-read count. */
+                    buf += act_cnt;         /* Advance buffer pointer. */
+                    ctx->vbn +=             /* Incr virtual-block number. */
+                     ctx->iosb.count/ BLOCK_BYTES;
+                }
+            }
+        /* Loop while no error, file data remain, and
+         * remaining request exceeds a disk block.
+         */
+        } while (!ERR( status) && (ctx->rest > 0) && (size > BLOCK_BYTES));
+
+        if (!ERR( status) && (ctx->rest > 0) && (size > 0))
+        {
+            /* If the caller wants less than a whole last disk block,
+             * then read one whole disk block into our fractional-block
+             * buffer, give the caller what he wants, and retain the
+             * residue (in the fractional-block buffer).
+             */
+            status = sys$qiow( 0,                   /* Event flag. */
+                               ctx->chan,           /* Channel. */
+                               IO$_READVBLK,        /* Function. */
+                               &ctx->iosb,          /* IOSB. */
+                               0,                   /* AST Address. */
+                               0,                   /* AST parameter. */
+                               ctx->fract_blk_buf,  /* P1 = buffer. */
+                               BLOCK_BYTES,         /* P2 = byte count. */
+                               ctx->vbn,            /* P3 = virt blk nr. */
+                               0,                   /* P4 (unused). */
+                               0,                   /* P5 (unused). */
+                               0);                  /* P6 (unused). */
+
+            /* If initial status was good, use final status. */
+            if ( !ERR(status) )
                 status = ctx->iosb.status;
 
-        if ( !ERR(status) || status == SS$_ENDOFFILE )
-        {
-            act_cnt = ctx->iosb.count;
-            /* Ignore whole-block boost when remainder is smaller. */
-            if (act_cnt > ctx->rest)
+            if (ERR( status) && (status != SS$_ENDOFFILE))
             {
-                act_cnt = ctx->rest;
-                status = SS$_ENDOFFILE;
+                /* Put out an operation-specific complaint. */
+                fprintf( stderr,
+                 "\n vms_read(): $qiow(2) sts = %%x%08x.\n", status);
             }
-            /* Adjust counters/pointers according to delivered bytes. */
-            size -= act_cnt;
-            buf += act_cnt;
-            bytes_read += act_cnt;
-            ctx->vbn += ctx->iosb.count/ BLOCK_BYTES;
-        }
+            else
+            {
+                /* Determine actual bytes read.  Admit to no more than
+                 * the remainder of the request or the remainder of the
+                 * file.
+                 */
+                act_cnt = IZ_MIN( size, ctx->rest);
+                if (ctx->iosb.count <= act_cnt)
+                {
+                    act_cnt = ctx->iosb.count;
+                }
+                memmove( buf,           /* Move data from fract-blk buffer. */
+                 ctx->fract_blk_buf,
+                 act_cnt);
 
-    } while ( !ERR(status) && (size > 0) );
+                ctx->fract_blk_len =    /* Remaining fractional-block len. */
+                 BLOCK_BYTES- act_cnt;
+
+                size -= act_cnt;        /* Decr bytes-to-read, this request. */
+                ctx->rest -= act_cnt;   /* Decr bytes-to-read, whole file. */
+                bytes_read += act_cnt;  /* Incr bytes-read count. */
+                buf += act_cnt;         /* Advance buffer pointer. */
+                ctx->vbn += 1;          /* Incr virtual-block number. */
+            }
+        }
+    }
 
     if (!ERR(status))
     {
         /* Record any successful status as SS$_NORMAL. */
-        ctx -> status = SS$_NORMAL;
+        ctx->status = SS$_NORMAL;
     }
-    else if (status == SS$_ENDOFFILE)
+    else if ((status == SS$_ENDOFFILE) ||
+     ((ctx->rest == 0) && (ctx->fract_blk_len == 0)))
     {
         /* Record EOF as SS$_ENDOFFILE.  (Ignore error status codes?) */
-        ctx -> status = SS$_ENDOFFILE;
+        ctx->status = SS$_ENDOFFILE;
     }
-
-    /* Decrement bytes-to-read.  Return the total bytes read. */
-    ctx -> rest -= bytes_read;
-
+    /* Return the total bytes read. */
     return bytes_read;
 }
+
 
 /*-----------------*
  |   vms_error()   |
@@ -589,6 +708,7 @@ ioctx_t *ctx;
     return ERR(ctx->status) && (ctx->status != SS$_ENDOFFILE);
 }
 
+
 /*------------------*
  |   vms_rewind()   |
  *------------------*
@@ -598,10 +718,12 @@ ioctx_t *ctx;
 int vms_rewind(ctx)
 ioctx_t *ctx;
 {
-    ctx -> vbn = 1;
-    ctx -> rest = ctx -> size;
-    return 0;
+    ctx->vbn = 1;               /* Next VBN to read = 1. */
+    ctx->rest = ctx->size;      /* Bytes left to read = size. */
+    ctx->status = SS$_NORMAL;   /* Clear SS$_ENDOFFILE from status. */
+    return 0;                   /* Claim success. */
 }
+
 
 /*--------------------------*
  |   vms_get_attributes()   |
@@ -620,7 +742,7 @@ ioctx_t *ctx;
 
 int vms_get_attributes(ctx, z, z_utim)
 ioctx_t *ctx;           /* Internal file control structure. */
-struct zlist far *z;    /* Zip entry to compress. */
+struct zlist *z;        /* Zip entry to compress. */
 iztimes *z_utim;
 {
     byte    *p;
@@ -648,7 +770,10 @@ iztimes *z_utim;
             return ZE_MEM;
 
         if ((cxtra = (uch *) malloc( EB_HEADSIZE+ EB_UT_LEN( 1))) == NULL)
+        {
+            free( xtra);
             return ZE_MEM;
+        }
 
         /* Fill xtra[] with data. */
         xtra[ 0] = 'U';
@@ -688,7 +813,10 @@ iztimes *z_utim;
         return ZE_MEM;
 
     if ((cxtra = (uch *) malloc( l)) == NULL)
+    {
+        free( xtra);
         return ZE_MEM;
+    }
 
     /* Fill xtra[] with data. */
 
@@ -776,23 +904,6 @@ iztimes *z_utim;
         vms_close(ctx);
 
     return ZE_OK;
-}
-
-
-int vms_close(ctx)
-ioctx_t *ctx;
-{
-        /* Deassign the I/O channel. */
-        sys$dassgn(ctx->chan);
-
-        /* Free the ACL storage, if any. */
-        if ((ctx->acllen > 0) && (ctx->aclbuf != NULL))
-            free( ctx->aclbuf);
-
-        /* Free the main context structure. */
-        free(ctx);
-
-        return 0;
 }
 
 #endif /* !_UTIL */

@@ -26,7 +26,7 @@ typedef void *ftype;
 
 FILE *vms_fopen OF((char *));
 ftype vms_open OF((char *));
-unsigned int vms_read OF((ftype, char *, unsigned int));
+unsigned int vms_read OF((ftype, char *, size_t));
 int vms_close OF((ftype));
 int vms_error OF((ftype));
 #ifdef VMS_PK_EXTRA

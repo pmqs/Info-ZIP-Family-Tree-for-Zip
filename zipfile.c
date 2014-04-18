@@ -941,6 +941,10 @@ local void read_Unicode_Path_local_entry(pZipListEntry)
   /*
    * Compute 32-bit crc of iname and AND halves to make 16-bit version
    */
+  /* Originally this was to use a simple adler16 CRC, but it was determined
+     that this did not provide adequate collision protection for short
+     names, and so a 32-bit CRC was used.  Use of the standard 32-bit CRC
+     is now part of the extra field definition in AppNote. - EG */
 # if 0
   chksum = adler16(ADLERVAL_INITIAL,
     (uch *)(pZipListEntry->iname), strlen(pZipListEntry->iname));
@@ -3252,6 +3256,7 @@ local int find_next_signature(f)
   FILE *f;
 {
   int m;
+  /* used for debugging */
 #if 0
   zoff_t here;
 #endif /* 0 */
@@ -3931,11 +3936,9 @@ local int scanzipf_fixnew()
           files_total++;
           bytes_total += z->siz;
 
-          /* Link into list */
+          /* Link into list. */
           if (zfiles == NULL)
-            /* first link */
-            x = &zfiles;
-          /* Link into list */
+            x = &zfiles;        /* First link. */
           *x = z;
           z->nxt = NULL;
           x = &z->nxt;
@@ -4335,8 +4338,8 @@ local int scanzipf_regnew()
 #endif /* def ZIP64_SUPPORT */
 
 #if 0
-  /* Now in globals.c, zip.h. */
-  uzoff_t cd_total_entries;     /* num of entries as read from (Zip64) EOCDR */
+/* Now in globals.c, zip.h. */
+  uzoff_t cd_total_entries;        /* num of entries as read from (Zip64) EOCDR */
 #endif /* 0 */
 
   ulg     in_cd_start_disk;     /* central directory start disk */
@@ -4431,22 +4434,21 @@ local int scanzipf_regnew()
     eocdr_offset = (uzoff_t) zftello(in_file);
   }
 
-  /* found EOCDR */
-  /* format is
-       end of central dir signature     4 bytes  (0x06054b50)
-       number of this disk              2 bytes
-       number of the disk with the
-        start of the central directory  2 bytes
-       total number of entries in the
-        central directory on this disk  2 bytes
-       total number of entries in
-        the central directory           2 bytes
-       size of the central directory    4 bytes
-       offset of start of central
-        directory with respect to
-        the starting disk number        4 bytes
-       .ZIP file comment length         2 bytes
-       .ZIP file comment        (variable size)
+  /* Found EOCDR.  Format:
+   *   end of central dir signature     4 bytes  (0x06054b50)
+   *   number of this disk              2 bytes
+   *   number of the disk with the
+   *    start of the central directory  2 bytes
+   *   total number of entries in the
+   *    central directory on this disk  2 bytes
+   *   total number of entries in
+   *    the central directory           2 bytes
+   *   size of the central directory    4 bytes
+   *   offset of start of central
+   *    directory with respect to
+   *    the starting disk number        4 bytes
+   *   .ZIP file comment length         2 bytes
+   *   .ZIP file comment        (variable size)
    */
 
   if (zfseeko(in_file, eocdr_offset, SEEK_SET) != 0) {
@@ -4475,6 +4477,7 @@ local int scanzipf_regnew()
   cd_total_entries = (uzoff_t)SH(scbuf + ENDTOT);
   cd_total_size = (uzoff_t)LG(scbuf + ENDSIZ);
 
+  /* this may be undone if Zip64 information */
   total_cd_total_entries += cd_total_entries;
 
   /* length of zipfile comment */
@@ -5075,28 +5078,28 @@ local int scanzipf_regnew()
                 current_in_disk, zip_fzofft(current_in_offset - 4, NULL, "u"));
       }
 
-      /* The format of a central directory record
-        central file header signature   4 bytes  (0x02014b50)
-        version made by                 2 bytes
-        version needed to extract       2 bytes
-        general purpose bit flag        2 bytes
-        compression method              2 bytes
-        last mod file time              2 bytes
-        last mod file date              2 bytes
-        crc-32                          4 bytes
-        compressed size                 4 bytes
-        uncompressed size               4 bytes
-        file name length                2 bytes
-        extra field length              2 bytes
-        file comment length             2 bytes
-        disk number start               2 bytes
-        internal file attributes        2 bytes
-        external file attributes        4 bytes
-        relative offset of local header 4 bytes
-
-        file name (variable size)
-        extra field (variable size)
-        file comment (variable size)
+      /* Central directory record format:
+       * central file header signature   4 bytes  (0x02014b50)
+       * version made by                 2 bytes
+       * version needed to extract       2 bytes
+       * general purpose bit flag        2 bytes
+       * compression method              2 bytes
+       * last mod file time              2 bytes
+       * last mod file date              2 bytes
+       * crc-32                          4 bytes
+       * compressed size                 4 bytes
+       * uncompressed size               4 bytes
+       * file name length                2 bytes
+       * extra field length              2 bytes
+       * file comment length             2 bytes
+       * disk number start               2 bytes
+       * internal file attributes        2 bytes
+       * external file attributes        4 bytes
+       * relative offset of local header 4 bytes
+       *
+       * file name (variable size)
+       * extra field (variable size)
+       * file comment (variable size)
        */
 
       if (fread(scbuf, CENHEAD, 1, in_file) != 1) {
@@ -5141,12 +5144,12 @@ local int scanzipf_regnew()
 
       z->encrypt_method = NO_ENCRYPTION;
 
-      /* Don't worry about the encryption status of existing entries for now.
-         Later we may want to support changing the encryption status of entries,
-         but currently Zip does not support decryption and so can't do anything
-         with encrypted entries.  For consistency, leave unencrypted entries
-         alone also. */
-
+      /* Don't worry about the encryption status of existing entries for
+       * now.  Later we may want to support changing the encryption
+       * status of entries, but currently Zip does not support
+       * decryption and so can't do anything with encrypted entries.
+       * For consistency, leave unencrypted entries alone also.
+       */
 #if 0
       if (z->flg & 1) {
         if (z->how == 99) {
@@ -5397,7 +5400,9 @@ local int scanzipf_regnew()
         zipoddities(z);
 #endif
 
-      /* Link into list */
+      /* Link into list. */
+      if (zfiles == NULL)
+        x = &zfiles;            /* First link. */
       *x = z;
       z->nxt = NULL;
       x = &z->nxt;
@@ -5471,6 +5476,7 @@ int readzipfile()
   retval = ZE_OK;
   f = NULL;                             /* shut up some compilers */
   zipfile_exists = 0;
+
 
   /* If zip file exists, read headers and check structure */
 #ifdef VMS
@@ -5895,14 +5901,15 @@ int putlocal(z, rewrite)
     if (force_zip64 == 0 && zip64_entry) {
       /* tried to force into standard entry but needed Zip64 entry */
       zipwarn("Entry too big:", z->oname);
-      ZIPERR(ZE_BIG, "Large entry support disabled (with --force-zip64-) but entry needs");
+      ZIPERR(ZE_BIG,
+       "Large entry support disabled (with --force-zip64-) but entry needs");
     }
     /* Normally for a large archive if the input file is less than 4 GB then
        the compressed or stored version should be less than 4 GB.  If this
        assumption is wrong this catches it.  This is a problem even if not
        streaming as the Zip64 extra field was not written and now there's no
        room for it.
-       
+
        However, there may be a way around this and it may get implemented by
        the next beta. */
     if (was_zip64 == 0 && zip64_entry == 1) {

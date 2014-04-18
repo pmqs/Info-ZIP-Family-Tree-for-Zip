@@ -1,12 +1,14 @@
 HOW TO INSTALL ZIP
 
+     Last updated 19 January 2014.
+
      Zip is distributed as C source code that can be compiled on a
      wide range of systems:  Unix, VMS, MSDOS, OS/2, NT, Amiga, Atari,
      BeOS, VM/CMS, ...  You will need Unzip 5.0p1 or later (under any
      system), PKUNZIP 2.04g or later (under MSDOS), or some other unzip
      utility to unpack the distribution file, in this case zip31.zip.
      But since you read this, you have unpacked it already, or you
-     cheated and got a tar.Z or tar.gz file...
+     cheated and got a tar.Z or tar.gz (or .tgz) file...
 
      Note:  Zip 3.x distribution kits (unlike previously distributed
      Zip 2.x kits) are created with a top-level directory ("zip31") in
@@ -23,7 +25,7 @@ Installation on Unix (see below for installation on other systems)
      the sources.  First step, then, is to unpack Zip.
 
      For example, we'll assume that we're working in a directory like,
-     say, "/usr/local/src/zip", and any required source kits are there.
+     say, "/usr/local/src/zip", and any required source kits are there. 
      Commands like the following should unpack a "zip31.zip" source kit,
      and move into the proper directory to build the programs.
 
@@ -43,24 +45,29 @@ Installation on Unix (see below for installation on other systems)
      Bzip2 Compression Source Kit
      ----------------------------
 
-     See "bzip2/install.txt" for details on getting a source kit for
-     adding optional bzip2 compression to Zip.
+     For licensing reasons, the bzip2 source files are not included in
+     the Zip source kit.  See "bzip2/README_BZIP2.txt" for details on
+     getting the source kit needed to add optional bzip2 compression to
+     Zip.
 
 
      Encryption Source Kits
      ----------------------
 
-     This Zip release includes the traditional encryption code
-     ("IZ_CRYPT_TRAD") previously supplied in the separate package
-     zcrypt29.zip, but you still can decide whether to activate the
-     IZ_CRYPT_TRAD code or not.  IZ_CRYPT_TRAD is enabled by default,
-     but you may disable it by specifying the option -DNO_CRYPT_TRAD (or
-     -DNO_CRYPT) in the "make" macro LOCAL_ZIP (or by adding this option
-     to the compilation options in the appropriate makefile).  See
-     README.CR for more on CRYPT 2.9 (provided to allow encryption to be
-     added to older releases) and README_CR.txt for more on the latest
-     version of CRYPT (the code of which is now included, so acquiring
-     this kit separately should not be needed).
+     Zip releases now include the original encryption code (was "CRYPT",
+     now called "IZ_CRYPT_TRAD" for Info-ZIP Crypt Traditional) that was
+     previously supplied in the separate package zcrypt29.zip, but you still
+     can decide whether to activate the IZ_CRYPT_TRAD code or not.  (The
+     original, PKZip-compatible weak encryption that has been with Zip for
+     awhile is now named Traditional Encryption to distinguish it from other
+     encryption methods Zip might include.)  IZ_CRYPT_TRAD is enabled by
+     default, but you can disable it by specifying -DNO_CRYPT_TRAD (for "no
+     traditional encryption") or -DNO_CRYPT (to leave out all encryption
+     methods) in the "make" macro LOCAL_ZIP (or by adding this option to the
+     compilation options in the appropriate makefile).  See README.CR for
+     more on the technical details of CRYPT 2.9 itself (which is still
+     available to add traditional encryption to older releases) and
+     README_CR.txt for more on the legal details of CRYPT.
 
      This Zip release offers optional support for Advanced Encryption
      Standard (AES) encryption, which is considered relatively strong
@@ -68,10 +75,10 @@ Installation on Unix (see below for installation on other systems)
      Strong encryption code is distributed separately, requiring the
      IZ_AES_WG source kit to enable this AES encryption option.  IZ_AES_WG
      (Info-ZIP AES WinZip/Gladman) adds AES encryption support compatible
-     with WinZip AES encryption using the Gladman AES code.  See
-     README_AES_WG.txt for more on the optional AES encryption.  The
-     IZ_AES_WG source kit must be unpacked in the Zip source directory
-     (created above during Zip unpacking), where it creates an "aes_wg"
+     with WinZip AES encryption using the Gladman AES code. See
+     "aes_wg/README_AES_WG.txt" for more on the optional AES encryption.
+     The IZ_AES_WG source kit must be unpacked in the Zip source directory
+     (created above during Zip unpacking), where it populates the "aes_wg"
      subdirectory.  File and path names may vary, but commands like the
      following should extract the IZ_AES_WG source kit in the right place:
 
@@ -79,8 +86,8 @@ Installation on Unix (see below for installation on other systems)
           unzip ../iz_aes_wg.zip        # Unpack the IZ_AES_WG kit.
 
      The IZ_AES_WG source kit may include a newer version of
-     README_AES_WG.txt, which should be checked for late news.  (Compare
-     the Version History at the bottom of the document.)
+     aes_wg/README_AES_WG.txt, which should be checked for late news.
+     (Check the Version History at the bottom of the document.)
 
 
   Building Zip
@@ -103,11 +110,13 @@ Installation on Unix (see below for installation on other systems)
 
      The "generic" target should work on most systems.  It automatically
      selects many compilation options based on a set of tests (in
-     unix/configure), including detection of large file support
-     sufficient to enable Zip64 large archive features.  If "generic"
-     fails, then one of the special targets given above may work,
-     but you may have to modify Makefile to get it to work on your
-     system.
+     unix/configure), including detection of large file support sufficient
+     to enable Zip64 large archive features.  If "generic" fails, then one
+     of the special targets given above may work, but you may have to modify
+     Makefile to get it to work on your system.  (Note that most of our
+     efforts go into the generic target and the specific system targets are
+     generally out of date, if they work at all.  Use the "generic" target
+     if possible.)
 
      Among the special systems are Cray Unicos, Zilog Zeus, and MINIX.
      (See unix/Makefile for the complete list of targets.)
@@ -115,17 +124,16 @@ Installation on Unix (see below for installation on other systems)
      On HP-UX, a problem in the C run-time library may need special
      attention.  See below for details.
 
-     The optimization settings for many systems should be reasonable,
-     but if you find that optimization for your system is not ideal,
-     please tell us what to change to improve it.
+     The optimization settings for many systems should be reasonable, but
+     if you find that optimization for your system is not ideal, please
+     tell us what to change to improve it.
 
-     If you get error messages such as "constant expected" in
-     deflate.c, add -DDYN_ALLOC to CFLAGS in your makefile entry.
+     If you get error messages such as "constant expected" in deflate.c,
+     add -DDYN_ALLOC to CFLAGS in your makefile entry.
 
-     If none of these compiles, links, and functions properly on
-     your Unix system, then your system apparently has specific
-     requirements we did not account for.  See the file README for how
-     to get help.
+     If none of these compiles, links, and functions properly on your
+     Unix system, then your system apparently has specific requirements
+     we did not account for.  See the file README for how to get help.
 
   HP-UX Special Note:
 
@@ -133,7 +141,7 @@ Installation on Unix (see below for installation on other systems)
      to run-time error messages like:
           zip I/O error: File too large
           zip error: Output file write failure (write error on zip file)
-     for large (>2GB) archives.
+     for large (>2GB) archives.  
 
      The problem has been observed on HP-UX version 11.11 (PA-RISC), and
      not on 11.31 (IA64).  A discussion may be available at:
@@ -142,7 +150,7 @@ Installation on Unix (see below for installation on other systems)
      For proper operation on systems with the defective mkstemp(), the C
      macro NO_MKSTEMP must be specified during the Zip build.  For example:
           make -f unix/makefile LOCAL_ZIP="-DNO_MKSTEMP" generic
-
+ 
      We suspect that 11.31 and later (on either hardware architecture) are
      always ok, and anything earlier is always bad, but HP may know more
      than we do.
@@ -151,28 +159,29 @@ Installation on Unix (see below for installation on other systems)
      bzip2 Compression
      -----------------
 
-     By default, Zip uses the "deflate" compression method.  To add
-     the additional "bzip2" compression method, see the file
-     bzip2/install.txt.  Note that bzip2 support is provided by
-     compiling and/or linking in the bzip2 library.  See the bzip2
-     site (http://www.bzip.org/) for more on bzip2.
+     By default, Zip uses the "deflate" compression method.  To add the
+     additional "bzip2" compression method, see the file
+     bzip2/README_BZIP2.txt.  Note that bzip2 support is provided by
+     compiling and/or linking in the bzip2 library.  See the bzip2 site
+     (http://www.bzip.org/) for more on bzip2.
 
 
      Encryption
      ----------
 
-     Traditional zip encryption is enabled by default.  To disable it,
-     the C macro NO_CRYPT_TRAD (or NO_CRYPT) must be defined at build
-     time.  This can be done by adding "LOCAL_ZIP=-DNO_CRYPT_TRAD" (or
+     Traditional zip encryption is enabled by default.  To disable it, the
+     C macro NO_CRYPT_TRAD (to disable just traditional encryption) or
+     NO_CRYPT (to disable all encryption) must be defined at build time.
+     This can be done by adding "LOCAL_ZIP=-DNO_CRYPT_TRAD" (or
      "LOCAL_ZIP=-DNO_CRYPT") to the "make" command.  For example:
 
           make -f unix/Makefile LOCAL_ZIP=-DNO_CRYPT_TRAD generic
-
+     
      AES encryption is not enabled by default.  To enable it, first
-     download and install the separate IZ_AES_WG source kit, as
-     explained in README_AES_WG.txt.  With the IZ_AES_WG source kit
-     unpacked into its aes_wg subdirectory, add "AES_WG=1" to the "make
-     generic" command.  For example:
+     download and add the separate IZ_AES_WG source kit, as explained
+     in aes_wg/README_AES_WG.txt.  With the IZ_AES_WG source kit unpacked
+     into its aes_wg subdirectory, add "AES_WG=1" to the "make generic"
+     command.  For example:
 
           make -f unix/Makefile AES_WG=1 generic
 
@@ -180,21 +189,24 @@ Installation on Unix (see below for installation on other systems)
      LZMA and/or PPMd Compression
      ----------------------------
 
-     The LZMA and PPMd compression methods (new in Zip version 3.1) are
-     not enabled by default, but the required source code is included in
-     the Zip source kit.  To enable LZMA and/or PPMd compression, add
-     "LZMA=1" and/or "PPMD=1" to the "make generic" command.  For
-     example:
+     The LZMA and PPMd compression methods (new in Zip version 3.1) are not
+     enabled by default, but the required source code is included in the Zip
+     source kit in the szip (i.e. 7-Zip, where the LZMA and PPMd source
+     originally came from) directory.  To enable LZMA and/or PPMd
+     compression, add "LZMA=1" and/or "PPMD=1" to the "make generic" command.
+     For example:
 
           make -f unix/Makefile LZMA=1 PPMD=1 generic
+
+     If including PPMd compression, please see the note below.
 
 
      Memory Options
      --------------
 
-     If you have lots of memory, try compiling with -DBIG_MEM.  If your
-     system supports mmap(), try compiling with -DMMAP.  This generally
-     gives faster compression but uses more memory.  See the unix/Makefile
+     If you have lots of memory, try compiling with -DBIG_MEM. If your
+     system supports mmap(), try compiling with -DMMAP. This generally
+     gives faster compression but uses more memory. See the unix/Makefile
      entry mmap_gcc for an example.
 
 
@@ -204,7 +216,7 @@ Installation on Unix (see below for installation on other systems)
      zipcloak, and zipsplit will be created.  (Note that there is much
      commonality between various system builds, so more than one might
      work for your system.  However, the best results are generally
-     achieved using either the generic build or, if that doesn't work,
+     achieved using either the "generic" build or, if that doesn't work,
      the system build that best matches your system.)  You can then copy
      the executables to an appropriate directory in the search path using:
 
@@ -225,10 +237,9 @@ Installation on Unix (see below for installation on other systems)
           cd ..
           rm -r zip31
 
-     This will remove the directory zip31 and its contents created
-     by unzip.  You should keep the zip31.zip file around though,
-     in case you need to build it again or want to give it to a
-     colleague.
+     This will remove the directory zip31 and its contents.  You should
+     keep the zip31.zip file around though, in case you need to build it
+     again or want to give it to a colleague.
 
      You can add the following lines to the file /etc/magic for
      usage by the 'file' command:
@@ -287,13 +298,20 @@ Installation on other systems
      further information.  This list may be a little old at this point and we
      should be looking at more recent Windows OS and tools shortly.
 
+     Most recent testing has been done with MS Visual C++.  Directories
+     with projects for various versions are under the win32 directory.
+
 
   Windows DLL (WIN32):
 
      Supported environment currently is Visual C++ (32-bit only, 5.x and
-     newer), though the DLLs can be used on other platforms.  For instructions
-     on how to build the DLLs and where find the makefiles, look into
-     windll/contents.  We plan to look at more recent OS and tools shortly.
+     newer) for creating DLLs.  For instructions on how to build the DLLs
+     and where find the makefiles, look into windll/contents.  We plan to
+     look at more recent OS and tools shortly.
+
+     In this beta, DLLs may not be stable as we work to support later
+     versions of Visual C++.  Any issues should be worked out before the
+     next Zip release.     
 
 
   OS/2:
@@ -447,7 +465,7 @@ Compiler Flags
     bzip2 projects are used.  See the VMS documentation for when VMS sets
     this flag.  Setting NO_BZIP2_SUPPORT turns this off.
 
-    See bzip2/install.txt for more on installing bzip2 support.
+    See bzip2/README_BZIP2.txt for more on installing bzip2 support.
 
   WIN32_OEM (Win32 only)
     Enable saving paths on Win32 in the OEM character set.  Zip has stored
@@ -485,8 +503,8 @@ Compiler Flags
     releases.
 
   IZ_CRYPT_AES_WG
-    Enable AES_WG encryption capability.  See README_AES_WG.txt for
-    details.
+    Enable AES_WG encryption capability.  See aes_wg/README_AES_WG.txt
+    for details.
 
   NO_CRYPT
     Disable all encryption capability.
@@ -502,12 +520,14 @@ Compiler Flags
     pattern matching (NO_ASMV), or both (NO_ASM).
 
   NO_MKSTEMP
-    On Unix systems, the zip temporary file is normally created using mkstemp()
-    rather than mktemp().  NO_MKSTEMP reverts this to using mktemp().
+    On Unix systems, temporary archive files are normally created using
+    mkstemp()  rather than mktemp().  NO_MKSTEMP reverts this to using
+    mktemp().
 
 
 For command help on any of the zip* utilities, simply enter
 the name with no arguments.
+
 
 __________________________________________________________________________
 
@@ -533,6 +553,13 @@ seems to work.  For example:
     gcc -c -O1 szip/Ppmd8.c                                 # (Or "-O2"?)
     make -f unix/Makefile PPMD=1 [options] CC=gcc generic   # Re-link.
 
+If "PROD=subdir" is used with "make", then add a suitable "-o" option to
+the compiler command.  For example:
+
+    make -f unix/Makefile PPMD=1 [options] CC=gcc PROD=pd generic
+    gcc -c -O1 -o pd/Ppmd8.o szip/Ppmd8.c
+    [...]
+
 Other compilers (AIX xlC?) may need some other optimization setting.
 Because only UnZip has built-in test capability, it would be best to
 build and test UnZip to determine a working optimization setting, and
@@ -541,4 +568,3 @@ shown above.
 
    We would be grateful to receive reports describing environments where
 this problem occurs.
-

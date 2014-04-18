@@ -291,8 +291,6 @@ static int add_JLEE_ef( struct zlist far *z )
     if ( l_ef == NULL ) {
         return ZE_MEM;
     }
-    z->extra = l_ef;
-    l_ef += z->ext;
 
     /* Allocate memory for the  central extra fields. */
     if ( z->cextra && z->cext != 0 ) {
@@ -302,8 +300,12 @@ static int add_JLEE_ef( struct zlist far *z )
         z->cext = 0;
     }
     if ( c_ef == NULL ) {
+        free( l_ef);
         return ZE_MEM;
     }
+
+    z->extra = l_ef;
+    l_ef += z->ext;
     z->cextra = c_ef;
     c_ef += z->cext;
 

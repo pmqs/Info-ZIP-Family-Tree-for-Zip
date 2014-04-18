@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -87,14 +87,22 @@
 
 typedef struct stat z_stat;
 
+#ifndef S_ISDIR                         /* VAX C V3.1-051 needs help. */
+# define S_ISDIR(m)  (((m)& S_IFMT) == S_IFDIR)
+#endif /* ndef S_ISDIR */
+
+#ifndef S_ISREG                         /* VAX C V3.1-051 needs help. */
+# define S_ISREG(m)  (((m)& S_IFMT) == S_IFREG)
+#endif /* ndef S_ISREG */
+
 #include <unixio.h>
 
 /* Need <unixlib.h> (on old VMS versions) for:
  *    ctermid() declaration in ttyio.c,
- *    getpid() declaration for srand seed,
- *    getpwd() declaration in apiu.c.
+ *    getcwd() declaration in api.c,
+ *    getpid() declaration for srand seed.
  */
-#if defined( __GNUC__) || defined( USE_ZIPMAIN) || defined( ZCRYPT_INTERNAL)
+#if defined( __GNUC__) || defined( ZIPLIB) || defined( ZCRYPT_INTERNAL)
 #  define NEED_UNIXLIB_H
 #endif
 
@@ -131,6 +139,14 @@ typedef struct stat z_stat;
 #  define VMS_PK_EXTRA 1              /* PK style VMS support is default */
 #endif
 
+/* 2014-04-18 SMS.
+ * IM-style vms/vms_im.c:vms_read() is incompatible with the any-size
+ * requests used by the LZMA compression code.
+ */
+#if defined( LZMA_SUPPORT) && defined( VMS_IM_EXTRA)
+    Bad code: error: LZMA_SUPPORT incompatible with VMS_IM_EXTRA.
+#endif
+
 /* 2007-02-22 SMS.
  * <unistd.h> is needed for symbolic link functions, so use it when the
  * symbolic link criteria are met.
@@ -146,6 +162,25 @@ typedef struct stat z_stat;
 #endif /* defined(NO_UNISTD_H) || __CRTL_VER < 70000000) */
 
 #define SSTAT vms_stat
+
+/* 2013-04-11 SMS.  Have zrewind() in zipup.h. */
+#ifndef NO_ETWODD_SUPPORT
+# define ETWODD_SUPPORT
+#endif /* ndef NO_ETWODD_SUPPORT */
+
+/* 2013-11-18 SMS.
+ * Define subsidiary object library macros based on ZIPLIB.
+ * NO_ZPARCHIVE enables non-Windows api.c:comment().
+ * USE_ZIPMAIN enables zip.c:zipmain() instead of main().
+ */
+#ifdef ZIPLIB
+# ifndef NO_ZPARCHIVE
+#  define NO_ZPARCHIVE
+# endif
+# ifndef USE_ZIPMAIN
+#  define USE_ZIPMAIN
+# endif
+#endif /* def ZIPLIB */
 
 #ifdef USE_ZIPMAIN
 # define EXIT( exit_code) return( exit_code)

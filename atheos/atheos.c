@@ -274,7 +274,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
       t->atime = t->mtime = t->ctime = label_utim;
     return label_time;
   }
-  if ((name = malloc(len + 1)) == NULL {
+  if ((name = malloc(len + 1)) == NULL) {
     ZIPERR(ZE_MEM, "filetime");
   }
   strcpy(name, f);

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -40,10 +40,13 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>..\..\..\bzip2;$(IncludePath)</IncludePath>
+    <IncludePath>..\..\..;..\..\..\bzip2;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>..\..\..;..\..\..\bzip2;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -101,6 +104,7 @@
     <ClCompile Include="..\..\..\wrap\prng.c" />
     <ClCompile Include="..\..\..\wrap\pwd2key.c" />
     <ClCompile Include="..\..\..\wrap\sha1.c" />
+    <ClCompile Include="..\..\..\zbz2err.c" />
     <ClCompile Include="..\..\..\zip.c" />
     <ClCompile Include="..\..\..\zipfile.c" />
     <ClCompile Include="..\..\..\zipup.c" />

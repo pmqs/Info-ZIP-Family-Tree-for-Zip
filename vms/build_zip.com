@@ -1,8 +1,18 @@
 $! BUILD_ZIP.COM
 $!
-$!     Build procedure for VMS versions of Zip.
+$!     Build procedure for VMS versions of Zip, ZipCloak, ZipNote, and
+$!     ZipSplit. 
 $!
-$!     Last revised:  2013-07-04  SMS.
+$!     Last revised:  2013-11-29  SMS.
+$!
+$!----------------------------------------------------------------------
+$! Copyright (c) 2004-2013 Info-ZIP.  All rights reserved.
+$!
+$! See the accompanying file LICENSE, version 2009-Jan-2 or later (the
+$! contents of which are also included in zip.h) for terms of use.  If,
+$! for some reason, all these files are missing, the Info-ZIP license
+$! may also be found at: ftp://ftp.info-zip.org/pub/infozip/license.html
+$!----------------------------------------------------------------------
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -51,6 +61,7 @@ $!     - choose a destination directory for architecture-specific
 $!       product files (.EXE, .OBJ,.OLB, and so on): "PROD=subdir", to
 $!       use "[.subdir]".  The default is a name automatically generated
 $!       using rules defined below.
+$!     - Show version/feature reports: "DASHV", "SLASHV"
 $!     - Create help output text files: "HELP_TEXT"
 $!
 $!     To specify additional options, define the global symbol
@@ -163,6 +174,7 @@ $ lib_ziputils_name = "ZIPUTILS.OLB"
 $!
 $ AES_WG = ""
 $ CCOPTS = ""
+$ DASHV = 0
 $ IZ_BZIP2 = ""
 $ IZ_ZLIB = ""
 $ LINKOPTS = "/nomap /notraceback"
@@ -180,6 +192,7 @@ $ MAKE_SYM = 0
 $ MAY_USE_DECC = 1
 $ MAY_USE_GNUC = 0
 $ PROD = ""
+$ SLASHV = 0
 $!
 $! Process command line parameters requesting optional features.
 $!
@@ -200,6 +213,12 @@ $     then
 $         opts = f$edit( curr_arg, "COLLAPSE")
 $         eq = f$locate( "=", opts)
 $         CCOPTS = f$extract( (eq+ 1), 1000, opts)
+$         goto argloop_end
+$     endif
+$!
+$     if (f$extract( 0, 5, curr_arg) .eqs. "DASHV")
+$     then
+$         DASHV = 1
 $         goto argloop_end
 $     endif
 $!
@@ -292,6 +311,12 @@ $     then
 $         opts = f$edit( curr_arg, "COLLAPSE")
 $         eq = f$locate( "=", opts)
 $         PROD = f$extract( (eq+ 1), 1000, opts)
+$         goto argloop_end
+$     endif
+$!
+$     if (f$extract( 0, 6, curr_arg) .eqs. "SLASHV")
+$     then
+$         SLASHV = 1
 $         goto argloop_end
 $     endif
 $!
@@ -564,6 +589,22 @@ $         endif
 $     endif
 $ endif
 $!
+$! If DASHV was requested, then run "zip -v" (and exit).
+$!
+$ if (dashv)
+$ then
+$     mcr [.'dest']zip -v
+$     goto error
+$ endif
+$!
+$! If SLASHV was requested, then run "zip_cli /verbose" (and exit).
+$!
+$ if (slashv)
+$ then
+$     mcr [.'dest']zip_cli /verbose
+$     goto error
+$ endif
+$!
 $! Reveal the plan.  If compiling, set some compiler options.
 $!
 $ if (MAKE_OBJ)
@@ -573,7 +614,7 @@ $!
 $     DEF_UNX = "/define = (''defs')"
 $     DEF_CLI = "/define = (''defs', VMSCLI)"
 $     DEF_UTIL = "/define = (''defs', UTIL)"
-$     DEF_LIBZIP = "/define = (''defs', USE_ZIPMAIN)"
+$     DEF_LIBZIP = "/define = (''defs', ZIPLIB)"
 $ else
 $     if (MAKE_EXE .or. MAKE_MSG)
 $     then

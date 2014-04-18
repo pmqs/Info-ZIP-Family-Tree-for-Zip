@@ -4032,30 +4032,33 @@ char **copy_args(args, max_args)
     return NULL;
   }
 
-  /* Count non-NULL args.  Stop at max_args, if not zero. */
+  /* Count non-NULL args.  Stop at max_args if reached first. */
   for (j = 0; args[ j] && (max_args == 0 || j < max_args); j++);
   max_args = j;
 
   if ((new_args = (char **) malloc((max_args + 1) * sizeof(char *))) == NULL)
   {
+    /* Running out of memory should probably be fatal */
     oWARN("memory - ca.1");
     return NULL;
   }
 
-  /* Transfer (non-NULL) original args[] to new_args[]. */
+  /* Transfer (non-NULL) original args[] to new_args[] */
   for (j = 0; j < max_args; j++)
   {
     if ((new_args[ j] = malloc( strlen( args[ j])+ 1)) == NULL)
     {
       free_args( new_args);
+      /* a failed malloc should probably be fatal - propagating
+         the failure elsewhere may be misleading */
       oWARN("memory - ca.2");
       return NULL;
     }
-    strcpy( new_args[ j], args[ j]);
+    strcpy(new_args[j], args[j]);
   }
 
-  /* NULL_terminate new_args[]. */
-  new_args[ max_args] = NULL;
+  /* NULL_terminate new_args[] */
+  new_args[max_args] = NULL;
 
   return new_args;
 }
@@ -4222,7 +4225,11 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
     return 0;
   }
 
-  /* look for match in options */
+  /* look for match in options - all valid options use ASCII single-byte
+     characters, so we ignore any multi-byte characters in the option
+     string - this would need to be changed if non-ASCII short options were
+     to be supported - long options should support multi-byte characters
+     however */
   clen = MB_CLEN(shortopt);
   for (op = 0; options[op].option_ID; op++) {
     s = options[op].shortopt;
@@ -4231,10 +4238,21 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
         /* single char match */
         match = op;
       } else {
-        /* 2 wide short opt.  Could support more chars but should use long opts instead */
+        /* 2 wide short opt - could support more chars but should use long opts
+           instead - as multi-byte character introducers would not match the
+           ASCII single-byte characters in s (unless someone put them in the
+           Options table, which shouldn't happen), we do not need to worry that
+           shortopt[0] or shortopt[1] are part of a multi-byte character - that
+           said, a two-byte character could be matched at this point */
         if (s[1] == shortopt[1]) {
           /* match 2 char short opt or 2 byte char */
           match = op;
+          /* if the first character was a single byte and we have a two-character
+             match, point to the second one */
+          /* we do skip multi-byte characters cleanly, but it is possible to match
+             the introducer of the second character as a single-byte character -
+             introducers should not be used as the second character in Options for
+             this reason */
           if (clen == 1) (*optchar)++;
           break;
         }
@@ -4334,6 +4352,8 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
       /* This seemed inconsistent so now if no value attached to argument look
          to the next argument if that argument is not an option for option
          value - 11/12/04 EG */
+      /* Though the parser follows definitive rules, optional values are
+         probably confusing to the user and should not be used */
       if (arg[(*optchar) + clen]) {
         /* has value */
         /* add support for optional = - 2/6/05 EG */
@@ -4351,23 +4371,28 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
         *optchar = THIS_ARG_DONE;
       }
     } else if (options[match].value_type == o_OPT_EQ_VALUE) {
-      /* Optional value, but "=" required with value. */
+      /* Optional value, but "=" required with value.  Forms are:
+         -opt=value
+         -opt= value
+         -opt = value
+         If none of these are found, the option has no value. */
       int have_eq = 0;
 
       if (arg[(*optchar) + clen]) {
-        /* "-optXXXX".  May have attached value. */
+        /* "-optXXXX".  May have attached value.  First X must be = if does. */
         if (arg[(*optchar) + clen] == '=') {
           /* Skip '=' (but remember it). */
           clen++;
           have_eq = 1;
         }
         if (arg[(*optchar) + clen]) {
-          /* "-opt{=|X}XXX".  Have more chars.  Attached value? */
+          /* "-opt{=}value".  Have attached value.  This option type requires
+             "=" for value, so if no "=" then no value. */
           if (have_eq) {
             /* "-opt=value".  Have attached value. */
             if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1))
-             == NULL) {
-              oERR(ZE_MEM, "gso.4");
+                == NULL) {
+            oERR(ZE_MEM, "gso.4");
             }
             strcpy(*value, arg + (*optchar) + clen);
             *optchar = THIS_ARG_DONE;
@@ -4377,7 +4402,11 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
              * Should be more short options.
              */
         }
-        else if (have_eq && args[argnum + 1] && args[argnum + 1][0] != '-') {
+        /* Found -opt= but no attached value, so look at next argument.
+           Removed "&& args[argnum + 1][0] != '-'" as the = forces whatever
+           the next argument is to be a value, regardless of a leading -.
+           If there is no value, there should not be a trailing "=". */
+        else if (have_eq && args[argnum + 1]) {
           /* "-opt= value".  Have detached value. */
           if ((*value = (char *)malloc(strlen(args[argnum + 2])+ 1)) == NULL) {
             oERR(ZE_MEM, "gso.5");
@@ -4386,12 +4415,16 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
           strcpy(*value, args[argnum + 1]);
           *optchar = SKIP_VALUE_ARG;
         } else {
-          /* "-opt[=] -opt".  No "=" or no (non-option) value specified. */
+          /* Either no "=" or found "=" but no following argument (which we take
+             as no value), so no value unless the "-opt = value" form is used */
           *optchar = THIS_ARG_DONE;
         }
+      /* No value found so far, so we look for form "-opt = value". */
       } else if (args[argnum + 1] && (strcmp( args[argnum + 1], "=") == 0)) {
-        /* "-opt = ".  Loose "=" token.  Look for detached value. */
-        if (args[argnum + 2] && args[argnum + 2][0] != '-') {
+        /* "-opt = ".  Loose "=" token.  Look for detached value.  Removed
+           "&& args[argnum + 2][0] != '-'" as = forces what follows to be a
+           value. */
+        if (args[argnum + 2]) {
           /* "-opt = value".  Have detached value. */
           if ((*value = (char *)malloc(strlen(args[argnum + 2])+ 1)) == NULL) {
             oERR(ZE_MEM, "gso.6");
@@ -4400,7 +4433,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
           strcpy(*value, args[argnum + 2]);
           *optchar = SKIP_VALUE_ARG2;
         } else {
-          /* "-opt =", but no (non-option) value.  Skip "=" arg. */
+          /* "-opt =", but no value.  Skip "=" arg. */
           *optchar = SKIP_VALUE_ARG;
         }
       } else if (args[argnum + 1] && args[argnum + 1][0] == '=') {
@@ -4418,7 +4451,13 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
       }
     } else if (options[match].value_type == o_REQUIRED_VALUE ||
                options[match].value_type == o_VALUE_LIST) {
-      /* see if follows option */
+      /* Forms  for "-opt" with "Value" are:
+       * -optValue                      [Less confusing with one-char "opt"]
+       * -opt=Value
+       * -opt Value
+       * -opt Value1 Value2 ... {@}     [value list]
+       */
+      /* See if value follows option. */
       if (arg[(*optchar) + clen]) {
         /* has value following option as -ovalue */
         /* add support for optional = - 6/5/05 EG */
@@ -4558,7 +4597,7 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
     }
   }
 
-  if (match < 0) {
+  if (match == -1) {
     sprintf(optionerrbuf, long_op_not_sup_err, longopt);
     free(arg);
     if (depth > 0) {
@@ -4585,8 +4624,16 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
     }
   }
   /* get value */
+
+  /* Optional value requires "=".
+     Forms:
+     -option=value
+     -option =value
+     -option = value
+     -option= value
+  */
   if (options[match].value_type == o_OPT_EQ_VALUE) {
-    /* Optional value, but "=" required with detached value. */
+    /* Optional value, but "=" required. */
     if (valuestart == NULL) {
       /* "--opt ="? */
       if (args[ argnum+ 1] != NULL) {
@@ -5053,7 +5100,7 @@ unsigned long get_option(pargs, argc, argnum, optchar, value,
         /* - and -- are not allowed in value lists unless escaped */
         /* another value in value list */
         if ((*value = (char *)malloc(strlen(args[argn]) + 1)) == NULL) {
-          oERR(ZE_MEM, "go.1");
+          oERR(ZE_MEM, "go.2");
         }
         strcpy(*value, args[argn]);
         break;

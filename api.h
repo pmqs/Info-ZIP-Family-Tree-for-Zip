@@ -8,37 +8,122 @@
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
-/* Only the Windows DLL is currently supported */
+
+/* api.h and api.c are a callable interface to Zip.  The following entry points
+   are defined:
+
+     ZpVersion   - Returns version of the DLL or LIB
+     ZpInit      - Initializes the DLL or LIB
+     ZpArchive   - Main entry point for the DLL and LIB (does the actual work)
+     zipmain     - When used as a LIB on some platforms, zipmain (in zip.c) called
+                    directly rather than via ZpArchive() - also used when the
+                    Zip source is included directly (USE_ZIPMAIN_NO_API)
+
+   In addition, these callback functions are used:
+
+     DLLPRNT             - Called to print strings
+     DLLPASSWORD         - Called to request a password
+     DLLSERVICE          - Called as each entry is processed
+                           Setting return code to 1 aborts zip operation
+     DLLSERVICE_NO_INT64 - A version of DLLSERVICE that does not use 64-bit args,
+                           but instead uses high and low 32-bit parts - this is
+                           needed for Visual Basic, for instance
+     DLLSPLIT            - Called to request split destination if splitting
+     DLLCOMMENT          - Called to request a comment
+     DLLPROGRESS         - (Optional) Called to report progress, returns:
+                             (entry name, % all bytes processed, % entry procd)
+                           Setting return code to 1 aborts zip operation
+
+   The ZPOPT structure is used to pass settings, such as root directory, to Zip
+   via the ZPArchive call.  If ZPArchive is not used, the values will need to
+   be set using options passed to zipmain().  Not all fields in ZPOPT may be
+   settable using command line options.
+
+   Only the Windows DLL is currently supported */
+
+/* There are basically three ways to include Zip functionality:
+     DLL     - Compile Zip as a Dynamic Load Library (DLL) and call it from the
+                application
+     LIB     - Compile Zip as a Static Load Library (LIB), link it in, and call it
+                from the application
+     in line - Include the Zip source in the application directly and call Zip
+                via zipmain (the user will need to handle any reentry issues)
+
+   The following macros determine how this interface is compiled:
+     WINDLL               - Compile for WIN32 DLL, mainly for MS Visual Studio
+                            WINDLL implies WIN32 and ZIPDLL
+                            Set by the build environment
+     WIN32                - Running on WIN32
+                            The compiler usually sets this
+     ZIPDLL               - Compile the Zip DLL (WINDLL implies this)
+                            Set by the build environment
+     WIN32 and ZIPDLL     - A DLL for WIN32 (except MS C++ - use WINDLL instead)
+                             - this is used for creating DLLs for other ports
+                            (such as OS2), but only the MSVS version is currently
+                            supported
+     USE_ZIPMAIN          - Use zipmain() instead of main() - for DLL and LIB, but
+                             could also be used to compile the source into another
+                             application directly
+                            Usually set by ZIPDLL or ZIPLIB, but can be set in the
+                             build environment in unique situations
+     ZIPLIB               - Compile as static library (LIB)
+                            For MSVS, WINDLL and ZIPLIB are both defined to create
+                             the LIB
+     ZIP_DLL_LIB          - Set in zip.h when either ZIPDLL or ZIPLIB are defined
+     NO_ZPARCHIVE         - Set if not using ZpArchive - used with ZIPLIB (DLL has
+                             to call an established entry point so can't call
+                             zipmain() directly - a new entry point that can pass
+                             arguments directly to zipmain() is in the works)
+
+   DLL_ZIPAPI is deprecated.  USE_ZIPMAIN && DLL_ZIPAPI for UNIX and VMS is replaced
+   by ZIPLIB && NO_ZPARCHIVE (as they call zipmain() directly instead).
+*/
+
+
 #ifndef _ZIPAPI_H
 # define _ZIPAPI_H
 
+
 # include "zip.h"
 
-# if defined( WINDLL) || (defined( WIN32) && defined( DLL_ZIPAPI))
+
+/* =================
+ * This needs to be looked at
+ */
 #  ifdef WIN32
 #   ifndef PATH_MAX
 #    define PATH_MAX 260
 #   endif
-#  else /* def WIN32 */
-#   ifndef PATH_MAX
-#    define PATH_MAX 128
-#   endif
-#  endif /* def WIN32 [else] */
+# endif
 
+# if 0
+# ifdef __cplusplus
+   extern "C"
+   {
+      void  EXPENTRY ZpVersion(ZpVer far *);
+      int   EXPENTRY ZpInit(LPZIPUSERFUNCTIONS lpZipUserFunc);
+      int   EXPENTRY ZpArchive(ZCL C, LPZPOPT Opts);
+   }
+# endif
+# endif /* 0 */
+
+# ifdef WIN32
 #  include <windows.h>
 
-/* Porting definitions between Win 3.1x and Win32 */
-#  ifdef WIN32
-#   define far
-#   define _far
-#   define __far
-#   define near
-#   define _near
-#   define __near
-#  endif /* def WIN32 */
-# else /* defined( WINDLL) || (defined( WIN32) && defined( DLL_ZIPAPI)) */
+/* Porting definations between Win 3.1x and Win32 */
+#  define far
+#  define _far
+#  define __far
+#  define near
+#  define _near
+#  define __near
+# endif
+
+# if 0
 #  define USE_STATIC_LIB
-#  ifdef VMS
+# endif /* 0 */
+
+# ifdef VMS
     /* Get a realistic value for PATH_MAX. */
     /* 2012-12-31 SMS.
      * Use <nam.h> instead of <namdef.h> to avoid conflicts on some old
@@ -47,32 +132,33 @@
      * which gets <nam.h>.  (On modern systems, <nam.h> is a wrapper for
      * <namdef.h>.)
      */
-#   include <nam.h>
-#   undef PATH_MAX
-    /* Some compilers may complain about the "$" in NAML$C_MAXRSS. */
-#   ifdef NAML$C_MAXRSS
-#    define PATH_MAX (NAML$C_MAXRSS+1)
-#   else
-#    define PATH_MAX (NAM$C_MAXRSS+1)
-#   endif
-#  endif /* def VMS */
+#  include <nam.h>
+#  undef PATH_MAX
+   /* Some compilers may complain about the "$" in NAML$C_MAXRSS. */
+#  ifdef NAML$C_MAXRSS
+#   define PATH_MAX (NAML$C_MAXRSS+1)
+#  else
+#   define PATH_MAX (NAM$C_MAXRSS+1)
+#  endif
+# endif /* def VMS */
 
-#  ifndef PATH_MAX
-#   ifdef MAXPATHLEN
-#    define PATH_MAX      MAXPATHLEN    /* in <sys/param.h> on some systems */
-#   else /* def MAXPATHLEN */
-#    ifdef _MAX_PATH
-#     define PATH_MAX    _MAX_PATH
-#    else /* def _MAX_PATH */
-#     if FILENAME_MAX > 255
-#      define PATH_MAX  FILENAME_MAX    /* used like PATH_MAX on some systems */
-#     else /* FILENAME_MAX > 255 */
-#      define PATH_MAX  1024
-#     endif /* FILENAME_MAX > 255 [else] */
-#    endif /* def _MAX_PATH [else] */
-#   endif /* def MAXPATHLEN [else] */
-#  endif /* ndef PATH_MAX */
+# ifndef PATH_MAX
+#  ifdef MAXPATHLEN
+#   define PATH_MAX      MAXPATHLEN    /* in <sys/param.h> on some systems */
+#  else /* def MAXPATHLEN */
+#   ifdef _MAX_PATH
+#    define PATH_MAX    _MAX_PATH
+#   else /* def _MAX_PATH */
+#    if FILENAME_MAX > 255
+#     define PATH_MAX  FILENAME_MAX    /* used like PATH_MAX on some systems */
+#    else /* FILENAME_MAX > 255 */
+#     define PATH_MAX  1024
+#    endif /* FILENAME_MAX > 255 [else] */
+#   endif /* def _MAX_PATH [else] */
+#  endif /* def MAXPATHLEN [else] */
+# endif /* ndef PATH_MAX */
 
+# ifndef WIN32
    /* Adapt Windows-specific code to normal C RTL. */
 #  define far
 #  define _far
@@ -93,13 +179,16 @@
 #  define LPSTR char *
 #  define LPCSTR const char *
 #  define WINAPI
-# endif /* defined( WINDLL) || (defined( WIN32) && defined( DLL_ZIPAPI)) [else] */
+# endif /* not WIN32 */
 
 
-# if defined(WINDLL) || defined(API) || defined( USE_ZIPMAIN)
+# if defined(ZIPDLL) || defined(ZIPLIB)
+
+/* The below are used to interface with the DLL and LIB */
+
 
 /*---------------------------------------------------------------------------
-    Prototypes for public Zip API (DLL) functions.
+    Prototypes for public Zip API (DLL and LIB) functions.
   ---------------------------------------------------------------------------*/
 
 #  define ZPVER_LEN    sizeof(ZpVer)
@@ -216,6 +305,7 @@
     int  fRepair;           /* Repair archive. 1 => -F, 2 => -FF */
     char fLevel;            /* Compression level (0 - 9) */
     LPSTR szCompMethod;     /* Compression method string (e.g. "bzip2"), or NULL */
+   /* ProgressSize should be added as an option to support the zipmain() interface */
 #  ifdef ENABLE_DLL_PROGRESS
      LPSTR szProgressSize;  /* Bytes read in between progress reports (-ds format)
                                Set to NULL for no reports.  If used, must define
@@ -253,6 +343,14 @@
 
   extern LPZIPUSERFUNCTIONS lpZipUserFunctions;
 
+#  if 0
+#  ifndef __cplusplus
+    void  EXPENTRY ZpVersion(ZpVer far *);
+    int   EXPENTRY ZpInit(LPZIPUSERFUNCTIONS lpZipUserFunc);
+    int   EXPENTRY ZpArchive(ZCL C, LPZPOPT Opts);
+#  endif
+#  endif /* 0 */
+
 #  if defined(ZIPLIB) || defined(COM_OBJECT)
 #   define ydays zp_ydays
 #  endif
@@ -264,7 +362,7 @@
     int      EXPENTRY ZpAltMain         (int argc, char **argv, ZpInit *init);
 #  endif
 
-#  ifndef USE_STATIC_LIB
+#  ifdef ZIPDLL
 #   define printf  ZPprintf
 #   define fprintf ZPfprintf
 #   define perror  ZPperror
@@ -272,7 +370,7 @@
     extern int __far __cdecl printf(const char *format, ...);
     extern int __far __cdecl fprintf(FILE *file, const char *format, ...);
     extern void __far __cdecl perror(const char *);
-#  endif /* USE_STATIC_LIB */
+#  endif /* ZIPDLL */
 
 
 /* Interface function prototypes. */
@@ -288,7 +386,7 @@
 #  endif
 
 
-#ifndef WINDLL
+#  ifndef WINDLL
 
 /* windll.[ch] stuff for non-Windows systems. */
 
@@ -297,8 +395,9 @@ extern HANDLE hStr;
 
 void comment( unsigned int);
 
-#endif /* ndef WINDLL */
+#  endif /* ndef WINDLL */
 
-# endif /* defined(WINDLL) || defined(API) || defined( USE_ZIPMAIN) */
+# endif /* ZIPDLL || ZIPLIB */
+
 
 #endif /* _ZIPAPI_H */

@@ -1,7 +1,7 @@
 /*
   api.c - Zip 3
 
-  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -12,18 +12,16 @@
 
   api.c
 
-  This module supplies a Zip dll engine for use directly from C/C++
-  programs.
+  This module supplies a Zip DLL engine for use directly from C/C++
+  and other programs.  See api.h for more information.  This module was
+  originally used only by the Windows DLL, but has been adapted for more
+  general use with the LIB interface.
 
   The entry points are:
 
-    ZpVer *ZpVersion(void);
-    int EXPENTRY ZpInit(LPZIPUSERFUNCTIONS lpZipUserFunc);
-    int EXPENTRY ZpArchive(ZCL C, LPZPOPT Opts);
-
-  This module is currently only used by the Windows dll, and is not used at
-  all by any of the other platforms, although it should be easy enough to
-  implement this on most platforms.
+    void EXPENTRY ZpVersion(ZpVer far *p);
+    int  EXPENTRY ZpInit(LPZIPUSERFUNCTIONS lpZipUserFunc);
+    int  EXPENTRY ZpArchive(ZCL C, LPZPOPT Opts);
 
   ---------------------------------------------------------------------------*/
 #define __API_C
@@ -31,21 +29,23 @@
 #include "api.h"                /* this includes zip.h */
 
 #ifdef WINDLL
+  /* used for the WIN32 DLL and LIB */
 # include <direct.h>
 # include <malloc.h>
 # include <windows.h>
 # include "windll/windll.h"
-#else /* def WINDLL */
+#else
+  /* for other ports the mappings to standard functions in api.h are used */
 # include <stdlib.h>
 #endif
 
 #ifdef OS2
-# define  INCL_DOSMEMMGR
-# include <os2.h>
+#  define  INCL_DOSMEMMGR
+#  include <os2.h>
 #endif
 
 #ifdef __BORLANDC__
-# include <dir.h>
+#include <dir.h>
 #endif
 
 #include <ctype.h>
@@ -56,6 +56,7 @@
 #ifdef USE_ZLIB
 #  include "zlib.h"
 #endif
+
 
 DLLPRNT *lpZipPrint;
 DLLPASSWORD *lpZipPassword;
@@ -303,11 +304,14 @@ getcwd(szOrigDir, PATH_MAX); /* Save current drive and directory */
 
 if ((szRootDir != NULL) && (szRootDir[0] != '\0'))
    {
-#ifdef WINDLL /* Is this the right condition? */
+#ifdef WIN32
+   char c;
+
    /* Make sure there isn't a trailing slash */
-   if (szRootDir[lstrlen(szRootDir)-1] == '\\')
+   c = szRootDir[lstrlen(szRootDir)-1];
+   if (c == '\\' || c == '/')
        szRootDir[lstrlen(szRootDir)-1] = '\0';
-#endif /* def WINDLL */
+#endif
 
    chdir(szRootDir);
 #ifdef __BORLANDC__
@@ -331,6 +335,7 @@ if ((argVee[argCee] = (char *) malloc( sizeof(char) * strlen("wiz.exe")+1 )) == 
    fprintf(stdout, "Unable to allocate memory in zip dll\n");
    return ZE_MEM;
    }
+
 strcpy( argVee[argCee], "wiz.exe" );
 argCee++;
 
@@ -796,27 +801,27 @@ void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
 
     /* feature list */
     /* all features start and end with a semicolon for easy parsing */
-    strcpy( featurelist, ";");
+    strcpy(featurelist, ";");
 #ifdef ASM_CRC
-    strcat( featurelist, "asm_crc;");
+    strcat(featurelist, "asm_crc;");
 #endif
 #ifdef ASMV
-    strcat( featurelist, "asmv;");
+    strcat(featurelist, "asmv;");
 #endif
 #ifdef BACKUP_SUPPORT
     strcat( featurelist, "backup;");
 #endif
 #ifdef DEBUG
-    strcat( featurelist, "debug;");
+    strcat(featurelist, "debug;");
 #endif
 #ifdef USE_EF_UT_TIME
-    strcat( featurelist, "ef_ut_time;");
+    strcat(featurelist, "ef_ut_time;");
 #endif
 #ifdef NTSD_EAS
-    strcat( featurelist, "ntsd_eas;");
+    strcat(featurelist, "ntsd_eas;");
 #endif
 #if defined(WIN32) && defined(NO_W32TIMES_IZFIX)
-    strcat( featurelist, "no_w32times_izfix;");
+    strcat(featurelist, "no_w32times_izfix;");
 #endif
 #ifdef VMS
 # ifdef VMS_IM_EXTRA
@@ -827,13 +832,13 @@ void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
 # endif
 #endif /* VMS */
 #ifdef WILD_STOP_AT_DIR
-    strcat( featurelist, "wild_stop_at_dir;");
+    strcat(featurelist, "wild_stop_at_dir;");
 #endif
 #ifdef WIN32_OEM
-    strcat( featurelist, "win32_oem;");
+    strcat(featurelist, "win32_oem;");
 #endif
 #ifdef BZIP2_SUPPORT
-    strcat( featurelist, "bzip2;");
+    strcat(featurelist, "bzip2;");
 #endif
     strcpy( tempstring, "compmethods:store,deflate");
 #ifdef BZIP2_SUPPORT
@@ -885,7 +890,7 @@ void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
 
 /* windll/windll.[ch] stuff for non-Windows systems. */
 
-#ifndef WINDLL
+#ifdef NO_ZPARCHIVE
 
 LPSTR szCommentBuf;
 HANDLE hStr;
@@ -921,4 +926,5 @@ void comment(unsigned int comlen)
     }
     return;
 }
-#endif /* ndef WINDLL */
+#endif /* NO_ZPARCHIVE */
+

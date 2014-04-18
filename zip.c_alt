@@ -1,7 +1,7 @@
 /*
   zip.c - Zip 3
 
-  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -1458,8 +1458,8 @@ local void version_info()
   /* Non-default AppleDouble resource fork suffix. */
 # if defined( UNIX) && defined( __APPLE__)
 #  ifndef APPLE_NFRSRC
- /* Next "#" indented to accommodate K&R (#error-ignorant) compilers. */
- #  error APPLE_NFRSRC not defined.
+#   error APPLE_NFRSRC not defined.
+   Bad code: error APPLE_NFRSRC not defined.
 #  endif
 #  if defined( __ppc__) || defined( __ppc64__)
 #   if APPLE_NFRSRC
@@ -3256,8 +3256,7 @@ struct option_struct far options[] = {
     {"sp", "split-pause", o_NO_VALUE,       o_NOT_NEGATABLE, o_sp, "pause while splitting to select destination"},
     {"sv", "split-verbose", o_NO_VALUE,     o_NOT_NEGATABLE, o_sv, "be verbose about creating splits"},
     {"sb", "split-bell",  o_NO_VALUE,       o_NOT_NEGATABLE, o_sb, "when pause for next split ring bell"},
-    {"sc", "show-command",o_NO_VALUE,       o_NEGATABLE,     o_sc, "show command line"},
-
+    {"sc", "show-command",o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, o_sc, "show command line"},
 #ifdef UNICODE_TEST
     {"sC", "create-files",o_NO_VALUE,       o_NOT_NEGATABLE, o_sC, "create empty files using archive names"},
 #endif
@@ -4832,10 +4831,27 @@ char **argv;            /* command line tokens */
           allow_regex = 1; break;
 
         case o_sc:  /* show command line args */
-          if (negated)
-            show_args = IZ_MAX( 0, (show_args- 1));
+          if (value == NULL)
+          {
+            show_args = IZ_MIN( 2, (show_args+ 1));     /* No value. */
+          }
           else
-            show_args = IZ_MIN( 2, (show_args+ 1));     /* 2: parsed args. */
+          {
+            int itm;
+            int val;
+            char xs[2];
+
+            /* Analyze value as integer.  (Should allow hex?) */
+            itm = sscanf( value, "%d%1s", &val, xs);
+            if (itm == 1)
+            {
+              show_args = val;
+            }
+            else
+            {
+              ZIPERR(ZE_PARMS, "-sc: invalid integer argument");
+            }
+          }
           break;
 
 #ifdef UNICODE_TEST
@@ -5548,7 +5564,7 @@ char **argv;            /* command line tokens */
   }
 
   /* Show command line args. */
-  if (show_args > 0) {
+  if (show_args& 1) {
     fprintf(mesg, "command line:\n");
     for (i = 0; args[i]; i++) {
       fprintf(mesg, "'%s'  ", args[i]);
@@ -5556,7 +5572,7 @@ char **argv;            /* command line tokens */
     fprintf(mesg, "\n");
   }
 #ifdef SHOW_PARSED_COMMAND
-  if (show_args > 1) {
+  if (show_args& 2) {
     /* Show parsed command line args. */
     fprintf(mesg, "\nparsed command line:\n");
     for (i = 0; parsed_args[i]; i++) {
@@ -5571,7 +5587,7 @@ char **argv;            /* command line tokens */
   free(parsed_args);
 #endif /* def SHOW_PARSED_COMMAND */
 
-  if (show_args > 0) {
+  if (show_args& 3) {
     ZIPERR(ZE_ABORT, "show command line");      /* Quit after showing args. */
   }
 

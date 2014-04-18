@@ -45,12 +45,17 @@ int translate_eol = 0;  /* Translate end-of-line LF -> CR LF */
 int level = 6;          /* 0=fastest compression, 9=best compression */
 int levell;             /* Compression level, adjusted by method, suffix. */
 
+#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+int etwodd;             /* Encrypt Traditional without data descriptor. */
+#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
+
 #ifdef VMS
    int prsrv_vms = 0;   /* 1=preserve idiosyncratic VMS file names. */
    int vmsver = 0;      /* 1=append VMS version number to file names */
    int vms_native = 0;  /* 1=store in VMS format */
    int vms_case_2 = 0;  /* ODS2 file name case in VMS.  -1: down. */
    int vms_case_5 = 0;  /* ODS5 file name case in VMS.  +1: preserve. */
+   char **argv_cli;     /* New argv[] storage to free, if non-NULL. */
 #endif /* VMS */
 #if defined(OS2) || defined(WIN32)
    int use_longname_ea = 0;  /* 1=use the .LONGNAME EA as the file's name */
@@ -117,7 +122,7 @@ int hidden_files = 0;         /* process hidden and system files */
 int volume_label = 0;         /* add volume label */
 int dirnames = 1;             /* include directory entries by default */
 int filter_match_case = 1;    /* 1=match case when filter() */
-char *label = NULL;           /* Volume label. */
+char *label = NULL;           /* volume label */
 
 /* diff and backup */
 int diff_mode = 0;            /* 1=diff mode - only store changed and add */
@@ -165,6 +170,7 @@ int encryption_method = 0;    /* See definitions in zip.h */
 ush aes_vendor_version;
 uch aes_strength;
 int force_ansi_key = 1;       /* Only ANSI characters for password (32 - 126) */
+
 #ifdef IZ_CRYPT_AES_WG
   int key_size = 0;
   fcrypt_ctx zctx;
@@ -190,21 +196,6 @@ int force_ansi_key = 1;       /* Only ANSI characters for password (32 - 126) */
 #ifdef NTSD_EAS
   int use_privileges = 0;     /* 1=use security privilege overrides */
 #endif
-
-/* STORE method file name suffixes. */
-#ifndef RISCOS
-# ifndef QDOS
-#  ifndef TANDEM
-#   define MTHD_SUFX_0 ".Z:.zip:.zoo:.arc:.lzh:.arj"    /* Normal. */
-#  else /* ndef TANDEM */
-#   define MTHD_SUFX_0 " Z: zip: zoo: arc: lzh: arj";   /* Tandem. */
-#  endif /* ndef TANDEM [else] */
-# else /* ndef QDOS */
-#  define MTHD_SUFX_0 "_Z:_zip:_zoo:_arc:_lzh:_arj";    /* QDOS. */
-# endif /* ndef QDOS [else] */
-#else /* ndef RISCOS */
-# define MTHD_SUFX_0 "DDC:D96:68E";                     /* RISCOS. */
-#endif /* ndef RISCOS [else] */
 
 /* Compression method and level (with file name suffixes). */
 mthd_lvl_t mthd_lvl[] = {

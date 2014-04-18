@@ -1,6 +1,17 @@
-#                                               31 December 2012.  SMS.
+# DESCRIP.MMS
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Description File.
+#
+#    Last revised:  2013-11-29
+#
+#----------------------------------------------------------------------
+# Copyright (c) 1998-2013 Info-ZIP.  All rights reserved.
+#
+# See the accompanying file LICENSE, version 2009-Jan-2 or later (the
+# contents of which are also included in zip.h) for terms of use.  If,
+# for some reason, all these files are missing, the Info-ZIP license
+# may also be found at: ftp://ftp.info-zip.org/pub/infozip/license.html
+#----------------------------------------------------------------------
 #
 # Usage:
 #
@@ -92,9 +103,13 @@
 #
 #    CLEAN_OLB  deletes only the architecture-specific object libraries. 
 #
+#    DASHV      generates a "zip -v" report.
+#
 #    HELP       generates HELP files.
 #
 #    HELP_TEXT  generates HELP output text files (.HTX).
+#
+#    SLASHV     generates a "zip_cli /verbose" report.
 #
 # Example commands:
 #
@@ -123,7 +138,7 @@
 #
 #    Note that on a Unix system, LOCAL_ZIP contains compiler
 #    options, such as "-g" or "-DNO_USER_PROGRESS", but on a VMS
-#    system, LOCAL_UNZIP contains only C macros, such as
+#    system, LOCAL_ZIP contains only C macros, such as
 #    "NO_USER_PROGRESS", and CCOPTS is used for any other kinds of
 #    compiler options, such as "/ARCHITECTURE".  Unix compilers accept
 #    multiple "-D" options, but VMS compilers consider only the last
@@ -268,6 +283,11 @@ CLEAN_OLB :
 	if (f$search( "[.$(DEST)]*.OLB") .nes. "") then -
 	 delete /noconfirm [.$(DEST)]*.OLB;*
 
+# DASHV target.  Generate a "zip -v" report.
+
+DASHV :
+	mcr [.$(DEST)]zip -v
+
 # HELP target.  Generate the HELP files.
 
 HELP : $(ZIP_HELP)
@@ -278,6 +298,10 @@ HELP : $(ZIP_HELP)
 HELP_TEXT : $(ZIP_HELP_TEXT)
 	@ write sys$output "Done."
 
+# SLASHV target.  Generate a "zip_cli /verbose" report.
+
+SLASHV :
+	mcr [.$(DEST)]zip_cli /verbose
 
 # Object library module dependencies.
 

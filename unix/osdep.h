@@ -86,3 +86,18 @@
 #ifndef NO_ETWODD_SUPPORT
 # define ETWODD_SUPPORT
 #endif /* ndef NO_ETWODD_SUPPORT */
+
+/* 2013-11-18 SMS.
+ * Define subsidiary object library macros based on ZIPLIB.
+ * NO_ZPARCHIVE enables non-Windows api.c:comment().
+ * USE_ZIPMAIN enables zip.c:zipmain() instead of main().
+ */
+#ifdef ZIPLIB
+# ifndef NO_ZPARCHIVE
+#  define NO_ZPARCHIVE
+# endif
+# ifndef USE_ZIPMAIN
+#  define USE_ZIPMAIN
+# endif
+#endif /* def ZIPLIB */
+

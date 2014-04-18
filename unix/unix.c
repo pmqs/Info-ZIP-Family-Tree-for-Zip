@@ -163,7 +163,6 @@ static int get_apl_dbl_info( char *name)
 }
 
 
-
 unsigned char *apl_dbl_hdr;             /* AppleDouble header buffer. */
 int apl_dbl_hdr_alloc;                  /* Allocated size of apl_dbl_hdr. */
 
@@ -519,7 +518,6 @@ int make_apl_dbl_header( char *name, int *hdr_size)
 #endif /* def __APPLE__ */
 
 
-
 #ifdef NO_DIR                    /* for AT&T 3B1 */
 #include <sys/dir.h>
 #ifndef dirent
@@ -598,7 +596,7 @@ int caseflag;           /* true to force case-sensitive match */
   }
 
   /* Live name.  Recurse if directory.  Use if file or symlink (or fifo?). */
-  if (S_ISREG( s.st_mode) || S_ISLNK( s.st_mode))
+  if (S_ISREG(s.st_mode) || S_ISLNK(s.st_mode))
   {
     /* Regular file or symlink.  Add or remove name of file. */
     if ((m = newname(n, 0, caseflag)) != ZE_OK)
@@ -621,7 +619,7 @@ int caseflag;           /* true to force case-sensitive match */
 #endif /* def __APPLE__ */
 
   } /* S_ISREG( s.st_mode) || S_ISLNK( s.st_mode) */
-  else if (S_ISDIR( s.st_mode))
+  else if (S_ISDIR(s.st_mode))
   {
     /* Directory.  Add trailing / to the directory name. */
     if ((p = malloc(strlen(n)+2)) == NULL)
@@ -665,7 +663,7 @@ int caseflag;           /* true to force case-sensitive match */
     }
     free((zvoid *)p);
   } /* S_ISDIR( s.st_mode) [else if] */
-  else if (S_ISFIFO( s.st_mode))
+  else if (S_ISFIFO(s.st_mode))
   {
     if (allow_fifo) {
       /* FIFO (Named Pipe) - handle as normal file */
@@ -1235,7 +1233,7 @@ void version_local()
     struct utsname u;
     char os_name[40];
 # else /* (BSD > 199103) */
-# if defined(__NETBSD__))
+# if defined(__NETBSD__)
     static ZCONST char *netbsd[] = { "_ALPHA", "", "A", "B" };
     char os_name[40];
 # endif /* __NETBSD__ */
@@ -1252,20 +1250,20 @@ void version_local()
    /* - Other compilers define __GNUC__ for compatibility  */
 #  if defined(NX_CURRENT_COMPILER_RELEASE)
     sprintf( compiler_name, "NeXT DevKit %d.%02d (GCC " __VERSION__ ")",
-             NX_CURRENT_COMPILER_RELEASE/100, 
+             NX_CURRENT_COMPILER_RELEASE/100,
              NX_CURRENT_COMPILER_RELEASE%100 );
 #    define COMPILER_NAME compiler_name
 #  else
 #  if defined(__MINGW64__)
     sprintf( compiler_name, "MinGW 64 GCC %d.%d.%d"),
-             __GNUC__, 
+             __GNUC__,
              __GNUC_MINOR__,
              __GNUC_PATCHLEVEL__ );
 #    define COMPILER_NAME compiler_name
 #  else
 #  if defined(__MINGW32__)
     sprintf( compiler_name, "MinGW 32 GCC %d.%d.%d"),
-             __GNUC__, 
+             __GNUC__,
              __GNUC_MINOR__,
              __GNUC_PATCHLEVEL__ );
 #    define COMPILER_NAME compiler_name
@@ -1275,25 +1273,25 @@ void version_local()
     sprintf( compiler_name, "LLVM Clang %d.%d.%d (GCC %d.%d.%d)",
              __clang_major__,
              __clang_minor__,
-             __clang_patchlevel__, 
-             __GNUC__, 
+             __clang_patchlevel__,
+             __GNUC__,
              __GNUC_MINOR__,
              __GNUC_PATCHLEVEL__ );
-#      define COMPILER_NAME compiler_name 
+#      define COMPILER_NAME compiler_name
 #    else
 #    if defined(__APPLE_CC__)
     sprintf( compiler_name, "LLVM Apple GCC %d.%d.%d",
-             __GNUC__, 
+             __GNUC__,
              __GNUC_MINOR__,
              __GNUC_PATCHLEVEL__ );
-#      define COMPILER_NAME compiler_name 
+#      define COMPILER_NAME compiler_name
 #    else
     sprintf( compiler_name, "LLVM GCC %d.%d.%d",
-             __GNUC__, 
+             __GNUC__,
              __GNUC_MINOR__,
              __GNUC_PATCHLEVEL__ );
-#      define COMPILER_NAME compiler_name 
-#    endif /* (__APPLE_CC__) */  
+#      define COMPILER_NAME compiler_name
+#    endif /* (__APPLE_CC__) */
 #    endif /* (__clang__) */
 #  else
 #  if defined(__PCC__)
@@ -1326,7 +1324,7 @@ void version_local()
 #  else
 #  if defined(__GNUC_PATCHLEVEL__)
     sprintf( compiler_name, "GCC %d.%d.%d",
-             __GNUC__, 
+             __GNUC__,
              __GNUC_MINOR__,
              __GNUC_PATCHLEVEL__ );
 #    define COMPILER_NAME compiler_name
@@ -1732,7 +1730,7 @@ int entropy_fun( unsigned char *buf, unsigned int len)
 
 /* 2006-03-23 SMS.
  * Emergency replacement for strerror().  (Useful on SunOS 4.*.)
- * Enable by specifying "LOCAL_UNZIP=-DNEED_STRERROR=1" on the "make"
+ * Enable by specifying "LOCAL_ZIP=-DNEED_STRERROR=1" on the "make"
  * command line.
  */
 
@@ -1762,7 +1760,7 @@ char *strerror( err)
 
 /* 2006-03-23 SMS.
  * Emergency replacement for memmove().  (Useful on SunOS 4.*.)
- * Enable by specifying "LOCAL_UNZIP=-DNEED_MEMMOVE=1" on the "make"
+ * Enable by specifying "LOCAL_ZIP=-DNEED_MEMMOVE=1" on the "make"
  * command line.
  */
 

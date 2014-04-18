@@ -1,7 +1,7 @@
 /*
   zipnote.c - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -44,7 +44,9 @@ local FILE *tempzf;
 
 
 /* Local functions */
+#ifndef NO_EXCEPT_SIGNALS
 local void handler OF((int));
+#endif /* ndef NO_EXCEPT_SIGNALS */
 local void license OF((void));
 local void help OF((void));
 local void version_info OF((void));
@@ -176,16 +178,18 @@ ZCONST char *h;         /* message about how it happened */
 }
 
 
+#ifndef NO_EXCEPT_SIGNALS
 local void handler(s)
 int s;                  /* signal number (ignored) */
 /* Upon getting a user interrupt, abort cleanly using ziperr(). */
 {
-#ifndef MSDOS
+# ifndef MSDOS
   putc('\n', mesg);
-#endif /* !MSDOS */
+# endif /* !MSDOS */
   ziperr(ZE_ABORT, "aborting");
   s++;                                  /* keep some compilers happy */
 }
+#endif /* ndef NO_EXCEPT_SIGNALS */
 
 
 void zipwarn(a, b)
@@ -292,7 +296,6 @@ local void version_info()
 #ifdef DEBUG
     "DEBUG",
 #endif
-
     NULL
   };
 
@@ -473,28 +476,32 @@ char **argv;            /* command line tokens */
 
   init_upper();           /* build case map table */
 
-  /* Go through args */
+#ifndef NO_EXCEPT_SIGNALS
+  signal(SIGINT, handler);
+# ifdef SIGTERM              /* AMIGA has no SIGTERM */
+  signal(SIGTERM, handler);
+# endif
+# ifdef SIGABRT
+  signal(SIGABRT, handler);
+# endif
+# ifdef SIGBREAK
+  signal(SIGBREAK, handler);
+# endif
+# ifdef SIGBUS
+  signal(SIGBUS, handler);
+# endif
+# ifdef SIGILL
+  signal(SIGILL, handler);
+# endif
+# ifdef SIGSEGV
+  signal(SIGSEGV, handler);
+# endif
+#endif /* ndef NO_EXCEPT_SIGNALS */
+
   zipfile = tempzip = NULL;
   tempzf = NULL;
-  signal(SIGINT, handler);
-#ifdef SIGTERM              /* AMIGA has no SIGTERM */
-  signal(SIGTERM, handler);
-#endif
-#ifdef SIGABRT
-  signal(SIGABRT, handler);
-#endif
-#ifdef SIGBREAK
-  signal(SIGBREAK, handler);
-#endif
-#ifdef SIGBUS
-  signal(SIGBUS, handler);
-#endif
-#ifdef SIGILL
-  signal(SIGILL, handler);
-#endif
-#ifdef SIGSEGV
-  signal(SIGSEGV, handler);
-#endif
+
+  /* Go through args */
   k = w = 0;
   for (r = 1; r < argc; r++)
     if (*argv[r] == '-') {
@@ -718,3 +725,11 @@ char **argv;            /* command line tokens */
   /* Done! */
   RETURN(0);
 }
+
+
+/*
+ * VMS (DEC C) initialization.
+ */
+#ifdef VMS
+# include "decc_init.c"
+#endif

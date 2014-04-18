@@ -1,5 +1,14 @@
 	Module		ZIP_CLITABLE
-	Ident		"03-108"	! /* 2012-05-08 SMS. */
+	Ident		"03-109"	! /* 2013-03-23 SMS. */
+
+!-----------------------------------------------------------------------
+! Copyright (c) 1997-2013 Info-ZIP.  All rights reserved.
+!
+! See the accompanying file LICENSE, version 2009-Jan-2 or later (the
+! contents of which are also included in zip.h) for terms of use.  If,
+! for some reason, all these files are missing, the Info-ZIP license
+! may also be found at: ftp://ftp.info-zip.org/pub/infozip/license.html
+!-----------------------------------------------------------------------
 
 Define	Verb		ZIP
 	Parameter	P1, Label=ZIPFILE, Prompt="Zip file"
@@ -64,7 +73,9 @@ Define	Verb		ZIP
 	Qualifier	TRANSLATE_EOL, NonNegatable, VALUE(type=EOL_OPTS)
 	Qualifier	UNSFX, NonNegatable
 	Qualifier	VERBOSE, NonNegatable, VALUE(type=VERBOSE_OPTS, list)
+	Qualifier	VOLUME_LABEL, Negatable
 	Qualifier	VMS, NonNegatable, VALUE(type=VMS_OPTS)
+	Qualifier	VNAMES, Negatable
 	Qualifier	WILDCARD, VALUE(type=WILDCARD_OPTS)
 	Qualifier	YYZ_ZIP, NonNegatable, Default
 	Qualifier	ZIP64, Negatable

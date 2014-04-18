@@ -1,10 +1,10 @@
 /*
   Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*---------------------------------------------------------------------------
 
@@ -481,7 +481,6 @@ iztimes *t;             /* return value: access, modific. and creation times */
 *   reserved        (4 bytes)
 */
 
-#define EB_L_THSIZE     4
 #define EB_L_TH_SIZE    14
 
 int set_extra_field(z, z_utim)
@@ -512,11 +511,10 @@ int set_extra_field(z, z_utim)
       return RET_ERROR;
   }
 
-  if ((extra = malloc(EB_L_TH_SIZE)) == NULL ) {
+  if ((extra = malloc( EB_HEADSIZE+ EB_L_TH_SIZE)) == NULL) {
     fprintf(stderr, "set_extra_field: Insufficient memory.\n" );
     return RET_ERROR;
   }
-
 
   extra[0] = 'T';
   extra[1] = 'h';
