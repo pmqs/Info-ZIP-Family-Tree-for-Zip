@@ -90,13 +90,13 @@ local int ucs4_string_to_utf8 OF((ZCONST ulg *ucs4, char *utf8buf,
 local int dots_this_group;
 #endif /* def PROGRESS_DOTS_PER_FLUSH */
 
-local void display_dot_char( chr)
+local void display_dot_char(chr)
   int chr;
 {
 #ifdef WINDLL
-  fprintf( stdout, "%c", chr);
+  fprintf(stdout, "%c", chr);
 #else
-  putc( chr, mesg);
+  putc(chr, mesg);
 
   /* If PROGRESS_DOTS_PER_FLUSH is defined, then flush only when that
    * many dots have accumulated.  If not, then flush every time.
@@ -107,14 +107,14 @@ local void display_dot_char( chr)
     /* Reset the dots-in-this-group count. */
     dots_this_group = 0;
 # endif /* def PROGRESS_DOTS_PER_FLUSH */
-  fflush( mesg);
+  fflush(mesg);
 # ifdef PROGRESS_DOTS_PER_FLUSH
   }
 # endif /* def PROGRESS_DOTS_PER_FLUSH */
 #endif
 }
 
-void display_dot( condition, size)
+void display_dot(condition, size)
   int condition;
   int size;
 {
@@ -123,7 +123,7 @@ void display_dot( condition, size)
     /* initial space */
     if (noisy && dot_count == -1)
     {
-      display_dot_char( ' ');
+      display_dot_char(' ');
       dot_count++;
 # ifdef PROGRESS_DOTS_PER_FLUSH
       /* Reset the dots-in-this-group count. */
@@ -131,7 +131,7 @@ void display_dot( condition, size)
 # endif /* def PROGRESS_DOTS_PER_FLUSH */
     }
     dot_count++;
-    if ((condition <= 1) && (dot_size <= (dot_count+ 1)* size))
+    if ((condition <= 1) && (dot_size <= (dot_count+ 1) * size))
     {
       dot_count = 0;
     }
@@ -148,7 +148,7 @@ void display_dot( condition, size)
     /* Increment the dots-in-this-group count. */
     dots_this_group++;
 # endif /* def PROGRESS_DOTS_PER_FLUSH */
-    display_dot_char( '.');
+    display_dot_char('.');
     mesg_line_started = 1;
   }
 }
@@ -819,7 +819,8 @@ int newnamew(namew, isdir, casesensitive)
     inamew = NULL;
     z->znamew = znamew;
     znamew = NULL;
-    z->uname = wchar_to_utf8_string(z->inamew);
+    if (!is_ascii_stringw(z->inamew))
+      z->uname = wchar_to_utf8_string(z->inamew);
     if (name == label) {
        label = z->name;
     }
@@ -3000,7 +3001,7 @@ size_t bfwrite(buffer, size, count, mode)
     if (dot_size > 0) {
       /* initial space */
       if (dot_count == -1) {
-        display_dot_char( ' ');
+        display_dot_char(' ');
         /* assume a header will be written first, so avoid 0 */
         dot_count = 1;
       }
@@ -3012,7 +3013,7 @@ size_t bfwrite(buffer, size, count, mode)
     }
     if (dot_size && !dot_count) {
       dot_count++;
-      display_dot_char( '.');
+      display_dot_char('.');
       mesg_line_started = 1;
     }
   }
@@ -3872,8 +3873,9 @@ zwchar *utf8_to_wide_string(utf8_string)
    Unicode.  May get to it soon.  EG
  */
 
-/* For now stay with muti-byte characters.  May support wide characters
-   in Zip 3.1.
+/* For now stay with multi-byte characters.  Looks like wide-character
+ * command-line support not making it to Zip 3.1.  May support wide
+ * characters in Zip 3.2.
  */
 
 /* multibyte character set support
@@ -4048,7 +4050,7 @@ char **copy_args(args, max_args)
   {
     if ((new_args[ j] = malloc( strlen( args[ j])+ 1)) == NULL)
     {
-      free_args( new_args);
+      free_args(new_args);
       /* a failed malloc should probably be fatal - propagating
          the failure elsewhere may be misleading */
       oWARN("memory - ca.2");
@@ -4064,7 +4066,10 @@ char **copy_args(args, max_args)
 }
 
 
-/* free args - free args created with one of these functions */
+/* free_args
+ *
+ * Free args created with one of these functions.
+ */
 int free_args(args)
   char **args;
 {
@@ -4372,10 +4377,11 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
       }
     } else if (options[match].value_type == o_OPT_EQ_VALUE) {
       /* Optional value, but "=" required with value.  Forms are:
-         -opt=value
-         -opt= value
-         -opt = value
-         If none of these are found, the option has no value. */
+       *    -opt=Value
+       *    -opt= Value
+       *    -opt = Value
+       * If none of these is found, the option has no value.
+       */
       int have_eq = 0;
 
       if (arg[(*optchar) + clen]) {
@@ -4451,15 +4457,15 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
       }
     } else if (options[match].value_type == o_REQUIRED_VALUE ||
                options[match].value_type == o_VALUE_LIST) {
-      /* Forms  for "-opt" with "Value" are:
-       * -optValue                      [Less confusing with one-char "opt"]
-       * -opt=Value
-       * -opt Value
-       * -opt Value1 Value2 ... {@}     [value list]
+      /* Forms for "-opt" with "Value" are:
+       *    -optValue
+       *    -opt=Value
+       *    -opt Value
+       *    -opt Value1 Value2 ... {@}     [value list]
        */
-      /* See if value follows option. */
+      /* see if follows option */
       if (arg[(*optchar) + clen]) {
-        /* has value following option as -ovalue */
+        /* has value following option as -oValue */
         /* add support for optional = - 6/5/05 EG */
         if (arg[(*optchar) + clen] == '=') {
           /* skip = */

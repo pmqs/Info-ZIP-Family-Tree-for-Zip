@@ -51,28 +51,28 @@
     <ClCompile Include="..\..\..\ttyio.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\aes_wg\aescrypt.c">
+    <ClCompile Include="..\..\..\wrap\aescrypt.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\aes_wg\aeskey.c">
+    <ClCompile Include="..\..\..\wrap\aeskey.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\aes_wg\aestab.c">
+    <ClCompile Include="..\..\..\wrap\aestab.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\aes_wg\hmac.c">
+    <ClCompile Include="..\..\..\wrap\hmac.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\aes_wg\prng.c">
+    <ClCompile Include="..\..\..\wrap\prng.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\aes_wg\sha1.c">
+    <ClCompile Include="..\..\..\wrap\sha1.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\aes_wg\fileenc.c">
+    <ClCompile Include="..\..\..\wrap\fileenc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\aes_wg\pwd2key.c">
+    <ClCompile Include="..\..\..\wrap\pwd2key.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

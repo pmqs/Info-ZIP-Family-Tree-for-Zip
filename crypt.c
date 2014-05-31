@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -222,7 +222,7 @@ local z_uint4 near *crytab_init(__G)
 #  ifdef IZ_CRYPT_TRAD
 
 /***********************************************************************
- * Write Traditional encryption header to file zfile using the password
+ * Write (Traditional) encryption header to file zfile using the password
  * passwd and the cyclic redundancy check crc.
  */
 void crypthead(passwd, crc)
@@ -270,7 +270,7 @@ void crypthead(passwd, crc)
  * bfwrite() keeps byte counts, does splits, and calls fwrite() to
  * write out the data.
  *
- * now write to global y
+ * Now write to global file handle y instead of file f.
  *
  * A bug has been found when encrypting large files that don't
  * compress.  See trees.c for the details and the fix.
@@ -560,6 +560,8 @@ local int ef_strip_aes( ef_buf, ef_len)
 /***********************************************************************
  * Encrypt the zip entry described by z from file in_file to file y
  * using the password passwd.  Return an error code in the ZE_ class.
+ *
+ * bfwrite() should take care of any byte counting.
  */
 int zipcloak(z, passwd)
     struct zlist far *z;        /* zip entry to encrypt */
@@ -607,10 +609,10 @@ int zipcloak(z, passwd)
          * Header has salty stuff.  Trialer has Message Authentication
          * Code (MAC).
          */
-        /*                Note: v-- No parentheses in SALT_LENGTH def'n. --v */
-        salt_len = SALT_LENGTH( (encryption_method- (AES_MIN_ENCRYPTION- 1)));
-        HEAD_LEN = salt_len+ PWD_VER_LENGTH+                      /* Header. */
-         MAC_LENGTH( encryption_method- (AES_MIN_ENCRYPTION- 1)); /* Trailer. */
+        /*                Note: v-- No parentheses in SALT_LENGTH def'n.   --v */
+        salt_len = SALT_LENGTH( (encryption_method - (AES_MIN_ENCRYPTION - 1)) );
+        HEAD_LEN = salt_len + PWD_VER_LENGTH +                       /* Header. */
+         MAC_LENGTH( encryption_method - (AES_MIN_ENCRYPTION - 1) ); /* Trailer. */
 
         /* get the salt */
         prng_rand( zsalt, salt_len, &aes_rnp);
@@ -646,7 +648,7 @@ int zipcloak(z, passwd)
         if ((z->encrypt_method >= AES_MIN_ENCRYPTION) &&
          (z->encrypt_method <= AES_MAX_ENCRYPTION))
         {
-            aes_crypthead( zsalt, salt_len, zpwd_verifier);
+            aes_crypthead( zsalt, salt_len, zpwd_verifier );
             tempzn += HEAD_LEN;         /* Count header+trailer. */
         }
         else
@@ -752,9 +754,9 @@ int zipbare(z, passwd)
     char aes_mode = 0;  /* AES encryption mode.  (Init'd to hush cmplr.) */
     ush aes_mthd = 0;   /* Actual compress method.  (Init'd to hush cmplr.) */
     ush how_orig;               /* Original encryption method. */
-    zoff_t n;                   /* Bytes actually read. */
-    zoff_t nn;                  /* Bytes requested. */
-    zoff_t nout;                /* Total bytes put out. */
+    size_t n;                   /* Bytes actually read. */
+    size_t nn;                  /* Bytes requested. */
+    uzoff_t nout;               /* Total bytes put out. */
 #   else /* def IZ_CRYPT_AES_WG */
 #    define HEAD_LEN RAND_HEAD_LEN      /* Constant trad. header length. */
 #   endif /* def IZ_CRYPT_AES_WG [else] */

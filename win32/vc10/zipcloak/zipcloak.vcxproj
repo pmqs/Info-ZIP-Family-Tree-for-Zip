@@ -148,20 +148,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\aes_wg\aescrypt.c" />
-    <ClCompile Include="..\..\..\aes_wg\aeskey.c" />
-    <ClCompile Include="..\..\..\aes_wg\aestab.c" />
-    <ClCompile Include="..\..\..\aes_wg\fileenc.c" />
-    <ClCompile Include="..\..\..\aes_wg\hmac.c" />
-    <ClCompile Include="..\..\..\aes_wg\prng.c" />
-    <ClCompile Include="..\..\..\aes_wg\pwd2key.c" />
-    <ClCompile Include="..\..\..\aes_wg\sha1.c" />
     <ClCompile Include="..\..\..\crc32.c" />
     <ClCompile Include="..\..\..\crypt.c" />
     <ClCompile Include="..\..\..\fileio.c" />
     <ClCompile Include="..\..\..\globals.c" />
     <ClCompile Include="..\..\..\ttyio.c" />
     <ClCompile Include="..\..\..\util.c" />
+    <ClCompile Include="..\..\..\wrap\aescrypt.c" />
+    <ClCompile Include="..\..\..\wrap\aeskey.c" />
+    <ClCompile Include="..\..\..\wrap\aestab.c" />
+    <ClCompile Include="..\..\..\wrap\fileenc.c" />
+    <ClCompile Include="..\..\..\wrap\hmac.c" />
+    <ClCompile Include="..\..\..\wrap\prng.c" />
+    <ClCompile Include="..\..\..\wrap\pwd2key.c" />
+    <ClCompile Include="..\..\..\wrap\sha1.c" />
     <ClCompile Include="..\..\..\zipcloak.c" />
     <ClCompile Include="..\..\..\zipfile.c" />
     <ClCompile Include="..\..\win32.c" />

@@ -1,7 +1,7 @@
 /*
   globals.c - Zip 3
 
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -45,6 +45,12 @@ int translate_eol = 0;  /* Translate end-of-line LF -> CR LF */
 int level = 6;          /* 0=fastest compression, 9=best compression */
 int levell;             /* Compression level, adjusted by method, suffix. */
 
+char action_string[20];
+
+int comadd = 0;              /* 1=add comments for new files */
+extent comment_size = 0;     /* comment size */
+FILE *comment_stream = NULL; /* set to stderr if anything is read from stdin */
+
 #if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
 int etwodd;             /* Encrypt Traditional without data descriptor. */
 #endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
@@ -69,10 +75,14 @@ int allow_regex = 0;         /* 1 = allow [list] matching */
    int wild_stop_at_dir = 0; /* default wildcards do include / in matches */
 #endif
 
+#ifdef WINDOWS_LONG_PATHS
+   int include_windows_long_paths = 0;  /* include paths longer than MAX_PATH */
+#endif
+
 #ifdef UNICODE_SUPPORT
    int using_utf8 = 0;       /* 1 if current character set UTF-8 */
 # ifdef WIN32
-   int no_win32_wide = -1;   /* 1 = no wide functions, like GetFileAttributesW() */
+   int no_win32_wide = -1;   /* 1 = no wide functs, like GetFileAttributesW() */
 # endif
 #endif
 
@@ -152,6 +162,7 @@ int allow_empty_archive = 0;  /* if no files, create empty archive anyway 12/28/
 int copy_only = 0;            /* 1=copying archive entries only */
 int allow_fifo = 0;           /* 1=allow reading Unix FIFOs, waiting if pipe open */
 int show_files = 0;           /* show files to operate on and exit (=2 log only) */
+int include_stream_ef = 0;    /* 1=include stream ef that allows full stream extraction */
 
 int sf_usize = 0;             /* include usize in -sf listing */
 
@@ -195,23 +206,25 @@ int force_ansi_key = 1;       /* Only ANSI characters for password (32 - 126) */
 
 #ifdef NTSD_EAS
   int use_privileges = 0;     /* 1=use security privilege overrides */
+  int no_security = 0;        /* 1=do not store security information (ACLs) */
 #endif
+  int no_universal_time = 0;  /* 1=do not store UT extra field */
 
 /* Compression method and level (with file name suffixes). */
 mthd_lvl_t mthd_lvl[] = {
 /* method, level, level_sufx, method_str, suffixes. */
- { STORE, -1, -1, "store", MTHD_SUFX_0 },   /* STORE.  (Must be element 0.) */
- { DEFLATE, -1, -1, "deflate", NULL },      /* DEFLATE. */
+ { STORE,   -1, -1, "store",   MTHD_SUFX_0 },   /* STORE.  (Must be el't 0.) */
+ { DEFLATE, -1, -1, "deflate", NULL },          /* DEFLATE. */
 #ifdef BZIP2_SUPPORT
- { BZIP2, -1, -1, "bzip2", NULL },          /* Bzip2. */
+ { BZIP2,   -1, -1, "bzip2",   NULL },          /* Bzip2. */
 #endif /* def BZIP2_SUPPORT */
 #ifdef LZMA_SUPPORT
- { LZMA, -1, -1, "lzma", NULL },            /* LZMA. */
+ { LZMA,    -1, -1, "lzma",    NULL },          /* LZMA. */
 #endif /* def LZMA_SUPPORT */
 #ifdef PPMD_SUPPORT
- { PPMD, -1, -1, "ppmd", NULL },            /* PPMd. */
+ { PPMD,    -1, -1, "ppmd",    NULL },          /* PPMd. */
 #endif /* def PPMD_SUPPORT */
- { -1, -1, -1, NULL, NULL } };              /* List terminator. */
+ { -1,      -1, -1, NULL,      NULL } };        /* List terminator. */
 
 char *tempath = NULL;   /* Path for temporary files */
 FILE *mesg;             /* stdout by default, stderr for piping */
@@ -300,6 +313,8 @@ int logfile_line_started = 0;     /* 1=started writing a line to logfile */
 /* for progress reports */
 uzoff_t bytes_read_this_entry = 0; /* bytes read from current input file */
 uzoff_t bytes_expected_this_entry = 0; /* scanned uncompressed size */
+char usize_string[10];             /* string version of bytes_expected_this_entry */
+
 char *entry_name = NULL;           /* used by DLL to pass z->zname to file_read() */
 #ifdef ENABLE_DLL_PROGRESS
  uzoff_t progress_chunk_size = 0;  /* how many bytes before next progress report */

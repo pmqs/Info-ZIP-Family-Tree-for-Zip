@@ -1,7 +1,5 @@
 HOW TO INSTALL ZIP
 
-     Last updated 19 January 2014.
-
      Zip is distributed as C source code that can be compiled on a
      wide range of systems:  Unix, VMS, MSDOS, OS/2, NT, Amiga, Atari,
      BeOS, VM/CMS, ...  You will need Unzip 5.0p1 or later (under any
@@ -568,3 +566,6 @@ shown above.
 
    We would be grateful to receive reports describing environments where
 this problem occurs.
+
+
+Last updated 24 April 2014.

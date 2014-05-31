@@ -57,7 +57,7 @@ can now choose between TRADITIONAL, AES-128 (128-bit AES encryption),
 AES-192 (192-bit), and AES-256 (256-bit) encryption. Though AES-128 is
 not considered that strong, AES-256 is rather good.  Our AES
 implementation is based on the Gladman AES code.  See INSTALL and the
-information in the aes_wg directory for more about AES_WG and how to
+information in the aes_wg directory for more about AES and how to
 include it in Zip.  We are looking at adding other encryption methods
 (including some PKWARE methods) in the future.
 

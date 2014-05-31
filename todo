@@ -1,4 +1,36 @@
-Todo list (last updated 16 Jul 2012).
+- Update zwopen_read_long() to assume privilege set first, then revert
+  to non-privilege file open.  May need to request privilege in code. 
+  (Added 2014-04-16 EG)
+
+- Unix ACL storage.  This has been on the table for awhile now.  (Added
+  2014-04-17 EG)
+
+- Use get_wide_argv() to get Unicode command line from the Windows console.
+  (Added 2014-04-16 EG)
+
+- Better check on comment size.  May want to limit it to much less than 32765
+  bytes.  (Added 2014-04-15.  EG)
+
+- ACL longer than can fit in a header.  (2014-04-15, but this problem
+  has been around for years.  EG)
+
+- Long paths in Windows (done)
+
+- DLL support, command line DLL entry (more or less done)
+
+- Scripted backup options updates (need to look at)
+
+- multi-threading to speed up compression, maybe borrowing some from the
+  LZMA SDK if useful  (probably not this release)
+
+- Option like -D (--default) for man that ignores contents of environment.
+  Could be helpful for debugging.  (See
+  http://man7.org/linux/man-pages/man1/man.1.html)  2014-01-18 EG
+
+
+
+Todo list (last updated 16 Jul 2012).  Some additions 13 Oct 2013, but
+need to sift through entire list.
 
 
 On the short list:
@@ -12,6 +44,20 @@ On the short list:
   Some candidates to consider:
   .7z:.bz2:.dmg:.gz:.jar:.lzma:.rar:.tbz:.tbz2:.tgz:.tlz:.xz:.zipx
 
+Possible additions before release:
+
+- Look at monitoring keyboard input to enable commands such as status,
+  pause, and resume.  Would not be compatible with other uses of
+  stdin so this feature would not be allowed in those cases.  - EG
+- Allow an application to get a status on demand using the API interface.
+  - EG
+- Clean up the DLL interface and maybe convert to a command line version.
+  - EG
+- Clean up the backup commands.  Better support automatic scripts.  - EG
+
+
+
+
 
 
 
@@ -22,7 +68,7 @@ Bug list:
 - -A should be allowed while updating an archive.  (Mail 29 Nov 2010)
 
 
-Features for next official version:
+Features considered for next official version:
 
 - Console Unicode handling on Windows.  (19 Apr 2010 EG, pulled
   from forum "Info-ZIP Software Discussions and Feature Requests >
