@@ -82,8 +82,6 @@ extern void globals_dummy( void);
 # endif /* def BZIP2_USEBZIP2DIR [else] */
 #endif /* def BZIP2_SUPPORT [else] */
 
-#define MAXCOM 256      /* Maximum one-line comment size */
-
 
 /* Local option flags */
 #ifndef DELETE
@@ -94,13 +92,14 @@ extern void globals_dummy( void);
 #define FRESHEN 3
 #define ARCHIVE 4
 local int action = ADD; /* one of ADD, UPDATE, FRESHEN, DELETE, or ARCHIVE */
-local int comadd = 0;   /* 1=add comments for new files */
-local int zipedit = 0;  /* 1=edit zip comment and all file comments */
+                        /* comadd (edit entry comments) now global to support -st */
+local int zipedit = 0;  /* 1=edit zip comment (and not "all file comments") */
 local int latest = 0;   /* 1=set zip file time to time of latest file */
 local int test = 0;     /* 1=test zip file with unzip -t */
 local char *unzip_path = NULL; /* where to find "unzip" for archive testing */
 local int tempdir = 0;  /* 1=use temp directory (-b) */
 local int junk_sfx = 0; /* 1=junk the sfx prefix */
+
 #if defined(AMIGA) || defined(MACOS)
 local int filenotes = 0; /* 1=take comments from AmigaDOS/MACOS filenotes */
 #endif
@@ -166,14 +165,16 @@ ZCONST uLongf *crc_32_tab;
 
 local void freeup  OF((void));
 local int  finish  OF((int));
-#if !defined(MACOS) && !defined(ZIP_DLL_LIB)
+#ifndef MACOS
+# ifndef ZIP_DLL_LIB
 local void handler OF((int));
+# endif /* ndef ZIP_DLL_LIB */
 local void license OF((void));
 # ifndef VMSCLI
 local void help    OF((void));
 local void help_extended OF((void));
-# endif /* !VMSCLI */
-#endif /* !MACOS && !ZIP_DLL_LIB */
+# endif /* ndef VMSCLI */
+#endif /* ndef MACOS */
 
 #ifdef ENABLE_USER_PROGRESS
 # ifdef VMS
@@ -201,14 +202,16 @@ local long add_name OF((char *filearg));
 local int DisplayRunningStats OF((void));
 local int BlankRunningStats OF((void));
 
-#if !defined(ZIP_DLL_LIB)
 local void version_info OF((void));
-# if !defined(MACOS)
+
+# if !defined(WINDLL) && !defined(MACOS)
 local void zipstdout OF((void));
-# endif /* !MACOS */
+# endif /* !WINDLL && !MACOS */
+
+#ifndef ZIP_DLL_LIB
 local int check_unzip_version OF((char *unzippath));
 local void check_zipfile OF((char *zipname, char *zippath));
-#endif /* !ZIP_DLL_LIB */
+#endif /* ndef ZIP_DLL_LIB */
 
 /* structure used by add_filter to store filters */
 struct filterlist_struct {
@@ -342,9 +345,9 @@ local void freeup()
   if (argv_cli != NULL)
   {
     /* Free VMS CLI argv[]. */
-    if (argv_cli[ 0] != NULL)
-      free( argv_cli[ 0]);
-    free( argv_cli);
+    if (argv_cli[0] != NULL)
+      free(argv_cli[0]);
+    free(argv_cli);
   }
 #endif /* def VMSCLI */
 
@@ -413,9 +416,12 @@ int e;                  /* exit code */
   return e;
 }
 
-/*
- * show_env(): Display option environment variables.
+
+/* show_env() - Display Zip-related environment variables.
+ *
+ * This is used by ziperr() and version_info().
  */
+/* List of variables to check - port dependent */
   static ZCONST char *zipenv_names[] = {
 # ifndef VMS
 #  ifndef RISCOS
@@ -448,40 +454,34 @@ int e;                  /* exit code */
 # endif
   };
 
-static void show_env_heading( __G__ heading)
- int *heading;
-{
-    /* Display the heading once. */
-    if (*heading == 0)
-    {
-        *heading = 1;
-        printf( "Zip environment options:\n");
-    }
-} /* show_env_heading() */
-
-void show_env( non_null_only)
+void show_env(non_null_only)
  int non_null_only;
 {
   int heading = 0;
   int i;
   char *envptr;
 
-  for (i = 0; i < sizeof( zipenv_names)/ sizeof(char *); i++)
+  for (i = 0; i < sizeof(zipenv_names) / sizeof(char *); i++)
   {
     envptr = getenv(zipenv_names[i]);
     if ((non_null_only == 0) || (envptr != (char *)NULL))
     {
-      show_env_heading( __G__ &heading);
-      printf( "%16s:  %s\n", zipenv_names[ i],
+      if (heading == 0) {
+        zipmessage_nl("Zip environment options:", 1);
+        heading = 1;
+      }
+      sprintf(errbuf, "%16s:  %s", zipenv_names[i],
        ((envptr == (char *)NULL || *envptr == 0) ? "[none]" : envptr));
+      zipmessage_nl(errbuf, 1);
     }
   }
   if ((non_null_only == 0) && (i == 0))
   {
-      printf( "        [none]\n");
-      printf( "\n");
+      zipmessage_nl("        [none]", 1);
+      zipmessage_nl("", 1);
   }
 }
+
 
 void ziperr(c, h)
 int c;                  /* error code from the ZE_ class */
@@ -513,9 +513,21 @@ ZCONST char *h;         /* message about how it happened */
     fflush(mesg);
     fprintf(mesg, "\nzip error: %s (%s)\n", ZIPERRORS(c), h);
 
+#ifdef WINDLL
+  if (*lpZipUserFunctions->error != NULL) {
+    if (PERR(c)) {
+      sprintf(errbuf, "zip I/O error: %s", strerror(errno));
+      (*lpZipUserFunctions->error)(errbuf);
+    }
+    sprintf(errbuf, "zip error: %s (%s)", ZIPERRORS(c), h);
+    (*lpZipUserFunctions->error)(errbuf);
+  }
+#endif
+
     /* Show non-null option environment variables after a syntax error. */
-    if (c == ZE_PARMS)
-      show_env( 1);
+    if (c == ZE_PARMS) {
+      show_env(1);
+    }
 
 #ifdef DOS
     check_for_windows("Zip");
@@ -593,7 +605,7 @@ int s;                  /* signal number (ignored) */
 {
 # if defined(AMIGA) && defined(__SASC)
    _abort();
-# else /* defined(AMIGA) && defined(__SASC) */
+# else /* defined(AMIGA) && defined(__SASC) [else] */
 #  if !defined(MSDOS) && !defined(__human68k__) && !defined(RISCOS)
   echon();
   putc('\n', mesg);
@@ -667,7 +679,7 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
 /* Print a warning message to mesg (usually stderr) and return,
  * with or without indentation.
  */
-void zipwarn_i( indent, a, b)
+void zipwarn_i(indent, a, b)
 int indent;
 ZCONST char *a, *b;     /* message strings juxtaposed in output */
 /* Print a warning message to mesg (usually stderr) and return. */
@@ -694,7 +706,9 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
     fprintf(mesg, "\n");
   fprintf(mesg, "%s%s %s%s\n", prefix, warning, a, b);
   mesg_line_started = 0;
+#ifndef WINDLL
   fflush(mesg);
+#endif
 
   if (logfile) {
     if (logfile_line_started)
@@ -703,6 +717,15 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
     logfile_line_started = 0;
     fflush(logfile);
   }
+
+#ifdef WINDLL
+  if (*lpZipUserFunctions->error != NULL) {
+    char buf[6000];
+
+    sprintf(buf, "%s%s %s%s\n", prefix, warning, a, b);
+    (*lpZipUserFunctions->error)(buf);
+  }
+#endif
 }
 
 /* Print a warning message to mesg (usually stderr) and return. */
@@ -710,25 +733,24 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
 void zipwarn(a, b)
 ZCONST char *a, *b;     /* message strings juxtaposed in output */
 {
-  zipwarn_i( 0, a, b);
+  zipwarn_i(0, a, b);
 }
 
 /* zipwarn_indent(): zipwarn(), with message indented. */
 
-void zipwarn_indent( a, b)
+void zipwarn_indent(a, b)
 ZCONST char *a, *b;
 {
     zipwarn_i( 1, a, b);
 }
 
-#ifndef ZIP_DLL_LIB
 local void license()
 /* Print license information to stdout. */
 {
   extent i;             /* counter for copyright array */
 
   for (i = 0; i < sizeof(swlicense)/sizeof(char *); i++)
-    puts(swlicense[i]);
+    printf("%s\n", swlicense[i]);
 }
 
 # ifdef VMSCLI
@@ -763,17 +785,17 @@ local void help()
 "  -T   test zipfile integrity       -X   eXclude eXtra file attributes",
 #  ifdef IZ_CRYPT_ANY
 "  -e   encrypt                      -n   don't compress these suffixes"
-#  else /* def IZ_CRYPT_ANY */
+#  else /* def IZ_CRYPT_ANY [else] */
 "  -h   show this help               -n   don't compress these suffixes"
 #  endif /* def IZ_CRYPT_ANY [else] */
-," -h2  show more help",
+," -hh  show more help",
 "  Macintosh specific:",
 "  -jj  record Fullpath (+ Volname)  -N store finder-comments as comments",
 "  -df  zip only datafork of a file  -S include finder invisible/system files"
-# else /* def MACOS */
+# else /* def MACOS [else] */
 #  ifdef VM_CMS
 "zip [-options] [-b fm] [-t mmddyyyy] [-n suffixes] [zipfile list] [-xi list]",
-#  else /* def VM_CMS */
+#  else /* def VM_CMS [else] */
 "zip [-options] [-b path] [-t mmddyyyy] [-n suffixes] [zipfile list] [-xi list]",
 #  endif /* def VM_CMS [else] */
 "  The default action is to add or replace zipfile entries from list, which",
@@ -784,7 +806,7 @@ local void help()
 "  -r   recurse into directories     -j   junk (don't record) directory names",
 #  ifdef THEOS
 "  -0   store only                   -l   convert CR to CR LF (-ll CR LF to CR)",
-#  else /* def THEOS */
+#  else /* def THEOS [else] */
 "  -0   store only                   -l   convert LF to CR LF (-ll CR LF to LF)",
 #  endif /* def THEOS [else] */
 "  -1   compress faster              -9   compress better",
@@ -795,10 +817,10 @@ local void help()
 #  ifdef EBCDIC
 #   ifdef CMS_MVS
 "  -a   translate to ASCII           -B   force binary read (text is default)",
-#   else  /* !CMS_MVS */
+#   else  /* !CMS_MVS [else] */
 "  -a   translate to ASCII",
 "  -aa  Handle all files as ASCII text files, EBCDIC/ASCII conversions.",
-#   endif /* ?CMS_MVS */
+#   endif /* ?CMS_MVS [else] */
 #  endif /* EBCDIC */
 #  ifdef TANDEM
 "                                    -Bn  set Enscribe formatting options",
@@ -821,15 +843,15 @@ local void help()
 "  -E   use the .LONGNAME Extended attribute (if found) as filename",
 #  endif /* OS2 */
 #  ifdef VMS
-#   ifdef S_IFLNK
+#   ifdef SYMLINK_SUPPORT
 "  -vn  preserve all VMS file names  -y   store (don't follow) symlinks",
-#   else /* def S_IFLNK */
+#   else /* def SYMLINK_SUPPORT [else] */
 "  -vn  preserve all VMS file names",
-#   endif /* def S_IFLNK [else] */
-#  else /* def VMS */
-#   ifdef S_IFLNK
+#   endif /* def SYMLINK_SUPPORT [else] */
+#  else /* def VMS [else] */
+#   ifdef SYMLINK_SUPPORT
 "  -y   store symbolic links as the link instead of the referenced file",
-#   endif /* def S_IFLNK */
+#   endif /* def SYMLINK_SUPPORT */
 #  endif /* def VMS [else] */
 /*
 "  -R   PKZIP recursion (see manual)",
@@ -841,23 +863,23 @@ local void help()
 #   ifdef IZ_CRYPT_ANY
 "  -N   store filenotes as comments  -e   encrypt",
 "  -h   show this help               -n   don't compress these suffixes"
-#   else /* def IZ_CRYPT_ANY */
+#   else /* def IZ_CRYPT_ANY [else] */
 "  -N   store filenotes as comments  -n   don't compress these suffixes"
 #   endif /* def IZ_CRYPT_ANY [else] */
-#  else /* def AMIGA */
+#  else /* def AMIGA [else] */
 #   ifdef IZ_CRYPT_ANY
 "  -e   encrypt                      -n   don't compress these suffixes"
-#   else /* def IZ_CRYPT_ANY */
+#   else /* def IZ_CRYPT_ANY [else] */
 "  -h   show this help               -n   don't compress these suffixes"
 #   endif /* def IZ_CRYPT_ANY [else] */
 #  endif /* def AMIGA [else] */
 #  ifdef RISCOS
-,"  -h2  show more help               -I   don't scan thru Image files"
-#  else /* def RISCOS */
-#   if defined( UNIX) && defined( __APPLE__)
+,"  -hh  show more help               -I   don't scan thru Image files"
+#  else /* def RISCOS [else] */
+#   if defined(UNIX) && defined(__APPLE__)
 ,"  -as  sequester AppleDouble files  -df  save Mac data fork only"
-#   endif /* defined( UNIX) && defined( __APPLE__) [else] */
-,"  -h2  show more help"
+#   endif /* defined(UNIX) && defined(__APPLE__) */
+,"  -hh  show more help"
 #  endif /* def RISCOS [else] */
 # endif /* def MACOS [else] */
 # ifdef VMS
@@ -869,18 +891,18 @@ local void help()
   for (i = 0; i < sizeof(copyright)/sizeof(char *); i++)
   {
     printf(copyright[i], "zip");
-    putchar('\n');
+    printf("\n");
   }
   for (i = 0; i < sizeof(text)/sizeof(char *); i++)
   {
     printf(text[i], VERSION, REVDATE);
-    putchar('\n');
+    printf("\n");
   }
 }
 
 # ifdef VMSCLI
 void help_extended()
-# else /* def VMSCLI */
+# else /* def VMSCLI [else] */
 local void help_extended()
 # endif /* def VMSCLI [else] */
 /* Print extended help to stdout. */
@@ -910,22 +932,22 @@ local void help_extended()
 " External modes (selects files from file system):",
 "        add      - add new files/update existing files in archive (default)",
 "  -u    update   - add new files/update existing files only if later date",
-"  -f    freshen  - update existing files only (no files added)",
+"  -f    freshen  - update files in archive only (no files added)",
 "  -FS   filesync - update if date or size changed, delete if no OS match",
 " Internal modes (selects entries in archive):",
 "  -d    delete   - delete files from archive (see below)",
 "  -U    copy     - select files in archive to copy (use with --out)",
 "",
 "Basic options:",
-"  -r        recurse into directories (see Recursion below)",
-"  -m        after archive created, delete original files (move into archive)",
-"  -j        junk directory names (store just file names)",
-"  -p        include relative dir path (deprecated) - use -j- instead (default)",
-"  -q        quiet operation",
-"  -v        verbose operation (just \"zip -v\" shows version information)",
-"  -c        prompt for one-line comment for each entry",
-"  -z        prompt for comment for archive (end with just \".\" line or EOF)",
-"  -o        make zipfile as old as latest entry",
+"  -r      recurse into directories (see Recursion below)",
+"  -m      after archive created, delete original files (move into archive)",
+"  -j      junk directory names (store just file names)",
+"  -p      include relative dir path (deprecated) - use -j- instead (default)",
+"  -q      quiet operation",
+"  -v      verbose operation (just \"zip -v\" shows version information)",
+"  -c      prompt for one-line comment for each entry (see Comments below)",
+"  -z      prompt for comment for archive (end with just \".\" line or EOF)",
+"  -o      make zipfile as old as latest entry",
 "",
 "",
 "Syntax:",
@@ -955,14 +977,14 @@ local void help_extended()
 "    zip -r -dbdcds 10m -lilalf logfile archive input_directory -ll",
 "  If combined options are not doing what you expect:",
 "   - break up options to one per argument",
-"   - use -sc to see what parsed command line looks like",
+"   - use -sc to see what parsed command line looks like, incl shell expansion",
 "   - use -so to check for 2-char options you might have unknowingly specified",
 "   - use -sf to see files to operate on (includes -@, -@@)",
 "",
 "  All args after just \"--\" arg are read verbatim as paths and not options.",
 "    zip zipfile path path ... -- verbatimpath verbatimpath ...",
 "  Use -nw to also disable wildcards, so paths are read literally:",
-"    zip zipfile -nw -- \"-leadingdashpath\" \"a[path].c\" \"path*withwildcard\"",
+"    zip zipfile -nw -- \"-leadingdashpath\" \"a[path].c\" \"path*withwild\"",
 "  You may still have to escape or quote arguments to avoid shell expansion",
 "",
 "Wildcards:",
@@ -970,17 +992,13 @@ local void help_extended()
 "    ?       (or %% or #, depending on OS) matches any single character",
 "    *       matches any number of characters, including zero",
 "    [list]  matches char in list (regex), can do range [ac-f], all but [!bf]",
-"  If port supports [], must escape [ as [[] or use -nw to turn off wildcards",
+"  Set -RE (regex) to use [list] matching.  If use, must escape [ as [[].",
 "  For shells that expand wildcards, escape (\\* or \"*\") so zip can recurse",
 "    zip zipfile -r . -i \"*.h\"",
+"    zip files_ending_with_number -RE foo[0-9].c",
 "",
 "  Normally * crosses dir bounds in path, e.g. 'a*b' can match 'ac/db'.  If",
-"   -ws option used, * does not cross dir bounds but ** does",
-"",
-"  For DOS and Windows, [list] is now disabled unless the new option",
-"  -RE       enable [list] (regular expression) matching",
-"  is used to avoid problems with file paths containing \"[\" and \"]\":",
-"    zip files_ending_with_number -RE foo[0-9].c",
+"   -ws option used, * does not cross dir bounds but ** does.",
 "",
 "Verbose/Version:",
 "  -v        either enable verbose mode or show version",
@@ -988,12 +1006,12 @@ local void help_extended()
 "  can be forced by using long form --version.  Otherwise -v tells Zip to be",
 "  verbose, providing additional info about what is going on.  (On VMS,",
 "  additional levels of verboseness are enabled using -vv and -vvv.)  This",
-"  info tends towards the debugging level and is probably not useful to the",
-"  average user.  Long option form of verbose use is --verbose.",
+"  info tends towards the debugging level and is probably not useful to",
+"  average user.  Long option is --verbose.",
 "",
 "Input file lists:",
-"  -@        read names (paths) to zip from stdin (one name per line)",
-"  -@@ fpath open file at file path fpath and read names (one name per line)",
+"  -@         read names (paths) to zip from stdin (one name per line)",
+"  -@@ fpath  open file at file path fpath and read names (one name per line)",
 "",
 "Include and Exclude:",
 "  -i pattern pattern ...   include files that match a pattern",
@@ -1007,14 +1025,14 @@ local void help_extended()
 "",
 "Case matching:",
 "  On most OS the case of patterns must match the case in the archive, unless",
-"  the -ic option is used.",
+"  the -ic option used.",
 "  -ic       ignore case of archive entries",
 "  This option not available on case-sensitive file systems.  On others, case",
 "  ignored when matching files on file system but matching against archive",
 "  entries remains case sensitive for modes -f (freshen), -U (archive copy),",
 "  and -d (delete) because archive paths are always case sensitive.  With",
-"  -ic, all matching ignores case, but it's then possible multiple archive",
-"  entries that differ only in case will match.",
+"  -ic, all matching ignores case, but possible multiple archive entries",
+"  that differ only in case will match.",
 "",
 "End Of Line Translation (text files only):",
 "  -l        change CR or LF (depending on OS) line end to CR LF (Unix->Win)",
@@ -1030,11 +1048,33 @@ local void help_extended()
 "   current dir is /a/b, 'zip -r archive .' puts c/file in archive",
 "  Use -i and -x with either to include or exclude paths",
 "",
-"Date filtering:",
+"Dates and date filtering:",
 "  -t date   exclude before (include files modified on this date and later)",
 "  -tt date  include before (include files modified before date)",
-"  Can use both at same time to set a date range",
-"  Dates are mmddyyyy or yyyy-mm-dd",
+"  Can use both at same time to set a date range.",
+"",
+"  Dates are mmddyyyy or yyyy-mm-dd.",
+"  As of Zip 3.1, dates can include times.  The new optional format is:",
+"    [date][:time]",
+"  where a time value always starts with colon (:).  If no date, today",
+"  assumed.  (Be careful when working near date boundaries where current date",
+"  changes - probably best to always include date.)",
+"  Time format:",
+"    :HH:MM[:SS]",
+"  where seconds optional.  24 hour format, so 15:10 is 3:10 PM.",
+"  Examples:",
+"    -t 2014-01-17            Include files modified on/after Jan 17, 2014",
+"    -tt 01172014:07:08       Include files before 7:08 AM on Jan 17, 2014",
+"    -tt 2014-01-17:07:08:09  Include files before 7:08:09 on Jan 17, 2014",
+"    -t :07:08                Include files after 7:08 AM today",
+"",
+"  Be aware of time and date differences when Zip archives are moved between",
+"  time zones.  Also changes in daylight saving time status.  Use of",
+"  Universal Time extra field, when available, mitigates effects to some",
+"  extent.  (See Zip Manual for more on this.)",
+"",
+"  -tn prevents storage of univeral time; -X prevents storage of most extra",
+"   fields, including universal time.",
 "",
 "Deletion, File Sync:",
 "  -d        delete files",
@@ -1042,8 +1082,8 @@ local void help_extended()
 "    zip archive -d pattern pattern ...",
 "  Can use -t and -tt to select files in archive, but NOT -x or -i, so",
 "    zip archive -d \"*\" -t 2005-12-27",
-"  deletes all files from archive.zip with date of 27 Dec 2005 and later",
-"  Note the * (escape as \"*\" on Unix) to select all files in archive",
+"  deletes all files from archive.zip with date of 27 Dec 2005 and later.",
+"  Note the * (escape as \"*\" on Unix) to select all files in archive.",
 "",
 "  -FS       file sync",
 "  Similar to update, but files updated if date or size of entry does not",
@@ -1055,7 +1095,7 @@ local void help_extended()
 "      WARNING:  -FS deletes entries so make backup copy of archive first",
 "",
 "Compression:",
-"  Global compression method:",
+"  Compression method:",
 "    -Z cm   set global compression method to cm:",
 "              store   - store without compression, same as option -0",
 "              deflate - original zip deflate, same as -1 to -9 (default)",
@@ -1066,7 +1106,7 @@ local void help_extended()
 "            if PPMd is enabled:",
 "              ppmd - use PPMd compression (need modern unzip)",
 "",
-"  Global compression level:",
+"  Compression level:",
 "    -0        store files (no compression)",
 "    -1 to -9  compress fastest to compress best (default is 6)",
 "",
@@ -1075,41 +1115,53 @@ local void help_extended()
 "    For example:",
 "      -n .Z:.zip:.zoo:.arc:.lzh:.arj",
 "    stores without compression files that end with these extensions",
+"  Default suffix list (don't compress):",
+"    .Z:.zip:.zipx:.zoo:.arc:.lzh:.lha:.arj:.gz:.tgz:.tbz2:.tlz:.7z:.xz:.cab:",
+"    .bz2:.lzma:.rz:.pea:.zz:.rar",
 "",
-"  Now can control the level to use with a particular method, and the level",
-"  and method to use with a particular suffix (type of file).",
+"  Now can control level to use with particular method, and level/method to",
+"  use with particular suffix (type of file).",
 "",
 "  Compression level to use for particular compression methods:",
 "      -L=methodlist",
-"    where L is a compression level (1, 2, ..., 9), and methodlist is a list",
-"    of compression methods in the form:",
+"    where L is compression level (1, 2, ..., 9), and methodlist is list of",
+"    compression methods in form:",
 "      cm1:cm2:...",
 "    Examples: -4=deflate  -8=bzip2:lzma:ppmd",
-"    The \"=\" is required to associate a method with a level.",
+"      Default to level 4 for deflate.  Default to 8 for bzip2, LZMA, PPMd.",
+"      After above:",
+"        \"zip archive file\" would use deflate at level 4.",
+"        \"zip archive file -Z bzip2\" would use level 8 bzip2 compression.",
+"    The \"=\" is required to associate method with level.",
 "",
 "  Compression method/level to use with particular file name suffixes:",
 "      -n suffixlist",
 "    where suffixlist is in the form:",
 "      .ext1:.ext2:.ext3:...",
-"    Files whose names end with a suffix in the list will be stored instead",
-"    of compressed.  Note that a list of just \":\" disables the default",
-"    list and forces compression of all extensions, including .zip files.  A",
-"    more advanced form is now supported:",
+"    Files whose names end with suffix in list will be stored instead of",
+"    compressed.  Note that list of just \":\" disables default list and",
+"    forces compression of all extensions, including .zip files.",
+"      zip -9 -n : compressall *",
+"    A more advanced form is now supported:",
 "      -n cm=suffixlist",
-"    where cm is a compression method (such as bzip2), which specifies the",
-"    use of compression method cm when one of those suffixes is found.  A",
-"    yet more advanced form is supported:",
+"    where cm is a compression method (such as bzip2), which specifies use",
+"    of compression method cm when one of those suffixes found.",
+"      zip -n lzma=.txt:.log archive *",
+"        Use default deflate on most files, but use LZMA on .txt/.log files",
+"    A yet more advanced form:",
 "      -n cm-L=suffixlist",
-"    where L is one of (1 through 9 or -), which specifies the use of method",
-"    cm at level L when one of those suffixes is found.  (\"-\" specifies the",
-"    default level, to override a specific level in a previous \"-n\" option.)",
-"    Multiple -n options can be used:",
+"    where L is one of (1 through 9 or -), which specifies use of method cm",
+"    at level L when one of those suffixes found.  (\"-\" specifies default",
+"    level, to override specific level in previous \"-n\" option.)",
+"    Multiple -n can be used:",
 "      -n deflate=.txt -n lzma-9=.c:.h --suf lzma-2=.txt",
+"      zip  -n lzma-9=.c:.h  -n lzma-2=.txt  archive *",
+"        Use LZMA at 9 for .c/.h, LZMA at 2 for .txt, rest default deflate 6",
 "",
 "  -ss      list the current compression mappings (suffix lists), and exit.",
 "",
 "Encryption:",
-"  -e        use encryption, prompt for password",
+"  -e        use encryption, prompt for password (default if -Y used)",
 "  -P pswd   use encryption, password is pswd (NOT SECURE!  Many OS allow",
 "              seeing what others type on command line.  See manual.)",
 "",
@@ -1118,26 +1170,28 @@ local void help_extended()
 "",
 "  -Y em     set encryption method (TRADITIONAL, AES128, AES192, or AES256)",
 "              (Zip uses WinZip AES encryption.  Other strong encryption",
-"              methods may be added in the future.)",
+"              methods may be added in future.)",
 "",
 "  For example:",
 "    zip myarchive filetosecure.txt -Y AES2",
-"  compresses and encrypts using AES256 the file filetosecure.txt and adds",
-"  it to myarchive.  Zip will prompt for password.",
+"  compresses using deflate and encrypts using AES256 file filetosecure.txt",
+"  and adds it to myarchive.  Zip will prompt for password.",
 "",
 "  Min password lengths in chars:  16 (AES128), 20 (AES192), 24 (AES256).",
 "  (No minimum for TRADITIONAL zip encryption.)  The longer and more varied",
-"  the password the better.  We suggest the length of passwords should be at",
-"  least 22 chars (AES128), 33 chars (AES192), and 44 chars (AES256) and",
-"  include a mix of lowercase, uppercase, numeric, and other characters.",
-"  The strength of encryption is directly dependent on the length and",
-"  variedness of the password.  Even using AES256, entries using simple",
-"  short passwords are probably easy to crack.",
+"  the password the better.  We suggest length of passwords should be at least",
+"  22 chars (AES128), 33 chars (AES192), and 44 chars (AES256) and include",
+"  mix of lowercase, uppercase, numeric, and other characters.  Strength of",
+"  encryption directly dependent on length and variedness of password.  To",
+"  fully take advantage of AES encryption strength selected, passwords should",
+"  be much longer and approach length of encryption key used.  Even using",
+"  AES256, entries using simple short passwords are probably easy to crack.",
 "",
 "  -pn       allow non-ANSI characters in password.  Default is to restrict",
 "              passwords to printable 7-bit ANSI characters for portability.",
+"  -ps       allow shorter passwords than normally permitted.",
 "",
-"Splits (archives created as a set of split files):",
+"Splits (archives created as set of split files):",
 "  -s ssize  create split archive with splits of size ssize, where ssize nm",
 "              n number and m multiplier (kmgt, default m), 100k -> 100 kB",
 "  -sp       pause after each split closed to allow changing disks",
@@ -1149,9 +1203,8 @@ local void help_extended()
 "",
 "Using --out (output to new archive):",
 "  --out oa  output to new archive oa (- for stdout)",
-"  Instead of updating input archive, create new output archive oa.",
-"  Result is same as without --out but in new archive.  Input archive",
-"  unchanged.",
+"  Instead of updating input archive, create new output archive oa.  Result",
+"  same as without --out but in new archive.  Input archive unchanged.",
 "      WARNING:  --out ALWAYS overwrites any existing output file",
 "  For example, to create new_archive like old_archive but add newfile1",
 "  and newfile2:",
@@ -1167,12 +1220,24 @@ local void help_extended()
 "Copy Mode (copying from archive to archive):",
 "  -U        (also --copy) select entries in archive to copy (reverse delete)",
 "  Copy Mode copies entries from old to new archive with --out and is used by",
-"  zip when either no input files on command line or -U (--copy) used.",
+"  zip when --out and either no input files or -U (--copy) used.",
 "    zip inarchive --copy pattern pattern ... --out outarchive",
 "  To copy only files matching *.c into new archive, excluding foo.c:",
 "    zip old_archive --copy \"*.c\" --out new_archive -x foo.c",
+"  Wildcards must be escaped if shell would process them.",
 "  If no input files and --out, copy all entries in old archive:",
 "    zip old_archive --out new_archive",
+"",
+"Comments:",
+"  A zip archive can include comment for each entry as well as comment for",
+"  entire archive (the archive comment):",
+"  -c        prompt for one-line entry comment for each entry",
+"  -z        prompt for archive comment (end with just \".\" line or EOF)",
+"  Zip only accepts one-line comment for each file (ends at end of line).",
+"  Archive comment can span multiple lines and ends when line with just \".\"",
+"  is entered or when EOF detected.  As of Zip 3.1, can view existing comments",
+"  and keep/remove/replace them.  For more complex comment operations,",
+"  consider using ZipNote.",
 "",
 "Streaming and FIFOs:",
 "  prog1 | zip -ll z -      zip output of prog1 to zipfile z, converting CR LF",
@@ -1182,20 +1247,36 @@ local void help_extended()
 "   that need PKZip 4.5 unzipper like UnZip 6.0",
 "  WARNING:  Some archives created with streaming use data descriptors and",
 "            should work with most unzips but may not work with some",
-"  Can use --force-zip64- to turn off Zip64 if input not large (< 4 GiB):",
+"  Can use --force-zip64- (-fz-) to turn off Zip64 if input known not to",
+"  be large (< 4 GiB):",
 "    prog_with_small_output | zip archive --force-zip64-",
 "",
-"  Zip now can read Unix FIFO (named pipes).  Off by default to prevent zip",
+"  As of Zip 3.1, file attributes and comments can be included in local",
+"  headers so entries in resulting zip file can be fully extracted using",
+"  streaming unzip.  As new information adds slight amount to each entry,",
+"  in this beta this feature needs to be enabled using -st (--stream)",
+"  option.  In release may be enabled by default, except when -c used to set",
+"  entry comments.",
+"",
+"  Normally when -c used to add comments for each entry added or updated,",
+"  Zip asks for new comments after zip operation done.  When -c and -st used",
+"  together, Zip asks for each comment as each entry processed so comments",
+"  can be included in local headers, pausing while waiting for user input.",
+"  For large archives, may be easier to first create archive without -st, then",
+"  update archive without -c and with -st to add streaming:"
+"    zip -st NoStreamArchive --out StreamArchive",
+"",
+"  Zip can read Unix FIFO (named pipes).  Off by default to prevent zip",
 "  from stopping unexpectedly on unfed pipe, use -FI to enable:",
 "    zip -FI archive fifo",
 "",
 "Dots, counts:",
 "  Any console output may slow performance of Zip.  That said, there are",
-"  times when additional output information is worth the performance impact",
-"  or when actual completion time is not critical.  The below options can",
-"  provide useful information in those cases.  If speed is important but",
-"  some indication of activity is still needed, check out the -dg option",
-"  (which can be used with a log file to save more detailed information).",
+"  times when additional output information is worth performance impact or",
+"  when actual completion time not critical.  Below options can provide",
+"  useful information in those cases.  If speed important but some indication",
+"  of activity still needed, check out -dg option (which can be used with log",
+"  file to save more detailed information).",
 "",
 "  -db       display running count of bytes processed and bytes to go",
 "              (uncompressed size, except delete and copy show stored size)",
@@ -1203,15 +1284,15 @@ local void help_extended()
 "  -dd       display dots every 10 MiB (or dot size) while processing files",
 "  -de       display estimated time to go",
 "  -dg       display dots globally for archive instead of for each file",
-"    zip -qdgds 10m   will turn off most output except dots every 10 MiB",
+"    zip -qdgds 100m   will turn off most output except dots every 100 MiB",
 "  -dr       display estimated zipping rate in bytes/sec",
 "  -ds siz   each dot is siz processed where siz is nm as splits (0 no dots)",
 "  -dt       display time Zip started zipping entry in day/hr:min:sec format",
 "  -du       display original uncompressed size for each entry as added",
 "  -dv       display volume (disk) number in format in_disk>out_disk",
-"  Dot size is approximate, especially for dot sizes less than 1 MiB",
-"  Dot options don't apply to Scanning files dots (dot/2sec) (-q turns off)",
-"  Options -de and -dr do not display for first few entries",
+"  Dot size is approximate, especially for dot sizes less than 1 MiB.",
+"  Dot options don't apply to Scanning files dots (dot/2sec) (-q turns off).",
+"  Options -de and -dr do not display for first few entries.",
 "",
 "Logging:",
 "  -lf path  open file at path as logfile (overwrite existing file)",
@@ -1220,8 +1301,8 @@ local void help_extended()
 "            If path is \"-\" send log output to stdout, replacing normal",
 "            output (implies -q).  Cannot use with -la or -v.",
 "",
-"    zip -lf - -dg -ds 10m -r archive.zip foo",
-"             will zip up directory foo, displaying just dots every 10 MiB",
+"    zip -lF -q -dg -ds 1g -r archive.zip foo",
+"             will zip up directory foo, displaying just dots every 1 GiB",
 "             and an end summary.",
 "",
 "  -la       append to existing logfile",
@@ -1236,15 +1317,18 @@ local void help_extended()
 "             UTF-8 probably won't do it.",
 "",
 "Testing archives:",
-"  -T        test completed temp archive with unzip before updating archive",
-"             If zip given password, it gets passed to unzip.  Uses",
-"             the default \"unzip\" on the system.",
-"  -TT cmd   use command cmd instead of 'unzip -tqq' to test archive",
-"             On Unix, to use unzip in current directory, could use:",
+"  -T        test completed temp archive with unzip (in spawned process)",
+"             before committing updates.  If zip given password, it gets",
+"             passed to unzip.  Uses default \"unzip\" on system.",
+"  -TT cmd   use command cmd instead of 'unzip -tqq' to test archive.  (If",
+"             cmd includes spaces, put in quotes.)  On Unix, to use unzip in",
+"             current directory, could use:",
 "               zip archive file1 file2 -T -TT \"./unzip -tqq\"",
-"             In cmd, {} replaced by temp archive path, else temp appended,",
-"             and {p} replaced by password if one provided to zip.",
-"             Return code checked for success (0 on Unix)",
+"             In cmd, {} replaced by temp archive path, else temp path",
+"             appended, and {p} replaced by password if one provided to zip.",
+"             Return code checked for success (0 on Unix).  Note that",
+"             Zip spawns new process for UnZip, passing passwords on that",
+"             command line which might be viewable by others.",
 "",
 "Fixing archives:",
 "  -F        attempt to fix a mostly intact archive (try this first)",
@@ -1254,7 +1338,7 @@ local void help_extended()
 "  -FF tries to salvage what can and may result in incomplete entries.",
 "  Must use --out option to specify output archive:",
 "    zip -F bad.zip --out fixed.zip",
-"  As -FF only does one pass, may need to run -F on result to fix offsets",
+"  As -FF only does one pass, may need to run -F on result to fix offsets.",
 "  Use -v (verbose) with -FF to see details:",
 "    zip reallybad.zip -FF -v --out fixed.zip",
 "  Currently neither option fixes bad entries, as from text mode ftp get.",
@@ -1263,7 +1347,7 @@ local void help_extended()
 "  -DF       (also --dif) only include files that have changed or are",
 "             new as compared to the input archive",
 "",
-"  Difference mode can be used to create incremental backups.  For example:",
+"  Difference mode can be used to create differential backups.  For example:",
 "    zip --dif full_backup.zip -r somedir --out diff.zip",
 "  will store all new files, as well as any files in full_backup.zip where",
 "  either file time or size have changed from that in full_backup.zip,",
@@ -1273,64 +1357,91 @@ local void help_extended()
 "Backup modes:",
 "  A recurring backup cycle can be set up using these options:",
 "  -BT type   backup type (one of FULL, DIFF, or INCR)",
-"  -BP bpath  backup path (see below)",
-"  This mode creates a control file that is written to the backup path",
-"  specified (bpath is prepended to the fixed name of the control file).",
-"  This control file tracks the archives currently in the backup set.  This",
-"  path is also used as the destination of the created archives, so no output",
-"  archive is specified, rather this mode creates the output name by adding a",
-"  mode (full, diff, or incr) and a date and time stamp to bpath.  This",
-"  allows recurring backups to be generated without altering the command line",
-"  to specify new archive names.  The backup types are:",
+"  -BD bdir   backup dir (see below)",
+"  -BN bname  backup name (see below)",
+"  -BC cdir   backup control file dir (see below)",
+"  -BL ldir   backup log dir (see below)",
+"  This mode creates control file that is written to bdir/bname (unless cdir",
+"  set, in which case written to cdir/bname).  This control file tracks",
+"  archives currently in backup set.  bdir/bname also used as destination of",
+"  created archives, so no output archive is specified, rather this mode",
+"  creates output name by adding mode (full, diff, or incr) and date/time",
+"  stamp to bdir/bname.  This allows recurring backups to be generated without",
+"  altering command line to specify new archive names to avoid overwriting old",
+"  backups.",
+"  The backup types are:",
 "    FULL - create a normal zip archive, but also create a control file.",
-"    DIFF - create a --diff archive against the FULL archive listed in the",
-"             control file, and update the control file to list both the",
-"             FULL and DIFF archives.  A DIFF backup set consists of just",
-"             the FULL and the DIFF archives, as these two archives capture",
-"             all files.",
-"    INCR - create a --diff archive against the FULL and any DIFF or INCR",
-"             archives in the control file, and update the control file.",
-"             An INCR backup set consists of the FULL archive and any",
-"             INCR (and DIFF) archives created to that point, capturing",
-"             just new and changed files each time an INCR backup is run.",
-"  A FULL backup clears any DIFF and INCR entries from the control file,",
-"  hence starting a new backup set.  A DIFF backup clears out any INCR",
-"  archives listed in the control file.  INCR just adds the new incremental",
-"  archive to the list of archives in the control file.",
+"    DIFF - create a --diff archive against the FULL archive listed in",
+"             control file, and update control file to list both FULL and DIFF",
+"             archives.  A DIFF backup set consists of just FULL and DIFF",
+"             archives, as these two archives capture all files.",
+"    INCR - create a --diff archive against FULL and any DIFF or INCR",
+"             archives in control file, and update control file.  An INCR",
+"             backup set consists of FULL archive and any INCR (and DIFF)",
+"             archives created to that point, capturing just new and changed",
+"             files each time an INCR backup is run.",
+"  A FULL backup clears any DIFF and INCR entries from control file, hence",
+"  starting new backup set.  A DIFF backup clears out any INCR archives listed",
+"  in control file.  INCR just adds new incremental archive to list of",
+"  archives in control file.",
+"",
+"  -BD bdir is dir backup archive goes in.  Must be given.",
+"",
+"  -BN bname is name of backup.  Gets prepended to type and date/time stamp.",
+"  Also name of control file.  Must be given.",
+"",
+"  If -BC cdir given, control file written and maintained there.  Otherwise",
+"  control file written to backup dir given by -BD.  Control file has",
+"  file extension .zbc (Zip backup control).",
+""
+"  If -BL given without value, a log file is written with same path as",
+"  output archive, except .zip replaced by .log.  If -BT=ldir used,",
+"  logfile written to log dir specified, but name of log will be same as",
+"  archive, except .zip replaced by .log.  If you want list of files in",
+"  log, include -li option.",
 "",
 "  The following command lines can be used to perform weekly full and daily",
 "  incremental backups:",
-"    zip -BT=full -BP=mypath/mybackupset -r path_to_back_up",
-"    zip -BT=incr -BP=mypath/mybackupset -r path_to_back_up",
-"  The full type could be scheduled to run weekly and the incr type daily.",
-"  Note that -BP and the backup source must be the same.  The full backup",
-"  will have a name such as:",
-"    mypath/mybackupset_full_FULLDATETIMESTAMP.zip",
-"  and the incrementals will have names such as:",
-"    mypath/mybackupset_full_FULLDATETIMESTAMP_incr_INCRDATETIMESTAMP.zip",
-"  It is recommended that bpath be outside of what is being backed up,",
-"  either a separate drive, path, or other destination or use -x to exclude",
-"  the directory and everything in it.",
+"    zip -BT=full -BD=mybackups -BN=mybackupset -BL -li -r path_to_back_up",
+"    zip -BT=incr -BD=mybackups -BN=mybackupset -BL -li -r path_to_back_up",
+"  Full backups could be scheduled to run weekly and incr daily.",
+"  Full backup will have a name such as:",
+"    mybackups/mybackupset_full_FULLDATETIMESTAMP.zip",
+"  and incrementals will have names such as:",
+"    mybackups/mybackupset_full_FULLDATETIMESTAMP_incr_INCRDATETIMESTAMP.zip",
+"  Backup mode not supported on systems that don't allow long enough names.",
+"  It is recommended that bdir be outside of what is being backed up, either",
+"  a separate drive, path, or other destination, or use -x to exclude backup",
+"  directory and everything in it.  Otherwise each backup may get included",
+"  in later backups, creating exponential growth.",
+"",
+"  Avoid putting multiple backups or control files in same directory to",
+"  prevent name collisions, unless -BN names unique for each backup set.",
+"",
+"  See Manual for more information.",
 "",
 "DOS Archive bit (Windows only):",
-"  -AS       include only files with the DOS Archive bit set",
+"  -AS       include only files with DOS Archive bit set",
 "  -AC       after archive created, clear archive bit of included files",
-"      WARNING: Once the archive bits are cleared they are cleared",
-"               Use -T to test the archive before the bits are cleared",
-"               Can also use -sf to save file list before zipping files",
+"      WARNING: Once archive bits are cleared they are cleared.",
+"               Use -T to test the archive before bits are cleared.",
+"               Can also use -sf to save file list before zipping files.",
 "",
 "Show files:",
 "  -sf       show files to operate on, and exit (-sf- logfile only)",
 "  -sF       add info to -sf listing, currently only -sF=usize",
 "  List files that will be operated on.  Can list matching files on",
 "  file system, matching entries in input archive, or both.  -sf can",
-"  also be used to just list the contents of an archive.",
+"  also be used to just list contents of archive.  For example:",
+"     zip -sf -sF usize foo.zip",
+"  will list each path in archive foo.zip followed by uncompressed size",
+"  (rounded to 2 sig figs) in parentheses.",
 "",
 "  -su       as -sf but show escaped UTF-8 Unicode names also if exist",
 "  -sU       as -sf but show escaped UTF-8 Unicode names instead",
-"  Any character not in the current locale is escaped as #Uxxxx, where x",
-"  is hex digit, if 16-bit code is sufficient, or #Lxxxxxx if 24-bits",
-"  are needed.  If add -UN=e, Zip escapes all non-ASCII characters.",
+"  Any character not in current locale escaped as #Uxxxx, where x is hex",
+"  digit, if 16-bit code is sufficient, or #Lxxxxxx if 24-bits needed.",
+"  If add -UN=e, Zip escapes all non-ASCII characters.",
 "",
 "Unicode:",
 "  If compiled with Unicode support, Zip stores UTF-8 path of entries.",
@@ -1346,7 +1457,8 @@ local void help_extended()
 "      -UN=Ignore   - if mismatch, quietly ignore UTF-8",
 "      -UN=No       - ignore any UTF-8 paths, use standard paths for all",
 "  An exception to -UN=N are entries with new UTF-8 bit set (instead",
-"  of using extra fields).  These are always handled as Unicode.",
+"  of using extra fields).  These entries typically come from systems where",
+"  UTF-8 is native character set.  These are always handled as Unicode.",
 "",
 "  Normally Zip escapes all chars outside current char set, but leaves",
 "  as is supported chars, which may not be OK in path names.  -UN=Escape",
@@ -1357,24 +1469,45 @@ local void help_extended()
 "",
 "  Zip now stores UTF-8 in entry path and comment fields on systems",
 "  where UTF-8 char set is default, such as on most modern Unix, and",
-"  and on other systems in new extra fields (with escaped versions of",
+"  on other systems in new extra fields (with escaped versions of",
 "  entry path and comment in main fields for backward compatibility).",
 "  Option -UN=UTF8 will for new entries force storing UTF-8 in main",
 "  path and comment fields on any system:",
 "      -UN=UTF8     - store UTF-8 in main path and comment fields",
 "  This option can be useful for multi-byte char sets on Windows where",
-"  escaped paths and comments can be too long to be valid as the UTF-8",
+"  escaped paths and comments can be too long to be valid as UTF-8",
 "  versions tend to be shorter.  Need current unzip to display and",
-"  process the UTF-8, even on local system if UTF-8 not native.  THIS",
+"  process UTF-8, even on local system if UTF-8 not native.  THIS",
 "  OPTION CAN MAKE FILE PATHS UNREADABLE TO OLDER UTILITIES.",
 "",
 "  Only UTF-8 comments on UTF-8 native systems supported.  UTF-8 comments",
 "  for other systems planned in next release.",
 "",
+"Windows long paths:",
+"  This version of Zip now includes ability to read and store long",
+"  paths on Windows OS.  This requires UNICODE_SUPPORT be enabled.  A",
+"  long path is one over MAX_PATH length (260 characters).  This feature",
+"  is enabled using",
+"    -wl (--windows-long-paths)",
+"  option.  Previously long paths were ignored and so not included in the",
+"  resulting archive.  This is still default without -wl.",
+"",
+"  Be warned that currently Windows shell can't read zip archives that",
+"  include paths greater than 260 characters, and this may be true for",
+"  other utilities as well.  DO NOT USE THIS FEATURE unless you have",
+"  way to read and process resulting archive.  It looks like 7-Zip partially",
+"  supports long paths, for instance.",
+"",
+"Security/ACLs/Extended Attributes:",
+"  -!  - use any privileges to gain additional access (Windows NT)",
+"  -!! - do not include security information (Windows NT)",
+"  -X  - will leave out most extra fields, including security info",
+"  -EA - sets how to handle extended attributes (NOT YET IMPLEMENTED)",
+"",
 "Self extractor:",
 "  -A        Adjust offsets - a self extractor is created by prepending",
-"             the extractor executable to archive, but internal offsets",
-"             are then off.  Use -A to fix offsets.",
+"             extractor executable to archive, but internal offsets are",
+"             then off.  Use -A to fix offsets.",
 "  -J        Junk sfx - removes prepended extractor executable from",
 "             self extractor, leaving a plain zip archive.",
 "",
@@ -1384,16 +1517,16 @@ local void help_extended()
 "",
 "Modifying paths:",
 "  Currently there are two options that allow modifying paths as they are",
-"  stored in the archive.  At some point a more general path modifying",
+"  being stored in archive.  At some point a more general path modifying",
 "  feature similar to the ZipNote capability is planned.",
 "  -pp prfx  prefix string prfx to all paths in archive",
-"  -pa prfx  prefix prfx to just added/updated entries in the archive",
+"  -pa prfx  prefix prfx to just added/updated entries in archive",
 "",
 "More option highlights (see manual for additional options and details):",
-"  -b dir    when creating or updating archive, create the temp archive in",
-"             dir, which allows using seekable temp file when writing to a",
-"             write once CD, such archives compatible with more unzips",
-"             (could require additional file copy if on another device)",
+"  -b dir    when creating or updating archive, create temp archive in dir,",
+"             which allows using seekable temp file when writing to write",
+"             once CD, such archives compatible with more unzips (could",
+"             require additional file copy if on another device)",
 "  -MM       input patterns must match at least one file and matched files",
 "             must be readable or exit with OPEN error and abort archive",
 "             (without -MM, both are warnings only, and if unreadable files",
@@ -1456,25 +1589,25 @@ local void version_info()
 # endif
 
   /* Non-default AppleDouble resource fork suffix. */
-# if defined( UNIX) && defined( __APPLE__)
+# if defined(UNIX) && defined(__APPLE__)
 #  ifndef APPLE_NFRSRC
- /* Next "#" indented to accommodate K&R (#error-ignorant) compilers. */
- #  error APPLE_NFRSRC not defined.
+#   error APPLE_NFRSRC not defined.
+   Bad code: error APPLE_NFRSRC not defined.
 #  endif
-#  if defined( __ppc__) || defined( __ppc64__)
+#  if defined(__ppc__) || defined(__ppc64__)
 #   if APPLE_NFRSRC
 #    define APPLE_NFRSRC_MSG \
      "APPLE_NFRSRC         (\"/..namedfork/rsrc\" suffix for resource fork)"
 #   endif /* APPLE_NFRSRC */
-#  else /* defined( __ppc__) || defined( __ppc64__) */
+#  else /* defined(__ppc__) || defined(__ppc64__) [else] */
 #   if ! APPLE_NFRSRC
 #    define APPLE_NFRSRC_MSG \
      "APPLE_NFRSRC         (NOT!  \"/rsrc\" suffix for resource fork)"
 #   endif /* ! APPLE_NFRSRC */
-#  endif /* defined( __ppc__) || defined( __ppc64__) [else] */
-# endif /* defined( UNIX) && defined( __APPLE__) */
+#  endif /* defined(__ppc__) || defined(__ppc64__) [else] */
+# endif /* defined(UNIX) && defined(__APPLE__) */
 
-  /* Options info array */
+  /* Compile options info array */
   static ZCONST char *comp_opts[] = {
 # ifdef APPLE_NFRSRC_MSG
     APPLE_NFRSRC_MSG,
@@ -1489,7 +1622,7 @@ local void version_info()
     "ASMV                 (Assembly code used for pattern matching)",
 # endif
 # ifdef BACKUP_SUPPORT
-    "BACKUP_SUPPORT       (Enable backup options: -BC, -BL, -BP, -BT)",
+    "BACKUP_SUPPORT       (Enable backup options: -BC, -BD, -BL, -BT)",
 # endif
 # ifdef DYN_ALLOC
     "DYN_ALLOC",
@@ -1546,7 +1679,7 @@ local void version_info()
 # ifdef PPMD_SUPPORT
     ppmd_opt_ver,
 # endif
-# ifdef S_IFLNK
+# ifdef SYMLINK_SUPPORT
 #  ifdef VMS
     "SYMLINK_SUPPORT      (symbolic links supported, if C RTL permits)",
 #  else
@@ -1588,26 +1721,35 @@ local void version_info()
 # endif
 
 # ifdef IZ_CRYPT_AES_WG_NEW
-    "IZ_CRYPT_AES_WG_NEW     (AES strong encryption (WinZip/Gladman new))",
+    "IZ_CRYPT_AES_WG_NEW  (AES strong encryption (WinZip/Gladman new))",
 # endif
 
 # if defined(IZ_CRYPT_ANY) && defined(PASSWD_FROM_STDIN)
     "PASSWD_FROM_STDIN",
 # endif /* defined(IZ_CRYPT_ANY) && defined(PASSWD_FROM_STDIN) */
 
+# ifdef ZIPLIB
+    "ZIPLIB               (Compiled as Zip library archive)",
+# endif
+    
+# ifdef WINDLL
+    "WINDLL               (Windows DLL)",
+# endif
+
     NULL
   };
+
 
   for (i = 0; i < sizeof(copyright)/sizeof(char *); i++)
   {
     printf(copyright[i], "zip");
-    putchar('\n');
+    printf("\n");
   }
 
   for (i = 0; i < sizeof(versinfolines)/sizeof(char *); i++)
   {
     printf(versinfolines[i], "Zip", VERSION, REVDATE);
-    putchar('\n');
+    printf("\n");
   }
 
   version_local();
@@ -1632,11 +1774,11 @@ local void version_info()
 #  ifdef __LF
   printf("__LF is defined.\n");
   printf("  off_t must be defined as a long long\n");
-#  else /* def __LF */           /* not all compilers know elif */
+#  else /* def __LF [else] */           /* not all compilers know elif */
 #   ifdef _LP64
   printf("_LP64 is defined.\n");
   printf("  off_t must be defined as a long\n");
-#   else /* def _LP64 */
+#   else /* def _LP64 [else] */
   printf("Neither __LF nor _LP64 is defined.\n");
   printf("  off_t must be defined as an int\n");
 #   endif /* def _LP64 [else] */
@@ -1647,7 +1789,7 @@ local void version_info()
   /* Fill in IZ_AES_WG version. */
 # ifdef IZ_CRYPT_AES_WG
   sprintf( aes_wg_opt_ver,
-    "IZ_CRYPT_AES_WG      (AES encryption (WinZip/Gladman), ver %d.%d%s)",
+    "IZ_CRYPT_AES_WG      (AES encryption (IZ WinZip/Gladman), ver %d.%d%s)",
     IZ_AES_WG_MAJORVER, IZ_AES_WG_MINORVER, IZ_AES_WG_BETA_VER);
 # endif
 
@@ -1711,7 +1853,7 @@ local void version_info()
 
 # ifdef IZ_CRYPT_AES_WG
 #  ifdef IZ_CRYPT_TRAD
-  printf( "\n");
+  printf("\n");
 #  endif /* def IZ_CRYPT_TRAD */
   for (i = 0; i < sizeof(cryptAESnote)/sizeof(char *); i++)
   {
@@ -1721,7 +1863,7 @@ local void version_info()
 
 # ifdef IZ_CRYPT_AES_WG_NEW
 #  if defined( IZ_CRYPT_TRAD) || defined( IZ_CRYPT_AES_WG)
-  printf( "\n");
+  printf("\n");
 #  endif /* defined( IZ_CRYPT_TRAD) || defined( IZ_CRYPT_AES_WG) */
   for (i = 0; i < sizeof(cryptAESnote)/sizeof(char *); i++)
   {
@@ -1730,17 +1872,16 @@ local void version_info()
 # endif /* def IZ_CRYPT_AES_WG_NEW */
 
 # if defined( IZ_CRYPT_ANY) || defined( IZ_CRYPT_AES_WG_NEW)
-  printf( "\n");
+  printf("\n");
 # endif
 
   /* Show option environment variables (unconditionally). */
-  show_env( 0);
+  show_env(0);
 
 # ifdef DOS
   check_for_windows("Zip");
 # endif
 }
-#endif /* !ZIP_DLL_LIB */
 
 
 #ifndef PROCNAME
@@ -1758,8 +1899,7 @@ local void version_info()
 #endif /* PROCNAME */
 
 
-#ifndef ZIP_DLL_LIB
-#ifndef MACOS
+#if !defined(WINDLL) && !defined(MACOS)
 local void zipstdout()
 /* setup for writing zip file on stdout */
 {
@@ -1774,15 +1914,16 @@ local void zipstdout()
     ziperr(r, zipfile);
   */
 }
-#endif /* !MACOS */
+#endif /* !WINDLL && !MACOS */
 
 
+#ifndef ZIP_DLL_LIB
 /* ------------- test the archive ------------- */
 
 local int check_unzip_version(unzippath)
   char *unzippath;
 {
-#ifdef ZIP64_SUPPORT
+# ifdef ZIP64_SUPPORT
   /* Here is where we need to check for the version of unzip the user
    * has.  If creating a Zip64 archive, we need UnZip 6 or later or
    * testing may fail.
@@ -1796,7 +1937,7 @@ local int check_unzip_version(unzippath)
     strncat(cmd, unzippath, 4000);
     strcat(cmd, " -v");
 
-# if defined(ZOS)
+#  if defined(ZOS)
     /*  RBW  --  More z/OS - MVS nonsense.  Cast shouldn't be needed. */
     /*  Real fix is probably to find where popen is defined...        */
     /*  The compiler seems to think it's returning an int.            */
@@ -1805,9 +1946,9 @@ local int check_unzip_version(unzippath)
        the main code version and drop this #if.  Other ports shouldn't
        have trouble with the cast, but left it as is for now.  - EG   */
     if ((unzip_out = (FILE *) popen(cmd, "r")) == NULL) {
-# else
+#  else
     if ((unzip_out = popen(cmd, "r")) == NULL) {
-# endif
+#  endif
       perror("unzip pipe error");
     } else {
       if (fgets(buf, 1000, unzip_out) == NULL) {
@@ -1831,12 +1972,12 @@ local int check_unzip_version(unzippath)
       zipwarn("Need UnZip 6.00 or later to test this Zip64 archive", "");
       return 0;
     }
-#endif
+# endif /* def ZIP64_SUPPORT */
   return 1;
 }
 
 
-#ifdef UNIX
+# ifdef UNIX
 
 /* strcpy_qu()
  * Copy a string (src), adding apostrophe quotation, to dst.
@@ -1881,9 +2022,10 @@ local int strcpy_qu( dst, src)
 
   return len;                              /* Help the caller count chars. */
 }
-#endif /* def UNIX */
+# endif /* def UNIX */
 
 
+# if 0
 /* Quote double quotes in string (" -> \\\").  This reduces to \" in
  * the string, which inserts just " into the string.  This may not
  * work for all shells, as some may expect quotes to be quotes as
@@ -1928,6 +2070,7 @@ local char* quote_quotes(instring)
 
   return outstring;
 }
+# endif /* 0 */
 
 
 local void check_zipfile(zipname, zippath)
@@ -1935,7 +2078,7 @@ local void check_zipfile(zipname, zippath)
   char *zippath;
   /* Invoke unzip -t on the given zip file */
 {
-#if (defined(MSDOS) && !defined(__GO32__)) || defined(__human68k__)
+# if (defined(MSDOS) && !defined(__GO32__)) || defined(__human68k__)
   int status, len;
   char *path, *p;
   char *zipnam;
@@ -1943,7 +2086,7 @@ local void check_zipfile(zipname, zippath)
   if ((zipnam = (char *)malloc(strlen(zipname) + 3)) == NULL)
     ziperr(ZE_MEM, "was creating unzip zipnam");
 
-# ifdef MSDOS
+#  ifdef MSDOS
   /* Add quotes for MSDOS.  8/11/04 */
 
   /* accept spaces in name and path */
@@ -1951,9 +2094,9 @@ local void check_zipfile(zipname, zippath)
   strcpy(zipnam, "\"");
   strcat(zipnam, zipname);
   strcat(zipnam, "\"");
-# else
+#  else
   strcpy(zipnam, zipname);
-# endif
+#  endif
 
   if (unzip_path) {
     /* if user gave us the unzip to use (-TT) go with it */
@@ -2056,10 +2199,10 @@ local void check_zipfile(zipname, zippath)
       status = spawnlp(P_WAIT, "unzip", "unzip", verbose ? "-t" : "-tqq",
                        zipnam, NULL);
     }
-# ifdef __human68k__
+#  ifdef __human68k__
     if (status == -1)
       perror("unzip");
-# else
+#  else
 /*
  * unzip isn't in PATH range, assume an absolute path to zip in argv[0]
  * and hope that unzip is in the same directory.
@@ -2101,13 +2244,13 @@ local void check_zipfile(zipname, zippath)
       if (status == -1)
         perror("unzip");
     }
-# endif /* ?__human68k__ */
+#  endif /* ?__human68k__ */
   }
   free(zipnam);
   if (status != 0) {
 
 
-#else /* (MSDOS && !__GO32__) || __human68k__ */
+# else /* (MSDOS && !__GO32__) || __human68k__ [else] */
 
   /* Non-MSDOS/Windows case */
 
@@ -2119,18 +2262,18 @@ local void check_zipfile(zipname, zippath)
   int result;
   char *cmd2 = NULL;
 
-# ifdef UNIX
-#  define STRCPY_QU strcpy_qu           /* Add apostrophe quotation. */
-# else /* def UNIX */
-#  define STRCPY_QU strcpy              /* Simply copy. */
-# endif /* def UNIX [else] */
+#  ifdef UNIX
+#   define STRCPY_QU strcpy_qu          /* Add apostrophe quotation. */
+#  else /* def UNIX */
+#   define STRCPY_QU strcpy             /* Simply copy. */
+#  endif /* def UNIX [else] */
 
   /* Tell picky compilers to shut up about unused variables */
   zippath = zippath;
 
   /* Calculate archive name length (including quotation). */
   len = strlen(zipname);                /* Archive name. */
-# ifdef UNIX
+#  ifdef UNIX
   /* 2013-10-18 SMS
    * Count apostrophes in the archive name.  With surrounding
    * apostrophes (added below), an embedded apostrophe must be
@@ -2144,18 +2287,18 @@ local void check_zipfile(zipname, zippath)
   }
   /* Add two for the surrounding apostrophes. */
   len += 2;
-# endif /* def UNIX */
+#  endif /* def UNIX */
 
   /* Calculate password length (including quotation). */
   if (key)
   {
-#ifdef VMS
+#  ifdef VMS
     keylen = strlen(key) + 2;                   /* Add 2 for quotation. */
-#else
+#  else
     keylen = strlen(key);
-#endif
+#  endif
 
-# ifdef UNIX
+#  ifdef UNIX
     /* 2013-10-18 SMS
      * Count apostrophes in the password.  With surrounding
      * apostrophes (added below), an embedded apostrophe must be
@@ -2169,7 +2312,7 @@ local void check_zipfile(zipname, zippath)
     }
     /* Add two for the surrounding apostrophes. */
     keylen += 2;
-# endif /* def UNIX */
+#  endif /* def UNIX */
   }
 
   if (unzip_path)
@@ -2194,17 +2337,17 @@ local void check_zipfile(zipname, zippath)
       len = brackets - unzip_path;      /* Length, pre-{}. */
       strncpy(cmd, unzip_path, len);    /* Command, pre-{}. */
       cmd[len] = '\0';                  /* NUL-terminate. */
-# if 0
+#  if 0
       /* The user should supply a space here, if one is desired. */
       strcat(cmd, " ");
-# endif
+#  endif
 
       /* Append the archive name (apostrophe-quoted on Unix) here. */
       STRCPY_QU((cmd + strlen(cmd)), zipname);
-# if 0
+#  if 0
       /* The user should supply a space here, if one is desired. */
       strcat(cmd, " ");
-# endif
+#  endif
       strcat(cmd, brackets + 2);        /* Command, post-{}. */
     }
     else
@@ -2258,9 +2401,9 @@ local void check_zipfile(zipname, zippath)
     }
 
     strcpy(cmd, "unzip -t ");
-# ifdef QDOS
+#  ifdef QDOS
     strcat(cmd, "-Q4 ");
-# endif
+#  endif
     if (!verbose) strcat(cmd, "-qq ");
 
     /* fprintf( stderr, " 2.  cmd = >%s<\n", cmd); */
@@ -2269,13 +2412,13 @@ local void check_zipfile(zipname, zippath)
     {
       /* Add -P password. */
       strcat(cmd, "-P ");
-# ifdef VMS
+#  ifdef VMS
       strcat(cmd, "\"");                        /* Quote password on VMS. */
-# endif
+#  endif
       STRCPY_QU((cmd + strlen(cmd)), key);      /* Password (quoted?). */
-# ifdef VMS
+#  ifdef VMS
       strcat(cmd, "\"");                        /* Quote password on VMS. */
-# endif
+#  endif
       strcat(cmd, " ");
     }
 
@@ -2286,14 +2429,14 @@ local void check_zipfile(zipname, zippath)
   /* fprintf(stderr, " 2p. cmd = >%s<\n", cmd); */
 
   result = system(cmd);
-# ifdef VMS
+#  ifdef VMS
   /* Convert success severity to 0, others to non-zero. */
   result = ((result & STS$M_SEVERITY) != STS$M_SUCCESS);
-# endif /* def VMS */
+#  endif /* def VMS */
   free(cmd);
   cmd = NULL;
   if (result) {
-#endif /* ?((MSDOS && !__GO32__) || __human68k__) */
+# endif /* (MSDOS && !__GO32__) || __human68k__ [else] */
 
     fprintf(mesg, "test of %s FAILED\n", zipfile);
     ziperr(ZE_TEST, "original files unmodified");
@@ -2309,8 +2452,7 @@ local void check_zipfile(zipname, zippath)
 }
 
 /* ------------- end test archive ------------- */
-
-#endif /* !ZIP_DLL_LIB */
+#endif /* ndef ZIP_DLL_LIB */
 
 
 /* get_filters() is replaced by the following
@@ -2806,8 +2948,31 @@ ZCONST char *zfn;
     }
     return IZ_PW_ENTERED;
 }
+
+/* This version should be sufficient for Zip.  Zip does not track the
+   Zip file name so that parameter is not needed and, in fact, is
+   misleading. */
+int simple_encr_passwd(modeflag, pwbuf, bufsize)
+  int modeflag;
+  char *pwbuf;
+  size_t bufsize; /* max password length  + 1 (includes NULL) */
+{
+    char *prompt;
+
+    prompt = (modeflag == ZP_PW_VERIFY) ?
+              "Verify password: " : "Enter password: ";
+
+    if (getp(prompt, pwbuf, bufsize) == NULL) {
+      ziperr(ZE_PARMS, "stderr is not a tty");
+    }
+    if (strlen(pwbuf) >= (bufsize - 1)) {
+      return -1;
+    }
+    return 0;
+}
+
 # endif /* !ZIP_DLL_LIB */
-#else /* def IZ_CRYPT_ANY */
+#else /* def IZ_CRYPT_ANY [else] */
 int encr_passwd(modeflag, pwbuf, size, zfn)
 int modeflag;
 char *pwbuf;
@@ -2819,6 +2984,20 @@ ZCONST char *zfn;
 
     return ZE_LOGIC;    /* This function should never be called! */
 }
+
+/* This version should be sufficient for Zip. */
+/* Version when no encryption is included. */
+int simple_encr_passwd(modeflag, pwbuf, bufsize)
+  int modeflag;
+  char *pwbuf;
+  int bufsize;
+{
+    /* Tell picky compilers to shut up about unused variables */
+    modeflag = modeflag; pwbuf = pwbuf; bufsize = bufsize;
+
+    return ZE_LOGIC;    /* This function should never be called! */
+}
+
 #endif /* def IZ_CRYPT_ANY [else] */
 
 
@@ -2871,14 +3050,26 @@ int set_filetype(out_path)
   return ZE_OK;
 }
 
-/* 2013-12-17 SMS.
- * datetime() - Convert "-t[t]" value string to DOS date-time.
+
+/* datetime() - Convert "-t[t]" value string to DOS date/time.
  * Supply current date-time for date to use with time-only values.
+ * 2013-12-17 SMS.
+ */
+
+/* Modified to acccept the following formats:
+ *   ddmmyyyy
+ *   ddmmyyyy:HH:MM
+ *   ddmmyyyy:HH:MM:SS
+ *   yyyy-mm-dd
+ *   yyyy-mm-dd:HH:MM
+ *   yyyy-mm-dd:HH:MM:SS
+ *   :HH:MM                (times alone need leading :)
+ *   :HH:MM:SS
  */
 
 #define DT_BAD ((ulg)-1)        /* Bad return value. */
 
-static ulg datetime( arg, curtime)
+static ulg datetime(arg, curtime)
   ZCONST char *arg;
   ZCONST time_t curtime;
 {
@@ -2893,8 +3084,8 @@ static ulg datetime( arg, curtime)
   int itm;                              /* sscan() item count. */
   char *lhp;                            /* Last hyphen. */
   char *fcp;                            /* First colon. */
-  char xs[ 4];                          /* Excess characters. */
-  char myarg[ 20];                      /* Local copy of arg. */
+  char xs[4];                           /* Excess characters. */
+  char myarg[20];                       /* Local copy of arg. */
 
   dt = 0;
   yr = 0;
@@ -2904,15 +3095,15 @@ static ulg datetime( arg, curtime)
   mn = 0;
   sc = 0;
 
-  if (strlen( arg) > 19)
+  if (strlen(arg) > 19)
   {
     dt = DT_BAD;                /* Longer than "yyyy-mm-dd:HH:MM:SS". */
   }
   else
   {
-    strcpy( myarg, arg);                /* Local copy of argument. */
-    fcp = strchr( myarg, ':');          /* First colon. */
-    lhp = strrchr( myarg, '-');         /* Last hyphen. */
+    strcpy(myarg, arg);                 /* Local copy of argument. */
+    fcp = strchr(myarg, ':');           /* First colon. */
+    lhp = strrchr(myarg, '-');          /* Last hyphen. */
 
     if ((fcp != NULL) && (lhp != NULL) && (lhp > fcp))
     {
@@ -2920,9 +3111,11 @@ static ulg datetime( arg, curtime)
     }
     else if (lhp == NULL)
     {
+      /* no hyphens */
       if (fcp == NULL)
-      { /* No hyphen, no colon.  Look for "mmddyyyy". */
-        itm = sscanf( myarg, "%2d%2d%4d%2s", &mo, &dy, &yr, xs);
+      {
+        /* No hyphen, no colon.  Look for "mmddyyyy". */
+        itm = sscanf(myarg, "%2d%2d%4d%2s", &mo, &dy, &yr, xs);
         if (itm != 3)
         {
           dt = DT_BAD;          /* Excess characters, or not "mmddyyyy". */
@@ -2930,7 +3123,22 @@ static ulg datetime( arg, curtime)
       }
       else
       {
-        fcp = myarg;            /* Colon, no hyphen.  Arg must be time? */
+        /* colon found, but no hyphens */
+        if (fcp > myarg) {
+          /* stuff before first colon, assume date in mmddyyyy format */
+          *fcp = '\0';  /* NULL terminate date part */
+          fcp++;        /* time part is one after that */
+          itm = sscanf(myarg, "%2d%2d%4d%2s", &mo, &dy, &yr, xs);
+          if (itm != 3)
+          {
+            dt = DT_BAD;        /* Excess characters, or not "mmddyyyy". */
+          }
+        }
+        else
+        {
+          /* fcp == myarg, so colon starts myarg, assume time only */
+          fcp++;                /* skip leading colon and point to time */
+        }
       }
     }
     else
@@ -2941,7 +3149,7 @@ static ulg datetime( arg, curtime)
         /* Date ends at first colon.  Time begins after. */
         *(fcp++) = '\0';
       }
-      itm = sscanf( myarg, "%4d-%2d-%2d%2s", &yr, &mo, &dy, xs);
+      itm = sscanf(myarg, "%4d-%2d-%2d%2s", &yr, &mo, &dy, xs);
       if (itm != 3)
       {
         dt = DT_BAD;            /* Excess characters, or not "yyyy-mm-dd". */
@@ -2954,13 +3162,13 @@ static ulg datetime( arg, curtime)
     if (fcp != NULL)
     {
       /* Look for "HH:MM[:SS]". */
-      itm = sscanf( fcp, "%2d:%2d:%2d%2s", &hr, &mn, &sc, xs);
+      itm = sscanf(fcp, "%2d:%2d:%2d%2s", &hr, &mn, &sc, xs);
       if (itm == 2)
       { /* Not "HH:MM:SS".  Try "HH:MM"? */
         hr = 0;
         mn = 0;
         sc = 0;
-        itm = sscanf( fcp, "%2d:%2d%2s", &hr, &mn, xs);
+        itm = sscanf(fcp, "%2d:%2d%2s", &hr, &mn, xs);
         if (itm != 2)
         {
           dt = DT_BAD;          /* Excess characters, or not "HH:MM". */
@@ -2981,9 +3189,9 @@ static ulg datetime( arg, curtime)
       struct tm *ltm;
 
       timet = curtime;
-      ltm = localtime( &timet);
-      yr = ltm->tm_year+ 1900;
-      mo = ltm->tm_mon+ 1;
+      ltm = localtime(&timet);
+      yr = ltm->tm_year + 1900;
+      mo = ltm->tm_mon + 1;
       dy = ltm->tm_mday;
     }
     else if ((yr < 1980) || (yr > 2107) ||      /* Year. */
@@ -3004,10 +3212,12 @@ static ulg datetime( arg, curtime)
 
   if (dt == 0)
   {
-    dt = dostime( yr, mo, dy, hr, mn, sc);
+    dt = dostime(yr, mo, dy, hr, mn, sc);
   }
-  return dt;  
+  return dt;
 }
+
+
 
 
 /*
@@ -3042,70 +3252,78 @@ static ulg datetime( arg, curtime)
 #define o_AC            0x103
 #define o_AS            0x104
 #define o_BC            0x105
-#define o_BL            0x106
-#define o_BP            0x107
-#define o_BT            0x108
-#define o_cd            0x109
-#define o_C2            0x110
-#define o_C5            0x111
-#define o_db            0x112
-#define o_dc            0x113
-#define o_dd            0x114
-#define o_de            0x115
-#define o_des           0x116
-#define o_df            0x117
-#define o_DF            0x118
-#define o_DI            0x119
-#define o_dg            0x120
-#define o_dr            0x121
-#define o_ds            0x122
-#define o_dt            0x123
-#define o_du            0x124
-#define o_dv            0x125
-#define o_FF            0x126
-#define o_FI            0x127
-#define o_FS            0x128
-#define o_h2            0x129
-#define o_ic            0x130
-#define o_jj            0x131
-#define o_la            0x132
-#define o_lf            0x133
-#define o_lF            0x134
-#define o_li            0x135
-#define o_ll            0x136
-#define o_lu            0x137
-#define o_mm            0x138
-#define o_MM            0x139
-#define o_MV            0x140
-#define o_nw            0x141
-#define o_pa            0x142
-#define o_pn            0x143
-#define o_pp            0x144
-#define o_RE            0x145
-#define o_sb            0x146
-#define o_sc            0x147
-#define o_sC            0x148
-#define o_sd            0x149
-#define o_sf            0x150
-#define o_sF            0x151
-#define o_si            0x152
-#define o_so            0x153
-#define o_sp            0x154
-#define o_ss            0x156           /* (Missing 0x155.) */
-#define o_su            0x157
-#define o_sU            0x158
-#define o_sv            0x159
-#define o_tt            0x160
-#define o_TT            0x161
-#define o_UN            0x162
-#define o_ve            0x163
-#define o_VV            0x164
-#define o_ws            0x165
-#define o_ww            0x166
-#define o_z64           0x167
-#define o_atat          0x168
-#define o_vn            0x169
-#define o_et            0x170
+#define o_BD            0x106
+#define o_BL            0x107
+#define o_BN            0x108
+#define o_BT            0x109
+#define o_cd            0x110
+#define o_C2            0x111
+#define o_C5            0x112
+#define o_db            0x113
+#define o_dc            0x114
+#define o_dd            0x115
+#define o_de            0x116
+#define o_des           0x117
+#define o_df            0x118
+#define o_DF            0x119
+#define o_DI            0x120
+#define o_dg            0x121
+#define o_dr            0x122
+#define o_ds            0x123
+#define o_dt            0x124
+#define o_du            0x125
+#define o_dv            0x126
+#define o_EA            0x127
+#define o_FF            0x128
+#define o_FI            0x129
+#define o_FS            0x130
+#define o_h2            0x131
+#define o_ic            0x132
+#define o_jj            0x133
+#define o_la            0x134
+#define o_lf            0x135
+#define o_lF            0x136
+#define o_li            0x137
+#define o_ll            0x138
+#define o_lu            0x139
+#define o_mm            0x140
+#define o_MM            0x141
+#define o_MV            0x142
+#define o_nw            0x143
+#define o_pa            0x144
+#define o_pn            0x145
+#define o_pp            0x146
+#define o_ps            0x147
+#define o_RE            0x148
+#define o_sb            0x149
+#define o_sc            0x150
+#define o_sC            0x151
+#define o_sd            0x152
+#define o_sf            0x153
+#define o_sF            0x154
+#define o_si            0x155
+#define o_so            0x156
+#define o_sp            0x157
+#define o_sP            0x158
+#define o_ss            0x159
+#define o_st            0x160
+#define o_su            0x161
+#define o_sU            0x162
+#define o_sv            0x163
+#define o_tn            0x164
+#define o_tt            0x165
+#define o_TT            0x166
+#define o_UN            0x167
+#define o_ve            0x168
+#define o_VV            0x169
+#define o_wl            0x170
+#define o_ws            0x171
+#define o_ww            0x172
+#define o_z64           0x173
+#define o_atat          0x174
+#define o_vn            0x175
+#define o_et            0x176
+#define o_exex          0x177
 
 
 /* the below is mainly from the old main command line
@@ -3141,10 +3359,11 @@ struct option_struct far options[] = {
     {"B",  "",            o_NUMBER_VALUE,   o_NOT_NEGATABLE, 'B',  "nsk"},
 #endif
 #ifdef BACKUP_SUPPORT
-    {"BC",   "backup-control",o_REQUIRED_VALUE,o_NOT_NEGATABLE, o_BC,"path/name of backup control file"},
-    {"BL",   "backup-log", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_BL,  "path/name of backup log file"},
-    {"BP",   "backup-path", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_BP,  "path/name of base backup archv name"},
-    {"BT",   "backup-type", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_BT,  "backup type (FULL, DIFF, or INCR)"},
+    {"BC", "backup-control",o_REQUIRED_VALUE,o_NOT_NEGATABLE, o_BC,"dir for backup control file"},
+    {"BD", "backup-dir",    o_REQUIRED_VALUE,o_NOT_NEGATABLE, o_BD,"dir for backup archive"},
+    {"BL", "backup-log",    o_OPT_EQ_VALUE,  o_NOT_NEGATABLE, o_BL,"dir for backup log file"},
+    {"BN", "backup-name",   o_REQUIRED_VALUE,o_NOT_NEGATABLE, o_BN,"name of backup"},
+    {"BT", "backup-type",   o_REQUIRED_VALUE,o_NOT_NEGATABLE, o_BT,"backup type (FULL, DIFF, or INCR)"},
 #endif
     {"b",  "temp-path",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'b',  "dir to use for temp archive"},
     {"c",  "entry-comments", o_NO_VALUE,    o_NOT_NEGATABLE, 'c',  "add comments for each entry"},
@@ -3184,6 +3403,7 @@ struct option_struct far options[] = {
 #ifdef OS2
     {"E",  "longnames",   o_NO_VALUE,       o_NOT_NEGATABLE, 'E',  "use OS2 longnames"},
 #endif
+    {"EA", "extended-attributes",o_REQUIRED_VALUE,o_NOT_NEGATABLE,o_EA,"control storage of extended attributes"},
     {"F",  "fix",         o_NO_VALUE,       o_NOT_NEGATABLE, 'F',  "fix mostly intact archive (try first)"},
     {"FF", "fixfix",      o_NO_VALUE,       o_NOT_NEGATABLE, o_FF, "try harder to fix archive (not as reliable)"},
     {"FI", "fifo",        o_NO_VALUE,       o_NEGATABLE,     o_FI, "read Unix FIFO (zip will wait on open pipe)"},
@@ -3194,14 +3414,12 @@ struct option_struct far options[] = {
     {"fz", "force-zip64", o_NO_VALUE,       o_NEGATABLE,     o_z64,"force use of Zip64 format, negate prevents"},
 #endif
     {"g",  "grow",        o_NO_VALUE,       o_NOT_NEGATABLE, 'g',  "grow existing archive instead of replace"},
-#ifndef ZIP_DLL_LIB
     {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     {"H",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     {"?",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     {"h2", "more-help",   o_NO_VALUE,       o_NOT_NEGATABLE, o_h2, "extended help"},
     {"hh", "",            o_NO_VALUE,       o_NOT_NEGATABLE, o_h2, "extended help"},
     {"HH", "",            o_NO_VALUE,       o_NOT_NEGATABLE, o_h2, "extended help"},
-#endif /* !ZIP_DLL_LIB */
     {"i",  "include",     o_VALUE_LIST,     o_NOT_NEGATABLE, 'i',  "include only files matching patterns"},
 #if defined(VMS) || defined(WIN32)
     {"ic", "ignore-case", o_NO_VALUE,       o_NEGATABLE,     o_ic, "ignore case when matching archive entries"},
@@ -3222,12 +3440,10 @@ struct option_struct far options[] = {
     {"la", "log-append",  o_NO_VALUE,       o_NEGATABLE,     o_la, "append to existing log file"},
     {"li", "log-info",    o_NO_VALUE,       o_NEGATABLE,     o_li, "include informational messages in log"},
     {"lu", "log-utf8",    o_NO_VALUE,       o_NEGATABLE,     o_lu, "log names as UTF-8"},
-#ifndef ZIP_DLL_LIB
     {"L",  "license",     o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "display license"},
-#endif
     {"m",  "move",        o_NO_VALUE,       o_NOT_NEGATABLE, 'm',  "add files to archive then delete files"},
     {"mm", "",            o_NO_VALUE,       o_NOT_NEGATABLE, o_mm, "not used"},
-    {"MM", "must-match",  o_NO_VALUE,       o_NOT_NEGATABLE, o_MM, "error if in file not matched/not readable"},
+    {"MM", "must-match",  o_NO_VALUE,       o_NOT_NEGATABLE, o_MM, "error if infile not matched/not readable"},
 #ifdef CMS_MVS
     {"MV", "MVS",         o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_MV, "MVS path translate (dots, slashes, lastdot)"},
 #endif /* CMS_MVS */
@@ -3239,8 +3455,9 @@ struct option_struct far options[] = {
     {"o",  "latest-time", o_NO_VALUE,       o_NOT_NEGATABLE, 'o',  "use latest entry time as archive time"},
     {"O",  "output-file", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'O',  "set out zipfile different than in zipfile"},
     {"p",  "paths",       o_NO_VALUE,       o_NOT_NEGATABLE, 'p',  "store paths"},
-    {"",   "prefix-new-path",o_REQUIRED_VALUE,o_NOT_NEGATABLE,o_pa,"add prefix to added/updated paths"},
+    {"pa", "prefix-new-path",o_REQUIRED_VALUE,o_NOT_NEGATABLE,o_pa,"add prefix to added/updated paths"},
     {"pn", "non-ansi-password", o_NO_VALUE, o_NEGATABLE,     o_pn, "allow non-ANSI password"},
+    {"ps", "allow-short-password", o_NO_VALUE, o_NEGATABLE,  o_ps, "allow short password"},
     {"pp", "prefix-path", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_pp, "add prefix to all paths in archive"},
 #ifdef IZ_CRYPT_ANY
     {"P",  "password",    o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'P',  "encrypt entries, option value is password"},
@@ -3256,7 +3473,8 @@ struct option_struct far options[] = {
     {"sp", "split-pause", o_NO_VALUE,       o_NOT_NEGATABLE, o_sp, "pause while splitting to select destination"},
     {"sv", "split-verbose", o_NO_VALUE,     o_NOT_NEGATABLE, o_sv, "be verbose about creating splits"},
     {"sb", "split-bell",  o_NO_VALUE,       o_NOT_NEGATABLE, o_sb, "when pause for next split ring bell"},
-    {"sc", "show-command",o_NO_VALUE,       o_NEGATABLE,     o_sc, "show command line"},
+    {"sc", "show-command",o_NO_VALUE,       o_NOT_NEGATABLE, o_sc, "show command line"},
+    {"sP", "show-parsed-command",o_NO_VALUE,o_NOT_NEGATABLE, o_sP,"show command line as parsed"},
 
 #ifdef UNICODE_TEST
     {"sC", "create-files",o_NO_VALUE,       o_NOT_NEGATABLE, o_sC, "create empty files using archive names"},
@@ -3269,6 +3487,7 @@ struct option_struct far options[] = {
 #endif /* !defined( VMS) && defined( ENABLE_USER_PROGRESS) */
     {"so", "show-options",o_NO_VALUE,       o_NOT_NEGATABLE, o_so, "show options"},
     {"ss", "show-suffixes",o_NO_VALUE,      o_NOT_NEGATABLE, o_ss, "show method-level suffix lists"},
+    {"st", "stream",      o_NO_VALUE,       o_NOT_NEGATABLE, o_st, "include local attr/comment for stream extract"},
 #ifdef UNICODE_SUPPORT
     {"su", "show-unicode", o_NO_VALUE,      o_NEGATABLE,     o_su, "as -sf but also show escaped Unicode"},
     {"sU", "show-just-unicode", o_NO_VALUE, o_NEGATABLE,     o_sU, "as -sf but only show escaped Unicode"},
@@ -3278,8 +3497,12 @@ struct option_struct far options[] = {
 #endif /* MSDOS || OS2 || WIN32 || ATARI */
     {"t",  "from-date",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, 't',  "exclude before date"},
     {"tt", "before-date", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_tt, "include before date"},
+#ifdef USE_EF_UT_TIME
+    {"tn", "no-universal-time",o_NO_VALUE,  o_NOT_NEGATABLE, o_tn, "do not store universal time for file/entry"},
+#endif
     {"T",  "test",        o_NO_VALUE,       o_NOT_NEGATABLE, 'T',  "test updates before replacing archive"},
-    {"TT", "unzip-command", o_REQUIRED_VALUE,o_NOT_NEGATABLE,o_TT, "unzip command to use, name is added to end"},
+    {"TT", "unzip-command", o_REQUIRED_VALUE,o_NOT_NEGATABLE,o_TT, "unzip/test command, name is added to end"},
+    {"", "test-command", o_REQUIRED_VALUE,o_NOT_NEGATABLE,o_TT, "unzip/test command, name is added to end"},
     {"u",  "update",      o_NO_VALUE,       o_NOT_NEGATABLE, 'u',  "update existing entries and add new"},
     {"U",  "copy-entries", o_NO_VALUE,      o_NOT_NEGATABLE, 'U',  "select from archive instead of file system"},
 #ifdef UNICODE_SUPPORT
@@ -3294,14 +3517,17 @@ struct option_struct far options[] = {
     {"w",  "VMS-versions", o_NO_VALUE,      o_NOT_NEGATABLE, 'w',  "store VMS versions"},
     {"ww", "VMS-dot-versions", o_NO_VALUE,  o_NOT_NEGATABLE, o_ww, "store VMS versions as \".nnn\""},
 #endif /* VMS */
+#ifdef WINDOWS_LONG_PATHS
+    {"wl", "windows-long-paths", o_NO_VALUE, o_NOT_NEGATABLE, o_wl,  "include windows long paths (see help -hh)"},
+#endif
     {"ws", "wild-stop-dirs", o_NO_VALUE,    o_NOT_NEGATABLE, o_ws,  "* stops at /, ** includes any /"},
     {"x",  "exclude",     o_VALUE_LIST,     o_NOT_NEGATABLE, 'x',  "exclude files matching patterns"},
 /*    {"X",  "no-extra",    o_NO_VALUE,       o_NOT_NEGATABLE, 'X',  "no extra"},
 */
     {"X",  "strip-extra", o_NO_VALUE,       o_NEGATABLE,     'X',  "-X- keep all ef, -X strip but critical ef"},
-#ifdef S_IFLNK
+#ifdef SYMLINK_SUPPORT
     {"y",  "symlinks",    o_NO_VALUE,       o_NOT_NEGATABLE, 'y',  "store symbolic links"},
-#endif /* S_IFLNK */
+#endif /* SYMLINK_SUPPORT */
 #ifdef IZ_CRYPT_ANY
     {"Y", "encryption-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Y', "set encryption method"},
 #endif /* def IZ_CRYPT_ANY */
@@ -3310,15 +3536,16 @@ struct option_struct far options[] = {
 #if defined(MSDOS) || defined(OS2) || defined( VMS)
     {"$",  "volume-label", o_NO_VALUE,      o_NOT_NEGATABLE, '$',  "store volume label"},
 #endif
-#ifndef MACOS
+#if !defined(MACOS) && !defined(WINDLL)
     {"@",  "names-stdin", o_NO_VALUE,       o_NOT_NEGATABLE, '@',  "get file names from stdin, one per line"},
 #endif /* !MACOS */
-    {"@@", "names-file",  o_REQUIRED_VALUE, o_NOT_NEGATABLE,o_atat,"get file names from file, one per line"},
+    {"@@", "names-file",  o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_atat,"get file names from file, one per line"},
 #ifdef NTSD_EAS
     {"!",  "use-privileges", o_NO_VALUE,    o_NOT_NEGATABLE, '!',  "use privileges"},
+    {"!!", "no-security",    o_NO_VALUE,    o_NOT_NEGATABLE, o_exex,"leave out security info (ACLs)"},
 #endif
 #ifdef RISCOS
-    {"/",  "exts-to-swap", o_REQUIRED_VALUE, o_NOT_NEGATABLE, '/',  "override Zip$Exts"},
+    {"/",  "exts-to-swap", o_REQUIRED_VALUE, o_NOT_NEGATABLE,'/',  "override Zip$Exts"},
 #endif
     /* the end of the list */
     {NULL, NULL,          o_NO_VALUE,       o_NOT_NEGATABLE, 0,    NULL} /* end has option_ID = 0 */
@@ -3346,7 +3573,6 @@ char **argv;            /* command line tokens */
   uzoff_t c;            /* start of central directory */
   uzoff_t t;            /* length of central directory */
   zoff_t k;             /* marked counter, entry count */
-  extent comment_size;  /* comment size */
   uzoff_t n;            /* total of entry len's */
 
   int o;                /* true if there were any ZE_OPEN errors */
@@ -3369,7 +3595,6 @@ char **argv;            /* command line tokens */
 #if (!defined(VMS) && !defined(CMS_MVS))
   char *zipbuf;         /* stdio buffer for the zip file */
 #endif /* !VMS && !CMS_MVS */
-  FILE *comment_stream; /* set to stderr if anything is read from stdin */
   int all_current;      /* used by File Sync to determine if all entries are current */
 
   struct filelist_struct *filearg;
@@ -3383,11 +3608,12 @@ char **argv;            /* command line tokens */
   int negated = 0;      /* 1 = option negated */
   int fna = 0;          /* current first non-opt arg */
   int optnum = 0;       /* index in table */
-  time_t cur_time_opt;  /* Current date-time for time-only "-t[t]" options. */
+  time_t cur_time_opt;  /* Current date-time to get date when -t[t] have time only */
 
   int show_options = 0; /* show options */
   int show_suffixes = 0;/* Show method-level suffix lists. */
   int show_args = 0;    /* show command line */
+  int show_parsed_args = 0; /* show parsed command line */
   int seen_doubledash = 0; /* seen -- argument */
   int key_needed = 0;   /* prompt for encryption key */
   int have_out = 0;     /* if set in_path and out_path different archive */
@@ -3615,13 +3841,14 @@ char **argv;            /* command line tokens */
   recurse = 0;         /* 1=recurse into directories; 2=match filenames */
   dispose = 0;         /* 1=remove files after put in zip file */
   pathput = 1;         /* 1=store path with name */
-#if defined( UNIX) && defined( __APPLE__)
+
+# if defined(UNIX) && defined(__APPLE__)
   data_fork_only = 0;
   sequester = 0;
-#endif /* defined( UNIX) && defined( __APPLE__) */
-#ifdef RISCOS
+# endif
+# ifdef RISCOS
   int scanimage = 0;   /* Scan through image files */
-#endif
+# endif
 
   method = BEST;        /* one of BEST, DEFLATE (only), or STORE (only) */
   dosify = 0;           /* 1=make new entries look like MSDOS */
@@ -3630,41 +3857,41 @@ char **argv;            /* command line tokens */
   filesync = 0;         /* 1=file sync, delete entries not on file system */
   adjust = 0;           /* 1=adjust offsets for sfx'd file (keep preamble) */
   level = 6;            /* 0=fastest compression, 9=best compression */
-#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+# if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
   etwodd = 0;           /* Encrypt Trad without data descriptor. */
-#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
+# endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
   translate_eol = 0;    /* Translate end-of-line LF -> CR LF */
-#ifdef VMS
+# ifdef VMS
   prsrv_vms = 0;        /* Preserve idiosyncratic VMS file names. */
   vmsver = 0;           /* Append VMS version number to file names. */
   vms_native = 0;       /* Store in VMS format */
   vms_case_2 = 0;       /* ODS2 file name case in VMS. -1: down. */
   vms_case_5 = 0;       /* ODS5 file name case in VMS. +1: preserve. */
   argv_cli = NULL;      /* New argv[] storage to free, if non-NULL. */
-#endif /* VMS */
+# endif /* VMS */
 # if defined(OS2) || defined(WIN32)
   use_longname_ea = 0;  /* 1=use the .LONGNAME EA as the file's name */
 # endif
-#if defined (QDOS) || defined(QLZIP)
+# if defined (QDOS) || defined(QLZIP)
   qlflag = 0;
-#endif
-# ifdef NTSD_EAS
-  use_privileges = 0;   /* 1=use security privileges overrides */
 # endif
-  no_wild = 0;          /* 1 = wildcards are disabled */
+# ifdef NTSD_EAS
+  use_privileges = 0;     /* 1=use security privileges overrides */
+# endif
+  no_wild = 0;            /* 1 = wildcards are disabled */
 # ifdef WILD_STOP_AT_DIR
-   wild_stop_at_dir = 1;    /* default wildcards do not include / in matches */
+   wild_stop_at_dir = 1;  /* default wildcards do not include / in matches */
 # else
-   wild_stop_at_dir = 0;    /* default wildcards do include / in matches */
+   wild_stop_at_dir = 0;  /* default wildcards do include / in matches */
 # endif
 
-  for (i = 0; mthd_lvl[ i].method >= 0; i++)
+  for (i = 0; mthd_lvl[i].method >= 0; i++)
   { /* Restore initial compression level-method states. */
-    mthd_lvl[ i].level = -1;            /* By-method level. */
-    mthd_lvl[ i].level_sufx = -1;       /* By-suffix level. */
-    mthd_lvl[ i].suffixes = NULL;       /* Suffix list. */
+    mthd_lvl[i].level = -1;       /* By-method level. */
+    mthd_lvl[i].level_sufx = -1;  /* By-suffix level. */
+    mthd_lvl[i].suffixes = NULL;  /* Suffix list. */
   }
-  mthd_lvl[ i].suffixes = MTHD_SUFX_0;  /* STORE default suffix list. */
+  mthd_lvl[0].suffixes = MTHD_SUFX_0;  /* STORE default suffix list. */
 
   skip_this_disk = 0;
   des_good = 0;           /* Good data descriptor found */
@@ -3696,12 +3923,14 @@ char **argv;            /* command line tokens */
   logfile = NULL;         /* pointer to open logfile or NULL */
   logfile_append = 0;     /* append to existing logfile */
   logfile_path = NULL;    /* pointer to path of logfile */
-  use_outpath_for_log = 0;    /* 1 = use output archive path for log */
+
+  use_outpath_for_log = 0; /* 1 = use output archive path for log */
   log_utf8 = 0;           /* log names as UTF-8 */
 #ifdef WIN32
   nonlocal_name = 0;      /* Name has non-local characters */
   nonlocal_path = 0;      /* Path has non-local characters */
 #endif
+
   hidden_files = 0;       /* process hidden and system files */
   volume_label = 0;       /* add volume label */
   label = NULL;           /* volume label */
@@ -3719,9 +3948,11 @@ char **argv;            /* command line tokens */
   allow_empty_archive = 0;/* if no files, create empty archive anyway 12/28/05 */
   copy_only = 0;          /* 1=copying archive entries only */
 
+  include_stream_ef = 0;  /* 1=include stream ef that allows full stream extraction */
+
   output_seekable = 1;    /* 1 = output seekable 3/13/05 EG */
 
-# ifdef ZIP64_SUPPORT      /* zip64 support 10/4/03 */
+# ifdef ZIP64_SUPPORT     /* zip64 support 10/4/03 */
   force_zip64 = -1;       /* if 1 force entries to be zip64 */
                           /* mainly for streaming from stdin */
   zip64_entry = 0;        /* current entry needs Zip64 */
@@ -3749,26 +3980,22 @@ char **argv;            /* command line tokens */
   key_needed = 0;         /* Need scramble password */
 #ifdef IZ_CRYPT_AES_WG
   key_size = 0;
-#endif /* def IZ_CRYPT_AES_WG */
+#endif
   force_ansi_key = 1;     /* Only ANSI characters for password (32 - 126) */
 
-  path_prefix = NULL;   /* Prefix to add to all new archive entries */
-  path_prefix_mode = 0; /* 0=Prefix all paths, 1=Prefix only added/updated paths */
+  path_prefix = NULL;     /* Prefix to add to all new archive entries */
+  path_prefix_mode = 0;   /* 0=Prefix all paths, 1=Prefix only added/updated paths */
   tempath = NULL;         /* Path for temporary files */
   patterns = NULL;        /* List of patterns to be matched */
   pcount = 0;             /* number of patterns */
   icount = 0;             /* number of include only patterns */
   Rcount = 0;             /* number of -R include patterns */
 
-#ifdef ENABLE_DLL_PROGRESS
-  progress_chunk_size = 0;      /* how many bytes before next progress report */
-  last_progress_chunk = 0;      /* used to determine when to send next report */
-#endif
 #ifdef ENABLE_USER_PROGRESS
   u_p_phase = 0;
   u_p_task = NULL;
   u_p_name = NULL;
-#endif /* def ENABLE_USER_PROGRESS */
+#endif
 
   found = NULL;           /* List of names found, or new found entry */
   fnxt = &found;
@@ -3785,6 +4012,7 @@ char **argv;            /* command line tokens */
   show_options = 0;       /* 1 = show options */
   show_what_doing = 0;    /* 1 = show what zip doing */
   show_args = 0;          /* 1 = show command line */
+  show_parsed_args = 0;   /* 1 = show parsed command line */
   seen_doubledash = 0;    /* seen -- argument */
 
   args = NULL;            /* copy of argv that can be freed by free_args() */
@@ -3844,9 +4072,10 @@ char **argv;            /* command line tokens */
   bad_open_is_error = 0;      /* if read fails, 0=warning, 1=error */
   unicode_mismatch = 0;       /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
   show_files = 0;             /* show files to operate on and exit */
+
   sf_usize = 0;               /* include usize in -sf listing */
 
-  mvs_mode = 0;         /* 0=lastdot (default), 1=dots, 2=slashes */
+  mvs_mode = 0;               /* 0=lastdot (default), 1=dots, 2=slashes */
 
   scan_delay = 5;             /* seconds before display Scanning files message */
   scan_dot_time = 2;          /* time in seconds between Scanning files dots */
@@ -3858,6 +4087,7 @@ char **argv;            /* command line tokens */
 # endif
   filter_match_case = 1;      /* default is to match case when matching archive entries */
   diff_mode = 0;              /* 1=diff mode - only store changed and add */
+
   allow_fifo = 0;             /* 1=allow reading Unix FIFOs, waiting if pipe open */
 # ifdef ENABLE_ENTRY_TIMING
   start_zip_time = 0;         /* after scan, when start zipping files */
@@ -3879,16 +4109,22 @@ char **argv;            /* command line tokens */
   }
 # endif /* def ZIP_DLL_LIB */
 # ifdef BACKUP_SUPPORT
-  backup_path = NULL;   /* path to save backup archives and control */
-  backup_type = 0;  /* default to not using backup mode (using control file) */
+  backup_dir = NULL;            /* dir to save backup archives (and control) */
+  backup_name = NULL;           /* name to use for archive, log, and control */
+  backup_control_dir = NULL;    /* control file dir (overrides backup_dir) */
+  backup_log_dir = NULL;        /* backup log dir (defaults to backup_dir) */
+  backup_type = 0;              /* default to not using backup mode */
   backup_start_datetime = NULL; /* date/time stamp of start of backup */
-  backup_control_path = NULL;   /* control file used to store backup state */
+  backup_control_dir = NULL;    /* dir to put control file */
+  backup_control_path = NULL;   /* control file used to store backup set */
   backup_full_path = NULL;      /* full archive of backup set */
   backup_output_path = NULL;    /* path of output archive before finalizing */
 # endif
 #endif /* MACOS || WINDLL || USE_ZIPMAIN */
 
-#if !defined(ALLOW_REGEX) && (defined(MSDOS) || defined(WIN32))
+/* Standardize use of -RE to enable special [] use (was just MSDOS and WIN32) */
+/*#if !defined(ALLOW_REGEX) && (defined(MSDOS) || defined(WIN32)) */
+#if !defined(ALLOW_REGEX)
   allow_regex = 0;        /* 1 = allow [list] matching (regex) */
 #else
   allow_regex = 1;
@@ -4004,18 +4240,26 @@ char **argv;            /* command line tokens */
   /* extract extended argument list from environment */
   expand_args(&argc, &argv);
 
-#ifndef ZIP_DLL_LIB
   /* Process arguments */
   diag("processing arguments");
   /* First, check if just the help or version screen should be displayed */
-  if (argc == 1 && isatty(1))   /* no arguments, and output screen available */
+  /* Now support help listing when called from DLL */
+  if (argc == 1
+# ifndef WINDLL
+      && isatty(1)
+# endif
+      )   /* no arguments, and output screen available */
   {                             /* show help screen */
 # ifdef VMSCLI
     VMSCLI_help();
 # else
     help();
 # endif
+#ifdef WINDLL
+    return ZE_OK;
+#else
     EXIT(ZE_OK);
+#endif
   }
   /* Check -v here as env arg can change argc.  Handle --version in main switch. */
   else if (argc == 2 && strcmp(argv[1], "-v") == 0 &&
@@ -4024,8 +4268,13 @@ char **argv;            /* command line tokens */
            /* stdout or stdin is connected to console device */
   {                             /* show diagnostic version info */
     version_info();
+#ifdef WINDLL
+    return ZE_OK;
+#else
     EXIT(ZE_OK);
+#endif
   }
+#ifndef ZIP_DLL_LIB
 # ifndef VMS
 #   ifndef RISCOS
   envargs(&argc, &argv, "ZIPOPT", "ZIP");  /* get options from environment */
@@ -4087,16 +4336,16 @@ char **argv;            /* command line tokens */
 #endif
 
   /* Get current (local) date for possible use with time-only "-t[t]"
-   * options.
+   * option values.
    */
-  cur_time_opt = time( NULL);
+  cur_time_opt = time(NULL);
 
 #ifdef SHOW_PARSED_COMMAND
   /* make copy of command line as it is parsed */
   parsed_arg_count = 0;
   parsed_args = NULL;
-  max_parsed_args = 0;
-#endif /* def SHOW_PARSED_COMMAND */
+  max_parsed_args = 0;    /* space allocated on first arg assignment */
+#endif
 
 
   /* make copy of args that can use with insert_arg() used by get_option() */
@@ -4133,61 +4382,68 @@ char **argv;            /* command line tokens */
   {
 
 #ifdef SHOW_PARSED_COMMAND
-    /* Save parsed arguments/values. */
+    {
+      /* save this parsed argument */
 
-# define SHOW_PARSED_COMMAND_INCR 1024
+      int use_short = 1;
+      char *opt;
 
-    int use_short = 1;
-    char *opt;
-
-    /* Assume two tokens, option and possible value. */
-    if (parsed_arg_count > max_parsed_args - 2) {
-      max_parsed_args += SHOW_PARSED_COMMAND_INCR;
-      if ((parsed_args = (char **)realloc( parsed_args,
-       (max_parsed_args+ 1)* sizeof( char *))) == NULL) {
-        ZIPERR(ZE_MEM, "realloc parsed command line");
-      }
-    }
-
-    if (option != o_NON_OPTION_ARG) {
-      /* default to using short option string */
-      opt = options[optnum].shortopt;
-      if (strlen(opt) == 0) {
-        /* if no short, use long option string */
-        opt = options[optnum].longopt;
-        use_short = 0;
+      /* this arg may parse to option and value (creating 2 parsed args),
+         or to non-opt arg (creating 1 parsed arg) */
+      if (parsed_arg_count > max_parsed_args - 2) {
+        /* increase space used to store parsed arguments */
+        max_parsed_args += 256;
+        if ((parsed_args = (char **)realloc(parsed_args,
+                (max_parsed_args + 1) * sizeof(char *))) == NULL) {
+          ZIPERR(ZE_MEM, "realloc parsed command line");
+        }
       }
 
-      if ((parsed_args[parsed_arg_count] =
-       (char *)malloc(strlen(opt) + 3)) == NULL) {
-        ZIPERR(ZE_MEM, "parse command line (1)");
-      }
-      if (use_short) {
-        strcpy(parsed_args[parsed_arg_count], "-");
+      if (option != o_NON_OPTION_ARG) {
+        /* assume option and possible value */
+
+        /* default to using short option string */
+        opt = options[optnum].shortopt;
+        if (strlen(opt) == 0) {
+          /* if no short, use long option string */
+          use_short = 0;
+          opt = options[optnum].longopt;
+        }
+        if ((parsed_args[parsed_arg_count] =
+                      (char *)malloc(strlen(opt) + 3)) == NULL) {
+          ZIPERR(ZE_MEM, "parse command line (1)");
+        }
+        if (use_short) {
+          strcpy(parsed_args[parsed_arg_count], "-");
+        } else {
+          strcpy(parsed_args[parsed_arg_count], "--");
+        }
+        strcat(parsed_args[parsed_arg_count], opt);
+
+        if (value) {
+          parsed_arg_count++;
+ 
+          if ((parsed_args[parsed_arg_count] =
+                     (char *)malloc(strlen(value) + 1)) == NULL) {
+            ZIPERR(ZE_MEM, "parse command line (2)");
+          }
+          strcpy(parsed_args[parsed_arg_count], value);
+        }
       } else {
-        strcpy(parsed_args[parsed_arg_count], "--");
-      }
-      strcat(parsed_args[parsed_arg_count], opt);
-
-      if (value) {
-        parsed_arg_count++;
+        /* non-option arg */
 
         if ((parsed_args[parsed_arg_count] =
-         (char *)malloc(strlen(value) + 1)) == NULL) {
-          ZIPERR(ZE_MEM, "parse command line (2)");
+                   (char *)malloc(strlen(value) + 1)) == NULL) {
+          ZIPERR(ZE_MEM, "parse command line (3)");
         }
         strcpy(parsed_args[parsed_arg_count], value);
       }
-    } else {
-      /* non-option arg */
-      if ((parsed_args[parsed_arg_count] =
-       (char *)malloc(strlen(value) + 1)) == NULL) {
-        ZIPERR(ZE_MEM, "parse command line (3)");
-      }
-      strcpy(parsed_args[parsed_arg_count], value);
+      parsed_arg_count++;
+
+      parsed_args[parsed_arg_count] = NULL;
     }
-    parsed_arg_count++;
-#endif /* def SHOW_PARSED_COMMAND */
+#endif
+
 
     switch (option)
     {
@@ -4312,8 +4568,33 @@ char **argv;            /* command line tokens */
           break;
 
 #ifdef BACKUP_SUPPORT
-        case o_BP:  /* Path for BACKUP output and control files */
-          backup_path = value;
+        case o_BC:  /* Dir for BACKUP control file */
+          if (backup_control_dir)
+            free(backup_control_dir);
+          backup_control_dir = value;
+          break;
+        case o_BD:  /* Dir for BACKUP archive (and control file) */
+          if (backup_dir)
+            free(backup_dir);
+          backup_dir = value;
+          break;
+        case o_BL:  /* dir for BACKUP log */
+          if (backup_log_dir)
+            free(backup_log_dir);
+          if (value == NULL)
+          {
+            if ((backup_log_dir = malloc(1)) == NULL) {
+              ZIPERR(ZE_MEM, "backup_log_dir");
+            }
+            strcpy(backup_log_dir, "");
+          } else {
+            backup_log_dir = value;
+          }
+          break;
+        case o_BN:  /* Name of BACKUP archive and control file */
+          if (backup_name)
+            free(backup_name);
+          backup_name = value;
           break;
         case o_BT:  /* Type of BACKUP archive */
           if (abbrevmatch("none", value, 0, 1)) {
@@ -4500,6 +4781,8 @@ char **argv;            /* command line tokens */
           ZIPERR(ZE_PARMS, "encryption (-e) not supported");
 #endif /* def IZ_CRYPT_ANY [else] */
           break;
+        case o_EA:
+          ZIPERR(ZE_PARMS, "-EA (extended attributes) not yet implemented");
 #if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
         case o_et:      /* Encrypt Traditional without data descriptor. */
           etwodd = 1;
@@ -4526,7 +4809,7 @@ char **argv;            /* command line tokens */
           break;
         case 'g':   /* Allow appending to a zip file */
           d = 1;  break;
-#ifndef ZIP_DLL_LIB
+
         case 'h': case 'H': case '?':  /* Help */
 #ifdef VMSCLI
           VMSCLI_help();
@@ -4534,13 +4817,10 @@ char **argv;            /* command line tokens */
           help();
 #endif
           RETURN(finish(ZE_OK));
-#endif /* !ZIP_DLL_LIB */
 
-#ifndef ZIP_DLL_LIB
         case o_h2:  /* Extended Help */
           help_extended();
           RETURN(finish(ZE_OK));
-#endif /* !ZIP_DLL_LIB */
 
         /* -i is with -x */
 #if defined(VMS) || defined(WIN32)
@@ -4619,11 +4899,9 @@ char **argv;            /* command line tokens */
             log_utf8 = 1;
           break;
 #endif
-#ifndef ZIP_DLL_LIB
         case 'L':   /* Show license */
           license();
           RETURN(finish(ZE_OK));
-#endif
         case 'm':   /* Delete files added or updated in zip file */
           dispose = 1;  break;
         case o_mm:  /* To prevent use of -mm for -MM */
@@ -4651,7 +4929,7 @@ char **argv;            /* command line tokens */
           break;
 #endif /* CMS_MVS */
         case 'n':   /* Specify compression-method-by-name-suffix list. */
-          {         /* Value format: "method[-lvl]=sfx1:sfx2;sfx3". */
+          {         /* Value format: "method[-lvl]=sfx1:sfx2:sfx3...". */
             int i;
             int j;
             int lvl;
@@ -4660,57 +4938,58 @@ char **argv;            /* command line tokens */
             lvl = -1;                   /* Assume the default level. */
             sfx_list = value;
 
-            /* There should be a way to append to default suffix list.  For instance,
-               if I specify -n deflate=.txt, the default for store should not be impacted.
-               Could be done by allowing * to represent the existing list, which would
-               allow "-n deflate=*:.txt" to add .txt to the existing list.  Or can go
-               for the chmod approach, using + to add a suffix: "-n deflate=+.txt". */
+            /* There should be a way to append to default suffix list.  For
+               instance, if specify -n deflate=.txt, default for store should
+               not be impacted.  Could be done by allowing * to represent
+               existing list, which would allow "-n deflate=*:.txt" to add
+               .txt to the existing list.  Or can go for the chmod approach,
+               using + to add a suffix: "-n deflate=+.txt". */
 
             /* Find the first special character in value. */
-            for (i = 0; value[ i] != '\0'; i++)
+            for (i = 0; value[i] != '\0'; i++)
             {
-              if ((value[ i] == '=') ||
-               (value[ i] == ':') || (value[ i] == ';'))
+              if ((value[i] == '=') || (value[i] == ':') || (value[i] == ';'))
                 break;
             }
 
             j = 0;                      /* Default = STORE. */
-            if (value[ i] == '=')
+            if (value[i] == '=')
             {
               /* Found "method[-lvl]=".  Replace "=" with NUL. */
-              value[ i] = '\0';
+              value[i] = '\0';
 
               /* Look for "-n" level specifier.
                *  Must be "--" or "-0" - "-9".
                */
-              if ((value[ i- 2] == '-') && ((value[ i- 1] == '-') ||
-               ((value[ i- 1] >= '0') && (value[ i- 1] <= '9'))))
+              if ((value[i - 2] == '-') &&
+                  ((value[i - 1] == '-') ||
+                   ((value[i - 1] >= '0') && (value[i - 1] <= '9'))))
               {
-                if (value[ i- 1] != '-')
+                if (value[i - 1] != '-')
                 {
                   /* Some explicit level, 0-9. */
-                  lvl = value[ i- 1]- '0';
+                  lvl = value[i - 1] - '0';
                 }
-                value[ i- 2] = '\0';
+                value[i - 2] = '\0';
               }
 
               /* Check for a match in the method-by-suffix array. */
-              for (j = 0; mthd_lvl[ j].method >= 0; j++)
+              for (j = 0; mthd_lvl[j].method >= 0; j++)
               {
-                if (abbrevmatch( mthd_lvl[ j].method_str, value, 0, 1))
+                if (abbrevmatch(mthd_lvl[j].method_str, value, 0, 1))
                 {
                   /* Matched method name. */
-                  sfx_list = value+ (i+ 1);     /* Stuff after "=". */
+                  sfx_list = value + (i + 1);     /* Stuff after "=". */
                   break;
                 }
               }
-              if (mthd_lvl[ j].method < 0)
+              if (mthd_lvl[j].method < 0)
               {
-                sprintf( errbuf, "Invalid compression method: %s", value);
-                free( value);
-                ZIPERR( ZE_PARMS, errbuf);
+                sprintf(errbuf, "Invalid compression method: %s", value);
+                free(value);
+                ZIPERR(ZE_PARMS, errbuf);
               }
-            }
+            } /* = */
 
             /* Check for a valid "-n" level value, and store it. */
             if (lvl < 0)
@@ -4724,22 +5003,23 @@ char **argv;            /* command line tokens */
               {
                 sprintf( errbuf, "Invalid \"%s\" compression level: %d",
                  mthd_lvl[ j].method_str, lvl);
-                free( value);
-                ZIPERR( ZE_PARMS, errbuf);
+                free(value);
+                ZIPERR(ZE_PARMS, errbuf);
               }
               else
               {
-                mthd_lvl[ j].level_sufx = lvl;
+                mthd_lvl[j].level_sufx = lvl;
               }
             }
 
             /* Set suffix list value. */
             if (*sfx_list == '\0')     /* Store NULL for an empty list. */
               sfx_list = NULL;         /* (Worry about white space?) */
-            mthd_lvl[ j].suffixes = sfx_list;
+            mthd_lvl[j].suffixes = sfx_list;
           }
           break;
-        case o_nw:  /* no wildcards - wildcards are handled like other characters */
+        case o_nw:  /* no wildcards - wildcards are handled like other
+                       characters */
           no_wild = 1;
           break;
 #if defined(AMIGA) || defined(MACOS)
@@ -4774,6 +5054,12 @@ char **argv;            /* command line tokens */
           path_prefix = value;
           path_prefix_mode = 1;
           break;
+        case o_pp:  /* Set prefix for paths of new entries in archive */
+          if (path_prefix)
+            free(path_prefix);
+          path_prefix = value;
+          path_prefix_mode = 0;
+          break;
         case o_pn:  /* Allow non-ANSI password */
           if (negated) {
             force_ansi_key = 1;
@@ -4781,11 +5067,12 @@ char **argv;            /* command line tokens */
             force_ansi_key = 0;
           }
           break;
-        case o_pp:  /* Set prefix for paths of new entries in archive */
-          if (path_prefix)
-            free(path_prefix);
-          path_prefix = value;
-          path_prefix_mode = 0;
+        case o_ps:  /* Allow short password */
+          if (negated) {
+            allow_short_key = 0;
+          } else {
+            allow_short_key = 1;
+          }
           break;
         case 'P':   /* password for encryption */
           if (key != NULL) {
@@ -4832,11 +5119,10 @@ char **argv;            /* command line tokens */
           allow_regex = 1; break;
 
         case o_sc:  /* show command line args */
-          if (negated)
-            show_args = IZ_MAX( 0, (show_args- 1));
-          else
-            show_args = IZ_MIN( 2, (show_args+ 1));     /* 2: parsed args. */
-          break;
+          show_args = 1; break;
+
+        case o_sP:  /* show parsed command line args */
+          show_parsed_args = 1; break;
 
 #ifdef UNICODE_TEST
         case o_sC:  /* create empty files from archive names */
@@ -4932,6 +5218,13 @@ char **argv;            /* command line tokens */
           noisy_splits = 1;
           break;
 
+#ifdef STREAM_EF_SUPPORT
+        case o_st:  /* enable stream mode (storing of attributes and comments in local headers) */
+          include_stream_ef = 1;
+          break;
+#endif
+
+
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(ATARI)
         case 'S':
           hidden_files = 1; break;
@@ -4944,11 +5237,12 @@ char **argv;            /* command line tokens */
           {
             ulg dt;
 
+            /* Support ISO 8601 & American dates */
             dt = datetime( value, cur_time_opt);
             if (dt == DT_BAD)
             {
               ZIPERR(ZE_PARMS,
- "invalid date-time for -t option - use mmddyyyy or yyyy-mm-dd[:HH:MM[:SS]]");
+         "invalid date/time for -t:  use mmddyyyy or yyyy-mm-dd[:HH:MM[:SS]]");
             }
             before = dt;
           }
@@ -4958,16 +5252,22 @@ char **argv;            /* command line tokens */
           {
             ulg dt;
 
+            /* Support ISO 8601 & American dates */
             dt = datetime( value, cur_time_opt);
             if (dt == DT_BAD)
             {
               ZIPERR(ZE_PARMS,
- "invalid date-time for -tt option - use mmddyyyy or yyyy-mm-dd[:HH:MM[:SS]]");
+         "invalid date/time for -tt:  use mmddyyyy or yyyy-mm-dd[:HH:MM[:SS]]");
             }
             after = dt;
           }
           free(value);
           break;
+#ifdef USE_EF_UT_TIME
+        case o_tn:
+          no_universal_time = 1;
+          break;
+#endif
         case 'T':   /* test zip file */
           test = 1; break;
         case o_TT:  /* command path to use instead of 'unzip -t ' */
@@ -5023,11 +5323,7 @@ char **argv;            /* command line tokens */
           if (option == o_ve ||      /* --version */
               (argcnt == 2 && strlen(args[1]) == 2)) { /* -v only */
             /* display version */
-#ifndef ZIP_DLL_LIB
             version_info();
-#else
-            zipwarn("version information not supported for dll or lib", "");
-#endif
             RETURN(finish(ZE_OK));
           } else {
             noisy = 1;
@@ -5110,6 +5406,13 @@ char **argv;            /* command line tokens */
         case o_ww:   /* Append the VMS version number as ".nnn". */
           vmsver |= 3;  break;
 #endif /* VMS */
+
+#ifdef WINDOWS_LONG_PATHS
+        case o_wl:  /* Include windows paths > MAX_PATH (260 characters) */
+          include_windows_long_paths = 1;
+          break;
+#endif
+
         case o_ws:  /* Wildcards do not include directory boundaries in matches */
           wild_stop_at_dir = 1;
           break;
@@ -5118,13 +5421,16 @@ char **argv;            /* command line tokens */
           /* if nothing matches include list then still create an empty archive */
           allow_empty_archive = 1;
         case 'x':   /* Exclude following files */
-          add_filter((int) option, value);
+          {
+            add_filter((int) option, value);
+          }
           free(value);
           break;
-#ifdef S_IFLNK
+#ifdef SYMLINK_SUPPORT
         case 'y':   /* Store symbolic links as such */
-          linkput = 1;  break;
-#endif /* S_IFLNK */
+          linkput = 1;
+          break;
+#endif /* SYMLINK_SUPPORT */
 
 #ifdef IZ_CRYPT_ANY
 # if defined( IZ_CRYPT_AES_WG) || defined( IZ_CRYPT_AES_WG_NEW)
@@ -5250,7 +5556,7 @@ char **argv;            /* command line tokens */
               ZIPERR(ZE_PARMS, "-@@:  No file name to open to read names from");
             }
 
-#ifndef MACOS
+#if !defined(MACOS) && !defined(WINDLL)
             /* Treat "-@@ -" as "-@" */
             if (strcmp( value, "-") == 0)
             {
@@ -5292,6 +5598,11 @@ char **argv;            /* command line tokens */
         case '!':
           /* use security privilege overrides */
           use_privileges = 1;
+          break;
+
+        case o_exex:  /* (-!!) */
+          /* leave out security information (ACLs) */
+          no_security = 1;
           break;
 #endif
 #ifdef RISCOS
@@ -5337,6 +5648,7 @@ char **argv;            /* command line tokens */
 
           } else if (kk == 6) {
             /* value is R pattern */
+
             add_filter((int)'R', value);
             free(value);
             if (first_listarg == 0) {
@@ -5348,16 +5660,20 @@ char **argv;            /* command line tokens */
               /* first non-option arg is zipfile name */
 #ifdef BACKUP_SUPPORT
               /* if doing a -BT operation, archive name is created from backup
-                 path and a timestamp instead of read from the command line */
+                 path and a timestamp instead of read from command line */
               if (backup_type == 0)
               {
 #endif /* BACKUP_SUPPORT */
-#if (!defined(MACOS) && !defined(ZIP_DLL_LIB))
+#if (!defined(MACOS))
                 if (strcmp(value, "-") == 0) {  /* output zipfile is dash */
                   /* just a dash */
+# ifdef WINDLL
+                  ZIPERR(ZE_PARMS, "DLL can't output to stdout");
+# else
                   zipstdout();
+# endif
                 } else
-#endif /* !MACOS && !ZIP_DLL_LIB */
+#endif /* !MACOS */
                 {
                   /* name of zipfile */
                   if ((zipfile = ziptyp(value)) == NULL) {
@@ -5468,15 +5784,18 @@ char **argv;            /* command line tokens */
             break;
 
         default:
-          /* should never get here as get_option will exit if not in table */
+          /* should never get here as get_option will exit if not in table,
+             unless option is in table but no case for it */
           sprintf(errbuf, "no such option ID: %ld", option);
           ZIPERR(ZE_PARMS, errbuf);
 
     }  /* switch */
   } /* while */
 
-#ifdef SHOW_PARSED_COMMAND		
-  parsed_args[parsed_arg_count] = NULL; /* NULL-terminate parsed_args[]. */
+#ifdef SHOW_PARSED_COMMAND
+  if (parsed_args) {
+    parsed_args[parsed_arg_count] = NULL; /* NULL-terminate parsed_args[]. */
+  }
 #endif /* def SHOW_PARSED_COMMAND */
 
 
@@ -5488,7 +5807,7 @@ char **argv;            /* command line tokens */
   }
 
   /* Check method-level suffix options. */
-  if (mthd_lvl[ 0].suffixes == NULL)
+  if (mthd_lvl[0].suffixes == NULL)
   {
     /* We expect _some_ non-NULL default Store suffix list, even if ""
      * is compiled in.  This check must be done before setting an empty
@@ -5500,12 +5819,12 @@ char **argv;            /* command line tokens */
   for (i = 0; mthd_lvl[ i].method >= 0; i++)
   {
     /* Replace an empty suffix list ("", ":", or ";") with NULL. */
-    if ((mthd_lvl[ i].suffixes != NULL) &&
-     ((*mthd_lvl[ i].suffixes == '\0') ||
-     !strcmp( mthd_lvl[ i].suffixes, ";") ||
-     !strcmp( mthd_lvl[ i].suffixes, ":")))
+    if ((mthd_lvl[i].suffixes != NULL) &&
+        ((mthd_lvl[i].suffixes[0] == '\0') ||
+         !strcmp(mthd_lvl[i].suffixes, ";") ||
+         !strcmp(mthd_lvl[i].suffixes, ":")))
     {
-      mthd_lvl[ i].suffixes = NULL;     /* NULL out an empty list. */
+      mthd_lvl[i].suffixes = NULL;     /* NULL out an empty list. */
     }
   }
 
@@ -5547,32 +5866,45 @@ char **argv;            /* command line tokens */
     ZIPERR(ZE_ABORT, "show suffixes");
   }
 
-  /* Show command line args. */
-  if (show_args > 0) {
-    fprintf(mesg, "command line:\n");
-    for (i = 0; args[i]; i++) {
-      fprintf(mesg, "'%s'  ", args[i]);
+  /* show command line args */
+  if (show_args || show_parsed_args) {
+    if (show_args) {
+      fprintf(mesg, "command line:\n");
+      for (i = 0; args[i]; i++) {
+        fprintf(mesg, "'%s'  ", args[i]);
+      }
+      fprintf(mesg, "\n");
     }
-    fprintf(mesg, "\n");
-  }
-#ifdef SHOW_PARSED_COMMAND
-  if (show_args > 1) {
-    /* Show parsed command line args. */
-    fprintf(mesg, "\nparsed command line:\n");
-    for (i = 0; parsed_args[i]; i++) {
-      fprintf(mesg, "'%s'  ", parsed_args[i]);
-    }
-    fprintf(mesg, "\n");
-  }
-  /* Free parsed command line arg storage. */
-  for (i = 0; parsed_args[i]; i++) {
-    free(parsed_args[i]);
-  }
-  free(parsed_args);
-#endif /* def SHOW_PARSED_COMMAND */
 
-  if (show_args > 0) {
-    ZIPERR(ZE_ABORT, "show command line");      /* Quit after showing args. */
+#ifdef SHOW_PARSED_COMMAND
+    if (show_parsed_args) {
+      if (parsed_args == NULL) {
+        fprintf(mesg, "\nno parsed command line\n");
+      }
+      else
+      {
+        fprintf(mesg, "\nparsed command line:\n");
+        for (i = 0; parsed_args[i]; i++) {
+          fprintf(mesg, "'%s'  ", parsed_args[i]);
+        }
+        fprintf(mesg, "\n");
+      }
+    }
+#endif
+  }
+
+#ifdef SHOW_PARSED_COMMAND
+  /* free up parsed command line */
+  if (parsed_args) {
+    for (i = 0; parsed_args[i]; i++) {
+      free(parsed_args[i]);
+    }
+    free(parsed_args);
+  }
+#endif
+
+  if (show_args || show_parsed_args) {
+    ZIPERR(ZE_ABORT, "show command line");
   }
 
 
@@ -5627,34 +5959,68 @@ char **argv;            /* command line tokens */
   }
 
 
+#ifdef WINDLL
+  if (zipfile == NULL) {
+    ZIPERR(ZE_PARMS, "DLL can't Zip from/to stdin/stdout");
+  }
+#endif
+
+
   /* Set up for -BT backup using control file */
 #ifdef BACKUP_SUPPORT
   if (backup_type && fix) {
     ZIPERR(ZE_PARMS, "can't use -F or -FF with -BT");
   }
-  if (have_out && (backup_path != NULL)) {
-    ZIPERR(ZE_PARMS, "can't specify output file when using -BP");
+  if (have_out && (backup_type)) {
+    ZIPERR(ZE_PARMS, "can't specify output file when using -BT");
   }
-  if (backup_type && (backup_path == NULL)) {
-    ZIPERR(ZE_PARMS, "-BT without -BP");
+  if (backup_type && (backup_dir == NULL)) {
+    ZIPERR(ZE_PARMS, "-BT without -BD");
   }
-  if ((backup_path != NULL) && (!backup_type)) {
-    ZIPERR(ZE_PARMS, "-BP without -BT");
+  if (backup_type && (backup_name == NULL)) {
+    ZIPERR(ZE_PARMS, "-BT without -BN");
+  }
+  if ((backup_dir != NULL) && (!backup_type)) {
+    ZIPERR(ZE_PARMS, "-BD without -BT");
+  }
+  if ((backup_name != NULL) && (!backup_type)) {
+    ZIPERR(ZE_PARMS, "-BN without -BT");
+  }
+  if ((backup_control_dir != NULL) && (!backup_type)) {
+    ZIPERR(ZE_PARMS, "-BC without -BT");
+  }
+  if ((backup_log_dir != NULL) && (!backup_type)) {
+    ZIPERR(ZE_PARMS, "-BL without -BT");
+  }
+
+  if (backup_log_dir && (logfile_path || use_outpath_for_log)) {
+    ZIPERR(ZE_PARMS, "Can't use -BL with -lf or -lF");
   }
 
   if (backup_type) {
-    /* build path to control file */
-    i = strlen(backup_path) + strlen(BACKUP_CONTROL_FILE_NAME) + 2;
-    if (backup_control_path != NULL) {
+    /* control dir defaults to backup dir */
+    if (backup_control_dir == NULL) {
+      if ((backup_control_dir = malloc(strlen(backup_dir) + 1)) == NULL) {
+        ZIPERR(ZE_MEM, "backup control path (1a)");
+      }
+      strcpy(backup_control_dir, backup_dir);
+    }
+    /* build control file path */
+    i = strlen(backup_control_dir) + 1 + strlen(backup_name) + 1 +
+        strlen(BACKUP_CONTROL_FILE_NAME) + 1;
+    if (backup_control_path)
       free(backup_control_path);
-      backup_control_path = NULL;
-    }
     if ((backup_control_path = malloc(i)) == NULL) {
-      ZIPERR(ZE_MEM, "backup control path (1)");
+      ZIPERR(ZE_MEM, "backup control path (1b)");
     }
-    strcpy(backup_control_path, backup_path);
+    strcpy(backup_control_path, backup_control_dir);
+    strcat(backup_control_path, "/");
+    strcat(backup_control_path, backup_name);
     strcat(backup_control_path, "_");
     strcat(backup_control_path, BACKUP_CONTROL_FILE_NAME);
+
+    free(backup_control_dir);
+    backup_control_dir = NULL;
   }
 
   if (backup_type == BACKUP_DIFF || backup_type == BACKUP_INCR) {
@@ -5758,14 +6124,16 @@ char **argv;            /* command line tokens */
       now->tm_year + 1900, now->tm_mon + 1, now->tm_mday, now->tm_hour,
       now->tm_min, now->tm_sec);
 
-    i = strlen(backup_path);
+    i = strlen(backup_dir) + 1 + strlen(backup_name) + 1;
     if ((backup_output_path = malloc(i + 290)) == NULL) {
       ZIPERR(ZE_MEM, "backup control path (2)");
     }
 
     if (backup_type == BACKUP_FULL) {
       /* path of full archive */
-      strcpy(backup_output_path, backup_path);
+      strcpy(backup_output_path, backup_dir);
+      strcat(backup_output_path, "/");
+      strcat(backup_output_path, backup_name);
       strcat(backup_output_path, "_full_");
       strcat(backup_output_path, backup_start_datetime);
       strcat(backup_output_path, ".zip");
@@ -5791,8 +6159,8 @@ char **argv;            /* command line tokens */
       strcat(backup_output_path, "_incr_");
       strcat(backup_output_path, backup_start_datetime);
       strcat(backup_output_path, ".zip");
-
     }
+
     if (backup_type == BACKUP_DIFF || backup_type == BACKUP_INCR) {
       /* make sure full backup exists */
       FILE *ffull = NULL;
@@ -5825,6 +6193,50 @@ char **argv;            /* command line tokens */
 
 #endif /* BACKUP_SUPPORT */
 
+
+  if (backup_log_dir) {
+    if (strlen(backup_log_dir) == 0)
+    {
+      /* empty backup log path - default to archive path */
+      int i;
+      i = strlen(out_path);
+      /* remove .zip and replace with .log */
+      if ((logfile_path = malloc(i + 1)) == NULL) {
+        ZIPERR(ZE_MEM, "backup path (1)");
+      }
+      strcpy(logfile_path, out_path);
+      strcpy(logfile_path + i - 4, ".log");
+    }
+    else
+    {
+      /* use given path for backup log */
+      char *p;
+      int i;
+
+      /* find start of archive name */
+      for (p = out_path + strlen(out_path); p >= out_path; p--) {
+        if (*p == '/' || *p == '\\')
+          break;
+      }
+      if (p > out_path) {
+        /* found / or \ - skip it */
+        p++;
+      } else {
+        /* use entire out_path */
+      }
+      i = strlen(backup_log_dir) + 1 + strlen(p) + 1;
+      if ((logfile_path = malloc(i)) == NULL) {
+        ZIPERR(ZE_MEM, "backup path (2)");
+      }
+      strcpy(logfile_path, backup_log_dir);
+      strcat(logfile_path, "/");
+      strcat(logfile_path, p);
+      strcpy(logfile_path + i - 4, ".log");
+    }
+
+    free(backup_log_dir);
+    backup_log_dir = NULL;
+  }
 
   if (use_outpath_for_log) {
     if (logfile_path) {
@@ -5967,6 +6379,7 @@ char **argv;            /* command line tokens */
   }
 # endif /* defined( IZ_CRYPT_AES_WG) || defined( IZ_CRYPT_AES_WG_NEW) */
 
+  /* ----------------- */
   if (key_needed) {
     int i;
 
@@ -5976,25 +6389,24 @@ char **argv;            /* command line tokens */
 # endif /* def IZ_CRYPT_AES_WG_NEW */
 
 # if defined(IZ_CRYPT_AES_WG) || defined(IZ_CRYPT_AES_WG_NEW)
-#  define REAL_PWLEN temp_pwlen
+#  define MAX_PWLEN temp_pwlen
     int temp_pwlen;
 
     if (encryption_method <= TRADITIONAL_ENCRYPTION)
-        REAL_PWLEN = IZ_PWLEN;
+        MAX_PWLEN = IZ_PWLEN;
     else
-        REAL_PWLEN = MAX_PWD_LENGTH;
-# else /* defined(IZ_CRYPT_AES_WG) || defined(IZ_CRYPT_AES_WG_NEW) */
-#  define REAL_PWLEN IZ_PWLEN
-# endif /* defined(IZ_CRYPT_AES_WG) || defined(IZ_CRYPT_AES_WG_NEW) [else] */
+        MAX_PWLEN = MAX_PWD_LENGTH;
+# else
+#  define MAX_PWLEN IZ_PWLEN
+# endif
 
-    if ((key = malloc(REAL_PWLEN+1)) == NULL) {
+    if ((key = malloc(MAX_PWLEN+2)) == NULL) {
       ZIPERR(ZE_MEM, "was getting encryption password (1)");
     }
-    r = encr_passwd(ZP_PW_ENTER, key, REAL_PWLEN, zipfile);
-    if (r != IZ_PW_ENTERED) {
-      if (r < IZ_PW_ENTERED)
-        r = ZE_PARMS;
-      ZIPERR(r, "was getting encryption password (2)");
+    r = simple_encr_passwd(ZP_PW_ENTER, key, MAX_PWLEN+1);
+    if (r == -1) {
+      sprintf(errbuf, "password too long - max %d", MAX_PWLEN);
+      ZIPERR(ZE_PARMS, errbuf);
     }
     if (*key == '\0') {
       ZIPERR(ZE_PARMS, "zero length password not allowed");
@@ -6002,41 +6414,61 @@ char **argv;            /* command line tokens */
     if (force_ansi_key) {
       for (i = 0; key[i]; i++) {
         if (key[i] < 32 || key[i] > 126) {
-          zipwarn("password must be ANSI (unless use --non-ansi-password)", "");
+          zipwarn("password must be ANSI (unless use -pn)", "");
           ZIPERR(ZE_PARMS, "non-ANSI character in password");
         }
       }
     }
+
     if ((encryption_method == AES_256_ENCRYPTION) && (strlen(key) < 24)) {
-      zipwarn(
-       "AES256 password must be at least 24 chars (longer is better)", "");
-      ZIPERR(ZE_PARMS, "AES256 password too short");
+      if (allow_short_key)
+      {
+        zipwarn("Password shorter than minimum of 24 chars", "");
+      }
+      else
+      {
+        zipwarn(
+          "AES256 password must be at least 24 chars (longer is better)", "");
+        ZIPERR(ZE_PARMS, "AES256 password too short");
+      }
     }
     if ((encryption_method == AES_192_ENCRYPTION) && (strlen(key) < 20)) {
-      zipwarn(
-       "AES192 password must be at least 20 chars (longer is better)", "");
-      ZIPERR(ZE_PARMS, "AES192 password too short");
+      if (allow_short_key)
+      {
+        zipwarn("Password shorter than minimum of 20 chars", "");
+      }
+      else
+      {
+        zipwarn(
+          "AES192 password must be at least 20 chars (longer is better)", "");
+        ZIPERR(ZE_PARMS, "AES192 password too short");
+      }
     }
     if ((encryption_method == AES_128_ENCRYPTION) && (strlen(key) < 16)) {
-      zipwarn(
-       "AES128 password must be at least 16 chars (longer is better)", "");
-      ZIPERR(ZE_PARMS, "AES128 password too short");
+      if (allow_short_key)
+      {
+        zipwarn("Password shorter than minimum of 16 chars", "");
+      }
+      else
+      {
+        zipwarn(
+          "AES128 password must be at least 16 chars (longer is better)", "");
+        ZIPERR(ZE_PARMS, "AES128 password too short");
+      }
     }
-
-    if ((e = malloc(REAL_PWLEN+1)) == NULL) {
+    
+    if ((e = malloc(MAX_PWLEN+2)) == NULL) {
       ZIPERR(ZE_MEM, "was verifying encryption password (1)");
     }
-    r = encr_passwd(ZP_PW_VERIFY, e, REAL_PWLEN, zipfile);
-    if (r != IZ_PW_ENTERED && r != IZ_PW_SKIPVERIFY) {
-      free((zvoid *)e);
-      if (r < ZE_OK) r = ZE_PARMS;
-      ZIPERR(r, "was verifying encryption password (2)");
-    }
-    r = ((r == IZ_PW_SKIPVERIFY) ? 0 : strcmp(key, e));
+#ifndef ZIP_DLL_LIB
+    /* Only verify password if not getting it from a callback. */
+    r = simple_encr_passwd(ZP_PW_VERIFY, e, MAX_PWLEN+1);
+    r = strcmp(key, e);
     free((zvoid *)e);
     if (r) {
       ZIPERR(ZE_PARMS, "password verification failed");
     }
+#endif
   }
   if (key) {
     /* if -P "" could get here */
@@ -6044,6 +6476,7 @@ char **argv;            /* command line tokens */
       ZIPERR(ZE_PARMS, "zero length password not allowed");
     }
   }
+  /* ----------------- */
 #endif /* def IZ_CRYPT_ANY */
 
   /* Check path prefix */
@@ -6204,8 +6637,7 @@ char **argv;            /* command line tokens */
     comadd  = 0;
     zipedit = 0;
   }
-  if (action == ARCHIVE && (method != BEST || dispose || recurse ||
-      comadd || zipedit)) {
+  if (action == ARCHIVE && (method != BEST || dispose || recurse /* || comadd || zipedit */)) {
     zipwarn("can't set method, move, recurse, or comments with copy mode","");
     /* reset flags - needed? */
     method  = BEST;
@@ -6271,8 +6703,11 @@ char **argv;            /* command line tokens */
     ZIPERR(ZE_PARMS, "can't use -V with -l or -ll");
 #endif
 
-#if (!defined(MACOS) && !defined(ZIP_DLL_LIB))
+#if (!defined(MACOS))
   if (kk < 3) {               /* zip used as filter */
+# ifdef WINDLL
+    ZIPERR(ZE_PARMS, "DLL can't input/output to stdin/stdout");
+# else
     zipstdout();
     comment_stream = NULL;
 
@@ -6301,10 +6736,11 @@ char **argv;            /* command line tokens */
     if ((out_path = malloc(4)) == NULL)
       ziperr(ZE_MEM, "was processing arguments for stdout");
     strcpy( out_path, "-");
+# endif
 
     kk = 4;
   }
-#endif /* !MACOS && !ZIP_DLL_LIB */
+#endif /* !MACOS */
 
   if (zipfile && !strcmp(zipfile, "-")) {
     if (show_what_doing) {
@@ -6335,6 +6771,7 @@ char **argv;            /* command line tokens */
     else if (fix == 2)
       zipmessage("Fix archive (-FF) - salvage what can", "");
   }
+
 
 
   /* ----------------------------------------------- */
@@ -6545,6 +6982,7 @@ char **argv;            /* command line tokens */
     } /* for */
   }
 #endif /* BACKUP_SUPPORT */
+
 
 
   /* Read old archive */
@@ -7188,20 +7626,41 @@ char **argv;            /* command line tokens */
 
     for (z = zfiles; z != NULL; z = z->nxt) {
       if (z->mark || kk == 3) {
+        int mesg_displayed = 0;
+        int log_displayed = 0;
+
         count++;
         if ((zoff_t)z->len > 0)
           bytes += z->len;
-        if (noisy && (show_files == 1 || show_files == 3))
+#ifdef WINDLL
+        if (lpZipUserFunctions->service != NULL)
+        {
+          char us[100];
+          char cs[100];
+          long perc = 0;
+
+          WriteNumString(z->len, us);
+          WriteNumString(z->siz, cs);
+          perc = percent(z->len, z->siz);
+
+          if ((*lpZipUserFunctions->service)(z->oname, us, cs, z->len, z->siz, action_string, perc))
+                    ZIPERR(ZE_ABORT, "User terminated operation");
+        }
+ #endif
+        if (noisy && (show_files == 1 || show_files == 3)) {
           /* sf, su */
-          fprintf(mesg, "  %s\n", z->oname);
+          fprintf(mesg, "  %s", z->oname);
+          mesg_displayed = 1;
+        }
         if (logfile && !(show_files == 5 || show_files == 6)) {
           /* not sU or sU- show normal name in log */
 #ifdef UNICODE_SUPPORT
           if (log_utf8 && z->uname) {
-            fprintf(logfile, "  %s\n", z->uname);
+            fprintf(logfile, "  %s", z->uname);
           } else {
-            fprintf(logfile, "  %s\n", z->oname);
+            fprintf(logfile, "  %s", z->oname);
           }
+          log_displayed = 1;
 #else /* def UNICODE_SUPPORT */
           fprintf(logfile, "  %s\n", z->oname);
 #endif /* def UNICODE_SUPPORT [else[ */
@@ -7291,14 +7750,16 @@ char **argv;            /* command line tokens */
           /* Include escaped Unicode name (if exists) under standard name */
           if (z->ouname) {
             if (noisy && show_files == 3) {
-              fprintf(mesg, "     Escaped Unicode:  %s\n", z->ouname);
+              fprintf(mesg, "     Escaped Unicode:  %s", z->ouname);
+              mesg_displayed = 1;
             }
             if (logfile) {
               if (log_utf8) {
-                fprintf(logfile, "     Unicode:  %s\n", z->uname);
+                fprintf(logfile, "     Unicode:  %s", z->uname);
               } else {
-                fprintf(logfile, "     Escaped Unicode:  %s\n", z->ouname);
+                fprintf(logfile, "     Escaped Unicode:  %s", z->ouname);
               }
+              log_displayed = 1;
             }
           }
         }
@@ -7308,28 +7769,44 @@ char **argv;            /* command line tokens */
           if (z->ouname) {
             /* Unicode name */
             if (noisy && show_files == 5) {
-              fprintf(mesg, "  %s\n", z->ouname);
+              fprintf(mesg, "  %s", z->ouname);
+              mesg_displayed = 1;
             }
             if (logfile) {
               if (log_utf8)
-                fprintf(logfile, "  %s\n", z->uname);
+                fprintf(logfile, "  %s", z->uname);
               else
-                fprintf(logfile, "  %s\n", z->ouname);
+                fprintf(logfile, "  %s", z->ouname);
+              log_displayed = 1;
             }
           } else {
             /* No Unicode name so use standard name */
             if (noisy && show_files == 5) {
-              fprintf(mesg, "  %s\n", z->oname);
+              fprintf(mesg, "  %s", z->oname);
+              mesg_displayed = 1;
             }
             if (logfile) {
               if (log_utf8 && z->uname)
-                fprintf(logfile, "  %s\n", z->uname);
+                fprintf(logfile, "  %s", z->uname);
               else
-                fprintf(logfile, "  %s\n", z->oname);
+                fprintf(logfile, "  %s", z->oname);
+              log_displayed = 1;
             }
           }
         }
 #endif
+        if (sf_usize) {
+          WriteNumString(z->len, errbuf);
+
+          if (noisy && mesg_displayed)
+            fprintf(mesg, "  (%s)", errbuf);
+          if (logfile && log_displayed)
+            fprintf(logfile, "  (%s)", errbuf);
+        }
+        if (noisy && mesg_displayed)
+          fprintf(mesg, "\n");
+        if (logfile && log_displayed)
+          fprintf(logfile, "\n");
       }
     }
     for (f = found; f != NULL; f = f->nxt) {
@@ -7382,6 +7859,22 @@ char **argv;            /* command line tokens */
           fprintf(logfile, "  (%s)", errbuf);
       }
 
+#ifdef WINDLL
+      if (lpZipUserFunctions->service != NULL)
+      {
+        char us[100];
+        char cs[100];
+        long perc = 0;
+
+        WriteNumString(f->usize, us);
+        strcpy(cs, "");
+        perc = 0;
+
+        if ((*lpZipUserFunctions->service)(f->oname, us, cs, f->usize, 0, action_string, perc))
+                  ZIPERR(ZE_ABORT, "User terminated operation");
+      }
+ #endif
+
       if (noisy)
         fprintf(mesg, "\n");
       if (logfile)
@@ -7390,16 +7883,42 @@ char **argv;            /* command line tokens */
     }
 
     WriteNumString(bytes, errbuf);
-    if (noisy || logfile == NULL)
-      fprintf(mesg, "Total %s entries (%s (%s) bytes)\n",
-                                          zip_fuzofft(count, NULL, NULL),
-                                          errbuf,
-                                          zip_fuzofft(bytes, NULL, NULL));
-    if (logfile)
-      fprintf(logfile, "Total %s entries (%s (%s) bytes)\n",
-                                          zip_fuzofft(count, NULL, NULL),
-                                          errbuf,
-                                          zip_fuzofft(bytes, NULL, NULL));
+    if (noisy || logfile == NULL) {
+      if (bytes < 1024) {
+        fprintf(mesg, "Total %s entries (%s bytes)\n",
+                                            zip_fuzofft(count, NULL, NULL),
+                                            zip_fuzofft(bytes, NULL, NULL));
+      } else {
+        fprintf(mesg, "Total %s entries (%s bytes (%s))\n",
+                                            zip_fuzofft(count, NULL, NULL),
+                                            zip_fuzofft(bytes, NULL, NULL),
+                                            errbuf);
+      }
+    }
+    if (logfile) {
+      if (bytes < 1024) {
+        fprintf(logfile, "Total %s entries (%s bytes)\n",
+                                            zip_fuzofft(count, NULL, NULL),
+                                            zip_fuzofft(bytes, NULL, NULL));
+      } else {
+        fprintf(logfile, "Total %s entries (%s bytes (%s))\n",
+                                            zip_fuzofft(count, NULL, NULL),
+                                            zip_fuzofft(bytes, NULL, NULL),
+                                            errbuf);
+      }
+    }
+#ifdef WINDLL
+    if (*lpZipUserFunctions->finish != NULL) {
+      char susize[100];
+      char scsize[100];
+      long p;
+
+      strcpy(susize, zip_fzofft(bytes, NULL, "u"));
+      strcpy(scsize, "");
+      p = 0;
+      (*lpZipUserFunctions->finish)(susize, scsize, bytes, 0, p);
+    }
+#endif
     RETURN(finish(ZE_OK));
   }
 
@@ -7745,6 +8264,14 @@ char **argv;            /* command line tokens */
         u_p_name = z->oname;
 #endif /* def ENABLE_USER_PROGRESS */
 
+        if (action == FRESHEN) {
+          strcpy(action_string, "Freshen");
+        } else if (filesync && z->current) {
+          strcpy(action_string, "Current");
+        } else if (!(filesync && z->current)) {
+          strcpy(action_string, "Update");
+        }
+
         if (verbose || !(filesync && z->current))
           DisplayRunningStats();
         if (noisy)
@@ -7936,6 +8463,7 @@ char **argv;            /* command line tokens */
           skip_this_disk = 0;
         if (skip_this_disk - 1 == z->dsk) {
           /* skipping this disk */
+          strcpy(action_string, "Skip");
           if (noisy) {
             fprintf(mesg, " skipping: %s", z->oname);
             mesg_line_started = 1;
@@ -7953,6 +8481,7 @@ char **argv;            /* command line tokens */
           }
         } else {
           /* copying this entry */
+          strcpy(action_string, "Copy");
           if (noisy) {
             fprintf(mesg, " copying: %s", z->oname);
             if (display_usize) {
@@ -8055,37 +8584,44 @@ char **argv;            /* command line tokens */
           w = &z->nxt;
         }
 
-#ifdef ZIP_DLL_LIB
-#ifdef ZIP64_SUPPORT
+        /* ------------------------------------------- */
+
+#ifdef WINDLL
         /* int64 support in caller */
-        if (lpZipUserFunctions->ServiceApplication64 != NULL)
+        if (lpZipUserFunctions->service != NULL)
         {
-          if ((*lpZipUserFunctions->ServiceApplication64)(z->zname, z->siz))
+          char us[100];
+          char cs[100];
+          long perc = 0;
+
+          WriteNumString(z->siz, us);
+          WriteNumString(z->len, cs);
+          if (z->siz)
+            perc = percent(z->len, z->siz);
+
+          if ((*lpZipUserFunctions->service)(z->zname, us, cs, z->siz, z->len, action_string, perc))
                     ZIPERR(ZE_ABORT, "User terminated operation");
         }
         else
         {
           /* no int64 support in caller */
-          filesize64 = z->siz;
-          low = (unsigned long)(filesize64 & 0x00000000FFFFFFFF);
-          high = (unsigned long)((filesize64 >> 32) & 0x00000000FFFFFFFF);
-          if (lpZipUserFunctions->ServiceApplication64_No_Int64 != NULL) {
-            if ((*lpZipUserFunctions->ServiceApplication64_No_Int64)(z->zname, low, high))
+          if (lpZipUserFunctions->service_no_int64 != NULL) {
+            filesize64 = z->siz;
+            low = (unsigned long)(filesize64 & 0x00000000FFFFFFFF);
+            high = (unsigned long)((filesize64 >> 32) & 0x00000000FFFFFFFF);
+            if ((*lpZipUserFunctions->service_no_int64)(z->zname, low, high))
                       ZIPERR(ZE_ABORT, "User terminated operation");
           }
         }
-#else
-        if (lpZipUserFunctions->ServiceApplication != NULL) {
-          if ((*lpZipUserFunctions->ServiceApplication)(z->zname, z->siz))
-            ZIPERR(ZE_ABORT, "User terminated operation");
-        }
-#endif /* ZIP64_SUPPORT - I added comments around // comments - does that help below? EG */
 /* strange but true: if I delete this and put these two endifs adjacent to
    each other, the Aztec Amiga compiler never sees the second endif!  WTF?? PK */
-#endif /* ZIP_DLL_LIB */
+#endif /* WINDLL */
+        /* ------------------------------------------- */
+
       }
       else
       {
+        strcpy(action_string, "Delete");
         DisplayRunningStats();
         if (noisy)
         {
@@ -8117,12 +8653,22 @@ char **argv;            /* command line tokens */
         files_so_far++;
         good_bytes_so_far += z->siz;
         bytes_so_far += z->siz;
-#ifdef ZIP_DLL_LIB
-#ifdef ZIP64_SUPPORT
+
+        /* ------------------------------------------- */
+#ifdef WINDLL
         /* int64 support in caller */
-        if (lpZipUserFunctions->ServiceApplication64 != NULL)
+        if (lpZipUserFunctions->service != NULL)
         {
-          if ((*lpZipUserFunctions->ServiceApplication64)(z->zname, z->siz))
+          char us[100];
+          char cs[100];
+          long perc = 0;
+
+          WriteNumString(z->siz, us);
+          WriteNumString(z->len, cs);
+          if (z->siz)
+            perc = percent(z->len, z->siz);
+
+          if ((*lpZipUserFunctions->service)(z->zname, us, cs, z->siz, z->len, action_string, perc))
                     ZIPERR(ZE_ABORT, "User terminated operation");
         }
         else
@@ -8131,20 +8677,16 @@ char **argv;            /* command line tokens */
           filesize64 = z->siz;
           low = (unsigned long)(filesize64 & 0x00000000FFFFFFFF);
           high = (unsigned long)((filesize64 >> 32) & 0x00000000FFFFFFFF);
-          if (lpZipUserFunctions->ServiceApplication64_No_Int64 != NULL) {
-            if ((*lpZipUserFunctions->ServiceApplication64_No_Int64)(z->zname, low, high))
+          if (lpZipUserFunctions->service_no_int64 != NULL) {
+            if ((*lpZipUserFunctions->service_no_int64)(z->zname, low, high))
                       ZIPERR(ZE_ABORT, "User terminated operation");
           }
         }
-#else
-        if (lpZipUserFunctions->ServiceApplication != NULL) {
-          if ((*lpZipUserFunctions->ServiceApplication)(z->zname, z->siz))
-            ZIPERR(ZE_ABORT, "User terminated operation");
-        }
-#endif /* ZIP64_SUPPORT - I added comments around // comments - does that help below? EG */
+/* ZIP64_SUPPORT - I added comments around // comments - does that help below? EG */
 /* strange but true: if I delete this and put these two endifs adjacent to
    each other, the Aztec Amiga compiler never sees the second endif!  WTF?? PK */
-#endif /* ZIP_DLL_LIB */
+#endif /* WINDLL */
+        /* ------------------------------------------- */
 
         v = z->nxt;                     /* delete entry from list */
         free((zvoid *)(z->iname));
@@ -8191,6 +8733,7 @@ char **argv;            /* command line tokens */
         if (filesync) {
           /* Delete entries if don't match a file on OS */
           BlankRunningStats();
+          strcpy(action_string, "Delete");
           if (noisy)
           {
             fprintf(mesg, "deleting: %s", z->oname);
@@ -8340,6 +8883,8 @@ char **argv;            /* command line tokens */
 #ifdef ENABLE_USER_PROGRESS
     u_p_name = z->oname;
 #endif /* def ENABLE_USER_PROGRESS */
+
+    strcpy(action_string, "Add");
 
     if (noisy)
     {
@@ -8503,7 +9048,7 @@ char **argv;            /* command line tokens */
   {
     if (comadd)
 #else
-  if (comadd)
+  if (comadd && !include_stream_ef)
   {
 #endif
     {
@@ -8543,6 +9088,41 @@ char **argv;            /* command line tokens */
         else if (comadd)
 #endif /* AMIGA || MACOS */
         {
+          if (noisy) {
+            if (z->com && z->comment) {
+              fprintf(mesg, "\nCurrent comment for %s:\n %s", z->oname, z->comment);
+              fprintf(mesg, "\nEnter comment (hit ENTER to keep, TAB ENTER to remove) for %s:\n ", z->oname);
+            } else {
+              fprintf(mesg, "\nEnter comment for %s:\n ", z->oname);
+            }
+          }
+          if (fgets(e, MAXCOM+1, comment_stream) != NULL)
+          {
+            if (strlen(e) > 1) {
+              if (strlen(e) == 2 && e[0] == '\t')
+                e[0] = '\0';
+              if ((p = (char *)malloc((comment_size = strlen(e))+1)) == NULL)
+              {
+                free((zvoid *)e);
+                ZIPERR(ZE_MEM, "was reading comment lines (s2)");
+              }
+              strcpy(p, e);
+              if (p[comment_size - 1] == '\n')
+                p[--comment_size] = 0;
+              if (z->com && z->comment) {
+                free(z->comment);
+                z->com = 0;
+              }
+              z->comment = p;
+              if (comment_size == 0) {
+                free(z->comment);
+                z->comment = NULL;
+              }
+              /* zip64 support 09/05/2003 R.Nausedat */
+              z->com = comment_size;
+            }
+          }
+#if 0
           if (noisy)
             fprintf(mesg, "Enter comment for %s:\n", z->oname);
           if (fgets(e, MAXCOM+1, comment_stream) != NULL)
@@ -8559,6 +9139,7 @@ char **argv;            /* command line tokens */
             /* zip64 support 09/05/2003 R.Nausedat */
             z->com = comment_size;
           }
+#endif
         }
 #ifdef MACOS
     if (noisy) fprintf(mesg, "\n...done");
@@ -8578,9 +9159,10 @@ char **argv;            /* command line tokens */
   /* Get (possibly multi-line) archive comment. */
   if (zipedit)
   {
-#ifdef ZIP_DLL_LIB
 
+#ifdef ZIP_DLL_LIB
     comment(zcomlen);
+#if 0
     if ((p = malloc(strlen(szCommentBuf)+1)) == NULL) {
       ZIPERR(ZE_MEM, "was setting comments to null (2)");
     }
@@ -8589,17 +9171,37 @@ char **argv;            /* command line tokens */
     else
        p[0] = '\0';
     free((zvoid *)zcomment);
+    zcomment = NULL;
     GlobalUnlock(hStr);
     GlobalFree(hStr);
     zcomment = p;
     zcomlen = strlen(zcomment);
+#endif
 
-#else /* def ZIP_DLL_LIB */
+#if 0
+    if ((p = malloc(zcomlen+1)) == NULL) {
+      ZIPERR(ZE_MEM, "was setting comments to null (2)");
+    }
+    if (szCommentBuf[0] != '\0')
+       lstrcpy(p, szCommentBuf);
+    else
+       p[0] = '\0';
+    free((zvoid *)zcomment);
+    zcomment = NULL;
+    zcomment = p;
+    zcomlen = strlen(zcomment);
+#endif
+
+#else /* def ZIP_DLL_LIB [else] */
+
+    /* not LIB or DLL */
 
     /* Try to get new comment first, then replace old comment (if any). - EG */
     char *new_zcomment;
     int new_zcomlen;
     int new_len;
+    int keep_current = 0;
+    int new_read;
 
     if (comment_stream == NULL) {
 # ifndef RISCOS
@@ -8611,13 +9213,24 @@ char **argv;            /* command line tokens */
     if (noisy && zcomlen)
     {
       /* Display old archive comment, if any. */
-      fputs("current zip file comment is:\n", mesg);
+      fputs("Current zip file comment is:\n", mesg);
+      fputs("----------\n", mesg);
       fwrite(zcomment, 1, zcomlen, mesg);
       if (zcomment[zcomlen-1] != '\n')
         putc('\n', mesg);
+      fputs("----------\n", mesg);
     }
     if (noisy)
-      fputs("enter new zip file comment (end with .):\n", mesg);
+    {
+      if (zcomlen)
+        fputs(
+  "Enter new zip file comment (end with . line) or ENTER to keep existing:\n",
+        mesg);
+      else
+        fputs("Enter new zip file comment (end with . line):\n", mesg);
+      fputs("----------\n", mesg);
+    }
+
 # if (defined(AMIGA) && (defined(LATTICE)||defined(__SASC)))
     flushall();  /* tty input/output is out of sync here */
 # endif
@@ -8678,8 +9291,8 @@ char **argv;            /* command line tokens */
          is 65535 bytes and the archive comment can be up to 65535 - 22 =
          65513 bytes of this.  We need to ensure the total comment length
          is no more than this. */
-      if (new_len > 65513) {
-        new_len = 65513;
+      if (new_len > 32767) {
+        new_len = 32767;
         if (new_len == new_zcomlen) {
           break;
         }
@@ -8688,20 +9301,37 @@ char **argv;            /* command line tokens */
       if ((new_zcomment = realloc(new_zcomment, new_len)) == NULL)
       {
         ZIPERR(ZE_MEM, "was reading comment lines (5)");
+#if 0
         new_zcomlen = 0;
         break;
+#endif
       }
 
       /* Read up to (MAXCOM + 1) characters.  Quit if none available. */
       if (fgets((new_zcomment + new_zcomlen), (MAXCOM + 1), comment_stream) == NULL)
+      {
+        if (new_zcomlen == 0)
+          keep_current = 1;
         break;
+      }
+
+      new_read = strlen(new_zcomment + new_zcomlen);
+      
+      /* If the first line is empty or just a newline, keep current comment */
+      if (new_zcomlen == 0 &&
+          (new_read == 0 || strcmp((new_zcomment), "\n") == 0))
+      {
+        keep_current = 1;
+        break;
+      }
 
       /* Detect ".\n" comment terminator in new line read.  Quit, if found. */
-      if (new_zcomlen && strcmp((new_zcomment + new_zcomlen), ".\n") == 0)
+      if (new_zcomlen &&
+          (new_read == 0 || strcmp((new_zcomment + new_zcomlen), ".\n") == 0))
         break;
 
       /* Calculate the new length (old_length + newly_read). */
-      new_zcomlen += strlen(new_zcomment + new_zcomlen);
+      new_zcomlen += new_read;
 
       /* Convert (bare) terminating "\n" to "\r\n". */
       if (*(new_zcomment + new_zcomlen - 1) == '\n')
@@ -8716,50 +9346,59 @@ char **argv;            /* command line tokens */
       }
     } /* while (1) */
 
-    if (zcomment)
+    if (keep_current)
     {
-      /* Free old archive comment. */
-      free(zcomment);
-    }
-
-    /* Use new comment. */
-    zcomment = new_zcomment;
-    zcomlen = new_zcomlen;
-
-    /* If unsuccessful, make tidy.
-     * If successful, terminate the file comment string as desired.
-     */
-    if (zcomlen == 0)
-    {
-      if (zcomment)
-      {
-        /* Free comment storage.  (Empty line read?) */
-        free(zcomment);
-        zcomment = NULL;
-      }
+      free(new_zcomment);
     }
     else
     {
-      /* If it's missing, add a final "\r\n".
-       * (Do we really want this?  We could add one only if we've seen
-       * one before, so that a normal one- or multi-line comment would
-       * always end with our usual line ending, but one-line,
-       * EOF-terminated input would not.  (Need to add a flag.))
-       */
-      /* As far as is known current utilities don't expect a terminating
-         CR + LF so don't add one.  Some testing of other utilities may
-         clarify this. */
-#  if 0
-      if (*(zcomment+ zcomlen) != '\n')
+      if (zcomment)
       {
-        *(zcomment+ (zcomlen++)) = '\r';
-        *(zcomment+ zcomlen) = '\n';
+        /* Free old archive comment. */
+        free(zcomment);
       }
-#  endif
-      /* We could NUL-terminate the string here, but no one cares. */
-      /* This could be useful for debugging purposes */
-      *(zcomment + zcomlen + 1) = '\0';
+
+      /* Use new comment. */
+      zcomment = new_zcomment;
+      zcomlen = new_zcomlen;
+
+      /* If unsuccessful, make tidy.
+       * If successful, terminate the file comment string as desired.
+       */
+      if (zcomlen == 0)
+      {
+        if (zcomment)
+        {
+          /* Free comment storage.  (Empty line read?) */
+          free(zcomment);
+          zcomment = NULL;
+        }
+      }
+      else
+      {
+        /* If it's missing, add a final "\r\n".
+          * (Do we really want this?  We could add one only if we've seen
+          * one before, so that a normal one- or multi-line comment would
+          * always end with our usual line ending, but one-line,
+          * EOF-terminated input would not.  (Need to add a flag.))
+          */
+        /* As far as is known current utilities don't expect a terminating
+            CR + LF so don't add one.  Some testing of other utilities may
+            clarify this. */
+  #  if 0
+        if (*(zcomment+ zcomlen) != '\n')
+        {
+          *(zcomment+ (zcomlen++)) = '\r';
+          *(zcomment+ zcomlen) = '\n';
+        }
+  #  endif
+        /* We could NUL-terminate the string here, but no one cares. */
+        /* This could be useful for debugging purposes */
+        *(zcomment + zcomlen + 1) = '\0';
+      }
     }
+    if (noisy)
+      fputs("----------\n", mesg);
 
 #  if 0
     /* SMSd. */
@@ -8823,6 +9462,20 @@ char **argv;            /* command line tokens */
             zip_fzofft(n, NULL, "u"), zip_fzofft(t, NULL, "u"), percent(n, t));
     fflush(logfile);
   }
+
+#ifdef WINDLL
+  if (*lpZipUserFunctions->finish != NULL) {
+    char susize[100];
+    char scsize[100];
+    long p;
+
+    WriteNumString(n, susize);
+    WriteNumString(t, scsize);
+    p = percent(n, t);
+    (*lpZipUserFunctions->finish)(susize, scsize, n, t, p);
+  }
+#endif
+
   t = tempzn - c;               /* compute length of central */
   diag("writing end of central directory");
   if (show_what_doing) {
@@ -8967,9 +9620,13 @@ char **argv;            /* command line tokens */
       free(backup_start_datetime);
       backup_start_datetime = NULL;
     }
-    if (backup_path) {
-      free(backup_path);
-      backup_path = NULL;
+    if (backup_dir) {
+      free(backup_dir);
+      backup_dir = NULL;
+    }
+    if (backup_name) {
+      free(backup_name);
+      backup_name = NULL;
     }
     if (backup_control_path) {
       free(backup_control_path);
@@ -9073,6 +9730,7 @@ char **argv;            /* command line tokens */
 #ifdef VMS
 # include "decc_init.c"
 #endif
+
 
 
 /* Ctrl/T (VMS) AST or SIGUSR1 handler for user-triggered progress

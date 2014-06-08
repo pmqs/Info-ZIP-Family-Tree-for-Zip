@@ -1328,7 +1328,7 @@ ulg a;                  /* Attributes returned by filetime() */
 /* Return true if the attributes are those of a symbolic link */
 {
 #ifndef QDOS
-#ifdef S_IFLNK
+#ifdef SYMLINK_SUPPORT
 #ifdef __human68k__
   int *_dos_importlnenv(void);
 
@@ -1336,9 +1336,9 @@ ulg a;                  /* Attributes returned by filetime() */
     return 0;
 #endif
   return ((a >> 16) & S_IFMT) == S_IFLNK;
-#else /* !S_IFLNK */
+#else /* !SYMLINK_SUPPORT */
   return (int)a & 0;    /* avoid warning on unused parameter */
-#endif /* ?S_IFLNK */
+#endif /* ?SYMLINK_SUPPORT */
 #else
   return 0;
 #endif
@@ -1430,7 +1430,7 @@ char *d, *s;            /* destination and source file names */
      * respect existing soft and hard links!
      */
     if (t.st_nlink > 1
-# ifdef S_IFLNK
+# ifdef SYMLINK_SUPPORT
         || (t.st_mode & S_IFMT) == S_IFLNK
 # endif
         )
@@ -3873,9 +3873,8 @@ zwchar *utf8_to_wide_string(utf8_string)
    Unicode.  May get to it soon.  EG
  */
 
-/* For now stay with multi-byte characters.  Looks like wide-character
- * command-line support not making it to Zip 3.1.  May support wide
- * characters in Zip 3.2.
+/* For now stay with multi-byte characters.  Looks like wide character command line
+   support not making it to Zip 3.1.  May support wide characters in Zip 3.2.
  */
 
 /* multibyte character set support
@@ -4359,6 +4358,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
          value - 11/12/04 EG */
       /* Though the parser follows definitive rules, optional values are
          probably confusing to the user and should not be used */
+      /* o_OPT_EQ_VALUE is more or less now used instead of o_OPTIONAL_VALUE */
       if (arg[(*optchar) + clen]) {
         /* has value */
         /* add support for optional = - 2/6/05 EG */
@@ -4377,23 +4377,25 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
       }
     } else if (options[match].value_type == o_OPT_EQ_VALUE) {
       /* Optional value, but "=" required with value.  Forms are:
-       *    -opt=Value
-       *    -opt= Value
-       *    -opt = Value
-       * If none of these is found, the option has no value.
+       * -opt=value
+       * -opt= value
+       * -opt = value
+       * If none of these are found, the option has no value (value = NULL).
        */
       int have_eq = 0;
 
       if (arg[(*optchar) + clen]) {
         /* "-optXXXX".  May have attached value.  First X must be = if does. */
         if (arg[(*optchar) + clen] == '=') {
-          /* Skip '=' (but remember it). */
+          /* So far have -opt=
+             Skip '=' (but remember it). */
           clen++;
           have_eq = 1;
         }
         if (arg[(*optchar) + clen]) {
-          /* "-opt{=}value".  Have attached value.  This option type requires
-             "=" for value, so if no "=" then no value. */
+          /* "-opt=value".  Have attached value.
+             This option type requires "=" for value, so if no "=" then
+             no value. */
           if (have_eq) {
             /* "-opt=value".  Have attached value. */
             if ((*value = (char *)malloc(strlen(arg + (*optchar) + clen) + 1))
@@ -4404,7 +4406,7 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
             *optchar = THIS_ARG_DONE;
           }
             /* else
-             * "-opt{^=}XXX".  Have more chars, but no attached value.
+             * "-optXXX".  Have more chars, but no "=" so no attached value.
              * Should be more short options.
              */
         }
@@ -4457,15 +4459,15 @@ local unsigned long get_shortopt(args, argnum, optchar, negated, value,
       }
     } else if (options[match].value_type == o_REQUIRED_VALUE ||
                options[match].value_type == o_VALUE_LIST) {
-      /* Forms for "-opt" with "Value" are:
-       *    -optValue
-       *    -opt=Value
-       *    -opt Value
-       *    -opt Value1 Value2 ... {@}     [value list]
+      /* Required value or value list.  Forms are:
+       * -optvalue
+       * -opt=value
+       * -opt value
+       * -opt value1 value2 ... {@}    - value list
        */
       /* see if follows option */
       if (arg[(*optchar) + clen]) {
-        /* has value following option as -oValue */
+        /* has value following option as -ovalue */
         /* add support for optional = - 6/5/05 EG */
         if (arg[(*optchar) + clen] == '=') {
           /* skip = */
