@@ -1997,6 +1997,14 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 12. Add emergency replacements for memmove() and strerror().
     unix/unix.c (SMS)
 13. Remove old not SPLIT_SUPPORT code.  globals.c, zipnote.c, fileio.c,
+
+
+
+
+
+
+
+
     crypt.h, crypt.c, zipcloak.c, zip.h, zip.c, zipup.c, zipsplit.c,
     zipfile.c (Ed)
 ---------------------- May 12th 2006 version 3.0f12 ----------------------
@@ -2670,6 +2678,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     Use libbz2_ns_.olb for VMS bzip2 library which is compiled from the VMS
     version of bzip2 with the BZ_NO_STDIO flag set.  This flag removes most
     standard bzip2 stdio support and enables using a callback routine for
+
     errors.  zbz2err.c, unix/Makefile, vms/build_zip.com, vms/descrip.mms,
     vms/descrip_deps.mms, vms/descrip_src.mms (SMS)
  2. Add zbz2err.c to Win32 vc6bz2 project for support of BZ_NO_STDIO for bzip2.
@@ -3858,7 +3867,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  2. Update WhatsNew.  WHATSNEW (Ed)
  3. Update announcement.  zip31b.ann (Ed)
  4. Update TODO.  TODO (Ed)
------------------------- July 20th 2009 version 3.1c01 ------------------------
+------------------------ July 20th 2009 version 3.1c01 --------------------------
  1. Add -aa option to skip binary check.  Add global all_ascii. (Ed)
  2. Fixes to -aa and -MV options.  cmsmvs/cmsmvs.c, zip.c (Lutz)
  3. Use 64-bit zfseeko + zftello functions for large file support.
@@ -3922,7 +3931,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     where these archives were rejected as bad.  zipfile.c (Ed)
 31. In zipcopy(), initialize split_path to NULL and free later if
     not NULL to fix memory leak.  zipfile.c (Ed, Kamers)
------------------------ August 15th 2009 version 3.1c02 -----------------------
+----------------------- August 15th 2009 version 3.1c02 -------------------------
  1. Update EXPENTRY entries for DLL to fix compiler problem in VC6.
     api.h (Ed)
  2. Add get_time_in_usec() to time zipping rate in microseconds.  Calls system
@@ -3947,10 +3956,10 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     out unimplemented fSuffix.  windll/examples/vbz64/vbzipbas.bas,
     windll/examples/vbz64/vbzip.vbw, windll/examples/vb/vbzip.vbw (Ed)
 10. Add api.h and windll.h to dll project.  windll/vc6/dll/zip32z64.dsp (Ed)
------------------------ April 14th 2010 version 3.1c03 ------------------------
+----------------------- April 14th 2010 version 3.1c03 -------------------------
  1. Add Fedora stack markings patch (exec-shield.patch) to prevent stack from
-    being executable, patch forwarded from Debian bug system.  See:
-    http://cvs.fedoraproject.org/viewvc/devel/zip/exec-shield.patch?view=markup
+    being executable, patch forwarded from Debian bug system.  See
+    http://cvs.fedoraproject.org/viewvc//devel/zip/exec-shield.patch?view=markup.
     crc_i386.S, match.S (sanvila on forum, Kees Cook)
  2. Changed VMS wild() to avoid saving a user-specified version
     (";1") when the user-specified file is a directory.  vms/vmszip.c (SMS)
@@ -3975,7 +3984,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 13. Comment out sys/time.h include because prevents compiling on Windows
     MSVS that does not have it.  fileio.c (Ed)
 14. Update some copyrights to 2010.  revision.h (Ed)
------------------------ May 14th 2010 version 3.1c04 --------------------------
+----------------------- May 14th 2010 version 3.1c04 ---------------------------
  1. Format #if blocks to verify all blocks close in response to user question.
     zipfile.c (Ed)
  2. Update structure _ZpVer to include option structure ZPOPT size and a new
@@ -3986,11 +3995,10 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     long words of fluff at end of ZPOPT for future expansion.  All this makes
     this ZPOPT not backward compatible, but will allow backward compatible
     expansion in the future.  api.c, api.h (Ed)
- 3. As Zip version is provided through Z_MAJORVER, Z_MINORVER, and
-    Z_PATCHLEVEL, starting with Zip 3.1c, DW_MAJORVER, DW_MINORVER, and
-    DW_PATCHLEVEL defines are frozen at 3, 1, and 0 (this version) unless the
-    DLL interface changes in a way that is not backward compatible.  api.c,
-    api.h, revision.h (Ed)
+ 3. As Zip version is provided through Z_MAJORVER, Z_MINORVER, and Z_PATCHLEVEL,
+    starting with Zip 3.1c, DW_MAJORVER, DW_MINORVER, and DW_PATCHLEVEL defines
+    are frozen at 3, 1, and 0 (this version) unless the DLL interface changes
+    in a way that is not backward compatible.  api.c, api.h, revision.h (Ed)
  3. If logfile is specified as "-", send log output to stdout.  Forces -q to
     avoid duplicate output to stdout.  Options -la (append to existing log)
     and -v (verbose) are not allowed, as output is determined by the logging
@@ -4007,9 +4015,9 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     windll/vc6bz2/lib/zip32z64.dsw (Ed)
  9. Update install.txt to note added bzip2 DLL and LIB capability for
     Windows.  bzip2/install.txt (Ed)
------------------------ June 14th 2010 version 3.1c05 -------------------------
- 1. Allow negating -j as replacement for -p.  Provide warning when -p used
-    that it is deprecated.  Add note to extended help.  zip.c (SMS, Ed)
+----------------------- June 14th 2010 version 3.1c05 --------------------------
+ 1. Allow negating -j as replacement for -p.  Provide warning when -p used that
+    it is deprecated.  Add note to extended help.  zip.c (SMS, Ed)
  2. Change | to & in UTF-8 option bit checks against fUnicode.  api.c (stu003
     from forum thread "Wrong interpreting the UTF-8 settings in api.c")
  3. Add ProgressReport callback to WinDLL, enabled by ENABLE_DLL_PROGRESS
@@ -4021,7 +4029,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     enabled).  Add globals bytes_read_this_entry, bytes_expected_this_entry,
     entry_name, progress_chunk_size, last_progress_chunk.  Progress report
     calculations in zipup(), file_read(), filecompress(), bzfilecompress().
-    api.c, api.h, globals.c, zipup.c, win32/osdep.h (Ed)
+    api.c, api.h, globals.c, zipup.c, win32/osdep.h (Ed) 
  4. Handle better bad compression level from DLL caller.  Add kluge around
     not being able to support compression level 0 directly from DLL call.
     Only allow fEncrypt flag to be 0 or 1.  Support separate ExcludeBeforeDate
@@ -4031,8 +4039,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  6. Change vms_zip_command() to return unsigned int instead of ulg.  Related
     updates.  Add new file zip_cli.rnh.  vms/commandline.c, vms/zip_cli.cld,
     zip.h, vms/zip_cli.rnh (SMS)
- 7. Update bzip2 install.txt to note WinDLL now supports.  bzip2/install.txt
-    (Ed)
+ 7. Update bzip2 install.txt to note WinDLL now supports.  bzip2/install.txt (Ed)
  8. Add note that readme file needs updating.  windll/windll.txt (Ed)
  9. Update WinDLL examples.  Resize VB example form.  Add ProgressReport
     callback to VB example and update to latest api structures.  Update VB
@@ -4048,17 +4055,17 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     windll/examples/vbz64_30/vbzipfrm.frm (Ed)
 11. Add readcex.txt.  windll/examples/vc6/readcex.txt (Ed)
 12. Update MSVS project.  windll/vcc6bz2/dll/zip32z64.dps (Ed)
------------------------ June 14th 2010 version 3.1c06 -------------------------
+----------------------- June 14th 2010 version 3.1c06 --------------------------
  1. Change incorrect bytes_read_so_far to bytes_so_far.  zipup.c (SMS, Ed)
  2. Delete zip_cli.rnh.  vms/zip_cli.rnh (SMS)
  3. Update Zip CLI help noting change from /JUNK to /NOFULL_PATH.  Add <NEXT>
     in many places.  vms/zip_cli.help (SMS)
------------------------ June 17th 2010 version 3.1c07 -------------------------
+----------------------- June 17th 2010 version 3.1c07 --------------------------
  1. Change incorrect bytes_read_so_far to bytes_so_far in filecompress() and
     bzfilecompress().  zipup.c (Ed)
  2. Change strftime() to sprintf() as older VMS does not support strftime().
     zip.c (SMS, Ed)
------------------------ June 21st 2010 version 3.1c08 -------------------------
+----------------------- June 21st 2010 version 3.1c08 --------------------------
  1. Add zero to day of display time -dt display.  zip.c (SMS, Ed)
  2. Add license version to license option output.  revision.h (Ed)
  3. Version ID file updated.  file_id.diz (Ed)
@@ -4071,8 +4078,10 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 10. Update C Sharp readme.  windll/examples/csharp/readmecs.txt (Ed)
 11. Update C examples readme.  windll/examples/vc6/readcex.txt (Ed)
 12. Update VC6 examples readme.  windll/examples/vc6/readmev6.txt (Ed)
+
 ----------------------- June 22nd 2010 version 3.1c ---------------------------
  1. Include <sys/time.h> for Tru64 to define timeval.  fileio.c (SMS)
+
 -------------------- September 14th 2010 version 3.1d01 -----------------------
  1. Add -lu option to store UTF-8 paths in the log.  Add global log_utf8.
     globals.c, zip.c, zip.h (Ed)
@@ -4087,8 +4096,10 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     in zipup.c.  zip.c, zipfile.c, zipup.c (Ed)
  5. Move definition of UTF8_BIT from zipfile.c to zip.h to make global.  zip.h,
     zipfile.c (Ed)
+
 -------------------- September 15th 2010 version 3.1d02 -----------------------
  1. Add missing UNICODE_SUPPORT ifdefs.  zip.c (SMS, Ed (EG))
+
 -------------------- February 19th 2011 version 3.1d03 ------------------------
  1. Add clearerr() to clear EOF and error flags after initial checks looking
     for zip file end structures.  zipfile.c (Dennis LaBelle)
@@ -4140,7 +4151,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 12. Fix Win32 bytes security message so goes to console and log as requested.
     win32/win32zip.c (EG)
 13. Added install readme to aes directory.  aes/installaes.txt (EG)
--------------------- April 20th 2011 version 3.1d04 ---------------------------
+
+---------------------- April 20th 2011 version 3.1d04 -------------------------
  1. SunOS 4.x (like Tru64) needed <sys/time.h>.  New C macro HAVE_SYS_TIME_H
     replaces old Tru64 condition.  fileio.c, unix/configure (SMS)
  2. For operations with both input and output archives, temporary archive
@@ -4173,13 +4185,15 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     by AES encryption even if not using ZIP64_SUPPORT.  zipfile.c (EG)
 12. Define STRCASECMP() that resolves to stricmp() on Windows and strcasecmp()
     for other ports.  tailor.h, zip.c (EG)
--------------------- April 27th 2011 version 3.1d05 -----------------------
+
+---------------------- April 27th 2011 version 3.1d05 -------------------------
  1. Fix bug where standard encrypted entries were being marked as AES when
     AES entries were added.  Add encrypt_method to zlist structure.  zip.c,
     zip.h, zipfile.c, zipup.c (EG)
  2. Fix endian problems in AES source.  Need to report back the fixes to
     Gladman.  aes/aesopt.h, aes/sha1.c (SMS)
--------------------- May 5th 2011 version 3.1d06 -----------------------
+
+------------------------ May 5th 2011 version 3.1d06 --------------------------
  1. Make entropy_fun() in crypt.c (perhaps an example for other ports to
     reference) only applicable for WIN32 as some of the calls may only exist
     in WIN32, though similar calls exist on some other ports.  crypt.c (EG)
@@ -4227,7 +4241,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     and device_opcnt_32().  vms.c (SMS)
 21. Remove STRCASECMP code.  vms/vmszip.c (SMS)
 22. Add VMS help for AES encryption.  vms/zip_cli.help (SMS)
--------------------- May 14th 2011 version 3.1d07 -----------------------
+
+----------------------- May 14th 2011 version 3.1d07 --------------------------
  1. Update encryption comments.  crypt.c (EG)
  2. Change CRYPT_AES define to CRYPT_AES_WG (AES WinZip/Gladman
     encryption.  crypt.c, globals.c, revision.h, zip.c, zip.h, zipfile.c
@@ -4252,8 +4267,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 13. Remove aes/prng.h include and include aes/aes.h and aes/aesopt.h instead.
     zip.c (SMS)
 14. Change version information standard encryption listing from "zip standard
-    encryption" to CRYPT    (traditional (weak) encryption).  Drop crypt
-    version date.  zip.c (SMS, EG)
+    encryption" to CRYPT    (traditional (weak) encryption).  Drop crypt version
+    date.  zip.c (SMS, EG)
 15. Add new option -DI (--incremental-list) for a list of incremental archives
     that the entries of are to be skipped when creating a differential archive.
     Not yet implemented.  zip.c (EG)
@@ -4269,7 +4284,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     header settings.  zipfile. (EG)
 22. Always set z->encrypt_method for new entries.  zipup.c (SMS)
 23. Add TRC flags.  vms/descrip_src.mms (SMS)
--------------------- June 8th 2011 version 3.1d08 -----------------------
+
+----------------------- June 8th 2011 version 3.1d08 --------------------------
  1. Re-sync crypt.c with UnZip.  See the UnZip 6.10c02 changes for
     crypt.c, but includes adding ef_scan_for_aes() and ef_strip_aes(),
     change USE_AES_WG to CRYPT_AES_WG, and updates to zipbare().
@@ -4294,7 +4310,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     win32/win32.c (EG)
 10. Changes to AES code.  aes/aes.h, aes/aescrypt.c, aes/aeskey.c,
     aes/aesopt.h, aes/aestab.c, aes/brg_endian.h (SMS)
--------------------- June 9th 2011 version 3.1d09 -----------------------
+
+----------------------- June 9th 2011 version 3.1d09 --------------------------
  1. Change encryption method constant to macros in note.  api.c (SMS)
  2. Additional encryption updates.  crypt.c (SMS)
  3. Set minimum AES 192 password size to 20 characters.  Define
@@ -4317,7 +4334,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     TRAD.  Change AES to AES_WG.  Add AES192.  vms/cmdline.c,
     vms/descrip.mms, vms/descrip_src.mms, vms/zip_cli.cld,
     vms/zip_cli.help (SMS)
--------------------- June 12th 2011 version 3.1d10 -----------------------
+
+----------------------- June 12th 2011 version 3.1d10 -------------------------
  1. Clean up extraneous white space.  api.h (SMS)
  2. Fix bug in ef_strip_aes().  Minor ZipCloak fixes.  crypt.c (SMS)
  3. Enable AES192_OK by default if CRYPT_AES_WG is enabled.  zip.h (SMS)
@@ -4329,7 +4347,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     and zos: flags rules.  unix/Makefile (SMS)
  6. Change AES to AES_WG.  Update note to change AES to AES
     (WinZip/Gladman).  vms/build_zip.com (SMS)
--------------------- June 27th 2011 version 3.1d11 -----------------------
+
+----------------------- June 27th 2011 version 3.1d11 -------------------------
  1. Fix blanks.  api.h (SMS)
  2. Add start for using newer Gladman AES code.  New code sections in
     CRYPT_AES_WG_NEW ifdef blocks.  globals.c, zip.c, zip.h, zipup.c (EG)
@@ -4344,7 +4363,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     is a waste except for these misformed archives.  However, zip -F and
     zip -FF should account for the total disks count maybe being lower
     than it should be.  zipfile.c (EG)
--------------------- June 29th 2011 version 3.1d12 -----------------------
+
+----------------------- June 29th 2011 version 3.1d12 -------------------------
  1. Fix blanks.  Provided changes not applied to last beta correctly.
     api.h (SMS)
  2. Change include path from aes to aes_wg.  crypt.h (SMS)
@@ -4367,7 +4387,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 13. Add support for p6 and p7 parameters.  vms/collect_deps.com (SMS)
 14. Minor updates.  vms/osdep.h, vms/vms.c (SMS)
 15. Update COMPERR error.  Add CRYPT error.  vms/zip_msg.msg (SMS)
--------------------- July 5th 2011 version 3.1d13 -----------------------
+
+----------------------- July 5th 2011 version 3.1d13 --------------------------
  1. Remove no longer needed files for AES from VMS.  vms/endian.h,
     vms/memory.h (SMS)
  2. Add new zos directory for z/OS and related ports.  Add scripts zcc and
@@ -4391,7 +4412,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     from "mthd" to "cm" for consistency.  Update license.  vms/vms_zip.rnh,
     vms/zip_cli.cld, vms/zip_cli.help, vms/vms_zip.rnh, vms/zip_cli.cld,
     vms/zip_cli.help (SMS)
--------------------- August 5th 2011 version 3.1d14 -----------------------
+
+---------------------- August 5th 2011 version 3.1d14 -------------------------
  1. Fix whitespace.  api.h, fileio.c, acorn/swiven.c, acorn/swiven.h,
     novell/netware.c, novell/signal.c, vms/cmdline.c, vms/vms.c,
     vms/vmszip.c, win32/osdep.h, win32/win32.c (SMS)
@@ -4417,14 +4439,15 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 12. Remove OS390 code cloned from unix.  atheos/atheos.c (AD)
 13. Add z/OS UNIX README.  unix/README.zOS (AD)
 14. Remove OS390 readme.  unix/README.OS390 (AD)
--------------------- August 10th 2011 version 3.1d15 -----------------------
+
+---------------------- August 10th 2011 version 3.1d15 ------------------------
  1. Add feature conditionality to optional keywords in the VMS command
     definition file.  Change the VMS builders to use CC /PREPROCESS_ONLY to
     process the new conditions.  vms/build_zip.com, vms/cppcld.com (new),
     vms/descrip.mms, vms/zip_cli.cld (SMS)
- 2. Replaced bad-guess non-fix for the alignment/structure-packing problem
+ 2. Replace bad-guess non-fix for the alignment/structure-packing problem
     which caused bad/spurious AppleDouble data to be archived on Intel
-    Macintosh systems.  Moved the required #pragma directives from
+    Macintosh systems.  Move the required #pragma directives from
     "unix/unix.c" to "unix/macosx.h".  unix/unix.c, unix/macosx.h (SMS)
  3. Add lzma/7zVersion.h include.  Add descriptions to version information
     items VMSCLI, VMS_IM_EXTRA, and VMS_PK_EXTRA.  Add LZMA_SUPPORT to
@@ -4438,7 +4461,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     vms/descrip_mkdeps.mms, vms/descrip_src.mms (SMS)
  6. Add and conditionally include keywords for BZIP2, LZMA, and CRYPT_AES_WG.
     vms/zip_cli.cld (SMS)
--------------------- August 11th 2011 version 3.1d16 -----------------------
+
+---------------------- August 11th 2011 version 3.1d16 ------------------------
  1. Remove bogus cmsmvs directory.  Redistribute files from cmsmvs to new zos
     and zvm ports and remove old cmsmvs directory.  Add initial versions of
     some zos and zvm files.  zos/cczip.job, zos/cmsmvs.job, zos/cmsmvs.h,
@@ -4449,7 +4473,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     zvm/zipsplit.exec, zvm/zipvmc.exec (AD)
  2. Update white space formatting.  zip.c (SMS)
  3. Update README.  README (AD, EG)
--------------------- August 12th 2011 version 3.1d17 -----------------------
+
+---------------------- August 12th 2011 version 3.1d17 ------------------------
  1. Add LZMA compression.  cmdline.c (SMS)
  2. Remove old aes_wg_old directory.  aes_wg_old/* (EG)
  3. Rename aesnew directory to aes_wg_new.  aes_wg_new/* (EG)
@@ -4457,7 +4482,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  5. Remove zip.opt as now generated.  vms/zip.opt (SMS)
  6. Initial update of README as start preparing for public beta release.
     README (EG, SMS)
--------------------- August 20th 2011 version 3.1d18 -----------------------
+
+---------------------- August 20th 2011 version 3.1d18 ------------------------
  1. Copy LZMA files to lzma directory from UnZip.  Implement LZMA compression
     in Zip.  Modify the LZMA files as needed to work with Zip.  lzma/Alloc.c,
     lzma/Alloc.h, lzma/LzFind.c, lzma/LzFind.h, lzma/LzHash.h,
@@ -4489,7 +4515,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  8. Add vc6_bz2_lzma project for vc6, but doesn't work yet.  Only Windows
     project that compiles LZMA currently is the win32/vc6aes project.
     win32/vc6_bz2_lzma/*, win32/vc6aes/zip.dsp (EG)
--------------------- August 22nd 2011 version 3.1d19 -----------------------
+
+---------------------- August 22nd 2011 version 3.1d19 ------------------------
  1. Add -sF option to add information to -sf listings.  Only option value
     implemented currently is usize to add uncompressed size of files from
     file system scan.  Add sf_usize global.  Update extended help for -sf.
@@ -4513,6 +4540,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 11. VMS updates for LZMA and AEG_WG.  vms/build_zip.com,
     vms/descrip_deps.mms, vms/descrip_src.mms, vms/install_vms.txt (SMS)
 12. Initial updates to VC 6 project for compiling LZMA.  win32/vc6aes (EG)
+
 -------------------- September 18th 2011 version 3.1d20 -----------------------
  1. Add section on LZMA compression to installation procedures.  Minor
     formatting changes.  INSTALL (SMS)
@@ -4611,6 +4639,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 32. Add LZMA Debug and Release targets.  win32/vc6/zip.dsp,
     win32/vc6aes/zip.dsp (EG)
 33. Update README.  README (EG)
+
 -------------------- September 22nd 2011 version 3.1d21 -----------------------
  1. Update comments.  Add documentation for unix-hosted builds of other ports.
     Remove unused OSDEP_C and OSDEP_S parms/values.  Add unix/macosx.h to
@@ -4661,7 +4690,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     comments.  Update option descriptions so they are more overviews and
     not install instructions, which are in other documents.
     unix/Makefile (EG)
--------------------- November 6th 2011 version 3.1d22 -----------------------
+
+--------------------- November 6th 2011 version 3.1d22 ------------------------
  1. Add Special Note for HP-UX defective mkstemp() that can't handle large
     files.  Looks fixed in 11.31 and later versions.  Document NO_MKSTEMP
     macro for use on Unix systems where mkstemp() is broke.  INSTALL (SMS)
@@ -4731,7 +4761,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     files comments.  Remove MANTAB.  Minor changes to cross compiling and
     port comments.  Other minor comment and output formatting changes.
     unix/Makefile (AD, SMS)
--------------------- February 5th 2012 version 3.1d23 -----------------------
+
+--------------------- February 5th 2012 version 3.1d23 ------------------------
  1. Add macro define CRYPT_TRAD to enclose traditional encryption code.
     Leave open what to do if "impossible happens" and CRYPT_TRAD is not
     defined but something is needed.  Only define crypt_opt_ver if
@@ -4815,14 +4846,13 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     do-nothing functions for the following to quiet compilers when no CRYPT
     used: rename_split(), set_fieltype(), ziperr(), zipmessage(),
     zipmessage_nl(), and zipwarn().  Update no CRYPT main().  zipcloak.c (SMS)
-21. Check if UTIL defined before defining it.  Add reference to
-    globals_dummy().  zipnote.c, zipsplit.c (SMS)
+21. Check if UTIL defined before defining it.  Add reference to globals_dummy().
+    zipnote.c, zipsplit.c (SMS)
 22. If either LZMA_SUPPORT or PPMD_SUPPORT, include lzma/Types.h.  For WIN32,
-    define _CRT_SECURE_NO_WARNINGS.  For PPMD_SUPPORT, also include
-    lzma/Ppmd8.h and ppmd_filecompress().  Only include crypthead() if
-    CRYPT_TRAD.  Another "impossible happens" that may need updating later.
-    If PPMD_SUPPORT, a "return 0" ppmd_filecompress() is defined.
-    zipup.c (SMS)
+    define _CRT_SECURE_NO_WARNINGS.  For PPMD_SUPPORT, also include lzma/Ppmd8.h
+    and ppmd_filecompress().  Only include crypthead() if CRYPT_TRAD.  Another
+    "impossible happens" that may need updating later.  If PPMD_SUPPORT, a
+    "return 0" ppmd_filecompress() is defined.  zipup.c (SMS)
 23. Add PPMD to Zip optional feature configuration list and LIB_PPMD to
     configuration flags list.  Add PPMD to valid_vars list.  Set default PPMD
     variable value if not already set.  Add "option -s is obsolete" warning for
@@ -4834,9 +4864,9 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     "LN = ln -s" to "LN = ln" for symbolic links.  (Believe that stuff being
     done using "ln -s" is now gone from unix/Makefile:
     .c_.o:
-        rm -f $*_.c; $(LN) $< $*_.c
-        $(CC) -c $(CFLAGS) -DUTIL $*_.c
-        rm -f $*_.c
+	rm -f $*_.c; $(LN) $< $*_.c
+	$(CC) -c $(CFLAGS) -DUTIL $*_.c
+	rm -f $*_.c
     Further simplification is probably possible.  ("LN=ln".))
     Remove lzma/Alloc.h from H_LZMA.  Add H_PPMD for lzma/Ppmd.h and
     lzma/Ppmd8.h.  Add O_PPMD for Ppmd8.o and PPmd8Enc.o.  Change MAN_ZIP and
@@ -4875,12 +4905,13 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     This seems to be the "some files" problem mentioned (but not well
     described) in TODO since at least as far back as Zip 2.3 (1999).
     vms/vms.c, vms/zipup.h (SMS)
--------------------- March 18th 2012 version 3.1d24 --------------------------
+
+--------------------- March 18th 2012 version 3.1d24 --------------------------
  1. Initial PPMd compression support.  Restructured interface to LZMA
     compression code, eliminating most changes to foreign code.  INSTALL,
     zipup.c, lzma/CpuArch.h, lzma/Ppmd8.c, lzma/Ppmd8.h, lzma/Ppmd8Enc.c,
     man/zip.1, vms/INSTALL_VMS.txt, vms/cmdline.c, vms/zip_cli.cld (SMS)
- 2. Added missing binary-text determination for LZMA compression.
+ 2. Added missing binary-text determination for LZMA compression. 
     zip.h, zipup.c (SMS)
  3. Fixed rounding of negative compression percentages.  zipup.c (SMS)
  4. Extended "-0"-"-9", "-n", and "-Z" syntax for more control over
@@ -4908,7 +4939,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     -o = value, and -o =value supported, but this may be reduced to only
     -ovalue and -o=value forms, maybe also -o =value after some testing.
     Need to implement for long options also.  (Last comments by EG.)
-    fileio.c (SMS)
+    fileio.c (SMS)  
 10. Add parentheses to SALT_LENGTH() as definition does not include them.
     zipcloak.c (SMS)
 11. Update Mac OS message.  Update PPMd.  unix/configure, unix/Makefile (SMS)
@@ -4981,7 +5012,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 24. Updated the VMS error message text file to accord with the current
     ziperr.h (ZE_COMPRESS, 3.1d18).  vms/zip_msg.msg (SMS)
 25. Close comment.  vms/vms.c (SMS)
-26. Minor reformatting of VMS error message text file, vms/zip_msg.msg.
+26. Minor reformatting of VMS error message text file, vms/zip_msg.msg. 
     vms/vms_msg_gen.c (SMS)
 27. Add LZMA_PPMD.  Add LARGE parameter.  vms/descrip_src.mms,
 28. Add _7ZIP_ST to Windows vc6aes project to fix missing include error in
@@ -4994,7 +5025,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 32. Made attempt at documenting the -n and -ss options in extended help.
     zip.c (EG)
 33. Add -BT and -BP to extended help.  zip.c (EG)
--------------------- May 8th 2012 version 3.1d25 --------------------------
+
+---------------------- May 8th 2012 version 3.1d25 ----------------------------
  1. Remove // commented out lines marking code to be removed.  zipfile.c (SMS)
  2. Make iz_file_read() local.  zipup.c (SMS)
  3. Add missing comma to extended help.  Allow -O (--out) to handle stdout.
@@ -5002,7 +5034,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     Updates to backup checks.  Remove "missing suffix list" check.  Change
     compression-method-by-suffix list processing to convert explicit null lists
     (":" or ";") to empty (NULL), before displaying (-ss) them.  No longer
-    compress everything automatically with level 9.  (Not backward compatible.)
+    compress everything automatically with level 9. (Not backward compatible.)
     Before replacing old zip with new zip, check if out_path is "-" (stdout)
     rather than zipfile.  zip.c (SMS)
  4. Fix a spurious error message, "can't specify output file when using
@@ -5027,7 +5059,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     get_suffix_list().  vms/cmdline.c (SMS)
 14. Remove definition of _7ZIP_ST macro from builders.  (Now in lzma/Types.h.)
     unix/configure, vms/build_zip.com, vms/descrip_src.mms (SMS)
-15. Add LZMA, PPMd compression.  Add -ss and the -n and -# updates.  Add
+15. Add LSMA, PPMd compression.  Add -ss and the -n and -# updates.  Add
     error code 22 (COMPRESS).  vms/vms_zip.rnh (SMS)
 16. Add compression updates to BZIP2, LZMA, and PPMd.  vms/zip_cli.cld (SMS)
 17. Add new /BACKUP qualifier, and new options for /COMPRESSION, and /LEVEL
@@ -5040,7 +5072,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 19. Remove special characters.  Add note regarding IM-style attribute
     storage.  Add note regarding "some files" and record format Stream or
     Stream_CR, and long records.  TODO (SMS)
-20. Minor (spelling) update.  tandem/HISTORY (SMS)
+20. Minor (spelling) update.  tandem/history (SMS)
 21. Remove _7ZIP_ST.  vms/build_zip.com (SMS)
 22. Add VMS-specific <memory.h> for AES as may be missing on older systems.
     vms/memory.h (SMS)
@@ -5059,7 +5091,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     place than the backup path specified by -BP.  This is useful when the
     media used for the backup path may be swapped out when full.  Currently
     not implemented.  zip.c (EG)
--------------------- November 14th 2013 version 3.1d26 -----------------------
+
+--------------------- November 14th 2013 version 3.1d26 -----------------------
  1. Various comment updates.  Include file updates.  Look for both
     / and \ (instead of just \) as trailing slash on Windows.  Wrap progress
     option in ENABLE_DLL_PROGRESS.  Add "backup" for BACKUP_SUPPORT to feature
@@ -5071,11 +5104,11 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  2. Add comments describing API interface, including macros to set.  api.h (EG)
  3. USE_ZIPMAIN and DLL_ZIPAPI are replaced by ZIPLIB (to build a library) and
     NO_ZPARCHIVE (to not use the ZPArchive() entry point).  Libraries will now
-    tend to call zipmain() directly rather than fill in the API structure.
-    DLLs need to call an entry point and so use ZPArchive() for now.  A new
-    entry point using zipmain() syntax is being worked.  api.h (EG)
- 4. windows.h is included for some non-WIN32 builds to allow them to use the
-    API interface effectively.  Add additional comments.  api.h (SMS)
+    tend to call zipmain() directly rather than fill in the API structure.  DLLs
+    need to call an entry point and so use ZPArchive() for now.  A new entry
+    point using zipmain() syntax is being worked.  api.h (EG)
+ 4. windows.h is included for some non-WIN32 builds to allow them to effectively
+    use the API interface.  Add additional comments.  api.h (SMS)
  5. Change Options to ZipOpts to avoid confusion with Options structure that
     contains the list of command line options (defined in zip.c).  api.c,
     api.h (SMS)
@@ -5139,7 +5172,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     vms/descrip_mkdeps.mms, vms/descrip_src.mms (SMS)
 24. Move izzip_example.c lib example to new directory ziplib.
     ziplib/izzip_example.c (EG)
-25. Initial update of README.  This file will be fully updated by release.
+25. Initial update of readme.  This file will be fully updated by release.
     README (SMS)
 26. Minor updates.  revision.h (SMS, EG)
 27. Change UNICODE_WIDE to UNICODE_WCHAR to reflect other changes.  Change
@@ -5168,11 +5201,11 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     unix/macosx.h (SMS)
 35. Disambiguate some ZE_MEM error messages.  Change a tempname() failure code
     from ZE_MEM to ZE_TEMP.  zip.c (SMS)
-36. Change some declarations to accommodate a type change in zlib version
-    1.2.7.  Added detection code to determine correct type based on
-    existence of Z_U4 macro in zlib code.  zip.c, zip.h, zipcloak.c (SMS)
-37. Rename "lzma" directory to "szip" (seven Zip) as this includes both lzma
-    and PPMd code.  INSTALL, zip.c, zipup.c, unix/configure, unix/Makefile,
+36. Change some declarations to accommodate a type change in zlib version 1.2.7.
+    Added detection code to determine correct type based on existence of Z_U4
+    macro in zlib code.  zip.c, zip.h, zipcloak.c (SMS)
+37. Rename "lzma" directory to "szip" (seven Zip) as this includes both lzma and
+    PPMd code.  INSTALL, zip.c, zipup.c, unix/configure, unix/Makefile,
     vms/build_zip.com, vms/descrip_deps.mms, vms/descrip_mkdeps.mms,
     vms/descrip_src.mms (SMS)
 38. On Windows, volume labels (-$, --volume-label) longer than 12 characters
@@ -5180,12 +5213,12 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     (and slightly more efficiently).  Update getVolumeLabel() to use "?:\\"
     as root path and to only return vol and sizeof vol (no fnlen or flags).
     win32/win32.c, zip.c, zipup.c (SMS)
-39. On Windows with Unicode support, a null pointer reference could cause
-    the program to fail.  Now check for z->namew being null (no wide
-    character name for this entry).  zip.c, zipup.c (SMS)
+39. On Windows with Unicode support, a null pointer reference could cause the
+    program to fail.  Now check for z->namew being null (no wide character name
+    for this entry).  zip.c, zipup.c (SMS)
 40. Added initial support for volume labels (-$, --volume_label) on VMS.
     Add get_volume_label().  Remove /COMMENTS=ARCHIVE and /BATCH conflict.
-    vms/cmdline.c, vms/VMS_ZIP.RNH, vms/vmszip.c, vms/zip_cli.cld,
+    vms/cmdline.c, vms/VMS_ZIP.RNH, vms/vmszip.c, vms/zip_cli.cld, 
     vms/zip_cli.help, zip.c (SMS)
 41. Update comments.  Update extended help to note use of new optional values.
     Revise extended help for extended -0/-9 and -n options.  Other extended
@@ -5199,7 +5232,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 42. Add comment describing UNICODE_TEST code.  Additional updates to archive
     comment code, including setting up to allow seeing and keeping original
     comment, but not yet implemented.  Force comment to not exceed 65513
-    characters.  zip.c (EG)
+    characters.  zip.c (EG)  
 43. Add descriptions to special compilation options ASM_CRC and ASMV in the
     "-v" report.  zip.c (SMS)
 44. Remove pointless unsigned < 0 test (with its attendant compiler
@@ -5211,13 +5244,16 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 48. Specifying "-e" after "-P password" caused Zip to forget the "-P"
     password, and query the user for a password.  Now, if "-P" is
     specified, then "-e" is redundant but harmless, and its position is
-    not significant.  http://sourceforge.net/p/infozip/bugs/28/  zip.c (SMS)
+    not significant.
+    https://sourceforge.net/tracker/?func=detail&aid=2865769&group_id=118012
+    &atid=679786
+    zip.c (SMS)
     (This is not backward compatible, as the previous approach was to let the
     last -e or -P on the parsed command line (including in an environment
     variable) determine the action.  So -e could be in a variable and -P used
     to override, or -P password in a variable and -e used to override.  As
     such, this change is not consistent with how other options are handled.
-    Users should not be specifying -e after -P unless they mean it.  That
+    The user should not be specifying -e after -P unless they mean it.  That
     said, and given the past behavior, the change was made in this beta so it
     can be evaluated. - EG)
 49. Change the behavior with "-a" on z/OS to do a binary-text test on files,
@@ -5242,7 +5278,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     vms_status().  zip.h (SMS)
 54. Add comment on traditional zip encryption.  Add comment for zcount and
     fcount.  Add comment to izz_ memory functions.  Add comments regarding
-    LIB and DLL creation.  zip.h (EG)
+    LIB and DLL creation.  zip.h (EG)  
 55. Add ETWOOD (Traditional Encryption without using data descriptor) support.
     zipcloak.c (SMS)
 56. Update comments.  zipcloak.c (EG)
@@ -5358,8 +5394,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     Add comment to AR_ZIP rule.  unix/Makefile (EG)
 93. Add unix/Makefile2 as potential update to unix/Makefile.  Untested and
     subject to change.  Not recommended for use.  unix/Makefile2 (SMS)
-94. Add unix/mlz.sh as a simple script to combine a set of object libraries
-    and loose object files to make a new object library.  unix/mlz.sh (SMS)
+94. Add unix/mlz.sh as a simple script to combine a set of object libraries and
+    loose object files to make a new object library.  unix/mlz.sh (SMS)
 95. Comment updates.  Add newly supported args HELP_TEXT, LIBZIP, SYMBOLS.
     Replace NOEXE with NOLINK.  vms/build_zip.com (SMS)
 96. Modify compiler options to use new ZIPLIB and NO_ZPARCHIVE defines.
@@ -5376,15 +5412,14 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     including for AES_WG.  vms/descrip_deps.mms (SMS)
 100.Add NO_SIGNED_CHAR to C macros defined for PPMd compression code.
     vms/descrip_src.mms (SMS)
-101.Update VMS install procedures and notes.  Add description of symlink
-    problem on VMS V8.3[-1H1] Alpha and IA64.  Update -V and -VV
-    descriptions.  Update details of GNV exit status values.
-    vms/install_vms.txt, vms/notes.txt (SMS)
+101.Update VMS install procedures and notes.  Add description of symlink problem
+    on VMS V8.3[-1H1] Alpha and IA64.  Update -V and -VV descriptions.  Update
+    details of GNV exit status values.  vms/install_vms.txt, vms/notes.txt (SMS)
 102.Add USE_ZIPMAIN to list of conditions where <unixlib.h> is required.
     vms/osdep.h (SMS)
-103.On VMS, explicitly set naml$v_search_symlink when following symlinks
-    ("-y-", /[NO]SYMLINK).  Update vms_rewind() to clear context status.
-    vms/vms_pk.c (SMS)
+103.On VMS, explicitly set naml$v_search_symlink when following symlinks ("-y-",
+    /[NO]SYMLINK).  Update vms_rewind() to clear context status.  vms/vms_pk.c
+   (SMS)
 104.Add back zip_cli.RNH.  vms/zip_cli.RNH (SMS)
 105.Change the VMS CLI /BATCH=file option to use the new "-@@ file" UNIX
     option, instead of handling input redirection in VMS-specific code.  A
@@ -5435,13 +5470,13 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     removing the "x_" prefix for the respective compile options in the VS 2010
     project.  Use of assembly code is still controlled by choice of
     Configuration ("Debug" v. "Debug_ASM", "Release" v. "Release_ASM").  The
-    "zip" project is used whether or not bzip2 compression support is 
-    requested.  There is now no separate "zipbz2" project for Zip with bzip2
-    support.  The "zip" project has been marked as dependent on the "libbz2"
-    project.  If a bzip2 source kit has not been added to the "bzip2/"
-    subdirectory, then the "libbz2" project build will fail, but the "zip"
-    project build should still succeed, so long as the C macro BZIP2_SUPPORT
-    is not defined.  zbz2err.c, win32/vc10/zip.sln, win32/vc10/zip/zip.vcxproj,
+    "zip" project is used whether or not bzip2 compression support is requested.
+    There is now no separate "zipbz2" project for Zip with bzip2 support.  The
+    "zip" project has been marked as dependent on the "libbz2" project.  If a
+    bzip2 source kit has not been added to the "bzip2/" subdirectory, then the
+    "libbz2" project build will fail, but the "zip" project build should still
+    succeed, so long as the C macro BZIP2_SUPPORT is not defined.  zbz2err.c,
+    win32/vc10/zip.sln, win32/vc10/zip/zip.vcxproj,
     win32/vc10/zip/zip.vcxproj.filters, win32/vc10/zip/zipcloak.vcxproj,
     win32/vc10/zip/zipcloak.vcxproj.filters, win32/vc10/zip/zipnote.vcxproj,
     win32/vc10/zip/zipnote.vcxproj.filters, wrap/aescrypt.c, wrap/aeskey.c,
@@ -5478,7 +5513,7 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 125.Add note to readme_szip.  szip/readme_szip (EG)
 126.Add quote_quotes(), but not used currently.  zip.c (EG)
 
--------------------- April 22nd 2014 version 3.1d27 -----------------------
+---------------------- April 22nd 2014 version 3.1d27 -------------------------
  1. Update comments.  Change ZpVersion() to EXPENTRY and add ZpVer arg.  On
     Mac OS X, add "apple_xattr" to the API feature list, and APPLE_XATTR to
     the "-v" report, to show support for extended attributes.  Correct
@@ -5499,18 +5534,18 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  9. Minor updates.  This file should be more fully updated before public
     beta release.  TODO (EG)
 10. Rearrange some code to clear some "unreferenced local variable" compiler
-    complaints when building Windows DLL.  Now show non-null option environment
-    variables after command-line syntax error message.  (This may help to
-    reduce user confusion when an otherwise invisible option (which is invalid
-    or conflicting) causes a command-line parsing error.)  Handle new argv_cli
-    for VMS.  Add show_env() to show environment variables.  Add show_env() to
-    ziperr().  Various #if formatting and commenting.  Remove envptr from
-    version_info().  Add show_env() to version_info().  Add parentheses to
-    quote_quotes().  Move brace after #endif for human68k in check_zipfile().
-    Add datetime() to parse dates and times for -t and -tt.  Add cur_time_opt
-    local var for -t and -tt.  Put local vars for showing parsed command line
-    in SHOW_PARSED_COMMAND block.  Update Mac data fork code (UNIX &&
-    __APPLE__).  Add default for scanimage for RISCO.  Add local
+    complaints when building Windows DLL.  Now show non-null option
+    environment variables after command-line syntax error message.  (This may
+    help to reduce user confusion when an otherwise invisible option (which is
+    invalid or conflicting) causes a command-line parsing error.)  Handle new
+    argv_cli for VMS.  Add show_env() to show environment variables.  Add
+    show_env() to ziperr().  Various #if formatting and commenting.  Remove
+    envptr from version_info().  Add show_env() to version_info().  Add
+    parentheses to quote_quotes().  Move brace after #endif for human68k in
+    check_zipfile().  Add datetime() to parse dates and times for -t and -tt.
+    Add cur_time_opt local var for -t and -tt.  Put local vars for showing
+    parsed command line in SHOW_PARSED_COMMAND block.  Update Mac data fork
+    code (UNIX && __APPLE__).  Add default for scanimage for RISCO.  Add local
     initialization for filesync, etwodd, and some VMS variables (prsrv_vms,
     vmsver, vms_native, vms_case_2, vms_case_5, and argv_cli.  Set qlflag to
     zero for QDOS and QLZIP.  Add restore of initial compression level/method
@@ -5528,10 +5563,10 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     datetime() to require leading : on times.  Change o_spc to o_sP to match
     option.  Add short opt -sP to long opt --show-parsed-command.  Add
     show_parsed_args local var for showing parsed command line.  Set show
-    parsed args to allocate 256 char pointers at a time (instead of 4000).  Add
-    show_parsed_args to flag showing parsed args with -sP rather than use
-    states of show_args and use show_args only for showing input args with -sc.
-    Use simple_encr_passwd() to get password.  zip.c (EG)
+    parsed args to allocate 256 char pointers at a time (instead of 4000).
+    Add show_parsed_args to flag showing parsed args with -sP rather than use
+    states of show_args and use show_args only for showing input args with
+    -sc.  Use simple_encr_passwd() to get password.  zip.c (EG)
 12. Add IZ_MAX(a,b) macro.  Move STORE suffix lists to here.  Add argv_cli
     variable.  Move decc_init() further down.  Change /* ... */ code commenting
     to #if/#endif.  zip.h (SMS)
@@ -5556,8 +5591,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     zipsplit.c (SMS)
 20. Update copyright.  Clear mesg_line_started in zipwarn().  zipnote.c (EG)
 21. Change default split size from 36000L to 1474560L.  Use ReadNumString() to
-    read split size and room to leave that include suffix (such as "10k" for
-    10*1024).  ZipZplit could fail with a spurious error: "zipsplit error:
+    read split size and room to leave that include suffix (such as 10k for 10 x
+    1024).  ZipSplit could fail with a spurious error: "zipsplit error:
     Interrupted (aborting)".  Faulty linked list construction, null pointer
     dereference.  zipsplit.c (SMS)
 22. Update copyright.  Add comment regarding default split size.  Clear
@@ -5589,21 +5624,21 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
 33. Remove EB_L_THSIZE.  Account for EB_HEADSIZE when malloc space.
     theos/theos.c (SMS)
 34. Comment updates.  Remove CC, LD, CC_TST for LLVM Clang.  Change Unix
-    "configure" script not to set CC=clang internally when Clang is detected as
-    the compiler.  Remove/adjust some white space.  unix/configure (SMS)
+    "configure" script not to set CC=clang internally when Clang is detected
+    as the compiler.  Remove/adjust some white space.  unix/configure (SMS)
 35. Add note regarding parameters and environment variables.  Minor message
     text changes to make formatting more consistent.  Comment updates.
     unix/configure (EG)
 36. [Note: As noted below, the changes for Makefile for this beta mainly come
-    from Makefile2.  The changes noted here are thus from Makefile2 rather than
-    Makefile.]  Add variable PROD to determine location of output products.
-    Various comment changes.  Change MAKE_ACTIONS to MISC_TARGETS.
+    from Makefile2.  The changes noted here are thus from Makefile2 rather
+    than Makefile.]  Add variable PROD to determine location of output
+    products.  Various comment changes.  Change MAKE_ACTIONS to MISC_TARGETS.
     Change "actions" to "targets" in help.  Reorder optional overrides listed
     in help.  List actions (MISC_TARGETS) last in help.  Changes in how paths
     of installed components using MANDIR and BINDIR are created.  Add -o to
     assembler rules.  Use $@ instead of using actual target in places.  Add
-    note regarding dependence of utilities (ZipCloak, ZipNote, and ZipSplit) on
-    libraries because of rules rather than actual dependencies.
+    note regarding dependence of utilities (ZipCloak, ZipNote, and ZipSplit)
+    on libraries because of rules rather than actual dependencies.
     unix/Makefile (SMS)
 37. Add "dashv" target to the Unix builders, and "DASHV" and "SLASHV"
     targets/options to the VMS builders.  These generate a "zip -v" (or "ZIP
@@ -5614,8 +5649,8 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     "targets" to "targets (actions)" in help to emphasize that these targets
     perform specific actions rather than build targets.  Add note that
     precompiled docs (like man pages) now ship in a new ./docs directory.  User
-    built versions of docs go in the $(PROD)/manout directory.  Comment out
-    automatic creation of $(PROD) directory for now.  (In the default case,
+    built versions of docs go in the PROD/manout directory.  Comment out
+    automatic creation of PROD directory for now.  (In the default case,
     PROD = ., so the directory should already exist.  If PROD is redefined, the
     user will need to either ensure the directory exists, or uncomment out the
     automatic creation.  This adds the need for a little thought when sending
@@ -5698,18 +5733,18 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     backward compatible, but minimal functionality may still be available to
     32-bit interface apps (like old Visual Basic 6).  Service callback now
     returns both string versions of sizes (in form 1.6G for 1.6 GiB) and byte
-    counts, as well as function being performed (such as "Add" or "Update") and
-    compression percent.  Progress callback now returns filename, uncompressed
-    size, percent entry done (as % * 100, so 4210 is 42.1%), percent all files
-    done, and function (such as "Add").  MAX_ARG_SIZE for DLL interface
-    currently set to 4000.  ZpZip entry point takes args CommandLine (string
-    command line to execute), CurrentDir (directory to form relative paths
-    from), lpZipUserFunc (structure of callback function addresses), and
-    ProgressChunkSize (string form (such as 1.0M) of number of bytes to
-    process before calling progress callback.  Progress callback is called
-    at start of entry, as each ProgressChunkSize is processed, and at
-    completion of entry.  Update feature list to include new features such as
-    windows_long_path.  In api.h, update comments at top.  Update _ZpVer
+    counts, as well as function being performed (such as "Add" or "Update")
+    and compression percent.  Progress callback now returns filename,
+    uncompressed size, percent entry done (as % * 100, so 4210 is 42.1%),
+    percent all files done, and function (such as "Add").  MAX_ARG_SIZE for
+    DLL interface currently set to 4000.  ZpZip entry point takes args
+    CommandLine (string command line to execute), CurrentDir (directory to
+    form relative paths from), lpZipUserFunc (structure of callback function
+    addresses), and ProgressChunkSize (string form (such as 1.0M) of number
+    of bytes to process before calling progress callback.  Progress callback
+    is called at start of entry, as each ProgressChunkSize is processed, and
+    at completion of entry.  Update feature list to include new features such
+    as windows_long_path.  In api.h, update comments at top.  Update _ZpVer
     structure to remove fixed size strings and replace with char pointers as
     they are more universally supported for passing information from Zip to a
     caller.  Update callback function interfaces.  Set ENABLE_DLL_PROGRESS by
@@ -5868,50 +5903,1120 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
      be opened directly in VS 6.  win32/vc6/zip.dsp, win32/vc6/zip.dsw,
      win32/vc6/zipcloak.dsp, win32/vc6/zipnote.dsp, win32/vc6/zipsplit.dsp,
 116. Move Windows DLL examples that have not been updated yet to /old
-     directory.  Update readme.  windll/examples/old/*, ReadmeEx.txt (EG)
+     directory.  Update readme.   windll/examples/old/*, ReadmeEx.txt (EG)
 117. Update Readme.  windll/vc8/ReadmeV8.txt (EG)
 118. Update Readme.  windll/examples/zip31vb/readVB.txt (EG)
-119. Rename vc6 example folder to show not yet updated.  Should be updated next
-     beta.  windll/examples/vc6_notupdated (EG)
+119. Rename vc6 example folder to show not yet updated.  Should be updated
+     next beta.  windll/examples/vc6_notupdated (EG)
+
+------------------------ June 5th 2014 version 3.1d28 -------------------------
+ 1. Comment updates regarding DLL api.  If UNIX and ZIP_LIB_DLL, include
+    unistd.h.  In ZpInit(), comment out definitions for ZipUserFunctions and
+    lpZipUserFunctions as defined elsewhere, copy over callback function
+    addresses.  Remove check that callbacks print and acomment are defined.
+    Add note that ZpArchive is no longer used for modern applications.  Not
+    sure about Visual Studio 6 yet.  Updates to simple_encr_passwd(),
+    including checking for
+    use of -e option without valid password callback.  #if WINDLL block DLL
+    test functions ZpTestComParse(), ZpTestCallback(), ZpTestCallbackStruct(),
+    and ZpZipTest().  Add comment for ZpZip().  Only require CurrentDir for
+    DLL, not LIB.  Removed bzip2 as separate feature.  (Still included as
+    compression method in feature list when available.)  Add ziplib and
+    windll to feature list.  Always define szCommentBuf and hStr.  Remove
+    comment() function for NO_ZPARCHIVE.  Define new comment() function for
+    ZIPLIB.  Error if -z used but no acomment callback.  api.c (EG)
+ 2. Add Version and RevYMD to version structure.  Add REVYMD macro.  Change
+    windll version to libdll_interface version.  Add LIB and DLL comments.
+    Change ZpTestComParse() from __stdcall to EXPENTRY.  Change argument for
+    comment() from unsigned int to unsigned short.  api.c, api.h,
+    revision.h (EG)
+ 3. Remove text files.  comp_cli.txt, comp_opt.txt (EG)
+ 4. In zipbare(), change n and nn from zoff_t to size_t as that's sufficient.
+    Change nout from zoff_t to uzoff_t.  crypt.c (SMS)
+ 5. Change S_IFLNK to SYMLINK_SUPPORT where it is used as a flag that symlinks
+    are supported.  Set SYMLINK_SUPPORT if S_IFLNK is set and NO_SYMLINKS and
+    NO_SYMLINK_SUPPORT are not set.  fileio.c, tailor.h, zip.c, zip.h,
+    msdos/osdep.h, vms/cmdline.c, win32/osdep.h (EG)
+ 6. Add comment noting o_OPT_EQ_VALUE has more or less replaced
+    o_OPTIONAL_VALUE.  Some comment editing.  fileio.c (EG)
+ 7. Change backup option -BP (backup path) to -BD (backup directory).  Add
+    -BN to set backup name.  Add -BC to set backup control directory.  Add
+    -BL to set backup log directory.  The backup name is now used for
+    backup path, control file path, and log path for consistency.  Default
+    -BC and -BL to -BD.  -BL without value enables logging and places log
+    in backup directory (same as -lF).  Add globals backup_dir, backup_name,
+    backup_control_dir, and backup_log_dir.  globals.c, zip.c, zip.h (EG)
+ 8. Add -ps that allows setting a password for AES encryption shorter than the
+    minimums.  Add global allow_short_key.  globals.c
+ 9. Remove use of ENABLE_DLL_PROGRESS to disable code.  api.c, globals.c (EG)
+10. Update comments.  Limit comment size.  Add print statements to show what
+    is going on.  Update callbacks to match updated LIB interface.  Create
+    GetVersionInfo() function to handle details of getting version structure.
+    izzip_example.c. (EG)
+11. Minor updates.  TODO (EG)
+12. Make version_info() available outside of ZIP_DLL_LIB.  Remove zipstdout()
+    for WINDLL.  Make check_unzip_version() and check_zipfile() available for
+    ZIP_LIB_DLL.  Update extended help, including for new handling of -RE and
+    new -tn option.  Add new don't compress suffix list to extended help.  Add
+    -ps (allow short passwords) to extended help.  Update extended help for
+    backup mode.  Add ZIPLIB to version information.  In version information,
+    change WinZip/Gladman to IZ WinZip/Gladman.  Require WINDLL function
+    interface to be same size for 64-bit and 32-bit.  Caller does not need
+    to define 64-bit callbacks.  Add "test-command" as second long option
+    name for -TT.  Change REAL_PWLEN to MAX_PWLEN for max password length.
+    Add warning if -ps used and password shorter than minimum.  Add short
+    option -pa for --prefix-new-path.  Some format changes to shorten some
+    lines to 80 characters or less.  zip.c (EG)
+13. Change DLL service callback code from ZIP_LIB_DLL to WINDLL to avoid
+    issues using service call with LIB.  zip.c (EG)
+14. Update archive comment code by removing duplicate code, putting current
+    comment between lines so it is easy to see, and changing limit from
+    65513 to 32767 bytes.  End archive comment on empty input, as well as
+    newline or "." line.  zip.c (EG)
+15. Add -ps (--allow-short-password).  Add global allow_short_key.  zip.c,
+    globals.c, zip.h (EG)
+16. Define UNIXLIB if UNIX and ZIPLIB.  zip.h (EG)
+17. In simple_encr_passwd(), change size from int to size_t.  zipcloak.c (EG)
+18. In zipoddities(), cast BEST as ush.  Formatting changes to reduce line
+    lengths.  zipfile.c (EG)
+19. Replace ENABLE_DLL_PROGRESS by WINDLL as DLL progress code now always
+    available for WINDLL.  zipup.c (EG)
+20. Replace bzip2 1.0.5 code with 1.0.6 code.  Because 1.0.6 has compatible
+    license, now include with Zip source kit and include bzip2 compression
+    by default.  bzip2/blocksort.c, bzip2/bz-common.xsl, bzip2/bz-fo.xsl,
+    bzip2/bz-html.xsl, bzip2/bzdiff, bzip2/bzdiff.1, bzip2/bzgrep,
+    bzip2/bzgrep.1, bzip2/bzip.css, bzip2/bzip2.1, bzip2/bzip2.1.preformatted,
+    bzip2/bzip2.c, bzip2/bzip2.txt, bzip2/bzip2recover.c, bzip2/bzlib.c,
+    bzip2/bzlib.h, bzip2/bzlib_private.h, bzip2/bzmore, bzip2/bzmore.1,
+    bzip2/changes, bzip2/compress.c, bzip2/crctable.c, bzip2/decompress.c,
+    bzip2/dlltest.c, bzip2/dlltest.dsp, bzip2/entities.xml, bzip2/format.pl,
+    bzip2/huffman.c, bzip2/libbz2.def, bzip2/libbz2.dsp, bzip2/license,
+    bzip2/makefile, bzip2/makefile-libbz2_so, bzip2/makefile.msc,
+    bzip2/manual.html, bzip2/manual.pdf, bzip2/manual.ps, bzip2/manual.xml,
+    bzip2/mk251.c, bzip2/randtable.c, bzip2/readme,
+    bzip2/readme.compilation.problems, bzip2/readme.xml.stuff,
+    bzip2/readme_bzip2.txt, bzip2/sample1.bz2, bzip2/sample1.ref,
+    bzip2/sample2.bz2, bzip2/sample2.ref, bzip2/sample3.bz2,
+    bzip2/sample3.ref, bzip2/spewg.c, bzip2/unzcrash.c, bzip2/words0,
+    bzip2/words1, bzip2/words2, bzip2/words3, bzip2/xmlproc.sh (EG)
+21. Move izzip_example.c from lib/ to / (source kit root).  izzip_example.c
+    (EG)
+22. Move man pages to man/man1.  Major updates to zip.1 to bring mostly in
+    sync with Zip extended help and implemented features, but still some
+    minor updates to make before public beta goes out.  Minor updates to
+    zipcloak, zipnote, and zipsplit man pages to add man header.
+    man/man1/zip.1, man/man1/zipcloak.1, man/man1/zipnote.1,
+    man/man1/zipsplit.1 (EG)
+23. Including LZMA, PPMd, and bzip2 are the default now, as long as needed
+    code remains in the Zip source kit.  Still need separate AES WG kit to
+    add AES encryption, but dropping the code in the aes_wg directory and
+    rebuilding should now be sufficient to automatically include AES.
+    unix/configure, unix/Makefile, win32/vc10/zip/zip.vcxproj,
+    windll/vc10/zip32_dll/zip32_dll.vcxproj (EG)
+24. Update comments.  Add variables L_AES_WG, L_LZMA, L_PPMD, L_BZ2, L_ZLIB,
+    and L_ZIP for names of libraries - this makes it easier to keep library
+    names in sync between Makefile and configure.  Add new echon()
+    function from UnZip that echos without newline.  Include all compression
+    and encryption methods by default.  Use NO_AES_WG, NO_LZMA, NO_PPMD,
+    and NO_BZIP2 to disable these methods if defined.  Define ICONV.
+    Define IZ_BZIP2_DEFAULT as default directory for bzip2, currently "bzip2".
+    Define L_AES_WG='izaes', L_LZMA='izlzma', L_PPMD='izppmd', L_BZ2='bz2',
+    L_ZLIB='z', and L_ZIP='izzip' - library names will include prefixed
+    'lib'.  Define function unsafe_prod_dir() based on script unsafe_prod.sh
+    but forces compliance with the no '..' and no '/' rules for existing
+    directories also.  Echo current directory at top.  Output message if
+    creating build root directory.  Use default BZIP2 directory unless
+    IZ_BZIP2 is defined.  (Preference now is to use included bzip2 code
+    instead of a bzip2 library external to Zip source as this allows including
+    bzip2 in libizzip library and assures BZ_NO_STDIO was used to build the
+    bzip2 library.)  Convert many echo lines to use echon() to include
+    check result on same line, similar to UnZip.  Echo flags set as each
+    check is done.  Use L_ and LIB_ variables to avoid hard-coded library
+    names.  Check BINS to determine what is being built.  (See changes for
+    Makefile for more on BINS.)  Break up configure into major sections and
+    echo which section in (such as "Compiler features").  Update many checks
+    to work with echon() format, similar to updates in UnZip.  Add code from
+    UnZip to handle setting up ICONV language conversion library.  Add check
+    for "lchmod is not implemented".  Check for usr/local/man/man1, then
+    usr/local/man/manl (MANL), then /usr/man/manl.  Add check for
+    -Wno-format-security (for modern GCC) and -Wno-format-nonliteral (for
+    Clang).  Add messages for removing temp files, finalizing flags, and
+    outputting flags.  Echo where flags being written.  Save flags to
+    current directory as in directory they need to go in.  Save bzip2 flags
+    in current directory as that's the directory they need to go in.  Add
+    message when done and exiting configure.  unix/configure (EG, with much
+    input from SMS changes in UnZip)
+25. Update comments, including noting that shipped plaintext comments are
+    in docs directory.  Now include compression and encryption methods if
+    files are in Zip source tree.  Add note that dynamic library not yet
+    supported, except for Windows.  Update help to note use of NO_AES_WG,
+    NO_BZIP2, NO_LZMA, and NO_PPMD to exclude each of these from build.
+    Add BINS variable to control what gets built - include description of
+    BINS in help.  Default is still to build zip and utilities.  Define
+    L_AES_WG, L_LZMA, L_PPMD, L_BZ2, L_ZLIB, and L_ZIP and set as in
+    configure.  (For some reason AR_AES, AR_LZMA, AR_PPMD, and so on need
+    hard-coded library names instead of using these variables.)  Put
+    compiled manuals in manout.  Put blank lines after each library build
+    and each program build to allow quick finding of these in Makefile
+    output.  Update rules to look for manuals in man/man1 in Zip source
+    tree.  Define M, MU, U, L, ML, MUL, UL and lib targets for use with
+    BINS.  Define rules config_flags and config_flags_bz to avoid circular
+    rules.  Include BINS in information passed to configure.  Use BINS
+    instead of zips to select targets in various rules.  unix/Makefile (EG,
+    with much pulled from SMS changes in UnZip)
+26. Update comments.  Add various echo statements for debugging, commented
+    out.  Now copy all objects to tmpdir as makes creating the archive
+    easier.  Handle input archives with absolute paths.  Add echo statements
+    noting key activities.  Some echo statements may be removed next beta if
+    all seems working.  unix/mlz.sh (EG)
+27. Change Zip 3.1 to Zip 3 to be consistent with other files.  unix/unix.c
+    (EG)
+28. Add unsafe_prod.sh from UnZip, though currently not used.
+    unix/unsafe_prod.sh (EG)
+29. Minor formatting changes.  win32/win32.c (EG)
+30. Minor updates.  win32/vc10/zip/zip.vcxproj (EG)
+31. Point to wrap versions instead of directly to source files to avoid issues
+    when AES is not included.  win32/vc10/zipcloak/zipcloak.vcxproj (SMS)
+32. Update VS 2010 VB DLL example to account for new Version structure.
+    windll/examples/zip31vb/Zip31VBExample/Form1.Designer.vb,
+    windll/examples/zip31vb/Zip31VBExample/Form1.resx,
+    windll/examples/zip31vb/Zip31VBExample/Form1.vb,
+    windll/examples/zip31vb/Zip31VBExample/Module1.vb (EG)
+33. Remove commented out reference to file_binary_final.  zipup.c (EG)
+34. Additional zip man page changes to add section dividers and change
+    bolded text subsection titles to subsections.  Apply some guidelines
+    from man manual page.  Use "|" to show mutually exclusive options.
+    Add information on optional options.  Add minimum password lengths
+    for AES under -Y.  Add note that autoswitchover from compression to
+    store not implemented for LZMA.  Add error codes 20, 21, and 22.
+    man/man1/zip.1 (EG)
+35. Update Zip 3.1 VB example to account for DLL interface changes in
+    version structure.  Add message when DLL can't be found.  Change how
+    features are listed.  Add check when Abort is requested to see if Zip
+    is actually running - if not, output message and ignore abort request.
+    Add return to Get_Zip_Version to indicate if successful.  Updates in
+    form design.
+    windll/examples/zip31vb/zip31vbexample/form1.designer.vb,
+    windll/examples/zip31vb/zip31vbexample/form1.resx,
+    windll/examples/zip31vb/zip31vbexample/form1.vb,
+    windll/examples/zip31vb/zip31vbexample/module1.vb (EG)
+
+------------------------ June 29th 2014 version 3.1d29 ------------------------
+ 1. Remove "global file handle y" comment.  crypt.c (SMS)
+ 2. Add termination to comment in get_shortopt().  fileio.c (SMS)
+ 3. Minor update to ToDo list.  TODO (EG)
+ 4. Remove handler() for ZIP_DLL_LIB.  Remove check_unzip_version() and
+    check_zipfile() for ZIP_DLL_LIB due to issues with some ports.  Using
+    -T or -TT with DLL/LIB now error.  (Can reenable when issues worked out.)
+    Remove createsymboliclink() call in 'y' case of command line parsing
+    accidentally left in during symlink testing.  zip.c (EG, SMS)
+ 5. Change perc (used to hold percentage) from long to int in zipup().
+    zipup.c (EG)
+ 6. Remove "function" in front of unsafe_prod_dir() function to fix backward
+    compatibility issue.  (May switch back to updated unix/unsafe_prod.sh
+    next beta.)  unix/configure (SMS)
+ 7. Change "Make the static" to "Make only the static" and remove "must
+    appear in this order" in help.  Update BINS handling to allow L, M, and
+    U to appear in any order.  unix/Makefile (EG)
+ 8. Update to handle more unsafe cases as handled by unsafe_prod_dir().
+    unix/unsafe_prod.sh (SMS)
+ 9. Update AES export statement to note date of submission.  Update IZ_AES_WG
+    Version History to note this.  aes_wg/usexport.msg,
+    aes_wg/readme_aes_wg.txt (EG)
+10. Update hard and Zip limits.  proginfo/ziplimit.txt (EG)
+11. Add note to see Unix man page.  proginfo/timezone.txt (EG)
+12. Fix bug noted in forum item:
+    Info-ZIP Bugs < Zip Bugs < wrong error code 12
+    (http://www.info-zip.org/phpBB3/viewtopic.php?f=6&t=441&sid=548d6761a94330712790918a60051491)
+    When Freshen (-f) or Update (-u) empty archive (zcount = 0), error
+    is 12 (ZE_NONE, Nothing to do).  Fix in provided patch changes this
+    to 13 (ZE_NAME, empty archive).  Update extended help to add mostly
+    empty section on Zip error codes, mentioning codes are detailed on
+    man page.  zip.c (pstodulk, EG)
+13. Change SYMLINK_SUPPORT to SYMLINKS.  For Windows, change issymlnk() to
+    return 0, as isWinSymlink() should be called for Windows instead.
+    For Windows, call isWinSymlink() instead of issymlnk().  Do not do
+    symlinks on Windows for utilities as not all code is in scope.  Require
+    UNICODE_SUPPORT for symlinks on Windows as current Windows symlink
+    code requires it.  (In addition, symlink targets are UTF-8, so need
+    Unicode to work with them.)  Define S_IFLNK and S_ISLNK for WIN32 if
+    not defined.  Define IO_REPARSE_TAG_DEDUP and IO_REPARSE_TAG_NFS if
+    not defined.  Change ifndef NO_SYMLINKS to ifdef SYMLINKS.  fileio.c,
+    tailor.h, zip.c, zip.h, zipup.c, msdos/osdep.h, vms/cmdline.c,
+    win32/osdep.h (EG)
+14. Implement -cd (set current directory).  Define globals startup_dir
+    (directory where Zip starts) and working_dir (directory given by -cd
+    to make current directory).  Only define CHANGE_DIRECTORY, which enables
+    -cd, if set up in tailor.h.  Add macros CHANGE_DIRECTORY (enable -cd),
+    GETCWD (either getcwd or _getcwd), and CHDIR (either chdir or _chdir).
+    Add includes <direct.h> (WIN32) and <unistd.h> (UNIX) to zip.c  Add
+    return to startup directory code to freeup(), but disable as not needed
+    on Unix and Windows (the only ports -cd implemented on) as parent
+    process not impacted by change of Zip current directory.  globals.c,
+    tailor.h, zip.c, zip.h (EG)
+15. Implement Windows symlinks (existing option -y) and new option -yy to
+    control handling of mount points.  Normally most mount points are quietly
+    followed.  -yy disables following mount points (and allows storage of
+    mount point, though this is not implemented in workable form yet, and
+    -yy- allows following all mount points, even those associated with slow
+    or offline storage.  Define global follow_mount_points.  Define
+    FOLLOW_ALL, FOLLOW_NORMAL, and FOLLOW_NONE as values for
+    follow_mount_points.  Add mp as mount point flag.  Add Windows reparse
+    point variables attr, reparse_tag, wtarget_name, and wpath needed to look
+    at information returned by WinDirObjectInfo() if NTSD_EAS defined.  In
+    zipup.c call WinDirObjectInfo() to set flags l (symlink) and mp (mount
+    point) and handle other types of reparse objects.  Handle mp more or
+    less like l (symlink flag).  For WIN32, set high end of z->atx to Unix
+    symlink permissions.  This flags this entry as a symlink.  MSDOS
+    permissions still in low end.  Currently -yy only implemented for Windows.
+    Move symlink (and mount point) reading earlier in zipup.c and comment out
+    old code.  globals.c, zip.h, zipup.c (EG)
+16. Change default for utf8_native from 0 to 1, making -UN=UTF8 (store UTF-8
+    in main path and comment fields) the default.  Add -UN=LOCAL to restore
+    Zip 3.0 behavior of storing UTF-8 in extra fields.  globals.c, zip.c (EG)
+17. Update copyright date of license.  LICENSE (EG)
+18. For Windows (_MSC_VER), change define for zlstat from lstat() to stat() as
+    Windows does not have lstat().  On Windows, need to use other API calls
+    to get this information.  For Windows, change zfdopen from fdopen() to
+    _fdopen().  Fix bug where on Windows output to stdout caused invalid mode
+    error.  Fixed by adding macro FOPW_STDOUT that is same as FOPW but
+    excludes "S" (stdout does not support sequential access) and using that
+    to open y when stdout.  tailor.h, zip.c, win32/osdep.h (EG)
+19. Fix forum issue
+    "Info-ZIP Bugs < Zip Bugs < "zip - file >> out" creates broken archive"
+    (http://www.info-zip.org/phpBB3/viewtopic.php?f=6&t=422)
+    where redirecting output of Zip to file opened in append created bad
+    archives.  This was reported as Unix issue and initially debugged and
+    fixed on Unix.  On Unix, ">>" results in all writes going to end of
+    output file.  Backward seeking not allowed.  Results in second putlocal()
+    putting updated local header after file data, creating duplicate local
+    header and leaving unupdated first local header.  To fix, create new
+    function open_for_append(FILE *y) that uses fcntl() to get append status
+    of output file y.  Add open_for_append() check to seekable().  Modify
+    seekable() to take parameter, y.  Change calls to fseekable(y) to
+    seekable(y).  Update is_seekable() to also check open_for_append().
+    On Windows, ">>" forces first write to end of output file (same as
+    Unix), but does allow seeks to before that point.  Problem is there is
+    no fcntl() on Windows to check open mode.  Instead, open_for_append()
+    checks FILE structure directly for Windows.  However, ">>" on Windows
+    does not show as append mode.  So streaming not needed, but need to seek
+    around existing contents of output file and update offsets.  On Windows
+    when streaming to stdout, just when output file opened, add zftello()
+    check to see if pointer not at start of file (offset 0).  If existing
+    content, update byte counts and offsets to account for existing content,
+    by adding size of data to bytes_this_split, current_local_offset, and
+    tempzn.  Add <fcntl.h> to zipup.c for open_for_append().  Check
+    open_for_append(y) and set use_descriptors to force stream mode if output
+    append only.  (This currently works only for Unix.  Windows has different
+    issue described above and open_for_append() returns 0 for ">>".  Other
+    ports not implemented and open_for_append() always returns 0.)  trees.c,
+    zip.c, zipup.c (sanvila, SMS, EG)
+20. Add support for peta (10E15) as "p" suffix in ReadNumString() and
+    WriteNumString().  util.c (EG)
+21. Add note to extended help that -@ and -@@ can be used with -d.  Update
+    extended help for -UN, detailing new default and -UN=LOCAL.  Add
+    extended help section on symlinks and mount points.  Add use of ">" and
+    ">>" to extended help.  Create new section "Current directory, temp
+    files:", add -cd, and move -b into it.  Add section "Symlinks and Mount
+    Points" to extended help for -y and -yy.  zip.c (EG)
+22. Add WIN32 SYMLINKS to -v list.  Add WINDOWS_LONG_PATHS to -v list.
+    zip.c (EG)
+23. Comment out unused quote_quotes().  zip.c (EG)
+24. Add short option -et for --etwodd.  zip.c (EG)
+25. Update backup option checks comments.  Define new error ZE_BACKUP (23) for
+    errors with backup control file.  Move #endif for backup after backup log
+    code.  zip.c, ziperr.h (EG)
+26. Generate error if stdin used with --etwodd.  zip.c (EG)
+27. Add macros for General Purpose Bit Flag bits in form GPBF_*.  Add macros
+    for Internal File Attributes bits in form IATTR_*.  zip.h (EG)
+28. Add note to keep suffix exclude list up to date with macros.  zip.h (EG)
+29. Add GetWinVersion() to get version of Windows and parse into Major,
+    Minor, and Build versions.  zip.h, win32/win32.c (EG)
+30. Add WinDirObjectInfo() to nt.c to get reparse point information about
+    Windows directory object, including symlink and mount point information.
+    Add isWinSymlink() and Windows readlink(), which use WinDirObjectInfo().
+    Thanks to Kai Uwe for providing the original code, which was used with
+    minimal changes.  zip.h, nt.c  (Kai Uwe, EG)
+31. Add note that file_binary_final may come back if full file checking for
+    binary is implemented.  Need to do performance testing to see the impact
+    of checking every character.  zipup.c (EG)
+32. Add note regarding binary checking first buffer(s) versus checking entire
+    file.  zipup.c (EG)
+33. Fix bug from forum:
+    Info-ZIP Bugs < Zip Bugs < zip -y fails to store symlinks when writing to a pipe
+    (http://www.info-zip.org/phpBB3/viewtopic.php?f=6&t=434&sid=3c50b02ffbfd87f18fabea997a71aa34)
+    Skip check if using STORE on device for symlink (or mount point) as I
+    believe point of this test is to prevent zip signatures in stored data of
+    unknown length.  Symlink targets are pulled from OS and are known length
+    and unlikely to include zip signatures.  zipup.c (EG)
+34. Set z->ver to 63 if LZMA or PPMD used.  AppNote specifies this, even
+    though Zip only supports a fraction of 6.3 features.  zipup.c (EG)
+35. Remove old note regarding ZOS use of conversions.  zipup.c (EG)
+36. Update copyright date.  aes_wg/license.txt (EG)
+37. Update Zip man page to include version 3.1 in heading (so know which
+    version page goes to), to update description of -cd option, to note that
+    -d can use -@ and -@@, and to update -UN to note change in default and
+    new -UN=LOCAL for reverting back to Zip 3.0 default (store UTF-8 in
+    extra fields and local character set in name and comment fields).
+    man/man1/zip.1 (EG)
+38. Update man pages to include version 3.1 in header.  man/man1/zipcloak.1,
+    man/man1/zipnote.1, man/man1/zipsplit.1 (EG)
+39. If S_ISLNK defined, define SYMLINKS.  unix/osdep.h (EG)
+40. Move comment regarding whole and wildtail above wild_recursew where it
+    applies.  For Windows, in procname_win32w(), add variable do_not_follow
+    that tells Zip not to follow a symlink or mount point.  Use
+    WinDirObjectInfo() to get information about name to determine how to
+    handle it.  win32/win32zip.c (EG)
+41. Update copyright.  win32/zipup.h
+42. Add back file that got lost.  vms/decc_init.c (SMS)
+
+----------------------- August 6th 2014 version 3.1d30 ------------------------
+ 1. Change EXPENTRY to ZIPEXPENTRY, where ZIPEXPENTRY is defined as EXPENTRY
+    for DLL, but empty for LIB.  This allows DLL entry points to be used by
+    both LIB and DLL.  Also callbacks.  Update test entry points, such as
+    ZpTestComParse(), though these are not enabled for other than WINDLL.
+    They should work for other ports now, though.  api.c, api.h (EG)
+ 2. Change API interface to no longer pass strings back as return values, as
+    Visual Studio 6 Visual Basic (vb6) has no way to support it.  This impacts
+    the password(), ecomment() and acomment() callbacks.  Update all examples
+    to use new interface.  In these cases the Zip functions allocate storage
+    and pass that to the caller, which they fill in.  api.c, api.h (EG)
+ 3. Modify simple_encr_password() to use new callback interface.  api.c (EG)
+ 4. Change comment() to acomment() for updating the archive comment.  Add
+    ecomment() for updating entry comments.  If LIB or DLL, call ecomment()
+    to get entry comment.  api.c, api.h, zip.c (EG)
+ 5. Callbacks all tend to return long now.  The API is standardizing on
+    callbacks, such as ZpError(), returning a 32-bit value.  api.c, api.h (EG)
+ 6. Change use of printf() to zprintf() and fprintf() to zfprintf().  The
+    Zip versions pass on arguments to printf() and fprintf(), except when
+    used with LIB or DLL, where they feed the print() callback.  This allows
+    clean redirection of output.  Overloading printf() and fprintf() is no
+    longer done.  So the DLL works as before, but without overloading (and the
+    need to undef print and fprintf when these are needed), and the LIB now
+    can use the print callback to get Zip output.  Change perror() to
+    zperror().  api.c, api.h, deflate.c, fileio.c, trees.c, ttyio.c, util.c,
+    zip.c, zip.h, zipfile.c, zipup.c, nt.c, win32/win32.c, win32/win32zip.c,
+    win32/win32zip.c, unix/unix.c (EG)
+ 7. Define global MAX_ZIP_ARG_SIZE to replace use of local MAX_ARG_SIZE.  This
+    allows other source files to use it to create compatible storage.  api.c
+    (EG)
+ 8. Change DW_MAJOR, DW_MINOR, and DW_PATCHLEVEL to LD_MAJOR, LD_MINOR, and
+    LD_PATCHLEVEL.  These are now used to set the LIB/DLL compatible version.
+    api.c, revision.h (EG)
+ 9. For version feature list, add "debug_trace" if DEBUG is set (a Zip macro).
+    Set "_debug" when compiled with debugging (such as MS debug configuration).
+    This allows the feature list to be used to distinguish between these cases.
+    Update -v version option to also display DEBUG and _DEBUG.  api.c, zip.c
+    (EG)
+10. Add "symlinks" and "zipdll" to API feature list.  api.c (EG)
+11. Move MAX_COM_LEN to zip.h.  api.c (EG)
+12. Add ZpStringCopy() entry point to API.  This is essentially a call to
+    strncpy().  This is used by Visual Studio 2010 Visual Basic (vb10) example
+    as part of the process to return a string to Zip from a callback.  This
+    new entry point allows all example programs to use the same API interface.
+    api.c (EG)
+13. In commandline_to_argv(), quote arguments with whitespace, but not others.
+    Was quoting all arguments, but then options were not recognized.  api.c
+    (EG)
+14. Add argv_to_commandline() for completeness.  This tends to be implemented
+    in example code that converts arvg to the string needed by ZpZip().  Those
+    examples could copy this version.  api.c (EG)
+15. Update API comments, documenting changes in API.  Emphasize that ZpZip()
+    is the only recommended interface to Zip now.  api.h, api.c (EG)
+16. Comment out unneeded Windows global calls (such as GlobalAlloc()) that are
+    no longer used.  If _LIB defined, define ZIPLIB.  If _USRDLL defined,
+    define WINDLL.  This facilitates use with Visual Studio that automatically
+    defines _LIB and _USRDLL.  Add max sizes to comments of _ZpVer struct.
+    api.h (EG)
+17. Comment out ZPprintf, ZPfprintf, and ZPperror defines and external
+    references.  These are replaced by zprintf() and zfprintf().  Add
+    zprintf() and zfprintf().  Include <stdlib.h> and <stdarg.h>.  Add
+    replacement for zperror().  api.h, fileio.c (EG)
+18. Only undef IZ_CRYPT_ANY if defined.  crypt.h (EG)
+19. Change local defines isdir and isapldbl to globals IS_FLAGS_DIR and
+    IS_FLAGS_APLDBL.  fileio.c, zip.h (AD)
+20. Define ERRBUF_SIZE as size of errbuf[] error message buffer.  Change
+    errbuf[FNMAX+4081] to errbuf[ERRBUF_SIZE + 1].  Remove size in extern
+    declaration.  globals.c, zip.h (EG)
+21. Add quick_version().  Add v_option global.  Move processing
+    of version info to after option processing.  Display quick version when
+    -v and -q are both used (ignoring any other options that may be on the
+    command line).  globals.c, zip.c (EG)
+22. Add warning when first Windows long path encountered and at end.  Add
+    global archive_has_long_path.  Allow negation of -wl.  globals.c, zip.c,
+    zip.h, zipup.c (EG)
+23. Add options -Cl and -Cu to lower and upper case of added/updated names.
+    Add options -CL and -CU to lower and upper case all names in output
+    archive.  Add globals case_lower and case_upper.  Check that -Cl and
+    -Cu are not used together.  Check that -CL and -CU are not used together.
+    globals.c, zip.c, zip.h, zipfile.c (EG)
+24. Modify Unix LIB example to support updated API.  Update to call ZpZip()
+    instead of ZpInit() and zipmain().  Update example to allow user to enter
+    password and comments.  Update example to receive Zip output via print()
+    callback.  Add argv_to_commandline() to convert args to string for ZpZip().
+    izzip_example.c (EG)
+25. Add LIB/DLL overview readme.  readlibdll.txt (EG)
+26. Add defines for Z_LONGLONG and UZ_LONGLONG for use by API.  tailor.h,
+    api.h, win32/osdep.h (EG)
+27. Change macro constants used by file_type from UNKNOWN, BINARY, and ASCII
+    to FT_UNKNOWN (-1), FT_BINARY (0), FT_ASCII_TXT (1), FT_EBCDIC_TXT (2).
+    Add note to handle UTF-8 and EBCDIC text.  trees.c, zip.c, zip.h,
+    zipfile.c, zipup.c (AD)
+28. Add strmatch() to provide more flexibility in string matching and a common
+    function to use across ports.  Provides case insensitive and partial string
+    matching.  util.c, zip.h (EG)
+29. Do not look for libbz2 if Windows version before Vista (WINVER >= 0x0600)
+    as not used.  zbz2err.c (EG)
+30. Some indentation changes.  zip.c (AD)
+31. In addition to DLL, now also call error() callback for LIB.  zip.c (EG)
+32. Add note to -hh regarding -i, -x and -R being filters.  Add extended help
+    for -Cl, -CL, -Cu, -CU, and update for -pp and -pa.  zip.c (EG)
+33. Update EBCDIC extended help to include CMS and z/VM.  zip.c (EG)
+34. Make case on lead character of version item descriptions consistent.  Minor
+    text updates.  Add ZIPDLL to list.  zip.c (EG)
+35. Limit returned value from get_option() to MAX_OPTION_VALUE_SIZE.  zip.c
+    (EG)
+36. Using -F or -FF with DLL or LIB now error.  Could be added to API later.
+    zip.c (EG)
+37. Using -s with DLL or LIB now error.  Could be added to API later.  In
+    particular, -s is probably DLL safe, but -sp needs the split callback.
+    zip.c (EG)
+38. Enable -Y for all encryption methods, including Traditional, even if
+    only one method.  Add "not supported in this build" error for AES if
+    not enabled.  zip.c (EG)
+39. Replace multiple "valid compression methods" strings with string built from
+    component methods.  Include unknown method in error.  zip.c (EG)
+40. If encrypting, display message saying the type of encryption being used.
+    zip.c (EG)
+41. Remove restriction that -X- can't be used with -Y (-X- ignored).  Not sure
+    why this is here, except that AES WG encryption requires an extra field.
+    That extra field is not impacted by -X.  -X- copies old extra fields, so
+    that should not impact adding or rewriting the AES extra field.  Testing
+    does not reveal any issues.  zip.c (EG)
+42. Add Trace() statement for tempzip.  Add Trace() for zfiles.  Add Trace()
+    for z->zname.  Indentation changes.  Change z->oname Trace() to use
+    z->zname.  (oname includes OEM conversions, zname doesn't.)  Add Trace()
+    for "ignore file" case (fexpel(f)).  Add diag() for "Nothing left -
+    update/freshen" case.  Add diag() for "Nothing left - error" and "Nothing
+    left - zipfile" cases.  Add Trace() for "grow zipfile" case.
+    zip.c (AD)
+43. Add action == DELETE to change return code for trying to delete from empty
+    archive from "Nothing to do" (ZE_NONE) to "Empty archive" (ZE_NAME).
+    zip.c (EG, pstodulk (see "Info-ZIP Bugs < Zip Bugs < wrong error code 12"
+    forum thread))
+44. Add additional displayed line when requesting archive comment.  zip.c (EG)
+45. Remove __EBCDIC 2 define.  zip.h (AD)
+46. Break out Windows enabling of symlinks, requiring NTSD_EAS, no UTIL,
+    UNICODE_SUPPORT, and at least VISTA.  If Windows and SYMLINKS, define
+    WINDOWS_SYMLINKS.  zip.h (EG)
+47. Define MAX_COM_LEN as 32766L.  Define MAX_PASSWORD_LEN as 1024.  Define
+    MAX_ZIP_ARG_SIZE as 4096.  Define MAX_EXTRA_FIELD_BLOCK_SIZE as 65535.
+    Define MAX_OPTION_VALUE_SIZE as ERRBUF_SIZE - 1024.  zip.h (EG)
+48. Update declaration of abbrevmatch() to be more descriptive.
+49. Move define for SHOW_PARSED_COMMAND outside of long option support section.
+    zip.h (EG)
+50. If data descriptor, skip local vs. central CRC check as don't have local
+    CRC yet.  zipfile.c (EG)
+51. If no extension given on archive name and .zip file not found, look for
+    .zipx file.  Support aspects of .zipx archive we can understand, which is
+    most except for a few compression methods (like XZ (which is on the list
+    to add), Jpeg, and WavPack).  By doing this, we are implicitly saying we
+    in part support the WinZip .zipx format, though we default to .zip for
+    all output archives.  zipfile.c (EG)
+52. In putlocal() and putcentral(), update iname and add uname as variables
+    holding z->iname and z->uname.  iname and uname (if not NULL) will be
+    used to write the actual headers.  This allows iname and uname to be
+    modified by the path prefix (-pp and -pa) and change case (-Cl, -Cu, -CL,
+    and -CU) options.  Add Unicode support to -pp and -pa, which previously
+    only changed iname and ignored Unicode (uname).  Implement the change
+    output case options.  iname now gets its own memory, so it can be always
+    freed after the header is written.  zipfile.c (EG)
+53. If stream support, if updating entry comments as LIB or DLL, call
+    ecomment().  zipfile.c (EG)
+54. In zipcopy() set localz->mark = 0 as copied entries are not selected.
+    This supports selection in putlocal and putcentral of which entries are
+    affected by the prefix and change case options.  zipfile.c (EG)
+55. Use file_binary for initial binary detection and file_binary_final for
+    final result.  This was being done inconsistently.  Update
+    iz_file_read() to handle most all binary decisions.  iz_file_read_bt()
+    now only used to influence file_binary after first buffer read.  Replace
+    iz_file_read_bt() with iz_file_read() as needed.  iz_file_read_bt() should
+    only be used before the write buffer is flushed (and decision can still be
+    changed).  zipup.c (EG)
+56. Use WINDOWS_SYMLINKS for enabling Windows symlinks instead of NTSD_EAS.
+    This accounts for not using Windows symlinks in utilities as well as
+    platforms before Vista not supporting symlinks.  zipup.c (EG)
+57. When copying old extra fields, make sure result is under new limit
+    MAX_EXTRA_FIELD_BLOCK_SIZE, which is currently half of available extra
+    block space.  zipup.c (EG)
+58. If existing file is encrypted and has a data descriptor, need to keep
+    data descriptor so set use_descriptors = 1.  If using traditional
+    encryption with data descriptors, don't allow deflate to change method.
+    zipup.c (EG)
+59. If not allow_short_key (-ps), force use of longer password lengths with
+    AES.  zipup.c, api.c (EG)
+60. Include file name in "has binary" warnings.  This is useful if only
+    warnings and errors are going to the log file.  zipup.c (EG)
+61. In iz_file_read(), fix bug by checking for EOF and 0 bytes read after
+    zread().  (Forum issue.  Look up thread.)  zipup.c (EG)
+62. In iz_file_read(), check for binary only until binary found.  This should
+    be efficient as very large text files are rare, and a binary file should
+    set the flag quickly.  Comment out later binary check as already done.
+    Add note that if initial decision of text file wrong, could seek back,
+    but with splits (in particular -sp) this may not be practical.  Move
+    updating of bytes_read_this_entry to after EOF check.  zipup.c (EG)
+63. Text updates to iz_file_read_bt().  Remove unneeded (char *) casts.
+    zipup.c (EG)
+64. In bzfilecompress, use file_binary_final for setting att.  Use
+    file_binary_final in LZMA_Encode().  In ppmd_filecompress() add
+    (unsigned char) cast to arg in ppmd_write_byte().  Add (char *) cast
+    to f_ibuf in iz_file_read() call.  Use iz_file_read().  Use
+    file_binary_final.  zipup.c (EG)
+65. Update project file from Visual Studio 5 to Visual Studio 6.  (May revert
+    it later, but we are not really supporting VS 5 now.)  bzip2/libbz2.dsp
+    (EG)
+66. Update Zip man page.  Set update date to August 4th.  Change references
+    to unzip (1L) to unzip (1) (per user request).  Same with SEE ALSO list
+    (bzip2, gzip, and shar).  Wording updates.  Add subsection on Compression
+    Methods.  Add options -Cl, -Cu, -CL, and -CU.  Add note that -i, -x, and
+    -R are filters and either the given directory trees or the current tree
+    (for -R) will be fully scanned before the filters are applied.  Reflect
+    change from --prefix-new-path to --prefix-add-path.  Add -vq
+    (--quick-version) option.  In -wl description, change Windows path limit
+    from 256 to 260.  Add note that Zip issues warnings when Windows long
+    paths are encountered.  Add note on Windows symlinks under -y.  Add -yy
+    (--mount-points) and what is implemented and what is not yet.  Add
+    section on LIBRARIES.  Clarify some error codes.  Add code 23 (Backup
+    Error).  Add some examples and the error codes they would return.
+    (Suggested by forum.)  man/man1/zip.1 (EG)
+67. Adjust indentation of some comments.  Add "X-Debian-version: 2.32-1" note.
+    unix/configure (EG, from forum)
+68. Add -DICONV=1 to CFLAGS_TST in multiple places.  Change "AR='ar -cq -X64'"
+    to "AR='ar -X64 -cq'" in multiple places.  unix/configure (AD)
+69. Help updates.  For LIB, create object files zip_l.o and fileio_l.o.
+    (fileio.c now has lib specific code.)  Update targets.  Change target
+    zip_.o to zip_l.o.  Add target fileio_l.o.  unix/Makefile (EG)
+70. Put Windows symlinks inside ifdef WINDOWS_SYMLINKS block.  This makes it
+    invisible to Windows XP, who can't handle it.  Wording updates.  win32/nt.c
+    (EG)
+71. Change GetFileAttributes() to GetFileAttributesA() in has_win32_wide() as
+    in some Visual Studio 2010 configurations (specifically when creating a
+    DLL) it wants to force use of Unicode and GetFileAttributes() links to
+    wide version GetFileAttributesW() instead, messing up has_win32_wide().
+    Use WINDOWS_SYMLINKS to block Windows symlinks code.  win32/win32zip.c
+    (EG)
+72. Update vc10 project.  win32/vc10/zip.vcxproj, win32/vc10/zip.vcxproj.user,
+    win32/vc10/zipcloak.vcxproj, win32/vc10/zipcloak.vcxproj.user,
+    win32/vc10/zipnote.vcxproj, win32/vc10/zipnote.vcxproj.user,
+    win32/vc10/zipsplit.vcxproj, win32/vc10/zipsplit.vcxproj.user (EG)
+73. Update vc6 project to include all compression methods by default.  Add
+    Readvc6.txt readme.  win32/vc6/readvc6.txt, win32/vc6/zip.dsp (EG)
+74. Update vc6aes project.  This project adds AES to vc6.  Add Readvc6aes.txt
+    readme.  win32/vc6aes/zip.dsp, win32/vc6aes/zip.dsw,
+    win32/vc6aes/zipcloak.dsp, win32/vc6aes/zipnote.dsp,
+    win32/vc6aes/zipsplit.dsp (EG)
+75. Add to WINDLL contents.txt (renamed old readme), readme.txt (updated
+    readme), and WhatsNew.txt (describes changes in API).  windll/contents.txt,
+    windll/readme.txt, windll/WhatsNew.txt (EG)
+76. Comment out some unneeded parts.  These files may be useful when WiZ is
+    updated.  windll/windll.c, windll/windll.h (EG)
+77. Add comment.  This file may be useful when WiZ is updated.
+    windll/windll.txt (EG)
+78. Add ZpStringCopy to list.  windll/windll32.def (EG)
+79. Update readme for Windows WINDLL examples.  windll/examples/readmeex.txt
+    (EG)
+80. Add readme explaning use.  windll/examples/readuse.txt (EG)
+81. Make copy of old csharp project.  Not updated yet.
+    windll/examples/csharp10/* (EG)
+82. Update readme in old directory.  windll/examples/old/readold.txt (EG)
+83. Add readme to vb10 example.  Update vb10 example.
+    windll/examples/vb10/readvb.txt, windll/examples/vb10/zip31vbexample.sln,
+    windll/examples/vb10/zip32_dll.dll here.txt,
+    windll/examples/vb10/zip31vbexample/app.config,
+    windll/examples/vb10/zip31vbexample/form1.designer.vb,
+    windll/examples/vb10/zip31vbexample/form1.resx,
+    windll/examples/vb10/zip31vbexample/form1.vb,
+    windll/examples/vb10/zip31vbexample/module1.vb,
+    windll/examples/vb10/zip31vbexample/zip31vbexample.vbproj,
+    windll/examples/vb10/zip31vbexample/zip31vbexample.vbproj.user,
+    windll/examples/vb10/zip31vbexample/my project/application.designer.vb,
+    windll/examples/vb10/zip31vbexample/my project/application.myapp,
+    windll/examples/vb10/zip31vbexample/my project/assemblyinfo.vb,
+    windll/examples/vb10/zip31vbexample/my project/resources.designer.vb,
+    windll/examples/vb10/zip31vbexample/my project/resources.resx,
+    windll/examples/vb10/zip31vbexample/my project/settings.designer.vb,
+    windll/examples/vb10/zip31vbexample/my project/settings.settings (EG)
+84. Update vb6 example.  windll/examples/vb6/mssccprj.scc,
+    windll/examples/vb6/readvb6.txt, windll/examples/vb6/vbzip.vbp,
+    windll/examples/vb6/vbzip.vbw, windll/examples/vb6/vbzipbas.bas,
+    windll/examples/vb6/vbzipfrm.frm, windll/examples/vb6/vbzipfrm.frx,
+    windll/examples/vb6/zip32_dll.ll here.txt (EG)
+85. Update vc10 examples.
+    windll/examples/vc10/c_dll_ex.c, windll/examples/vc10/c_dll_ex.h,
+    windll/examples/vc10/c_lib_ex.c, windll/examples/vc10/c_lib_ex.h,
+    windll/examples/vc10/read10ex.txt,
+    windll/examples/vc10/c_dll_ex/c_dll_ex.dsp,
+    windll/examples/vc10/c_dll_ex/c_dll_ex.dsw,
+    windll/examples/vc10/c_dll_ex/c_dll_ex.sln,
+    windll/examples/vc10/c_dll_ex/c_dll_ex.vcxproj,
+    windll/examples/vc10/c_dll_ex/c_dll_ex.vcxproj.filters,
+    windll/examples/vc10/c_dll_ex/c_dll_ex.vcxproj.user,
+    windll/examples/vc10/c_dll_ex/zip32_dll.lib here.txt,
+    windll/examples/vc10/c_lib_ex/c_lib_ex.dsp,
+    windll/examples/vc10/c_lib_ex/c_lib_ex.dsw,
+    windll/examples/vc10/c_lib_ex/c_lib_ex.sln,
+    windll/examples/vc10/c_lib_ex/c_lib_ex.vcxproj,
+    windll/examples/vc10/c_lib_ex/c_lib_ex.vcxproj.filters,
+    windll/examples/vc10/c_lib_ex/c_lib_ex.vcxproj.user,
+    windll/examples/vc10/c_lib_ex/zip32_lib.lib & libbz2.lib here.txt,
+    windll/examples/vc10/debug/zip32_dll.dll here.txt,
+    windll/examples/vc10/release/zip32_dll.dll here.txt (EG)
+86. Update vc6 examples.  windll/examples/vc6/c_dll_ex.c
+    windll/examples/vc6/c_dll_ex.h, windll/examples/vc6/c_lib_ex.c,
+    windll/examples/vc6/c_lib_ex.h, windll/examples/vc6/readvc6ex.txt,
+    windll/examples/vc6/c_dll_ex/c_dll_ex.dsp,
+    windll/examples/vc6/c_dll_ex/c_dll_ex.dsw,
+    windll/examples/vc6/c_dll_ex/zip32_dll.lib here.txt,
+    windll/examples/vc6/c_lib_ex/c_lib_ex.dsp,
+    windll/examples/vc6/c_lib_ex/c_lib_ex.dsp,
+    windll/examples/vc6/c_dll_ex/c_dll_ex.dsw,
+    windll/examples/vc6/c_dll_ex/zip32_lib.lib & zip32_libd.lib here.txt,
+    windll/examples/vc6/debug/zip32_dll.dll here.txt,
+    windll/examples/vc6/release/zip32_dll.dll here.txt (EG)
+87. Update vc10 LIB and DLL projects.  windll/vc10/readme10.txt,
+    windll/vc10/zip32_dll.sln, windll/vc10/libbz2/libbz2.vcxproj.user,
+    windll/vc10/zip32_dll/zip32_dll.vcxproj,
+    windll/vc10/zip32_dll/zip32_dll.vcxproj.filters,
+    windll/vc10/zip32_dll/zip32_dll.vcxproj.user,
+    windll/vc10/zip32_dll/zip32_lib.vcxproj.filters,
+    windll/vc10/zip32_lib/zip32_lib.vcxproj,
+    windll/vc10/zip32_lib/zip32_lib.vcxproj.filters,
+    windll/vc10/zip32_lib/zip32_lib.vcxproj.user (EG)
+88. Update vc6 LIB and DLL projects.  windll/vc6/readmevc6.txt,
+    windll/vc6/dll/zip32_dll.dsp, windll/vc6/lib/zip32_lib.dsp,
+    windll/vc6/lib/zip32_lib.dsw (EG)
+89. Update vc6 LIB and DLL AES projects.  windll/vc6aes/readmevc6aes.txt,
+    windll/vc6aes/dll/zip32_dll.dsp, windll/vc6aes/dll/zip32_dll.dsw,
+    windll/vc6aes/lib/zip32_lib.dsp, windll/vc6aes/lib/zip32_lib.dsw (EG)
+90. Update vc8 readme.  windll/vc8/readmev8.txt (EG)
+91. Updates to z/OS to bring in line with Zip 2.32 changes.  Files cmsmvs.h,
+    mvs.c, and mvs.h are updates.  Rest of files added.  zos/bbzip.c,
+    zos/build.jcl, zos/cmsmvs.c, zos/cmsmvs.h, zos/mvs.c, zos/mvs.h,
+    zos/xmit.jcl, zos/zipsrc.jcl (AD)
+92. Support single-source z/OS MVS builds.  zos/bbzip.c, zos/build.jcl (AD)
+93. Revamp z/OS MVS file I/O using stream I/O routines.  fileio.c, trees.c,
+    zip.c, zip.h, zipfile.c, zipup.c, zos/cmsmvs.c, zos/cmsmvs.h, zos/mvs.c,
+    zos/mvs.h (AD)
+94. Add z/OS MVS executable and source ship builds.  zos/xmit.jcl,
+    zos/zipsrc.jcl (AD)
+95. Correct ar -X option placement.  unix/configure (AD)
+96. IBM XL C builds need ICONV=1 to support utf-8 via iconv().  unix/configure
+    (AD)
+97. Comment out old ZIPLIB defines as not needed anymore.  unix/osdep.h (EG)
+98. If using descriptors, do not allow bzip2 and PPMd to revert to STORE (as
+    can't rewrite method).  If LZMA eventually can revert to store, this would
+    need to be fixed there also.  zipup.c (EG)
+
+---------------------- September 6th 2014 version 3.1d31 ----------------------
+ 1. Add support for iconv to convert to and from UTF-8, wchar_t, and local
+    character set.  Update Unicode to use these macros:
+    UNICODE_SUPPORT   - Some form of Unicode support is enabled.
+    UNICODE_WCHAR     - wchar_t support where wide is Unicode.
+    HAVE_WCHAR        - Have wchar_t wide support, but wide encoding not known.
+    HAVE_ICONV        - Sufficient iconv support is available.
+    UNICODE_FILE_SCAN - Port is capable of doing file scan in Unicode.
+    Also defined:
+    UNICODE_ICONV     - Not currently used, as support automatic if HAVE_ICONV.
+    Implementation is crude, but seems workable.  fileio.c, tailor.h (EG)
+ 2. When UNICODE_SUPPORT and WIN32, use UNICODE_SUPPORT_WIN32.  Change some
+    UNICODE_SUPPORT and WIN32 code in main sections to UNICODE_SUPPORT_WIN32
+    as applicable.  fileio.c, zip.c (EG)
+ 3. Add function string_dup().  fileio.c
+ 4. Add utf8_to_wchar_string().  For WIN32, call WIN32 version, now named
+    utf8_to_wchar_string_windows().  If not WIN32 but wchar_t is 4 bytes, use
+    Zip internal wide character functions.  If not 4 bytes but HAVE_ICONV,
+    use iconv.  Otherwise generate ZE_COMP error as no way to do conversion.
+    Add wchar_to_utf8_string() with similar implementation.  fileio.c (EG)
+ 5. Minor updates to wchar_to_wide_string(), including adding zwchar casts.
+    Add wide_to_wchar_string(), but no surrogate support.  fileio.c (EG)
+ 6. Update is_ascii_stringw() and is_ascii_string().  Update
+    local_to_utf8_string().  Add zwchar_string_len().  Update
+    local_to_escape_string(), wchar_to_local_string().  Update
+    wide_to_local_string(), including adding iconv support using UCS-4LE as
+    the from character set.  Update wide_to_escape_string().  Update
+    utf8_to_local_string(), using Zip functions if UNICODE_WCHAR, iconv if
+    HAVE_ICONV, and generating error if no support.  Update
+    local_to_wide_string(), using wide functions if UNICODE_WCHAR, iconv if
+    HAVE_ICONV with UCS-4LE as to code, and generating error if no support.
+    Minor updates to other character set conversion functions.  fileio.c,
+    zip.h (EG)
+ 7. Add argument file support (@argfile) to get_option().  Update long option
+    support comment.  Add comments to optchar symbolic values.  Make
+    allow_arg_files global.  Add dump_args() to allow debugging arg file
+    support.  Add insert_args_from_file() to handle reading arg files
+    and inserting args into argv[] arrays as well as arg file recursion.  Add
+    arg file support, setting max depth to 4 levels.  Default arg file .zag
+    set in ARGFILE_EXTENSION.  Create option -AF to turn on argument files
+    processing and -AF- to disable, allowing files like @argfile to be just
+    another file.  Modify get_option() to restore arg file capability, except
+    recursion now handled by insert_args_from_file() rather than processed by
+    get_option() and related functions through recursion.  Result is now all
+    arg file args are retrieved and inserted into main args[] before processing
+    rather than each arg file being processed separately.  This means an option
+    can be in a different file than the value that goes with it.
+    fileio.c, zip.h, globals.c, zip.c (EG)
+ 8. Update locale code.  Add globals localename and charsetname set by locale
+    code.  localename is what is returned by setlocale(), while charsetname is
+    the name of the local character set in iconv compatible form.  Add new
+    option -UT to run Unicode tests on the port.  Add function Unicode_Tests()
+    to perform the Unicode tests.  Locale detection now done regardless of
+    setting of UNICODE_SUPPORT.  No longer try setting UTF-8 locale if not
+    already native.  (Tim K. advised this.)  Rework locale code to support
+    new locale_debug variable that can turn on and off locale debugging easily.
+    Add section for WIN32 locale.  zip.c, globals.c, zip.h (EG)
+ 9. Update path case conversion.  Add global case_upper_lower with values
+    CASE_PRESERVE, CASE_UPPER, and CASE_LOWER.  Define USE_WCHAR_CASE_CONV and
+    USE_PORT_CASE_CONV to control how path case conversions are handled.  Add
+    ENABLE_PATH_CASE_CONV that is enabled if there's a way to do case
+    conversions.  Options -Cl and -Cu are only available if this is set.
+    Add ustring_upper_lower() and astring_upper_lower() to perform Unicode
+    and 7-bit ASCII case conversions.  If USE_PORT_CASE_CONV is set, then
+    these are disabled and the port must supply them.  Update case conversion
+    code in putlocal() and putcentral().  globals.c, zip.c, zip.h, zipfile.c
+    (EG)
+10. Add -UN option value ShowUTF8, allowing the passing through of UTF-8 to
+    the console, even if not native.  (If UTF-8 is native, it already gets
+    displayed; this is for non-native display.)  Add global unicode_show.
+    Add WIN32 functions write_console() and write_consolew(), which write
+    directly to the console if tty.  If unicode_show and z->uname or f->uname,
+    output uname to console.  globals.c, zip.h, zip.c, zipfile.c (EG)
+11. Update Unicode comment.  Add checks for NO_SETLOCALE, NO_UNICODE_WCHAR,
+    and similar.  tailor.h (EG)
+12. Use UNICODE_SUPPORT_WIN32.  Minor formatting updates.  util.c (EG)
+13. Update extended help to include argument files.  Add missing comma.
+    Add reference to -UN=ShowUTF8.  Add -UN=ShowUTF8 to extended help.
+    Remove options -CL and -CU.  Remove checks for -CL and -CU.
+    zip.c (EG)
+14. Add UNICODE_WCHAR, UNICODE_ICONV, and UNICODE_FILE_SCAN to version info.
+    zip.c (EG)
+15. Enable -s split support for LIB/DLL, as no additional interfacing needed.
+    Disable -sp split pause support for LIB/DLL as that requires not yet
+    implemented split callback.  It's likely release candidate will go out
+    this way.  zip.c (EG)
+16. Add utf8_path to flist and zlist structures.  This gets set if:
+    - An existing entry has a uname.
+    - The locale is UTF-8, so assume paths coming in are Unicode.
+    - The entry has a namew (WIN32), which should have come from a wide scan.
+    If utf8_path is set, then uname is primary path that others are
+    derived from.  Otherwise, iname is primary and uname derived from it.
+    zip.c, zip.h (EG)
+17. Put Escaped Unicode on a new line.  zip.c (EG)
+18. Add BUILD_BUG_ON() macro that fails to compile if condition met, such as
+    sizeof() not being some size.  zip.h (EG)
+19. Add MAX_PATH_SIZE and set to 8192.  Used to set upper storage limits, this
+    needs to be integrated into other sizing checks.  zip.h (EG)
+20. Add checks for UTF_16 and UTF_32, though not used.  zip.h (EG)
+21. Change perror() to zperror().  Change iname to uname in ZIPERR().
+    zipfile.c (EG)
+22. Change isize from zoff_t to uzoff_t.  Change s from zoff_t to uzoff_t.
+    Change isize_prev from zoff_t to uzoff_t.  Put (zoff_t) casts on check
+    of isize to isize_prev for overflow detection.  zipup.c (EG)
+23. Add local to iz_file_read_bt().  zipup.c (AD).
+24. Change "extra block" to "extra field" for consistency.
+    proginfo/extrafld.txt (EG)
+25. Update Unicode checks.  Add CFLAGS_TST where needed.  Update locale, iconv
+    and native UTF-8 checks.  unix/configure (EG)
+26. Change target generic_man to generic_altdocs.  Update help.  Change
+    extension for altdocs (previously man) from .1 to .txtr (text roff).
+    Change target manuals to altdocs.  Change zipsman to zipsaltdocs.  Remove
+    manuals from install target.  unix/Makefile (EG, SMS)
+27. For Windows, set defaults to UNICODE_WCHAR, HAVE_SETLOCALE, NO_NL_LANGINFO.
+    win32/osdep.h (EG)
+28. Move local_to_wchar_string() Windows version from win32zip.c to win32.c.
+    win32/win32zip.c, win32/win32.c (EG)
+29. Update manual to include description of argument files, and options -AS and
+    -UN=ShowUTF8.  /man/man1/zip.1 (EG)
+30. Change ZpError() to Zp_Error() to avoid name conflict on VMS with zperror().
+    api.c (SMS, EG)
+31. Update argfile opening code in insert_args_from_file().  Add support for
+    updated "--" argument by preventing opening of later arg files recursively
+    once "--" is seen.  Add variable double_dash_seen.  Remove quotes from
+    read arguments before inserting into args array.  fileio.c (EG)
+32. Enable support for Windows long paths by default by setting start value of
+    include_windows_long_paths = 1.  globals.c (EG)
+33. Move using_utf8 outside UNICODE_SUPPORT so always visible.  Works with
+    locale check which is also now outside UNICODE_SUPPORT.  Move langinfo.h
+    and locale.h code outside UNICODE_SUPPORT.  globals.c, tailor.h, zip.h (EG)
+34. Change UNICODE_SUPPORT and WIN32 to UNICODE_SUPPORT_WIN32.  Remove various
+    debugging printf statements inserted during testing.  util.c (EG)
+35. Remove includes for Unicode_Tests for WIN32 as not needed.  zip.c (EG)
+36. Change add_name() to add second argument, int verbatim.  Setting this
+    makes the argument a verbatim argument, as set by using "--" on command
+    line.  Add int verbatim to filelist_struct to track which command line
+    arguments are verbatim arguments.  (Args can come from multiple sources,
+    including the environment and arg files.)  Set fileentry->verbatim in
+    add_name().  Currently -@ and -@@ args are never verbatim
+    (add_name(path, 0)), only command line args after "--".  When processing
+    files for add/update, set no_wild = filelist->verbatim to turn off
+    wildcard matching in shmatch() and recmatch() for verbatim args.  zip.c
+    (EG)
+37. Update section in extended help on verbatim arguments.  Update section in
+    extended help on argument files.  Simplify section in extended help on
+    compression methods.  zip.c (EG)
+38. Change description of UNICODE_SUPPORT from "UTF-8 Unicode paths" to
+    "Unicode paths", as UNICODE_SUPPORT is more general now.  zip.c (EG)
+39. Format changes to reduce long lines and line up output.  zip.c (EG)
+40. Change option --arg-files to --argfiles.  Remove extra -- from options
+    -Cl and -Cu long option names.  zip.c (EG)
+41. Put unicode_show blocks in UNICODE_SUPPORT blocks.  zip.c (EG)
+42. Add start of draft Zip 3.1d announcement.  zip31d.ann (EG)
+43. Add readme for /docs directory.  docs/ReadmeDocs.txt (EG)
+44. Update plain text manual docs using unix/Makefile docs target.
+    docs/zip.txt, docs/zipcloak.txt, docs/zipnote.txt, docs/zipsplit.txt (EG)
+45. Update Zip manual.  Formatting updates.  Reference Windows 7.  Add
+    Encryption subsection.  Add subsection on argument files.  Add p (PiB)
+    to list of byte size modifiers.  Add note about using UTF-8 locale windows.
+    Note that Windows long paths are included by default now.  Note that
+    options can have spaces around =, as in "-s = value".  Add subsection
+    on Unix shell processing of command line arguments.  Add subsection on
+    time zones.  Add -AF option to turn argfiles on and off.  Update backup
+    option -BT description.  Update -Cl description.  Note -dt output format.
+    Remove .BR (line break) in -D description.  Add warnings that format of
+    arg files not one file name per line as -@, -@@, and -i@, but use white
+    space separation, and so args with spaces must be quoted.  Update note
+    for -UN=ShowUTF8.  Updates to suffix option description.  Add quotes to
+    -R examples.  Remove extra "the".  Add note about using -UN=ShowUTF8 to
+    view Unicode on a Windows code page 65001 window.  Redo password lengths
+    table.  Add @argfile to options list under -@ and -@@; though not an
+    option, it makes sense to list these together for comparison.  Update
+    PATTERN MATCHING section to remove quotes where shell is processing and
+    add where Zip is and note Zip 3.1 supports full internal wildcard
+    processing for quoted and escaped wildcards.  Add subsection on filters
+    and limiting directory scan scope to save time.  man/man1/zip.1 (EG)
+46. Add PROCNAME definition to Unix to allow calling wild() when adding or
+    updating.  Previously the default PROCNAME was being used, which only
+    calls procname().  Add check of escaped Unicode names to procname(),
+    allowing a Unicode escaped path to be used to match archive entries,
+    as Windows allows.  Add wild() and wild_recurse() to support processing
+    of command line wildcards.  unix/osdep.h, unix/unix.c (EG)
+47. Add note that Windows needs to distinguish file symlinks from directory
+    symlinks.  win32/win32zip.c (EG)
+48. Change Readme.txt to windll/Readme.txt in title.  windll/readme.txt (EG)
+
+---------------------- September 11th 2014 version 3.1d32 ----------------------
+ 1. Minor updates.  Note that Zip 3.1d is release candidate.  betas_readme.txt
+    (EG)
+ 2. Add note at top that we are not aware of any major bugs in Zip 3.1.
+    BUGS (EG)
+ 3. Comment out debugging statement ("check_dup").  fileio.c (EG)
+ 4. Rework to bring in line with the current state of things.  INSTALL (EG)
+ 5. Updates.  README (EG)
+ 6. Add feature list for Zip 3.1d.  Updates.  WHATSNEW (EG)
+ 7. Implement sorted directory lists on Unix.  Test.  Too slow and it's
+    inefficient to sort directory lists where the entries may not all
+    get used.  Remove.  Updating check_dup() better approach.  Some formatting
+    changes.  Remove comments and printf used to trace directory sorting.
+    unix/unix.c (EG)
+ 8. Minor updates.  windll/examples/csharp10/readmecs.txt (EG)
+ 9. Implement Unix found files sorting.  Add fqcmpz_icfirst() for qsort that
+    first compares ignoring case, then for exact matches compares using case.
+10. Rename check_dup() to check_dup_sort() and add parameter sort_found_list.
+    Change sort of inames to use fqcmpz_icfirst() for UNIX and WIN32.  (Other
+    ports would need to verify fqcmpz_icfirst() works for them.)  If
+    sort_found_port, use sorted nodup[] array to redo found list pointers.
+    Add timing statements to see how long redoing pointers takes.  Comment
+    out timing statements.  fileio.c, zip.c, zip.h (EG)
+11. Update TODO list, removing items that have been done or are no longer
+    relevant and updating others.  TODO (EG)
+12. Shorten version description for ETWODD_SUPPORT.  zip.c (SMS, EG)
+13. Put show_unicode in UNICODE_SUPPORT block.  zip.c (SMS, EG)
+14. Update announcement for Zip 3.1d.  zip31d.ann (EG)
+15. Change incorrect show_unicode to unicode_show.  zip.c (EG)
+16. Change Zp_Error() to ZpErrorMessage().  api.c (SMS, EG)
+
+--------------------- September 20th 2014 version 3.1d33 ----------------------
+ 1. Clean up CHANGES and TODO.  CHANGES, TODO (EG)
+ 2. Update Readme for BZIP2.  README_BZIP2.txt (EG)
+ 3. Remove AES encryption files.  These need to be provided by Info-ZIP's
+    AES_WG source kit.  aes_wg/aes.h, aes_wg/aescrypt.c, aes_wg/aeskey.c,
+    aes_wg/aesopt.h, aes_wg/aestab.c, aes_wg/brg_endian.h, aes_wg/fileenc.c,
+    aes_wg/fileenc.h, aes_wg/hmac.c, aes_wg/hmac.h, aes_wg/iz_aes_wg.h,
+    aes_wg/LICENSE.txt, aes_wg/main.c, aes_wg/prng.c, aes_wg/prng.h,
+    aes_wg/pwd2key.c, aes_wg/pwd2key.h, aes_wg/sha1.c, aes_wg/sha1.h,
+    aes_wg/USexport.msg, aes_wg/zip-comment.txt (EG)
+ 4. Remove AES encryption files from development aes_wg_new directory.
+    aes_wg_new/aes.h, aes_wg_new/aescrypt.c, aes_wg_new/aeskey.c,
+    aes_wg_new/aesopt.h, aes_wg_new/aestab.c, aes_wg_new/aestab.h,
+    aes_wg_new/aes_via_ace.h, aes_wg_new/brg_endian.h,
+    aes_wg_new/brg_types.h, aes_wg_new/ccm.c, aes_wg_new/ccm.h,
+    aes_wg_new/mode_hdr.h, aes_wg_new/rdtsc.h (EG)
+ 5. Minor updates.  windll/examples/ReadmeEx.txt,
+    windll/examples/ReadUse.txt (EG)
+ 6. Add announcement for Zip 3.1 in preparation for release.  Draft.
+    zip31.ann (EG)
+ 7. Update manual.  Add new option -vq (--quick-version).
+    man/man1/zip.1 (EG)
+ 8. Update formatting of callback prototypes.  Add UTF-8 name to API parameters
+    of callbacks DLLPROGRESS, DLLSERVICE, DLLSERVICE_NO_INT64, and DLLECOMMENT,
+    allowing caller choice of using onames as before or using unames (when
+    available), for instance to view Unicode paths in VB 2010 example.  Change
+    names of callback parameters in prototypes to more descriptive ones.
+    api.h (EG)
+ 9. Updates to API description comments.  api.h (EG)
+10. Update ZpZipTest() to account for new UTF-8 parameter.  Update ecomment()
+    to include uname.  api.c (EG)
+11. Comment out old fqcmpz() function to avoid unused function warnings and
+    use new fqcmpz_icfirst() for iname sort compares on all ports.  Change
+    fqcmpz_icfirst() to use _stricmp() for WIN32 and strcasecmp() for all
+    other ports.  Add note that a port without an ignore case compare can
+    just use strcmp().  Use sort_found_list as check_dup_sort() parameter.
+    fileio.c (EG)
+12. Consistently derive oname from zname.  It was sometimes coming from iname
+    (internal representation of path) and other times from zname (externalized
+    version of iname).  The exception is when zname is not available, such as
+    when rebuilding a local header where only iname exists.  fileio.c,
+    zipup.c (EG)
+13. Add global unicode_entry_name for tracking uname used by progress callback.
+    globals.c, zip.h (EG)
+14. Update Unix/VMS LIB example to document callback function parameters.  Add
+    ufilename parameter where needed.  izzip_example.c (EG)
+15. Move items for later releases from end of CHANGES to TODO.  Divide TODO
+    into The Short List and The Longer List.  Subdivide The Short List into
+    sections.  Update TODO.  CHANGES, TODO (EG)
+16. On WIN32, don't use write_console() or write_consolew() if compiled as LIB
+    or DLL as there may not be an attached console to write to.  zip.c (EG)
+17. Change Traditional encryption message from "Using traditional zip
+    encryption" to "Using traditional (weak) zip encryption".  This change
+    indirectly suggested by the Oracle guys (2014/09/19 SourceForge patch
+    posting).  zip.c (EG)
+18. Set action_string when using -sf to show what would do.  Not setting it
+    in these cases resulted in empty strings in the LIB/DLL examples that
+    use it.  Make sure oname is set to z->oname/f->oname and uname is either
+    set to z->uname/f->uname if UNICODE_SUPPORT, or NULL if not.  Update calls
+    to service callback to include uname.  Remove bytes output used with
+    unicode_show for debugging.  Update calls to service_no_int64 callback to
+    include uname.  zip.c (EG)
+19. Check for existence of _WIN32_WINNT_VISTA macro to determine if Windows
+    symlinks can be supported, fixing previous test that did not work on
+    Windows XP (because _WIN32_WINNT_VISTA is undefined there).  zip.h (EG)
+20. Add "Announcement" to title of announcement.  zip31d.ann (EG)
+21. Set entry_name to z->oname (not z->zname), which is now consistently
+    a display version of z->zname (OEM conversions and such).  Set
+    unicode_entry_name to z->uname if not NULL, otherwise set to z->oname.
+    If not UNICODE_SUPPORT, set z->uname to NULL.  Add unicode_entry_name
+    to progress callback parameters.  zipup.c (EG)
+22. Fix bug where, when using Traditional encryption, small files could be
+    added and "unzip -t" used to verify successfully, but if the same Zip
+    command line was used to update the entry, "unzip -t" would fail to
+    recognize the password.  The TRADITIONAL_ENCRYPTION setup code was not
+    being executed during updates, so the CRC was being left 0 and not set
+    to the file time.  zipup.c (EG)
+23. An empty file is now considered text, so that -l and -ll don't give
+    warnings for empty files.  zipup.c (EG)
+24. Update service, service_no_int64 and progress callbacks to include uname.
+    zipup.c (EG)
+25. Fix bug in iz_file_read() where empty file was not setting file_binary
+    and file_binary_final.  Comment out iz_file_read_bt() if BZIP2_SUPPORT
+    not set to avoid unused function warning, as bzip2 is only compression
+    method to use it.  zipup.c (EG)
+26. Change error code from ZE_LOGIC to new ZE_COMPRESS in cases where
+    compression method code was generating the error.  zipup.c (EG)
+27. Update some error messages involving zlib to note these are zlib errors.
+    zipup.c (EG)
+28. Change "zlib/bzlib" to "bzlib" in error message from bzip2.  Add
+    bzip2 to some "error writing to zipfile" messages involving bzip2.  Change
+    zlib message in bzip2 code to bzip2 message.  zipup.c (EG)
+29. Remove commented out redundant "if (file_binary_final)" code.  zipup.c (EG)
+30. Update bzip2 readme, noting that the bzip2 license changed and now it's
+    possible to include bzip2 in the Zip source kit.
+    bzip2/readme_bzip2.txt (EG)
+31. Fix bug preventing use of external bzip2 library.  Change $L_BZ2E to
+    $L_BZ2.  Other updates.  unix/configure (EG)
+32. For VB10 example, add checkboxes for removing service call output and
+    for selecting if Zip output should be Unicode by adding -UN=s to command
+    line.  windll/examples/vb10/zip31vbexample/form1.designer.vb,
+    windll/examples/vb10/zip31vbexample/form1.resx (EG)
+33. Update comments at top.  Update callbacks, including adding uname where
+    needed.  Run output received by print callback through Unicode converter
+    so UTF-8 paths in output get converted to VB Unicode strings.  Output
+    Unicode to window when enabled.  Output Unicode to EntryPath_Box.  Add
+    function utf8_to_string() to convert a string received through a callback
+    to a Unicode VB string.  Add currently unused function string_to_utf8().
+    windll/examples/vb10/zip31vbexample/module1.vb (EG)
+34. Add ZipCBChar parameter for UFileName as needed.
+    windll/examples/vb6/vbzipbas.bas (EG)
+35. Change "... here.txt" file names to "...__goes_here.txt" file names.
+    Split up names using & and && to one pointer each file name.
+    windll/examples/vb10/zip32_dll.dll__goes_here.txt,
+    windll/examples/vb6/zip32_dll.dll__goes_here.txt,
+    windll/examples/vc10/c_dll_ex/zip32_dll.lib__goes_here.txt,
+    windll/examples/vc10/c_lib_ex/libbz2.lib__goes_here.txt,
+    windll/examples/vc10/c_lib_ex/zip32_lib.lib__goes_here.txt,
+    windll/examples/vc10/debug/zip32_dll.dll__goes_here.txt,
+    windll/examples/vc10/release/zip32_dll.dll__goes_here.txt,
+    windll/examples/vc6/c_dll_ex/zip32_dll.lib__goes_here.txt,
+    windll/examples/vc6/c_lib_ex/zip32_lib.lib__goes_here.txt,
+    windll/examples/vc6/c_lib_ex/zip32_libd.lib__goes_here.txt,
+    windll/examples/vc6/debug/zip32_dll.dll__goes_here.txt,
+    windll/examples/vc6/release/zip32_dll.dll__goes_here.txt (SMS, EG)
+36. Update Windows C DLL example.  Update comments.  Comment out old code.
+    Add ufilename as needed.  windll/examples/vc10/c_dll_ex.c (EG)
+37. Update readme.  windll/examples/vc10/read10ex.tst (EG)
+38. Update Windows C LIB example.  Update comments.  Comment out old code.
+    Add ufilename as needed.  windll/examples/vc10/c_lib_ex.c (EG)
+39. Update Windows XP C DLL example.  Update comments. Comment out old code.
+    Add ufilename as needed.  Change usage from c_lib_ex to c_dll_ex.
+    Put lines around calls to ZpZip() and ZpVersion().
+    windll/examples/vc6/c_dll_ex/c  (EG)
+40. Update Windows XP C LIB example.  Update comments.  Comment out old code.
+    Add ufilename as needed.  windll/examples/vc6/c_lib_ex.c (EG)
+41. Add reference to WhatsNew_DLL_LIB.txt.
+    windll/examples/vc6/readvc6ex.txt (EG)
+42. Update Zip 3.1d announcement, dividing into sections.  zip31d.ann (EG)
+
+--------------------- September 26th 2014 version 3.1d33+ ----------------------
+
+ 1. Reconciled the Unix builders with the corresponding UnZip builders.
+    Fixed various problems when "make" macros  BINS or PROD were
+    defined.  unix/configure, unix/Makefile (SMS)
+ 2. Cleared a compiler (Apple LLVM) warning. api.c (SMS)
 
 
-----------------
-For next beta:
+Remaining for Zip 3.1
+---------------------
+(Look at these before putting Zip 3.1 out.  All other items moved to TODO.)
 
-- Update man pages and other documentation in preparation for release.
-
-- Test Unicode.  Test everything once beta is stable.
-
-- Review state of AES and traditional encryption packages.
-
-- Add Windows symlink code in nt.c (based on provided example code) to support
-  Windows symlink handling.
-
-- Update the other WinDLL examples to be included.  Maybe add support for
-  LZMA and other compression options in the VS 6 projects.  Currently only
-  a base Zip is compilable under the one updated VC 6 project.  Zip 3.1 DLL
-  does compile using VC 6 project.  Update WinDLL examples to use Zip 3.1 DLL
-  interface if possible.
-
-- Automated backup options. I want to do some minor updates to this feature
-  based on experience I had using them. This one is not a priority, but the
-  changes should be relatively minor.  This was postponed to get the current
-  beta out.
-
-- Man page issue. We need to work out any issues with generating man pages and
-  the plain text documentation files.  Seems to work under my Linux build.
-
-- Look at returns and error handling in parts of get_option() to make sure
-  consistent.
-
-- Verify the -e versus -P changes are what should go out the door.  (-e no
-  longer overrides -P.)
-
-- Changes to use of -a, binary checks, and EBCDIC-to-ASCII conversion on z/OS
-  should be verified to make sure they are reasonable.
-
-- Look at anything else needed to get Zip 3.1 ready for public beta posting and
-  make sure it gets scheduled.
-
-----------------
+- Look at handling iconv Unicode to local conversions better when a
+    character not in local character set.  On Linux iconv returns "?"
+    for missing characters, which are illegal on some ports.  This
+    issue already handled when wchar_t code used instead of iconv.
+- Save execute permissions for Unix scripts in Zip source kit so scripts
+    can be run out of the box.
+- Update C# WinDLL example.
+- Check performance hit of doing binary checks on all bytes in text files.
+- Clean up Unicode and escaped Unicode display for both native and ef.
+- Test Unicode.
+- Test everything once beta is stable.
+- Verify assumption that can z->lflg = z->flg in zipup.c.
+- Consider moving ecomment() and acomment() from api.c to main code
+    and replacing embedded code for non-LIB/DLL case with these.  For
+    LIB/DLL, consider enforcing \r\n line ends.
+- Different port binaries.  Include Windows XP, Windows 7, Linux.  Others?
+- Resolve any conflicts when both zip and unzip are in same project.
+- Consider NULL compression for use with -BT.  (Would allow incremental
+    backups on computers without keeping a copy of the full archive on
+    the machine.  It may be as simple as only storing the central directory
+    and related end records.)
+- Document ENABLE_USER_PROGRESS.
+- Replace -tn with updated -X to remove universal time?
+- Switch to external directory check script in configure.
+- Look at utilities.
+- Look at -v verbose mode.
+- Test -@@.
+- Way to keep existing STORE suffix list.
+- zread(ifile, buf, 1); in zipup.c.
+- Review privilege granting in Windows SD code.  Make sure files are
+    opened with available privilege.
+- Look at total extra field size.
+- Final pass through documents.
 

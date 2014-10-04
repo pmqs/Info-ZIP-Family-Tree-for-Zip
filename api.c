@@ -1,7 +1,7 @@
 /*
   api.c - Zip 3
 
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -15,13 +15,16 @@
   This module supplies a Zip DLL engine for use directly from C/C++
   and other programs.  See api.h for more information.  This module was
   originally used only by the Windows DLL, but has been adapted for more
-  general use with the LIB interface.
+  general use with the LIB interface of some ports.  See api.h for more.
 
   The entry points are:
 
-    void EXPENTRY ZpVersion(ZpVer far *p);
-    int  EXPENTRY ZpInit(LPZIPUSERFUNCTIONS lpZipUserFunc);
-    int  EXPENTRY ZpArchive(ZCL C, LPZPOPT Opts);
+    void EXPENTRY ZpVersion()
+    int  EXPENTRY ZpInit()
+    int  EXPENTRY ZpZip()
+
+  Obsolete:
+    int  EXPENTRY ZpArchive()
 
   ---------------------------------------------------------------------------*/
 #define __API_C
@@ -37,6 +40,10 @@
 #else
   /* for other ports the mappings to standard functions in api.h are used */
 # include <stdlib.h>
+#endif
+
+#if defined(UNIX) && defined(ZIP_LIB_DLL)
+# include <unistd.h>
 #endif
 
 #ifdef OS2
@@ -58,13 +65,9 @@
 #endif
 
 
-DLLPRNT *lpZipPrint;
-DLLPASSWORD *lpZipPassword;
-extern DLLCOMMENT *lpComment;
 ZIPUSERFUNCTIONS ZipUserFunctions, far * lpZipUserFunctions;
-#ifdef ENABLE_DLL_PROGRESS
- DLLPROGRESS *lpProgressReport;
-#endif
+
+
 
 int ZipRet;
 char szOrigDir[PATH_MAX];
@@ -75,6 +78,7 @@ extern int  zipmain OF((int, char **));
 int AllocMemory(unsigned int, char *, char *, BOOL);
 int ParseString(LPSTR, unsigned int);
 void FreeArgVee(void);
+int commandline_to_argv(char *commandline, char ***pargv);
 
 ZPOPT ZipOpts;
 char **argVee;
@@ -266,24 +270,63 @@ setdisk(toupper(szOrigDir[0]) - 'A');
   ---------------------------------------------------------------------------*/
 
 
-/* ZpInit - Call first to initialize the DLL */
+/* ZpInit - Call first to initialize the LIB or DLL
+ *
+ * This can be used in a LIB application to set up function callbacks
+ * before calling zipmain().
+ *
+ * This entry point is mainly replaced by ZpZip, which does it all in one
+ * call.
+ *
+ * Avoid using ZpInit with DLL as it doesn't share.  It's use can also
+ * cause a race condition in the DLL environment.  DLL users should only
+ * use ZpZip.
+ */
 
-int EXPENTRY ZpInit(LPZIPUSERFUNCTIONS lpZipUserFunc)
+int ZIPEXPENTRY ZpInit(LPZIPUSERFUNCTIONS lpZipUserFunc)
 {
+#if 0
 ZipUserFunctions = *lpZipUserFunc;
 lpZipUserFunctions = &ZipUserFunctions;
+#endif
 
+  /* Instead of getting address for user's structure and saving
+     that, now copy over function addresses to a DLL global
+     structure. */
+  ZipUserFunctions.print            = lpZipUserFunc->print;
+  ZipUserFunctions.ecomment         = lpZipUserFunc->ecomment;
+  ZipUserFunctions.acomment         = lpZipUserFunc->acomment;
+  ZipUserFunctions.password         = lpZipUserFunc->password;
+  ZipUserFunctions.service          = lpZipUserFunc->service;
+  ZipUserFunctions.service_no_int64 = lpZipUserFunc->service_no_int64;
+  ZipUserFunctions.progress         = lpZipUserFunc->progress;
+  ZipUserFunctions.error            = lpZipUserFunc->error;
+  ZipUserFunctions.finish           = lpZipUserFunc->finish;
+
+  /* Pointer now points to local DLL structure. */
+  lpZipUserFunctions = &ZipUserFunctions;
+
+  /* It's up to user what callback functions they want to use
+     with LIB or DLL.  If the user uses -z to set an archive
+     comment without providing acomment callback, for example,
+     Zip will complain. */
+#if 0
 if (!lpZipUserFunctions->print ||
-    !lpZipUserFunctions->comment)
+    !lpZipUserFunctions->acomment)
     return FALSE;
+#endif
 
 return TRUE;
 }
 
 
-/* ZpArchive - Call to pass in options and actually do work */
+/* ZpArchive - Call to pass in options and actually do work
+ *
+ * This is replaced by ZpZip.  This entry point remains as older
+ * application code is being converted to use ZpZip.
+ */
 
-int EXPENTRY ZpArchive(ZCL C, LPZPOPT Opts)
+int ZIPEXPENTRY ZpArchive(ZCL C, LPZPOPT Opts)
 /* Add, update, freshen, or delete zip entries in a zip file.  See the
    command help in help() zip.c */
 {
@@ -676,7 +719,6 @@ if ((szTempDir != NULL) && (szTempDir[0] != '\0')) /* Use temporary directory -b
         return ZE_MEM;
     }
 
-#ifdef ENABLE_DLL_PROGRESS
 if ((ZipOpts.szProgressSize != NULL) && (ZipOpts.szProgressSize[0] != '\0')) /* Progress chunk size */
     {
       progress_chunk_size = ReadNumString(ZipOpts.szProgressSize);
@@ -685,7 +727,6 @@ if ((ZipOpts.szProgressSize != NULL) && (ZipOpts.szProgressSize[0] != '\0')) /* 
     {
       progress_chunk_size = 0;
     }
-#endif /* def ENABLE_DLL_PROGRESS */
 
 if (AllocMemory(argCee, C.lpszZipFN, "Zip file name", FALSE) != ZE_OK)
     return ZE_MEM;
@@ -742,15 +783,456 @@ return ZipRet;
 }
 
 #ifdef IZ_CRYPT_ANY
+
+#if 0
 int encr_passwd(int modeflag, char *pwbuf, int size, const char *zfn)
     {
     return (*lpZipUserFunctions->password)(pwbuf, size, ((modeflag == ZP_PW_VERIFY) ?
                   "Verify password: " : "Enter password: "),
                   (char *)zfn);
     }
+#endif
+
+/* Zip does not understand passwords for individual files (as UnZip does), so passing
+   the Zip file name (zfn) does not make sense and is, in fact, misleading, as passwords
+   are generic and not associated with a particular file in Zip.  If the caller uses
+   both the Zip and UnZip DLLs, they will need to supply separate password functions
+   to each. */
+
+int simple_encr_passwd(int modeflag, char *pwbuf, size_t bufsize)
+{
+  char *password = NULL;
+  char passwordbuf[MAX_PASSWORD_LEN + 1];
+	char prompt[20];
+	long ret;
+
+	if (modeflag == ZP_PW_VERIFY)
+      strcpy(prompt, "Verify password: ");
+	else
+	strcpy(prompt, "Enter password: ");
+
+  if ((void *)*lpZipUserFunctions->password) {
+	  if (bufsize > MAX_PASSWORD_LEN)
+		  bufsize = MAX_PASSWORD_LEN;
+#if 0
+    strcpy(passwordbuf, "12345678901");
+#endif
+    ret = (*lpZipUserFunctions->password)((long)bufsize, prompt, passwordbuf);
+    if (ret == 0)
+      return -1;
+    strcpy(pwbuf, passwordbuf);
+  }
+  else
+  {
+    ZIPERR(ZE_PARMS, "-e used to request password but no callback");
+  }
+
+return strlen(pwbuf);
+}
+
 #endif /* def IZ_CRYPT_ANY */
 
-void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
+
+
+/* --------------------------------------------- */
+/* DLL test entry points
+ */
+#ifdef WINDLL
+
+/* Currently these are only set up and tested for WINDLL (Windows
+ * LIB and DLL), though there's probably no reason these could not
+ * be made available for other platforms. */
+
+/* The below are some test DLL entry points for working out bugs in
+ * the interfacing between a user app and the DLL.
+ *
+ * See the VB example in vb10 for how to call these from VB.
+ *
+ * These may be updated or removed in a later Zip version and should
+ * not be relied on.
+ *
+ * 2014-04-08 EG
+ */
+
+
+/* Test the parsing of the input command line. */
+
+int ZIPEXPENTRY ZpTestComParse(char *commandline, char *parsedline)
+{
+  int argc;
+  char **argv;
+  char parsed[4000];
+  int i;
+  char arg[1000];
+
+  argc = commandline_to_argv(commandline, &argv);
+  
+  parsed[0] = '\0';
+
+  if (argc) {
+    for (i = 0; i < argc; i++) {
+      sprintf(arg, "\"%s\"", argv[i]);
+      if (i > 0) {
+        strcat(parsed, "  ");
+      }
+      strcat(parsed, arg);
+    }
+  }
+
+  strcpy(parsedline, parsed);
+
+  return argc;
+}
+
+
+/* Simple callback test. */
+
+void ZIPEXPENTRY ZpTestCallback(long cbAddress) {
+  /* Takes a callback address and returns a string to the
+   * caller.  VS 2010 works with char * and does not need
+   * the string arguments to be BSTR.
+   */
+  typedef void (__stdcall *FUNCPTR)(char *pstr);
+  FUNCPTR CallbackFunc;
+
+  char *mystring = "This is my string from the DLL";
+  char b[4000];
+
+  /* Point the function pointer at the passed-in address. */
+  CallbackFunc = (FUNCPTR)cbAddress;
+
+  /* Call the function through the function pointer. */
+
+  sprintf(b, "'%s'", mystring);
+  MessageBoxA(NULL, b, "Just before CallbackFunc",
+              MB_OK | MB_ICONINFORMATION);
+
+  if (CallbackFunc == NULL) {
+    MessageBoxA(NULL, "Null function - skip running it", "Just before CallbackFunc",
+                MB_OK | MB_ICONINFORMATION);
+  } else {
+    CallbackFunc(mystring);
+  }
+
+}
+
+
+/* This example shows the passing of a structure with function
+ * addresses.
+ */
+
+void ZIPEXPENTRY ZpTestCallbackStruct(LPZpTESTFUNCTION lpTestFuncStruct) {
+  /* typedef void (__stdcall *FUNCPTR)(BSTR pbstr); */
+  typedef void (__stdcall *FUNCPTR)(char *pstr);
+  FUNCPTR CallbackFunc;
+
+  char *mystring = "This is my string from the DLL";
+
+  /* Point the function pointer at the passed-in address. */
+  CallbackFunc = (FUNCPTR)lpTestFuncStruct->print;
+
+  /* Call the function through the function pointer. */
+
+  MessageBoxA(NULL, "Just before CallbackFunc", "ZpTestStructCallback",
+              MB_OK | MB_ICONINFORMATION);
+
+  if (CallbackFunc == NULL) {
+    MessageBoxA(NULL, "Null function - skip running it", "Just before CallbackFunc",
+                MB_OK | MB_ICONINFORMATION);
+  } else {
+    CallbackFunc(mystring);
+  }
+
+}
+
+
+/* Test the main Zip callbacks. */
+
+int ZIPEXPENTRY ZpZipTest(char *CommandLine, char *CurrentDir, LPZIPUSERFUNCTIONS lpZipUserFunc)
+{
+  char msg[4000];
+  long comlen;
+  int pwlen;
+  char pass[20];
+  char fname[400];
+  char uname[400];
+  zoff_t fsize;
+  zoff_t csize;
+  int aborted = 0;
+  char us[100];
+  char cs[100];
+  long perc = 0;
+
+
+  sprintf(msg, "In ZpZipTest\nCommandLine = '%s'\nCurrentDir = '%s'\n", CommandLine, CurrentDir);
+
+  MessageBoxA(NULL, msg, "ZpZip",
+                MB_OK | MB_ICONINFORMATION);
+
+  /* copy function pointers to global structure */
+  ZipUserFunctions.print = lpZipUserFunc->print;
+  ZipUserFunctions.ecomment = lpZipUserFunc->ecomment;
+  ZipUserFunctions.acomment = lpZipUserFunc->acomment;
+  ZipUserFunctions.password = lpZipUserFunc->password;
+  ZipUserFunctions.service  = lpZipUserFunc->service;
+  ZipUserFunctions.service_no_int64 = lpZipUserFunc->service_no_int64;
+  ZipUserFunctions.progress = lpZipUserFunc->progress;
+  ZipUserFunctions.error = lpZipUserFunc->error;
+  ZipUserFunctions.finish = lpZipUserFunc->finish;
+
+  lpZipUserFunctions = &ZipUserFunctions;
+
+  if (ZipUserFunctions.acomment) {
+    /* zcomlen is current zipfile comment length - should be 0 unless updating
+       an archive */
+    comlen = zcomlen;
+    acomment(comlen);
+    printf("The comment: '%s'\n", zcomment);
+  }
+
+  pwlen = simple_encr_passwd(ZP_PW_ENTER, pass, 10);
+  if (pwlen > 0)
+    printf("The password:  '%s'\n", pass);
+  else
+    printf("Did not receive a password\n");
+
+  strcpy(fname, "a file name.txt");
+  strcpy(uname, "unicode file name.txt");
+  fsize = 1200;
+  csize = 900;
+
+  WriteNumString(fsize, us);
+  WriteNumString(csize, cs);
+  if (fsize)
+    perc = percent(fsize, csize);
+
+  if (ZipUserFunctions.service != NULL)
+  {
+    if ((ZipUserFunctions.service)(fname,
+                                   uname,
+                                   us,
+                                   cs,
+                                   fsize,
+                                   csize,
+                                   "Add",
+                                   perc))
+    {
+      printf("ZpZip: service:  Zip operation would have been aborted\n");
+      aborted = 1;
+    }
+    else
+      printf("ZpZip: service:  Successful return from service callback\n");
+  }
+
+  if (ZipUserFunctions.progress != NULL)
+  {
+    if ((ZipUserFunctions.progress)(fname,
+                                    uname,
+                                    1000,
+                                    500,
+                                    300,
+                                    "300",
+                                    "Add"))
+    {
+      printf("ZpZip: progress:  Zip operation would have been aborted\n");
+      aborted = 1;
+    }
+    else
+      printf("ZpZip: progress:  Successful return from ProgressReport callback\n");
+  }
+
+  if (ZipUserFunctions.error)
+  {
+    (ZipUserFunctions.error)("ZpZip: error callback test message\n");
+  }
+
+  if (ZipUserFunctions.finish)
+  {
+    (ZipUserFunctions.finish)(us, cs, fsize, csize, perc);
+  }
+
+  sprintf(msg, "Leaving ZpZip\n");
+  MessageBoxA(NULL, msg, "ZpZip",
+                MB_OK | MB_ICONINFORMATION);
+
+  return aborted;
+}
+
+#endif /* WINDLL */
+
+/* --------------------------------------------- */
+
+/* Below are the API entry points for new Zip DLL interface. */
+
+
+/* ZpErrorMessage()
+ *
+ * This is called when an error occurs in the below DLL interfaces.  Nothing
+ * displays when an error occurs unless the user has provided a PRINT callback,
+ * an ERROR callback, or both.
+ */
+
+long ZpErrorMessage(int errcode, char *message)
+{
+  /* output message to stdout (probably redirected to PRINT callback) */
+  zprintf("%s", message);
+
+  /* output message to ERROR callback */
+  if (ZipUserFunctions.error)
+  {
+    (ZipUserFunctions.error)(message);
+  }
+
+  return errcode;
+}
+
+
+/* ZpZip()
+ *
+ * This is the new main entry point the user calls.
+ *
+ * CommandLine       - Command line to Zip that it's to execute.
+ * CurrentDir        - Dir to set as current dir.  Must be set for DLL.  Can
+ *                     be NULL for LIB (if NULL app Current Dir used.)
+ * lpZipUserFunc     - Structure that caller sets callback addresses in.
+ *                     Make sure any unused callback is set to NULL.
+ * ProgressChunkSize - If progress callback is used, this must be set to the
+ *                     number of bytes to process before next progress report
+ *                     (call of progress callback).  This is set as a string
+ *                     in the same form as used elsewhere in Zip, e.g. 50m for
+ *                     50 MiB.  This can be NULL if the progress callback is
+ *                     not used.
+ */
+
+int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
+                       LPZIPUSERFUNCTIONS lpZipUserFunc, char *ProgressChunkSize)
+{
+  char msg[MAX_ZIP_ARG_SIZE + 1];
+  int ZipReturn = 0;
+  int argc;
+  char **argv;
+  int i;
+  char arg[MAX_ZIP_ARG_SIZE + 1];
+  char parsed[MAX_ZIP_ARG_SIZE + 1];
+#if 0
+  char parsedcommandline[MAX_ARG_SIZE + 1];
+#endif
+  DWORD ret = 0;
+  char OrigDir[MAX_ZIP_ARG_SIZE + 1];
+
+  mesg = stdout;
+
+#if 0
+  sprintf(msg, "In ZpZip\nCommandLine = '%s'\nCurrentDir = '%s'\n", CommandLine, CurrentDir);
+  MessageBoxA(NULL, msg, "ZpZip",
+                MB_OK | MB_ICONINFORMATION);
+#endif
+
+  /* copy function pointers to global structure */
+  ZipUserFunctions.print = lpZipUserFunc->print;
+  ZipUserFunctions.ecomment = lpZipUserFunc->ecomment;
+  ZipUserFunctions.acomment = lpZipUserFunc->acomment;
+  ZipUserFunctions.password = lpZipUserFunc->password;
+  ZipUserFunctions.service = lpZipUserFunc->service;
+  ZipUserFunctions.service_no_int64 = lpZipUserFunc->service_no_int64;
+  ZipUserFunctions.progress = lpZipUserFunc->progress;
+  ZipUserFunctions.error = lpZipUserFunc->error;
+  ZipUserFunctions.finish = lpZipUserFunc->finish;
+
+  lpZipUserFunctions = &ZipUserFunctions;
+
+#ifdef ZIPDLL
+  /* The DLL does not know the app's current dir, so must be told.  The
+     LIB, however, has the same current dir as the caller. */
+  if (CurrentDir == NULL || strlen(CurrentDir) == 0)
+  {
+    return ZpErrorMessage(ZE_PARMS,
+           "ZpZip Error:  Empty current directory to ZpZip - aborting");
+  }
+#endif
+
+  if (ZipUserFunctions.progress != NULL) {
+    if (ProgressChunkSize == NULL) {
+      return ZpErrorMessage(ZE_PARMS,
+             "ZpZip Error:  ProgressReport callback provided but ProgressChunkSize empty");
+    }
+    progress_chunk_size = ReadNumString(ProgressChunkSize);
+    if (progress_chunk_size < 1024) {
+      return ZpErrorMessage(ZE_PARMS,
+             "ZpZip Error:  Bad ProgressChunkSize - must be >= 1k");
+    }
+  }
+
+  /* convert string command line to argv array */
+  argc = commandline_to_argv(CommandLine, &argv);
+
+  /* convert argv back to string and pass back to caller to
+     verify command line was parsed correctly */
+  parsed[0] = '\0';
+  if (argc) {
+    for (i = 0; i < argc; i++) {
+      sprintf(arg, "\"%s\"", argv[i]);
+      if (i > 0) {
+        strcat(parsed, "  ");
+      }
+      strcat(parsed, arg);
+    }
+  }
+
+#if 0
+  strcpy(parsedcommandline, "CommandLine as seen by DLL:  ");
+  strcat(parsedcommandline, parsed);
+  MessageBoxA(NULL, parsedcommandline, "ZpZip",
+                MB_OK | MB_ICONINFORMATION);
+#endif
+
+#ifdef WINDLL
+  ret = GetCurrentDirectory(MAX_ZIP_ARG_SIZE, OrigDir);
+  if ( ret == 0 )
+  {
+    sprintf(msg, "ZpZip:  GetCurrentDirectory failed: ", GetLastError());
+    return ZpErrorMessage(ZE_PARMS, msg);
+  }
+  if (ret > MAX_ZIP_ARG_SIZE)
+  {
+    sprintf(msg, "ZpZip:  GetCurrentDirectory buffer too small; need %d characters\n", ret);
+    return ZpErrorMessage(ZE_PARMS, msg);
+  }
+#endif
+
+#if 0
+  printf("ZpZip:  DLL original directory:  '%s'\n", OrigDir);
+#endif
+
+#ifdef WINDLL
+  if( !SetCurrentDirectory(CurrentDir) )
+  {
+    sprintf(msg, "ZpZip:  SetCurrentDirectory failed (%d)\n", GetLastError());
+    return ZpErrorMessage(ZE_PARMS, msg);
+  }
+#endif
+
+  /* call Zip to do the work */
+  ZipReturn = zipmain(argc, argv);
+
+#if 0
+  sprintf(msg, "Leaving ZpZip\n");
+  MessageBoxA(NULL, msg, "ZpZip",
+                MB_OK | MB_ICONINFORMATION);
+#endif
+
+  return ZipReturn;
+}
+
+
+
+/* ZpVersion()
+ *
+ * The user calls this to get version information.  This should be done before calling
+ * ZpZip() to make sure the current DLL is compatible.
+ */
+
+void ZIPEXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
 {
     char tempstring[100];       /* size of biggest entry */
     char featurelist[1000];     /* make sure this is big enough to hold everything */
@@ -759,24 +1241,27 @@ void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
 
     strcpy(tempstring, "");     /* avoid compiler not used warning */
 
-#ifdef BETA
+/* Currently flag = bit 0: is_beta,   bit 1: uses_zlib,   bit 2: Zip64 */
+#if BETA == 1
     p->flag = 1;
 #else
     p->flag = 0;
 #endif
-#ifdef IZ_CRYPT_ANY
-    p->fEncryption = TRUE;
-#else
-    p->fEncryption = FALSE;
-#endif
-    lstrcpy(p->betalevel, Z_BETALEVEL);
-    lstrcpy(p->date, REVDATE);
-
+    strcpy(p->BetaLevel, Z_BETALEVEL);
+    strcpy(p->Version, VERSION);
+    strcpy(p->RevDate, REVDATE);
+    strcpy(p->RevYMD, REVYMD);
 #ifdef ZLIB_VERSION
-    lstrcpy(p->zlib_version, ZLIB_VERSION);
+    strcpy(p->zlib_version, ZLIB_VERSION);
     p->flag |= 2;
 #else
-    p->zlib_version[0] = '\0';
+    p->zlib_Version[0] = '\0';
+#endif
+
+#ifdef IZ_CRYPT_ANY
+    p->fEncryption = 1;
+#else
+    p->fEncryption = 0;
 #endif
 
 #ifdef ZIP64_SUPPORT
@@ -791,16 +1276,23 @@ void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
     p->os2dll.major = D2_MAJORVER;
     p->os2dll.minor = D2_MINORVER;
     p->os2dll.patchlevel = D2_PATCHLEVEL;
+#else
+    p->os2dll.major = 0;
+    p->os2dll.minor = 0;
+    p->os2dll.patchlevel = 0;
 #endif
-#ifdef WINDLL
-    p->windll.major = DW_MAJORVER;
-    p->windll.minor = DW_MINORVER;
-    p->windll.patchlevel = DW_PATCHLEVEL;
+#ifdef ZIP_DLL_LIB
+    p->libdll_interface.major = LD_MAJORVER;
+    p->libdll_interface.minor = LD_MINORVER;
+    p->libdll_interface.patchlevel = LD_PATCHLEVEL;
 #endif
     p->opt_struct_size = sizeof(ZPOPT);
 
     /* feature list */
     /* all features start and end with a semicolon for easy parsing */
+
+    /* KEEP THIS LIST UP TO DATE */
+
     strcpy(featurelist, ";");
 #ifdef ASM_CRC
     strcat(featurelist, "asm_crc;");
@@ -809,10 +1301,13 @@ void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
     strcat(featurelist, "asmv;");
 #endif
 #ifdef BACKUP_SUPPORT
-    strcat( featurelist, "backup;");
+    strcat(featurelist, "backup;");
 #endif
-#ifdef DEBUG
-    strcat(featurelist, "debug;");
+#if defined(DEBUG)
+    strcat(featurelist, "debug_trace;");
+#endif
+#if defined(_DEBUG)
+    strcat(featurelist, "_debug;");
 #endif
 #ifdef USE_EF_UT_TIME
     strcat(featurelist, "ef_ut_time;");
@@ -825,10 +1320,10 @@ void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
 #endif
 #ifdef VMS
 # ifdef VMS_IM_EXTRA
-    strcat( featurelist, "vms_im_extra;");
+    strcat(featurelist, "vms_im_extra;");
 # endif
 # ifdef VMS_PK_EXTRA
-    strcat( featurelist, "vms_pk_extra;");
+    strcat(featurelist, "vms_pk_extra;");
 # endif
 #endif /* VMS */
 #ifdef WILD_STOP_AT_DIR
@@ -837,70 +1332,86 @@ void EXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
 #ifdef WIN32_OEM
     strcat(featurelist, "win32_oem;");
 #endif
+    strcpy(tempstring, "compmethods:store,deflate");
 #ifdef BZIP2_SUPPORT
-    strcat(featurelist, "bzip2;");
-#endif
-    strcpy( tempstring, "compmethods:store,deflate");
-#ifdef BZIP2_SUPPORT
-    strcat( tempstring, ",bzip2");
+    strcat(tempstring, ",bzip2");
 #endif
 #ifdef LZMA_SUPPORT
-    strcat( tempstring, ",lzma");
+    strcat(tempstring, ",lzma");
 #endif
 #ifdef PPMD_SUPPORT
-    strcat( tempstring, ",ppmd");
+    strcat(tempstring, ",ppmd");
 #endif
-    strcat( tempstring, ";");
-    strcat( featurelist, tempstring);
+    strcat(tempstring, ";");
+    strcat(featurelist, tempstring);
 #ifdef LARGE_FILE_SUPPORT
-    strcat( featurelist, "large_file;");
+    strcat(featurelist, "large_file;");
 #endif
 #ifdef ZIP64_SUPPORT
-    strcat( featurelist, "zip64;");
+    strcat(featurelist, "zip64;");
 #endif
 #ifdef UNICODE_SUPPORT
-    strcat( featurelist, "unicode;");
+    strcat(featurelist, "unicode;");
 #endif
 #ifdef UNIX
-    strcat( featurelist, "store_unix_uids_gids;");
+    strcat(featurelist, "store_unix_uids_gids;");
 # ifdef UIDGID_NOT_16BIT
-    strcat( featurelist, "uidgid_not_16bit;");
+    strcat(featurelist, "uidgid_not_16bit;");
 # else
-    strcat( featurelist, "uidgid_16bit;");
+    strcat(featurelist, "uidgid_16bit;");
 # endif
 #endif
 #ifdef IZ_CRYPT_TRAD
-    strcat( featurelist, "crypt;");
+    strcat(featurelist, "crypt;");
 #endif
 #ifdef IZ_CRYPT_AES_WG
-    strcat( featurelist, "crypt_aes_wg;");
+    strcat(featurelist, "crypt_aes_wg;");
 #endif
 #ifdef USE_ZLIB
-    strcat( featurelist, "zlib;");
-    sprintf( tempstring, "zlib_version:%s,%s;", ZLIB_VERSION, zlibVersion());
-    strcat( featurelist, tempstring);
+    strcat(featurelist, "zlib;");
+    sprintf(tempstring, "zlib_version:%s,%s;", ZLIB_VERSION, zlibVersion());
+    strcat(featurelist, tempstring);
+#endif
+#ifdef WINDOWS_LONG_PATHS
+    strcat(featurelist, "windows_long_paths;");
+#endif
+#ifdef WINDLL
+    strcat(featurelist, "windll;");
+#endif
+#ifdef ZIPLIB
+    strcat(featurelist, "ziplib;");
+#endif
+#if defined(ZIPDLL) && !defined(ZIPLIB)
+    strcat(featurelist, "zipdll;");
+#endif
+#ifdef SYMLINKS
+    strcat(featurelist, "symlinks;");
 #endif
 
-    p->szFeatures = malloc(strlen(featurelist) + 1);
-    if (p->szFeatures != NULL) {
-      strcpy(p->szFeatures, featurelist);
-    }
+    strcpy(p->szFeatures, featurelist);
 }
 
 
 /* windll/windll.[ch] stuff for non-Windows systems. */
-
-#ifdef NO_ZPARCHIVE
+/* comment() and other functions for WinDLL in windll.c. */
 
 LPSTR szCommentBuf;
 HANDLE hStr;
 
+#if 0
+
 void comment(unsigned int comlen)
 {
     unsigned int i;
-    if (comlen > 65534L)
-        comlen = (unsigned int) 65534L;
-    hStr = GlobalAlloc( GPTR, (DWORD)65535L);
+    long maxcomlen = 32767;
+    long newcomlen;
+
+    /* The entire record can't be bigger than 65535L so the comment
+       needs to be smaller than that.  Changed 65534L to 32767L.  EG */
+
+    if (comlen > 32766L)
+        comlen = (unsigned int) 32766L;
+    hStr = GlobalAlloc( GPTR, (DWORD)32767L);
     if (!hStr)
     {
         hStr = GlobalAlloc( GPTR, (DWORD) 2);
@@ -920,11 +1431,386 @@ void comment(unsigned int comlen)
     free(zcomment);
     zcomment = malloc(1);
     *zcomment = 0;
-    if (lpZipUserFunctions->comment)
+    if (lpZipUserFunctions->acomment)
     {
-        lpZipUserFunctions->comment(szCommentBuf);
+        lpZipUserFunctions->acomment(szCommentBuf, maxcomlen, &newcomlen);
+        if (newcomlen > maxcomlen)
+          newcomlen = maxcomlen;
+        szCommentBuf[newcomlen] = '\0';
     }
     return;
 }
 #endif /* NO_ZPARCHIVE */
 
+
+#if defined(ZIPLIB) || defined(ZIPDLL)
+
+/* The entire record must be less than 65535, so the comment length needs to
+   be kept well below that.  Changed 65534L to 32766L.  EG */
+
+/* This moved to zip.h */
+#if 0
+# define MAX_COM_LEN (32766L)
+#endif
+
+
+/* acomment() - Get the archive comment. */
+void acomment(long comlen)
+{
+  long ret;
+  long maxcomlen = MAX_COM_LEN;
+  long newcomlen = 0;
+
+  if (comlen > MAX_COM_LEN)
+     comlen = MAX_COM_LEN;
+
+  if (zcomment == NULL) {
+    /* create zero length string to pass to callback */
+    if ((zcomment = (char *)malloc(1)) == NULL) {
+      ZIPERR(ZE_MEM, "getting comment from callback (1)");
+    }
+    *zcomment = '\0';
+    comlen = 0;
+  } else {
+    /* make sure zcomment is NULL terminated */
+    zcomment[comlen] = '\0';
+  }
+
+  if (lpZipUserFunctions->acomment) {
+    char newcomment[MAX_COM_LEN + 1];
+  
+    if (maxcomlen > MAX_COM_LEN)
+      maxcomlen = MAX_COM_LEN;
+
+    ret = lpZipUserFunctions->acomment(zcomment, maxcomlen,
+                                       &newcomlen, newcomment);
+
+    if (ret == 0)
+      return;
+
+    if (newcomlen > maxcomlen)
+      newcomlen = maxcomlen;
+    newcomment[newcomlen] = '\0';
+
+    if (zcomment)
+      free(zcomment);
+    if ((zcomment = (char *)malloc((newcomlen + 1) * sizeof(char))) == NULL) {
+      ZIPERR(ZE_MEM, "getting comment from callback (2)");
+    }
+
+    zcomlen = (ush)newcomlen;
+    strcpy(zcomment, newcomment);
+  }
+  else
+  {
+    ZIPERR(ZE_PARMS, "-z used to request archive comment but no callback");
+  }
+}
+
+
+/* ecomment() - Get a comment for an entry. */
+void ecomment(struct zlist far *z)
+{
+  long maxcomlen = MAX_COM_LEN;
+  long newcomlen = 0;
+  char *newcomment = NULL;
+
+  /* The entire record must be less than 65535, so the comment length needs to
+   be kept well below that. */
+
+  if (z->com == 0 || z->comment == NULL) {
+    /* create zero length string to pass to callback */
+    if ((z->comment = (char *)malloc(1)) == NULL) {
+      ZIPERR(ZE_MEM, "getting comment from callback (1)");
+    }
+    z->com = 0;
+    z->comment[0] = '\0';
+  } else {
+    /* make sure entry comment is NULL terminated */
+    z->comment[z->com] = '\0';
+  }
+
+  if (lpZipUserFunctions->ecomment) {
+    long ret;
+    char newcomment[MAX_COM_LEN + 1];
+    char *oname;
+    char *uname;
+
+    oname = z->oname;
+#ifdef UNICODE_SUPPORT
+    uname = z->uname;
+#else
+    uname = NULL;
+#endif
+
+    if (maxcomlen > MAX_COM_LEN)
+      maxcomlen = MAX_COM_LEN;
+
+    ret = lpZipUserFunctions->ecomment(z->comment,
+                                       oname,
+                                       uname,
+                                       maxcomlen,
+                                       &newcomlen,
+                                       newcomment);
+
+    if (ret == 0)
+      return;
+    
+    if (newcomlen > maxcomlen)
+      newcomlen = maxcomlen;
+    newcomment[newcomlen] = '\0';
+
+    if (z->com && z->comment)
+      free(z->comment);
+    if ((z->comment = (char *)malloc((newcomlen + 1) * sizeof(char))) == NULL) {
+      ZIPERR(ZE_MEM, "getting comment from callback (2)");
+    }
+
+    z->com = (ush)newcomlen;
+    strcpy(z->comment, newcomment);
+  }
+  else
+  {
+    ZIPERR(ZE_PARMS, "-c used to request entry comment but no callback");
+  }
+}
+#endif
+
+
+/* ZpStringCopy()
+ *
+ * Copy the source string to the destination.
+ *
+ * This function does not check if the space allocated in the
+ * destination string is sufficient for holding the source string.
+ *
+ * This function is provided to allow returning string arguments in
+ * Visual Studio 2010 Visual Basic.  See vb10 example for how this is used.
+ *
+ * Returns the number of bytes in the destination.
+ */
+
+int ZIPEXPENTRY ZpStringCopy(char *deststring, char *sourcestring, int maxlength)
+{
+  int length = 0;
+
+  if (deststring == NULL || sourcestring == NULL)
+    return -1;
+
+  length = strlen(sourcestring);
+  if (length > maxlength - 1)
+    length = maxlength - 1;
+
+  strncpy(deststring, sourcestring, length);
+  deststring[length] = '\0';
+
+  return strlen(deststring);
+}
+
+
+/* commandline_to_argv()
+ *
+ * Parse a commandline string into an argv array that can then be processed
+ * by Zip.  Just break up the string into arguments at whitespace.  Respect
+ * quotes and escapes.
+ *
+ * This version is tuned for the Windows shell.  Only double quotes (" ") can enclose
+ * whitespace (not single quotes (' ')).  Escapes (like \t and \n) are not used on
+ * command line.  Assume the character encoding does not include whitespace or quotes
+ * in multi-byte sequences (UTF-8 meets this).
+ *
+ * Input is a string that is the command line to parse.  Currently this is assumed
+ * to be a byte string, though it can be a multibyte string.  Zip currently does not
+ * handle wide character command lines.
+ *
+ * Created NULL terminated argv[] returned as argument.
+ * Returns argc.  If empty or NULL commandline, returns 0.
+ *
+ * EG 2014-03-14
+ */
+int commandline_to_argv(char *commandline, char ***pargv)
+{
+  int i;
+  int argc = 0;
+  char *arg;
+  char *c;
+  char *a;
+  char *argstart;
+  int argsize;
+  char **args = NULL;
+  char *arg0 = "zip";
+  int has_space;
+  char *quote_start;
+
+  /* first arg */
+  /* allocate space for args[0] and initial termination (args[1]) */
+  if ((args = (char **)malloc(2 * sizeof(char *))) == NULL) {
+    ZIPERR(ZE_MEM, "parsing command line (1)");
+  }
+  /* set up args[0] */
+  if ((arg = (char *)malloc((strlen(arg0) + 1) * sizeof(char))) == NULL) {
+    ZIPERR(ZE_MEM, "parsing command line (2)");
+  }
+  strcpy(arg, arg0);
+  args[0] = arg;
+
+  argc = 1;
+  args[argc] = NULL;
+
+  if (commandline == NULL || commandline[0] == '\0') {
+    *pargv = args;
+ 
+    return argc;
+  }
+  
+  c = commandline;
+  
+  /* skip any leading whitespace */
+  while (*c && isspace(*c)) {
+    c++;
+  }
+  argstart = c;
+
+  while (1) {
+    /* skip over double quoted string if has space */
+    if (*c == '"') {
+      /* starting double quote */
+      has_space = 0;
+      quote_start = c;
+      while (*c) {
+        c++;
+        if (isspace(*c))
+          has_space = 1;
+        if (*c == '"') {
+          c++;
+          break;
+        }
+      }
+      if (!has_space) {
+        /* no need for quotes, so remove */
+        /* replace end quote with space */
+        c--;
+        *c = ' ';
+        /* replace start quote with space */
+        c = quote_start;
+        *c = ' ';
+        c++;
+        /* reprocess */
+        continue;
+      }
+    }
+    else
+    {
+      /* not a double quote */
+    
+      if (*c == '\0' || isspace(*c)) {
+        /* end of arg */
+        
+        /* add arg to args[] */
+        argc++;
+  
+        /* additional arg */
+        if ((args = (char **)realloc(args, (argc + 1) * sizeof(char *))) == NULL) {
+          ZIPERR(ZE_MEM, "parsing command line (3)");
+        }
+
+        argsize = c - argstart;
+        if ((arg = (char *)malloc((argsize + 1) * sizeof(char))) == NULL) {
+          ZIPERR(ZE_MEM, "parsing command line (4)");
+        }
+        for (a = argstart, i=0; a < c; a++, i++) {
+          arg[i] = *a;
+        }
+        arg[i] = '\0';
+        args[argc - 1] = arg;
+    
+        args[argc] = NULL;
+
+        /* skip whitespace */
+        while (*c && isspace(*c)) {
+          c++;
+        }
+
+        argstart = c;
+
+        if (*c == '\0') {
+          break;
+        }
+      }
+      else
+      {
+        /* skip over non-space char */
+        c++;
+      }
+    } /* not double quote */
+    
+  } /* while */
+
+  *pargv = args;
+ 
+  return argc;
+}
+
+
+/* argv_to_commandline
+ *
+ * Combine args in argv[] into a single string, excluding argv[0].
+ * If argc > 0, include up to argc arguments or until NULL arg
+ * found.  If argc = 0, include all args up to NULL arg.
+ *
+ * Return commandline string or NULL if error.
+ *
+ * 2014-07-12 EG
+ */
+char *argv_to_commandlinestring(int argc, char *argv[])
+{
+  int i;
+  char *commandline = NULL;
+  int total_size = 0;
+  int j;
+  int has_space;
+  char c;
+
+  /* add up total length needed */
+  for (i = 1; (!argc || i < argc) && argv[i]; i++)
+  {
+    /* add size of arg and 2 for double quotes */
+    total_size += (strlen(argv[i]) + 2) * sizeof(char);
+    if (i > 1)
+    {
+      /* add 1 for space between args */
+      total_size += 1 * sizeof(char);
+    }
+  }
+  /* add 1 for string terminator */
+  total_size += 1 * sizeof(char);
+
+  /* allocate space for string */
+  if ((commandline = malloc(total_size)) == NULL) {
+    return NULL;
+  }
+
+  /* build command line string */
+  commandline[0] = '\0';
+  for (i = 1; (!argc || i < argc) && argv[i]; i++)
+  {
+    if (i > 1)
+    {
+      strcat(commandline, " ");
+    }
+    /* only quote if has space */
+    has_space = 0;
+    for (j = 0; (c = argv[i][j]); j++)
+    {
+      if (isspace(c))
+        has_space = 1;
+    }
+    if (has_space)
+      strcat(commandline, "\"");
+    strcat(commandline, argv[i]);
+    if (has_space)
+      strcat(commandline, "\"");
+  }
+
+  return commandline;
+}
