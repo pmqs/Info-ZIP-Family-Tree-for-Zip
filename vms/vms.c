@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -39,6 +39,10 @@
  *      Changed to write all "-vv" diagnostic messages to "mesg" instead
  *      of "stderr", and added a "\n" prefix to the vms_fopen() message
  *      to avoid overwritten and over-long "-vv" messages.
+ *
+ *              2015-03-23      SMS
+ *      Added vms_getcwd() (because the CRTL getcwd() fails when the
+ *      size argument is zero).
  */
 
 #ifdef VMS                      /* For VMS only ! */
@@ -392,6 +396,32 @@ void vms_exit( int err)
 }
 
 
+/***************************/
+/*  Function vms_getcwd()  */
+/***************************/
+
+/* 2015-03-23 SMS.
+ * As of __VMS_VER = 80400022 and __CRTL_VER = 80400000, getcwd() fails
+ * if the size argument is 0.  Duh.
+ * styl: 0 for UNIX-style result; 1 for VMS-style result.
+ */
+
+char *vms_getcwd( char *bf, size_t sz, int styl)
+{
+    if ((bf == NULL) || (sz == 0))
+    {                                   /* We're expected to malloc storage. */
+        sz = NAMX_MAXRSS;               /* Size of the max-len file spec. */
+        bf = izz_malloc( sz+ 1);        /* Allocate the (adequate) storage. */
+    }
+    if (bf != NULL)
+    {
+        bf = getcwd( bf, sz, styl);     /* Use the lame getcwd(). */
+    }
+
+    return bf;
+}
+
+
 /******************************/
 /*  Function version_local()  */
 /******************************/
@@ -593,7 +623,7 @@ char *tempname( char *zip)
         /* Allocate temp name storage (as caller expects), and copy the
            (truncated/terminated) temp name into the new location.
         */
-        temp_name = malloc( strlen( nam.NAMX_ESA)+ 1);
+        temp_name = izz_malloc( strlen( nam.NAMX_ESA)+ 1);
 
         if (temp_name != NULL)
         {
@@ -675,7 +705,7 @@ char *ziptyp( char *s)
         /* Invalid file name.  Return (re-allocated) original, and hope
            for a later error message.
         */
-        if ((p = malloc( strlen( s)+ 1)) != NULL )
+        if ((p = izz_malloc( strlen( s)+ 1)) != NULL )
         {
             strcpy( p, s);
         }
@@ -692,7 +722,7 @@ char *ziptyp( char *s)
     status = sys$search(&fab);
     if (status & 1)
     {   /* Zip file exists.  Use resultant (complete, exact) name. */
-        if ((p = malloc( nam.NAMX_RSL+ 1)) != NULL )
+        if ((p = izz_malloc( nam.NAMX_RSL+ 1)) != NULL )
         {
             result[ nam.NAMX_RSL] = '\0';
             strcpy( p, result);
@@ -700,7 +730,7 @@ char *ziptyp( char *s)
     }
     else
     {   /* New Zip file.  Use pre-search expanded name. */
-        if ((p = malloc( exp_len+ 1)) != NULL )
+        if ((p = izz_malloc( exp_len+ 1)) != NULL )
         {
             exp[ exp_len] = '\0';
             strcpy( p, exp);

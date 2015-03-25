@@ -1,11 +1,11 @@
 # DESCRIP.MMS
 #
-#    Zip 3.1 for VMS - MMS (or MMK) Description File.
+#    Zip 3.1 for VMS -- MMS (or MMK) Description File.
 #
-#    Last revised:  2013-11-29
+#    Last revised:  2014-11-10
 #
 #----------------------------------------------------------------------
-# Copyright (c) 1998-2013 Info-ZIP.  All rights reserved.
+# Copyright (c) 1998-2014 Info-ZIP.  All rights reserved.
 #
 # See the accompanying file LICENSE, version 2009-Jan-2 or later (the
 # contents of which are also included in zip.h) for terms of use.  If,
@@ -22,7 +22,9 @@
 #
 # Optional macros:
 #
-#    AES_WG=1       Enable AES (WinZip/Gladman) encryption support.
+#    AES_WG=1       Enable/disable AES (WinZip/Gladman) encryption
+#    NOAES_WG=1     support.  Specify either AES_WG=1 or NOAES_WG=1 to
+#                   skip the [.aes_wg] source directory test.
 #
 #    CCOPTS=xxx     Compile with CC options xxx.  For example:
 #                   CCOPTS=/ARCH=HOST
@@ -34,38 +36,57 @@
 #    IM=1           Use the old "IM" scheme for storing VMS/RMS file
 #                   atributes, instead of the newer "PK" scheme.
 #
-#    IZ_BZIP2=dev:[dir]  Add optional BZIP2 support.  The value of the
-#                        MMS macro IZ_BZIP2 ("dev:[dir]", or a suitable
-#                   logical name) tells where to find "bzlib.h".  The
-#                   BZIP2 object library (LIBBZ2_NS.OLB) is expected to
-#                   be in a "[.dest]" directory under that one
+#    IZ_BZIP2=dev:[dir]  Direct/disable optional bzip2 support.  By
+#    NOIZ_BZIP2=1        default, bzip2 support is enabled, and uses the
+#                   bzip2 source kit supplied in the [.bzip2] directory.
+#                   Specify NOIZ_BZIP2=1 to disable bzip2 support.
+#                   Specify IZ_BZIP2 with a value ("dev:[dir]", or a
+#                   suitable logical name) to use the bzip2 header file
+#                   and object library found there.  The bzip2 object
+#                   library (LIBBZ2_NS.OLB) is expected to be in a
+#                   simple "[.dest]" directory under that one
+#                   ("dev:[dir.ALPHAL]", for example), or in that
+#                   directory itself.)
+#
+#    IZ_ZLIB=dev:[dir]  Use ZLIB compression library instead of internal
+#                       Deflate compression routines.  The value of the
+#                   MMS macro IZ_ZLIB ("dev:[dir]", or a suitable
+#                   logical name) tells where to find "zlib.h".  The
+#                   ZLIB object library (LIBZ.OLB) is expected to be in
+#                   a "[.dest]" directory under that one
 #                   ("dev:[dir.ALPHAL]", for example), or in that
 #                   directory itself.
 #
-#    IZ_ZLIB=dev:[dir]  Use ZLIB compression library instead of internal
-#                       compression routines.  The value of the MMS
-#                   macro IZ_ZLIB ("dev:[dir]", or a suitable logical
-#                   name) tells where to find "zlib.h".  The ZLIB object
-#                   library (LIBZ.OLB) is expected to be in a "[.dest]"
-#                   directory under that one ("dev:[dir.ALPHAL]", for
-#                   example), or in that directory itself.
-#
-#    LARGE=1        Enable large-file (>2GB) support.  Non-VAX only.
+#    LARGE=1        Enable/disable large-file (>2GB) support.  Always
+#    NOLARGE=1      disabled on VAX.  Enabled by default on Alpha and
+#                   IA64.  On Alpha, by default, large-file support is
+#                   tested, and the build will fail if that test fails.
+#                   Specify NOLARGE=1 explicitly to disable support (and
+#                   to skip the test on Alpha).
 #
 #    LIBZIP=1       Build LIBIZZIP.OLB as a callable Zip library.
 #
 #    LINKOPTS=xxx   Link with LINK options xxx.  For example:
-#                   LINKOPTS=/NOINFO   
+#                   LINKOPTS=/NOINFO
 #
 #    LIST=1         Compile with /LIST /SHOW = (ALL, NOMESSAGES).
 #                   Link with /MAP /CROSS_REFERENCE /FULL.
 #
 #    "LOCAL_ZIP=c_macro_1=value1 [, c_macro_2=value2 [...]]"
-#                   Compile with these additional C macros defined.
+#                   Compile with these additional C macros defined.  For
+#                   example:
+#                   "LOCAL_ZIP=NO_EXCEPT_SIGNALS=1, NO_SYMLINKS=1"
 #
-#    LZMA=1         Enable LZMA compression support.  Non-VAX only.
+#    NOLZMA=1       Disable LZMA compression support, which is enabled
+#                   by default.
 #
-#    PPMD=1         Enable PPMd compression support.
+#    NOPPMD=1       Disable PPMd compression support, which is enabled
+#                   by default.
+#
+#    NOSYSSHR=1     Link /NOSYSSHR (not using shareable images).
+#    NOSYSSHR=OLDVAX  Link /NOSYSSHR on VAX for:
+#                      DEC C with VMS before V7.3.
+#                      VAX C without DEC C RTL (DEC C not installed).
 #
 #    PROD=subdir    Use [.subdir] as the destination for
 #                   architecture-specific product files (.EXE, .OBJ,
@@ -98,10 +119,10 @@
 #    CLEAN_ALL  deletes all generated files, except the main (collected)
 #               source dependency file.
 #
-#    CLEAN_EXE  deletes only the architecture-specific executables. 
+#    CLEAN_EXE  deletes only the architecture-specific executables.
 #               Handy if all you wish to do is re-link the executables.
 #
-#    CLEAN_OLB  deletes only the architecture-specific object libraries. 
+#    CLEAN_OLB  deletes only the architecture-specific object libraries.
 #
 #    DASHV      generates a "zip -v" report.
 #
@@ -113,28 +134,36 @@
 #
 # Example commands:
 #
-# To build the conventional small-file product using the DEC/Compaq/HP C
-# compiler (Note: DESCRIP.MMS is the default description file name.):
+# To build the large-file product (except on VAX) with all the available
+# optional compression methods using the DEC/Compaq/HP C compiler (Note:
+# DESCRIP.MMS is the default description file name.):
 #
 #    MMS /DESCRIP = [.VMS]
 #
-# To get the large-file executables (on a non-VAX system):
+# To get small-file executables (on a non-VAX system):
 #
-#    MMS /DESCRIP = [.VMS] /MACRO = (LARGE=1)
+#    MMS /DESCRIP = [.VMS] /MACRO = (NOLARGE=1)
 #
 # To delete the architecture-specific generated files for this system
 # type:
 #
-#    MMS /DESCRIP = [.VMS] /MACRO = (LARGE=1) CLEAN     ! Large-file.
-# or
-#    MMS /DESCRIP = [.VMS] CLEAN                        ! Small-file.
+#    MMS /DESCRIP = [.VMS] CLEAN
+#    MMS /DESCRIP = [.VMS] /MACRO = (NOLARGE=1) CLEAN   ! Non-VAX,
+#                                                       ! small-file.
 #
-# To build a complete small-file product for debug with compiler
-# listings and link maps:
+# To build a complete product for debug with compiler listings and link
+# maps:
 #
 #    MMS /DESCRIP = [.VMS] CLEAN
 #    MMS /DESCRIP = [.VMS] /MACRO = (DBG=1, LIST=1)
 #
+#
+#    Note that option macros like NOLARGE or PROD affect the destination
+#    directory for various product files, including executables, and
+#    various clean and test targets (CLEAN, DASHV, and so on) need
+#    to use the proper destination directory.  Thus, if NOLARGE or PROD
+#    is specified for a build, then the same macro must be specified for
+#    the various clean and test targets, too.
 #
 #    Note that on a Unix system, LOCAL_ZIP contains compiler
 #    options, such as "-g" or "-DNO_USER_PROGRESS", but on a VMS
@@ -203,7 +232,10 @@ LIBZIP_OPT = [.$(DEST)]LIB_IZZIP.OPT
 ALL : $(ZIP) $(ZIP_CLI) $(ZIPUTILS) $(ZIP_HELP) $(ZIP_MSG_EXE) $(LIBZIP_OPT)
 	@ write sys$output "Done."
 
-# CLEAN target.  Delete the [.$(DEST)] directory and everything in it.
+# CLEAN* targets.  These also similarly clean a local bzip2 directory.
+
+# CLEAN target.  Delete:
+#    The [.$(DEST)] directory and everything in it.
 
 CLEAN :
 	if (f$search( "[.$(DEST)]*.*") .nes. "") then -
@@ -212,6 +244,16 @@ CLEAN :
 	 set protection = w:d $(DEST).DIR;*
 	if (f$search( "$(DEST).DIR") .nes. "") then -
 	 delete /noconfirm $(DEST).DIR;*
+.IFDEF BUILD_BZIP2              # BUILD_BZIP2
+	@ write sys$output ""
+	@ write sys$output "Cleaning bzip2..."
+	def_dev_dir_orig = f$environment( "default")
+	set default $(IZ_BZIP2)
+	$(MMS) $(MMSQUALIFIERS) /DESCR=[.vms]descrip.mms -
+	 $(IZ_BZIP2_MACROS) -
+	 $(MMSTARGETS)
+	set default 'def_dev_dir_orig'
+.ENDIF				# BUILD_BZIP2
 
 # CLEAN_ALL target.  Delete:
 #    The [.$(DEST)] directory and everything in it (CLEAN),
@@ -276,19 +318,53 @@ CLEAN_ALL : CLEAN
 CLEAN_EXE :
 	if (f$search( "[.$(DEST)]*.EXE") .nes. "") then -
 	 delete /noconfirm [.$(DEST)]*.EXE;*
+.IFDEF BUILD_BZIP2              # BUILD_BZIP2
+	@ write sys$output ""
+	@ write sys$output "Cleaning bzip2..."
+	def_dev_dir_orig = f$environment( "default")
+	set default $(IZ_BZIP2)
+	$(MMS) $(MMSQUALIFIERS) /DESCR=[.vms]descrip.mms -
+	 $(IZ_BZIP2_MACROS) -
+	 $(MMSTARGETS)
+	set default 'def_dev_dir_orig'
+.ENDIF				# BUILD_BZIP2
 
-# CLEAN_OLB target.  Delete the executables in [.$(DEST)].
+# CLEAN_OLB target.  Delete the object libraries in [.$(DEST)].
 
 CLEAN_OLB :
 	if (f$search( "[.$(DEST)]*.OLB") .nes. "") then -
 	 delete /noconfirm [.$(DEST)]*.OLB;*
+.IFDEF BUILD_BZIP2              # BUILD_BZIP2
+	@ write sys$output ""
+	@ write sys$output "Cleaning bzip2..."
+	def_dev_dir_orig = f$environment( "default")
+	set default $(IZ_BZIP2)
+	$(MMS) $(MMSQUALIFIERS) /DESCR=[.vms]descrip.mms -
+	 $(IZ_BZIP2_MACROS) -
+	 $(MMSTARGETS)
+	set default 'def_dev_dir_orig'
+.ENDIF				# BUILD_BZIP2
+
+CLEAN_TEST :
+.IFDEF BUILD_BZIP2              # BUILD_BZIP2
+	@ write sys$output ""
+	@ write sys$output "Cleaning bzip2..."
+	def_dev_dir_orig = f$environment( "default")
+	set default $(IZ_BZIP2)
+	$(MMS) $(MMSQUALIFIERS) /DESCR=[.vms]descrip.mms -
+	 $(IZ_BZIP2_MACROS) -
+	 $(MMSTARGETS)
+	set default 'def_dev_dir_orig'
+.ELSE 				# BUILD_BZIP2
+	@ write sys$output "No action needed."
+.ENDIF				# BUILD_BZIP2
 
 # DASHV target.  Generate a "zip -v" report.
 
 DASHV :
 	mcr [.$(DEST)]zip -v
 
-# HELP target.  Generate the HELP files.
+# HELP target.  Generate the HELP library source files.
 
 HELP : $(ZIP_HELP)
 	@ write sys$output "Done."
@@ -400,22 +476,38 @@ $(OPT_ID) :
 	write opt_file_ln "Ident = ""Zip ''f$trnlnm( "iz_zip_versn")'"""
 	close opt_file_ln
 
+# Local BZIP2 object library.
+
+$(LIB_BZ2_LOCAL) :
+	@ write sys$output ""
+	@ write sys$output "Building bzip2..."
+	def_dev_dir_orig = f$environment( "default")
+	set default $(IZ_BZIP2)
+	$(MMS) $(MMSQUALIFIERS) /DESCR=[.vms]descrip.mms -
+	 $(IZ_BZIP2_MACROS) -
+	 $(MMSTARGETS)
+	set default 'def_dev_dir_orig'
+	@ write sys$output ""
+
 # Normal Zip executable.
 
-$(ZIP) : [.$(DEST)]ZIP.OBJ $(LIB_ZIP) $(OPT_FILE) $(OPT_ID)
+$(ZIP) : [.$(DEST)]ZIP.OBJ $(LIB_ZIP) \
+          $(LIB_BZ2_DEP) $(OPT_FILE) $(OPT_ID)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIP) /library,  -
 	 $(LIB_BZIP2_OPTS) -
 	 $(LIB_ZIP) /library,  -
 	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
-	 $(OPT_ID) /options
+	 $(OPT_ID) /options -
+	 $(NOSYSSHR_OPTS)
 
 
 # CLI Zip executable.
 
 $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
-             $(LIB_ZIPCLI) $(LIB_ZIP) $(OPT_ID) $(OPT_FILE) $(OPT_ID)
+              $(LIB_ZIPCLI) $(LIB_ZIP) $(LIB_BZ2_DEP) \
+              $(OPT_FILE) $(OPT_ID)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPCLI) /library, -
 	 $(LIB_ZIP) /library, -
@@ -423,34 +515,39 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
 	 $(LIB_ZIP) /library, -
 	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
-	 $(OPT_ID) /options
+	 $(OPT_ID) /options -
+	 $(NOSYSSHR_OPTS)
+
 
 # Utility executables.
 
 [.$(DEST)]ZIPCLOAK.EXE : [.$(DEST)]ZIPCLOAK.OBJ \
-                         $(LIB_ZIPUTILS) \
-                         $(OPT_ID) $(OPT_FILE) $(OPT_ID)
+                          $(LIB_ZIPUTILS) $(LIB_BZ2_DEP) \
+                          $(OPT_FILE) $(OPT_ID)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /library, -
 	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
-	 $(OPT_ID) /options
+	 $(OPT_ID) /options -
+	 $(NOSYSSHR_OPTS)
 
 [.$(DEST)]ZIPNOTE.EXE : [.$(DEST)]ZIPNOTE.OBJ \
-                        $(LIB_ZIPUTILS) \
-                        $(OPT_ID) $(OPT_FILE) $(OPT_ID)
+                        $(LIB_ZIPUTILS) $(LIB_BZ2_DEP) \
+                        $(OPT_FILE) $(OPT_ID)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /library, -
 	 $(LFLAGS_ARCH) -
-	 $(OPT_ID) /options
+	 $(OPT_ID) /options -
+	 $(NOSYSSHR_OPTS)
 
 [.$(DEST)]ZIPSPLIT.EXE : [.$(DEST)]ZIPSPLIT.OBJ \
-                         $(LIB_ZIPUTILS) \
-                         $(OPT_ID) $(OPT_FILE) $(OPT_ID)
+                         $(LIB_ZIPUTILS) $(LIB_BZ2_DEP) \
+                         $(OPT_FILE) $(OPT_ID)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /library, -
 	 $(LFLAGS_ARCH) -
-	 $(OPT_ID) /options
+	 $(OPT_ID) /options -
+	 $(NOSYSSHR_OPTS)
 
 # Help library source files.
 
@@ -470,16 +567,16 @@ ZIP_CLI.HLP : [.VMS]ZIP_CLI.HELP [.VMS]CVTHELP.TPU
 .HLP.HTX :
 	help_temp_name = "help_temp_"+ f$getjpi( 0, "PID")
 	if (f$search( help_temp_name+ ".HLB") .nes. "") then -
-         delete 'help_temp_name'.HLB;*
+         delete /noconfirm 'help_temp_name'.HLB;*
 	library /create /help 'help_temp_name'.HLB $(MMS$SOURCE)
 	help /library = sys$disk:[]'help_temp_name'.HLB -
          /output = 'help_temp_name'.OUT zip...
-	delete 'help_temp_name'.HLB;*
+	delete /noconfirm 'help_temp_name'.HLB;*
 	create /fdl = [.VMS]STREAM_LF.FDL $(MMS$TARGET)
 	open /append help_temp $(MMS$TARGET)
 	copy 'help_temp_name'.OUT help_temp
 	close help_temp
-	delete 'help_temp_name'.OUT;*
+	delete /noconfirm 'help_temp_name'.OUT;*
 
 ZIP.HTX : ZIP.HLP [.VMS]STREAM_LF.FDL
 
@@ -495,7 +592,7 @@ $(ZIP_MSG_OBJ) : $(ZIP_MSG_MSG)
 
 $(ZIP_MSG_MSG) : ZIPERR.H [.VMS]STREAM_LF.FDL [.VMS]VMS_MSG_GEN.C
 	$(CC) /include = [] /object = [.$(DEST)]VMS_MSG_GEN.OBJ -
-	 [.VMS]VMS_MSG_GEN.C 
+	 [.VMS]VMS_MSG_GEN.C
 	$(LINK) /executable = [.$(DEST)]VMS_MSG_GEN.EXE -
 	 $(LFLAGS_ARCH) -
 	 [.$(DEST)]VMS_MSG_GEN.OBJ
@@ -503,10 +600,12 @@ $(ZIP_MSG_MSG) : ZIPERR.H [.VMS]STREAM_LF.FDL [.VMS]VMS_MSG_GEN.C
 	define /user_mode sys$output $(MMS$TARGET)
 	run [.$(DEST)]VMS_MSG_GEN.EXE
 	purge $(MMS$TARGET)
-	delete [.$(DEST)]VMS_MSG_GEN.EXE;*, [.$(DEST)]VMS_MSG_GEN.OBJ;*
+	delete  /noconfirm [.$(DEST)]VMS_MSG_GEN.EXE;*, -
+	 [.$(DEST)]VMS_MSG_GEN.OBJ;*
 
 # Library link options file.
 
+.IFDEF LIBZIP                   # LIBZIP
 $(LIBZIP_OPT) : [.VMS]STREAM_LF.FDL
 	def_dev_dir_orig = f$environment( "default")
 	set default [.$(DEST)]
@@ -526,6 +625,7 @@ $(LIBZIP_OPT) : [.VMS]STREAM_LF.FDL
 	if ("$(LIB_ZLIB_OPTS)" .nes. "") then -
          write opt_file_lib "$(LIB_ZLIB_OPTS)" - ","
 	close opt_file_lib
+.ENDIF                          # LIBZIP
 
 # Include generated source dependencies.
 

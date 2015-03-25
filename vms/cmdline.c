@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -26,7 +26,7 @@
  */
 #if 0
 # define module_name VMS_ZIP_CMDLINE
-# define module_ident "02-011"
+# define module_ident "02-015"
 #endif /* 0 */
 
 /*
@@ -44,6 +44,14 @@
 **              returned to Zip.
 **
 **  Modified by:
+**
+**      02-015          Steven Schweda          24-MAR-2015
+**              Added /[NO]ARGFILES (-AF), /BACKUP = (CONTROL,
+**              DIRECTORY, LOG, NAME, TYPE) (-BC, -BD, -BL, -BN, -BT),
+**              /DEFAULT_DIRECTORY (-cd), /ENCRYPT = SHORT_PASSWORD
+**              (-ps), /PREFIX = ([ ALL | NEW ], PATH) (-pa, -pp),
+**              /STATISTICS = TIME (-pt), /[NO]STREAM (-st),
+**              /VERSION = BRIEF (-vq).
 **
 **      02-014          Steven Schweda          08-MAY-2012
 **              Changed /BATCH = file to use (new) "-@@ file" option,
@@ -216,9 +224,13 @@ $DESCRIPTOR(cli_exlist,         "EXLIST");              /* -x@ */
 $DESCRIPTOR(cli_inlist,         "INLIST");              /* -i@ */
 $DESCRIPTOR(cli_adjust,         "ADJUST_OFFSETS");      /* -A */
 $DESCRIPTOR(cli_append,         "APPEND");              /* -g */
+$DESCRIPTOR(cli_argfiles,       "ARGFILES");            /* -AF */
 #ifdef BACKUP_SUPPORT
-$DESCRIPTOR(cli_backup,         "BACKUP");              /* -BP, -BT */
-$DESCRIPTOR(cli_backup_path,    "BACKUP.PATH");         /* -BP */
+$DESCRIPTOR(cli_backup,         "BACKUP");      /* -BC, -BD, -BL, -BN, -BT */
+$DESCRIPTOR(cli_backup_control, "BACKUP.CONTROL");      /* -BC */
+$DESCRIPTOR(cli_backup_dir,     "BACKUP.DIRECTORY");    /* -BD */
+$DESCRIPTOR(cli_backup_log,     "BACKUP.LOG");          /* -BL */
+$DESCRIPTOR(cli_backup_name,    "BACKUP.NAME");         /* -BN */
 $DESCRIPTOR(cli_backup_type,    "BACKUP.TYPE");         /* -BT */
 $DESCRIPTOR(cli_backup_type_diff, "BACKUP.TYPE.DIFFERENTIAL"); /* -BT diff */
 $DESCRIPTOR(cli_backup_type_full, "BACKUP.TYPE.FULL");         /* -BT full */
@@ -247,18 +259,21 @@ $DESCRIPTOR(cli_compression_p_s,"COMPRESSION.PPMD.SUFFIX");     /* -n */
 $DESCRIPTOR(cli_compression_s,  "COMPRESSION.STORE");           /* -Zs */
 $DESCRIPTOR(cli_compression_s_s,"COMPRESSION.STORE.SUFFIX");    /* -n */
 $DESCRIPTOR(cli_copy_entries,   "COPY_ENTRIES");        /* -U */
+#ifdef CHANGE_DIRECTORY
+$DESCRIPTOR(cli_default_dir,    "DEFAULT_DIRECTORY");   /* -cd */
+#endif /* def CHANGE_DIRECTORY */
 $DESCRIPTOR(cli_descriptors,    "DESCRIPTORS");         /* -fd */
 $DESCRIPTOR(cli_difference,     "DIFFERENCE");          /* -DF */
 $DESCRIPTOR(cli_dirnames,       "DIRNAMES");            /* -D */
 $DESCRIPTOR(cli_display,        "DISPLAY");             /* -d? */
 $DESCRIPTOR(cli_display_bytes,  "DISPLAY.BYTES");       /* -db */
 $DESCRIPTOR(cli_display_counts, "DISPLAY.COUNTS");      /* -dc */
-$DESCRIPTOR(cli_display_dots,   "DISPLAY.DOTS");        /* -dd,-ds */
+$DESCRIPTOR(cli_display_dots,   "DISPLAY.DOTS");        /* -dd, -ds */
 $DESCRIPTOR(cli_display_globaldots, "DISPLAY.GLOBALDOTS"); /* -dg */
 $DESCRIPTOR(cli_display_usize,  "DISPLAY.USIZE");       /* -du */
 $DESCRIPTOR(cli_display_volume, "DISPLAY.VOLUME");      /* -dv */
 $DESCRIPTOR(cli_dot_version,    "DOT_VERSION");         /* -ww */
-$DESCRIPTOR(cli_encrypt,        "ENCRYPT");             /* -e,-P,-pn,-Y */
+$DESCRIPTOR(cli_encrypt,        "ENCRYPT");             /* -e, -P, -pn, -Y */
 $DESCRIPTOR(cli_encrypt_ansi,   "ENCRYPT.ANSI_PASSWORD"); /* -pn */
 $DESCRIPTOR(cli_encrypt_mthd,   "ENCRYPT.METHOD");      /* -Y */
 $DESCRIPTOR(cli_encrypt_mthd_aes128, "ENCRYPT.METHOD.AES128"); /* -Y AES128 */
@@ -266,6 +281,7 @@ $DESCRIPTOR(cli_encrypt_mthd_aes192, "ENCRYPT.METHOD.AES192"); /* -Y AES192 */
 $DESCRIPTOR(cli_encrypt_mthd_aes256, "ENCRYPT.METHOD.AES256"); /* -Y AES256 */
 $DESCRIPTOR(cli_encrypt_mthd_trad, "ENCRYPT.METHOD.TRAD"); /* -Y Traditional */
 $DESCRIPTOR(cli_encrypt_pass,   "ENCRYPT.PASSWORD");    /* -P */
+$DESCRIPTOR(cli_encrypt_short,  "ENCRYPT.SHORT_PASSWORD");     /* -ps */
 $DESCRIPTOR(cli_extra_fields,   "EXTRA_FIELDS");        /* -X [/NO] */
 $DESCRIPTOR(cli_extra_fields_normal, "EXTRA_FIELDS.NORMAL"); /* no -X */
 $DESCRIPTOR(cli_extra_fields_keep, "EXTRA_FIELDS.KEEP_EXISTING"); /* -X- */
@@ -273,12 +289,12 @@ $DESCRIPTOR(cli_filesync,       "FILESYNC");            /* -FS */
 $DESCRIPTOR(cli_fix_archive,    "FIX_ARCHIVE");         /* -F[F] */
 $DESCRIPTOR(cli_fix_normal,     "FIX_ARCHIVE.NORMAL");  /* -F */
 $DESCRIPTOR(cli_fix_full,       "FIX_ARCHIVE.FULL");    /* -FF */
-$DESCRIPTOR(cli_full_path,      "FULL_PATH");           /* -j-,-j */
+$DESCRIPTOR(cli_full_path,      "FULL_PATH");           /* -j-, -j */
 $DESCRIPTOR(cli_grow,           "GROW");                /* -g */
 $DESCRIPTOR(cli_help,           "HELP");                /* -h */
 $DESCRIPTOR(cli_help_normal,    "HELP.NORMAL");         /* -h */
 $DESCRIPTOR(cli_help_extended,  "HELP.EXTENDED");       /* -h2 */
-$DESCRIPTOR(cli_junk,           "JUNK");                /* -j,-j- */
+$DESCRIPTOR(cli_junk,           "JUNK");                /* -j, -j- */
 $DESCRIPTOR(cli_keep_version,   "KEEP_VERSION");        /* -w */
 $DESCRIPTOR(cli_latest,         "LATEST");              /* -o */
 $DESCRIPTOR(cli_level,          "LEVEL");               /* -[0-9] */
@@ -293,7 +309,7 @@ $DESCRIPTOR(cli_level_7,        "LEVEL.7");             /* -7 */
 $DESCRIPTOR(cli_level_8,        "LEVEL.8");             /* -8 */
 $DESCRIPTOR(cli_level_9,        "LEVEL.9");             /* -9 */
 $DESCRIPTOR(cli_license,        "LICENSE");             /* -L */
-$DESCRIPTOR(cli_log_file,       "LOG_FILE");            /* -la,-lf,-li */
+$DESCRIPTOR(cli_log_file,       "LOG_FILE");            /* -la, -lf, -li */
 $DESCRIPTOR(cli_log_file_append, "LOG_FILE.APPEND");    /* -la */
 $DESCRIPTOR(cli_log_file_file,  "LOG_FILE.FILE");       /* -lf */
 $DESCRIPTOR(cli_log_file_info,  "LOG_FILE.INFORMATIONAL"); /* -li */
@@ -303,6 +319,10 @@ $DESCRIPTOR(cli_patt_case,      "PATTERN_CASE");        /* -ic[-] */
 $DESCRIPTOR(cli_patt_case_blind, "PATTERN_CASE.BLIND"); /* -ic */
 $DESCRIPTOR(cli_patt_case_sensitive, "PATTERN_CASE.SENSITIVE"); /* -ic- */
 $DESCRIPTOR(cli_pkzip,          "PKZIP");               /* -k */
+$DESCRIPTOR(cli_prefix,         "PREFIX");              /* -pa, -pp */
+$DESCRIPTOR(cli_prefix_all,     "PREFIX.ALL");          /* -pp */
+$DESCRIPTOR(cli_prefix_new,     "PREFIX.NEW");          /* -pa */
+$DESCRIPTOR(cli_prefix_path,    "PREFIX.PATH");         /* -pa, -pp */
 $DESCRIPTOR(cli_pres_case,      "PRESERVE_CASE");       /* -C */
 $DESCRIPTOR(cli_pres_case_no2,  "PRESERVE_CASE.NOODS2");/* -C2- */
 $DESCRIPTOR(cli_pres_case_no5,  "PRESERVE_CASE.NOODS5");/* -C5- */
@@ -320,12 +340,15 @@ $DESCRIPTOR(cli_show_files_usize, "SHOW.FILES.USIZE");  /* -sF=usize */
 $DESCRIPTOR(cli_show_options,   "SHOW.OPTIONS");        /* -so */
 $DESCRIPTOR(cli_show_suffixes,  "SHOW.SUFFIXES");       /* -ss */
 $DESCRIPTOR(cli_since,          "SINCE");               /* -t */
-$DESCRIPTOR(cli_split,          "SPLIT");               /* -s,-sb,-sp,-sv */
+$DESCRIPTOR(cli_split,          "SPLIT");               /* -s, -sb, -sp, -sv */
 $DESCRIPTOR(cli_split_bell,     "SPLIT.BELL");          /* -sb */
 $DESCRIPTOR(cli_split_pause,    "SPLIT.PAUSE");         /* -sp */
 $DESCRIPTOR(cli_split_size,     "SPLIT.SIZE");          /* -s */
 $DESCRIPTOR(cli_split_verbose,  "SPLIT.VERBOSE");       /* -sv */
+$DESCRIPTOR(cli_statistics,     "STATISTICS");          /* -pt */
+$DESCRIPTOR(cli_statistics_time, "STATISTICS.TIME");    /* -pt */
 $DESCRIPTOR(cli_store_types,    "STORE_TYPES");         /* -n */
+$DESCRIPTOR(cli_stream,         "STREAM");              /* -st */
 $DESCRIPTOR(cli_sverbose,       "SVERBOSE");            /* -sv */
 $DESCRIPTOR(cli_symlinks,       "SYMLINKS");            /* -y */
 $DESCRIPTOR(cli_temp_path,      "TEMP_PATH");           /* -b */
@@ -339,6 +362,8 @@ $DESCRIPTOR(cli_verbose,        "VERBOSE");             /* -v[v[v]] */
 $DESCRIPTOR(cli_verbose_normal, "VERBOSE.NORMAL");      /* -v */
 $DESCRIPTOR(cli_verbose_more,   "VERBOSE.MORE");        /* -vv */
 $DESCRIPTOR(cli_verbose_command,"VERBOSE.COMMAND");     /* (none) */
+$DESCRIPTOR(cli_version,        "VERSION");             /* -v, --version, -vq */
+$DESCRIPTOR(cli_version_brief,  "VERSION.BRIEF");       /* -vq */
 $DESCRIPTOR(cli_volume_label,   "VOLUME_LABEL");        /* -$ */
 $DESCRIPTOR(cli_vms,            "VMS");                 /* -V */
 $DESCRIPTOR(cli_vms_all,        "VMS.ALL");             /* -VV */
@@ -647,12 +672,37 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         append_simple_opt( OPT_U);
     }
 
+
+    /*
+    **  Enable argument files.
+    */
+#define OPT_AF  "-AF"           /* Enable. */
+#define OPT_AFN "-AF-"          /* Disable. */
+
+    status = cli$present( &cli_argfiles);
+    if ((status & 1) || (status == CLI$_NEGATED))
+    {
+        if (status == CLI$_NEGATED)
+        {
+            /* /NOARGFILES */
+            append_simple_opt( OPT_AFN);
+        }
+        else
+        {
+            /* /ARGFILES */
+            append_simple_opt( OPT_AF);
+        }
+    }
+
     /*
     **  Backup path, type.
     */
 #ifdef BACKUP_SUPPORT
 
-#define OPT_BP  "-BP"           /* Backup path. */
+#define OPT_BC  "-BC"           /* Backup control directory. */
+#define OPT_BD  "-BD"           /* Backup directory. */
+#define OPT_BL  "-BL"           /* Backup log [=directory]. */
+#define OPT_BN  "-BN"           /* Backup name. */
 #define OPT_BT  "-BT"           /* Backup type. */
 #define OPT_BTD "diff"          /* Backup type differential. */
 #define OPT_BTF "full"          /* Backup type full. */
@@ -664,11 +714,63 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     {
         char *opt = NULL;
 
-        if ((status = cli$present(&cli_backup_path)) & 1)
+        if ((status = cli$present(&cli_backup_control)) & 1)
         {
-            append_simple_opt( OPT_BP);
+            /* /BACKUP = CONTROL = dir */
+            append_simple_opt( OPT_BC);
 
-            if (cli$get_value( &cli_backup_path, &work_str) & 1)
+            if (cli$get_value( &cli_backup_control, &work_str) & 1)
+            {
+                x = cmdl_len;
+                cmdl_len += work_str.dsc$w_length+ 1;
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                strncpy( &the_cmd_line[ x], work_str.dsc$a_pointer,
+                 work_str.dsc$w_length);
+                the_cmd_line[ cmdl_len- 1] = '\0';
+            }
+        }
+
+        if ((status = cli$present(&cli_backup_dir)) & 1)
+        {
+            /* /BACKUP = DIRECTORY = dir */
+            append_simple_opt( OPT_BD);
+
+            if (cli$get_value( &cli_backup_dir, &work_str) & 1)
+            {
+                x = cmdl_len;
+                cmdl_len += work_str.dsc$w_length+ 1;
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                strncpy( &the_cmd_line[ x], work_str.dsc$a_pointer,
+                 work_str.dsc$w_length);
+                the_cmd_line[ cmdl_len- 1] = '\0';
+            }
+        }
+
+        if ((status = cli$present(&cli_backup_log)) & 1)
+        {
+            /* /BACKUP = LOG [= dir] */
+            append_simple_opt( OPT_BL);
+
+            if (cli$get_value( &cli_backup_log, &work_str) & 1)
+            {   /* Add optional "=dir" value. */
+                x = cmdl_len- 1;        /* Overwrite NUL terminator, */
+                the_cmd_line[ x] = '='; /* and don't increment cmdl_len. */
+
+                x = cmdl_len;
+                cmdl_len += work_str.dsc$w_length+ 1;
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                strncpy( &the_cmd_line[ x], work_str.dsc$a_pointer,
+                 work_str.dsc$w_length);
+                the_cmd_line[ cmdl_len- 1] = '\0';
+            }
+        }
+
+        if ((status = cli$present(&cli_backup_name)) & 1)
+        {
+            /* /BACKUP = NAME = name */
+            append_simple_opt( OPT_BN);
+
+            if (cli$get_value( &cli_backup_name, &work_str) & 1)
             {
                 x = cmdl_len;
                 cmdl_len += work_str.dsc$w_length+ 1;
@@ -837,6 +939,25 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
+    **  Default directory.
+    */
+#define OPT_CD   "-cd"          /* Set default directory. */
+
+    status = cli$present( &cli_default_dir);
+    if (status & 1)
+    {
+        /* /DEFAULT_DIRECTORY */
+        status = cli$get_value( &cli_default_dir, &work_str);
+        if (status & 1)
+        {
+            /* /DEFAULT_DIRECTORY = value (required argument) */
+            work_str.dsc$a_pointer[work_str.dsc$w_length] = '\0';
+            append_simple_opt( OPT_CD);
+            append_simple_opt( work_str.dsc$a_pointer);
+        }
+    }
+
+    /*
     **  Data descriptors.
     */
 #define OPT_FD  "-fd"           /* Force descriptors. */
@@ -878,6 +999,8 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 #define OPT_P     "-P"          /* Password. */
 #define OPT_PN    "-pn"         /* Permit non-ANSI chars in password. */
 #define OPT_PNN   "-pn-"        /* Permit only ANSI chars in password. */
+#define OPT_PS    "-ps"         /* Permit short password. */
+#define OPT_PSN   "-ps-"        /* Permit only non-short password. */
 #define OPT_Y_    "-Y"          /* Method. */
 #define OPT_YA128 "AES128"      /* Method AES128. */
 #define OPT_YA192 "AES192"      /* Method AES192. */
@@ -948,6 +1071,23 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             else
             {   /* Traditional. */
                 opt = OPT_YTRAD;
+            }
+            append_simple_opt( opt);
+        }
+
+        status = cli$present( &cli_encrypt_short);
+        if ((status & 1) || (status == CLI$_NEGATED))
+        {
+            /* /ENCRYPT = [NO]SHORT_PASSWORD */
+            if (status == CLI$_NEGATED)
+            {
+                /* /ENCRYPT = NOSHORT_PASSWORD */
+                opt = OPT_PS;
+            }
+            else
+            {
+                /* /ENCRYPT = SHORT_PASSWORD */
+                opt = OPT_PSN;
             }
             append_simple_opt( opt);
         }
@@ -1141,6 +1281,42 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
+    **  Add path prefix.
+    */
+#define OPT_PA  "-pa"           /* Add prefix to new (added/updated) members. */
+#define OPT_PP  "-pp"           /* Add prefix to all members. */
+
+    status = cli$present( &cli_prefix);
+    if (status & 1)
+    {
+        char *opt = NULL;
+
+        if ((status = cli$present( &cli_prefix_all)) & 1)
+        {
+            /* /PREFIX = ALL */
+            opt = OPT_PP;
+        }
+        if ((status = cli$present( &cli_prefix_new)) & 1)
+        {
+            /* /PREFIX = NEW */
+            opt = OPT_PA;
+        }
+        if (opt == NULL)
+        {
+            /* /PREFIX = NEW (default) */
+            opt = OPT_PA;
+        }
+        status = cli$get_value( &cli_prefix_path, &work_str);
+        if (status & 1)
+        {
+            append_simple_opt( opt);                    /* -pa or -pp */
+            /* /PREFIX = PATH = value */
+            work_str.dsc$a_pointer[work_str.dsc$w_length] = '\0';
+            append_simple_opt( work_str.dsc$a_pointer); /* path prefix */
+        }
+    }
+
+    /*
     **  Recurse through subdirectories.
     */
 #define OPT_R   "-r"            /* Recurse. */
@@ -1150,11 +1326,30 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     if (status & 1)
     {
         if ((status = cli$present( &cli_recurse_fnames)) & 1)
+        {
             /* /RECURSE [= PATH] */
             append_simple_opt( OPT_R_);
+        }
         else
+        {
             /* /RECURSE [= FILENAMES] */
             append_simple_opt( OPT_R);
+        }
+    }
+
+    /*
+    **  Statistics.
+    */
+#define OPT_PT  "-pt"           /* Statistics, time. */
+
+    status = cli$present( &cli_statistics);
+    if (status & 1)
+    {
+        if ((status = cli$present( &cli_statistics_time)) & 1)
+        {
+            /* /STATISTICS = TIME */
+            append_simple_opt( OPT_PT);
+        }
     }
 
     /*
@@ -1216,6 +1411,31 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     {
         /* /QUIET */
         append_simple_opt( OPT_Q);
+    }
+
+    /*
+    **  Show version.
+    */
+#define OPT_VQ  "-vq"           /* Version, brief. */
+
+    status = cli$present( &cli_version);
+    if (status & 1)
+    {
+        int i;
+        char *opt = NULL;
+
+        /* /VERSION */
+        if ((status = cli$present( &cli_version_brief)) & 1)
+        {
+            /* /VERSION = BRIEF */
+            opt = OPT_VQ;
+        }
+        else
+        {
+            /* /VERSION = NORMAL */
+            opt = OPT_V;
+        }
+        append_simple_opt( opt);
     }
 
     /*
@@ -1667,6 +1887,27 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
+    **  Enable streaming archive features.
+    */
+#define OPT_ST  "-st"           /* Enable. */
+#define OPT_STN "-st-"          /* Disable. */
+
+    status = cli$present( &cli_argfiles);
+    if ((status & 1) || (status == CLI$_NEGATED))
+    {
+        if (status == CLI$_NEGATED)
+        {
+            /* /NOSTREAM */
+            append_simple_opt( OPT_STN);
+        }
+        else
+        {
+            /* /STREAM */
+            append_simple_opt( OPT_ST);
+        }
+    }
+
+    /*
     **  Handle "-fz".
     */
 #define OPT_FZ  "-fz"           /* Force Zip64 format. */
@@ -1862,49 +2103,49 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
-    **  Handle "-t yyyy-mm-dd:HH:MM:SS".
+    **  Handle "-t [mmddyyyy][:HH:MM[:SS]]" and "-t [yyyy-mm-dd][:HH:MM[:SS]]".
     */
 #define OPT_T   "-t"
 #define OPT_TT  "-tt"
 
-    status = cli$present( &cli_since);
+    status = cli$present(&cli_since);
     if (status & 1) {
         /* /SINCE = value */
-        char since_time[ 20];
+        char since_time[20];
 
-        status = get_time( &cli_since, since_time);
+        status = get_time(&cli_since, since_time);
         if (!(status & 1)) return (status);
 
         /*
         **  Add the option "-t yyyy-mm=dd:HH:MM:SS" to the new command line.
         */
         x = cmdl_len;
-        cmdl_len += (sizeof( OPT_T)+ strlen( since_time));
+        cmdl_len += (sizeof(OPT_T) + strlen(since_time));
         CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
-        strcpy( &the_cmd_line[ x], OPT_T);
-        strcpy( &the_cmd_line[ x+ sizeof( OPT_T)- 1], since_time);
+        strcpy(&the_cmd_line[x], OPT_T);
+        strcpy(&the_cmd_line[x + sizeof(OPT_T) - 1], since_time);
     }
 
     /*
-    **  Handle "-tt yyyy-mm-dd:HH:MM:SS".
+    **  Handle "-tt [mmddyyyy][:HH:MM[:SS]]" and "-tt [yyyy-mm-dd][:HH:MM[:SS]]".
     */
 
-    status = cli$present( &cli_before);
+    status = cli$present(&cli_before);
     if (status & 1) {
         /* /BEFORE = value */
-        char before_time[ 20];
+        char before_time[20];
 
-        status = get_time( &cli_before, before_time);
+        status = get_time(&cli_before, before_time);
         if (!(status & 1)) return (status);
 
         /*
-        **  Add the option "-tt yyyy-mm=dd:HH:MM:SS" to the new command line.
+        **  Add the option "-tt yyyy-mm-dd:HH:MM:SS" to the new command line.
         */
         x = cmdl_len;
-        cmdl_len += (sizeof( OPT_TT)+ strlen( before_time));
+        cmdl_len += (sizeof(OPT_TT) + strlen(before_time));
         CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
-        strcpy( &the_cmd_line[ x], OPT_TT);
-        strcpy( &the_cmd_line[ x+ sizeof( OPT_TT)- 1], before_time);
+        strcpy(&the_cmd_line[x], OPT_TT);
+        strcpy(&the_cmd_line[x + sizeof(OPT_TT)- 1], before_time);
     }
 
     /*
@@ -2219,7 +2460,7 @@ get_time (struct dsc$descriptor_s *qual, char *timearg)
 **  Function:   This routine reads the argument string of the qualifier
 **              "qual" that should be a VMS syntax date-time string. 
 **              The date-time string is converted into the standard
-**              format "yyyy-mm-dd:HH:MM:SS" (formerly "mmddyyyy"),
+**              format "yyyy-mm-dd:HH:MM:SS" ("mmddyyyy" also allowed),
 **              specifying an absolute date-time.  The converted string
 **              is written into the 20- (formerly 9-) byte-wide buffer,
 **              "timearg".
@@ -2254,19 +2495,19 @@ get_time (struct dsc$descriptor_s *qual, char *timearg)
 #pragma member_alignment restore
 #endif
 
-    status = cli$get_value( qual, &time_str);
+    status = cli$get_value(qual, &time_str);
     /*
     **  If a date is given, convert it to 64-bit binary.
     */
     if (time_str.dsc$w_length) {
-        status = sys$bintim( &time_str, &bintimbuf);
+        status = sys$bintim(&time_str, &bintimbuf);
         if (!(status & 1)) return (status);
-        str$free1_dx( &time_str);
+        str$free1_dx(&time_str);
     }
     /*
     **  Now call $NUMTIM to get the month, day, and year.
     */
-    status = sys$numtim( &numtimbuf, (bintimbuf.low ? &bintimbuf : NULL));
+    status = sys$numtim(&numtimbuf, (bintimbuf.low ? &bintimbuf : NULL));
     /*
     **  Write the "yyyy-mm-dd:HH:MM:SS" string to the return buffer.
     **  (With a little care, we could trim insignificant parts.)
@@ -2370,11 +2611,11 @@ void VMSCLI_help(void)  /* VMSCLI version */
 "    /[NO]PKZIP, /[NO]KEEP_VERSION, /DOT_VERSION, /TRANSLATE_EOL[={LF|CRLF}],",
 "    /DISPLAY=([BYTES][,COUNTS][,DOTS=mb_per_dot][,GLOBALDOTS][,USIZE]",
 "     [,VOLUME]), /DESCRIPTORS, /[NO]EXTRA_FIELDS, /[NO]ZIP64,",
-#ifdef S_IFLNK
+#ifdef SYMLINKS
 "    /SPLIT=(SIZE=ssize[,BELL][,PAUSE][,VERBOSE]), /SYMLINKS"
-#else /* S_IFLNK */
+#else /* SYMLINKS */
 "    /SPLIT=(SIZE=ssize[,BELL][,PAUSE][,VERBOSE])"
-#endif /* S_IFLNK [else] */
+#endif /* SYMLINKS [else] */
   };
 
   if (!show_VMSCLI_help) {

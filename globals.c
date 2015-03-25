@@ -22,7 +22,7 @@
 
 
 /* Handy place to build error messages */
-char errbuf[FNMAX+4081];
+char errbuf[ERRBUF_SIZE + 1];  /* defined in zip.h, was FNMAX+4081 */
 
 /* Argument processing globals */
 int recurse = 0;        /* 1=recurse into directories encountered */
@@ -76,15 +76,19 @@ int allow_regex = 0;         /* 1 = allow [list] matching */
 #endif
 
 #ifdef WINDOWS_LONG_PATHS
-   int include_windows_long_paths = 0;  /* include paths longer than MAX_PATH */
+   int include_windows_long_paths = 1;  /* include paths longer than MAX_PATH */
+   int archive_has_long_path = 0;
 #endif
 
+int using_utf8 = 0;       /* 1 if current character set UTF-8 */
 #ifdef UNICODE_SUPPORT
-   int using_utf8 = 0;       /* 1 if current character set UTF-8 */
 # ifdef WIN32
-   int no_win32_wide = -1;   /* 1 = no wide functs, like GetFileAttributesW() */
+   int no_win32_wide = -1;   /* 1 = no wide functions, like GetFileAttributesW() */
 # endif
 #endif
+
+char *localename = NULL;      /* What setlocale() returns */
+char *charsetname = NULL;     /* Character set name (may be what nl_langinfo() returns) */
 
 ulg skip_this_disk = 0;
 int des_good = 0;             /* Good data descriptor found */
@@ -114,7 +118,10 @@ uzoff_t bad_bytes_so_far = 0; /* bad bytes skipped so far */
 uzoff_t bytes_total = 0;      /* total bytes to process (from initial scan) */
 
 time_t clocktime;             /* current time */
+
 #ifdef ENABLE_ENTRY_TIMING
+  int performance_time = 0;   /* 1=output total execution time */
+  uzoff_t start_time = 0;     /* start time */
   uzoff_t start_zip_time = 0; /* when start zipping files (after scan) in usec */
   uzoff_t current_time = 0;   /* current time in usec */
 #endif
@@ -127,6 +134,9 @@ int logfile_append = 0;       /* append to existing logfile */
 char *logfile_path = NULL;    /* pointer to path of logfile */
 int use_outpath_for_log = 0;  /* 1 = use output archive path for log */
 int log_utf8 = 0;             /* log names as UTF-8 */
+
+char *startup_dir = NULL;     /* dir that Zip starts in (current dir ".") */
+char *working_dir = NULL;     /* dir user asked to change to for zipping */
 
 int hidden_files = 0;         /* process hidden and system files */
 int volume_label = 0;         /* add volume label */
@@ -141,19 +151,23 @@ int diff_mode = 0;            /* 1=diff mode - only store changed and add */
   int clear_archive_bits = 0; /* clear DOS archive bit of included files */
 #endif
 #ifdef BACKUP_SUPPORT
-char *backup_path = NULL;     /* path to save backup archives and control */
-int backup_type = 0;          /* 0=no,1=full backup,2=diff,3=incr */
+int   backup_type = 0;              /* 0=no,1=full backup,2=diff,3=incr */
+char *backup_dir = NULL;            /* dir for backup archive (and control) */
+char *backup_name = NULL;           /* name of backup archive and control */
+char *backup_control_dir = NULL;    /* dir to put control file */
+char *backup_log_dir = NULL;        /* dir for backup log file */
 char *backup_start_datetime = NULL; /* date/time stamp of start of backup */
-char *backup_control_path = NULL; /* control file used to store backup state */
-char *backup_full_path = NULL; /* full archive of backup set */
-char *backup_output_path = NULL; /* path of output archive before finalizing */
+char *backup_control_path = NULL;   /* control file used to store backup set */
+char *backup_full_path = NULL;      /* full archive of backup set */
+char *backup_output_path = NULL;    /* path of output archive before final */
 #endif
 
 uzoff_t cd_total_entries;     /* num of entries as read from (Zip64) EOCDR */
 uzoff_t total_cd_total_entries; /* num of entries across all archives */
 
 
-int linkput = 0;              /* 1=store symbolic links as such */
+int linkput = 0;              /* 1=store symbolic links as such (-y) */
+int follow_mount_points = 1;  /* 0=skip mount points (-yy), 1=follow normal, 2=follow all (-yy-) */
 int noisy = 1;                /* 0=quiet operation */
 int extra_fields = 1;         /* 0=create minimum, 1=don't copy old, 2=keep old */
 int use_descriptors = 0;      /* 1=use data descriptors 12/29/04 */
@@ -163,6 +177,7 @@ int copy_only = 0;            /* 1=copying archive entries only */
 int allow_fifo = 0;           /* 1=allow reading Unix FIFOs, waiting if pipe open */
 int show_files = 0;           /* show files to operate on and exit (=2 log only) */
 int include_stream_ef = 0;    /* 1=include stream ef that allows full stream extraction */
+int cd_only = 0;              /* 1=create cd_only compression archive (central dir only) */
 
 int sf_usize = 0;             /* include usize in -sf listing */
 
@@ -179,8 +194,9 @@ int output_seekable = 1;      /* 1 = output seekable 3/13/05 EG */
 char *key = NULL;             /* Scramble password if scrambling */
 int encryption_method = 0;    /* See definitions in zip.h */
 ush aes_vendor_version;
-uch aes_strength;
+int aes_strength;
 int force_ansi_key = 1;       /* Only ANSI characters for password (32 - 126) */
+int allow_short_key = 0;      /* Allow password to be shorter than minimum */
 
 #ifdef IZ_CRYPT_AES_WG
   int key_size = 0;
@@ -210,52 +226,61 @@ int force_ansi_key = 1;       /* Only ANSI characters for password (32 - 126) */
 #endif
   int no_universal_time = 0;  /* 1=do not store UT extra field */
 
-/* Compression method and level (with file name suffixes). */
+/* Compression methods and levels (with file name suffixes).
+   Now STORE list set just above get_option() loop. */
 mthd_lvl_t mthd_lvl[] = {
 /* method, level, level_sufx, method_str, suffixes. */
- { STORE,   -1, -1, "store",   MTHD_SUFX_0 },   /* STORE.  (Must be el't 0.) */
- { DEFLATE, -1, -1, "deflate", NULL },          /* DEFLATE. */
+ { STORE,   -1, -1, "store",   NULL },          /* STORE  (Must be element 0) */
+ { DEFLATE, -1, -1, "deflate", NULL },          /* DEFLATE */
 #ifdef BZIP2_SUPPORT
- { BZIP2,   -1, -1, "bzip2",   NULL },          /* Bzip2. */
-#endif /* def BZIP2_SUPPORT */
+ { BZIP2,   -1, -1, "bzip2",   NULL },          /* Bzip2 */
+#endif
 #ifdef LZMA_SUPPORT
- { LZMA,    -1, -1, "lzma",    NULL },          /* LZMA. */
-#endif /* def LZMA_SUPPORT */
+ { LZMA,    -1, -1, "lzma",    NULL },          /* LZMA */
+#endif
 #ifdef PPMD_SUPPORT
- { PPMD,    -1, -1, "ppmd",    NULL },          /* PPMd. */
-#endif /* def PPMD_SUPPORT */
- { -1,      -1, -1, NULL,      NULL } };        /* List terminator. */
+ { PPMD,    -1, -1, "ppmd",    NULL },          /* PPMd */
+#endif
+ { -1,      -1, -1, NULL,      NULL } };        /* List terminator */
 
-char *tempath = NULL;   /* Path for temporary files */
-FILE *mesg;             /* stdout by default, stderr for piping */
+  /* { STORE,   -1, -1, "store",   MTHD_SUFX_0 }, */
 
-char **args = NULL;     /* Copy of argv that can be updated and freed */
+
+char *tempath = NULL;     /* Path for temporary files */
+FILE *mesg;               /* stdout by default, stderr for piping */
+
+char **args = NULL;       /* Copy of argv that can be updated and freed */
+
+int allow_arg_files = 1;  /* 1=process arg files (@argfile), 0=@ not significant */
+
+int case_upper_lower = CASE_PRESERVE; /* Upper or lower case added/updated output paths */
 
 char *path_prefix = NULL; /* Prefix to add to all new archive entries */
 int path_prefix_mode = 0; /* 0=Prefix all paths, 1=Prefix only added/updated paths */
 
-int all_ascii = 0;      /* Skip binary check and handle all files as text */
+int all_ascii = 0;        /* Skip binary check and handle all files as text */
 
 #ifdef UNICODE_SUPPORT
- int utf8_native = 0;   /* 1=force storing UTF-8 as standard per AppNote bit 11 */
+ int utf8_native = 1;     /* 1=force storing UTF-8 as standard per AppNote bit 11 */
 #endif
 int unicode_escape_all = 0; /* 1=escape all non-ASCII characters in paths */
 int unicode_mismatch = 1; /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
+int unicode_show = 0;     /* show unicode on the console (requires console support) */
 
-int mvs_mode = 0;       /* 0=lastdot (default), 1=dots, 2=slashes */
+int mvs_mode = 0;         /* 0=lastdot (default), 1=dots, 2=slashes */
 
-time_t scan_delay = 5;  /* seconds before display Scanning files message */
+time_t scan_delay = 5;    /* seconds before display Scanning files message */
 time_t scan_dot_time = 2; /* time in seconds between Scanning files dots */
-time_t scan_start = 0;  /* start of scan */
-time_t scan_last = 0;   /* time of last message */
-int scan_started = 0;   /* scan has started */
-uzoff_t scan_count = 0; /* Used for Scanning files ... message */
+time_t scan_start = 0;    /* start of scan */
+time_t scan_last = 0;     /* time of last message */
+int scan_started = 0;     /* scan has started */
+uzoff_t scan_count = 0;   /* Used for Scanning files ... message */
 
-ulg before = 0;         /* 0=ignore, else exclude files before this time */
-ulg after = 0;          /* 0=ignore, else exclude files newer than this time */
+ulg before = 0;           /* 0=ignore, else exclude files before this time */
+ulg after = 0;            /* 0=ignore, else exclude files newer than this time */
 
 /* Zip file globals */
-char *zipfile;          /* New or existing zip archive (zip file) */
+char *zipfile;            /* New or existing zip archive (zip file) */
 
 /* zip64 support 08/31/2003 R.Nausedat */
 /* all are across splits - subtract bytes_prev_splits to get offsets for current disk */
@@ -316,10 +341,11 @@ uzoff_t bytes_expected_this_entry = 0; /* scanned uncompressed size */
 char usize_string[10];             /* string version of bytes_expected_this_entry */
 
 char *entry_name = NULL;           /* used by DLL to pass z->zname to file_read() */
-#ifdef ENABLE_DLL_PROGRESS
- uzoff_t progress_chunk_size = 0;  /* how many bytes before next progress report */
- uzoff_t last_progress_chunk = 0;  /* used to determine when to send next report */
-#endif
+char *unicode_entry_name = NULL;   /* Unicode version of entry_name, or NULL */
+
+uzoff_t progress_chunk_size = 0;  /* how many bytes before next progress report */
+uzoff_t last_progress_chunk = 0;  /* used to determine when to send next report */
+
 int show_what_doing = 0;           /* show what doing */
 
 /* For user-triggered progress reports. */

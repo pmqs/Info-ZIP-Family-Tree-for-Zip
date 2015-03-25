@@ -2,10 +2,10 @@
 #
 #    Zip 3.1 for VMS - MMS Dependency Description File.
 #
-#    Last revised:  2013-11-29
+#    Last revised:  2014-10-19
 #
 #----------------------------------------------------------------------
-# Copyright (c) 2004-2013 Info-ZIP.  All rights reserved.
+# Copyright (c) 2004-2014 Info-ZIP.  All rights reserved.
 #
 # See the accompanying file LICENSE, version 2009-Jan-2 or later (the
 # contents of which are also included in zip.h) for terms of use.  If,
@@ -18,8 +18,8 @@
 #    is not specified.  Typical usage:
 #
 #    $ MMS /EXTEND /DESCRIP = [.VMS]DESCRIP_MKDEPS.MMS /SKIP -
-#       /MACRO = (LARGE=1, AES_WG=1, IZ_BZIP2=iz_bzip2, -
-#       LZMA=1, PPMD=1, LIBZIP=1)
+#       /MACRO = (AES_WG=1, IZ_BZIP2=iz_bzip2, IZ_ZLIB=iz_zlib, -
+#       LIBZIP=1)
 #
 # If the IZ_AES_WG encryption source kit has not been installed, then
 # the macro AES_WG should not be defined.
@@ -38,7 +38,7 @@
 # will need to recover it from the original distribution kit.
 #
 # Note:  This dependency generation scheme assumes that the dependencies
-# do not depend on host architecture type or other such variables. 
+# do not depend on host architecture type or other such variables.
 # Therefore, no "#include" directive in the C source itself should be
 # conditional on such variables.
 #
@@ -70,7 +70,7 @@ INCL_DESCRIP_SRC = 1
 
 # The ultimate product, a comprehensive dependency list.
 
-DEPS_FILE = [.VMS]DESCRIP_DEPS.MMS 
+DEPS_FILE = [.VMS]DESCRIP_DEPS.MMS
 
 # Detect valid qualifier and/or macro options.
 
@@ -181,7 +181,7 @@ $(DEPS_FILE) : $(DEPS) $(COMS)
 #       Note that the space in P4, which prevents immediate macro
 #       expansion, is removed by COLLECT_DEPS.COM.
 #
-        @$(COLLECT_DEPS) "Zip for VMS" "$(MMS$TARGET)" -
+	@$(COLLECT_DEPS) "Zip for VMS" "$(MMS$TARGET)" -
          "[...]*.MMSD" "[.$ (DEST)]" $(MMSDESCRIPTION_FILE) -
          "[.AES_WG/[.SZIP]C/[.SZIP]P/[.SZIP]S/[.SZIP]T/[.SZIP" -
          "AES_WG/LZMA_PPMD/PPMD/LZMA_PPMD/LZMA_PPMD/LZMA"

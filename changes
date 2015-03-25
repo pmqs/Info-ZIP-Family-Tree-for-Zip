@@ -6974,26 +6974,163 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
     windll/examples/vc6/readvc6ex.txt (EG)
 42. Update Zip 3.1d announcement, dividing into sections.  zip31d.ann (EG)
 
---------------------- September 26th 2014 version 3.1d33+ ----------------------
+----------------------- October 5th 2014 version 3.1d34 -----------------------
+ 1. Change ZE_COMP and ZE_COMPERR to ZE_COMPILE to distinguish compilation
+    options errors from new ZE_COMPRESS error code used for compression
+    errors.  fileio.c, zip.c, ziperr.h, zipup.c, win32/win32.c (EG)
+ 2. Change iconv() use in wide_to_local_string() from doing bulk conversion
+    to converting one wide character at a time.  This allows checking for
+    error EILSEQ (illegal input character sequence) after each conversion
+    attempt.  When a character does not convert, insert the Unicode escape
+    sequence for that character in output string, duplicating how the wchar
+    code does it.  This mostly avoids large numbers of duplicate paths when
+    output language does not support input language (such as converting
+    Japanese to English).  fileio.c (EG)
+ 3. Implement option -pt to report performance time, i.e. time it takes Zip
+    to execute the command.  Add globals performance_time and start_time.
+    Store startup time at startup using get_time_in_usec().  Display execution
+    time in freeup() if -pt used.  Set displayed resolution to 3 decimals (ms).
+    -pt only available if ENABLE_ENTRY_TIMING is enabled, as uses same timing
+    code.  globals.c, zip.c, zip.h (EG)
+ 4. Implement new "compression" method "cd_only", which only stores the central
+    directory and end records of an archive.  Does not store local headers or
+    file data.  This can be used with --dif and -BT archives to create diff
+    archives against, without the need to store the full archive on the system.
+    Define CD_ONLY as compression method.  Add macro CD_ONLY_SUPPORT to
+    enable.  cd_only compression only available when copying an existing
+    archive to a new archive using --out.  Add "noting" of names when cd_only
+    mode going through files but not storing them.  Add warning at end of
+    operation that cd_only mode did not store data.  NO_CD_ONLY_SUPPORT
+    disables.  Set CD_ONLY to 999, which should be unused compression method.
+    Add global cd_only.  globals.c, zip.c, zip.h (EG)
+ 5. No longer store default suffix list MTHD_SUFX_0 when structure array
+    mthd_lvl[] is created, but set the default STORE list on Zip startup
+    using malloc().  This allows the list to be freed later.  globals.c,
+    zip.c (EG)
+ 6. Fix bug where suffix lists in mthd_lvl[] were not being freed.  Add
+    code to free suffix lists in freeup().  zip.c (EG)
+ 7. Add support for using * as a suffix to include the existing suffix list.
+    This allows chaining -n parameters.  Without *, the previous behavior
+    where specifying a compression method (or none for STORE) in a later -n
+    would wipe out any previous list is used.  Now remove a suffix from
+    other lists when added to a list, allowing a suffix to be pulled from the
+    STORE list and processed using the specified compression method instead.
+    Previously a suffix was stuck in a list once added, unless the entire
+    list was wiped.  zip.c (EG)
+ 8. Update extended help on suffixes.  Add help on using * to include existing
+    suffix list.  Be more clear on how suffix lists are handled.  zip.c (EG)
+ 9. Add suffixes_option() and move rather lengthy -n processing to this and
+    out of the command line option switch.  zip.c (EG)
+10. Add macros CASE_INS (0) and CASE_SEN (1) to set the case sensitivity
+    parameter of abbrevmatch(), rather than use 0 and 1.  zip.c, zip.h,
+    zipcloak.c (EG)
+11. Add "zip up existing entries" and "zip up found list" comments.  zip.c (EG)
+12. Update manual.  Add note encouraging use of UTF-8 locale.  Add description
+    of using "*" to include existing suffix list.  man/man1/zip.1 (EG)
+13. Change L"\\?\" to L"\\\\?\\" in commented out code to avoid complaints from
+    one compiler.  win32/win32zip.c (SMS, EG)
+14. Replace bzip2 kit in bzip2/ with custom kit provided by SMS that includes
+    VMS support.  Should work the same for other ports.  Add constructs for
+    handling VMS names, file operations.  Add VMS defines and includes.  Use
+    BZ_VMS to enable code for VMS.  Use BZIP_OPTS and BZIP2_OPTS for env
+    vars instead of BZIP2 (which may be a foreign command on VMS).  Set
+    variable verbosity to 0.  Minor updates to zlib support.  Add
+    BZ2_bzlibVersionBase and BZ2_bzlibVersionDate.  Move includes <string.h>
+    and <stdio.h> out of #ifndef BZ_NO_STDIO block.  Add various files in
+    new VMS directory.  Add vms_basename().  Add vms_redot() to support VMS
+    dots in file specs.  Add vms_wild.  Add trimFileNameVersion().  Add
+    various static storage.  Add get_rms_defaults().  Add acc_cb().  Add
+    decc_init().  Add b2_prvt_strncasecmp().  Add bz2_prvt_strdup().
+    Add bz2_prvt_fchmod().  Add bz2_prvt_fchown().  Add VMS notes.
+    bzip2/bzip2.c, bzip2/bzip2.c_orig, bzip2/bzip2recover.c,
+    bzip2/bzip2recover.c_orig, bzip2/bzlib.c, bzip2/bzlib.c_orig,
+    bzip2/bzlib.h, bzip2/bzlib.h_orig, bzip2/bzlib_private.h,
+    bzip2/bzlib_private.h_orig, bip2/vms/collect-deps.com,
+    bip2/vms/decc_ver.c, bip2/vms/descrip.mms, bip2/vms/descrip_deps.mms,
+    bip2/vms/descrip_mkdeps.mms, bip2/vms/descrip_src.mms,
+    bip2/vms/mod_dep.com, bip2/vms/my_module_name.h, bip2/vms/vms_misc.c,
+    bip2/vms/vms_misc.h, bip2/vms/vms_notes.txt (SMS)
+15. Add readme to new bzip2 kit in bzip2/.  bip2/readme_zip.txt (EG)
+16. In argv_to_commandlinestring(), add parentheses to for loop parameter
+    to clear compiler (Apple LLVM) warning.  api.c (SMS)
+17. Change '^..$' to '^\.\.$' in regular expression.  unix/unsafe_prod.sh
+    (SMS)
+18. Add Zip source kit archive comment file.  zip-comment.txt (SMS, EG)
+19. Change reference to BINS=lib to BINS=L.  izzip_example.c (EG)
+20. Update Zip plain text doc file from latest man pages in man/man1.
+    docs/zip.txt (EG)
+21. Update Zip man page.  Update -RE, -vq, -y and -yy options.  Remove
+    "cannot adjust line" error from man by shortening string.  Add -UT
+    (--utest) option that performs Unicode tests.  man/man/zip.1 (EG)
+22. Reconcile Unix builder files configure and Makefile with corresponding
+    UnZip ones.  Correct issues with BINS and PROD usage.  Move some
+    functionality from configure to Makefile.  Comments and help updates.
+    Add KIT variable.  Remove unsafe_prod_dir() function (though the external
+    script version seems to have a security flaw if permissions not properly
+    set).  Remove "set " when displaying configure script decisions to
+    conform with UnZip approach.  Reconcile wording of output statements to
+    minimize differences against UnZip versions where possible.  Add note
+    regarding differences between wchar_t and zwchar and how the term
+    "wide string" is used.  Remove parameters passed to configure that are
+    no longer needed by configure.  Update "docs" target processing to use
+    "man -M" instead of relative paths to address need of platform that does
+    not handle relative paths for man.  Change "manuals" target to "docsrof"
+    as target does same thing as docs, but using nroff.  "docsrof" outputs
+    .txtr "plain" text files (currently including format escapes).  Add note
+    regarding "_" and "_l" object files.  Add use of unix/unsafe_prod.sh to
+    Makefile to check if directory outside source tree before cleaning.
+    "clean_docs" now also cleans ROF files.  Updates to install procedures.
+    Solaris now alias for generic_pkg.  unix/configure, unix/Makefile (SMS, EG)
+23. Change call to unix/unsafe_prod.sh to use sh and new variable safe to
+    avoid issue when unsafe_prod.sh does not have execute permission.  (As
+    it was, the check was always "successful" when the script did not have
+    permission to run.)  unix/configure (EG)
+24. Change call to unix/mlz.sh to build Zip library to use sh to avoid fail
+    if mlz.sh does not have execute permission.  unix/Makefile (EG)
 
- 1. Reconciled the Unix builders with the corresponding UnZip builders.
-    Fixed various problems when "make" macros  BINS or PROD were
-    defined.  unix/configure, unix/Makefile (SMS)
- 2. Cleared a compiler (Apple LLVM) warning. api.c (SMS)
+
+----------------------- March 25th 2015 version 3.1d34+ ---------------------
+
+ 1. Accommodations for old compilers: Removed white space before various
+    #directive; Inserted missing commas.  Also adjusted some indentation
+    of and comments on various #directive.  For new compilers: Added
+    some parentheses.  zip.c (SMS) 
+ 2. Removed redundant (and unconditional) "#include <fcntl.h>" to
+    accommodate VMS VAX C.  zipup.c (SMS)
+ 3. Changed the VMS builders to agree better with the Unix builders (and
+    with the corresponding UnZip VMS builders): Enable bzip2, LZMA, and
+    PPMd compression methods by default; Enable large-file support by
+    default on non-VAX hardware.  vms/build_zip.com,
+    vms/check_large.com, vms/descrip.mms, vms/descrip_mkdeps.mms,
+    vms/descrip_src.mms, vms/INSTALL_VMS.txt (SMS)
+ 4. Changed some sub-"int" types to "int", for easier function argument
+    passing.  crypt.c, globals.c, zip.c, zip.h, zipfile.c, zipup.c (SMS)
+ 5. Added proper file path/name generation for backup control, log, and
+    output files on VMS.  zip.c (SMS)  
+ 6. Added support for -cd (macro: CHANGE_DIRECTORY) on VMS.  tailor.h,
+    vms/vms.c, zip.h.
+ 7. Updated VMS-style CLI interface to support new options:
+    /[NO]ARGFILES (-AF), /BACKUP = (CONTROL, DIRECTORY, LOG, NAME,
+    TYPE) (-BC, -BD, -BL, -BN, -BT), /DEFAULT_DIRECTORY (-cd),
+    /ENCRYPT = SHORT_PASSWORD (-ps), /PREFIX = ([ ALL | NEW ], PATH)
+    (-pa, -pp), /STATISTICS = TIME (-pt), /[NO]STREAM (-st),
+    /VERSION = BRIEF (-vq)
 
 
 Remaining for Zip 3.1
 ---------------------
 (Look at these before putting Zip 3.1 out.  All other items moved to TODO.)
 
-- Look at handling iconv Unicode to local conversions better when a
-    character not in local character set.  On Linux iconv returns "?"
-    for missing characters, which are illegal on some ports.  This
-    issue already handled when wchar_t code used instead of iconv.
+(This list to be cleaned up before Zip 3.1d goes out.)
+
+- Update dates to match release date, including man pages.
 - Save execute permissions for Unix scripts in Zip source kit so scripts
     can be run out of the box.
+    (Started doing this.)
 - Update C# WinDLL example.
 - Check performance hit of doing binary checks on all bytes in text files.
+    (Initial tests show 2.5% impact on deflate, 23% on store.  Need more
+    efficient check.)
 - Clean up Unicode and escaped Unicode display for both native and ef.
 - Test Unicode.
 - Test everything once beta is stable.
@@ -7003,17 +7140,12 @@ Remaining for Zip 3.1
     LIB/DLL, consider enforcing \r\n line ends.
 - Different port binaries.  Include Windows XP, Windows 7, Linux.  Others?
 - Resolve any conflicts when both zip and unzip are in same project.
-- Consider NULL compression for use with -BT.  (Would allow incremental
-    backups on computers without keeping a copy of the full archive on
-    the machine.  It may be as simple as only storing the central directory
-    and related end records.)
 - Document ENABLE_USER_PROGRESS.
 - Replace -tn with updated -X to remove universal time?
 - Switch to external directory check script in configure.
 - Look at utilities.
 - Look at -v verbose mode.
 - Test -@@.
-- Way to keep existing STORE suffix list.
 - zread(ifile, buf, 1); in zipup.c.
 - Review privilege granting in Windows SD code.  Make sure files are
     opened with available privilege.

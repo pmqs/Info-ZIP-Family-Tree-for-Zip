@@ -1,12 +1,11 @@
 $! BUILD_ZIP.COM
 $!
-$!     Build procedure for VMS versions of Zip, ZipCloak, ZipNote, and
-$!     ZipSplit. 
+$!     Zip 3.1 for VMS -- DCL Build procedure.
 $!
-$!     Last revised:  2013-11-29  SMS.
+$!     Last revised:  2015-02-17  SMS.
 $!
 $!----------------------------------------------------------------------
-$! Copyright (c) 2004-2013 Info-ZIP.  All rights reserved.
+$! Copyright (c) 2004-2015 Info-ZIP.  All rights reserved.
 $!
 $! See the accompanying file LICENSE, version 2009-Jan-2 or later (the
 $! contents of which are also included in zip.h) for terms of use.  If,
@@ -15,65 +14,86 @@ $! may also be found at: ftp://ftp.info-zip.org/pub/infozip/license.html
 $!----------------------------------------------------------------------
 $!
 $!     Command arguments:
-$!     - suppress C compilation (re-link): "NOCOMPILE"
-$!     - suppress linking executables: "NOLINK"
-$!     - suppress help file processing: "NOHELP"
-$!     - suppress message file processing: "NOMSG"
-$!     - define DCL symbols: "SYMBOLS"  (Was default before Zip 3.1.)
-$!     - select compiler environment: "VAXC", "DECC", "GNUC"
-$!     - select AES (WinZip/Gladman) encryption support: "AES_WG"
-$!     - select large-file support: "LARGE" (Non-VAX only)
-$!     - select compiler listings: "LIST"  Note that the whole argument
+$!     - Suppress C compilation (re-link): "NOCOMPILE"
+$!     - Suppress linking executables: "NOLINK"
+$!     - Suppress help file processing: "NOHELP"
+$!     - Suppress message file processing: "NOMSG"
+$!     - Define DCL symbols: "SYMBOLS"  (Was default before Zip 3.1.)
+$!     - Select compiler environment: "VAXC", "DECC", "GNUC"
+$!     - Disable AES_WG encryption support: "NOAES_WG"
+$!       By default, the SFX programs are built without AES_WG support.
+$!       Add "CRYPT_AES_WG_SFX=1" to the LOCAL_ZIP C macros to enable
+$!       it.  (See LOCAL_ZIP, below.)
+$!     - Direct bzip2 support: "IZ_BZIP2=dev:[dir]"
+$!       Disable bzip2 support: "NOIZ_BZIP2"
+$!       By default, bzip2 support is enabled, and uses the bzip2 source
+$!       kit supplied in the [.bzip2] directory.  Specify NOIZ_BZIP2
+$!       to disable bzip2 support.  Specify IZ_BZIP2 with a value
+$!       ("dev:[dir]", or a suitable logical name) to use the bzip2
+$!       header file and object library found there.  The bzip2 object
+$!       library (LIBBZ2_NS.OLB) is expected to be in a simple "[.dest]"
+$!       directory under that one ("dev:[dir.ALPHAL]", for example), or
+$!       in that directory itself.)  By default, the SFX programs are
+$!       built without bzip2 support.  Add "BZIP2_SFX=1" to the
+$!       LOCAL_ZIP C macros to enable it.  (See LOCAL_ZIP, below.)
+$!     - Use ZLIB compression library: "IZ_ZLIB=dev:[dir]", where
+$!       "dev:[dir]" (or a suitable logical name) tells where to find
+$!       "zlib.h".  The ZLIB object library (LIBZ.OLB) is expected to be
+$!       in a "[.dest]" directory under that one ("dev:[dir.ALPHAL]",
+$!       for example), or in that directory itself.
+$!     - Disable LZMA compression support: "NOLZMA"
+$!       By default, the SFX programs are built without LZMA support.
+$!       Add "LZMA_SFX=1" to the LOCAL_ZIP C macros to enable it.
+$!       (See LOCAL_ZIP, below.)
+$!     - Disable PPMd compression support: "NOPPMD"
+$!       By default, the SFX programs are built without PPMd support.
+$!       Add "PPMD_SFX=1" to the LOCAL_ZIP C macros to enable it.
+$!       (See LOCAL_ZIP, below.)
+$!     - Enable large-file (>2GB) support: "LARGE"
+$!       Disable large-file (>2GB) support: "NOLARGE"
+$!       Large-file support is always disabled on VAX.  It is enabled by
+$!       default on IA64, and on Alpha systems which are modern enough
+$!       to allow it.  Specify NOLARGE=1 explicitly to disable support
+$!       (and to skip the test on Alpha).
+$!     - Select compiler listings: "LIST"  Note that the whole argument
 $!       is added to the compiler command, so more elaborate options
 $!       like "LIST/SHOW=ALL" (quoted or space-free) may be specified.
 $!       Default is "/NOLIST", but if the user specifies a LIST option,
 $!       then only the user-specified qualifier(s) will be included.
-$!     - supply additional compiler options: "CCOPTS=xxx"  Allows the
+$!     - Supply additional compiler options: "CCOPTS=xxx"  Allows the
 $!       user to add compiler command options like /ARCHITECTURE or
 $!       /[NO]OPTIMIZE.  For example, CCOPTS=/ARCH=HOST/OPTI=TUNE=HOST
 $!       or CCOPTS=/DEBUG/NOOPTI.  These options must be quoted or
 $!       space-free.
-$!     - supply additional linker options: "LINKOPTS=xxx"  Allows the
+$!     - Supply additional linker options: "LINKOPTS=xxx"  Allows the
 $!       user to add linker command options like /DEBUG or /MAP.  For
 $!       example: LINKOPTS=/DEBUG or LINKOPTS=/MAP/CROSS.  These options
 $!       must be quoted or space-free.  Default is
 $!       LINKOPTS="/NOMAP /NOTRACEBACK", but if the user specifies a
 $!       LINKOPTS string, then only the user-specified qualifier(s) will
 $!       be included.
-$!     - select installation of CLI interface version of zip:
+$!     - Select installation of VMS CLI interface version of Zip:
 $!       "VMSCLI" or "CLI"
-$!     - force installation of UNIX interface version of zip
+$!     - Force installation of UNIX interface version of Zip
 $!       (override LOCAL_ZIP environment): "NOVMSCLI" or "NOCLI"
-$!     - select BZIP2 support: "IZ_BZIP2=dev:[dir]", where "dev:[dir]"
-$!       (or a suitable logical name) tells where to find "bzlib.h".
-$!       The BZIP2 object library (LIBBZ2_NS.OLB) is expected to be in
-$!       a "[.dest]" directory under that one ("dev:[dir.ALPHAL]", for
-$!       example), or in that directory itself.
-$!     - select LZMA compression support: "LZMA" (Non-VAX only)
-$!     - select PPMd compression support: "PPMD"
-$!     - use ZLIB compression library: "IZ_ZLIB=dev:[dir]", where
-$!       "dev:[dir]" (or a suitable logical name) tells where to find
-$!       "zlib.h".  The ZLIB object library (LIBZ.OLB) is expected to be
-$!       in a "[.dest]" directory under that one ("dev:[dir.ALPHAL]",
-$!       for example), or in that directory itself.
-$!     - build (and use) a callable-Zip library, LIBIZZIP.OLB: "LIBZIP"
-$!     - choose a destination directory for architecture-specific
+$!     - Build a callable-Zip library, LIBIZZIP.OLB: "LIBZIP"
+$!     - Choose a destination directory for architecture-specific
 $!       product files (.EXE, .OBJ,.OLB, and so on): "PROD=subdir", to
 $!       use "[.subdir]".  The default is a name automatically generated
 $!       using rules defined below.
 $!     - Show version/feature reports: "DASHV", "SLASHV"
 $!     - Create help output text files: "HELP_TEXT"
 $!
-$!     To specify additional options, define the global symbol
-$!     LOCAL_ZIP as a comma-separated list of the C macros to be
-$!     defined, and then run BUILD_ZIP.COM.  For example:
+$!     To specify additional options, define the symbol LOCAL_ZIP
+$!     as a comma-separated list of the C macros to be defined, and
+$!     then run BUILD_ZIP.COM.  For example:
 $!
 $!             $ LOCAL_ZIP == "VMS_IM_EXTRA"
 $!             $ @ [.VMS]BUILD_ZIP.COM
 $!
-$!     Valid VMS-specific options include VMS_PK_EXTRA and VMS_IM_EXTRA.
-$!     See the INSTALL file for other options.  (VMS_PK_EXTRA is the
-$!     default.)
+$!     VMS-specific options include VMS_PK_EXTRA and VMS_IM_EXTRA.  See
+$!     the INSTALL file for other options.  (VMS_PK_EXTRA is the
+$!     default.) 
 $!
 $!     If you edit this procedure to set LOCAL_ZIP here, be sure to
 $!     use only one "=", to avoid affecting other procedures.  For
@@ -100,13 +120,12 @@ $!     of "VMSCLI" now is the selection of the VMS CLI style Zip
 $!     executable in the foreign command definition.)
 $!
 $!
-$!
 $! Save the current default disk:[directory], and set default to the
 $! directory above where this procedure is situated (which had better be
 $! the main distribution directory).
 $!
-$ workdir = f$environment( "default")
-$ here = f$parse( workdir, , , "device")+ f$parse( workdir, , , "directory")
+$ here = f$environment( "default")
+$ here = f$parse( here, , , "device")+ f$parse( here, , , "directory")
 $!
 $ proc = f$environment( "procedure")
 $ proc_dir = f$parse( proc, , , "device")+ f$parse( proc, , , "directory")
@@ -120,9 +139,7 @@ $!
 $ edit := edit                  ! override customized edit commands
 $ say := write sys$output
 $!
-$! Analyze command-line options.
-$!
-$!##################### Read settings from environment ########################
+$! Get LOCAL_ZIP symbol options.
 $!
 $ if (f$type( LOCAL_ZIP) .eqs. "")
 $ then
@@ -165,24 +182,25 @@ $ endif
 $!
 $ delete /symbol /local len_local_zip
 $!
-$!##################### Customizing section #############################
+$! Various library and program names.
 $!
 $ zipx_unx = "ZIP"
 $ zipx_cli = "ZIP_CLI"
 $ lib_zipcli_name = "ZIPCLI.OLB"
 $ lib_ziputils_name = "ZIPUTILS.OLB"
 $!
-$ AES_WG = ""
+$! Analyze command-line options.
+$!
+$ AES_WG = 0
+$ BUILD_BZIP2 = 0
 $ CCOPTS = ""
 $ DASHV = 0
 $ IZ_BZIP2 = ""
 $ IZ_ZLIB = ""
-$ LINKOPTS = "/nomap /notraceback"
-$ LISTING = " /nolist"
 $ LARGE_FILE = 0
 $ LIBZIP = 0
-$ LZMA = 0
-$ PPMD = 0
+$ LINKOPTS = "/nomap /notraceback"
+$ LISTING = " /nolist"
 $ MAKE_EXE = 1
 $ MAKE_HELP = 1
 $ MAKE_HELP_TEXT = 0
@@ -191,6 +209,10 @@ $ MAKE_OBJ = 1
 $ MAKE_SYM = 0
 $ MAY_USE_DECC = 1
 $ MAY_USE_GNUC = 0
+$ NOAES_WG = 0
+$ NOIZ_BZIP2 = 0
+$ NOLZMA = 0
+$ NOPPMD = 0
 $ PROD = ""
 $ SLASHV = 0
 $!
@@ -244,6 +266,28 @@ $         IZ_ZLIB = f$extract( (eq+ 1), 1000, opts)
 $         goto argloop_end
 $     endif
 $!
+$     if ((f$extract( 0, 8, curr_arg) .eqs. "NOAES_WG") .or. -
+       (f$extract( 0, 9, curr_arg) .eqs. "NO_AES_WG"))
+$     then
+$         NOAES_WG = 1
+$         goto argloop_end
+$     endif
+$!
+$     if ((f$extract( 0, 9, curr_arg) .eqs. "NOIZ_BZIP") .or. -
+       (f$extract( 0, 10, curr_arg) .eqs. "NO_IZ_BZIP"))
+$     then
+$         NOIZ_BZIP2 = 1
+$         goto argloop_end
+$     endif
+$!
+$     if (f$extract( 0, 7, curr_arg) .eqs. "IZ_ZLIB")
+$     then
+$         opts = f$edit( curr_arg, "COLLAPSE")
+$         eq = f$locate( "=", opts)
+$         IZ_ZLIB = f$extract( (eq+ 1), 1000, opts)
+$         goto argloop_end
+$     endif
+$!
 $     if (f$extract( 0, 5, curr_arg) .eqs. "LARGE")
 $     then
 $         LARGE_FILE = 1
@@ -270,21 +314,9 @@ $         LISTING = "/''curr_arg'"      ! But see below for mods.
 $         goto argloop_end
 $     endif
 $!
-$     if (f$extract( 0, 4, curr_arg) .eqs. "LZMA")
-$     then
-$         LZMA = 1
-$         goto argloop_end
-$     endif
-$!
 $     if (curr_arg .eqs. "NOCOMPILE")
 $     then
 $         MAKE_OBJ = 0
-$         goto argloop_end
-$     endif
-$!
-$     if (curr_arg .eqs. "NOLINK")
-$     then
-$         MAKE_EXE = 0
 $         goto argloop_end
 $     endif
 $!
@@ -294,15 +326,35 @@ $         MAKE_HELP = 0
 $         goto argloop_end
 $     endif
 $!
+$     if (f$extract( 0, 7, curr_arg) .eqs. "NOLARGE")
+$     then
+$         LARGE_FILE = -1
+$         goto argloop_end
+$     endif
+$!
+$     if (curr_arg .eqs. "NOLINK")
+$     then
+$         MAKE_EXE = 0
+$         goto argloop_end
+$     endif
+$!
+$     if ((f$extract( 0, 6, curr_arg) .eqs. "NOLZMA") .or. -
+       (f$extract( 0, 7, curr_arg) .eqs. "NO_LZMA"))
+$     then
+$         NOLZMA = 1
+$         goto argloop_end
+$     endif
+$!
 $     if (curr_arg .eqs. "NOMSG")
 $     then
 $         MAKE_MSG = 0
 $         goto argloop_end
 $     endif
 $!
-$     if (f$extract( 0, 4, curr_arg) .eqs. "PPMD")
+$     if ((f$extract( 0, 6, curr_arg) .eqs. "NOPPMD") .or. -
+       (f$extract( 0, 7, curr_arg) .eqs. "NO_PPMD"))
 $     then
-$         PPMD = 1
+$         NOPPMD = 1
 $         goto argloop_end
 $     endif
 $!
@@ -359,6 +411,7 @@ $         CLI_IS_DEFAULT = 0
 $         goto argloop_end
 $     endif
 $!
+$     say ""
 $     say "Unrecognized command-line option: ''curr_arg'"
 $     goto error
 $!
@@ -374,7 +427,7 @@ $ else
 $     ZIPEXEC = zipx_unx
 $ endif
 $!
-$!#######################################################################
+$! Build.
 $!
 $! Sense the host architecture (Alpha, Itanium, or VAX).
 $!
@@ -407,6 +460,7 @@ $     USE_DECC_VAX = 0
 $!
 $     if (MAY_USE_GNUC)
 $     then
+$         say ""
 $         say "GNU C is not supported for ''arch'."
 $         say "You must use DEC/Compaq/HP C to build Zip."
 $         goto error
@@ -414,6 +468,7 @@ $     endif
 $!
 $     if (.not. MAY_USE_DECC)
 $     then
+$         say ""
 $         say "VAX C is not supported for ''arch'."
 $         say "You must use DEC/Compaq/HP C to build Zip."
 $         goto error
@@ -421,20 +476,21 @@ $     endif
 $!
 $     cc = "cc /standard = relax /prefix = all /ansi"
 $     defs = "''LOCAL_ZIP' VMS"
-$     if (LARGE_FILE .ne. 0)
+$     if (LARGE_FILE .ge. 0)
 $     then
 $         defs = "LARGE_FILE_SUPPORT, ''defs'"
 $     endif
 $ else
-$     if (LARGE_FILE .ne. 0)
+$     if (LARGE_FILE .gt. 0)
 $     then
 $        say "LARGE_FILE_SUPPORT is not available on VAX."
-$        LARGE_FILE = 0
 $     endif
-$     if (LZMA .ne. 0)
+      LARGE_FILE = -1
+$!
+$     if (NOLZMA .le. 0)
 $     then
 $        say "LZMA is not available on VAX."
-$        LZMA = 0
+$        NOLZMA = 1
 $     endif
 $     HAVE_DECC_VAX = (f$search( "SYS$SYSTEM:DECC$COMPILER.EXE") .nes. "")
 $     HAVE_VAXC_VAX = (f$search( "SYS$SYSTEM:VAXC.EXE") .nes. "")
@@ -466,18 +522,70 @@ $             destm = "''destm'V"
 $             cmpl = "VAC C"
 $             vaxc = 1
 $         endif
-$         opts = "VAXC"
+$         opts = "''opts' SYS$DISK:[.''destm']VAXCSHR.OPT /OPTIONS,"
 $     endif
 $ endif
 $!
-$! Set the bzip2 (and/or zlib) directory.
+$ if ((NOIZ_BZIP2 .le. 0) .and. (IZ_BZIP2 .eqs. ""))
+$ then
+$     IZ_BZIP2 = "SYS$DISK:[.BZIP2]"
+$     BUILD_BZIP2 = 1
+$ endif
 $!
-$ seek_bz = destm
+$ if (IZ_BZIP2 .nes. "")
+$ then
+$     defs = "BZIP2_SUPPORT, ''defs'"
+$ endif
+$!
+$! Set AES_WG-related data.  Default is enabled, if source is available.
+$!
+$ if ((AES_WG .eq. 0) .and. (NOAES_WG .eq. 0))
+$ then
+$     if (f$search( "[.aes_wg]aes.h") .nes. "")
+$     then
+$         AES_WG = 1
+$     endif
+$ endif
+$!
+$ if (AES_WG .gt. 0)
+$ then
+$     defs = defs+ ", CRYPT_AES_WG"
+$ endif
+$!
+$! Set LZMA-related data.
+$!
+$ if (NOLZMA .le. 0)
+$ then
+$     defs = defs+ ", LZMA_SUPPORT"
+$     if (arch .eqs. "VAX")
+$     then
+$         defs = defs+ ", _SZ_NO_INT_64"
+$     endif
+$ endif
+$!
+$! Set PPMD-related data.
+$!
+$ if (NOPPMD .le. 0)
+$ then
+$     defs = defs+ ", PPMD_SUPPORT"
+$     if (arch .eqs. "VAX")
+$     then
+$         if (vaxc .ne. 0)
+$         then
+$             defs = defs+ ", NO_SIGNED_CHAR"
+$         endif
+$         if (NOLZMA .gt. 0)
+$         then
+$             defs = defs+ ", _SZ_NO_INT_64"
+$         endif
+$     endif
+$ endif
 $!
 $! Change the destination directory, according to the VMS_IM_EXTRA and
 $! large-file options, or the user's specification.
 $!
-$ if (LARGE_FILE .ne. 0)
+$ destb = destm
+$ if (LARGE_FILE .ge. 0)
 $ then
 $     destl = "L"
 $ endif
@@ -490,12 +598,7 @@ $ else
 $     dest = PROD
 $ endif
 $!
-$ if (opts .eqs. "VAXC")
-$ then
-$     opts = "SYS$DISK:[.''dest']VAXCSHR.OPT /OPTIONS,"
-$ endif
-$!
-$ if (LIBZIP .eq. 0)
+$ if (LIBZIP .le. 0)
 $ then
 $     lib_zip_name = "ZIP.OLB"
 $ else
@@ -505,89 +608,6 @@ $ lib_zip = "SYS$DISK:[.''dest']''lib_zip_name'"
 $ lib_zipcli = "SYS$DISK:[.''dest']''lib_zipcli_name'"
 $ lib_ziputils = "SYS$DISK:[.''dest']''lib_ziputils_name'"
 $ libzip_opt = "[.''dest']LIB_IZZIP.OPT"
-$!
-$! If BZIP2 support was selected, find the object library.
-$! Complain if things fail.
-$!
-$ cc_incl = "[], [.VMS]"
-$ lib_bzip2_opts = ""
-$ if (IZ_BZIP2 .nes. "")
-$ then
-$     bz2_olb = "LIBBZ2_NS.OLB"
-$     if (MAKE_OBJ .or. MAKE_EXE)
-$     then
-$         define incl_bzip2 'IZ_BZIP2'
-$         defs = "''defs', BZIP2_SUPPORT"
-$     endif
-$!
-$     if (MAKE_EXE)
-$     then
-$         @ [.VMS]FIND_BZIP2_LIB.COM 'IZ_BZIP2' 'seek_bz' 'bz2_olb' lib_bzip2
-$         if (f$trnlnm( "lib_bzip2") .eqs. "")
-$         then
-$             say "Can't find BZIP2 object library.  Can't link."
-$             goto error
-$         else
-$             lib_bzip2_opts = "LIB_BZIP2:''bz2_olb' /library, "
-$         endif
-$     endif
-$ endif
-$!
-$! If ZLIB use was selected, find the object library.
-$! Complain if things fail.
-$!
-$ lib_zlib_opts = ""
-$ if (IZ_ZLIB .nes. "")
-$ then
-$     zlib_olb = "LIBZ.OLB"
-$     define incl_zlib 'IZ_ZLIB'
-$     defs = "''defs', USE_ZLIB"
-$     @ [.VMS]FIND_BZIP2_LIB.COM 'IZ_ZLIB' 'seek_bz' 'zlib_olb' lib_zlib
-$     if (f$trnlnm( "lib_zlib") .eqs. "")
-$     then
-$         say "Can't find ZLIB object library.  Can't link."
-$         goto error
-$     else
-$         say "ZLIB dir:  ''f$trnlnm( "lib_zlib")'"
-$         lib_zlib_opts = "LIB_ZLIB:''zlib_olb' /library, "
-$     endif
-$ endif
-$!
-$! Set AES_WG-related data.
-$!
-$ if (AES_WG .ne. 0)
-$ then
-$     defs = defs+ ", CRYPT_AES_WG"
-$ endif
-$!
-$! Set LZMA-related data.
-$!
-$ if (LZMA .ne. 0)
-$ then
-$     defs = defs+ ", LZMA_SUPPORT"
-$     if (arch .eqs. "VAX")
-$     then
-$         defs = defs+ ", _SZ_NO_INT_64"
-$     endif
-$ endif
-$!
-$! Set PPMd-related data.
-$!
-$ if (PPMD .ne. 0)
-$ then
-$     defs = defs+ ", PPMD_SUPPORT"
-$     if (arch .eqs. "VAX")
-$     then
-$         if (vaxc .ne. 0)
-$         then
-$             defs = defs+ ", NO_SIGNED_CHAR"
-$         endif
-$         if (LZMA .eq. 0)
-$         then
-$             defs = defs+ ", _SZ_NO_INT_64"
-$         endif
-$     endif
-$ endif
 $!
 $! If DASHV was requested, then run "zip -v" (and exit).
 $!
@@ -622,6 +642,76 @@ $         say "Linking on ''arch' for ''cmpl'."
 $     endif
 $ endif
 $!
+$! Search directory for BZIP2.
+$!
+$ if (BUILD_BZIP2)
+$ then
+$!    Our own BZIP2 directory.
+$     seek_bz = destb
+$ else
+$!    User-specified BZIP2 directory.
+$     seek_bz = arch
+$ endif
+$!
+$! Search directory for ZLIB.
+$!
+$ seek_zl = arch
+$!
+$! If BZIP2 support was selected, find the header file and object
+$! library.  Complain if things fail.
+$!
+$ cc_incl = "[], [.VMS]"
+$ lib_bzip2_opts = ""
+$ if (IZ_BZIP2 .nes. "")
+$ then
+$     bz2_olb = "LIBBZ2_NS.OLB"
+$     if (MAKE_OBJ .or. MAKE_EXE)
+$     then
+$         define incl_bzip2 'IZ_BZIP2'
+$         if (BUILD_BZIP2 .and. (IZ_BZIP2 .eqs. "SYS$DISK:[.BZIP2]"))
+$         then
+$             set def [.BZIP2]
+$             @buildbz2.com
+$             set def [-]
+$         endif
+$     endif
+$!
+$     if (MAKE_EXE)
+$     then
+$         @ [.VMS]FIND_BZIP2_LIB.COM 'IZ_BZIP2' 'seek_bz' 'bz2_olb' lib_bzip2
+$         if (f$trnlnm( "lib_bzip2") .eqs. "")
+$         then
+$             say ""
+$             say "Can't find BZIP2 object library.  Can't link."
+$             goto error
+$         else
+$             lib_bzip2_opts = "LIB_BZIP2:''bz2_olb' /library,"
+$         endif
+$     endif
+$ endif
+$!
+$! If ZLIB use was selected, find the object library.
+$! Complain if things fail.
+$!
+$ lib_zlib_opts = ""
+$ if (IZ_ZLIB .nes. "")
+$ then
+$     zlib_olb = "LIBZ.OLB"
+$     define incl_zlib 'IZ_ZLIB'
+$     defs = "''defs', USE_ZLIB"
+$     @ [.VMS]FIND_BZIP2_LIB.COM 'IZ_ZLIB' 'seek_zl' 'zlib_olb' lib_zlib
+$     if (f$trnlnm( "lib_zlib") .eqs. "")
+$     then
+$         say ""
+$         say "Can't find ZLIB object library.  Can't link."
+$         goto error
+$     else
+$         lib_zlib_opts = "LIB_ZLIB:''zlib_olb' /library, "
+$         @ [.VMS]FIND_BZIP2_LIB.COM 'IZ_ZLIB' -
+           contrib.infback9 infback9.h'zlib_olb' incl_zlib_contrib_infback9
+$     endif
+$ endif
+$!
 $! If [.'dest'] does not exist, either complain (link-only) or make it.
 $!
 $ if (f$search( "''dest'.DIR;1") .eqs. "")
@@ -632,9 +722,24 @@ $         create /directory [.'dest']
 $     else
 $         if (MAKE_EXE .or. MAKE_MSG)
 $         then
+$             say ""
 $             say "Can't find directory ""[.''dest']"".  Can't link."
 $             goto error
 $         endif
+$     endif
+$ endif
+$!
+$! Verify (default) large-file support on Alpha.
+$!
+$ if ((arch .eqs. "ALPHA") .and. (LARGE_FILE .eq. 0))
+$ then
+$     @ [.vms]check_large.com 'dest' large_file_ok
+$     if (f$trnlnm( "large_file_ok") .eqs. "")
+$     then
+$         say ""
+$         say "Large-file support not available (OS/CRTL too old?)."
+$         say "Add ""NOLARGE"" to the command."
+$         goto error
 $     endif
 $ endif
 $!
@@ -717,7 +822,7 @@ $ say ""
 $!
 $ tmp = f$verify( 1)    ! Turn echo on to see what's happening.
 $!
-$!-------------------------------- Zip section -------------------------------
+$!--------------------------- Zip section ------------------------------
 $!
 $ if (MAKE_HELP)
 $ then
@@ -800,7 +905,7 @@ $         cc 'DEF_LIBZIP' /object = [.'dest']API_.OBJ API.C
 $         cc 'DEF_LIBZIP' /object = [.'dest']ZIP_.OBJ ZIP.C
 $     endif
 $!
-$     if (AES_WG .ne. 0)
+$     if (AES_WG .gt. 0)
 $     then
 $         cc 'DEF_UNX' /object = [.'dest']AESCRYPT.OBJ [.AES_WG]AESCRYPT.C
 $         cc 'DEF_UNX' /object = [.'dest']AESKEY.OBJ [.AES_WG]AESKEY.C
@@ -812,19 +917,19 @@ $         cc 'DEF_UNX' /object = [.'dest']PWD2KEY.OBJ [.AES_WG]PWD2KEY.C
 $         cc 'DEF_UNX' /object = [.'dest']SHA1.OBJ [.AES_WG]SHA1.C
 $     endif
 $!
-$     if (LZMA .ne. 0)
+$     if (NOLZMA .le. 0)
 $     then
 $         cc 'DEF_UNX' /object = [.'dest']LZFIND.OBJ [.SZIP]LZFIND.C
 $         cc 'DEF_UNX' /object = [.'dest']LZMAENC.OBJ [.SZIP]LZMAENC.C
 $     endif
 $!
-$     if (PPMD .ne. 0)
+$     if (NOPPMD .le. 0)
 $     then
 $         cc 'DEF_UNX' /object = [.'dest']PPMD8.OBJ [.SZIP]PPMD8.C
 $         cc 'DEF_UNX' /object = [.'dest']PPMD8ENC.OBJ [.SZIP]PPMD8ENC.C
 $     endif
 $!
-$! Create the callable library link options file.
+$! Create the callable library link options file, if needed.
 $!
 $     if (LIBZIP .ne. 0)
 $     then
@@ -889,7 +994,7 @@ $         libr /object /replace 'lib_zip' -
            [.'dest']ZIP_.OBJ
 $     endif
 $!
-$     if (AES_WG .ne. 0)
+$     if (AES_WG .gt. 0)
 $     then
 $         libr /object /replace 'lib_zip' -
            [.'dest']AESCRYPT.OBJ, -
@@ -902,14 +1007,14 @@ $         libr /object /replace 'lib_zip' -
            [.'dest']SHA1.OBJ
 $     endif
 $!
-$     if (LZMA .ne. 0)
+$     if (NOLZMA .le. 0)
 $     then
 $         libr /object /replace 'lib_zip' -
            [.'dest']LZFIND.OBJ, -
            [.'dest']LZMAENC.OBJ
 $     endif
 $!
-$     if (PPMD .ne. 0)
+$     if (NOPPMD .le. 0)
 $     then
 $         libr /object /replace 'lib_zip; -
            [.'dest']PPMD8.OBJ, -
@@ -928,7 +1033,6 @@ $     @ [.vms]optgen.com Zip iz_zip_versn
 $     open /write opt_file_ln SYS$DISK:[.'dest']ZIP.OPT
 $     write opt_file_ln "Ident = ""Zip ''f$trnlnm( "iz_zip_versn")'"""
 $     close opt_file_ln
-$     deassign iz_zip_versn
 $     tmp = f$verify( optgen_verify)
 $!
 $! Link the executable.
@@ -1068,7 +1172,7 @@ $     libr /object /replace 'lib_ziputils' -
        [.'dest']VMS_.OBJ, -
        [.'dest']VMSMUNCH.OBJ
 $!
-$     if (AES_WG .ne. 0)
+$     if (AES_WG .gt. 0)
 $     then
 $         libr /object /replace 'lib_ziputils' -
            [.'dest']AESCRYPT.OBJ, -
@@ -1081,14 +1185,14 @@ $         libr /object /replace 'lib_ziputils' -
            [.'dest']SHA1.OBJ
 $     endif
 $!
-$     if (LZMA .ne. 0)
+$     if (NOLZMA .le. 0)
 $     then
 $         libr /object /replace 'lib_zip' -
            [.'dest']LZFIND.OBJ, -
            [.'dest']LZMAENC.OBJ
 $     endif
 $!
-$     if (PPMD .ne. 0)
+$     if (NOPPMD .le. 0)
 $     then
 $         libr /object /replace 'lib_zip' -
            [.'dest']PPMD8.OBJ, -
@@ -1123,7 +1227,7 @@ $     LINK /EXECUTABLE = [.'DEST']ZIPSPLIT.EXE -
 $!
 $ endif
 $!
-$!------------------------------ Symbols section -----------------------------
+$!------------------------- Symbols section ----------------------------
 $!
 $ if (MAKE_SYM)
 $ then
@@ -1144,6 +1248,19 @@ $! Deassign the temporary process logical names, restore the original
 $! default directory, and restore the DCL verify status.
 $!
 $ error:
+!
+$ if (f$trnlnm( "iz_zip_versn", "LNM$PROCESS_TABLE") .nes. "")
+$ then
+$     deassign iz_zip_versn
+$ endif
+$!
+$ if (arch .eqs. "ALPHA")
+$ then
+$     if (f$trnlnm( "large_file_ok", "LNM$PROCESS_TABLE") .nes. "")
+$     then
+$         deassign large_file_ok
+$     endif
+$ endif
 $!
 $ if (IZ_BZIP2 .nes. "")
 $ then
