@@ -1,5 +1,5 @@
 /*
-  tailor.h - Zip 3
+  tailor.h - Zip 3.1
 
   Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
@@ -45,6 +45,13 @@
    translations) needs to be set.  As iconv does not support things like
    uppercase to lowercase conversions, some features may be disabled if
    the port does not address them.
+
+   It's important to realize that zipfiles are now ASCII UTF-8 by default,
+   meaning that the native character set paths are stored in a zip archive
+   is now UTF-8.  This is per the AppNote zip standard.  Any ports where
+   the local character set is not ASCII, such as EBCDIC, needs to take care
+   to distinguish between internal names (which tend to be ASCII UTF-8) and
+   external names (which may be ASCII or EBCDIC).
    
    These are possible:
 
@@ -69,6 +76,8 @@
                            system, even those not representable in the local
                            character set.  If full file system scanning using
                            Unicode is supported, UNICODE_FILE_SCAN is set.
+                           Note that this is also set if the native charset
+                           when Zip is compiled is a UTF-8 one.
 
                            This is the preferred mode to operate in, as all
                            Unicode operations can be done using the port's wide
@@ -1088,8 +1097,8 @@ typedef struct ztimbuf {
 
 #     endif /* ? (_MSC_VER >= 1400) */
 
-      /* 64-bit fopen */
-#     define zfopen fopen
+      /* 64-bit, UTF-8-capable fopen */
+#     define zfopen fopen_utf8
       /* changed from fdopen() to _fdopen() - 2014-06-25 EG */
 #     define zfdopen _fdopen
 
@@ -1180,22 +1189,22 @@ typedef struct ztimbuf {
 #ifndef NO_CHANGE_DIRECTORY
 # ifndef CHANGE_DIRECTORY
 
+#  ifdef WIN32
+#   define CHANGE_DIRECTORY                             /* Enables -cd */
+#   define CHDIR              _chdir
+#   define GETCWD             _getcwd
+#  endif
+
 #  ifdef UNIX
 #   define CHANGE_DIRECTORY
-#   define CHDIR  chdir
-#   define GETCWD getcwd
+#   define CHDIR              chdir
+#   define GETCWD             getcwd
 #  endif
 
 #  ifdef VMS
 #   define CHANGE_DIRECTORY
 #   define CHDIR              chdir                     /* Non-permanent. */
 #   define GETCWD( buf, siz)  vms_getcwd( buf, siz, 1)  /* 1: VMS format. */
-#  endif
-
-#  ifdef WIN32
-#   define CHANGE_DIRECTORY
-#   define CHDIR  _chdir
-#   define GETCWD _getcwd
 #  endif
 
 # endif

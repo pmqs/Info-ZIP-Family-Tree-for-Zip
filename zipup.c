@@ -1,7 +1,7 @@
 /*
-  zipup.c - Zip 3
+  zipup.c - Zip 3.1
 
-  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -301,7 +301,10 @@ local uzoff_t isize;         /* input file size. global only for debugging */
 /* file_binary is set using initial buffer or buffers read and initial
    binary/text decision is made based on file_binary.  file_binary_final
    is set based on all buffers, and is updated as each buffer is read.
-   file_binary_final confirms validity of initial binary/text decision. */
+   file_binary_final confirms validity of initial binary/text decision.
+   
+   In the case of deflate, set_file_type() in trees.c sets the final
+   value of the binary/text flag. */
 
 /* iz_file_read() and iz_file_read_bt() sets these. */
 local int file_binary = 0;
@@ -678,7 +681,7 @@ struct zlist far *z;    /* zip entry to compress */
   /* local variable may be updated later */
   z->encrypt_method = encryption_method;
 
-  z->nam = strlen(z->iname);
+  z->nam = (ush)strlen(z->iname);
   isdir = z->iname[z->nam-1] == (char)0x2f; /* ascii[(unsigned)('/')] */
 
   file_binary = -1;        /* not set, set after first read */
@@ -1465,12 +1468,12 @@ struct zlist far *z;    /* zip entry to compress */
       auth_len = MAC_LENGTH(aes_strength);
 
       /* get the salt */
-/* SMSd. */
-#ifdef FAKE_SALT                        /* Feel free to discard. */
-      memset( zsalt, 1, salt_len);
-#else /* def FAKE_SALT */
+      /* SMSd. */
+#ifdef FAKE_SALT
+      memset(zsalt, 1, salt_len);
+#else
       prng_rand(zsalt, salt_len, &aes_rnp);
-#endif /* def FAKE_SALT [else] */
+#endif
 
       /* initialize encryption context for this file */
       ret = fcrypt_init(
@@ -1557,12 +1560,12 @@ struct zlist far *z;    /* zip entry to compress */
        ccm_ctx ctx[1]);                 /* the mode context             */
 
       /* get the salt */
-/* SMSd. */
-#ifdef FAKE_SALT                        /* Feel free to discard. */
-      memset( zsalt, 1, salt_len);
-#else /* def FAKE_SALT */
+      /* SMSd. */
+#ifdef FAKE_SALT
+      memset(zsalt, 1, salt_len);
+#else
       prng_rand(zsalt, salt_len, &aes_rnp);
-#endif /* def FAKE_SALT [else] */
+#endif
 
       /* initialize encryption context for this file */
       ret = fcrypt_init(
@@ -1583,7 +1586,7 @@ struct zlist far *z;    /* zip entry to compress */
 
 #ifdef WINDOWS_LONG_PATHS
   if (z->namew) {
-    int len = wcslen(z->namew);
+    int len = (int)wcslen(z->namew);
     if (len > MAX_PATH) {
       if (archive_has_long_path == 0)
         zipwarn("Archive contains Windows long paths", "");
@@ -1753,7 +1756,13 @@ struct zlist far *z;    /* zip entry to compress */
 #ifndef PGP
     if (z->att == (ush)FT_BINARY && TRANSLATE_EOL)
     {
-      sprintf(errbuf, " (%s)", z->oname);
+#ifdef UNICODE_SUPPORT
+      if (unicode_show && z->uname)
+        sprintf(errbuf, " (%s)", z->uname);
+      else
+#endif
+        sprintf(errbuf, " (%s)", z->oname);
+
       if (file_binary)
       {
         /* initial binary decision correct */
@@ -1854,15 +1863,34 @@ struct zlist far *z;    /* zip entry to compress */
          flushed. */
       /* An empty file is now considered text, so -l and -ll does not give
          warnings. */
+      /* Zip 3.1 now has the option -BF to enable checking an entire file
+         for binary.  It sets binary_full_check.  Tests showed that for
+         a store operation a full binary check on a text file increases
+         execution time by some 27% on average -- a large performance hit.
+         When compression was used, the increase was about 4% (a smaller
+         percentage of the larger amount of time compression takes over
+         storage).  Note that this hit is for text files, as the check
+         exits when any binary is found and so the performance impact on
+         files where binary is found quickly is minimal.  As store is
+         sometimes used when time is critical and storage is not a
+         problem, this was considered too large a hit.  So the default for
+         Zip 3.1 is the same as Zip 3.0, that is, to check the initial
+         buffers from the file only (roughly the first few KB) and if no
+         binary there label the file as text.  If avoiding mislabeling a
+         file as text is important, the -BF (--binary_full_check) option
+         can now be used to check all buffers and confirm the initial
+         binary/text determination.  Without -BF the initial assessment
+         might be wrong and not caught, but so far the new binary check
+         seems to always catch binary using the first buffer or two.
+         EBCDIC ports, in particular, rely more heavily on the binary/text
+         attribute, and so those ports may want to set binary_full_check
+         by default and take the performance hit.  2015-03-20 EG */
       if (file_binary < 0) {
         /* flag unset (which shouldn't happen unless file is empty) so assume
            binary */
         file_binary_final = 1;
       }
       z->att = (file_binary_final ? (ush)FT_BINARY : (ush)FT_ASCII_TXT);
-#if 0
-      z->att = (file_binary_final ? (ush)FT_BINARY : (ush)FT_ASCII_TXT);
-#endif
     }
 
     if (z->att == (ush)FT_BINARY && TRANSLATE_EOL)
@@ -2360,6 +2388,15 @@ local unsigned iz_file_read(buf, size)
  * translation, and update the crc and input file size.
  * IN assertion: size >= 2 (for end-of-line translation)
  */
+/* The in assertion is not valid for LZMA, which can ask for just one
+ * byte from the stream.  If iz_file_read() returns 0, that's taken as
+ * end of file.
+ *
+ * Now, if -ll (translate_eol == 2), and last char was \r, read next char
+ * (probably \n) and add to buf.
+ *
+ * For -l (translate_eol == 1), now read at least 1 byte.
+ */
 {
   unsigned len;
   char *b;
@@ -2418,7 +2455,7 @@ local unsigned iz_file_read(buf, size)
       file_binary = is_text_buf(buf, len) ? 0 : 1;
       file_binary_final = file_binary;
     }
-    else if (file_binary_final != 1) {
+    else if (file_binary_final != 1 && binary_full_check) {
       /* no binary so far, so keep checking */
       if (!is_text_buf(buf, len)) {
         file_binary_final = 1;
@@ -2477,10 +2514,14 @@ local unsigned iz_file_read(buf, size)
 
 
 #endif
-  } else if (TRANSLATE_EOL == 1) {
+  } /* translate_eol == 0 */
+
+  else if (TRANSLATE_EOL == 1) {
     /* translate_eol == 1 */
     /* Transform LF to CR LF */
     size >>= 1;
+    /* read at least 1 byte */
+    if (size < 1) size = 1;
     b = buf+size;
     size = len = zread(ifile, b, size);
 
@@ -2503,7 +2544,7 @@ local unsigned iz_file_read(buf, size)
       file_binary = is_text_buf(b, size) ? 0 : 1;
       file_binary_final = file_binary;
     }
-    else if (file_binary_final != 1)
+    else if (file_binary_final != 1 && binary_full_check)
     {
       /* no binary yet, so keep checking */
       if (!is_text_buf(b, size)) {
@@ -2538,12 +2579,18 @@ local unsigned iz_file_read(buf, size)
     } else { /* do not translate binary */
       memcpy(buf, b, size);
     }
+  } /* translate_eol == 1 */
 
-  } else {
+  else {
     /* translate_eol == 2 */
     /* Transform CR LF to LF and suppress final ^Z */
+    char buf2[2];
+    int len2;
     b = buf;
-    size = len = zread(ifile, buf, size-1);
+    if (size > 1)
+      /* make room for potential end \n */
+      size--;
+    size = len = zread(ifile, buf, size);
 
     if (len == (unsigned)EOF || len == 0) {
       if (file_binary < 0 && len == 0) {
@@ -2552,6 +2599,17 @@ local unsigned iz_file_read(buf, size)
         file_binary_final = 0;
       }
       return len;
+    }
+    if (buf[size - 1] == '\r') {
+      /* Read one more char, which should be \n.  We do
+         not handle the case where another \r is read.
+         This might be done by storing the last \r until
+         the next buffer read. */
+      len2 = zread(ifile, buf2, 1);
+      if (len2 > 0) {
+        buf[size++] = buf2[0];
+        len++;
+      }
     }
 
     bytes_read_this_entry += len;
@@ -2564,7 +2622,7 @@ local unsigned iz_file_read(buf, size)
       file_binary = is_text_buf(b, size) ? 0 : 1;
       file_binary_final = file_binary;
     }
-    else if (file_binary_final != 1)
+    else if (file_binary_final != 1 && binary_full_check)
     {
       /* no binary yet, so keep checking */
       if (!is_text_buf(b, size)) {
@@ -2575,7 +2633,13 @@ local unsigned iz_file_read(buf, size)
     /* If text, then convert EBCDIC to ASCII, and/or adjust line endings. */
     if (file_binary == 0)
     {
+#if 0
       buf[len] = '\n'; /* I should check if next char is really a \n */
+#endif
+      /* This is apparently pretending that the next unread char is \n to allow
+         an end \r to act like an end of line on Windows.  Instead, we now read
+         above the next char if the last char read was \r.  If the read char is
+         \n, we keep it. */
 #ifdef EBCDIC
       if (aflag == FT_ASCII_TXT)
       {
@@ -2596,6 +2660,8 @@ local unsigned iz_file_read(buf, size)
             if (( *buf++ = *b++) == CR && *b == LF) buf--, len--;
          } while (--size != 0);
       }
+#if 0
+      /* no longer needed */
       if (len == 0) {
          zread(ifile, buf, 1); len = 1; /* keep single \r if EOF */
          bytes_read_this_entry += len;
@@ -2608,8 +2674,13 @@ local unsigned iz_file_read(buf, size)
          buf -= len;
          if (buf[len-1] == CTRLZ) len--; /* suppress final ^Z */
       }
+#endif
+      /* Should be OK if it is a text file. */
+      buf -= len;
+      if (buf[len-1] == CTRLZ) len--; /* suppress final ^Z */
     }
-  }
+  } /* translate_eol == 2 */
+
   crc = crc32(crc, (uch *) buf, len);
   /* 2005-05-23 SMS.
      Increment file size.  A small-file program reading a large file may
@@ -3364,7 +3435,7 @@ static SRes lzma_read( void *p, void *buf, size_t *size)
   int size0;
 
   errno = 0;                            /* iz_file_read() sets errno. */
-  size0 = *size;
+  size0 = (int)(*size);
 
   *size = iz_file_read(buf, size0);
 

@@ -1,7 +1,7 @@
 /*
-  zipfile.c - Zip 3
+  zipfile.c - Zip 3.1
 
-  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -168,11 +168,11 @@
 #if 0
 #ifdef IZ_CRYPT_AES_WG
  local int add_crypt_aes_local_extra_field OF((struct zlist far *, ush,
-  int, ush));
+  uch, ush));
  local int add_crypt_aes_cen_extra_field OF((struct zlist far *, ush,
-  int, ush));
+  uch, ush));
 #endif
-#endif /* 0 */
+#endif
 
 #ifdef STREAM_EF_SUPPORT
  local int add_Stream_local_extra_field(struct zlist far *pZEntry);
@@ -519,7 +519,7 @@ local void write_string_to_mem(strValue, pPtr)
   char *pPtr;
 {
   if (strValue != NULL) {
-    int ssize = strlen(strValue);
+    int ssize = (int)strlen(strValue);
     int i;
 
     for (i = 0; i < ssize; i++) {
@@ -1417,7 +1417,7 @@ local int add_local_zip64_extra_field(pZEntry)
         if( pZ64Extra == NULL )
           ziperr(ZE_MEM, "Zip64 Extra Field");
         /* move all old ef before Zip64 EF */
-        usTemp = (extent) (pOldZ64Extra - pZEntry->extra);
+        usTemp = (ush)(pOldZ64Extra - pZEntry->extra);
         pTemp = pZ64Extra + Z64LocalLen;
         memcpy( pTemp, pZEntry->extra, usTemp );
         /* move all old ef after old Zip64 EF */
@@ -1463,7 +1463,7 @@ local int add_Unicode_Path_local_extra_field(pZEntry)
 # endif
   ush   newEFSize;
   ush   usTemp;
-  ush   ULen = strlen(pZEntry->uname);
+  ush   ULen = (ush)strlen(pZEntry->uname);
   ush   blocksize;
   ulg   chksum = CRCVAL_INITIAL;
   ush   ULocalLen = ZIP_EF_HEADER_SIZE +  /* tag + EF Data Len */
@@ -1520,7 +1520,7 @@ local int add_Unicode_Path_local_extra_field(pZEntry)
         if( pUExtra == NULL )
           ziperr(ZE_MEM, "UTF-8 Path Extra Field");
         /* move all before UTF-8 Path EF */
-        usTemp = (extent) (pOldUExtra - pZEntry->extra);
+        usTemp = (ush)(pOldUExtra - pZEntry->extra);
         pTemp = pUExtra;
         memcpy( pTemp, pZEntry->extra, usTemp );
         /* move all after old UTF-8 Path EF */
@@ -1595,7 +1595,7 @@ local int add_Unicode_Path_cen_extra_field(pZEntry)
 # endif
   ush   newEFSize;
   ush   usTemp;
-  ush   ULen = strlen(pZEntry->uname);
+  ush   ULen = (ush)strlen(pZEntry->uname);
   ush   blocksize;
   ulg   chksum = CRCVAL_INITIAL;
   ush   UCenLen = ZIP_EF_HEADER_SIZE +  /* tag + EF Data Len */
@@ -1652,7 +1652,7 @@ local int add_Unicode_Path_cen_extra_field(pZEntry)
         if( pUExtra == NULL )
           ziperr(ZE_MEM, "UTF-8 Path Extra Field");
         /* move all before UTF-8 Path EF */
-        usTemp = (extent) (pOldUExtra - pZEntry->cextra);
+        usTemp = (ush)(pOldUExtra - pZEntry->cextra);
         pTemp = pUExtra;
         memcpy( pTemp, pZEntry->cextra, usTemp );
         /* move all after old UTF-8 Path EF */
@@ -2110,7 +2110,7 @@ local int add_Stream_local_extra_field(struct zlist far *pZEntry)
         if(pUExtra == NULL)
           ziperr(ZE_MEM, "Stream extra field (3)");
         /* move all before Stream EF */
-        usTemp = (extent) (pOldUExtra - pZEntry->extra);
+        usTemp = (ush)(pOldUExtra - pZEntry->extra);
         pTemp = pUExtra;
         memcpy(pTemp, pZEntry->extra, usTemp);
         /* move all after old Stream EF */
@@ -2196,7 +2196,7 @@ local int remove_extra_field(ush tag, struct zlist far *pZEntry)
         if(pUExtra == NULL)
           ziperr(ZE_MEM, "Remove extra field (1)");
         /* move all before EF */
-        usTemp = (extent) (pOldUExtra - pZEntry->extra);
+        usTemp = (ush)(pOldUExtra - pZEntry->extra);
         pTemp = pUExtra;
         memcpy(pTemp, pZEntry->extra, usTemp);
         /* move all after old EF */
@@ -3807,7 +3807,7 @@ local int scanzipf_fixnew()
   /* This must be .zip file, even if it doesn't exist */
 
   /* see if zipfile name ends in .zip */
-  plen = strlen(in_path);
+  plen = (int)strlen(in_path);
 
 # ifdef VMS
   /* On VMS, adjust plen (and in_path_ext) to avoid the file version. */
@@ -4788,7 +4788,7 @@ local int scanzipf_regnew()
   /* if total disks is other than 1 then multi-disk archive */
   if (total_disks != 1) {
     /* zipfile name must end in .zip for split archives */
-    int plen = strlen(in_path);
+    int plen = (int)strlen(in_path);
     char *in_path_ext;
 
     if (adjust) {
@@ -5473,6 +5473,7 @@ local int scanzipf_regnew()
         z->comment[z->com] = '\0';
       z->iname[z->nam] = '\0';                  /* terminate name */
 #ifdef UNICODE_SUPPORT
+      z->utf8_path = 0;
       if (unicode_mismatch != 3) {
         if (z->flg & UTF8_BIT) {
           char *iname;
@@ -5493,6 +5494,9 @@ local int scanzipf_regnew()
         } else {
           /* check for UTF-8 path extra field */
           read_Unicode_Path_entry(z);
+        }
+        if (z->uname) {
+          z->utf8_path = 1;
         }
       }
 #endif
@@ -5594,7 +5598,7 @@ local int scanzipf_regnew()
           }
           strcpy(z->zuname, name);
           /* For output to terminal */
-          if (unicode_escape_all) {
+          if (unicode_escape_all || unicode_show) {
             char *ouname;
             /* Escape anything not 7-bit ASCII */
             ouname = utf8_to_escape_string(z->uname);
@@ -5607,8 +5611,10 @@ local int scanzipf_regnew()
               }
               strcpy(z->ouname, name);
             }
+#  if 0
           } else if (unicode_show) {
               z->ouname = string_dup(z->uname, "ouname");
+#  endif
           } else {
             if ((z->ouname = malloc(strlen(name) + 1)) == NULL) {
               zipwarn("could not allocate memory: scanzipf_reg", "");
@@ -5978,6 +5984,7 @@ int read_inc_file(inc_file)
   retval = ZE_OK;
   f = NULL;                             /* shut up some compilers */
   zipfile_exists = 0;
+
   old_in_path = in_path;
   in_path = inc_file;
 
@@ -5986,18 +5993,18 @@ int read_inc_file(inc_file)
   {
     int rtype;
 
-    if ((VMSmunch(inc_file, GET_RTYPE, (char *)&rtype) == RMS$_NORMAL) &&
+    if ((VMSmunch(in_path, GET_RTYPE, (char *)&rtype) == RMS$_NORMAL) &&
         (rtype == FAT$C_VARIABLE)) {
       zfprintf(mesg,
      "\n     Error:  zipfile is in variable-length record format.  Please\n\
      run \"bilf b %s\" to convert the zipfile to fixed-length\n\
-     record format.\n\n", inc_file);
+     record format.\n\n", in_path);
       return ZE_FORM;
     }
   }
-  readable = ((f = zfopen(inc_file, FOPR)) != NULL);
+  readable = ((f = zfopen(in_path, FOPR)) != NULL);
 #else /* !VMS */
-  readable = ((f = zfopen(zipfile, FOPR)) != NULL);
+  readable = ((f = zfopen(in_path, FOPR)) != NULL);
 #endif /* ?VMS */
 
 #ifdef MVS
@@ -6033,13 +6040,13 @@ int read_inc_file(inc_file)
     char c;
     fclose(f);
     /* append mode */
-    if ((f = zfopen(inc_file, "ab")) == NULL) {
-      ZIPERR(ZE_OPEN, inc_file);
+    if ((f = zfopen(in_path, "ab")) == NULL) {
+      ZIPERR(ZE_OPEN, in_path);
     }
     fclose(f);
     /* read mode again */
-    if ((f = zfopen(inc_file, FOPR)) == NULL) {
-      ZIPERR(ZE_OPEN, inc_file);
+    if ((f = zfopen(in_path, FOPR)) == NULL) {
+      ZIPERR(ZE_OPEN, in_path);
     }
     if (fread(&c, 1, 1, f) != 1) {
       /* no actual data */
@@ -6381,7 +6388,7 @@ int putlocal(z, rewrite)
         uname = converted_uname;
         free(iname);
         iname = utf8_to_local_string(uname);
-        newnam = strlen(iname);
+        newnam = (ush)strlen(iname);
         tempzn += newnam - nam;
         nam = newnam;
       } else {
@@ -6406,7 +6413,7 @@ int putlocal(z, rewrite)
     char *new_path;
     int oldlen;
 
-    path_prefix_len = strlen(path_prefix);
+    path_prefix_len = (int)strlen(path_prefix);
     
     oldlen = nam;
     new_path_len = path_prefix_len + oldlen;
@@ -6420,7 +6427,7 @@ int putlocal(z, rewrite)
     tempzn += new_path_len - nam;
     nam = new_path_len;
     if (uname) {
-      oldlen = strlen(uname);
+      oldlen = (int)strlen(uname);
       new_path_len = path_prefix_len + oldlen;
       if ((new_path = malloc(new_path_len + 1)) == NULL) {
         ZIPERR(ZE_MEM, "putlocal path prefix");
@@ -6453,7 +6460,7 @@ int putlocal(z, rewrite)
       /* If this flag is set, then restore UTF-8 as path name */
       use_uname = 1;
       tempzn -= nam;
-      nam = strlen(uname);
+      nam = (ush)strlen(uname);
       tempzn += nam;
     } else {
       /* use extra field */
@@ -6489,10 +6496,52 @@ int putlocal(z, rewrite)
       ZIPERR(ZE_MEM, "putlocal uname");
     }
     strcpy(iname, uname);
-    nam = strlen(iname);
+    nam = (ush)strlen(iname);
     /* iname = z->uname; */
   }
 #endif /* def UNICODE_SUPPORT */
+
+  /* Check that iname or uname did not exceed MAX_PATH_SIZE (8k).  A very large
+     path can exceed zip header limits.  Most OS limit paths to 4k, but
+     Windows allows paths up to 32k. */
+  if (nam > MAX_PATH_SIZE) {
+    /* Truncate path */
+    int i = 0;
+#ifdef MB_NEXTCHAR
+    char *s = iname;
+
+    while (i < MAX_PATH_SIZE && *s) {
+      /* skip over possibly multi-byte chars until hit limit */
+      MB_NEXTCHAR(s);
+      i = (int)(s - iname);
+    }
+#else
+    i = MAX_PATH_SIZE;
+#endif
+    iname[i] = '\0';
+    nam = (ush)strlen(iname);
+    sprintf(errbuf, "long path truncated to %d bytes", i);
+    zipwarn(errbuf, z->oname);
+  }
+
+  if (uname && (int)strlen(uname) > MAX_PATH_SIZE) {
+    /* Truncate path */
+    int i = 0;
+#ifdef MB_NEXTCHAR
+    char *s = uname;
+
+    while (i < MAX_PATH_SIZE && *s) {
+      /* skip over possibly multi-byte chars until hit limit */
+      MB_NEXTCHAR(s);
+      i = (int)(s - uname);
+    }
+#else
+    i = MAX_PATH_SIZE;
+#endif
+    uname[i] = '\0';
+    sprintf(errbuf, "long path truncated to %d bytes", i);
+    zipwarn(errbuf, z->oname);
+  }
 
 #ifdef IZ_CRYPT_AES_WG
   if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
@@ -6565,7 +6614,7 @@ int putlocal(z, rewrite)
             z->comment = NULL;
           }
           /* zip64 support 09/05/2003 R.Nausedat */
-          z->com = comment_size;
+          z->com = (ush)comment_size;
         }
       }
 #endif
@@ -6876,7 +6925,7 @@ int putcentral(z)
         uname = converted_uname;
         free(iname);
         iname = utf8_to_local_string(uname);
-        newnam = strlen(iname);
+        newnam = (ush)strlen(iname);
         tempzn += newnam - nam;
         nam = newnam;
       } else {
@@ -6901,7 +6950,7 @@ int putcentral(z)
     char *new_path;
     int oldlen;
 
-    path_prefix_len = strlen(path_prefix);
+    path_prefix_len = (int)strlen(path_prefix);
     
     oldlen = nam;
     new_path_len = path_prefix_len + oldlen;
@@ -6915,7 +6964,7 @@ int putcentral(z)
     tempzn += new_path_len - nam;
     nam = new_path_len;
     if (uname) {
-      oldlen = strlen(uname);
+      oldlen = (int)strlen(uname);
       new_path_len = path_prefix_len + oldlen;
       if ((new_path = malloc(new_path_len + 1)) == NULL) {
         ZIPERR(ZE_MEM, "putcentral path prefix");
@@ -6939,7 +6988,7 @@ int putcentral(z)
       /* If this flag is set, then restore UTF-8 as path name */
       use_uname = 1;
       tempzn -= nam;
-      nam = strlen(uname);
+      nam = (ush)strlen(uname);
       tempzn += nam;
     } else {
       /* use extra field */
@@ -6975,7 +7024,7 @@ int putcentral(z)
       ZIPERR(ZE_MEM, "putcentral uname");
     }
     strcpy(iname, uname);
-    nam = strlen(iname);
+    nam = (ush)strlen(iname);
     /* iname = z->uname; */
   }
 #endif /* def UNICODE_SUPPORT */
@@ -7190,17 +7239,17 @@ int putcentral(z)
 /* Write the end of central directory data to file y.  Return an error code
    in the ZE_ class. */
 
-int putend( OFT( uzoff_t) n,
-            OFT( uzoff_t) s,
-            OFT( uzoff_t) c,
-            OFT( extent) m,
-            OFT( char *) z
+int putend( OFT(uzoff_t) n,
+            OFT(uzoff_t) s,
+            OFT(uzoff_t) c,
+            OFT(ush) m,
+            OFT(char *) z
           )
 #ifdef NO_PROTO
   uzoff_t n;                /* number of entries in central directory */
   uzoff_t s;                /* size of central directory */
   uzoff_t c;                /* offset of central directory */
-  extent m;                 /* length of zip file comment (0 if none) */
+  ush m;                    /* length of zip file comment (0 if none) */
   char *z;                  /* zip file comment if m != 0 */
 #endif /* def NO_PROTO */
 {
@@ -7357,7 +7406,7 @@ int putend( OFT( uzoff_t) n,
 #endif
   if (m) {
     /* PKWare defines the archive comment to be ASCII only so no OEM conversion */
-    append_string_to_mem(z, m, &block, &offset, &blocksize);
+    append_string_to_mem(z, (int)m, &block, &offset, &blocksize);
   }
 
   /* write the block */
@@ -7541,7 +7590,8 @@ int zipcopy(z)
       zipwarn("Skipping:  ", z->iname);
       return ZE_FORM;
     }
-    /* Currently compression method is defined as 0 - 19 and 98 (AppNote 6.3) */
+    /* Currently compression method is defined as 0 - 19 and 98 (AppNote 6.3).
+       WinZip uses 95 - 98 for their versions of some compression methods. */
     /* We can still copy an entry we can't read, but something over 200 is
        probably illegal */
     if (localz->how > 200) {
@@ -7705,7 +7755,7 @@ int zipcopy(z)
   if (fix == 3) {
     /* Update length of entry's name, as it may have been changed.  This is
        needed to support the ZipNote ability to rename archive entries. */
-    localz->nam = z->nam = strlen(z->iname);
+    localz->nam = z->nam = (ush)strlen(z->iname);
     /* update local name */
     free(localz->iname);
     if ((localz->iname = malloc(strlen(z->iname) + 1)) == NULL) {
@@ -7746,7 +7796,7 @@ int zipcopy(z)
 #endif
       e = 16;
   }
-  /* 4 is signature */
+  /* 4 is size of signature */
   n = 4 + (uzoff_t)((LOCHEAD) + (ulg)(localz->nam) + (ulg)(localz->ext));
 
   n += e + z->siz;
@@ -7807,7 +7857,7 @@ int zipcopy(z)
   /* copy the data */
   if (fix == 2 && localz->lflg & 8)
     /* read to data descriptor */
-    r = bfcopy((uzoff_t) - 2);
+    r = bfcopy((uzoff_t) -2);
   else
     r = bfcopy(localz->siz);
 
@@ -8192,7 +8242,7 @@ int trash()
              (EBCDIC on EBCDIC systems) */
           /* cutpath(z->iname, '/'); */ /* QQQ ??? */
           cutpath(z->iname, 0x2f); /* 0x2f = ascii['/'] */
-          z->nam = strlen(z->iname);
+          z->nam = (ush)strlen(z->iname);
           if (z->nam > 0) {
             z->iname[z->nam - 1] = (char)0x2f;
             z->iname[z->nam++] = '\0';
