@@ -128,6 +128,8 @@
 #define ZIP_UWORD32_MAX                  0xFFFFFFFF                    /* border value */
 #define ZIP_EF_HEADER_SIZE               4                             /* size of pre-header of extra fields */
 
+/* Most EF tag macros now in zip.h */
+
 #ifdef ZIP64_SUPPORT
 # define ZIP64_EXTCRC                    0                             /* uncompressed crc-32 for file */
 # define ZIP64_EXTSIZ                    4                             /* compressed size in zip file */
@@ -149,6 +151,7 @@
 # define ZIP64_EFIELD_OFS_OFS            (ZIP64_EFIELD_OFS_CSIZE + 8)  /* zip64 extra field: offset to offset in archive */
 # define ZIP64_EFIELD_OFS_DISK           (ZIP64_EFIELD_OFS_OFS + 8)    /* zip64 extra field: offset to start disk # */
 /* -------------------------------------------------------------------------------------------------------------------------- */
+
  local int adjust_zip_local_entry OF((struct zlist far *));
  local void adjust_zip_central_entry OF((struct zlist far *));
 # if 0
@@ -158,6 +161,8 @@
  local int add_central_zip64_extra_field OF((struct zlist far *));
  local int add_local_zip64_extra_field OF((struct zlist far *));
 #endif /* ZIP64_SUPPORT */
+
+ local int add_local_zip64_placeholder_extra_field OF((struct zlist far *));
 
 #ifdef UNICODE_SUPPORT
  local int add_Unicode_Path_local_extra_field OF((struct zlist far *));
@@ -174,11 +179,6 @@
 #endif
 #endif
 
-#ifdef STREAM_EF_SUPPORT
- local int add_Stream_local_extra_field(struct zlist far *pZEntry);
-#endif
-
-local int remove_extra_field(ush tag, struct zlist far *pZEntry);
 
 /* New General Purpose Bit Flag bit 11 flags when entry path and
    comment are in UTF-8 */
@@ -1348,8 +1348,17 @@ local int remove_central_extra_field(pZEntry, tag)
 }
 # endif
 
+
 /* Add Zip64 extra field to local header
  * 10/5/03 EG
+ *
+ * pZEntry - pointer to the zlist entry.
+ *
+ * Adds the local Zip64 extra field.  If a Zip64 local extra field or a
+ * placeholder extra field already exists, replace it with an updated
+ * local Zip64 extra field.
+ *
+ * Returns ZE_OK on success.
  */
 local int add_local_zip64_extra_field(pZEntry)
   struct zlist far *pZEntry;
@@ -1382,10 +1391,15 @@ local int add_local_zip64_extra_field(pZEntry)
     pOldZ64Extra = get_extra_field( ZIP64_EF_TAG, pZEntry->extra, pZEntry->ext );
     if (pOldZ64Extra == NULL)
     {
+      /* ... no, so check for a Placeholder extra field ... */
+      pOldZ64Extra = get_extra_field( EF_PLACEHOLDER, pZEntry->extra, pZEntry->ext );
+    }
+    if (pOldZ64Extra == NULL)
+    {
       /* ... we don't, so re-malloc enough memory for the old extra data plus */
       /* the size of the zip64 extra field */
-      /* Because of a bug in Windows 7 Windows Explorer, the Zip64 extra field needs to be
-         first for file sizes to show correctly.  (2014-04-19 EG) */
+      /* Because of a bug in Windows 7 Windows Explorer, the Zip64 extra field
+         needs to be first for file sizes to show correctly.  (2014-04-19 EG) */
       pZ64Extra = (char *) malloc( Z64LocalLen + pZEntry->ext );
       if (pZ64Extra == NULL)
         ziperr( ZE_MEM, "Zip64 Extra Field" );
@@ -1398,14 +1412,16 @@ local int add_local_zip64_extra_field(pZEntry)
     }
     else
     {
-      /* ... we have. Sort out the existing zip64 extra field and remove it
-       * from pZEntry->extra, re-malloc enough memory for the old extra data
-       * left plus the size of the zip64 extra field */
+      /* ... we have. Sort out the existing zip64 or placeholder extra field and
+       * remove it from pZEntry->extra, re-malloc enough memory for the old extra
+       * data left plus the size of the zip64 extra field */
       blocksize = SH( pOldZ64Extra + 2 );
-      /* If the right length then go with it, else get rid of it and add a new extra field
-       * to existing block. */
-      /* Due to the Windows 7 Windows Exporer bug, Zip64 extra field must be first in header. */
-      if ((blocksize == Z64LocalLen - ZIP_EF_HEADER_SIZE) && (pOldZ64Extra == pZEntry->extra))
+      /* If the right length then go with it, else get rid of it and add a new
+       * extra field to existing block. */
+      /* Due to the Windows 7 Windows Exporer bug, Zip64 extra field must be first
+       * in header. */
+      if ((blocksize == Z64LocalLen - ZIP_EF_HEADER_SIZE) &&
+          (pOldZ64Extra == pZEntry->extra))
       {
         /* looks good */
         pZ64Extra = pOldZ64Extra;
@@ -1444,6 +1460,122 @@ local int add_local_zip64_extra_field(pZEntry)
 
 #endif /* ZIP64_SUPPORT */
 
+/* add_local_zip64_placeholder_extra_field - add no-op extra field to reserve space
+ *
+ * pZEntry - pointer to the zlist entry.
+ *
+ * Adds a placeholder extra field ("PH") to reserve space for the Zip64 local
+ * extra field.  If a Zip64 local extra field already exists, replace it with
+ * the placeholder.
+ *
+ * The specific use is to reserve space for the Zip64 local extra field.  If
+ * that extra field is not needed, this no-op will remain to keep the size of
+ * the extra field block the same as originally written.  Any other zip or
+ * unzip should ignore the unrecognized extra field.
+ *
+ * All data bytes in a Placeholder extra field should be set to zero.  If a
+ * "PH" extra field has non-zero data, it should be suspect.
+ *
+ * Returns ZE_OK on success.
+ */
+local int add_local_zip64_placeholder_extra_field(pZEntry)
+  struct zlist far *pZEntry;
+{
+  char  *pZ64Extra;
+  char  *pOldZ64Extra;
+  char  *pOldTemp;
+  char  *pTemp;
+  ush   newEFSize;
+  ush   usTemp;
+  ush   blocksize;
+  ush   Z64LocalLen = ZIP_EF_HEADER_SIZE +  /* tag + EF Data Len */
+                      8 +                   /* original uncompressed length of file */
+                      8;                    /* compressed size of file */
+
+  /* malloc zip64 extra field? */
+  /* after the below pExtra should point to either start of Zip64 extra field or
+     start of Placeholder extra field */
+  if (pZEntry->ext == 0 || pZEntry->extra == NULL)
+  {
+    /* get new extra field */
+    pZ64Extra = pZEntry->extra = (char *) malloc(Z64LocalLen);
+    if (pZEntry->extra == NULL) {
+      ziperr( ZE_MEM, "Zip64 local extra field placeholder" );
+    }
+    pZEntry->ext = Z64LocalLen;
+  }
+  else
+  {
+    /* check if we have a Zip64 extra field ... */
+    pOldZ64Extra = get_extra_field( ZIP64_EF_TAG, pZEntry->extra, pZEntry->ext );
+    if (pOldZ64Extra == NULL)
+    {
+      /* ... no, so check for a Placeholder extra field ... */
+      pOldZ64Extra = get_extra_field( EF_PLACEHOLDER, pZEntry->extra, pZEntry->ext );
+    }
+    if (pOldZ64Extra == NULL)
+    {
+      /* ... we don't, so re-malloc enough memory for the old extra data plus */
+      /* the size of the zip64 extra field */
+      /* Because of a bug in Windows 7 Windows Explorer, the Zip64 extra field
+       * needs to be first for file sizes to show correctly.  (2014-04-19 EG) */
+      pZ64Extra = (char *) malloc( Z64LocalLen + pZEntry->ext );
+      if (pZ64Extra == NULL)
+        ziperr( ZE_MEM, "Zip64 Extra Field" );
+      /* move old extra field and update pointer and length */
+      memmove( pZ64Extra + Z64LocalLen, pZEntry->extra, pZEntry->ext );
+      free( pZEntry->extra );
+      pZEntry->extra = pZ64Extra;
+      /* pZ64Extra += pZEntry->ext; */
+      pZEntry->ext += Z64LocalLen;
+    }
+    else
+    {
+      /* ... we have. Sort out the existing zip64 (or placeholder) extra field and
+       * remove it from pZEntry->extra, re-malloc enough memory for the old extra
+       * data left plus the size of the zip64 extra field */
+      blocksize = SH( pOldZ64Extra + 2 );
+      /* If the right length then go with it, else get rid of it and add a new
+       * extra field to existing block. */
+      /* Due to the Windows 7 Windows Exporer bug, Zip64 extra field must be
+       * first in header. */
+      if ((blocksize == Z64LocalLen - ZIP_EF_HEADER_SIZE) &&
+          (pOldZ64Extra == pZEntry->extra))
+      {
+        /* looks good */
+        pZ64Extra = pOldZ64Extra;
+      }
+      else
+      {
+        newEFSize = pZEntry->ext - (blocksize + ZIP_EF_HEADER_SIZE) + Z64LocalLen;
+        pZ64Extra = (char *) malloc( newEFSize );
+        if( pZ64Extra == NULL )
+          ziperr(ZE_MEM, "Zip64 Extra Field");
+        /* move all old ef before Zip64 EF */
+        usTemp = (ush)(pOldZ64Extra - pZEntry->extra);
+        pTemp = pZ64Extra + Z64LocalLen;
+        memcpy( pTemp, pZEntry->extra, usTemp );
+        /* move all old ef after old Zip64 EF */
+        pTemp = pZ64Extra + Z64LocalLen + usTemp;
+        pOldTemp = pOldZ64Extra + ZIP_EF_HEADER_SIZE + blocksize;
+        usTemp = pZEntry->ext - usTemp - blocksize;
+        memcpy( pTemp, pOldTemp, usTemp);
+        /* replace extra fields */
+        pZEntry->ext = newEFSize;
+        free(pZEntry->extra);
+        pZEntry->extra = pZ64Extra;
+        /* pZ64Extra = pTemp + usTemp; */
+      }
+    }
+  }
+  /* set/update zip64 placeholder extra field members */
+  write_ushort_to_mem(EF_PLACEHOLDER, pZ64Extra);
+  write_ushort_to_mem((ush) (Z64LocalLen - ZIP_EF_HEADER_SIZE), pZ64Extra + 2);
+  write_int64_to_mem(0, pZ64Extra + 2 + 2);
+  write_int64_to_mem(0, pZ64Extra + 2 + 2 + 8);
+
+  return ZE_OK;
+}
 
 
 
@@ -2024,7 +2156,10 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
  * not currently in the Central Directory.
  *
  */
-local int add_Stream_local_extra_field(struct zlist far *pZEntry)
+local int add_Stream_local_extra_field( OFT( struct zlist far *) pZEntry)
+#ifdef NO_PROTO
+  struct zlist far *pZEntry;
+#endif /* def NO_PROTO */
 {
   char  *pUExtra;
   char  *pOldUExtra;
@@ -2155,7 +2290,12 @@ local int add_Stream_local_extra_field(struct zlist far *pZEntry)
 
 #endif /* STREAM_EF_SUPPORT */
 
-local int remove_extra_field(ush tag, struct zlist far *pZEntry)
+local int remove_extra_field( OFT( ush) tag,
+                              OFT( struct zlist far *) pZEntry)
+#ifdef NO_PROTO
+  ush tag;
+  struct zlist far *pZEntry;
+#endif /* def NO_PROTO */
 {
   char  *pUExtra;
   char  *pOldUExtra;
@@ -6193,7 +6333,12 @@ char *ustring_upper_lower(char *utf8_string, int caseupperlower)
  *
  * Returns number characters converted.
  */
-int astring_upper_lower(char *ascii_string, int caseupperlower)
+int astring_upper_lower( OFT( char *)ascii_string,
+                         OFT( int) caseupperlower)
+#ifdef NO_PROTO
+  char *ascii_string;
+  int caseupperlower;
+#endif /* def NO_PROTO */
 {
   int i;
 
@@ -6218,29 +6363,47 @@ int putlocal(z, rewrite)
    in the ZE_ class. */
 {
   /* If any of compressed size (siz), uncompressed size (len), offset(off), or
-     disk number (dsk) is larger than can fit in the below standard fields then a
-     Zip64 flag value is stored and a Zip64 extra field is created.
-     Only siz and len are in the local header while all can be in the central
-     directory header.
+     disk number (dsk) is larger than can fit in the below standard fields then
+     a Zip64 flag value is stored and a Zip64 extra field is created.  Only siz
+     and len are in the local header Zip64 extra field while all can be in the
+     central directory header Zip64 extra field.
 
      For the local header if the extra field is created must store both
      uncompressed and compressed sizes.
 
-     This assumes that for large entries the compressed size won't need a
-     Zip64 extra field if the uncompressed size did not.  This assumption should
-     only fail for a large file of nearly totally uncompressable data.
+     In Zip 3.0, putlocal() assumed that for large entries the compressed size
+     won't need a Zip64 extra field if the uncompressed size did not.  This
+     assumption should only fail for a large file of nearly totally uncompressable
+     data.  Zip 3.1 better handles this situation, which is described below.
 
      There is a tradeoff here.  A margin could be added to the uncompressed size
      to account for any bad compression expansion, plus meta information, but this
      would force Zip64 for files that would otherwise be under the limit.  When
      this assumption fails, the force Zip64 option should be used.
 
-     If streaming stdin in and use_descriptors is set then always create a Zip64
-     extra field flagging the data descriptor as being in Zip64 format.  This is
-     needed as don't know if need Zip64 or not when need to set Zip64 flag in
-     local header.
+     Zip 3.1 now compares the file's uncompressed size to a threshold that is
+     set using margins defined in zip.h specific to each compression method.
+     These margins are set at the point where bad compression could make the
+     compressed file exceed 4.0 GiB and vary by compression method.  When a
+     file has an uncompressed size that meets or exceeds this threshold, but is
+     less than 4.0 GiB, space is reserved for a local Zip64 extra field using a
+     placeholder extra field.  If, after the file is compressed, the entry
+     needs Zip64, the placeholder is replaced by the Zip64 local extra field
+     of the same size.  If Zip64 is not needed, the placeholder (a valid extra
+     field) is left in the extra field block to maintain the size of the block.
+     This placeholder should be harmless (based on the zip standard) and have
+     no impact on unzips that should ignore it like other unknown extra fields.
+     The result is that all Zip64 decisions should be automatic now (-fz and
+     -fz- should not be needed) and Zip64 will only be used when it actually
+     is needed (if the output is seekable).
 
-     If rewrite is set then don't count bytes written for splits
+     The placeholder approach also works if streaming stdin.  Even though we
+     don't know the file size, there is no longer a need to flag stdin as Zip64
+     ahead of time.  However, if use_descriptors is set (the output can't be
+     updated), this approach can't be used.
+
+     If rewrite is set then don't count bytes written for splits as these bytes
+     have already been counted.
    */
   char *block = NULL;   /* mem block to write to */
   extent offset = 0;    /* offset into block */
@@ -6259,6 +6422,10 @@ int putlocal(z, rewrite)
   int streaming_in = 0; /* streaming stdin */
   int was_zip64 = 0;
 
+  uzoff_t zip64_threshold;
+  int zip64_threshold_exceeded = 0;
+  static int zip64_placeholder_used = 0;
+
 
   /* If input is stdin then streaming stdin.  No problem with that.
 
@@ -6267,14 +6434,46 @@ int putlocal(z, rewrite)
      and also need to assume Zip64 will be needed as don't know yet.  Even if the
      output is seekable, if the input is streamed need to write the Zip64 extra field
      before writing the data or there won't be room for it later if we need it.
+
+     The streaming stdin case is resolved by using the placeholder extra field
+     described above so we can update the local header if Zip64 is needed.
   */
   streaming_in = (strcmp(z->name, "-") == 0);
 
+  if (translate_eol == 1)
+    zip64_threshold = (uzoff_t)2 * GiB;
+  else 
+    zip64_threshold = (uzoff_t)4 * GiB;
+
+  if (how == STORE)
+    zip64_threshold -= ZIP64_MARGIN_MB_STORE * MiB;
+  else if (how == DEFLATE)
+    zip64_threshold -= ZIP64_MARGIN_MB_DEFLATE * MiB;
+  else if (how == BZIP2)
+    zip64_threshold -= ZIP64_MARGIN_MB_BZIP2 * MiB;
+  else if (how == LZMA)
+    zip64_threshold -= ZIP64_MARGIN_MB_LZMA * MiB;
+  else if (how == PPMD)
+    zip64_threshold -= ZIP64_MARGIN_MB_PPMD * MiB;
+
+  /* Check if input file size exceeds threshold. */
+  if (z->len > zip64_threshold || streaming_in)
+    /* If the result might require Zip64 or the input is being streamed
+       (and so the size is not known), make space for a possible Zip64
+       extra field. */
+    zip64_threshold_exceeded = 1;
+
   if (!rewrite) {
     zip64_entry = 0;
+    zip64_placeholder_used = 0;
+
     /* initial local header */
     if (z->siz > ZIP_UWORD32_MAX || z->len > ZIP_UWORD32_MAX ||
-      force_zip64 == 1 || (force_zip64 != 0 && streaming_in))
+      force_zip64 == 1
+# ifndef USE_ZIP64_PLACEHOLDER
+      || (force_zip64 != 0 && streaming_in)
+# endif
+    )
     {
       /* assume Zip64 */
       if (force_zip64 == 0) {
@@ -6287,12 +6486,25 @@ int putlocal(z, rewrite)
         z->ver = ZIP64_MIN_VER;
       was_zip64 = 1;
     }
+# ifdef USE_ZIP64_PLACEHOLDER
+    else if (zip64_threshold_exceeded && !use_descriptors)
+    {
+      /* The entry does not (yet) require Zip64, but it might.  We make space
+         for the Zip64 extra field just in case, but only if we can rewrite
+         the local header. */
+      zip64_placeholder_used = 1;
+    }
+# endif
   } else {
     /* rewrite */
     was_zip64 = zip64_entry;
     zip64_entry = 0;
     if (z->siz > ZIP_UWORD32_MAX || z->len > ZIP_UWORD32_MAX ||
-      force_zip64 == 1 || (force_zip64 != 0 && streaming_in))
+      force_zip64 == 1
+# ifndef USE_ZIP64_PLACEHOLDER
+      || (force_zip64 != 0 && streaming_in)
+# endif
+    )
     {
       /* Zip64 entry */
       zip64_entry = 1;
@@ -6309,17 +6521,22 @@ int putlocal(z, rewrite)
        streaming as the Zip64 extra field was not written and now there's no
        room for it.
 
-       However, there may be a way around this and it may get implemented by
-       the next beta. */
+       However, if the Zip64 placeholder ef was written, there is space and we
+       can switch to Zip64. */
     if (was_zip64 == 0 && zip64_entry == 1) {
       /* guessed wrong and need Zip64 */
-      zipwarn("Entry too big:", z->oname);
       if (force_zip64 == 0) {
+        zipwarn("Entry too big:", z->oname);
         ZIPERR(ZE_BIG,
-         "Compressed/stored entry unexpectedly large - do not use '--force-zip64-'");
+          "Compressed/stored entry unexpectedly large - do not use '--force-zip64-'");
       } else {
-        ZIPERR(ZE_BIG,
-         "Poor compression resulted in unexpectedly large entry - try --force-zip64");
+        if (!zip64_placeholder_used)
+        {
+          /* space was not reserved for Zip64 - nothing to do at this point */
+          zipwarn("Entry too big:", z->oname);
+          ZIPERR(ZE_BIG,
+           "Poor compression resulted in unexpectedly large entry - try --force-zip64");
+        }
       }
     }
     if (zip64_entry) {
@@ -6349,6 +6566,20 @@ int putlocal(z, rewrite)
   if (zip64_entry || was_zip64)
     /* update extra field */
     add_local_zip64_extra_field( z );
+
+# ifdef USE_ZIP64_PLACEHOLDER
+  else if (zip64_placeholder_used)
+  {
+    /* If this is initial write of local header and exceeded threshold, write
+       a placeholder extra field the same size as the Zip64 local extra field
+       in case we need the space later.
+       
+       If rewriting local header and Zip64 was not needed, fill the space
+       where the Zip64 ef would have gone with the placeholder extra field.
+     */
+    add_local_zip64_placeholder_extra_field( z );
+  }
+# endif
 #endif /* ZIP64_SUPPORT */
 
 
@@ -6364,6 +6595,16 @@ int putlocal(z, rewrite)
       ZIPERR(ZE_MEM, "putlocal uname");
     }
     strcpy(uname, z->uname);
+  }
+  else if (utf8_native) {
+    /* If UTF-8 is being handled as native, always save name as UTF-8.
+       Normally if uname == NULL then iname is 7-bit ASCII and should
+       be little difference; however, this prevents OEM conversions,
+       which should not be done to Unicode. */
+    if ((uname = malloc(strlen(z->iname) + 1)) == NULL) {
+      ZIPERR(ZE_MEM, "putlocal uname->iname");
+    }
+    strcpy(uname, z->iname);
   }
 #endif
 
@@ -6456,7 +6697,7 @@ int putlocal(z, rewrite)
       z->flg |= UTF8_BIT;
     }
 # endif /* 0 */
-    if (z->flg & UTF8_BIT) {
+    if ((z->flg & UTF8_BIT) || utf8_native) {
       /* If this flag is set, then restore UTF-8 as path name */
       use_uname = 1;
       tempzn -= nam;
@@ -6490,10 +6731,10 @@ int putlocal(z, rewrite)
 /*  iname = z->iname; */
 #ifdef UNICODE_SUPPORT
   if (use_uname) {
-    /* path is UTF-8 */
+    /* path is UTF-8 or utf8_native */
     free(iname);
     if ((iname = malloc(strlen(uname) + 1)) == NULL) {
-      ZIPERR(ZE_MEM, "putlocal uname");
+      ZIPERR(ZE_MEM, "putlocal uname->iname");
     }
     strcpy(iname, uname);
     nam = (ush)strlen(iname);
@@ -6501,7 +6742,7 @@ int putlocal(z, rewrite)
   }
 #endif /* def UNICODE_SUPPORT */
 
-  /* Check that iname or uname did not exceed MAX_PATH_SIZE (8k).  A very large
+  /* Check that iname or uname did not exceed MAX_PATH_SIZE (32k).  A very large
      path can exceed zip header limits.  Most OS limit paths to 4k, but
      Windows allows paths up to 32k. */
   if (nam > MAX_PATH_SIZE) {
@@ -6524,10 +6765,13 @@ int putlocal(z, rewrite)
     zipwarn(errbuf, z->oname);
   }
 
+  /* As uname->iname if utf8_native and the local Unicode ef has been
+     written if needed, checking uname here may not be needed. */
+#if 0
   if (uname && (int)strlen(uname) > MAX_PATH_SIZE) {
     /* Truncate path */
     int i = 0;
-#ifdef MB_NEXTCHAR
+# ifdef MB_NEXTCHAR
     char *s = uname;
 
     while (i < MAX_PATH_SIZE && *s) {
@@ -6535,13 +6779,14 @@ int putlocal(z, rewrite)
       MB_NEXTCHAR(s);
       i = (int)(s - uname);
     }
-#else
+# else
     i = MAX_PATH_SIZE;
-#endif
+# endif
     uname[i] = '\0';
     sprintf(errbuf, "long path truncated to %d bytes", i);
     zipwarn(errbuf, z->oname);
   }
+#endif
 
 #ifdef IZ_CRYPT_AES_WG
   if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
@@ -6554,9 +6799,8 @@ int putlocal(z, rewrite)
       }
 
       /* Set compression method to AES_WG (WinZip/Gladman) encryption. */
-      how = 99;
+      how = AESWG;  /* 99 */
   }
-
 #endif /* def IZ_CRYPT_AES_WG */
 
 #ifdef STREAM_EF_SUPPORT
@@ -6627,7 +6871,7 @@ int putlocal(z, rewrite)
   {
       remove_extra_field(EF_STREAM, z);
   }
-#endif
+#endif /* STREAM_EF_SUPPORT */
   
   /* local file header signature */
   append_ulong_to_mem(LOCSIG, &block, &offset, &blocksize);
@@ -6668,7 +6912,7 @@ int putlocal(z, rewrite)
 
 #ifdef UNICODE_SUPPORT
   if (use_uname) {
-    /* path is UTF-8 */
+    /* path is UTF-8 or we are storing UTF-8 as native (no OEM conversions) */
     append_string_to_mem(iname, nam, &block, &offset, &blocksize);
   } else
 #endif
@@ -6901,6 +7145,15 @@ int putcentral(z)
     }
     strcpy(uname, z->uname);
   }
+  else if (utf8_native) {
+    /* If utf8_native, handle all as UTF-8.  If z->uname NULL then
+       iname should be 7-bit ASCII, but by setting uname we bypass
+       OEM conversions which should not be done to native UTF-8. */
+    if ((uname = malloc(strlen(z->iname) + 1)) == NULL) {
+      ZIPERR(ZE_MEM, "putlocal iname->uname");
+    }
+    strcpy(uname, z->iname);
+  }
 #endif
 
   /* convert added/updated entry */
@@ -6977,14 +7230,14 @@ int putcentral(z)
   }
 
 #ifdef UNICODE_SUPPORT
-  if (z->uname) {
+  if (uname) {
     /* this bit should already be set */
 # if 0
     if (utf8_native) {
       z->flg |= UTF8_BIT;
     }
 # endif /* 0 */
-    if (z->flg & UTF8_BIT) {
+    if (z->flg & UTF8_BIT || utf8_native) {
       /* If this flag is set, then restore UTF-8 as path name */
       use_uname = 1;
       tempzn -= nam;
@@ -7018,10 +7271,10 @@ int putcentral(z)
   /* iname = z->iname; */
 #ifdef UNICODE_SUPPORT
   if (use_uname) {
-    /* path is UTF-8 */
+    /* path is UTF-8 or utf8_native */
     free(iname);
     if ((iname = malloc(strlen(uname) + 1)) == NULL) {
-      ZIPERR(ZE_MEM, "putcentral uname");
+      ZIPERR(ZE_MEM, "putcentral uname->iname");
     }
     strcpy(iname, uname);
     nam = (ush)strlen(iname);
@@ -7031,8 +7284,53 @@ int putcentral(z)
 
   off = z->off;
 
-#ifdef IZ_CRYPT_AES_WG
+  /* Check that iname or uname did not exceed MAX_PATH_SIZE (32k).  A very large
+     path can exceed zip header limits.  Most OS limit paths to 4k, but
+     Windows allows paths up to 32k. */
+  if (nam > MAX_PATH_SIZE) {
+    /* Truncate path */
+    int i = 0;
+#ifdef MB_NEXTCHAR
+    char *s = iname;
 
+    while (i < MAX_PATH_SIZE && *s) {
+      /* skip over possibly multi-byte chars until hit limit */
+      MB_NEXTCHAR(s);
+      i = (int)(s - iname);
+    }
+#else
+    i = MAX_PATH_SIZE;
+#endif
+    iname[i] = '\0';
+    nam = (ush)strlen(iname);
+    sprintf(errbuf, "long path truncated to %d bytes", i);
+    zipwarn(errbuf, z->oname);
+  }
+
+  /* As uname->iname if utf8_native and the local Unicode ef has been
+     written if needed, checking uname here may not be needed. */
+#if 0
+  if (uname && (int)strlen(uname) > MAX_PATH_SIZE) {
+    /* Truncate path */
+    int i = 0;
+# ifdef MB_NEXTCHAR
+    char *s = uname;
+
+    while (i < MAX_PATH_SIZE && *s) {
+      /* skip over possibly multi-byte chars until hit limit */
+      MB_NEXTCHAR(s);
+      i = (int)(s - uname);
+    }
+# else
+    i = MAX_PATH_SIZE;
+# endif
+    uname[i] = '\0';
+    sprintf(errbuf, "long path truncated to %d bytes", i);
+    zipwarn(errbuf, z->oname);
+  }
+#endif
+
+#ifdef IZ_CRYPT_AES_WG
   if (z->encrypt_method >= AES_MIN_ENCRYPTION) {
       /* Determine the AES_WG vendor version.  (Clear CRC, as appropriate.) */
       aes_vendor_version = get_aes_vendor_version( z);
@@ -7043,7 +7341,7 @@ int putcentral(z)
       }
 
       /* Set compression method to AES_WG (WinZip/Gladman) encryption. */
-      how = 99;
+      how = AESWG;  /* 99 */
   }
 #endif /* def IZ_CRYPT_AES_WG */
 
@@ -7171,7 +7469,7 @@ int putcentral(z)
 
 #ifdef UNICODE_SUPPORT
   if (use_uname) {
-    /* path is UTF-8 */
+    /* path is UTF-8 or we are storing UTF-8 as native (no OEM conversions) */
     append_string_to_mem(iname, nam, &block, &offset, &blocksize);
   } else
 #endif

@@ -3888,6 +3888,9 @@ int is_utf16LE_file(FILE *infile)
 #endif /* UNICODE_SUPPORT */
 
 
+/* SMSd. */
+#if 0
+
 /* trim_string() - trim leading and trailing white space from string
  *
  * Returns trimmed malloc'd copy of string.
@@ -3947,6 +3950,9 @@ char *trim_string(char *instring)
 
   return trimmed_string;
 }
+
+/* SMSd. */
+#endif /* 0 */
 
 
 
@@ -4180,7 +4186,12 @@ local int utf8_chars(utf8)
  *
  * Returns a duplicate of the string, or NULL.
  */
-char *string_dup(ZCONST char *in_string, char *error_message)
+char *string_dup( OFT( ZCONST char *)in_string,
+                 OFT(  char *)error_message)
+#ifdef NO_PROTO
+  ZCONST char *in_string;
+  char *error_message;
+#endif /* def NO_PROTO */
 {
   char *out_string;
 
@@ -5844,7 +5855,10 @@ char *wide_to_escape_string(zwchar *wide_string)
  * that gets sent to the display (console, stdout) when
  * needed (as in progress and error messages).
  */
-char *local_to_display_string(char *local_string)
+char *local_to_display_string( OFT( char *)local_string)
+#ifdef NO_PROTO
+  char *local_string;
+#endif /* def NO_PROTO */
 {
   char *temp_string;
   char *display_string;
@@ -6317,7 +6331,12 @@ zwchar *utf8_to_wide_string(ZCONST char *utf8_string)
  *
  * zprintf() returns what printf() would return.
  */
-int zprintf(const char *format, ...)
+#ifdef NO_PROTO
+int zprintf( format)
+  const char *format;
+#else /* def NO_PROTO */
+int zprintf( const char *format, ...)
+#endif /* def NO_PROTO [else] */
 {
   va_list argptr;
   int len;
@@ -6359,7 +6378,13 @@ int zprintf(const char *format, ...)
 }
 
 
-int zfprintf(FILE *file, const char *format, ...)
+#ifdef NO_PROTO
+int zfprintf( file, format)
+  FILE *file;
+  const char *format;
+#else /* def NO_PROTO */
+int zfprintf( FILE *file, const char *format, ...)
+#endif /* def NO_PROTO [else] */
 {
   va_list argptr;
   int len;
@@ -6415,7 +6440,10 @@ int zfprintf(FILE *file, const char *format, ...)
 }
 
 
-void zperror(const char *parm1)
+void zperror( OFT( const char *)parm1)
+#ifdef NO_PROTO
+  const char *parm1;
+#endif /* def NO_PROTO */
 {
   char *errstring = strerror(errno);
 
@@ -6531,7 +6559,7 @@ void zperror(const char *parm1)
 #  define MB_NEXTCHAR(ptr) ((ptr)++)
 # endif
 #endif
-#endif
+#endif /* 0 */
 
 
 /* constants */
@@ -6623,7 +6651,11 @@ local int optionerr(buf, err, optind, islong)
  *
  * Returns the number of args printed.
  */
-int dump_args(char *arrayname, char *args[])
+int dump_args( OFT( char *) arrayname, OFT( char *)args OFT( []))
+#ifdef NO_PROTO
+  char *arrayname;
+  char *args[];
+#endif /* def NO_PROTO */
 {
   int i = 0;
 
@@ -6849,8 +6881,16 @@ int insert_arg(pargs, arg, at_arg, free_args)
  * 8/26/2014 EG
  */
 
-int insert_args_from_file(char ***pargs, char *argfilename, int at_arg,
-                          int recursion_depth)
+int insert_args_from_file( OFT( char ***) pargs,
+                           OFT( char *) argfilename,
+                           OFT( int) at_arg,
+                           OFT( int) recursion_depth)
+#ifdef NO_PROTO
+  char ***pargs;
+  char *argfilename;
+  int at_arg;
+  int recursion_depth;
+#endif /* def NO_PROTO */
 {
   FILE *argfile = NULL;
   char argfile_line[MAX_ARGFILE_LINE + 1];

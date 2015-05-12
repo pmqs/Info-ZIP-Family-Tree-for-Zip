@@ -1000,6 +1000,15 @@ local void help_extended()
 "  info tends towards the debugging level and is probably not useful to",
 "  average user.  Long option is --verbose.",
 "",
+"Large files and Zip64:",
+"  Zip handles files larger than 4 GiB and archives with more than 64k entries",
+"  by using the Zip64 extensions.  For backward compatibility, Zip only uses",
+"  these when needed, and the use is automatic.  However, if a file is very",
+"  close to 4 GiB it's possible bad compression or operations like -l line",
+"  end conversions may push the resulting file over the limit.  If Zip does",
+"  not automatically select Zip64 and a \"need -fz\" error results, use",
+"  -fz to force use of Zip64.",
+"",
 "Input file lists and include files:",
 "  -@         read names (paths) to zip from stdin (one name per line)",
 "  -@@ fpath  open file at file path fpath and read names (one name per line)",
@@ -1127,6 +1136,13 @@ local void help_extended()
 "  converted.  If a Unicode text file is intended for use on multiple systems",
 "  (Windows, MAC, and/or Unix), then save the file in UTF-8 format, not Windows",
 "  Unicode format.",
+"",
+"  If using -l to change LF line ends to CR+LF, and the file is just under",
+"  4 GiB, the conversion may make the resulting file larger than 4 GiB and",
+"  so need Zip64 extensions.  Currently this situation is not automatically",
+"  detected and the result may be Zip exiting with a \"need -fz\" error.",
+"  In this case, use -fz (--force-zip64) to force Zip to use Zip64 large",
+"  file extensions.",
 "",
 "Recursion:",
 "  -r        recurse paths, include files in subdirs: zip -r ar path path ...",
@@ -3816,7 +3832,10 @@ int Unicode_Tests()
 
 /* This function processes the -n (suffixes) option.  The code was getting too
    lengthy for the options switch. */
-void suffixes_option(char *value)
+void suffixes_option( OFT( char *)value)
+#ifdef NO_PROTO
+  char *value;
+#endif /* def NO_PROTO */
 {
   /* Value format: "method[-lvl]=sfx1:sfx2:sfx3...". */
 
@@ -4603,10 +4622,10 @@ char **argv;            /* command line tokens */
      characters should be visible, but languages like Japanese probably will
      not display correctly (showing small boxes instead of the right characters).
 
-     As of Zip 3.1, Windows console output uses print_utf8(), which calls
-     write_consolew(), which does not need a UTF-8 console to output Unicode.
-     This still displays boxes for Japanese and similar fonts, though, as that
-     is a font support issue of Windows consoles.
+     As of Zip 3.1, Windows console output uses print_utf8() (via zprintf()),
+     which calls write_consolew(), which does not need a UTF-8 console to output
+     Unicode.  This still displays boxes for Japanese and similar fonts, though,
+     as that is a font support issue of Windows consoles.
 
      For the IBM ports (z/OS and related), this gets more complex than the Unix
      case as those ports are EBCDIC based.  While one can work with UTF-8 via
@@ -4630,7 +4649,7 @@ char **argv;            /* command line tokens */
      See the large note in tailor.h for more on Unicode support.
 
      A new option -UT (--utest) performs select Unicode tests and displays
-     the results.
+     the results, but it currently needs updating.
 
      We plan to update the locale checks in set_locale() shortly.
   */
@@ -11900,18 +11919,11 @@ int arg;
     not_first = 1;
     /* Host name.  (Trim off any domain info.  (Needed on Tru64.)) */
     uname( &u_p_utsname);
-    if (u_p_utsname.nodename == NULL)
-    {
-      *u_p_nodename = '\0';
-    }
-    else
-    {
-      strncpy( u_p_nodename, u_p_utsname.nodename, (U_P_NODENAME_LEN- 8));
-      u_p_nodename[ 24] = '\0';
-      cp = strchr( u_p_nodename, '.');
-      if (cp != NULL)
-        *cp = '\0';
-    }
+    strncpy( u_p_nodename, u_p_utsname.nodename, (U_P_NODENAME_LEN- 8));
+    u_p_nodename[ 24] = '\0';
+    cp = strchr( u_p_nodename, '.');
+    if (cp != NULL)
+      *cp = '\0';
 
     /* Terminal name.  (Trim off any leading "/dev/"). */
     tty_name = ttyname( 0);

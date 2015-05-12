@@ -1,5 +1,5 @@
 /*
-  zip.h - Zip 3
+  zip.h - Zip 3.1
 
 /---------------------------------------------------------------------/
 
@@ -11,7 +11,7 @@ ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
 a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 
-Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -113,10 +113,14 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 # endif
 #endif
 
-/* Enable support for the Backup options by default (2014-04-15 EG) */
+/* Enable support for the Backup options by default for Win32, Unix, and VMS.
+   Other ports should only enable if they can support the long paths generated
+   for the date-stamped backups, or changes to support shorter paths are made. */
 #ifndef BACKUP_SUPPORT
 # ifndef NO_BACKUP_SUPPORT
-#  define BACKUP_SUPPORT
+#  if defined(UNIX) || defined(WIN32) || defined(VMS)
+#   define BACKUP_SUPPORT
+#  endif
 # endif
 #endif
 
@@ -127,8 +131,25 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 # endif
 #endif
 
+/* FIFO support */
+#ifndef NO_FIFO_SUPPORT
+/* Currently FIFOs (named pipes) only supported on Unix */
+# ifdef UNIX
+#  define FIFO_SUPPORT
+# endif
+#endif
+
+/* Win32 wide command line */
+#if defined(UNICODE_SUPPORT_WIN32) && defined(AT_LEAST_WINXP)
+# ifndef WIN32_WIDE_CMD_LINE
+#  ifndef NO_WIN32_WIDE_CMD_LINE
+#   define WIN32_WIDE_CMD_LINE
+#  endif
+# endif
+#endif
+
 /* Enable symlink support. */
-/* (Variable linkput is used to actually enable symlink handling.) */
+/* (The variable linkput is used to actually enable symlink handling.) */
 #if !defined(NO_SYMLINKS) && !defined(SYMLINKS)
   /* Not Windows. */
 # if defined(S_IFLNK) && !defined(WIN32)
@@ -138,10 +159,10 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 # if defined(NTSD_EAS)
     /* For now do not do symlinks on WIN32 in utilities as code is not there.  Also
        need Unicode enabled, which it should be by default on NT and later. */
-#  if !defined(UTIL) && defined(UNICODE_SUPPORT)
-    /* Need at least Windows Vista for Symlink support */
-#   ifdef _WIN32_WINNT_VISTA
-#    if WINVER >= _WIN32_WINNT_VISTA
+#  if defined(UNICODE_SUPPORT)
+#   if !defined(UTIL)
+     /* Need at least Windows Vista for Symlink support */
+#    ifdef AT_LEAST_WINVISTA
 #     ifndef SYMLINKS
 #      define SYMLINKS
 #     endif
@@ -235,6 +256,8 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 /* Maximum window size = 32K. If you are really short of memory, compile
  * with a smaller WSIZE but this reduces the compression ratio for files
  * of size > WSIZE. WSIZE must be a power of two in the current implementation.
+ *
+ * If assembly is used, this WSIZE must match the WSIZE there.
  */
 
 #define MIN_LOOKAHEAD (MAX_MATCH+MIN_MATCH+1)
@@ -257,6 +280,7 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #ifndef MATCH
 #  define MATCH shmatch         /* Default for pattern matching: UNIX style */
 #endif
+
 
 /* Structure carrying extended timestamp information */
 typedef struct iztimes {
@@ -374,36 +398,88 @@ typedef struct iztimes {
 /* ---------------------------------- */
 
 
+#define MAX_COM_LEN (32766L)
 /* The entire record must be less than 65535, so the comment length needs to
    be kept well below that.  Changed 65534L to 32766L. */
 
-#define MAX_COM_LEN (32766L)
-
-
-/* This is for sizing storage for the returned password. */
-
 #define MAX_PASSWORD_LEN (1024)
+/* This is for sizing storage for the returned password.  The max size for
+   TRADITIONAL is about 256 and for AES about 128. */
 
-
+#define MAX_ZIP_ARG_SIZE (8192)
 /* Max size of command line arguments to Zip.  Used by API. */
 
-#define MAX_ZIP_ARG_SIZE 4096
-
-
+#define MAX_PATH_SIZE (32768)
 /* Max size (in bytes) of a path.  This is used for creating storage.  Usually
-   FNMAX or MAX_PATH is the limiting factor. */
+   FNMAX or MAX_PATH (or similar) is the limiting factor.  Also used by
+   getnam(). */
 
-#define MAX_PATH_SIZE 8192
-
-
-/* Max size of extra field block */
 #define MAX_EXTRA_FIELD_BLOCK_SIZE (65535)
+/* Max size of extra field block. */
+
+#define ERRBUF_SIZE (FNMAX + 65536)
+/* Size of errbuf[] error message buffer.  Also used for some similar
+   buffers.  Should be big enough to hold the message and a couple paths.
+   Was FNMAX+4081. Long paths on Windows can be up to 32k. */
 
 
-/* Size of errbuf[] error message buffer.  Also used for some
-   similar buffers. */
+/* INCLUDE FILES and ARGUMENT FILES */
 
-#define ERRBUF_SIZE FNMAX+4081
+#define MAX_INCLUDE_FILE_SIZE (100 * 1<<20) /* 100 MiB */
+/* Maximum size of (UTF-8) include file that is allowed.  Even 100 MiB is
+   starting to show significant delay with the current UTF-8 detection
+   algorithm.  Include files are the files read by -@@, -x@ and -i@ as well
+   as argfiles. */
+
+/* for insert_args_from_file() */
+#define ADD_ARGS_DELTA  100
+/* How far to extend newargs when needed. */
+
+#define MAX_ARGFILE_LINE  MAX_ZIP_ARG_SIZE
+/* Max length of line in arg file. */
+
+#define MAX_ARGFILE_DEPTH  4
+/* Max levels of recursion supported.  4 allows @a to call @b to call @c to
+   call @d.  If argfile d tries to open an argfile, an error is issued.  A
+   depth limit is needed to prevent recursion loops (similar to how a limit
+   is used to prevent symlink loops). */
+
+
+/* --------------------------------------- */
+
+/* Zip64 */
+
+/* Define this to use the Zip64 Placeholder extra field.  This reserves space
+ * for the Zip64 extra field when Zip64 is not needed but might be, based
+ * on exceeding the below Zip64 thresholds.  If later Zip64 is actually
+ * needed, we can switch to Zip64.  If this is not defined, Zip will exit
+ * with an error if Zip64 was not planned for but later is needed.
+ */
+
+#ifndef NO_USE_ZIP64_PLACEHOLDER
+# define USE_ZIP64_PLACEHOLDER
+#endif
+
+/* Zip64 thresholds - The below margins are subtracted from 4 GiB
+ * (2 GiB if -l used) to get the threshold.  If an input file is at
+ * least this large (but less than 4 GiB) and output is seekable,
+ * use of the Zip64 ef placeholder is considered.  These values are
+ * used in putlocal().
+ */
+
+#define ZIP64_MARGIN_MB_STORE              1  /* 1 MiB */
+#define ZIP64_MARGIN_MB_DEFLATE            1  /* 1 MiB */
+#define ZIP64_MARGIN_MB_BZIP2             50  /* 50 MiB */
+#define ZIP64_MARGIN_MB_LZMA             100  /* 100 MiB */
+#define ZIP64_MARGIN_MB_PPMD             150  /* 150 MiB */
+
+
+/* Some shorthands */
+#define KiB   (0x400)
+#define MiB   (0x100000)
+#define GiB   (0x40000000)
+
+/* --------------------------------------- */
 
 
 /* Structures for in-memory file information */
@@ -478,6 +554,8 @@ struct flist {
 };
 struct plist {
   char *zname;                  /* External version of internal name */
+  char *uzname;                 /* UTF-8 version of zname */
+  char *duzname;                /* De-escaped uzname (Unicode escapes converted back) */
   int select;                   /* Selection flag ('i' or 'x') */
 };
 
@@ -488,26 +566,29 @@ struct plist {
 #define FT_ASCII_TXT   (1)
 #define FT_EBCDIC_TXT  (2)
 
-/* Extra field block ID codes: */
-#define EF_ACL       0x4C41   /* ACL, access control list ("AL") */
-#define EF_AES_WG    0x9901   /* AES (WinZip/Gladman) encryption ("c^!") */
-#define EF_AOSVS     0x5356   /* AOS/VS ("VS") */
-#define EF_ATHEOS    0x7441   /* AtheOS ("At") */
-#define EF_BEOS      0x6542   /* BeOS ("Be") */
-#define EF_IZUNIX    0x5855   /* UNIX ("UX") */
-#define EF_IZUNIX2   0x7855   /* Info-ZIP's new Unix ("Ux") */
-#define EF_MVS       0x470f   /* MVS ("G")   */
-#define EF_NTSD      0x4453   /* NT Security Descriptor ("SD") */
-#define EF_OS2EA     0x0009   /* OS/2 (extended attributes) */
-#define EF_QDOS      0xfb4a   /* SMS/QDOS ("J\373") */
-#define EF_SPARK     0x4341   /* David Pilling's Acorn/SparkFS ("AC") */
-#define EF_TANDEM    0x4154   /* Tandem NSK ("TA") */
-#define EF_THEOS     0x6854   /* THEOS ("Th") */
-#define EF_TIME      0x5455   /* Universal timestamp ("UT") */
-#define EF_UTFPTH    0x7075   /* Unicode UTF-8 path ("up") */
-#define EF_VMCMS     0x4704   /* VM/CMS Extra Field ID ("G")*/
+/* Extra field block ID codes (tags): */
+#define EF_ACL          0x4C41   /* ACL, access control list ("AL") */
+#define EF_AES_WG       0x9901   /* AES (WinZip/Gladman) encryption ("c^!") */
+#define EF_AOSVS        0x5356   /* AOS/VS ("VS") */
+#define EF_ATHEOS       0x7441   /* AtheOS ("At") */
+#define EF_BEOS         0x6542   /* BeOS ("Be") */
+#define EF_IZUNIX       0x5855   /* UNIX ("UX") */
+#define EF_IZUNIX2      0x7855   /* Info-ZIP's new Unix ("Ux") */
+#define EF_MVS          0x470f   /* MVS ("G")   */
+#define EF_NTSD         0x4453   /* NT Security Descriptor ("SD") */
+#define EF_OS2EA        0x0009   /* OS/2 (extended attributes) */
+#define EF_QDOS         0xfb4a   /* SMS/QDOS ("J\373") */
+#define EF_SPARK        0x4341   /* David Pilling's Acorn/SparkFS ("AC") */
+#define EF_TANDEM       0x4154   /* Tandem NSK ("TA") */
+#define EF_THEOS        0x6854   /* THEOS ("Th") */
+#define EF_TIME         0x5455   /* Universal timestamp ("UT") */
+#define EF_UTFPTH       0x7075   /* Unicode UTF-8 path ("up") */
+#define EF_VMCMS        0x4704   /* VM/CMS Extra Field ID ("G")*/
 
-#define EF_STREAM    0x6C78   /* Extended Local Header (Stream) ("xl") */
+#define EF_STREAM       0x6C78   /* Extended Local Header (Stream) ("xl") */
+
+#define EF_PLACEHOLDER  0x5048   /* NO-OP Placeholder tag ("PH") */
+
 
 /* Definitions for extra field handling: */
 #define EF_SIZE_MAX  ((unsigned)0xFFFF) /* hard limit of total e.f. length */
@@ -633,6 +714,7 @@ extern int scanimage;           /* Scan through image files */
 #define BZIP2 12                /* BZIP2 compression method */
 #define LZMA 14                 /* LZMA compression method */
 #define PPMD 98                 /* PPMd compression method */
+#define AESWG 99                /* AES WinZip/Gladman encryption */
 #ifdef CD_ONLY_SUPPORT
 # define CD_ONLY 999            /* Only store cd (not a real compression) */
 #endif
@@ -651,54 +733,60 @@ extern int scanimage;           /* Scan through image files */
 # define LAST_KNOWN_COMPMETHOD  PPMD
 #endif
 
-/* ================================================= */
-/* STORE method file name suffixes. */
-/* These are the suffixes that will be stored by default.
- * .Z       Compress file
+/* --------------------------------------------------------------
+ * Store method default file name suffix list.
+ * The -n/--suffixes option can override this list.
+ *
+ * .7z      7-Zip archive
+ * .arc     ARC archive
+ * .arj     ARJ archive
+ * .bz2     bzip2 file
+ * .cab     Windows Cabinet archive
+ * .gz      GNU zip (gzip) file
+ * .lha     LHA archive (mainly Amiga)
+ * .lzh     LHA archive (mainly Amiga)
+ * .lzma    LZMA file
+ * .pea     PeaZip archive
+ * .rar     RAR archive
+ * .rz      RZIP file (good on very large files with distance redundancy)
+ * .tbz2    tar archive with bzip2 compression
+ * .tgz     tar archive with gzip compression
+ * .tlz     tar archive with LZMA compression
+ * .txz     tar archive with XZ compression
+ * .xz      XZ file (uses LZMA2 to get very high compression ratios)
+ * .Z       compress file
  * .zip     ZIP archive
  * .zipx    ZIP archive (extended format)
  * .zoo     ZOO archive
- * .arc     ARC archive
- * .lzh     LHA archive (mainly Amiga)
- * .lha     LHA archive (mainly Amiga)
- * .arj     ARJ archive
- * .gz      GNU Zip file (GZIP)
- * .tgz     TAR with GZIP
- * .tbz2    TAR with BZ2
- * .tlz     TAR with LZMA
- * .7z      7-Zip archive
- * .xz      XZ file (uses LZMA2 to get very high compression ratios)
- * .cab     Windows Cabinet archive
- * .bz2     BZIP2 file
- * .lzma    LZMA file
- * .rz      RZIP file (good on very large files with distance redundancy)
- * .pea     PeaZip archive
  * .zz      Zzip archive
- * .rar     RAR archive
  */
 
-/* If you change the below, update the above list. */
+/* If you change the macros below, update the list above. */
 #ifndef RISCOS
 # ifndef QDOS
 #  ifndef TANDEM
     /* Normal */
 #   define MTHD_SUFX_0 \
-".Z:.zip:.zipx:.zoo:.arc:.lzh:.lha:.arj:.gz:.tgz:.tbz2:.tlz:.7z:.xz:.cab:.bz2:.lzma:.rz:.pea:.zz:.rar"
+ ".7z:.arc:.arj:.bz2:.cab:.gz:.lha:.lzh:.lzma:.pea:\
+.rar:.rz:.tbz2:.tgz:.tlz:.txz:.xz:.Z:.zip:.zipx:.zoo:.zz"
 #  else /* ndef TANDEM */
     /* Tandem */
 #   define MTHD_SUFX_0 \
-" Z: zip: zipx: zoo: arc: lzh: lha: arj: gz: tgz: tbz2: tlz: 7z: xz: cab: bz2: lzma: rz: pea: zz: rar";
+ " 7z: arc: arj: bz2: cab: gz: lha: lzh: lzma: pea:\
+ rar: rz: tbz2: tgz: tlz: txz: xz: Z: zip: zipx: zoo: zz"
 #  endif /* ndef TANDEM [else] */
 # else /* ndef QDOS */
     /* QDOS */
 #  define MTHD_SUFX_0 \
-"_Z:_zip:_zipx:_zoo:_arc:_lzh:_lha:_arj:_gz:_tgz:_tbz2:_tlz:_7z:_xz:_cab:_bz2:_lzma:_rz:_pea:_zz:_rar";
+ "_7z:_arc:_arj:_bz2:_cab:_gz:_lha:_lzh:_lzma:_pea:\
+_rar:_rz:_tbz2:_tgz:_tlz:_txz:_xz:_Z:_zip:_zipx:_zoo:_zz"
 # endif /* ndef QDOS [else] */
 #else /* ndef RISCOS */
     /* RISCOS */
-# define MTHD_SUFX_0 "DDC:D96:68E";
+# define MTHD_SUFX_0 "68E:D96:DDC";
 #endif /* ndef RISCOS [else] */
-/* ================================================= */
+/* ----------------------------------------------------------- */
+
 
 #define AESENCRED 99            /* AES (WG) encrypted */
 
@@ -772,6 +860,11 @@ extern int no_wild;             /* wildcards are disabled */
 extern int allow_regex;         /* 1 = allow [list] matching (regex) */
 extern int wild_stop_at_dir;    /* wildcards do not include / in matches */
 
+#if defined(VMS) || defined(DOS) || defined(WIN32)
+# define FILE_SYSTEM_CASE_INS
+#endif
+extern int file_system_case_sensitive;
+
 #if defined(UNICODE_SUPPORT) && defined(WIN32)
 # define WINDOWS_LONG_PATHS
 #endif
@@ -839,6 +932,10 @@ extern int use_wide_to_mb_default;/* use the default MB char instead of escape *
 
 extern char *startup_dir;       /* dir that Zip starts in (current dir ".") */
 extern char *working_dir;       /* dir user asked to change to for zipping */
+#ifdef UNICODE_SUPPORT_WIN32
+extern wchar_t *startup_dirw;  /* dir that Zip starts in (current dir ".") */
+extern wchar_t *working_dirw;  /* dir user asked to change to for zipping */
+#endif
 
 extern int hidden_files;        /* process hidden and system files */
 extern int volume_label;        /* add volume label */
@@ -864,6 +961,9 @@ extern char *backup_control_path;   /* control file used to store backup set */
 extern char *backup_full_path;      /* full archive of backup set */
 extern char *backup_output_path;    /* path output archive before finalizing */
 #endif
+
+extern int binary_full_check;       /* 1=check entire file for binary before
+                                       calling it text */
 
 extern uzoff_t cd_total_entries;  /* num of entries as read from Zip64 EOCDR */
 extern uzoff_t total_cd_total_entries; /* num entries across all archives */
@@ -907,6 +1007,9 @@ extern FILE *y;                 /* output file now global for splits */
 
 #ifdef UNICODE_SUPPORT
   extern int utf8_native;       /* 1=store UTF-8 as standard per AppNote bit 11 */
+#endif
+#ifdef UNICODE_SUPPORT_WIN32
+ extern int win32_utf8_argv;    /* 1=got UTF-8 from win32 wide command line */
 #endif
 extern int unicode_escape_all;  /* 1=escape all non-ASCII characters in paths */
 extern int unicode_mismatch;    /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
@@ -959,8 +1062,8 @@ extern uzoff_t bytes_this_entry; /* bytes written for this entry across all spli
 extern int noisy_splits;         /* note when splits are being created */
 extern int mesg_line_started;    /* 1=started writing a line to mesg */
 extern int logfile_line_started; /* 1=started writing a line to logfile */
-extern char *tempath;           /* Path for temporary files */
-extern FILE *mesg;              /* Where informational output goes */
+extern char *tempath;            /* Path for temporary files */
+extern FILE *mesg;               /* Where informational output goes */
 /* dll progress */
 extern uzoff_t bytes_read_this_entry; /* bytes read from current input file */
 extern uzoff_t bytes_expected_this_entry; /* uncompressed size from scan */
@@ -1011,10 +1114,17 @@ extern uzoff_t last_progress_chunk;  /* used to determine when to send next repo
  * if a method beyond AES_MAX_ENCRYPTION is ever added.
  */
 
+#define AES_128_MIN_PASS        16      /* Min password length for AES 128 */
+#define AES_192_MIN_PASS        20      /* Min password length for AES 192 */
+#define AES_256_MIN_PASS        24      /* Min password length for AES 256 */
+
+
 extern char *key;               /* Encryption password.  (NULL, if none.) */
 extern int force_ansi_key;      /* Only ANSI characters for password (char codes 32 - 126) */
 extern int allow_short_key;     /* Allow password to be shorter than minimum */
 extern int encryption_method;   /* See above defines */
+extern char *keyfile;           /* File to read (end part of) password from */
+extern char *keyfile_pass;      /* (piece of) password from keyfile */
 
 #ifdef IZ_CRYPT_AES_WG
 
@@ -1105,9 +1215,10 @@ extern int show_what_doing;     /* Diagnostic message flag. */
  * and perror.
  * Defined in fileio.c.
  */
-int zprintf(const char *format, ...);
-int zfprintf(FILE *file, const char *format, ...);
-void zperror(const char *);
+
+int zprintf OF((const char *format, ...));
+int zfprintf OF((FILE *file, const char *format, ...));
+void zperror OF((const char *));
 
 
 /* Diagnostic functions */
@@ -1183,8 +1294,7 @@ void zperror(const char *);
      USE_ZIPMAIN          - Use zipmain() instead of main() - for DLL and LIB, but
                              could also be used to compile the source into another
                              application directly
-                            Usually set by ZIPDLL or ZIPLIB, but can be set in the
-                             build environment in unique situations
+                            Deprecated.
      ZIPLIB               - Compile as static library (LIB)
                             For MSVS, WINDLL and ZIPLIB are both defined to create
                              the LIB
@@ -1192,9 +1302,11 @@ void zperror(const char *);
                              is used to include the API interface code
      NO_ZPARCHIVE         - Set if not using ZpArchive - used with ZIPLIB (DLL has
                              to call an established entry point)
+                            Deprecated.
 
    DLL_ZIPAPI is deprecated.  USE_ZIPMAIN && DLL_ZIPAPI for UNIX and VMS is
    replaced by ZIPLIB && NO_ZPARCHIVE (as they call zipmain() directly instead).
+   These are now also deprecated.
 */
 
 /* WINDLL implies WIN32 && ZIPDLL */
@@ -1253,7 +1365,9 @@ extern int bflag;
 void zipmessage_nl OF((ZCONST char *, int));
 void zipmessage OF((ZCONST char *, ZCONST char *));
 void zipwarn OF((ZCONST char *, ZCONST char *));
+void zipwarn_i OF((char *, int, ZCONST char *, ZCONST char *));
 void ziperr OF((int, ZCONST char *));
+void print_utf8 OF((ZCONST char *));
 #ifdef UTIL
 #  define error(msg)    ziperr(ZE_LOGIC, msg)
 #else
@@ -1264,7 +1378,7 @@ void ziperr OF((int, ZCONST char *));
 # if 0
    int encr_passwd OF((int, char *, int, ZCONST char *));
 # endif
-   int simple_encr_passwd(int modeflag, char *pwbuf, size_t bufsize);
+   int simple_encr_passwd OF((int modeflag, char *pwbuf, size_t bufsize));
 #endif
 
         /* in zipup.c */
@@ -1302,7 +1416,7 @@ int putlocal OF((struct zlist far *, int));
 int putextended OF((struct zlist far *));
 int putcentral OF((struct zlist far *));
 /* zip64 support 09/05/2003 R.Nausedat */
-int putend OF((uzoff_t, uzoff_t, uzoff_t, extent, char *));
+int putend OF((uzoff_t, uzoff_t, uzoff_t, ush, char *));
 /* moved seekable to separate function 3/14/05 EG */
 int is_seekable OF((FILE *));
 int zipcopy OF((struct zlist far *));
@@ -1350,6 +1464,8 @@ void display_dot OF((int, int));
 #  endif /* SYMLINKS */
 #endif /* !UTIL */
 
+int set_locale();
+
 int destroy OF((char *));
 int replace OF((char *, char *));
 int getfileattr OF((char *));
@@ -1394,11 +1510,11 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
 
    ulg filetime OF((char *, ulg *, zoff_t *, iztimes *));
 
+
    /* Windows Unicode */
 # ifdef UNICODE_SUPPORT_WIN32
    ulg filetimew OF((wchar_t *, ulg *, zoff_t *, iztimes *));
    char *get_win32_utf8path OF((char *));
-   wchar_t *local_to_wchar_string OF ((char *));
 # endif /* def UNICODE_SUPPORT_WIN32 */
 
 # if defined( UNIX) && defined( __APPLE__)
@@ -1414,6 +1530,18 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
      zvoid zcfree       OF((zvoid far *));
 # endif /* MY_ZCALLOC */
 #endif /* !UTIL */
+
+#ifdef UNICODE_SUPPORT
+int is_utf8_file OF((FILE *infile, int *has_bom, int *count, int *ascii_count, int *utf8_count));
+int is_utf8_string OF((ZCONST char *instring, int *has_bom, int *count, int *ascii_count, int *utf8_count));
+int read_utf8_bom OF((FILE *infile));
+int is_utf16LE_file OF((FILE *infile));
+#endif
+char *trim_string OF((char *instring));
+# ifdef UNICODE_SUPPORT_WIN32
+wchar_t *local_to_wchar_string OF ((ZCONST char *));
+# endif
+
 void version_local OF((void));
 
         /* in util.c */
@@ -1444,12 +1572,16 @@ uzoff_t ReadNumString OF((char *numstring));
 /* returns true if abbrev is abbreviation for matchstring */
 int abbrevmatch OF((char *matchstring, char *abbrev, int cs, int minmatch));
 
-/* for abbrevmatch */
+/* returns true if strings match up to maxmatch (0 = entire string) */
+int strmatch OF((char *s1, char *s2, int case_sensitive, int maxmatch));
+
+/* for abbrevmatch and strmatch */
 #define CASE_INS 0
 #define CASE_SEN 1
 
-/* returns true if strings match */
-int strmatch OF((char *s1, char *s2, int case_sensitive, int maxmatch));
+/* for strmatch */
+#define ENTIRE_STRING 0
+
 
 void init_upper    OF((void));
 int  namecmp       OF((ZCONST char *string1, ZCONST char *string2));
@@ -1541,6 +1673,8 @@ void     bi_init      OF((char *, unsigned int, int));
 # endif
 #endif /* WIN32 */
 
+   FILE *fopen_utf8 OF((char *filename, char *mode));
+
 #if defined(NTSD_EAS) && !defined(UTIL)
    /* These are defined in nt.c.
       2014/06/11 */
@@ -1549,6 +1683,7 @@ void     bi_init      OF((char *, unsigned int, int));
 
    /* True if a real symlink. */
    int isWinSymlink(char *path);
+   int isWinSymlinkw(wchar_t *wpath);
    
    /* Returns information about a Windows directory object, such as a file,
       directory or reparse point such as a symlink. */
@@ -1560,6 +1695,7 @@ void     bi_init      OF((char *, unsigned int, int));
 
    /* Windows replacement for Unix readlink(). */
    int readlink(char *, char *, size_t);
+   int readlinkw(wchar_t *, char *, size_t);
 
 #endif
 
@@ -1569,9 +1705,7 @@ void     bi_init      OF((char *, unsigned int, int));
 #ifdef WIN32
   /* convert oem to ansi string */
   char *oem_to_local_string OF((char *, char *));
-#endif
 
-#ifdef WIN32
   /* convert local string to oem string */
   char *local_to_oem_string OF((char *, char *));
 #endif
@@ -1580,10 +1714,10 @@ void     bi_init      OF((char *, unsigned int, int));
 /* Upper/Lower case */
 
   /* Convert local string to uppercase/lowercase */
-int astring_upper_lower(char *ascii_string, int upper);
+int astring_upper_lower OF((char *ascii_string, int upper));
   
   /* Convert UTF-8 string to uppercase/lowercase */
-char *ustring_upper_lower(char *utf8_string, int upper);
+char *ustring_upper_lower OF((char *utf8_string, int upper));
 
 
 #ifdef ENABLE_ENTRY_TIMING
@@ -1627,7 +1761,7 @@ local unsigned iz_file_read_bt OF((char *buf, unsigned size));
 
 
 /* Make copy of string */
-char *string_dup(char *in_string, char *error_message);
+char *string_dup OF((ZCONST char *in_string, char *error_message));
 
 
 /*---------------------------------------------------------------------
@@ -1645,36 +1779,6 @@ char *string_dup(char *in_string, char *error_message);
   /* wide character type */
   typedef unsigned long zwchar;
 
-#if 0
-zwchar *wchar_to_wide_string(wchar_t *wchar_string);
-
-char *wchar_to_local_string(wchar_t *wstring);
-
-char *wchar_to_utf8_string(wchar_t *wstring);
-
-zwchar escape_string_to_wide(char *escape_string);
-
-char *wide_char_to_escape_string(zwchar wide_char);
-char *local_to_escape_string(char *local_string);
-//char *utf8_to_escape_string(char *utf8_string);
-char *wide_to_escape_string(zwchar *wide_string);
-
-char *local_to_display_string(char *local_string);
-
-//zwchar *local_to_wide_string(char *local_string);
-//char *wide_to_local_string(zwchar *wide_string);
-
-//char *local_to_utf8_string(char *local_string);
-//char *utf8_to_local_string(char *utf8_string);
-
-//char *wide_to_utf8_string(zwchar *wide_string);
-//zwchar *utf8_to_wide_string(char *utf8_string);
-
-
-
-//  int is_ascii_stringw(wchar_t *wstring);
-//int is_ascii_string(char *mbstring);
-#endif
 
   /* check if string is all ASCII */
   int is_ascii_string OF((char *mbstring));
@@ -1686,7 +1790,7 @@ char *local_to_display_string(char *local_string);
   char *utf8_to_local_string OF((char *utf8_string));
   char *local_to_utf8_string OF((char *local_string));
 
-  zwchar *utf8_to_wide_string OF((char *utf8_string));
+  zwchar *utf8_to_wide_string OF((ZCONST char *utf8_string));
   char *wide_to_utf8_string OF((zwchar *wide_string));
 
   char *wide_to_local_string OF((zwchar *wide_string));
@@ -1696,17 +1800,29 @@ char *local_to_display_string(char *local_string);
   char *local_to_escape_string OF((char *local_string));
   char *utf8_to_escape_string OF((char *utf8_string));
 
-  int zwchar_string_len(zwchar *wide_string);
+  int zwchar_string_len OF((zwchar *wide_string));
+  zwchar *char_to_wide_string OF((char *char_string));
 
-  wchar_t *utf8_to_wchar_string OF ((char *utf8_string));
+  wchar_t *utf8_to_wchar_string OF((ZCONST char *utf8_string));
   char *wchar_to_utf8_string OF((wchar_t *wchar_string));
 
 #ifdef WIN32
-  wchar_t *utf8_to_wchar_string_windows OF((char *utf8_string));
+  char **get_win32_utf8_argv OF(());
+  wchar_t *utf8_to_wchar_string_windows OF((ZCONST char *utf8_string));
   char *wchar_to_utf8_string_windows OF((wchar_t *wchar_string));
 
   char *wchar_to_local_string OF((wchar_t *));
+
 #endif
+
+#ifdef WIN32
+  unsigned long write_console(FILE *outfile, ZCONST char *instring);
+  unsigned long write_consolew(FILE *outfile, wchar_t *instringw);
+# if 0
+  long write_consolew2(wchar_t *instringw);
+# endif
+#endif
+
 
   /* convert local string to multi-byte display string */
   char *local_to_display_string OF((char *));
@@ -1714,9 +1830,12 @@ char *local_to_display_string(char *local_string);
   /* convert wide character to escape string */
   char *wide_char_to_escape_string OF((unsigned long));
 
-#if 0
+  zwchar *escapes_to_wide_string OF((zwchar *));
+  char *escapes_to_utf8_string OF((char *escaped_string));
+#ifdef UNICODE_SUPPORT_WIN32
   /* convert escape string to wide character */
-  unsigned long escape_string_to_wide OF((char *));
+  zwchar escape_string_to_wide_char OF((char *));
+  wchar_t *escapes_to_wchar_string OF((wchar_t *));
 #endif
 
 
@@ -1840,6 +1959,9 @@ unsigned long get_option OF((char ***pargs, int *argc, int *argnum, int *optchar
 
 /* copy args - copy an args array, allocating space as needed */
 char **copy_args OF((char **args, int max_args));
+
+/* arg count - return argc of args */
+int arg_count OF((char **args));
 
 /* free args - free args created with one of these functions */
 int free_args OF ((char **args));

@@ -1,0 +1,4625 @@
+.\" =========================================================================
+.\" Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+.\"
+.\" See the accompanying file LICENSE, version 2009-Jan-2 or later
+.\" (the contents of which are also included in zip.h) for terms of use.
+.\" If, for some reason, all these files are missing, the Info-ZIP license
+.\" also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
+.\" ==========================================================================
+.\"
+.\" zip.1 by Mark Adler, Jean-loup Gailly and  R. P. C. Rodgers
+.\" updated by E. Gordon for Zip 3.0 (8 May 2005, 24 December 2006,
+.\" 4 February 2007, 27 May 2007, 4 June 2007 by EG; 12 June 2007 by CS;
+.\" 30 August 2007, 27 April 2008, 25 May 2008, 27 May 2008 by EG,
+.\" 7 June 2008 by SMS and EG; 12 June 2008 by EG; 7 September 2008 by EG;
+.\" 3 April 2009 by EG; 11 August 2009 by EG), Zip 3.1 (5 October 2014 by EG)
+.\"
+.TH ZIP 1 "23 April 2015 (v3.1)" Info-ZIP
+.SH NAME
+zip \- package and compress (archive) files (v3.1)
+.SH SYNOPSIS
+.B zip
+.RB [\- aABcdDeEfFghjklLmoqrRSTuvVwXyz!@$ ]
+[\-\-longoption ...]
+.RB [\- b " path]"
+.RB [\- n " suffixes]"
+.RB [\- t " date]"
+.RB [\- tt " date]"
+[\fIzipfile\fR [\fIfile\fR \.\|.\|.]]
+[\fB-xi\fR list]
+.PP
+.B zipcloak
+(see separate man page)
+.PP
+.B zipnote
+(see separate man page)
+.PP
+.B zipsplit
+(see separate man page)
+.PP
+Note:  Command line processing in
+\fBzip 3.0\fP and later
+has been changed to support long options and handle all
+options and arguments more consistently.  Some old (\fBzip 2.x\fP) command
+lines that depend on command line inconsistencies may no longer
+work.
+.\"
+.\"
+.\"
+.\" --------------------------------------------------------------------------
+.\"
+.SH DESCRIPTION
+.B zip
+is a compression and file packaging utility for Unix, VMS, MSDOS,
+OS/2, Windows 9x/NT/XP/7, Minix, Atari, Macintosh, MVS, z/OS, Amiga,
+Acorn RISC, and other OS.  It is analogous to a combination of
+the Unix commands
+.BR tar (1)
+and
+.BR compress (1)
+(or \fBtar\fP(1) and \fBgzip\fP(1))
+and is compatible with PKZIP (Phil Katz's ZIP for MSDOS systems)
+and other major zip utilities.
+.LP
+A companion program
+.RB ( unzip (1))
+unpacks
+.B zip
+archives.
+The
+.B zip
+and
+.BR unzip
+programs can work with archives produced by most zip utilities
+(depending on features used) and most unzip utilities can
+work with archives produced by \fBzip\fP (though some utilities
+may still not support streamed archives yet).  \fBzip\fP
+supports most features of the zip standard up to PKZIP version
+4.6, and some later features as well.
+\fBzip 3.0\fP and later supports the Zip64 extensions of PKZIP 4.5 which
+allow archives as well as files to exceed the previous 2 GB limit
+(4 GB in some cases).  \fBzip 3.1\fP now
+supports additional compression methods, including \fBbzip2\fP,
+\fBLZMA\fP and \fBPPMd\fP.  (See below for more on Zip64 and
+compression methods.)
+
+Note that PKUNZIP 1.10 cannot extract files produced
+by PKZIP 2.04 or \fBzip\ 2.0\fP (or later).  You must use PKUNZIP
+2.04g or \fBunzip\ 5.0p1\fP (or later versions) to extract them.
+
+See the \fBEXAMPLES\fP section at the bottom of this page
+for some typical uses of \fBzip\fP.
+
+For a brief help on \fBzip\fP and \fBunzip\fP,
+run each without specifying any parameters on the command line.
+Both \fBzip\fP and \fBunzip\fP now also support the \fB-hh\fP
+extended help option.
+.\" --------------------
+.\"
+.SS Large archives and Zip64
+.\"\fBLarge\ Archives\ and\ Zip64.\fP
+.B zip
+automatically uses the Zip64 extensions when files larger than 4 GB are
+added to an archive, an archive containing Zip64 entries is updated
+(if the resulting archive still needs Zip64),
+the size of the archive will exceed 4 GB, or when the
+number of entries in the archive will exceed about 64K.
+Zip64 is also used for archives streamed from standard input as the size
+of such archives are not known in advance, but the option \fB\-fz\-\fP can
+be used to force \fBzip\fP to create PKZIP 2 compatible archives (as long
+as Zip64 extensions are not needed).  You must use a PKZIP 4.5
+compatible unzip, such as \fBunzip\ 6.0\fP or later, to extract files
+using the Zip64 extensions.
+.\" --------------------
+.\"
+.SS Compression methods
+.\"
+In addition to the standard \fBDeflate\fP compression (method 8) and
+\fBStore\fP methods, \fBzip 3.1\fP now supports \fBbzip2\fP (compression
+method 12),
+\fBLZMA\fP (method 14) and \fBPPMd\fP (method 98) compression if the
+appropriate libraries
+are included when \fBzip\fP is compiled.  \fB.zipx\fP archives are
+supported, except for some compression methods such as \fBWavPack\fP
+(method 97), \fBJpeg\fP (method 96) and \fBXZ\fP (method 95).  Some
+of these (in particular XZ) may be supported by \fBzip\fP in the future.
+
+Each compression method has advantages over the others.  For instance,
+\fBDeflate\fP tends to be faster than the other methods (except \fBStore\fP),
+but \fBPPMd\fP tends to compress best in many situations (but can be slow).
+See \fB-Z\fP option for more on available compression methods.
+
+A modern unzip (such as \fBunzip 6.1\fP) is needed to extract entries
+compressed with the new methods.  Be sure the destination unzip supports
+the selected compression method before using it.
+.\" --------------------
+.\"
+.SS Encryption
+.\"
+In addition to standard \fBTraditional\fP zip encryption, which is now
+considered weak by current standards, \fBzip 3.1\fR now supports
+relatively strong \fBAES\fR encryption.  See \fB-Y\fR for more on
+encryption.
+.\" --------------------
+.\"
+.SS Streamed archives
+.\"\fBStreamed\ archives.\fP
+\fBStreaming\fP is when \fBzip\fP receives its input from a stream such as
+stdin or a pipe where the size of the input is not known or when \fBzip\fP
+writes its output to a stream such as stdout or a pipe where the output is
+not seekable (and so data structures in the archive cannot be updated once
+the sizes are later known).  A \fBstreamed archive\fP is an archive that uses
+data descriptors (a small record after the file data) to store size and
+other information not known when the processing of a file was started.  Not
+all streaming operations need to create streamed archives -- it depends on
+\fBzip\fP's ability to determine size and other information before the file
+header is written.  Traditional encryption also requires use of data
+descriptors (and so the resulting archives are streamed archives) due to how
+zip Traditional encryption is defined (though the --etwodd option removes
+the need for data descriptors at the cost of a second pass through the file
+data).  (AES encryption does not have this issue.)  Split archives created
+with the pause option also use data descriptors to allow the archive splits
+to be written to write once media (such as optical media) without later
+seeking.  Streaming is generally automatic and transparent to the user.
+
+Streamed archives may not be compatible with some utilities as those utilities
+do not yet know how to read data descriptors.  (Note that the latest PKWare
+published zip standard now includes a description of the data descriptor
+format \fBzip\fP uses.)  Other utilities do support these archives, however.
+If you run into problems, \fBzip\fP provides a way to strip data descriptors
+from an existing archive using the \fB\-\-copy\fP option.  (Zip Traditional
+encryption relies on data descriptors.  If Zip Traditional encryption was
+used, \fBzipcloak\fP can be used to remove the encryption first.  AES
+encryption does not need data descriptors.)
+
+\fBzip 3.1\fP now can generate archives that a compatible stream unzip can
+use to fully restore the files, including file attributes.  This new mode
+adds needed information to the local file entries in the archive.  Use
+\fB-st\fP to enable this mode.  This mode may be enabled by default when
+\fBzip 3.1\fP is released.
+.\" --------------------
+.\"
+.SS Mac OS X
+.\"\fBMac OS X.\fP
+Though previous Mac versions had their own \fBzip\fP port,
+\fBzip\fP supports \fBMac\ OS\ X\fP as part of the Unix port and most Unix
+features
+apply.  References to "MacOS" below generally refer to MacOS versions older
+than OS X.  Mac OS X features supported by the Unix port, such
+as resource forks, are identified as \fBUNIX\ APPLE\fP features.
+.\"
+.\"
+.\"
+.\" --------------------------------------------------------------------------
+.\"
+.SH "USE"
+.PP
+
+The program is useful for packaging a set of files for distribution;
+for archiving files;
+and for saving disk space by temporarily
+compressing unused files or directories.
+.LP
+The
+.B zip
+program puts one or more compressed files into a single
+.B zip
+archive,
+along with information about the files
+(name, path, date, time of last modification, protection,
+and check information to verify file integrity).
+An entire directory structure can be packed into a
+.B zip
+archive with a single command.
+Compression ratios of 2:1 to 3:1 are common for text files.
+.B zip
+has one standard compression method (Deflate) and can also store files
+without compression.  (In addition, \fBzip\ 3.1\fP supports
+compression methods \fBbzip2\fP, \fBLZMA\fP, and \fBPPMd\fP.)
+See the \fB\-Z\fP option below for more on compression methods.
+
+In some cases (typically for very small files or random data), an
+attempt to compress a file may actually increase its size (by a little). 
+When this happens for the Deflate, Bzip2 or PPMd compression methods
+(but currently not for LZMA),
+.B zip
+automatically reverts to the Store method for that file.
+.\".LP
+.\" --------------------
+.\"
+.SS Command format
+.\"\fBCommand\ format.\fP
+The basic command format is
+.IP
+\fBzip\fR options archive inpath inpath ...
+.LP
+where \fIarchive\fR is a new or existing \fBzip\fP archive
+and \fIinpath\fR is a directory or file path optionally including wildcards.
+When \fIarchive\fP is the name of an existing
+.B zip
+archive,
+.B zip
+will replace identically named entries in the
+.B zip
+archive (matching the relative names as stored in
+the archive) or add entries for new names.
+For example,
+if
+.I foo.zip
+exists and contains
+.I foo/file1
+and
+.IR foo/file2 ,
+and the directory
+.I foo
+contains the files
+.I foo/file1
+and
+.IR foo/file3 ,
+then:
+.IP
+\fCzip -r foo.zip foo\fP
+.LP
+or more concisely
+.IP
+\fCzip -r foo foo\fP
+.LP
+will replace
+.I foo/file1
+in
+.I foo.zip
+and add
+.I foo/file3
+to
+.IR foo.zip .
+After this,
+.I foo.zip
+contains
+.IR foo/file1 ,
+.IR foo/file2 ,
+and
+.IR foo/file3 ,
+with
+.I foo/file2
+unchanged from before.
+.LP
+So if before the \fBzip\fP command is executed \fIfoo.zip\fP has:
+.IP
+\fC foo/file1 foo/file2
+.LP
+and directory foo has:
+.IP
+\fC file1 file3\fP
+.LP
+then after the command \fIfoo.zip\fP will have:
+.IP
+\fC foo/file1 foo/file2 foo/file3\fP
+.LP
+where \fIfoo/file1\fP is replaced and
+\fIfoo/file3\fP is new.
+.\".PP
+.\" --------------------
+.\"
+.SS -@ and -@@ File Lists
+.\"\fB\-@\ file\ lists.\fP
+If a file list is specified as
+\fB\-@\fP
+[Not on MacOS],
+.B zip
+takes the list of input files from standard input instead of from
+the command line.  For example,
+.IP
+\fCzip -@ foo\fP
+.LP
+will store the files listed one per line on stdin in \fIfoo.zip\fP.
+.LP
+Under Unix,
+this option can be used to powerful effect in conjunction with the
+\fBfind (1)\fP
+command.
+For example,
+to archive all the C source files in the current directory and
+its subdirectories:
+.IP
+\fCfind . -name "*.[ch]" -print | zip source -@\fP
+.LP
+(note that the pattern must be quoted to keep the shell from expanding it).
+.LP
+\fBzip\fP now also supports \fB\-@@\ \fP\fIfilename\fP, which acts like
+\fB\-@\fP, but reads the list of input files from file
+\fIfilename\fP instead of stdin, one name per line.
+.\".PP
+.\" --------------------
+.\"
+.SS Argument Files
+Argument files are text files that contain arguments for \fBzip\fP.
+\fBzip 3.1\fP supports argument files.
+To include the contents of an argument file (arg file) in the \fBzip\fP
+command line, include the argument \fB@\fP\fIfilename\fP at the position in
+the command line the args are to go.  \fBzip\fP opens file \fIfilename\fP,
+reads white space separated arguments and inserts them into the command
+line.  The default file extension of \fBzip\fP arg files is \fI.zag\fP.
+So the arg file \fImyargs.zag\fP can be included using \fI@myargs\fP.
+
+For example, if \fImyargs.txt\fP contains:
+.IP
+\fC file1.txt  file2.txt\fP
+.LP
+the command line:
+.IP
+\fCzip  archive  @myargs.txt\fP
+.LP
+would create the \fBzip\fP command line:
+.IP
+\fCzip  archive  file1.txt  file2.txt\fP
+.LP
+In an arg file, empty lines or lines with just white space are considered
+comment lines.  In addition, an argument that is just "#" starts a comment
+that goes to the end of the line.  No non-space characters can be next to
+the "#".  For instance, if myopts.zag contains:
+.IP
+.RS
+#  myopts.zag
+.RE
+.RS
+#  my favorite options
+.RE
+.RS
+  -3   -lF    #  compression level 3, create logfile
+.RE
+.LP
+then the command line:
+.IP
+\fCzip  @myopts  archive  @myargs.txt\fP
+.LP
+would result in the command line:
+.IP
+\fCzip  -3  -lF  archive  file1.txt  file2.txt\fP
+.LP
+Arg files can include arg files to a depth of 4, so we can package this
+command as commandline.zag:
+.IP
+\fC@myopts  archive  @myargs.txt\fP
+.LP
+and the command line:
+.IP
+\fCzip  @commandline\fP
+.LP
+creates the same command line as above:
+.IP
+\fCzip  -3  -lF  archive  file1.txt  file2.txt\fP
+.LP
+Use the \fB-sc\fP option to see the resulting command line without
+executing it:
+.IP
+\fCzip  @commandline -sc\fP
+.LP
+Arg files can also contain directives.  A directive starts at the left
+edge (excluding white space) and is an argument in the form #directive.
+Currently the only directive is \fB#echo\fP, which echos what follows to the
+console/message stream.  So if arg file \fImyfiles.zag\fP has the line:
+.IP
+\fC  #echo  I'm here in the arg file\fP
+.LP
+then the message \fB"myfiles.zag : I'm here in the arg file"\fP will display when
+\fBzip\fP parses this line.  \fB#echo\fP can be useful when debugging complex
+arg files.
+
+Option \fB-AF-\fP can be used to turn off processing arg files, so
+\fI@args.txt\fP becomes just another file.  \fB-AF-\fP must appear before any
+arg file arguments on the command line.
+.\".PP
+.\" --------------------
+.\"
+.SS Streaming input and output
+.\"\fBStreaming\ input\ and\ output.\fP
+.B zip
+will also accept a single dash ("-") as the zip file name, in which case it
+will write the zip file to standard output, allowing the output to be piped
+to another program. For example:
+.IP
+\fCzip -r - . | dd of=/dev/nrst0 obs=16k\fP
+.LP
+would write the zip output directly to a tape with the specified block size
+for the purpose of backing up the current directory.
+.LP
+.B zip
+also accepts a single dash ("-") as the name of a file to be compressed, in
+which case it will read the file from standard input, allowing \fBzip\fP to take
+input from another program. For example:
+.IP
+\fCtar cf - . | zip backup -\fP
+.LP
+would compress the output of the \fBtar\fP command for the purpose of backing up
+the current directory. This generally produces better compression than
+the previous example using the -r option because
+.B zip
+can take advantage of redundancy between files. The backup can be restored
+using the command
+.IP
+\fCunzip -p backup | tar xf -\fP
+.LP
+When no zip file name is given and stdout is not a terminal,
+.B zip
+acts as a filter, compressing standard input to standard output.
+For example,
+.IP
+\fCtar cf - . | zip | dd of=/dev/nrst0 obs=16k\fP
+.LP
+is equivalent to
+.IP
+\fCtar cf - . | zip - - | dd of=/dev/nrst0 obs=16k\fP
+.LP
+.B zip
+archives created in this manner can be extracted with the program
+.B funzip
+which is provided in the
+.B unzip
+package, or by
+.B gunzip
+which is provided in the
+.B gzip
+package (but some
+.B gunzip
+may not support this if
+.B zip
+used the Zip64 extensions). For example:
+.IP
+\fPdd if=/dev/nrst0  ibs=16k | funzip | tar xvf -\fC
+.LP
+The stream can also be saved to a file and
+.B unzip
+used.
+
+If Zip64 support for large files and archives is enabled and
+\fBzip\fR is used as a filter, \fBzip\fR creates a Zip64 archive
+that requires a PKZIP 4.5 or later compatible unzip to read it.  This is
+to avoid amgibuities in the zip file structure as defined in the current
+zip standard (PKWARE AppNote) where the decision to use Zip64 needs to
+be made before data is written for the entry, but for a stream the size
+of the data is not known at that point.  If the data is known to be smaller
+than 4 GB, the option \fB\-fz\-\fP can be used to prevent use of Zip64,
+but \fBzip\fP will exit with an error if Zip64 was in fact needed.
+\fBzip\ 3\fR and \fBunzip\ 6\fR and later can read archives with Zip64
+entries.  Also, \fBzip\fP removes the Zip64 extensions if not needed
+when archive entries are copied (see the \fB\-U\fP (\fB\-\-copy\fP)
+option).
+
+When directing the output to another file, note that all options should be
+before the redirection including \fB-x\fP.  For example:
+.IP
+\fPzip archive "*.h" "*.c" -x donotinclude.h orthis.h > tofile\fC
+.\".PP
+.\" --------------------
+.\"
+.SS Zip files
+.\"\fBZip\ files.\fP
+When changing an existing
+.B zip
+archive,
+.B zip
+will write a temporary file with the new contents,
+and only replace the old one when the process of creating the new version
+has been completed without error.  (An exception is the \fB\-g\fP
+(\fB\-\-grow\fP) option, which appends to the original archive.)
+
+If the name of the
+.B zip
+archive does not contain an extension, the extension
+\fB.zip\fP
+is added. If the name already contains an extension other than
+\fB.zip\fP,
+the existing extension is kept unchanged.  However, split archives
+(archives split over multiple files) require the \fB.zip\fP extension
+on the last split.
+.\".PP
+.\" --------------------
+.\"
+.SS Scanning and reading files
+.\"\fBScanning\ and\ reading\ files.\fP
+When \fBzip\fP starts, it scans for files to process (if needed).  If
+this scan takes longer than about 5 seconds, \fBzip\fP will display
+a "Scanning files" message and start displaying progress dots every 2 seconds
+or every so many entries processed, whichever takes longer.  If there is more
+than 2 seconds between dots it could indicate that finding each file is taking
+time and could mean a slow network connection for example.
+(Actually the initial file scan is
+a two-step process where the directory scan is followed by a sort and these
+two steps are separated with a space in the dots.  If updating an existing
+archive, a space also appears between the existing file scan and the new
+file scan.)  The scanning files dots are not controlled by the \fB\-ds\fP
+dot size option, but the dots are turned off by the \fB\-q\fP quiet option.  The
+\fB\-sf\fP show files option can be used to scan for files and get the list of
+files scanned without actually processing them.
+
+If \fBzip\fR is not able to read a file, it
+issues a warning but
+continues.  See the \fB\-MM\fP option below for more on how \fBzip\fP handles
+patterns that are not matched and files that are not readable.
+If some files were skipped, a
+warning is issued at the end of the zip operation noting how many files
+were read and how many skipped.
+.\".PP
+.\" --------------------
+.\"
+.SS Command modes
+.\"\fBCommand\ modes.\fP
+\fBzip\fP now supports two distinct types of command
+modes, \fBexternal\fP and \fBinternal\fP.  The \fBexternal\fP modes
+(add, freshen, and update) read files from the file system (as well as from an
+existing archive) while the \fBinternal\fP modes (copy and delete) operate
+exclusively on entries in an existing archive.
+
+.TP
+External modes:
+
+.TP
+.B add\ \ \ \ \ \ 
+Update existing entries and add new files.  If the archive does not exist
+create it.  This is the default mode.
+.TP
+.B freshen\ \fP(\fB\-f\fP)
+Update existing entries of an archive if newer on the file system.
+Does not add new files to the archive.
+.TP
+.B update\ \fP(\fB\-u\fP)
+Update existing entries if newer on the file system and add new files.  If
+the archive does not exist, issue a warning and then create a new archive.
+
+.TP
+Internal modes:
+
+.TP
+.B copy\ \fP(\fB\-U\fP)
+Select entries in an existing archive and copy them to a new archive.
+This new mode is similar to \fBupdate\fP but command line patterns
+select entries in the existing archive rather than files from
+the file system and it uses the \fB\-\-out\fP option to write the
+resulting archive to a new file rather than update the existing
+archive, leaving the original archive unchanged.
+.TP
+.B delete\ \fP(\fB\-d\fP)
+Select entries in an existing archive and delete them.  For backward
+compatibility this deletes entries in the input archive, but delete
+can be used with \fB--out\fP to create a copy of the input archive
+with the files deleted.
+.LP
+The new File Sync option (\fB\-FS\fP) is also considered a new mode,
+though it is similar to \fBupdate\fP.  This mode synchronizes the
+archive with the files on the OS, only replacing files in the
+archive if the file time or size of the OS file is different, adding
+new files, and deleting entries from the archive where there is
+no matching file.  As this mode can delete entries from the archive,
+consider making a backup copy of the archive first.
+
+Also see \fB\-DF\fP for creating difference archives.
+
+See each option description below for details and the \fBEXAMPLES\fP section
+below for examples.
+.\".PP
+.\" --------------------
+.\"
+.SS Split archives
+.\"\fBSplit\ archives.\fP
+\fBzip\fP version 3.0 and later can create split archives.  A
+\fBsplit archive\fP is a standard \fBzip\fP archive split over multiple
+files.  (Note that split archives are not just archives split into
+pieces, as the offsets of entries are now based on the start of each
+split.  Concatenating the pieces together will invalidate these offsets,
+but \fBunzip\fP can usually deal with it.  \fBzip\fP will usually refuse
+to process such a spliced archive unless the \fB\-FF\fP fix option is
+used to fix the offsets.)
+
+One use of split archives is storing a large archive on multiple
+removable media.
+For a split archive with 20 split files the files are typically named (replace
+ARCHIVE with the name of your archive) \fIARCHIVE.z01\fP,
+\fIARCHIVE.z02\fP, ..., \fIARCHIVE.z19\fP, \fIARCHIVE.zip\fP.  Note that
+the last file is the \fB.zip\fP file.  In contrast,
+\fBspanned archives\fP are the original multi-disk archive format generally
+requiring floppy disks and using volume labels to store disk numbers.
+\fBzip\fP supports split archives but not spanned archives, though a
+procedure exists for converting
+split archives of the right size to spanned archives.  The reverse is also
+true,
+where each file of a spanned archive can be copied in order to files with the
+above names to create a split archive.
+
+Use \fB\-s\fP to set the split size and create a split archive.  The size is
+given as a number followed optionally by one of k (kiB), m (MiB), g (GiB),
+t (TiB), or p (PiB) (the default is m).
+The \fB\-sp\fP option can be used to pause \fBzip\fP between
+splits to allow changing removable media, for example, but read the descriptions
+and warnings for both \fB\-s\fP and \fB\-sp\fP below.
+.LP
+Though \fBzip\fP does not update split archives, \fBzip\fP provides the new
+option \fB\-O\fP (\fB\-\-output\-file\fP or \fB\-\-out\fP) to allow split archives
+to be updated and saved in a new archive.  For example,
+.IP
+\fCzip inarchive.zip foo.c bar.c \-\-out outarchive.zip\fP
+.LP
+reads archive \fBinarchive.zip\fP, even if split, adds the files \fBfoo.c\fP and
+\fBbar.c\fP, and writes the resulting archive to \fBoutarchive.zip\fP.  If
+\fBinarchive.zip\fP is split then \fBoutarchive.zip\fP defaults to the same
+split size.  Be aware that if \fBoutarchive.zip\fP and any split files that are
+created with it already exist, these are always overwritten as needed without
+warning.  This may be changed in the future.
+.\".PP
+.\" --------------------
+.\"
+.SS Unicode
+.\"\fBUnicode.\fP
+Though the zip standard requires storing file names/paths in
+an archive using a specific character set, in practice zips have stored
+paths in archives in whatever the local character set is.  This facilitates
+local use of these archives, but creates
+problems when an archive is created or updated on a system using one
+character set is then extracted on another system using a different
+character set.  When compiled with Unicode support enabled, \fBzip 3.0\fP
+stores, in addition to the
+standard local path for backward compatibility, the UTF-8 translation of
+the path.  This provides a common universal character set for storing
+paths that allows these paths to be fully extracted on other systems that
+support Unicode and to match as closely as possible the original path
+on systems that don't.
+
+However, since \fBzip 3.0\fP was released, the zip community has moved to
+UTF-8 as the primary character set for storing paths in archives.  As
+such, the default for \fBzip 3.1\fP is to store UTF-8 only.  The previous
+mode of storing local and UTF-8 is available using the \fB-UN=local\fP
+option.  (Both modes should be accepted by most modern unzips.)  Let
+us know if this change causes any issues.
+
+For full Unicode support on Linux and similar Unix systems, make sure you
+are using a UTF-8 console window.  The \fBlocale\fR command should show
+something like "your_language.UTF-8", for example "en_US.UTF-8".  A
+UTF-8 native locale is needed for \fBzip\fR to naturally work with multiple
+languages.  If you are using a local locale, such as "en_US" (instead
+of "en_US.UTF-8"), \fBzip\fR
+will detect this and issue Unicode escape sequences (such as \fB#U1234\fR or
+\fB#L123456\fR, where the number is the hex code of the Unicode character)
+instead
+of characters not in your current local character set.  Using a native
+UTF-8 locale makes working with multiple languages much easier and natural.
+
+On systems (such as Win32) where paths are internally stored as Unicode but
+displayed in the local character set (Windows code page), it's possible that
+some paths will be skipped during a local character set directory scan.
+\fBzip\fP with Unicode file scan support now can read and store these paths.
+Note that Win 9x systems and FAT file systems don't fully support Unicode.
+
+Be aware that console windows on Win32 and Unix, for example, sometimes don't
+accurately show all characters due to how each operating system switches in
+character sets for display.  However, directory navigation tools should show the
+correct paths if the needed fonts are loaded.
+.\".PP
+.\" --------------------
+.\"
+.SS Windows long paths
+.\"\fBWindows long paths.\fP
+The maximum path length fully supported on Windows
+systems is generally 260 bytes.  Longer paths can be created programmatically,
+however.  In the past \fBzip\fP could not read these longer paths and skipped
+them.  \fBzip\ 3.1\fP can now read and store these paths and files.  However, an unzip
+that can handle long paths is needed to restore such entries.  In particular,
+Windows Explorer (as of Windows 7) will generally refuse to read archives
+that contain long paths.
+
+That said, we have made including Windows long paths the default.  The user
+needs to ensure long paths are not included in any archive to be opened by
+Windows Explorer or other utilities that can't handle long paths.  \fBzip\fP
+will warn if a Windows long path is being included.  \fB-wl-\fP can be used
+to leave out long paths.
+.\".PP
+.\" --------------------
+.\"
+.SS Command line format
+.\"\fBCommand line format.\fP
+\fBzip 3.0\fP and later use updated command line
+processing that includes support for long options.
+.PP
+
+\fBShort options\fP in an argument take the form
+.IP
+\fC-s[-][s[-]...][s[-|value|=value|\ value]]\fP
+.LP
+where s is a one or two character short option.  A short option
+that takes a value must be last in an argument and anything after it is
+taken as the value.  If the option can be negated and "-" immediately
+follows the option, the option is negated.
+Short options can also be given as separate arguments
+.IP
+\fC-s[-|value|=value|\ value]\ -s[-|value|=value|\ value]\ ...\fP
+.LP
+Short options in general take values either as part of the same
+argument or as the following argument.  An optional = is also supported.
+So
+.IP
+\fC-tt12071991\fP
+.LP
+and
+.IP
+\fC-tt=12071991\fP
+.LP
+and
+.IP
+\fC-tt 12071991\fP
+.LP
+all work to set the before date to 1991-12-07.  The \fB\-x\fP and
+\fB\-i\fP options accept lists of values
+and use a slightly different format described below.  See the
+\fB\-x\fP and \fB\-i\fP options.
+.PP
+
+\fBLong options\fP take the form
+.IP
+\fC--longoption[-|=value|\ value]\fP
+.LP
+where the option starts with "--", has a multicharacter name, can
+include a trailing dash to negate the option (if the option
+supports it), and can have a value (option argument) specified by
+preceding it with = (no spaces).  Values can also be given as the
+following argument.  So
+.IP
+\fC--before-date=12071991\fP
+.LP
+and
+.IP
+\fC--before-date 12071991\fP
+.LP
+both work.
+
+Long option names can be shortened to the shortest unique
+abbreviation.  See the option descriptions below for which
+support long options.  To avoid confusion, avoid abbreviating
+a negatable option with an embedded dash ("-") at the dash
+if you plan to negate it (the parser would consider
+a trailing dash, such as for the option \fB\-\-some\-option\fP using
+\fB\-\-some\-\fP as the option, as part of the name rather
+than a negating dash).  This may be changed to force the last
+dash in \fB\-\-some\-\fP to be negating in the future.
+
+As of \fBzip 3.1\fP the forms
+.IP
+\fC-s = value\fP
+.LP
+and
+.IP
+\fC--longoption = value\fP
+.LP
+are also excepted.  Any white space between the "=" and the option
+or value is ignored.
+
+Some options support \fBoptional values\fP.  An optional value must
+include a preceding "="; this is done to avoid ambiguities.
+For example:
+.IP
+\fC-BL\fP
+.LP
+enables backup logging using the default backup log directory, while
+.IP
+\fC-BL=backuplogdir\fP
+.LP
+also enables backup logging but sets the backup log directory
+to \fIbackuplogdir\fP.
+.\".PP
+.\" --------------------
+.\"
+.SS Unix shell processing
+On Unix, \fBzip 3.0\fR and earlier relied on shell globbing to expand wildcards
+on the command line.  So
+.IP
+\fCzip  foo  *.[ch]  -i "test*"\fP
+.LP
+would receive all file names ending with \fI.c\fR and \fI.h\fR from the
+shell, and then would filter those names to find any starting with \fItest\fR
+internally.  (Filters, such as \fB-i\fR, \fB-x\fR and \fB-R\fR have always
+required escaping or quoting to avoid shell expansion.)  However, escaping
+input files, as in:
+.IP
+\fCzip  foo  "*.[ch]"  -i "test*"\fP
+.LP
+would not work on Unix as \fI*.[ch]\fR would be handled as a literal file name
+and the wildcards would not be processed.  (This works on other ports, such
+as Windows, that perform internal wildcard handling.  Just not on Unix.)
+
+\fBzip 3.1\fR now internally processes these input file names so the results
+with and without quotes should be the same.  This now allows file names with
+spaces and wildcards to be properly processed:
+.IP
+\fCzip  foo  "file name with spaces*.[ch]"\fP
+.LP
+To include \fI*.[ch]\fR in foo as a literal file name, \fB--\fR can be used:
+.IP
+\fCzip  foo  --  "*.[ch]"\fP
+.LP
+All wildcard processing is disabled after \fB--\fR is seen on the command line,
+these arguments taken as verbatim.  For example:
+.IP
+\fCzip  foo  --  -file  @justafile  "file*with?wildcards" \fP
+.LP
+will include these files in \fIfoo\fR.  Any shell wildcards or special
+characters still need to be escaped or quoted to avoid shell processing.
+.\".PP
+.\" --------------------
+.\"
+.SS Time zones
+As many operations, such as \fB-f\fP and \fB-u\fP, compare file times to
+determine if a file has changed, it's important for these commands that
+the time be consistent between zip operations.  Part of this is making
+sure the proper time zone is set.
+
+See the \fB-f\fP option for more on time zones.
+
+.\"
+.\"
+.\"
+.\" --------------------------------------------------------------------------
+.\"
+.SH "OPTIONS"
+See the \fBzip\fP extended help (\fB-hh\fP) for a quick breakdown of
+options by function.
+
+.TP
+.PD 0
+.BI \-a
+.TP
+.PD
+.B \-\-ascii
+[Systems using EBCDIC] Translate file to ASCII format.
+
+.TP
+.PD 0
+.BI \-aa
+.TP
+.PD
+.B \-\-all-ascii
+Handle all files as ASCII text files.  This is mainly to
+support EBCDIC/ASCII conversions.
+
+.TP
+.PD 0
+.B \-A
+.TP
+.PD
+.B \-\-adjust-sfx
+Adjust self-extracting executable archive.
+A self-extracting executable archive is created by prepending
+the SFX stub to an existing archive. The
+.B \-A
+option tells
+.B zip
+to adjust the entry offsets stored
+in the archive to take into account this "preamble" data.
+
+Note: Self-extracting archives for the Amiga are a special case.
+At present, only the Amiga port of \fBzip\fP is capable of adjusting
+or updating these without corrupting them. -J can be used to remove
+the SFX stub if other updates need to be made.
+
+.TP
+.PD 0
+.B \-AC
+.TP
+.PD
+.B \-\-archive-clear
+[WIN32]  Once archive is created (and tested if \fB\-T\fP is used,
+which is recommended), clear the archive bits of files processed.
+
+WARNING:
+Once the bits are cleared they are cleared.  You may want to use the
+\fB\-sf\fP show files option to store the list of files processed in case
+the archive operation must be repeated.  Also consider using
+the \fB\-MM\fP must match option.  Be sure to check out \fB\-DF\fP as a
+possibly better way to do incremental backups.
+
+.TP
+.PD 0
+.B \-AF
+.TP
+.PD
+.B \-\-argfiles
+Enable processing arg files.  An arg file is a text file that contains
+arguments for \fBzip\fP separated by white space.  Given an arg file
+with name \fImyargs.txt\fP, the command line:
+.IP
+\fCzip @myargs.txt\fP
+
+results in \fB@myargs.txt\fP being replaced by the arguments in the file.
+
+Arg files are enabled by default.  Negating this option, \fB-AF-\fP,
+turns off arg file processing, making \fI@myargs.txt\fP just
+another file.  \fB-AF\fP or \fB-AF-\fP must appear on the command line
+before any arg files.
+
+For more information, see the subsection on \fBArgument Files\fP above.
+
+.TP
+.PD 0
+.B \-AS
+.TP
+.PD
+.B \-\-archive-set
+[WIN32]  Only include files that have the archive bit set.  Directories
+are not stored when \fB\-AS\fP is used, though by default the paths
+of entries, including directories, are stored as usual and can be used
+by most unzips to recreate directories.
+
+The archive bit is set by the operating system when a file is modified
+and, if used with \fB\-AC\fP, \fB\-AS\fP can provide an
+incremental backup capability.  However, other applications can
+modify the archive bit and it may not be a reliable indicator of
+which files have changed since the last archive operation.  Alternative
+ways to create incremental backups are using \fB\-t\fP to use file dates,
+though this won't catch old files copied to directories being archived,
+and \fB\-DF\fP to create a differential archive.  For more serious backup
+operations, consider \fB-BT\fP.
+
+.TP
+.PD 0
+.B \-as
+.TP
+.PD
+.B \-\-sequester
+[UNIX APPLE]  Save Apple Double resource files in a sequestered directory,
+instead of in the directory where the data fork file is.
+
+.TP
+.PD 0
+.B \-B
+.TP
+.PD
+.B \-\-binary
+[VM/CMS and MVS] force file to be read binary (default is text).
+
+.TP
+.B \-B\fR\fIn\fP
+[TANDEM] set Edit/Enscribe formatting options with \fIn\fP defined as
+.RS
+bit  0: Don't add delimiter (Edit/Enscribe)
+.RE
+.RS
+bit  1: Use LF rather than CR/LF as delimiter (Edit/Enscribe)
+.RE
+.RS
+bit  2: Space fill record to maximum record length (Enscribe)
+.RE
+.RS
+bit  3: Trim trailing space (Enscribe)
+.RE
+.RS
+bit  8: Force 30K (Expand) large read for unstructured files
+.RE
+.TP
+\ \ \ \ \ \ \ 
+Note:  For backward compatibility, this option requires a number directly
+following the \fB\-B\fP (no spaces).
+
+.TP
+.PD 0
+.BI \-b\ \fR\fIpath\fP
+.TP
+.PD
+.B \-\-temp-path\ \fR\fIpath\fP
+Use the specified
+.I path
+for the temporary
+.B zip
+archive. For example:
+.RS
+.IP
+\fCzip -b /tmp stuff *\fP
+.RE
+.IP
+will put the temporary
+.B zip
+archive in the directory
+.IR /tmp ,
+copying over
+.I stuff.zip
+to the current directory when done. This option is useful when
+updating an existing archive and the file system containing this
+old archive does not have enough space to hold both old and new archives
+at the same time.  It may also be useful when streaming in some
+cases to avoid the need for data descriptors.  Note that using
+this option may require \fBzip\fP take additional time to copy
+the archive file when done to the destination file system.
+
+.TP
+.PD 0
+.B \-BC \fR\fIcontroldir\fP
+.TP
+.PD
+.B \-\-backup-control \fR\fIcontroldir\fP
+Set directory of backup control file.  The name of the \fBzip\fP backup
+control file is given by \fB-BN\fP with \fI_control.zbc\fP appended.
+
+Used with \fB-BT\fP to create a repeatable backup cycle.  \fB-BC\fP allows
+selecting the location where the backup control file is written and
+maintained.  If \fB-BC\fP is not given, \fB-BD\fP is used for the control
+directory instead.  See \fB-BT\fP for more information on setting
+up repeatable backup cycles.
+
+.TP
+.PD 0
+.B \-BD \fIbackupdir\fP
+.TP
+.PD
+.B \-\-backup-dir \fIbackupdir\fP
+Set the directory for the backup archive.  Also default location of
+control file and log file unless \fB-BC\fP and \fB-BL\fP are used to
+set a different control file directory and backup log directory.
+
+Used with \fB-BT\fP to create a repeatable backup cycle.  \fB-BD\fP sets
+the path/directory where the backup archive goes.  The archive name is
+given by \fB-BN\fP.  See \fB-BT\fP for more information on setting up
+repeatable backup cycles.
+
+.TP
+.PD 0
+.B \-BL
+.TP
+.PD 0
+.B \-BL=\fR\fIbackuplogdir\fP
+.TP
+.PD 0
+.B \-\-backup-log
+.TP
+.PD
+.B \-\-backup-log=\fR\fIbackuplogdir\fP
+Set the path/directory the backup log file is written to.
+
+\fB-BL\fP is for use with \fB-BT\fP only.  For normal logging, use
+\fB-lf\fP or \fB-lF\fP instead.
+
+\fIbackuplogdir\fP is optional.  If \fB-BL\fP is given without specifying
+a log directory, the backup directory given by \fB-BD\fP is used.  The
+name of the log is the same as the archive, except that \fI.zip\fP is
+replaced by \fI.log\fP.
+
+Used with \fB-BT\fP to create a repeatable backup cycle.  \fB-BL\fP enables
+logging of repeatable backup cycles and sets the location that the log is
+written to if \fIbackuplogdir\fP is provided.  See \fB-BT\fP for more
+information on setting up repeatable backup cycles.
+
+.TP
+.PD 0
+.B \-BN \fIbackupname\fP
+.TP
+.PD
+.B \-\-backup-name \fIbackupname\fP
+Set the name of the backup.  This name is used for the control file,
+archive, and log.
+
+Used with \fB-BT\fP to create a repeatable backup cycle.  \fB-BD\fP sets
+the directory where the backup archive goes while \fB-BN\fP sets the name.
+To this name is appended timestamp and other information to form the actual
+archive name used for a particular repeating backup cycle.  See \fB-BT\fP
+for more information on setting up repeatable backup cycles.
+
+.TP
+.PD 0
+.B \-BT \fIbackuptype\fP
+.TP
+.PD
+.B \-\-backup-type \fIbackuptype\fP
+Set the type of backup being done this cycle.
+
+Used with \fB-BC\fP, \fB-BD\fP, \fB-BL\fP, and \fB-BN\fP to create a
+repeatable backup cycle.  \fB-BT\fP sets the type of backup being done this
+cycle.  Types include \fBFULL\fP (backup all files within scope),
+\fBDIFFERENTIAL\fP (backup files that are new or changed since the last
+\fBFULL\fP backup), or \fBINCREMENTAL\fP (backup files that are new or
+changed since the last \fBFULL\fP backup or any \fBDIFFERENTIAL\fP or
+\fBINCREMENTAL\fP backups since then).
+
+\fBzip -BT\fP can be used in a time repeating script, for instance, to
+perform repeatable backup cycles.  One approach is to use three separate
+repeating scripts, one to run \fBFULL\fP backups, one to run
+\fBDIFFERENTIAL\fP backups, and one to run \fBINCREMENTAL\fP backups.
+For instance, the \fBFULL\fP script might include:
+.RS
+.IP
+\fCzip -BT full -BD mybackups -BN foo_backup -BLli -r foodir \fP
+.RE
+.IP
+and run monthly.  The \fBDIFF\fP script might include:
+.RS
+.IP
+\fCzip -BT diff -BD mybackups -BN foo_backup -BLli -r foodir \fP
+.RE
+
+.IP
+and run weekly.  The \fBINCR\fP script might include:
+.RS
+.IP
+\fCzip -BT incr -BD mybackups -BN foo_backup -BLli -r foodir \fP
+.RE
+.IP
+and run daily.  \fB-BD\fP puts the backup archives, the logs,
+and the control file in the \fImybackups\fP directory.  \fB-BN\fP
+specifies that the archives,
+logs, and control file will have names starting with \fIfoo_backup\fP.
+\fB-BLli\fP (options \fB-BL\fP and \fB-li\fP)
+enables backup logging and tells \fBzip\fP to include informational
+messages (such as the files processed) in the log.  The directory
+\fIfoodir\fP and any subdirectories will be backed up.  It is
+recommended that the times these scripts run be offset so that
+\fBDIFF\fP runs after any \fBINCR\fP is expected to be finished
+and \fBFULL\fP runs after any \fBDIFF\fP or \fBINCR\fP is expected to be
+finished.  Avoid overlap if possible to minimize possible content
+inconsistencies between backups.
+
+Alternatively, one script could be
+used to run all three backup types, this script run on a timed cycle
+and choosing the backup type based on a schedule.  Since only one
+script is ever running at any particular time, this avoids conflicts
+between the types of backups.  Ideally this script would include a check
+to see if it was still running from a previous backup cycle.
+
+This mode of \fBzip\fP creates a control file that is written to the backup
+path specified by \fB-BD\fP (or to the control path if \fB-BC\fP is used).
+The name of the control file is given by \fB-BN\fP with \fI_control.zbc\fP
+appended.  This control file tracks the archives
+currently in the backup set.  The backup path is also used as the destination
+of the created archives, so no output archive is specified.  Rather this mode
+creates the output name by adding a mode (full, diff, or incr) and a date and
+time stamp to the backup path.  This allows recurring backups to be generated
+without altering the command line to specify new archive names each cycle to
+avoid overwriting previous archives and logs.  \fBzip\fP does not delete
+old archives and logs -- the user needs to track these and move or delete
+them as appropriate.
+
+The backup types are:
+.RS
+.IP
+\fBFULL\fP - Create a normal \fBzip\fP archive that forms the core of the
+backup set.  Also creates a control file that only lists this one archive.
+Any listings of other (differential and incremental) archives from previous
+backup operations are removed.  Backup type \fBFULL\fP essentially starts
+a new backup set.
+
+\fBDIFFERENTIAL\fP - Create a \fB--diff\fP archive against the \fBFULL\fP
+archive listed in the control file, and update the control file to list both
+the \fBFULL\fP and \fBDIFF\fP archives.  A \fBDIFF\fP backup set consists of
+just the \fBFULL\fP and \fBDIFF\fP archives, as these two archives capture
+all files (except deletions, as noted below).
+
+\fBINCREMENTAL\fP - Create a \fB--diff\fP archive against the \fBFULL\fP and
+any \fBDIFF\fP or \fBINCR\fP archives in the control file, and update the
+control file.  An \fBINCR\fP backup set consists of the \fBFULL\fP archive
+and any \fBDIFF\fP and \fBINCR\fP archives created to that point.  An
+\fBINCR\fP backup captures just new and changed files not yet included in
+the backup set.  Any number of \fBINCR\fP archives can be included in the
+backup set, each capturing an incremental change in the state of the target.
+.RE
+.IP
+A \fBFULL\fP backup clears any \fBDIFF\fP and \fBINCR\fP entries from the
+control file, hence starts a new backup set.  A \fBDIFF\fP backup clears
+out any \fBINCR\fP archives listed in the control file, as the \fBFULL\fP
+and \fBDIFF\fP are sufficient to describe the state of the target scope
+(except as noted below).  An \fBINCR\fP backup just adds the new incremental
+archive to the list of archives in the control file.
+
+Note that \fBDIFF\fP and \fBINCR\fP backups do not account for deletion of
+files in the target scope.  Only \fBFULL\fP backups account for deletions.
+
+All archives listed in the control file must be present in the backup file
+location specified or an error will occur.
+
+For repeating backups to properly work, the same \fBzip\fP command line should
+be used for all backups (\fBFULL\fP, \fBDIFF\fP, and \fBINCR\fP), except
+for changing \fB-BT\fP to set backup type.  The \fBzip\fP command should
+also be run from the same directory each time to use the same file scope.
+The same control file must be used by all backup operations maintaining the
+same backup set for proper differential and incremental operation.  Different
+backup sets use different control files.  To avoid issues, make sure each
+backup configuration has a unique name as set by \fB-BN\fP.  Multiple backup
+configurations can go in the same directory as long as they are uniquely
+named.
+
+Full backups will have names such as:
+.RS
+.IP
+\fCmypath/mybackupset_full_FULLDT.zip \fP
+.RE
+.IP
+and differentials/incrementals will have names such as:
+.RS
+.IP
+\fCmypath/mybackupset_full_FULLDT_incr_INCRDT.zip\fP
+.RE
+.IP
+where the name of the full backup the differential/incremental goes to is
+part of the file name.  Above, \fBFULLDT\fR and \fBINCRDT\fR are
+date-time stamps of the full and incremental backups, respectively.
+ 
+It is recommended that backup path be outside of what is being backed up,
+either a separate drive, path, or other destination, or \fB-x\fP is used
+to exclude the backup path directory and everything in it.  Otherwise each
+backup may get included in later backups, creating exponential growth.
+
+If you don't need to track changes over time but simply want to save the
+latest changes, consider just creating normal (\fBFULL\fP) \fBzip\fP archives
+or using \fB--diff\fP to create \fBFULL\fP and \fBDIFF\fP archives.  The
+\fB-u\fP Update and \fB-FS\fP File Sync options are other alternatives to
+consider.
+
+.TP
+.PD 0
+.B \-c
+.TP
+.PD
+.B \-\-entry-comments
+Add one-line comments for each file.
+File operations (adding, updating) are done first,
+and the user is then prompted for a one-line comment for each file.
+Enter the comment followed by return, or just return for no comment.
+
+\fBzip 3.1\fP now presents any existing comment and allows either
+keeping it or replacing it.
+
+If the \fB\-st\fP option is used to set stream mode, comments are updated
+after each entry is processed.  This is needed to maintain an efficient
+processing of entries.  See \fB\-st\fP below for more on this.
+
+Also see \fBzipnote\fP as a way to do batch editing of file comments.
+
+.TP
+.PD 0
+.B \-cd \fIdir\fP
+.TP
+.PD
+.B \-\-current\-directory \fIdir\fP
+Set the current directory to \fIdir\fP before beginning the \fBzip\fP
+operation.
+
+If \fB-q\fP is not used, the directory path changed to is displayed.
+As \fBzip\fP typically runs in a separate process, the change to current
+directory only impacts \fBzip\fP and not the process or shell it is
+run from.
+
+Without \fB-cd\fP, \fBzip\fP inherits the current directory of the
+calling process, typically a shell.  \fB-cd\fP allows the relative
+paths \fBzip\fP sees to be interpreted relative to the new current
+directory \fIdir\fP, leaving the current directory of the caller unchanged.
+
+On Windows, if \fIdir\fP includes a different drive letter, \fBzip\fP
+will change the current drive to that drive.  For instance,
+.RS
+.IP
+\fCC:\\foo> zip myarchive test.txt -cd E:\\bar \fP
+.RE
+.IP
+will look in \fIE:\\bar\fP for \fItest.txt\fP and will write \fImyarchive\fP
+to \fIE:\\bar\fP.
+
+An alternative to \fB-cd\fP is to change the current directory in the
+calling process before calling \fBzip\fP.
+
+.TP
+.PD 0
+.B \-C
+.TP
+.PD
+.B \-\-preserve-case
+[VMS]  Preserve all case on VMS.  Negating this option
+(\fB\-C-\fP) downcases file names.
+
+.TP
+.PD 0
+.B \-C2
+.TP
+.PD
+.BI \-\-preserve-case-2
+[VMS]  Preserve ODS2 case on VMS.  Negating this option
+(\fB\-C2\-\fP) downcases.  Default:  \-C2\- (downcase ODS2 names).
+
+.TP
+.PD 0
+.B \-C5
+.TP
+.PD
+.B \-\-preserve-case-5
+[VMS]  Preserve ODS5 case on VMS.  Negating this option
+(\fB\-C5\-\fP) downcases.  Default:  \-C5 (preserve case of ODS5 names).
+
+.TP
+.PD 0
+.B \-Cl
+.TP
+.PD
+.B \-\-case-lower
+Convert added/updated entry path names in output archive to lowercase.
+
+It is an error to use \fB-Cl\fP and \fB-Cu\fP together.
+
+Only the paths of added or updated entries are impacted.  If an existing
+archive is being updated, the paths of entries not being updated remain
+unchanged.  If an entry has a Unicode path, that is also updated.
+
+This option occurs after VMS name processing and so has precedence over
+the \fB-C\fP, \fB-C2\fP and \fB-C5\fP options.
+
+See also \fB-pa\fP and \fB-pp\fP for prefixing paths.
+
+.TP
+.PD 0
+.B \-Cu
+.TP
+.PD
+.B \-\-case-upper
+Convert added/updated entry path names in output archive to uppercase.  See \fB-Cl\fP
+for more information.
+
+.TP
+.PD 0
+.B \-d
+.TP
+.PD
+.B \-\-delete
+Remove (delete) entries from a
+.B zip
+archive.
+For example:
+.RS
+.IP
+\fCzip -d foo foo/tom/junk foo/harry/\\* \\*.o\fP
+.RE
+.IP
+will remove the entry
+.IR foo/tom/junk ,
+all of the files that start with
+.IR foo/harry/ ,
+and all of the files that end with
+.B \&.o
+(in any path).
+Note that shell pathname expansion has been inhibited with backslashes,
+so that
+.B zip
+can see the asterisks,
+enabling
+.B zip
+to match on the contents of the
+.B zip
+archive instead of the contents of the current directory.
+(The backslashes are not used on MSDOS-based or VMS platforms.)
+Can also use quotes to escape the asterisks as in
+.RS
+.IP
+\fCzip -d foo foo/tom/junk "foo/harry/*" "*.o"\fP
+.RE
+.IP
+Not escaping the asterisks on a system where the shell expands
+wildcards could result in the asterisks being converted to a
+list of files in the current directory and that list used to
+delete entries from the archive, which is likely not what is
+wanted.
+
+\fB-@\fP and \fB-@@\fP can be used to provide \fBzip\fP with a
+list of files to delete.  For example:
+.RS
+.IP
+\fCzip foo -d -@@filestodelete.txt\fP
+.RE
+.IP
+will delete the files in \fIfilestodelete.txt\fP, listed one
+per line, from archive \fIfoo.zip\fP.
+
+Arg files can also be used.  For instance:
+.RS
+.IP
+\fCzip foo -d @filestodelete.zag\fP
+.RE
+.IP
+will delete files listed in filestodelete.zag, those file names
+separated by white space.  Unlike \fB-@@\fP, however, file names that
+include white space must be enclosed in double quotes.
+
+Under MSDOS and Windows,
+.B \-d
+is case sensitive when it matches names in the
+.B zip
+archive.
+This requires that file names be entered in upper case if they were
+zipped by PKZIP on an MSDOS system.  (We considered making this
+case insensitive on systems where paths were case insensitive,
+but it is possible the archive came from a system where case does
+matter and the archive could include both \fIBar\fP and \fIbar\fP
+as separate files in the archive.)  But see the new option \fB\-ic\fP
+to ignore case in the archive.
+
+.TP
+.PD 0
+.B \-db
+.TP
+.PD
+.B \-\-display-bytes
+Display running byte counts showing the bytes zipped and the bytes to go.
+
+.TP
+.PD 0
+.B \-dc
+.TP
+.PD
+.B \-\-display-counts
+Display running count of entries zipped and entries to go.
+
+.TP
+.PD 0
+.B \-dd
+.TP
+.PD
+.B \-\-display-dots
+Display dots while each entry is zipped (except on ports that have their own
+progress indicator).  See \fB-ds\fR below for setting dot size.  The default is
+a dot every 10 MB of input file processed.  The \fB-v\fR option
+also displays dots (previously at a much higher rate than this but now \fB\-v\fP
+also defaults to 10 MB) and this rate is also controlled by \fB-ds\fR.
+
+.TP
+.PD 0
+.B \-de
+.TP
+.PD
+.B \-\-display-est-to-go
+Display an estimate of the time to finish the archiving operation.  The estimate
+is based on the calculated rate of bytes / second, so the estimated times can vary as
+system loading and execution speed change.  \fBzip\fP does not display an estimate
+until enough entries are processed to get a reasonable bytes / second rate.
+
+.TP
+.PD 0
+.B \-df
+.TP
+.PD
+.B \-\-datafork
+[MacOS, UNIX APPLE] Include only the data-forks of files zipped into
+the archive.  Resource forks and Finder info will be ignored.  This is
+useful when exporting files to foreign operating systems where the
+resource information may not be needed.
+
+.TP
+.PD 0
+.B \-dg
+.TP
+.PD
+.B \-\-display-globaldots
+Display progress dots for the archive instead of for each file.  The command
+.RS
+.IP
+    zip -qdgds 100m
+.RE
+.IP
+will turn off most output except dots every 100 MiB.  On
+typical personal systems
+in use as of this writing, this simply displays a dot every few seconds,
+providing a low overhead way to monitor progress.  If the total number
+of bytes is known (such as by using -sf first), the total number of dots
+expected can be calculated.  The setting of \fB-ds\fP can be adjusted to
+get the dot rate desired, for instance to 1g to get dots every 1 GiB
+processed which is roughly a dot a minute on the above example systems.
+
+This can be used with \fB-lFli\fP to store detailed information in a log
+file while minimizing console output (which typically can slow progress).
+As \fBzip\fP flushes the log file
+as changes are made, one can open the log on occasion to see how far \fBzip\fP
+is.
+
+.TP
+.PD 0
+.B \-dr
+.TP
+.PD
+.B \-\-display-rate
+Display an estimate of the rate entries are being zipped in bytes / second.  The
+estimate can vary as system loading and execution speed change.  \fBzip\fP does
+not display a rate estimate until enough entries are processed to get a reasonable
+rate.  This is the rate used by \fB-de\fP.
+
+.TP
+.PD 0
+.B \-ds\ \fR\fIsize\fP
+.TP
+.PD
+.B \-\-dot-size\ \fR\fIsize\fP
+Set amount of input file processed for each dot displayed.  Setting this option
+implies \fB-dd\fR.  \fIsize\fP is in the format \fIn\fP\fIm\fP where \fIn\fP is
+a number and \fIm\fP is a multiplier.  Currently \fIm\fP can
+be k (KiB), m (MiB), g (GiB), t (TiB), or p (PiB), so if \fIn\fP is 100 and
+\fIm\fP is k, \fIsize\fP would be
+100k which is 100 KiB.  The default is 10 MiB.  A size of 0 turns dots off.
+.IP
+The \fB-v\fR option also displays dots and now defaults to
+10 MiB.  This rate is now controlled by this option.
+.IP
+This option does not control the dots from the "Scanning files" message as
+\fBzip\fP scans for input files.  The dot size for that is fixed at 2 seconds
+or a fixed number of entries, whichever is longer.  Note that if the time
+between these scanning dots is much greater than 2 seconds, this may indicate
+a very slow data connection, such as a bad network connection.
+
+.TP
+.PD 0
+.B \-dt
+.TP
+.PD
+.B \-\-display-time
+Display the current time as each entry is started.  This is in a day/time
+format.
+
+.TP
+.PD 0
+.B \-du
+.TP
+.PD
+.B \-\-display-usize
+Display the uncompressed size of each entry.  This is displayed in parentheses
+after the name.
+
+.TP
+.PD 0
+.B \-dv
+.TP
+.PD
+.B \-\-display-volume
+Display the volume (disk) number each entry is being read from,
+if reading an existing archive, and being written to.  This may be useful
+when reading or writing split (multi-volume) archives.
+
+.TP
+.PD 0
+.B \-D
+.TP
+.PD
+.B \-\-no-dir-entries
+Do not create entries in the
+.B zip
+archive for directories.  Directory entries are created by default so that
+their attributes can be saved in the zip archive.
+The environment variable ZIPOPT can be used to change the default options.  For
+example, under Unix with sh:
+.RS
+.IP
+ZIPOPT="-D"; export ZIPOPT
+.RE
+.IP
+(The variable ZIPOPT can be used for any option, including \fB\-i\fP and \fB\-x\fP
+using a new option format detailed below, and can include several options.)  The option
+.B \-D
+is a shorthand
+for
+.B \-x
+"*/" but the latter previously could not be set as default in the ZIPOPT
+environment variable as the contents of ZIPOPT gets inserted near the beginning
+of the command line and the file list had to end at the end of the line.
+.IP
+This version of
+.B zip
+does allow
+.B \-x
+and
+.B \-i
+options in ZIPOPT if the form
+.IP
+\fC \-x \ file\ file\ ... \ @\fP
+.IP
+is used, where the @ (an argument that is just @) terminates
+the list.
+
+.TP
+.PD 0
+.B \-DF
+.TP
+.PD
+.B \-\-difference-archive
+Create an archive that contains all new and changed files since
+the original archive was created.  For this to work, the input
+file list and current directory must be the same as during the
+original \fBzip\fP operation.
+.IP
+For example, if the existing archive was created using
+.RS
+.IP
+\fCzip -r foofull .
+.RE
+.IP
+from the \fIbar\fP directory, then the command
+.RS
+.IP
+\fCzip -r foofull . -DF --out foonew
+.RE
+.IP
+also from the \fIbar\fP directory creates the archive \fIfoonew.zip\fP
+with just the files not in \fIfoofull.zip\fP and the files where
+the size or file time of the files do not match those in \fIfoofull.zip\fP.
+
+Note that the time zone environment variable TZ should be set according to
+the local time zone in order for this option to work correctly.  A
+change in time zone since the original archive was created could
+result in no times matching and all files being included.
+
+A possible approach to backing up a directory might be to create
+a normal archive of the contents of the directory as a full
+backup, then use this option to create differential backups.
+
+To just keep a single \fBzip\fP archive in sync with a directory, consider
+\fB-FS\fP.  For more extensive backup operations, take a look at \fB-BT\fP.
+
+.TP
+.PD 0
+.B \-e
+.TP
+.PD
+.B \-\-encrypt
+Encrypt the contents of the
+.B zip
+archive using a password which is entered on the terminal in response
+to a prompt.  The password will not be echoed at the user's terminal. 
+If standard input (or /dev/tty or SYS$COMMAND, depending on
+the operating system) is not a tty,
+.B zip
+will exit with an error.
+The password is requested twice to save the user from typing errors.
+
+See \fB-Y\fP for more on the types of encryption \fBzip\fP supports
+and setting the encryption method.
+
+.TP
+.PD
+.B \-\-etwodd
+When using Traditional zip encryption, \fBzip\fP uses data descriptors to
+avoid making multiple passes.  The \fB--etwodd\fP option forces \fBzip\fP
+to make the multiple passes to avoid the need for data descriptors.  The
+result should be an archive that is more generally compatible with other
+zip utilities.
+
+Use of this option on a large archive or large file set could greatly
+increase the time needed to create an archive, maybe taking 50% to 100%
+more time.
+
+Without this option, the archives created are backward compatible.  Some
+utilities out there (such as WinZip) can read these archives fine.  Some
+utilities, however, may not be able to.
+
+This issue only involves Traditional zip encryption, which is considered
+rather weak nowadays.  AES encryption (such as \fB-Y AES128\fP) does not
+have this problem.  In fact, the \fB--etwodd\fP option is only applicable
+to Traditional encryption and does not impact anything else.
+
+.TP
+.PD 0
+.B \-E
+.TP
+.PD
+.B \-\-longnames
+[OS/2] Use the .LONGNAME Extended Attribute (if found) as filename.
+
+.TP
+.PD 0
+.B \-f
+.TP
+.PD
+.B \-\-freshen
+Replace (freshen) an existing entry in the
+.B zip
+archive only if it has been modified more recently than the
+version already in the
+.B zip
+archive;
+unlike the update option
+.RB ( \-u )
+this will not add files that are not already in the
+.B zip
+archive.
+For example:
+.RS
+.IP
+\fCzip -f foo *.c\fP
+.RE
+.IP
+replaces any files ending in .c that are newer than the versions in the
+archive.  This command should be run from the same directory from which
+the original
+.B zip
+command was run, since paths stored in
+.B zip
+archives are always relative.
+.IP
+Note that the time zone environment variable TZ should be set according to
+the local time zone in order for options such as
+\fB\-f\fP, \fB\-u\fP and \fB\-o\fP
+that compare times to work correctly.
+The reasons behind this are somewhat subtle but have to do with the differences
+between the Unix-format file times (always in GMT) and most of the other
+operating systems (always local time) and the necessity to compare the two.
+
+See the \fBtzset\fP man page for more information on setting TZ.  For
+example, for New Zealand TZ might be set to:
+.RS
+.IP
+\fCTZ="NZST-12.00:00NZDT-13:00:00,M10.1.0,M3.3.0"\fP
+.RE
+.IP
+This specifies standard time (NZST) is 12 hours ahead of UTC, and daylight
+saving time (NZDT), 13  hours  ahead of UTC, runs from the first Sunday in
+October to the third Sunday in March, and the changeovers happen at the
+default time of 02:00:00.  Alternatively, if a time zone file is available,
+TZ for New Zealand might be set to:
+.RS
+.IP
+\fCTZ=":Pacific/Auckland"\fP
+.RE
+.IP
+Older systems may use the older format, TTThhDDD, 
+where TTT is the time zone such as MET, hh is the
+difference between GMT and local time such as -1 above, and DDD is
+the time zone when daylight savings time is in effect.  Leave off
+the DDD if there is no daylight savings time.  Using this format,
+the US Eastern time zone TZ would be set to EST5EDT.  Middle European
+time with automatic adjustment for "summertime" or Daylight Savings Time
+would be "MET-1MEST".
+
+.TP
+.PD 0
+.B \-F
+.TP
+.B \-\-fix\ \ \ \ \ \ 
+.TP
+.B \-FF
+.TP
+.PD
+.B \-\-fixfix\ \ 
+Fix the
+.B zip
+archive.  The \fB\-F\fP option can be used if some portions of the archive
+are missing, but requires a reasonably intact central directory.
+The input archive is scanned as usual, but \fBzip\fP will ignore
+some problems.  The resulting archive should be valid, but any
+inconsistent entries will be left out.
+.IP
+When doubled as in
+\fB\-FF\fP,
+the archive is scanned from the beginning and \fBzip\fP looks for special
+signatures to identify the limits between the archive members. The
+single
+.B \-F
+is more reliable if the archive is not too much damaged, so try this
+option first.
+.IP
+If the archive is too damaged or the end has been truncated, you
+must use \fB\-FF\fP.  This is a change from \fBzip\ 2.32\fP, where
+the \fB\-F\fP option is able to read a truncated archive.  The
+\fB\-F\fP option now more reliably fixes archives with minor
+damage and the \fB\-FF\fP option is needed to fix archives where
+\fB\-F\fP might have been sufficient before.
+.IP
+Neither option will recover archives that have been incorrectly
+transferred in ascii mode instead of binary. After the repair, the
+.B \-t
+option of
+.B unzip
+may show that some files have a bad CRC. Such files cannot be recovered;
+you can remove them from the archive using the
+.B \-d
+option of
+\fBzip\fP.
+.IP
+Note that \fB\-FF\fP may have trouble fixing archives that include an
+embedded zip archive that was stored (without compression) in the archive
+and, depending on the damage, it may find the entries in the embedded
+archive rather than the archive itself.  Try \fB\-F\fP first as it
+better handles embedded archives.
+.IP
+The format of the fix commands have changed.  For example, to fix
+the damaged archive \fIfoo.zip\fP,
+.RS
+.IP
+\fCzip -F foo --out foofix
+.RE
+.IP
+tries to read the entries normally, copying good entries to the
+new archive \fIfoofix.zip\fP.  If this doesn't work, as when the
+archive is truncated, or if some entries you know are in the archive
+are missed, then try
+.RS
+.IP
+\fCzip -FF foo --out foofixfix
+.RE
+.IP
+and compare the resulting archive to the archive created by \fB\-F\fP.  The
+\fB\-FF\fP option may create an inconsistent archive.  Depending on
+what is damaged, you can then use the \fB\-F\fP option to fix that archive.
+.IP
+A split archive with missing split files can be fixed using
+\fB\-F\fP if you have the last split of the archive (the \fI\.zip\fP file).
+If this file is missing, you must use \fB\-FF\fP to fix the archive,
+which will prompt you for the splits you have.
+.IP
+Currently the fix options can't recover entries that have a bad checksum
+or are otherwise damaged.
+
+.TP
+.PD 0
+.B \-FI
+.TP
+.PD
+.B \-\-fifo\ \ 
+[Unix]  Normally \fBzip\fP skips reading any FIFOs (named pipes) encountered, as
+\fBzip\fP can hang if the FIFO is not being fed.  This option tells \fBzip\fP to
+read the contents of any FIFO it finds.
+
+.TP
+.PD 0
+.B \-FS
+.TP
+.PD
+.B \-\-filesync
+Synchronize the contents of an archive with the files on the OS.
+Normally when an archive is updated, new files are added and changed
+files are updated but files that no longer exist on the OS are not
+deleted from the archive.  This option enables a new mode that checks
+entries in the archive against the file system.  If the file time and
+file size of the entry matches that of the OS file, the entry is
+copied from the old archive instead of being read from the file system
+and compressed.  If the OS file has changed, the entry is read and
+compressed as usual.  If the entry in the archive does not match a
+file on the OS, the entry is deleted.  Enabling this option should
+create archives that are the same as new archives, but since existing
+entries are copied instead of compressed, updating an existing archive
+with \fB\-FS\fP can be much faster than creating a new archive.  Also
+consider using \fB\-u\fP for updating an archive.
+.IP
+For this option to work, the archive should be updated from the same
+directory it was created in so the relative paths match.  If few files
+are being copied from the old archive, it may be faster to create a
+new archive instead.
+.IP
+Note that the time zone environment variable TZ should be set according to
+the local time zone in order for this option to work correctly.  A
+change in time zone since the original archive was created could
+result in no times matching and recompression of all files.  See \fB-f\fP
+for more on time zones.
+.IP
+This option deletes files from the archive.  If you need to preserve
+the original archive, make a copy of the archive first or use the
+\fB\-\-out\fP option to output the updated archive to a new file.
+Even though it may be slower, creating a new archive with a new archive
+name is safer, avoids mismatches between archive and OS paths, and
+is preferred.
+
+.TP
+.PD 0
+.B \-fd
+.TP
+.PD
+.B \-\-force-descriptors
+Force use of data descriptors.  This is generally only used for debugging.
+
+.TP
+.PD 0
+.B \-fz
+.TP
+.PD
+.B \-\-force-zip64
+Force use of the Zip64 extensions.  This may be needed when a file is just
+under the 4 GiB limit but bad compression or use of -l to convert to Windows
+line ends pushes the resulting file over the limit.  Using -fz tells Zip to
+use the Zip64 large file extensions.  Negating this option (\fB-fz-\fP) will
+prevent the use of these extensions.
+
+.TP
+.PD 0
+.B \-g
+.TP
+.PD
+.B \-\-grow \ \ \ \ \ \ 
+Grow (append to) the specified
+.B zip
+archive, instead of creating a new one.  This can be fast if only a few
+entries are being added, as any old entries remain where they are in
+the archive as new entries are appended.  If this operation fails,
+.B zip
+attempts to restore the archive to its original state. If the restoration
+fails, the archive might become corrupted. This option is ignored when
+there's no existing archive or when at least one archive member must be
+updated or deleted.
+
+.TP
+.PD 0
+.B \-h
+.TP
+.PD 0
+.B \-H
+.TP
+.PD 0
+.B \-?
+.TP
+.PD
+.B \-\-help \ \ \ \ \ \ 
+Display the
+.B zip
+help information (this also appears if
+.B zip
+is run with no arguments).
+
+.TP
+.PD 0
+.B \-h2
+.TP
+.PD 0
+.B \-hh
+.TP
+.PD 0
+.B \-HH
+.TP
+.PD
+.B \-\-more-help
+Display extended help including more on command line format, pattern matching,
+and more obscure options.
+
+Most major features of \fBzip\fP are covered in the extended help, and this
+option has evolved into a sort of mini man page and quick reference.
+
+.TP
+.PD 0
+.B \-i\ \fR\fIfiles\fP
+.TP
+.PD
+.B \-\-include\ \fR\fIfiles\fP
+Include only the specified files, as in:
+.RS
+.IP
+\fCzip -r foo . -i \\*.c\fP
+.RE
+.IP
+which will include only the files that end in
+\fI.c\fP
+in the current directory and its subdirectories.  (Note for PKZIP
+users: the equivalent command is
+.RS
+.IP
+\fCpkzip -rP foo *.c\fP
+.RE
+.IP
+PKZIP does not allow recursion in directories other than the current one.)
+The backslash avoids shell filename substitution, so that the name
+matching is performed by
+.B zip
+at all directory levels.
+[This is for Unix and other systems where \\ escapes the next
+character, in this case preventing the shell from replacing
+* with a list of files in the current directory.  For other systems
+where the shell does not expand * (does not do file globbing), do not
+use \\ (as on MSDOS, for example, this would be handled as a directory
+separator, which may not be what you want) and the above would be
+.RS
+.IP
+\fCzip -r foo . -i *.c\fP
+.RE
+.IP
+Examples are for Unix unless otherwise specified.]  So to include dir,
+a directory directly under the current directory, use
+.RS
+.IP
+\fCzip -r foo . -i dir/\\*
+.RE
+.IP
+or
+.RS
+.IP
+\fCzip -r foo . -i "dir/*"
+.RE
+.IP
+to match paths such as dir/a and dir/b/file.c [on
+ports without wildcard expansion in the shell such as MSDOS and Windows
+.RS
+.IP
+\fCzip -r foo . -i dir/*
+.RE
+.IP
+is used].  Note that currently the trailing / is needed
+for directories (as in
+.RS
+.IP
+\fCzip -r foo . -i dir/
+.RE
+.IP
+to include directory dir and
+.RS
+.IP
+\fCzip -r foo . -i "dir/*"
+.RE
+.IP
+to include directory dir and its contents).
+.IP
+The long option form of the first example is
+.RS
+.IP
+\fCzip -r foo . --include \\*.c
+.RE
+.IP
+and does the same thing as the short option form.
+.IP
+Though the command syntax used to require \fB-i\fR at
+the end of the command line, \fBzip 3.0\fP and later actually
+allows \fB\-i\fP (or \fB\-\-include\fP) anywhere.  The
+list of files terminates at the next argument starting
+with \fB-\fR, the end of the command line, or the list
+terminator \fB@\fR (an argument that is just @).  So
+the above can be given as
+.RS
+.IP
+zip -i \\*.c @ -r foo .\fP
+.RE
+.IP
+for example.  There must be a space between
+the option and the first file of a list.  For just
+one file you can use the single value forms
+.RS
+.IP
+\fCzip -i\\*.c -r foo .\fP
+.RE
+.IP
+(no space between option and value) or
+.RS
+.IP
+\fCzip --include=\\*.c -r foo .\fP
+.RE
+.IP
+as additional examples.  The single value forms are
+not recommended because they can be confusing and,
+in particular, the \fB\-i\fP\fIfile\fP format can cause
+problems if the first letter of \fIfile\fP combines with
+\fBi\fP to form a two-letter option starting with
+\fBi\fP.
+
+Use \fB\-sc\fP to see how your command line
+will be parsed.  This also will catch if you left off a
+needed \\ or quote and the shell expanded a wildcard.
+
+Also possible:
+.RS
+.IP
+\fCzip -r foo  . -i@include.lst\fP
+.RE
+.IP
+which will only include the files in the current directory and its
+subdirectories that match the patterns in the file \fIinclude.lst\fP, one
+file pattern per line.  (This is a variation of the \fB-i\fP option and
+should not be confused with invoking an arg file.)
+
+Files to \fB\-i\fR and \fB\-x\fR are patterns matching internal archive paths.
+See \fB-R\fR for more on patterns and \fB-x\fP for more on include and exclude.
+Also see the section on \fBPATTERN MATCHING\fP below.
+
+\fB-i\fP, \fB-x\fP and \fB-R\fP are filters.  In the case of \fB-i\fP and
+\fB-x\fP, if recursion is enabled by \fB-r\fP, each directory tree listed
+on the command line will be traversed.  In the case of \fB-R\fP, the
+current directory tree will be traversed.  Then the \fB-i\fP, \fB-x\fP and
+\fB-R\fP patterns are matched against the resulting list.  To save time,
+keep the directory trees searched as small as possible.  Instead of \fB-R\fP,
+consider a more targeted use of \fB-r\fP.
+
+.TP
+.PD 0
+.B \-I
+.TP
+.PD
+.B \-\-no-image
+[Acorn RISC OS] Don't scan through Image files.  When used, \fBzip\fP will not
+consider Image files (eg. DOS partitions or Spark archives when SparkFS
+is loaded) as directories but will store them as single files.
+
+For example, if you have SparkFS loaded, zipping a Spark archive will result
+in a zipfile containing a directory (and its content) while using the 'I'
+option will result in a zipfile containing a Spark archive. Obviously this
+second case will also be obtained (without the 'I' option) if SparkFS isn't
+loaded.
+
+.TP
+.PD 0
+.B \-ic
+.TP
+.PD
+.B \-\-ignore-case
+[VMS, WIN32] Ignore case when matching archive entries.  This option is
+only available on systems where the case of files is ignored.  On systems
+with case-insensitive file systems, case is normally ignored when matching
+files on the file system but is not ignored for \fB-f\fP (freshen),
+\fB-d\fP (delete), \fB-U\fP (copy),
+and similar modes when matching against archive entries (currently \fB-f\fP
+ignores case on VMS) because archive entries can be from systems where
+case does matter and names that are the same except for case can exist
+in an archive.  The \fB\-ic\fR option makes all matching case insensitive.
+This can result in multiple archive entries matching a command line pattern.
+
+.TP
+.PD 0
+.B \-j
+.TP
+.PD
+.B \-\-junk-paths
+Store just the name of a saved file (junk the path), and do not store
+directory names.  By default,
+.B zip
+will store the full path (relative to the current directory).
+
+.TP
+.PD 0
+.B \-jj
+.TP
+.PD
+.B \-\-absolute-path
+[MacOS] Record Fullpath (+ Volname).  The complete path including
+volume will be stored.  By default the relative path will be stored.
+
+.TP
+.PD 0
+.B \-J
+.TP
+.PD
+.B \-\-junk-sfx
+Strip any prepended data (e.g. a self extracting SFX stub) from the archive.
+
+.TP
+.PD 0
+.B \-k
+.TP
+.PD
+.B \-\-DOS-names
+Attempt to convert the names and paths to conform to MSDOS,
+store only the MSDOS attribute (just the user write attribute from Unix),
+and mark the entry as made under MSDOS (even if it was not);
+for compatibility with PKUNZIP under MSDOS which cannot handle certain
+names such as those with two dots.
+
+.TP
+.PD 0
+.B \-l
+.TP
+.PD
+.B \-\-to-crlf
+Translate the Unix end-of-line character LF (linefeed, \\n) into the
+MSDOS convention CR LF (carriage return and linefeed, \\r\\n).  This option
+should not be used on binary files.
+This option can be used on Unix if the \fBzip\fP file is intended for PKUNZIP
+under MSDOS. If the input files already contain CR LF, this option adds
+an extra CR. This is to ensure that
+\fBunzip -a\fP
+on Unix will get back an exact copy of the original file,
+to undo the effect of
+\fBzip -l\fP.  See \fB-ll\fR for how binary files are handled.
+
+.TP
+.PD 0
+.B \-la
+.TP
+.PD
+.B \-\-log-append
+Append to existing logfile.  Default is to overwrite.
+
+.TP
+.PD 0
+.B \-lf\ \fP\fIlogfilepath\fP
+.TP
+.PD
+.B \-\-logfile-path\ \fP\fIlogfilepath\fP
+Open a logfile at the given path.  By default any existing file at that location
+is overwritten, but the \fB\-la\fP option will result in an existing file being
+opened and the new log information appended to any existing information.
+Only warnings and errors are written to the log unless the \fB\-li\fP option is
+also given, then all information messages are also written to the log.
+
+.TP
+.PD 0
+.B \-lF
+.TP
+.PD
+.B \-\-log-output
+Open a logfile as \fB-lf\fP, but use the same path as the output archive
+except that the \fI.zip\fP extension is replaced by \fI.log\fP.  This
+option is useful if the archive path is not known (as in a script) or
+to avoid typing a long path twice.
+
+.TP
+.PD 0
+.B \-li
+.TP
+.PD
+.B \-\-log-info
+Include information messages, such as file names being zipped, in the log.
+The default is to only include the command line, any warnings and errors, and
+the final status.
+
+.TP
+.PD 0
+.B \-ll
+.TP
+.PD
+.B \-\-from-crlf
+Translate the MSDOS end-of-line CR LF (carriage return and linefeed, \\r\\n)
+into Unix LF (linefeed, \\n).
+This option should not be used on binary files.
+This option can be used on MSDOS if the \fBzip\fP file is intended for
+\fBunzip\fP
+under Unix.
+
+If the file is converted and the file is later determined
+to be binary a warning is issued and the file is probably
+corrupted.  In \fBzip 3.0\fP and later if \fB-ll\fR detects binary in the
+first buffer
+read from a file, \fBzip\fR issues a warning and skips line end
+conversions in the file.  This check seems to catch all binary files
+tested.  If a file does become corrupted, \fB-l\fP may be able to
+reverse the damage, but this is dependent on the binary contents.
+As of \fBzip 3.1\fP, a warning is issued if a file was considered
+text based on the initial buffer reads but later found to be binary.
+(These post file checks were only done in some cases previously.)
+.\" but the original check remains and if a converted file is
+.\" later determined to be binary that warning is still issued.
+As of
+\fBzip 3.0\fP a new algorithm
+is being used for binary detection that allows line end conversion
+of text files in \fBUTF-8\fR and similar encodings.
+
+.TP
+.PD 0
+.B \-lu
+.TP
+.PD
+.B \-\-log-utf8
+Put file paths in log as UTF-8.  Need an application that can understand
+UTF-8 to accurately read the log file, such as Notepad on Windows XP.
+
+Since most consoles are not UTF-8 aware, sending log output to stdout to see
+UTF-8 probably won't work.  If your console can understand UTF-8 and UTF-8
+is not already being sent to the console (as is done with UTF-8 native
+consoles), the \fB-UN=ShowUTF8\fP option can be used to pass UTF-8
+paths to the console.
+
+.TP
+.PD 0
+.B \-L
+.TP
+.PD
+.B \-\-license
+Display the
+.B zip
+license.
+
+.TP
+.PD 0
+.B \-m
+.TP
+.PD
+.B \-\-move \ \ \ 
+Move the specified files into the
+.B zip
+archive; actually,
+this deletes the target directories/files after making the specified
+.B zip
+archive.  If a directory becomes empty after removal of files, the
+directory is also removed.  No deletions are done until
+.B zip
+has created the archive without error.
+This is useful for conserving disk space,
+but is potentially dangerous so it is recommended to use it in
+combination with
+.B \-T
+to test the archive before removing all input files.
+
+.TP
+.PD 0
+.B \-MM
+.TP
+.PD
+.B \-\-must-match
+All input patterns must match at least one file and all input files
+found must be readable.
+
+Normally when an input pattern does not match
+a file the "name not matched" warning is issued, and when an input file
+has been found but later is missing or not readable a "could not open"
+warning is issued.  In either case
+.B zip
+continues creating the archive, with missing or unreadable new files
+being skipped and files already in the archive remaining unchanged.
+After the archive is created, if any files were not readable
+.B zip
+returns the OPEN error code (18 on most systems) instead of the normal
+success return (0 on most systems).
+
+With \fB\-MM\fP set,
+.B zip
+exits as soon as an input pattern is not matched (whenever the
+"name not matched" warning would be issued) or when an input file is
+not readable.  In either case \fBzip\fR exits with an OPEN error
+and no archive is created.
+
+This option is useful when a known list of files is to be zipped so
+any missing or unreadable files will result in an error.  It is less
+useful when used with wildcards, but \fBzip\fR will still exit with an
+error if any input pattern doesn't match at least one file and if any
+matched files are unreadable.  If you want to create the archive
+anyway and only need to know if files were skipped, don't use
+.B \-MM
+and just check the return code.  If you need to know what names were
+not matched and which files could not be opened, consider logging the
+operation using \fB\-lf\fP and checking the log afterwards.
+
+.TP
+.PD 0
+.B \-MV\ \fImode\fP
+.TP
+.PD
+.B \-\-MVS\-mode\ \fImode\fP
+[MVS] Set the MVS path translation mode to \fImode\fP.  Paths on MVS
+are generally in the form \fIaa.bb.cc.dd\fP, where the dots separate the
+parts of the path.  To make these paths more compatible with non-MVS
+systems, \fBzip\fP converts the dots to slashes.  The default
+translation has caused problems, however, so this option now allows
+control of how the paths are translated.  \fImode\fP can be:
+
+\fBdots\fP \- Store paths as they are on the file system (typically in
+the form \fIaa.bb.cc.dd\fP).
+
+\fBslashes\fP \- Change MVS paths in form \fIaa.bb.cc.dd\fP (using dots) to
+\fIaa/bb/cc/dd\fP (using slashes).
+.IP
+\fBlastdot\fP \- Change paths in form \fIaa.bb.cc.dd\fP to \fIaa/bb/cc.dd\fP
+where all but the last dot is converted to slashes.  This is the default
+for backward compatibility and is probably the most compatible
+format for old MSDOS 8.3 file systems.
+.IP
+\fImode\fP can be appreviated to the first letter (\fBd\fP, \fBs\fP, or
+\fBl\fP).
+
+.TP
+.PD 0
+.BI \-n\ \fR\fIsuffixes\fP
+.TP
+.PD
+.B \-\-suffixes\ \fR\fIsuffixes\fP
+Do not attempt to compress files ending with the given
+\fIsuffixes\fR.
+Such files are simply stored (no compression) in the output \fBzip\fP file,
+so that
+.B zip
+doesn't waste time trying to compress them.
+The suffixes are separated by
+either colons or semicolons.  For example:
+.RS
+.IP
+\fCzip -rn .Z:.zip:.tiff:.gif:.snd  foo foodir\fP
+.RE
+.IP
+will compress everything from
+.I foodir
+into
+.IR foo.zip ,
+but will store any files that end in
+.IR .Z ,
+.IR .zip ,
+.IR .tiff ,
+.IR .gif ,
+or
+.I .snd
+without trying to compress them
+(image and sound files often have their own specialized compression methods).
+By default,
+.B zip
+does not compress files with the following extensions:
+
+.I .7z .arc .arj .bz2 .cab .gz .lha .lzh .lzma .pea
+.I .rar .rz .tbz2 .tgz .tlz .txz .xz .Z .zip .zipx .zoo .zz
+
+(This list subject to change.)  Such files are stored directly in the output
+archive.
+The environment variable ZIPOPT can be used to change the default options on
+a more permanant basis. For
+example under Unix with csh:
+.RS
+.IP
+setenv ZIPOPT "-n .gif:.zip"
+.RE
+.IP
+To attempt compression on all files, use:
+.RS
+.IP
+zip -n : foo
+.RE
+.IP
+where the single \fI:\fP is an empty \fB-n\fP list.  The maximum compression
+option
+.B \-9
+previously attempted compression on all files regardless of extension, but in
+\fBzip 3.1\fP \fB-9\fP now also obeys the suffix list.  To get the previous
+\fB-9\fP behavior, use \fB-9\fP and \fB-n :\fP:
+.RS
+.IP
+zip -9n : foo file1 file2
+.RE
+.IP
+On Acorn RISC OS systems the suffixes are actually filetypes (3 hex digit
+format).  By default, \fBzip\fP does not compress files with filetypes in the list
+DDC:D96:68E (i.e. Archives, CFS files and PackDir files).
+
+As of \fBzip 3.1\fP, the \fB\-n\fP option now allows additional control over
+which compression method
+is used for each suffix.  The general enhanced forms of this option are:
+.RS
+.IP
+\-n \fIMethod\fP=\fISuffixList\fP
+.RE
+.IP
+and
+.RS
+.IP
+\-n \fIMethod\fP-\fILevel\fP=\fISuffixList\fP
+.RE
+.IP
+The first form allows setting a list of suffixes that use the specified
+\fIMethod\fP,
+overriding any global compression method set by \fB\-Z\fP when files with a
+suffix in \fISuffixList\fP are processed.
+
+The second form allows even finer granularity, forcing use of \fIMethod\fP at
+compression level \fILevel\fP to compress files whose suffixes are in
+\fISuffixList\fP, overriding any general \fB-Z\fP and \fB-0\fP to \fB-9\fP
+compression and level settings.  (Setting a level of 0 is not allowed as it
+would force use of Store instead of the specified compression method.)
+
+\fIMethod\fP is any valid method that would be provided to \fB\-Z\fP.
+\fILevel\fP is a single
+digit from 1 to 9 representing the compression level that would be
+specified by
+the options \fB\-1\fP .. \fB\-9\fP, or can be "\-" to specify the default
+compression level.
+
+The \fIStore\fP compression method (\fB-0\fP, no compression) cannot be
+overridden, the method for \fIStore\fP always being \fIStore\fP.
+
+\fISuffixList\fP is specified as a colon-separated list.  A list with
+just ":" is the
+empty list.  (";" can be used instead of ":" as the list separator.)
+
+When a list is supplied for a compression method (Store, if no method is
+given), it wipes out any previous list.  For instance
+.RS
+.IP
+\-n .zip:.txt\fP
+.RE
+.IP
+would wipe out the default Store list.  To include any previous list
+contents, use "*", as in
+.RS
+.IP
+\-n "*:.zip:.txt"\fP
+.RE
+.IP
+The * must be escaped or quoted on Unix.  The * is replaced by the current
+list.  Using *, it's possible to chain lists together, as in
+.RS
+.IP
+\-n "*:.zip:.txt"  -n "*:.gz"\fP
+.RE
+.IP
+This works for other compression methods as well:
+.RS
+.IP
+\-n "lzma=.zip"  -n "lzma=*:.gz"\fP
+.RE
+.IP
+If a suffix is listed in more than one \fB-n\fR, the last one on the
+command line including the suffix controls that suffix.  For instance
+.RS
+.IP
+\-n "lzma=.zip"  -n "ppmd=*:.zip"\fP
+.RE
+.IP
+given .zip starts in the default Store list, the first \fB-n\fR pulls
+\fI.zip\fR from the Store list and puts it in the LZMA list, and the
+second \fB-n\fR pulls it from the LZMA list and puts it in the PPMd
+list.  A suffix can only be in one list.
+
+For example, to use LZMA compression with \.txt and \.log files, but
+otherwise use default Deflate compression on all other files not in
+the default Store list, use:
+.RS
+.IP
+zip -n archive * lzma=.txt:.log
+.RE
+.IP
+
+To use PPMd compression at compression level 8 with \.txt and \.log files:
+.RS
+.IP
+zip archive * -n ppmd-8=.txt:.log
+.RE
+.IP
+
+As a more complex example:
+.RS
+.IP
+zip archive *  \-Z bzip2  \-8  \-n lzma\-6=.exe:.obj:.olb
+.RE
+.IP
+Files matching suffixes in ".exe:.obj:.olb" will be compressed with LZMA
+at level 6.  Files matching suffixes in the default Store suffix list are
+stored.  Other files will be compressed using bzip2 at level 8.
+
+See also \fB\-1\fP .. \fB\-9\fP for setting a default compression level for
+specific compression methods.
+
+.TP
+.PD 0
+.B \-nw
+.TP
+.PD
+.B \-\-no-wild
+Do not perform internal wildcard processing (shell processing of wildcards is
+still done by the shell unless the arguments are escaped).  Useful if a list
+of paths is being
+read and no wildcard substitution is desired.
+
+.TP
+.PD 0
+.B \-N
+.TP
+.PD
+.B \-\-notes
+[Amiga, MacOS] Save Amiga or MacOS filenotes as zipfile comments. They can be
+restored by using the \fB-N\fP option of \fBunzip\fP. If \fB-c\fP is used
+also, you are
+prompted for comments only for those files that do not have filenotes.
+
+.TP
+.PD 0
+.B \-o
+.TP
+.PD
+.B \-\-latest-time
+Set the "last modified" time of the
+.B zip
+archive to the latest (oldest) "last modified" time
+found among the entries in the
+.B zip
+archive.
+This can be used without any other operations, if desired.
+For example:
+.IP
+\fCzip -o foo\fP
+.IP
+will change the last modified time of
+\fIfoo.zip\fP
+to the latest time of the entries in
+\fIfoo.zip\fP.
+
+.TP
+.PD 0
+.B \-O \fP\fIoutput-file\fP
+.TP
+.PD
+.B \-\-output-file \fP\fIoutput-file\fP
+Process the archive changes as usual, but instead of updating the existing
+archive,
+output a new archive to output-file.  Useful for updating an archive
+without changing the existing archive and the input archive must be a
+different file
+than the output archive.
+
+This option can be used to create updated split archives.
+It can also be used with \fB\-U\fP to copy entries from an existing archive
+to a new archive.  See the \fBEXAMPLES\fP section below.
+
+Another use is converting \fBzip\fP files from one split size to another.
+For instance, to convert an archive with 700 MB (CD) splits to one with
+2 GB (DVD) splits, can use:
+.RS
+.IP
+zip -s 2g cd-split.zip --out dvd-split.zip
+.RE
+.IP
+which uses copy mode.  See \fB\-U\fP below.  Also:
+.RS
+.IP
+zip -s 0 split.zip --out unsplit.zip
+.RE
+.IP
+(split size of zero) will convert a split archive to a single-file archive.
+
+Copy mode will convert stream entries (using data descriptors and which
+should be compatible with most unzips) to normal entries (which should
+be compatible
+with all unzips), except if Traditional encryption was used.  For
+archives with encrypted entries, \fBzipcloak\fP can be used to decrypt
+the entries and convert them to normal entries.
+
+.TP
+.PD 0
+.B \-p
+.TP
+.PD
+.B \-\-paths
+Include relative file paths as part of the names of files stored in the archive.
+This is the default.  The \fB\-j\fP option junks the paths and just stores the
+names of the files.
+
+.TP
+.PD 0
+.B \-pa\ \fR\fIprefx\fP
+.TP
+.PD
+.B \-\-prefix-add-path\ \fR\fIprefx\fP
+Prefix paths of added/updated files with the string
+\fIprefx\fP.  The string must include only alphanumeric and limited
+punctuation characters.  No spaces are allowed.  Slashes are allowed
+so that the prefix can put the new/updated files into a directory.
+See also \fB-pp\fP and \fB-Cl\fP.
+
+.TP
+.PD 0
+.B \-pn
+.TP
+.PD
+.B \-\-non-ansi-password
+Normally a password is forced to only use ASCII 7-bit characters.  This
+option allows the password to include any characters, such as UTF-8.
+
+.TP
+.PD 0
+.B \-pp\ \fR\fIprefx\fP
+.TP
+.PD
+.B \-\-prefix-path\ \fR\fIprefx\fP
+Prefix all paths in the archive with the string \fIprefx\fP.  The string must
+include only alphanumeric and limited punctuation characters.  No spaces are
+allowed.  Slashes are allowed so that the prefix can put the archive contents
+into a directory.
+See also \fB-pa\fP and \fB-Cl\fP.
+
+.TP
+.PD 0
+.B \-ps
+.TP
+.PD
+.B \-\-allow-short-password
+AES encryption (not Traditional encryption) requires a minimum password length
+dependent on the level of encryption selected.  This is to avoid encrypting a
+file using a strong algorithm but using such an easy to crack password that the
+encryption is essentially useless.  The minimums are still weak (see \fB-Y\fP),
+but are hopefully short enough to be used.  Ideally the password length should
+approach the key length for the encryption used.
+
+This option disables the password length checks.  A zero length password is
+still not allowed, however.  \fB-ps\fP is mainly provided for testing and
+should not be used if security is a concern.
+
+.TP
+.PD 0
+.B \-P\ \fR\fIpassword\fP
+.TP
+.PD
+.B \-\-password\ \fR\fIpassword\fP
+Use \fIpassword\fP to encrypt zipfile entries (if any).  \fBTHIS IS
+INSECURE!\fP  Many multi-user operating systems provide ways for any user to
+see the current command line of any other user; even on stand-alone systems
+there is always the threat of over-the-shoulder peeking.  Storing the plaintext
+password as part of a command line in an automated script is even worse.
+Whenever possible, use the non-echoing, interactive prompt (\fB-e\fP) to
+enter passwords.
+
+Note that using arg files is no more secure, as the actual command line
+executed would include the actual string to the \fB-P\fP option.
+
+(And where security is truly important, use AES encryption, or an external
+encryption program such as GNU Privacy Guard (GnuPG, gpg) instead of the
+relatively weak Traditional zip encryption.)
+
+.TP
+.PD 0
+.B \-q
+.TP
+.PD
+.B \-\-quiet
+Quiet mode; eliminate informational messages and comment prompts.
+(Useful, for example, in shell scripts and background tasks).
+
+.TP
+.PD 0
+.BI \-Q\fR\fIn\fP
+.TP
+.PD
+.B \-\-Q\-flag\ \fR\fIn\fP
+[QDOS] Store information about the file in the file header with \fIn\fP defined
+as
+.RS
+bit  0: Don't add headers for any file
+.RE
+.RS
+bit  1: Add headers for all files
+.RE
+.RS
+bit  2: Don't wait for interactive key press on exit
+.RE
+For backward compatibility this is a number value following the option
+without a space.
+
+.TP
+.PD 0
+.B \-r
+.TP
+.PD
+.B \-\-recurse\-paths
+Travel the directory structure recursively;
+for example:
+.RS
+.IP
+zip -r foo.zip foo
+.RE
+.IP
+or more concisely
+.RS
+.IP
+zip -r foo foo
+.RE
+.IP
+In this case, all the files and directories in directory
+.I foo
+are saved in a
+.B zip
+archive named \fIfoo.zip\fP,
+including files with names starting with \fB"."\fP,
+since the recursion does not use the shell's file-name substitution mechanism.
+If you wish to include only a specific subset of the files in directory
+\fIfoo\fP
+and its subdirectories, use the
+\fB\-i\fP
+option to specify the pattern of files to be included.
+You should not use
+\fB\-r\fP
+with the name \fB".*"\fP,
+since that matches \fB".."\fP
+which will attempt to zip up the parent directory
+(probably not what was intended).
+
+Multiple source directories are allowed as in
+.RS
+.IP
+\fCzip -r foo foo1 foo2\fP
+.RE
+.IP
+which first zips up \fIfoo1\fP and then \fIfoo2\fP, going down each directory.
+
+Note that while wildcards to \fB-r\fR are typically resolved while recursing down
+directories in the file system, any \fB-R\fN, \fB-x\fR, and \fB-i\fR wildcards
+are applied to internal archive pathnames once the directories are scanned.
+
+To have wildcards apply to files in subdirectories when recursing on
+Unix and similar systems where the shell does wildcard substitution, either
+escape all wildcards or put all arguments with wildcards in quotes.  This lets
+\fBzip\fR see the wildcards and match files in subdirectories using them as
+it recurses.
+
+.TP
+.PD 0
+.B \-R
+.TP
+.PD
+.B \-\-recurse\-patterns
+Travel the directory structure recursively starting at the
+current directory.
+For example:
+.RS
+.IP
+\fCzip -R foo "*.c"\fP
+.RE
+.IP
+In this case, all the files matching \fI*.c\fP in the tree starting at the
+current directory are stored into a
+.B zip
+archive named
+\fIfoo.zip\fP.
+Note that \fI*.c\fP will match \fIfile.c\fP, \fIa/file.c\fP
+and \fIa/b/.c\fP.  More than one pattern can be listed as separate
+arguments.
+Note for PKZIP users: the equivalent command is
+.RS
+.IP
+\fCpkzip -rP foo *.c\fP
+.RE
+.IP
+Patterns are relative file paths as they appear in the archive, or will after
+zipping, and can have optional wildcards in them.  For example, given
+the current directory is \fIfoo\fP and under it are directories \fIfoo1\fP
+and \fIfoo2\fP
+and in \fIfoo1\fP is the file \fIbar.c\fP,
+.RS
+.IP
+\fCzip -R "foo/*"\fP
+.RE
+.IP
+will zip up \fIfoo\fP, \fIfoo/foo1\fP, \fIfoo/foo1/bar.c\fP, and
+\fIfoo/foo2\fP.
+.RS
+.IP
+\fCzip -R "*/bar.c"\fP
+.RE
+.IP
+will zip up \fIfoo/foo1/bar.c\fP.  See the note for \fB-r\fR on escaping wildcards.
+
+See \fB-i\fP and \fB-x\fP for more on pattern matching.
+
+.TP
+.PD 0
+.B \-RE
+.TP
+.PD
+.B \-\-regex
+Before \fBzip 3.0\fP, list matching was enabled by default on
+Windows platforms.  Because of confusion resulting from the need to
+escape "[" and "]" in names, as of \fBzip 3.0\fP it is now off by default
+for Window so "[" and "]" are just normal characters in names.  This option
+enables bracketed list matching again.  Since then we've had complaints on other
+platforms, so in \fBzip 3.1\fP use of [] for list matching is now off
+for all platforms unless \fB-RE\fP is used.
+
+Note that for shells that recognize [] lists (such as modern Unix shells), it's
+still necessary to escape [ and ] (unless you want the shell to process the
+[] lists).
+
+\fB-RE\fP enables the use of "[" and "]" for delimiting a list of
+characters where if any character in that list matches the character
+at the position the square bracketed list is that character is matched.
+Essentially a bracketed list acts as a selective wildcard.  For instance,
+.RS
+.IP
+\fCzip zipfile foo[abc]\fP
+.RE
+.IP
+would look for a file named \fIfoo[abc]\fP, while
+.RS
+.IP
+\fCzip zipfile foo[abc] -RE\fP
+.RE
+.IP
+would match files \fIfooa\fP, \fIfoob\fP, and \fIfooc\fP.
+Examples of list patterns when \fB-RE\fP enabled:
+.IP
+\fB[abcd]\fP - Match any one of characters \fIa\fP, \fIb\fP, \fIc\fP,
+\fId\fP.
+.IP
+\fB[a-d]\fP - Match any character in range (\fIa\fP, \fIb\fP, \fIc\fP,
+\fId\fP).
+.IP
+\fB[!a-d]\fP - Match any character not in the range.  (Leading ! or ^
+negates range.)
+.IP
+\fB[[]\fP - Match "[".
+.IP
+\fB[ad-f[3]\fP - Match \fIa\fP, \fId\fP, \fIe\fP, \fIf\fP, \fI[\fP, or \fI3\fP.
+
+\fB-nw\fP turns off wildcard matching, including braketed list matching.
+
+See the section on \fBPATTERN MATCHING\fP below for more on wildcards and
+matching.
+
+.TP
+.PD 0
+.B \-s\ \fP\fIsplitsize\fP
+.TP
+.PD
+.B \-\-split\-size\ \fP\fIsplitsize\fP
+Enable creating a split archive and set the split size.  A split archive is an
+archive that could be split over many files.  As the archive is created, if
+the size of the archive reaches the specified split size, that split is closed
+and the next split opened.  In general all splits but the last will be the
+split size and the last will be whatever is left.  If the entire archive is
+smaller than the split size, a single-file archive is created.
+
+Split archives are stored in numbered files.  For example, if the output
+archive is named \fIarchive\fP and three splits are required, the resulting
+archive will be in the three files \fIarchive.z01\fP, \fIarchive.z02\fP, and
+\fIarchive.zip\fP.  Do not change the numbering of these files or the archive
+will not be readable as these are used to determine the order splits are read.
+
+Split size is a number optionally followed by a multiplier.  Currently the
+number must be an integer.  The multiplier can currently be one of
+\fBk\fP (kilobytes), \fBm\fP (megabytes), \fBg\fP (gigabytes), \fBt\fP
+(terabytes), or \fBp\fP (petabytes).  (Note that these are powers of 2,
+so k = 1024 and so on.)  As
+\fB64k\fP is the minimum split size, numbers without multipliers
+default to megabytes.  For example, to create a split archive called \fIfoo\fP
+with the contents of the \fIbar\fP directory with splits of 670 MB that might
+be useful for burning on CDs, the command:
+.RS
+.IP
+zip -s 670m -r foo bar
+.RE
+.IP
+could be used.
+
+Currently the old splits of a split archive are not excluded from a new
+archive, but they can be specifically excluded.  If possible, keep
+the input and output archives out of the path being zipped when creating
+split archives.
+
+Using \fB\-s\fP without \fB\-sp\fP as above creates all the splits where
+\fIfoo\fP is being written, in this case the current directory.  This split
+mode updates the splits as the archive is being created, requiring all
+splits to remain writable, but creates split archives that are readable by
+any unzip that supports split archives.  See \fB\-sp\fP below for enabling
+split pause mode which allows splits to be written directly to removable
+media.
+
+The option \fB\-sv\fP can be used to enable verbose splitting, which provides
+details of how the splitting is being done.  The \fB\-sb\fP option can be
+used to ring the bell when \fBzip\fP pauses for the next split destination.
+
+Split archives cannot be updated, but see \fB\-O\fP (\fB\-\-out\fP) for
+how a split archive can be updated as it is copied to a new archive.
+A split archive can also be converted into a single-file archive using a
+split size of 0 or negating the \fB\-s\fP option:
+.RS
+.IP
+zip -s 0 split.zip --out single.zip
+.RE
+.IP
+Also see \fB\-U\fP (\fB\-\-copy\fP) for more on using copy mode.
+
+.TP
+.PD 0
+.B \-sb
+.TP
+.PD
+.B \-\-split\-bell
+If splitting and using split pause mode, ring the bell when \fBzip\fP pauses
+for each split destination.
+
+.TP
+.PD 0
+.B \-sc
+.TP 
+.PD
+.B \-\-show\-command
+Show the command line to \fBzip\fP (as \fBzip\fP read it) and exit.  The new
+command parser permutes the arguments, putting all options and any values
+associated with them before any non-option arguments.  This allows an option
+to appear anywhere in the command line as long as any values that go with the
+option go with it.  This option displays the command line as \fBzip\fP sees
+it, including any arguments from the environment such as from the \fBZIPOPT\fP
+variable.  Where allowed, options later in the command line can override
+options earlier in the command line.
+
+The \fB-sc\fP option is useful when a \fBzip\fP command line is not executing
+as expected.  It allows seeing just what the command line is, including any
+shell expansions that may or may not be intended as well as any arguments
+being supplied by environment variables.  It also allows seeing how arguments
+from arg files got inserted into the command line.
+
+.TP
+.PD 0
+.B \-sd
+.TP
+.PD
+.B \-\-show-debug
+Output debugging messages detailing what \fBzip\fP is doing each step of the
+way.
+
+.TP
+.PD 0
+.B \-sf
+.TP
+.PD
+.B \-\-show\-files
+Show the files that would be operated on, then exit.  For instance, if creating
+a new archive, this will list the files that would be added.  If the option is
+negated, \fB\-sf\-\fP, output only to an open log file.  Screen display is
+not recommended for large lists.
+
+See also \fB-sF\fP, \fB-su\fP, and \fB-sU\fP.
+
+.TP
+.PD 0
+.B \-sF \fIparam\fP
+.TP
+.PD
+.B \-\-sf\-params \fIparam\fP
+Add additional information to the \fB-sf\fP listing.
+
+Currently only \fBusize\fP is implemented.  This adds the uncompressed
+size of each file to the \fB-sf\fP listing.
+
+Example:
+.RS
+.IP
+zip -sf -sF usize archive
+.RE
+.IP
+This would list all files in \fIarchive\fP and include the uncompressed
+size of each file in the listing.
+
+.TP
+.PD 0
+.B \-si
+.TP
+.PD
+.B \-\-show\-pid
+Display the PID of the \fBzip\fP process.  This is useful if the progress
+reporting feature is enabled and the PID is needed to signal the \fBzip\fP
+process.
+
+.TP
+.PD 0
+.B \-so
+.TP
+.PD
+.B \-\-show\-options
+Show all available options supported by \fBzip\fP as compiled on this system.
+As this command reads the option table, it should include all available
+options.  Each line
+includes the short option (if defined), the long option (if defined), the
+format of any value that goes with the option, if the option can be negated,
+and a small description.  The value format can be "no value", "required value",
+"optional value", "single character value", "number value", or a
+"list of values".  The output of this option is not intended to show how to
+use any option but only show what options are available.
+
+Note that "single character value" and "number value" option values require
+the option value to be next to the option, without spaces.  This is to
+maintain backward compatibility with how these option values were defined
+in \fBzip 2.x\fP.
+
+.TP
+.PD 0
+.B \-sp
+.TP
+.PD
+.B \-\-split\-pause
+If splitting is enabled with \fB\-s\fP, enable split pause mode.  This
+creates split archives as \fB\-s\fP does, but stream writing is used so each
+split can be closed as soon as it is written and \fBzip\fP will pause between
+each split to allow changing split destination or media.
+
+Though this split mode allows writing splits directly to removable media, it
+uses the stream archive format that may not be readable by some unzips.  Before
+relying on splits created with \fB\-sp\fP, test a split archive with the unzip
+you will be using.
+
+To convert a stream split archive (created with \fB\-sp\fP) to a standard
+archive see the \fB\-\-out\fP option.
+
+If space is available, it may be easier to just use \fB-s\fP without \fB-sp\fP
+and then burn the splits to removable media.
+
+.TP
+.PD 0
+.B \-ss
+.TP
+.PD
+.B \-\-show-suffixes
+Show the current settings for file suffixes.  This list is impacted by \fB-n\fP
+and the \fB-0\fP through \fB-9\fP options.
+
+.TP
+.PD 0
+.B \-st
+.TP
+.PD
+.B \-\-stream
+This option enables stream mode, where central directory file information is
+also stored local to each stored file.  Archives created using stream mode
+are fully extractable using a stream reading unzip, where as normal archives
+need information from the central directory at the end of the archive to
+fully extract entries.
+
+.TP
+.PD 0
+.B \-su
+.TP
+.PD
+.B \-\-show\-unicode
+Similar to \fB\-sf\fP, but also shows Unicode versions of the paths if they
+exist.
+
+.TP
+.PD 0
+.B \-sU
+.TP
+.PD
+.B \-\-show\-just\-unicode
+Similar to \fB\-sf\fP, but shows only Unicode versions of the paths.  If a
+Unicode version doesn't exist, show the standard version of the path.
+
+.TP
+.PD 0
+.B \-sv
+.TP
+.PD
+.B \-\-split\-verbose
+Enable various verbose messages while splitting, showing how the splitting
+is being done.
+
+.TP
+.PD 0
+.B \-S
+.TP
+.PD
+.B \-\-system-hidden
+[MSDOS, OS/2, WIN32 and ATARI] Include system and hidden files.
+.RS
+[MacOS] Includes finder invisible files, which are ignored otherwise.
+.RE
+
+.TP
+.PD 0
+.BI \-t\ \fR\fImmddyyyy\fP
+.TP
+.PD
+.B \-\-from\-date\ \fR\fImmddyyyy\fP
+Do not operate on files modified prior to the specified date,
+where
+.I mm
+is the month (01-12),
+.I dd
+is the day of the month (01-31),
+and
+.I yyyy
+is the year.
+The
+.B ISO\ 8601
+date format
+.I yyyy\-mm\-dd
+is also accepted.
+For example:
+.RS
+.IP
+\fCzip -rt 12071991 infamy foo\fP
+
+\fCzip -rt 1991-12-07 infamy foo\fP
+.RE
+.IP
+will add all the files in
+.I foo
+and its subdirectories that were last modified on or after 7 December 1991,
+to the
+.B zip
+archive
+\fIinfamy.zip\fP.
+
+Both \fB-t\fP and \fB-tt\fP can be used together to set a date range to
+include files between two dates.
+
+In \fBzip 3.1\fP and later, times can be included to further refine the
+date/time filtering.  Times are specified in the formats
+.RS
+.IP
+\fC:hh:mm\fP
+
+\fC:hh:mm:ss\fP
+.RE
+.IP
+where \fIhh\fP is the hour (24 hour format from 00 to 23), \fImm\fP is the
+minute (00 to 59), and \fIss\fP is the second (00 to 59).  Note that times
+in a \fBzip\fP archive are in MSDOS format and have about 2 second resolution.
+
+The leading colon (\fI:\fP) is required for a time.  If the date is left
+off, the current date is assumed.
+
+For example, the above examples including a time of 8 AM would be:
+.RS
+.IP
+\fCzip -rt 12071991:08:00 infamy foo\fP
+
+\fCzip -rt 1991-12-07:08:00 infamy foo\fP
+.RE
+.IP
+When using times, make sure to account for time zone and daylight saving time
+changes between where entries were added and where they are being listed or
+extracted.
+
+.TP
+.PD 0
+.BI \-tt\ \fR\fImmddyyyy\fP
+.TP
+.PD
+.B \-\-before\-date\ \fR\fImmddyyyy\fP
+Do not operate on files modified after or at the specified date,
+where
+.I mm
+is the month (01-12),
+.I dd
+is the day of the month (01-31),
+and
+.I yyyy
+is the year.
+The
+.B ISO\ 8601
+date format
+.I yyyy\-mm\-dd
+is also accepted.
+For example:
+.RS
+.IP
+\fCzip -rtt 11301995 infamy foo\fP
+
+\fCzip -rtt 1995-11-30 infamy foo\fP
+.RE
+.IP
+will add all the files in
+.I foo
+and its subdirectories that were last modified before 30 November 1995,
+to the
+.B zip
+archive
+.IR infamy.zip .
+
+See \fB-t\fP for how times are handled.
+
+.TP
+.PD 0
+.B \-T
+.TP
+.PD
+.B \-\-test\ \ \ \ 
+Test the integrity of the new zip file. If the check fails, the old zip file
+is unchanged and (with the
+.B -m
+option) no input files are removed.  If a password is provided to \fBzip\fP
+using \fB\-e\fP or \fB\-P\fP, that password is used while testing the archive.
+
+The \fB\-T\fP option actually spawns the command "\fIunzip -tqq tempname\fP"
+to test the temporary archive (where tempname is replaced by \fBzip\fP with
+the path to the temporary archive being tested).  Usually this uses the
+default \fBunzip\fP on your system.  If this isn't compatible with the
+archive you are creating (such as when you create a 5 GB archive and your
+system has an old \fBunzip\fP that can't test it), either update the
+\fBunzip\fP on your system or use the \fB\-TT\fP option to specify what
+\fBunzip\fP to use for the testing.
+
+WARNING:  As \fBzip\fP spawns a new process to perform the testing, any
+password given to \fBzip\fP may appear on the command line used to
+test the archive.  If keeping the password secure is important, test the
+archive separately using \fBunzip\fP and having \fBunzip\fP prompt for
+the password.
+
+The \fB-T\fP option actually causes zip to spawn a command like
+"unzip -tqq tempname" to test the temporary archive.
+A "v" option to \fBzip\fP causes the "qq" to be omitted.
+
+If multiple \fBunzip\fP programs are installed on the system, it may be
+useful to change the (Unix) PATH or (VMS) symbol DCL$PATH so that
+"unzip" runs the right program.  Alternatively, you can use \fB-TT\fP to
+specify the command line to use to test the archive.
+
+.TP
+.PD 0
+.B \-TT\ \fP\fIcmd\fP
+.TP
+.PD 0
+.B \-\-unzip-command\ \fP\fIcmd\fP
+.TP
+.PD
+.B \-\-test-command\ \fP\fIcmd\fP
+Use command \fIcmd\fP instead of 'unzip -tqq' to test an archive when
+\fB\-T\fP is used. a On Unix, to use a copy of \fBunzip\fP in the current
+directory instead of the standard system \fBunzip\fP, one could use:
+.IP
+\fC zip archive file1 file2 -T -TT "./unzip -tqq"\fP
+.IP
+In \fIcmd\fP, \fB{}\fP is replaced by the name of the temporary archive, otherwise
+the name of the archive is appended to the end of the command.  If a password
+was provided to \fBzip\fP, the first \fB{p}\fP in the cmd string is replaced
+by the password.  (See the password warning for \fB-T\fP.)  The return code
+is checked for success (0 on Unix).
+
+For example (where \fIunzipl\fP might be a copy of \fBunzip 6.0\fP or later
+with large file support):
+.RS
+.IP
+\fCzip -T -TT "unzipl -tqq" big_archive.zip\fP
+
+\fCzip -T -TT '/usr/local/bin/unzip6 -tqq' big_archive.zip\fP
+.RE
+.IP
+Note that \fB-TT\fP specifies the whole \fBunzip\fP command (including
+the \fB-t\fP and \fB-qq\fP options), not simply the \fBunzip\fP program
+itself.  Carelessness here can cause "zip -T" to extract files from the
+archive instead of merely testing it.
+
+\fB-TT\fP can be used with other programs to do the testing, not just
+\fBunzip\fP.  However, the \fB-TT\fP option must specify a complete
+command line to use the other program.  Also, the return code needs to
+be compatible with what \fBzip\fP expects.
+
+.TP
+.PD 0
+.B \-u
+.TP
+.PD
+.B \-\-update
+Replace (update) an existing entry in the
+.B zip
+archive only if it has been modified more recently
+than the version already in the
+.B zip
+archive.
+For example:
+.RS
+.IP
+\fCzip -u stuff *\fP
+.RE
+.IP
+will add any new files in the current directory,
+and update any files which have been modified since the
+.B zip
+archive
+.I stuff.zip
+was last created/modified (note that
+.B zip
+will not try to pack
+.I stuff.zip
+into itself when you do this).
+.IP
+Note that the
+.B \-u
+option with no input file arguments acts like the
+.B \-f
+(freshen) option.
+
+.TP
+.PD 0
+.B \-U
+.TP
+.PD
+.B \-\-copy\-entries
+Copy entries from one archive to another.  Requires the \fB\-\-out\fP
+option to specify a different output file than the input archive.  Copy
+mode is the reverse of \fB\-d\fP delete.  When delete is being used
+with \fB\-\-out\fP, the selected entries are deleted from the archive
+and all other entries are copied to the new archive, while copy mode
+selects the files to include in the new archive.  Unlike \fB\-u\fP
+update, input patterns on the command line are matched against archive
+entries only and not the file system files.  For instance,
+.RS
+.IP
+\fCzip inarchive "*.c" --copy --out outarchive\fP
+.RE
+.IP
+copies entries with names ending in \fB\.c\fP from \fIinarchive.zip\fP
+to \fIoutarchive.zip\fP.  The wildcard \fImust\fP be escaped on some systems
+to prevent the shell from substituting names of files from the
+file system which may have no relevance to the entries in the archive.
+
+If no input files appear on the command line and \fB\-\-out\fP is
+used, copy mode is assumed:
+.RS
+.IP
+\fCzip inarchive --out outarchive\fP
+.RE
+.IP
+This is useful for changing split size for instance (by adding the
+\fB\-s\fP option).  It also will
+remove any data descriptors that are not needed.
+
+Encrypting
+and decrypting entries is not yet supported using copy mode.  Use
+\fBzipcloak\fP for that.
+
+.TP
+.PD 0
+.B \-UN\ \fR\fIv\fP
+.TP
+.PD
+.B \-\-unicode\ \fR\fIv\fP
+Determine what \fBzip\fP should do with Unicode file names.
+\fBzip 3.0\fP and later, in addition to the standard file path, now saves
+the UTF\-8 translation of the path if the entry path is not entirely 7-bit
+ASCII.  When an entry is missing the Unicode path, \fBzip\fP reverts back
+to the standard file path.
+
+The problem with using the standard path
+is this path is in the local character set of the zip that created the
+entry, which may contain characters that are not valid in the character
+set being used by the unzip.  When \fBzip\fP is reading an archive, if
+an entry also has a Unicode path, \fBzip\fP now defaults to using that
+Unicode path to recreate the standard path using the current local character
+set.
+
+This option can be used to determine what \fBzip\fP should do with this
+path if there is a mismatch between the stored standard path and the stored
+UTF-8 path (which can happen if the standard path was updated).  In all
+cases, if there is a mismatch it is assumed that the standard path is
+more current and \fBzip\fP uses that.  Values for \fIv\fP are:
+.RS
+.IP
+q \- quit if paths do not match
+.IP
+w \- warn, continue with standard path
+.IP
+i \- ignore, continue with standard path
+.IP
+n \- no Unicode, do not use Unicode paths
+.RE
+.IP
+The default is to warn and continue.
+
+Characters that are not valid in the current character set are escaped
+as \fB#Uxxxx\fP and \fB#Lxxxxxx\fP, where \fIx\fP is an ASCII character
+for a hex digit.  The first is used if a 16-bit character number is
+sufficient to represent the Unicode character and the second if the
+character needs more than 16 bits to represent its Unicode character code.
+Setting \fB\-UN\fP to
+.RS
+.IP
+e \- escape
+.RE
+.IP
+as in
+.RS
+.IP
+\fCzip archive -sU -UN=e\fP
+.RE
+.IP
+forces \fBzip\fP to escape all characters that are not printable 7-bit
+ASCII.  The value for \fB-UN\fP can be spelled out or abbreviated, and
+multiple \fB-UN\fP options can be used:
+.RS
+.IP
+\fCzip archive -r foo -UN=ign -UN=escape -UN=local\fP
+.RE
+.IP
+\fBzip 3.0\fP defaulted to storing UTF-8 directly in the name and comment
+fields on systems where UTF-8 is the current character set and storing
+UTF-8 in the new extra fields otherwise.  As of \fBzip 3.1\fP, the default
+is for \fBzip\fP to store UTF-8 as native in the name and comment fields,
+which is the default for most major zips now.  Setting \fB-UN\fP to
+\fILOCAL\fP as in:
+.RS
+.IP
+\fCzip archive foo -r -UN=LOCAL\fP
+.RE
+.IP
+reverts back to storing UTF-8 in the extra fields and the local character
+set in the standard name and comment fields.  When creating an archive
+to be used with an old unzip, use this to ensure backward compatibility.
+
+Setting \fB-UN\fP to \fIUTF8\fP as in:
+.RS
+.IP
+\fCzip archive foo -r -UN=UTF8\fP
+.RE
+.IP
+reestablishes storing UTF-8 as native in the archive, overriding a previous
+\fB-UN=LOCAL\fP on the command line or set in an environment variable.
+
+Note that Unicode paths can be quite long.  On Windows the default maximum
+path length is 260 bytes.  The new option \fB-wl\fP allows storing long
+Windows paths, though restoring them requires support by the unzip.
+
+Also, some native support for UTF-8 is now included in Windows 7 and later,
+though it appears to be sufficiently buggy to prevent easy use.
+
+In \fBzip 3.1\fP, \fB-UN=ShowUTF8\fP passes UTF-8 paths directly to the
+console/message stream.  (This is the default on systems where UTF-8
+is native.)  This option allows display of UTF-8 on systems where normally
+escapes would be seen.  This option can be used, for instance, to display
+some UTF-8 on Windows in a console window with code page 65001 enabled.
+Not all characters are viewable using this code page, however.  For example,
+Japanese and other Asian characters are not viewable in an English console
+window.
+
+.TP
+.PD 0
+.B \-UT
+.TP
+.PD
+.B \-\-utest
+Perform some quick Unicode tests.  These tests give a rough indication
+of Unicode support on the current platform as compiled into \fBzip\fR.
+
+.TP
+.PD 0
+.B \-v
+.TP
+.PD
+.B \-\-verbose
+Verbose mode or print diagnostic version info.
+
+Normally, when applied to real operations, the \fB\-v\fR option enables the
+display of a progress indicator during compression (see \fB\-dd\fR for more
+on dots) and requests verbose diagnostic info about zipfile structure oddities.
+
+However, when
+.B \-v
+is the only command line argument the \fB\-\-version\fR command is executed
+instead.
+.RS
+.IP
+\fCzip -v\fP
+.RE
+.IP
+The long option form \fB\-\-verbose\fR always executes the verbose option.
+
+.TP
+.PD 0
+.B \-v
+.TP
+.PD
+.B \-\-version
+When
+.B \-v
+is the only command line argument, or the long option form \fB\-\-version\fR is
+used, a diagnostic screen is printed.  This should now work even if stdout is
+redirected to a file, allowing easy saving of the information for sending with
+bug reports to \fBInfo-ZIP\fP.  The version screen provides the help screen
+header with program name, version, and release date, some pointers to the
+\fBInfo-ZIP\fP
+home and distribution sites, and shows information about the target environment
+(compiler type and version, OS version, compilation date and the enabled
+optional features used to create the \fBzip\fR executable).
+
+When \fB-v\fP is not the only option given, the \fB\-\-verbose\fR command is
+executed instead.
+
+.TP
+.PD 0
+.B \-vq
+.TP
+.PD
+.B \-\-quick-version
+Output a quick version string and exit.  This can be used by a script to determine
+the version of \fBzip\fP.  For example:
+.RS
+.IP
+\fC zip -vq\fP
+.RE
+.IP
+might result in:
+.RS
+.IP
+\fCzip 3.1.0 2014/08/01 (zip 3.1)\fP
+.RE
+.IP
+where \fBzip\ 3.1.0\fR is the patch version, version date is in \fByyyy/mm/dd\fR
+format, and \fB(zip\ 3.1)\fR is the name of the version (what we generally
+refer to it as).  If this is a beta version, the name will indicate this (for
+example, \fB(zip 3.1d BETA)\fR).
+
+.TP
+.PD 0
+.B \-V
+.TP
+.PD
+.B \-\-VMS\-portable
+[VMS] Save VMS file attributes.
+(Files are  truncated at EOF.)   When a \fB-V\fP archive is unpacked on a
+non-VMS system,  some file types (notably Stream_LF text files  and  pure
+binary files  like fixed-512) should be extracted intact.  Indexed files
+and file types with embedded record sizes (notably variable-length record
+types) will probably be seen as corrupt elsewhere.
+
+.TP
+.PD 0
+.B \-VV
+.TP
+.PD
+.B \-\-VMS\-specific
+[VMS] Save VMS file attributes, and  all allocated
+blocks in a file,  including  any  data beyond EOF.
+Useful for moving ill-formed files  among  VMS systems.   When a \fB-VV\fP
+archive is unpacked on a non-VMS system, almost all files will appear
+corrupt.
+
+.TP
+.PD 0
+.B \-w
+.TP
+.PD
+.B \-\-VMS\-versions
+[VMS] Include file version numbers in the archive names.  By default,
+version numbers are stripped from the archive names.  That is, "[.d]a.b;3"
+is normally archived as "d/a.b", but with \fB\-w\fP, it would be archived
+as "d/a.b;3".  (This might be inconvenient on a non-VMS system.  See also
+\fB\-ww\fP, below.)
+
+Note that \fBzip\fP normally processes only the highest version of a
+file (";0"), but an explicit version wildcard (like ";*") can override
+this.  \fB\-w\fP is required if multiple versions of a file are to be
+stored in an archive; otherwise, when the version numbers are stripped
+off as the files are stored in the archive, the duplicate names would
+cause "cannot repeat names in zip file" errors.
+
+.TP
+.PD 0
+.B \-wl
+.TP
+.PD
+.B \-\-windows\-long\-paths
+[WIN32] Windows platforms are generally limited to paths no longer than
+260 characters.  \fB-wl\fP enables reading and storing paths longer than this.
+The upper limit with this option enabled becomes roughly 64 KB.
+
+A compatible unzip is needed to extract long paths.  In particular, an
+archive with long paths will be seen as corrupted by Windows Explorer
+under Windows 7 and earlier (and possibly Windows 8).  Do not save
+long paths in an archive unless you know the unzip at the other end
+can read and extract them.
+
+\fBzip\fP issues a warning when the first Windows long path is encountered
+and at the end of the \fBzip\fP operation.  If a compatible archive is
+needed, either exclude or remove the long paths, or don't use the -wl option.
+
+\fB-wl\fP is now enabled by default.  Use \fB-wl-\fP to disable Windows
+long paths.
+
+.TP
+.PD 0
+.B \-ww
+.TP
+.PD
+.B \-\-VMS\-dot\-versions
+[VMS] Like \fB\-w\fP, except that version numbers in archive names
+use a "." separator instead of the default ";".  That is, with \fB\-w\fP,
+"[.d]a.b;3" would be archived as "d/a.b;3", but with \fB\-ww\fP, it
+would be archived as "d/a.b.3".  (This might be less inconvenient
+on a non-VMS system.)
+
+.TP
+.PD 0
+.BI \-ws
+.TP
+.PD
+.B \-\-wild\-stop\-dirs
+Wildcards match only at a directory level.  Normally \fBzip\fP handles
+paths as strings and given the paths
+.RS
+.IP
+/foo/bar/\fIdir/file1.c\fP
+.IP
+/foo/bar/\fIfile2.c\fP
+.RE
+.IP
+an input pattern such as
+.RS
+.IP
+"/foo/bar/*"
+.RE
+.IP
+normally would match both paths, the * matching \fIdir/file1.c\fP
+and \fIfile2.c\fP.  Note that in the first case a directory
+boundary (/) was crossed in the match.  With \fB\-ws\fP, no
+directory bounds will be included in the match, making
+wildcards local to a specific directory level.  So, with
+\fB\-ws\fP enabled, only the second path would be matched.
+
+When using \fB\-ws\fP, use ** to match across directory boundaries as
+* does normally.
+
+.TP
+.PD 0
+.B \-x\ \fR\fIfiles\fP
+.TP
+.PD
+.B \-\-exclude\ \fR\fIfiles\fP
+Explicitly exclude files that match the specified files/file patterns, as in:
+.RS
+.IP
+\fCzip -r foo foo -x \\*.o\fP
+.RE
+.IP
+which will include the contents of
+.I foo
+in
+.I foo.zip
+but exclude all the files that end in
+\fI.o\fP.
+The backslash avoids the shell filename substitution, so that the
+name matching is performed by
+.B zip
+at all directory levels.
+
+A \fBfile pattern\fP is just a file path and name (generally relative to the
+input root directory) with optional wildcards.
+
+If wildcards are not acting as expected, check that they are escaped in the
+command line.  Adding \fB-sc\fP to the end of the command line to have
+\fBzip\fP output the processed command line allows verifying which wildcards
+are being expanded by the shell.
+
+Also possible:
+.RS
+.IP
+\fCzip -r foo foo -x@exclude.lst\fP
+.RE
+.IP
+which will include the contents of directory
+.I foo
+in
+\fIfoo.zip\fP,
+but exclude all the files that match the patterns in the text file
+\fIexclude.lst\fP, one file/file pattern per line.  (Here, \fI@exclude.lst\fP
+is a variation of the \fB-x\fP option.  Do not confuse this with an arg file.)
+
+The long option forms of the above are
+.RS
+.IP
+\fCzip -r foo foo --exclude \\*.o\fP
+.RE
+.IP
+and
+.RS
+.IP
+\fCzip -r foo foo --exclude @exclude.lst\fP
+.RE
+.IP
+Multiple patterns can be specified, as in:
+.RS
+.IP
+\fCzip -r foo foo -x \\*.o \\*.c\fP
+.RE
+.IP
+As of \fBzip 3.0\fP, \fB-x\fP (and \fB-i\fP) allow file lists that end
+before the end of the command line.  The list is terminated with an
+argument that is a single "@".  So the above example could be rewritten
+as:
+.RS
+.IP
+\fCzip foo foo -x \\*.o \\*.c @ -r\fP
+.RE
+.IP
+where \fB-x \\*.o \\*.c @\fP is the exclude list.  Alternatively:
+.RS
+.IP
+\fCzip foo foo -x "*.o" "*.c" @ -r\fP
+.RE
+.IP
+
+If there is no space between \fB\-x\fP and
+the pattern, just one value is assumed (no list):
+.RS
+.IP
+\fCzip -r foo foo -x\\*.o\fP
+.RE
+.IP
+To avoid confusion, the "=" form of this should be used, or this single value
+form not used at all (use just the list version instead).
+.RS
+.IP
+\fCzip -r foo foo -x=\\*.o\fP
+.RE
+.IP
+
+See \fB-i\fR for more on include and exclude.
+
+.TP
+.PD 0
+.B \-X
+.TP
+.PD
+.B \-\-no\-extra
+Do not save extra file attributes (Extended Attributes on OS/2, uid/gid
+on Unix, etc.).  The zip format uses extra fields to include
+additional information for each entry.  Some extra fields are specific
+to particular systems while others are applicable to all systems.
+Normally when \fBzip\fP reads entries from an existing archive, it
+reads the extra fields it knows, strips the rest, and adds
+the extra fields applicable to that system.  With \fB\-X\fP, \fBzip\fP strips
+all old fields and only includes the Unicode and Zip64 extra fields
+(if needed).  Currently these two extra fields cannot be disabled.
+
+Negating this option, \fB\-X\-\fP, includes all the default extra fields,
+but also copies over any unrecognized extra fields.  This could be useful
+if the archive came from a utility that works with extra fields not known
+to \fBzip\fP and you plan to use the archive with that utility again.
+
+.TP
+.PD 0
+.B \-y
+.TP
+.PD
+.B \-\-symlinks
+For UNIX and VMS (V8.3 and later), store symbolic links as such in the
+.B zip
+archive, instead of compressing and storing the file referred to by
+the link.  This can avoid multiple copies of files being included in
+the archive as \fBzip\fP recurses the directory trees and accesses
+files directly and by links.  However, this will exclude new contents
+only available through a symlink.
+
+[WIN32]  As of \fBzip 3.1\fP, Windows symlinks are now supported.  This
+includes file symlinks as well as directory symlinks.  (Where as UNIX systems
+do not distinguish between file and directory symlinks, Windows does.)
+Windows symlinks are only supported on Windows XP or later.  \fBunzip 6.1\fP
+or later is needed to recognize, list, and restore Windows symlinks in an
+archive, otherwise they will be listed and restored as simple files or
+directories.  Sufficient privilege is required to restore Windows symlinks
+(such as Administrative access).
+
+.TP
+.PD 0
+.B \-yy
+.TP
+.PD
+.B \-\-mount-points
+[WIN32]  For Windows Vista and later, \fBzip 3.1\fP now detects mount points
+and will generally follow most quietly.  An exception are mount points to
+off-line storage, which \fBzip\fP will warn about and skip.  \fB-yy\fP
+disables following mount points on Windows, limiting the current zip
+operation to the current mounted drive.  \fB-yy-\fP (negated \fB-yy\fP)
+follows mount points as without \fB-yy\fP, but includes mount points that
+look like off-line storage as well.
+
+Unix mount points and storage of mount points not yet supported.
+
+.TP
+.PD 0
+.B \-Y\ \fR\fIem\fP
+.TP
+.PD
+.B \-\-encryption\-method\ \fR\fIem\fP
+Set the encryption method.  Supported methods are \fBTraditional\fP
+(considered weak by current encryption standards), and WinZip-compatible
+\fBAES\fP (relatively strong encryption) with various key lengths:
+\fBAES128\fP, \fBAES192\fP, and \fBAES256\fP.  AES encryption must be
+enabled at build time, and requires a compatible AES library kit.  The source
+kit for adding AES encryption to \fBzip\fP is available on the \fBInfo-ZIP\fP
+sites.  An unzipper capable of decrypting WinZip AES entries (such as
+\fBunzip 6.1\fP) is needed to extract AES-encrypted entries.
+
+When available, \fBTraditional\fP encryption is the default.
+
+Minimum password lengths are as follows:
+.RS
+.TP "\w'\fIEncryption\ Method\fR'u+1n"
+.I EncryptionMethod
+\ \ \ \fIMinPassLength\fR
+.TP
+Traditional
+\ \ \ \ \ \ \ \ \ 1
+.TP
+AES WG 128
+\ \ \ \ \ \ \ \ 16
+.TP
+AES WG 192
+\ \ \ \ \ \ \ \ 20
+.TP
+AES WG 256
+\ \ \ \ \ \ \ \ 24
+.RE
+.IP
+Password lengths should be much longer than this to match the security
+provided by the key lengths, preferrably approaching the length of the
+key used.  The less predictable the password the better.
+
+The maximum AES password length is 128 bytes (characters if 7-bit ASCII).
+This limit is in part a result of how passwords are hashed.
+
+.TP
+.PD 0
+.B \-z
+.TP
+.PD
+.B \-\-archive\-comment
+Prompt for a multi-line comment for the entire
+.B zip
+archive.
+The comment is ended by a line containing just a period,
+or an end of file condition (^D on Unix, ^Z on MSDOS, OS/2, and VMS).
+The comment can be taken from a file:
+.RS
+.IP
+\fCzip -z foo < foowhat\fP
+.RE
+.IP
+The archive comment is generally limited to about 32,765 characters.
+
+As of \fBzip 3.1\fP, \fBzip\fP will show the current archive comment and
+allow keeping that or replacing it with a new comment.
+
+.TP
+.PD 0
+.B \-Z\ \fR\fIcm\fP
+.TP
+.PD
+.B \-\-compression\-method\ \fR\fIcm\fP
+Set the default compression method.  Currently the main methods supported
+by \fBzip\fP are \fBStore\fP and \fBDeflate\fP.  Compression method
+can be set to:
+
+\fBstore\fP \- Setting the compression method to \fBstore\fP forces
+\fBzip\fP to store entries with no compression.  This is generally
+faster than compressing entries, but results in no space savings.
+This is the same as using \fB\-0\fP (compression level zero).
+
+\fBdeflate\fP \- This is the default method for \fBzip\fP.  If \fBzip\fP
+determines that Store is better than Deflate, the entry will be
+stored instead.
+
+\fBbzip2\fP \- If \fBbzip2\fP support is compiled in, this compression
+method also becomes available.  \fBbzip2\fP tends to compress some data
+a little better but generally takes longer than Deflate.
+
+\fBlzma\fP \- If \fBLZMA\fP support is compiled in, this compression
+method also becomes available.  \fBLZMA\fP can provide better compression
+of some types of files than Deflate, with a minor time impact.
+
+\fBppmd\fP \- If \fBPPMd\fP support is compiled in, this compression
+method also becomes available.  \fBPPMd\fP can provide better compression
+in many cases, but may take much longer than Deflate.
+
+Many older unzip programs do not support the newer compression methods,
+\fBbzip2\fP (method 12), \fBLZMA\fP (method 14), and/or \fBPPMd\fP
+(method 98), so test the unzip you will be using before relying on
+archives using these methods.
+
+All compression methods (except \fBLZMA\fP) will test compression of
+a file and switch to \fBstore\fP if the size grows instead of shrinks.
+This automatic switchover has not been implemented for \fBLZMA\fP yet.
+
+For example, to add \fBbar.c\fP to archive \fBfoo\fP using \fBbzip2\fP
+compression:
+.RS
+.IP
+zip -Z bzip2 foo bar.c
+.RE
+.IP
+The compression method can be abbreviated:
+.RS
+.IP
+zip -Zb foo bar.c
+.RE
+.IP
+
+As of \fBzip 3.1\fP it is possible to control the compression method used
+with finer granularity.  See \fB\-n\fP and \fB-0, -1, ..., -9\fP for details.
+
+.\".TP
+.\".PD 0
+.\".BI \-#
+.TP
+.PD
+.B \-0, \-1, \-2, \-3, \-4, \-5, \-6, \-7, \-8, \-9
+Regulate the speed of compression using the specified digit,
+.\".BR # ,
+where
+.B \-0
+indicates no compression (store all files),
+.B \-1
+indicates the fastest compression speed (less compression)
+and
+.B \-9
+indicates the slowest compression speed (optimal compression). The default
+compression level is
+.BR \-6.
+
+This setting controls compression level for all methods (except Store).
+
+With \fBzip 3.1\fP it is now possible to set a default compression level for
+a specific compression method by providing an optional method list.  The format
+is:
+.RS
+.IP
+\-\fILevel\fP=\fIMethodList\fP
+.RE
+.IP
+where \fILevel\fP is a single digit from 1 to 9 and \fIMethodList\fP is a
+list of methods as would be provided to \fB\-Z\fP.  Multiple methods can be
+specified, separated by colons (or semi-colons).
+
+For example:
+.RS
+.IP
+\fCzip -9=LZMA:PPMD\fP
+.RE
+.IP
+will use compression level 9 as the default when compression methods LZMA or
+PPMD are specified.
+.RS
+.IP
+\fCzip -9=LZMA:PPMD foo.zip -r . -5\fP
+.RE
+.IP
+sets the default compression level to 9 when \fBLZMA\fP or \fBPPMD\fP is
+used, but as the actual method to use is not specified, the default method
+\fBdeflate\fP and the global compression level of 5 is used.
+
+See options \fB\-Z\fP and \fB\-n\fP for more on setting compression methods
+and levels.
+
+.TP
+.PD 0
+.B \-!
+.TP
+.PD
+.B \-\-use\-privileges
+[WIN32] Use privileges (if granted) to obtain all aspects of WinNT security.
+
+.TP
+.PD 0
+.B \-@
+.TP
+.PD
+.B \-\-names\-stdin
+Take the list of input files from standard input.  Only one filename per line.
+
+.TP
+.PD 0
+.B \-@@ \fIfilepath\fP
+.TP
+.PD
+.B \-\-names\-file \fIfilepath\fP
+Same as \fB-@\fP, but take the list of input files from text file
+\fIfilepath\fP.  Only one filename per line.  (Don't confuse this option
+with arg files.)
+
+.TP
+.PD 0
+.B @\fIargfilepath\fP
+Open text file \fIargfilepath\fP and read arguments separated by white space,
+replacing this argument with the read arguments.  This is not an option,
+but listed here for comparison with \fB-@\fP and \fB-@@\fP.  \fIargfilepath\fP
+is an argument file (arg file).  No space can be between \fB@\fP and
+\fIargfilepath\fP.  See the subsection on \fBArgument Files\fP
+for more on argument files.
+
+.TP
+.PD 0
+.B \-$
+.TP
+.PD
+.B \-\-volume\-label
+[MSDOS, OS/2, VMS, WIN32] Include the volume label for the drive/device
+holding the first file to be added to the archive.  If you want to
+include only the volume label (or to take the volume label from a
+specific drive/device other than the one containing the first file), use
+the drive/device name (including the terminating colon) as first file
+name, as in:
+.RS
+.IP
+\fCzip -$ foo a: c:bar               [MSDOS, ...]\fP
+
+\fCzip -$ foo dka0: dkc0:[bar]*.*    [VMS]\fP
+.RE
+.IP
+.\"
+.\"
+.\"
+.\" --------------------------------------------------------------------------
+.\"
+.SH "EXAMPLES"
+The simplest example:
+.IP
+\fCzip stuff *\fP
+.LP
+creates the archive
+.I stuff.zip
+(assuming it does not exist)
+and puts all the files in the current directory in it, in compressed form
+(the
+\fB\&.zip\fP
+suffix is added automatically, unless the archive name contains
+a dot already;
+this allows the explicit specification of other suffixes).
+.LP
+Because of the way the shell on Unix does filename substitution,
+files starting with "." are not included;
+to include these as well:
+.IP
+\fCzip stuff .* *\fP
+.LP
+Even this will not include any subdirectories from the current directory.
+.LP
+To zip up an entire directory, the command:
+.IP
+\fCzip -r foo foo\fP
+.LP
+creates the archive
+.IR foo.zip ,
+containing all the files and directories in the directory
+.I foo
+that is contained within the current directory.
+.LP
+You may want to make a
+.B zip
+archive that contains the files in
+.IR foo ,
+without recording the directory name,
+.IR foo .
+You can use the
+.B \-j
+option to leave off the paths,
+as in:
+.IP
+\fCzip -j foo foo/*\fP
+.LP
+If you are short on disk space,
+you might not have enough room to hold both the original directory
+and the corresponding compressed
+.B zip
+archive.
+In this case, you can create the archive in steps using the
+.B \-m
+option.
+If
+.I foo
+contains the subdirectories
+.IR tom ,
+.IR dick ,
+and
+.IR harry ,
+you can:
+.IP
+\fCzip -rm foo foo/tom\fP
+.br
+\fCzip -rm foo foo/dick\fP
+.br
+\fCzip -rm foo foo/harry\fP
+.LP
+where the first command creates
+.IR foo.zip ,
+and the next two add to it.
+At the completion of each
+.B zip
+command,
+the last created archive is deleted,
+making room for the next
+.B zip
+command to function.
+
+\fBzip\fP allows output from a program to be piped in and compressed.  For
+example, to get a list of files in a directory tree and save it in
+compressed form in a \fBzip\fP archive:
+.IP
+ls -lR foo | zip foo_ls -
+.LP
+To get a list of \fI.c\fP and \fI.h\fP files that would be archived and pipe
+through \fBless\fP:
+.IP
+zip foo -r . -i "*.c" "*.h" @ -sf | less
+.LP
+Both input and output streaming can be done at the same time:
+.IP
+\fCtar cf - . | zip | dd of=/dev/nrst0 obs=16k\fP
+.LP
+See the section above on streaming for more.
+
+\fB\-s\fP allows you to create split archives that can be saved on removable
+media.  For instance,
+.IP
+\fCzip -s 2g -r split.zip foo\fP
+.LP
+creates a split archive of directory foo with splits no bigger than 2 GB
+each.  If \fIfoo\fP contained 5 GB of contents and the contents were stored in the
+split archive without compression (to make this example simple), this would
+create three splits, \fIsplit.z01\fP at 2 GB, \fIsplit.z02\fP at 2 GB, and
+\fIsplit.zip\fP at a little over 1 GB.
+
+.\"
+.\"
+.\"
+.\" --------------------------------------------------------------------------
+.\"
+.SH "PATTERN MATCHING"
+This section mostly applies only to Unix.
+Watch this space for details on MSDOS and VMS operation.
+However, the special wildcard characters \fB*\fR and \fB[]\fR below apply
+to at least MSDOS also.
+
+The Unix shells (\fIsh\fP, \fIcsh\fP, \fIbash\fP, and others) normally
+do filename substitution (also called "globbing") on command arguments.
+Generally the special characters are:
+.TP
+.B ?
+match any single character
+.TP
+.B *
+match any number of characters (including none)
+.TP
+.B []
+match any character in the range indicated within the brackets
+(example: [a\-f], [0\-9]).  This form of wildcard matching
+allows a user to specify a list of characters between square brackets and
+if any of the characters match the expression matches.  For example:
+.RS
+.IP
+\fCzip archive *.[hc]\fP
+.RE
+.IP
+would archive all files in the current directory that end in
+\fB.h\fP or \fB.c\fP.
+
+Ranges of characters are supported:
+.RS
+.IP
+\fCzip archive [a\-f]*\fP
+.RE
+.IP
+would add to the archive all files starting with "a" through "f".
+
+Negation is also supported, where any character in that position not in
+the list matches.  Negation is supported by adding \fB!\fP or \fB^\fP
+to the beginning of the list:
+.RS
+.IP
+\fCzip archive *.[!o]\fP
+.RE
+.IP
+matches files that don't end in ".o".
+
+On Unix, as the above examples do not escape the wildcards, the wildcards are
+handled by the shell.  The same examples should work on Windows as well,
+except that the \fB-RE\fP option is needed to enable \fB[]\fP use.  For
+example:
+.RS
+.IP
+\fCzip -RE archive *.[!o]\fP
+.RE
+.IP
+As of \fBzip 3.0\fP, on WIN32 [] matching needs to be turned on with the
+\fB-RE\fP option to avoid the confusion that names with [ or ] have caused.
+As of \fBzip 3.1\fP, \fB-RE\fP is needed on all platforms to enable
+use of [] for character ranges.  This is only needed on Unix if the \fB[]\fP
+are escaped (not handled by the shell).
+
+Prior to \fBzip 3.1\fR, on Unix \fBzip\fP only provides wildcard support of
+\fB-i\fP,
+\fB-x\fP and \fB-R\fP patterns, not of input files.  (Full wildcard support
+is provided for internal modes such as delete and copy that match internal
+archive entries.)  The idea was to allow
+the shell to provide that support on Unix.  (Full wildcard support is provided
+by \fBzip\fP on Windows.)  \fBzip 3.1\fR now provides full Unix wildcard
+support internally when wildcards are escaped from shell processing.
+
+.LP
+On Unix, when these characters are encountered
+(without being escaped with a backslash or quotes),
+the shell will look for files relative to the current path
+that match the pattern,
+and replace the argument with a list of the names that matched.
+
+The
+.B zip
+program can do the same matching on names that are in the
+.B zip
+archive being modified or, in the case of the
+.B \-x
+(exclude) or
+.B \-i
+(include) options, on the list of files to be operated on, by using
+backslashes or quotes to tell the shell not to do the name expansion.
+In general, when
+.B zip
+encounters a name in the list of files to do, it first looks for the name in
+the file system.  If it finds it, it then adds it to the list of files to do.
+If it does not find it, it looks for the name in the
+.B zip
+archive being modified (if it exists), using the pattern matching characters
+described above, if present.  For each match, it will add that name to the
+list of files to be processed, unless this name matches one given
+with the
+.B \-x
+option, or does not match any name given with the
+.B \-i
+option.
+.LP
+The pattern matching includes the path, and so patterns like \\*.o
+match names that end in ".o", no matter what the path prefix is.
+(The default is for \fBzip\fP to match * across directory boundaries.
+See \fB-ws\fP for more on this.)
+Note that the backslash must precede every special character
+(i.e. ?, *, [, and ] for Unix), or the entire argument must be enclosed in
+double quotes ("").  (Some systems also permit quoting using single quotes
+('') as well as quoting just the special characters, as in
+foo"*"bar.c, which matches all paths that start with "foo" and end
+with "bar.c".)
+.LP
+In general, use backslashes or double quotes for paths that have
+wildcards to make
+.B zip
+do the pattern matching for file paths, and always for
+paths and strings that have spaces or wildcards for
+\fB\-i\fP, \fB\-x\fP, \fB\-R\fP, \fB\-d\fP, and \fB\-U\fP
+and anywhere \fBzip\fP needs to process the wildcards.
+.\"
+.\"
+.SS Filters
+.\"
+The options \fB-i\fR, \fB-x\fR and \fB-R\fR are considered filters.  When
+used, \fBzip\fR first gathers all file names referenced by the input files
+during the file scan, recursing into directories if requested as needed.
+Then the filters are applied to remove files from this list.  So, for:
+.RS 0
+.IP
+\fCzip foo.zip -r bar -RE -i "*.[ch]"\fR
+.RE
+.LP 0
+the entire \fIbar\fR directory will be scanned, then any files not ending
+in \fI.c\fR or \fI.h\fR will be dropped.  If \fIbar\fR is large, this could
+take awhile to scan.  When possible, narrow the scope of the input scan
+as much as possible to minimize what \fBzip\fR needs to look at to speed
+up the file scan.
+.\"
+.\"
+.\"
+.\" --------------------------------------------------------------------------
+.\"
+.SH "LIBRARIES"
+.LP
+The \fBzip\fP source can be used to build both static and dynamic libraries.
+On Unix a static library can be built using Makefile, and the resulting
+library is named libizzip.a.  On Windows both static and dynamic libraries
+can be built, these libraries having names such as zip32_dll.dll.  The source
+kit also includes example programs that demonstrate using the static and
+dynamic libraries.
+
+See ReadLibDll.txt in the \fBzip\fP source kit for more information.
+.\"
+.\"
+.\"
+.\" --------------------------------------------------------------------------
+.\"
+.SH "ENVIRONMENT"
+.LP
+The following environment variables are read and used by
+.B zip
+as described.
+
+.TP
+.B ZIPOPT\ \ 
+Contains default options that will be used when running
+\fBzip\fR.  The contents of this environment variable will get
+added to the command line just after the \fBzip\fR command.
+
+.TP
+.B ZIP\ \ \ \ \ 
+[Not on RISC OS and VMS] See ZIPOPT.
+
+.TP
+.B Zip$Options
+[RISC OS] See ZIPOPT.
+
+.TP
+.B Zip$Exts
+[RISC OS] Contains extensions separated by a : that will cause
+native filenames with one of the specified extensions to
+be added to the \fBzip\fP file with basename and extension swapped.
+
+.TP
+.B ZIP_OPTS
+[VMS] See ZIPOPT.
+.\"
+.\"
+.\"
+.\" --------------------------------------------------------------------------
+.\"
+.SH "SEE ALSO"
+bzip2(1),
+compress(1),
+gzip(1),
+shar(1),
+tar(1),
+unzip(1),
+zipcloak(1),
+zipnote(1),
+zipsplit(1)
+.\"
+.\"
+.\"
+.\" --------------------------------------------------------------------------
+.\"
+.SH DIAGNOSTICS
+The exit status (or error level) approximates the exit codes defined by PKWARE
+(where applicable) and takes on the following values, except under VMS:
+.RS
+.IP 0
+normal; no errors or warnings detected.
+.IP 2
+unexpected end of zipfile.
+.IP 3
+a generic error in the zipfile format was detected.  Processing may have
+completed successfully anyway; some broken zipfiles created by other
+archivers have simple work-arounds.
+.IP 4
+\fBzip\fP was unable to allocate memory for one or more buffers during
+program initialization.
+.IP 5
+a severe error in the zipfile format was detected.  Processing probably
+failed immediately.
+.IP 6
+entry too large to be processed (such as input files larger than 2 GB when
+not using Zip64 or trying to read an existing archive that is too large) or
+entry too large to be split with \fBzipsplit\fP.
+.IP 7
+invalid comment format.
+.IP 8
+\fBzip\fP -T failed or out of memory.
+.IP 9
+the user aborted \fBzip\fP prematurely with control-C (or similar).
+.IP 10
+\fBzip\fP encountered an error while using a temp file.
+.IP 11
+read or seek error.
+.IP 12
+\fBzip\fP has nothing to do.  This may be the result of no files matching
+provided file list.
+.IP 13
+missing or empty zip file.
+.IP 14
+error writing to a file.
+.IP 15
+\fBzip\fP was unable to create a file to write to.
+.IP 16
+bad command line parameters.
+.IP 18
+\fBzip\fP could not open a specified file to read.
+.IP 19
+error in compilation options.  For instance, large file support was compiled in,
+but the OS does not support it.
+.IP 20
+Zip64 not supported.
+.IP 21
+encryption error.
+.IP 22
+compression error.  This is an error specific to a compression method.
+.IP 23
+backup error.  An error specific to backup mode (\fB-BT\fP).
+.RE
+.PP
+VMS interprets standard Unix (or PC) return values as other, scarier-looking
+things, so \fBzip\fP instead maps them into VMS-style status codes.  In
+general, \fBzip\fP sets VMS Facility = 1955 (0x07A3), Code = 2* Unix_status,
+and an appropriate Severity (as specified in ziperr.h).  More details are
+included in the VMS-specific documentation.  See [.vms]NOTES.TXT and
+[.vms]vms_msg_gen.c.
+
+In some cases, the actual error code returned depends on various factors.
+See below examples:
+.RS 0
+.IP -
+When deleting from an archive (using \fB-d\fP), if none of the files to
+delete are found in the archive, error code 12 (nothing to do) is returned.
+However, if the archive is empty, error code 13 (empty zip file) is returned
+instead.  (This is a change from \fBzip 3.0\fP, which always returned error
+code 12 in this case.)
+.IP -
+When freshening or updating an archive, if a file can't be found error code 12
+is returned.  However, if the archive is empty, error code 13 is returned.
+(This is also a change from \fBzip 3.0\fP, which always returned error code 12.)
+.IP -
+When using backup mode (\fB-BT\fP), if an error involving opening or reading
+files is encountered, the appropriate file error is returned (such as
+error code 18 if a file can't be opened).  However, if the contents of the
+backup control file are not appropriate for the requested backup operation,
+error code 23 (backup error) is returned.
+.RE
+.PP
+In addition, \fBzip\fP issues warning messages if non-fatal errors occur.
+Most do not impact the return code, but some do.
+.PD
+.\"
+.\"
+.\"
+.\" --------------------------------------------------------------------------
+.\"
+.SH BUGS
+\fBzip 2.x\fP and later are not compatible with PKUNZIP 1.10. Use
+\fBzip 1.1\fP to produce
+.B zip
+files which can be extracted by PKUNZIP 1.10.
+.PP
+.B zip
+files produced by
+\fBzip 2.x\fP and later must not be
+.I updated
+by
+\fBzip 1.1\fP or PKZIP 1.10, if they contain
+encrypted members or if they have been produced in a pipe or on a non-seekable
+device. The old versions of
+\fBzip\fP
+or PKZIP would create an archive with an incorrect format.
+The old versions can list the contents of the zip file
+but cannot extract it anyway (because of the new compression algorithm).
+If you do not use encryption and use regular disk files, you do
+not have to care about this problem.
+.LP
+On VMS, \fBzip\fP archives should have record format Stream_LF or
+Fixed-512 (the usual Unix-like formats).  It may be possible to convert
+archives with other formats using Rahul Dhesi's BILF program.
+This version of
+\fBzip\fP
+handles some of the conversion internally.
+When using Kermit to transfer zip files from VMS to MSDOS, type
+"set file type block" on VMS.  When transferring from MSDOS to VMS, type
+"set file type fixed" on VMS.  In both cases, type
+"set file type binary" on MSDOS.
+.LP
+On some older VMS versions, \fBzip\fP may hang for file
+specifications that use DECnet syntax
+.I foo::*.*.
+.LP
+On OS/2, \fBzip\fP cannot match some names, such as those including an
+exclamation mark or a hash sign.  This is a bug in OS/2 itself: the
+32-bit DosFindFirst/Next don't find such names.  Other programs such
+as GNU tar are also affected by this bug.
+.LP
+Under OS/2, the amount of Extended Attributes displayed by DIR is (for
+compatibility) the amount returned by the 16-bit version of
+DosQueryPathInfo(). Otherwise OS/2 1.3 and 2.0 would report different
+EA sizes when DIRing a file.
+However, the structure layout returned by the 32-bit DosQueryPathInfo()
+is a bit different, it uses extra padding bytes and link pointers (it's
+a linked list) to have all fields on 4-byte boundaries for portability
+to future RISC OS/2 versions. Therefore the value reported by
+.B zip
+(which uses this 32-bit-mode size) differs from that reported by DIR.
+.B zip
+stores the 32-bit format for portability, even the 16-bit
+MS-C-compiled version running on OS/2 1.3, so even this one shows the
+32-bit-mode size.
+.\"
+.\"
+.\"
+.\" --------------------------------------------------------------------------
+.\"
+.SH AUTHORS
+Copyright (C) 1997-2015 Info-ZIP.
+.LP
+Currently distributed under the Info-ZIP license.
+.LP
+Copyright (C) 1990-1997 Mark Adler, Richard B. Wales, Jean-loup Gailly,
+Onno van der Linden, Kai Uwe Rommel, Igor Mandrichenko, John Bush and
+Paul Kienitz.
+.LP
+Original copyright:
+.LP
+Permission is granted to any individual or institution to use, copy, or
+redistribute this software so long as all of the original files are included,
+that it is not sold for profit, and that this copyright notice
+is retained.
+.LP
+LIKE ANYTHING ELSE THAT'S FREE, ZIP AND ITS ASSOCIATED UTILITIES ARE
+PROVIDED AS IS AND COME WITH NO WARRANTY OF ANY KIND, EITHER EXPRESSED OR
+IMPLIED. IN NO EVENT WILL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY DAMAGES
+RESULTING FROM THE USE OF THIS SOFTWARE.
+.LP
+Please send bug reports and comments using the web page at:
+.IR www.info-zip.org .
+For bug reports, please include the version of
+.BR zip
+(see \fBzip\ \-h\fR),
+the make options used to compile it (see \fBzip\ \-v\fR),
+the machine and operating system in use,
+and as much additional information as possible.
+.\"
+.\"
+.\"
+.\" --------------------------------------------------------------------------
+.\"
+.SH ACKNOWLEDGEMENTS
+Thanks to R. P. Byrne for his
+.I Shrink.Pas
+program, which inspired this project,
+and from which the shrink algorithm was stolen;
+to Phil Katz for placing in the public domain the
+.B zip
+file format, compression format, and .ZIP filename extension, and for
+accepting minor changes to the file format; to Steve Burg for
+clarifications on the deflate format; to Haruhiko Okumura and Leonid
+Broukhis for providing some useful ideas for the compression
+algorithm; to Keith Petersen, Rich Wales, Hunter Goatley and Mark
+Adler for providing a mailing list and
+.B ftp
+site for the \fBInfo-ZIP\fP group to use; and most importantly, to the
+\fBInfo-ZIP\fP group itself (listed in the file
+.IR infozip.who )
+without whose tireless testing and bug-fixing efforts a portable
+.B zip
+would not have been possible.
+Finally we should thank (blame) the first \fBInfo-ZIP\fP moderator,
+David Kirschbaum,
+for getting us into this mess in the first place.
+The manual page was rewritten for Unix by R. P. C. Rodgers and
+updated by E. Gordon for \fBzip 3.0\fR and \fBzip 3.1\fR.
+.\" end of file
