@@ -121,7 +121,7 @@ local z_uint4 keys[3];          /* keys defining the pseudo-random sequence */
 #  endif
 # endif
 
-# ifdef IZ_CRYPT_TRAD
+# ifdef IZ_CRYPT_ANY
 
 #  include "crc32.h"
 
@@ -135,6 +135,9 @@ local z_uint4 near *crytab_init OF((__GPRO));
 #  else
 #   define CRY_CRC_TAB  CRC_32_TAB
 #  endif /* ?IZ_CRC_BE_OPTIMIZ */
+# endif /* def IZ_CRYPT_ANY */
+
+# ifdef IZ_CRYPT_TRAD
 
 /***********************************************************************
  * Return the next byte in the pseudo-random sequence
@@ -265,6 +268,8 @@ void crypthead(passwd, crc)
 
 
 /***********************************************************************
+ * zfwrite - write out buffer to file with encryption and byte counts
+ *
  * If requested, encrypt the data in buf, and in any case call bfwrite()
  * with the arguments to zfwrite().  Return what bfwrite() returns.
  * bfwrite() keeps byte counts, does splits, and calls fwrite() to
@@ -296,7 +301,7 @@ unsigned zfwrite(buf, item_size, nb)
         char *p = (char *)buf;  /* steps through buffer */
 
         /* Encrypt data in buffer */
-        for (size = item_size*(ulg)nb; size != 0; p++, size--)
+        for (size = (ulg)item_size*(ulg)nb; size != 0; p++, size--)
         {
             *p = (char)zencode(*p, t);
         }
@@ -309,7 +314,7 @@ unsigned zfwrite(buf, item_size, nb)
     }
 
     /* Write the buffer out */
-    return bfwrite(buf, item_size, nb, BFWRITE_DATA);
+    return (unsigned int)bfwrite(buf, item_size, nb, BFWRITE_DATA);
 }
 
 
@@ -636,6 +641,9 @@ int zipcloak(z, passwd)
     localz->siz += HEAD_LEN;
     z->siz = localz->siz;
 
+    /* Pass real storage method to putlocal before AES might change it. */
+    z->thresh_mthd = z->how;
+
     /* Put out the local header. */
     if ((res = putlocal(localz, PUTLOCAL_WRITE)) != ZE_OK) return res;
 
@@ -759,8 +767,22 @@ int zipbare(z, passwd)
 #    define HEAD_LEN RAND_HEAD_LEN      /* Constant trad. header length. */
 #   endif /* def IZ_CRYPT_AES_WG [else] */
 
+    ush vers = 0;               /* AES encryption version (1 or 2). */
+    ush vend = 0;               /* AES encryption vendor (should be "AE" (LE: x4541)). */
+    zoff_t pos_local = 0;       /* Local header position. */
+    zoff_t pos = 0;             /* End data position. */
+    ulg crc;                    /* To calculate CRC. */
+
+
     /* Read local header. */
     res = readlocal(&localz, z);
+
+    /* Some work is needed to let crypt support Zip splits.  It also requires
+       coordination with UnZip, which does not yet support splits, but that
+       is also in the works.  As crypt is caught in the middle, some more
+       work is needed to coordinate that multi-part implementation with what
+       Zip does and somehow get crypt to support Zip, UnZip, and ZipCloak
+       splits.  Both zipbare() and zipcloak() need modifications. */
 
     /* Update (assumed only one) disk.  Caller is responsible for offset. */
     z->dsk = 0;
@@ -772,8 +794,8 @@ int zipbare(z, passwd)
     if (how_orig == AESENCRED)
     {
         /* Extract the AES encryption details from the local extra field. */
-        ef_scan_for_aes( (uch *)localz->extra, localz->ext,
-         NULL, NULL, &aes_mode, &aes_mthd);
+        ef_scan_for_aes((uch *)localz->extra, localz->ext,
+                        &vers, &vend, &aes_mode, &aes_mthd);
 
         if ((aes_mode > 0) && (aes_mode <= 3))
         {
@@ -783,6 +805,7 @@ int zipbare(z, passwd)
         else
         {
             /* Unexpected/invalid AES mode value. */
+            zipwarn("invalid AES mode", "");
             return ZE_CRYPT;
         }
 
@@ -870,11 +893,16 @@ int zipbare(z, passwd)
     localz->flg = z->flg &= ~9;         /* Clear the encryption and */
     z->lflg = localz->lflg &= ~9;       /* data-descriptor flags. */
 
+    localz->crc = z->crc;               /* Use correct CRC from central.  This is 0 if
+                                           AE-2, in which case we need to recalculate
+                                           the CRC. */
+
 #   ifdef IZ_CRYPT_AES_WG
     if (how_orig == AESENCRED)
     {
         localz->how = aes_mthd; /* Set the compression method value(s) */
         z->how = aes_mthd;      /* to the value from the AES extra block. */
+        z->thresh_mthd = aes_mthd;
 
         /* Subtract the MAC size from the compressed size(s). */
         localz->siz -= MAC_LENGTH( aes_mode);
@@ -905,6 +933,11 @@ int zipbare(z, passwd)
     }
 #   endif /* def IZ_CRYPT_AES_WG */
 
+    pos_local = zftello(y);
+
+    /* Give actual store method to putlocal(). */
+    localz->thresh_mthd = aes_mthd;
+
     /* Put out the (modified) local extra field. */
     if ((res = putlocal(localz, PUTLOCAL_WRITE)) != ZE_OK)
         return res;
@@ -918,15 +951,23 @@ int zipbare(z, passwd)
          * z->siz = new (decrypted) compressed size (bytes to write).
          */
         nout = 0;
+        if (vers == AES_WG_VEND_VERS_AE2) {
+            /* CRC is set to zero for AE-2, so need to calculate it to
+               update the decrypted entry. */
+            crc = CRCVAL_INITIAL;
+        }
         for (size = z_siz; (size > 0) && (nout < z->siz);)
         {
-            nn = IZ_MIN( sizeof( buf), size);
+            nn = IZ_MIN( sizeof(buf), (size_t)size );
             n = fread( buf, 1, nn, in_file);
             if (n == nn)
             {
-                fcrypt_decrypt( buf, n, &zctx);
-                n = IZ_MIN( n, (z->siz - nout));
-                bfwrite( buf, 1, n, BFWRITE_DATA);
+                fcrypt_decrypt( buf, n, &zctx );
+                n = IZ_MIN( n, (size_t)(z->siz - nout) );
+                bfwrite( buf, 1, n, BFWRITE_DATA );
+                if (vers == 2) {
+                    crc = crc32(crc, (uch *)buf, n);
+                }
                 nout += n;      /* Bytes written. */
             }
             else
@@ -934,6 +975,23 @@ int zipbare(z, passwd)
                 return ferror(in_file) ? ZE_READ : ZE_EOF;
             }
             size -= nn;         /* Bytes left to read. */
+        }
+        if (vers == AES_WG_VEND_VERS_AE2) {
+            /* We need to update the local header only if AE-2 to replace
+               missing CRC. */
+            localz->crc = z->crc = crc;
+            /* Update local extra field. */
+            pos = zftello(y);
+            if (zfseeko(y, pos_local, SEEK_SET)) {
+                zipwarn("output seek back failed", "");
+                return ZE_WRITE;
+            }
+            if ((res = putlocal(localz, PUTLOCAL_REWRITE)) != ZE_OK)
+                return res;
+            if (zfseeko(y, pos, SEEK_SET)) {
+                zipwarn("output seek forward failed", "");
+                return ZE_WRITE;
+            }
         }
     }
     else /* if (how_orig == AESENCRED) */

@@ -179,6 +179,13 @@
 #endif
 #endif
 
+#if 0
+#ifdef STREAM_EF_SUPPORT
+ local int add_Stream_local_extra_field(struct zlist far *pZEntry);
+#endif
+
+local int remove_extra_field(ush tag, struct zlist far *pZEntry);
+#endif
 
 /* New General Purpose Bit Flag bit 11 flags when entry path and
    comment are in UTF-8 */
@@ -2156,10 +2163,12 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
  * not currently in the Central Directory.
  *
  */
-local int add_Stream_local_extra_field( OFT( struct zlist far *) pZEntry)
-#ifdef NO_PROTO
+#ifndef NO_PROTO
+local int add_Stream_local_extra_field(struct zlist far *pZEntry)
+#else
+local int add_Stream_local_extra_field(pZEntry)
   struct zlist far *pZEntry;
-#endif /* def NO_PROTO */
+#endif
 {
   char  *pUExtra;
   char  *pOldUExtra;
@@ -2290,12 +2299,13 @@ local int add_Stream_local_extra_field( OFT( struct zlist far *) pZEntry)
 
 #endif /* STREAM_EF_SUPPORT */
 
-local int remove_extra_field( OFT( ush) tag,
-                              OFT( struct zlist far *) pZEntry)
-#ifdef NO_PROTO
+#ifndef NO_PROTO
+local int remove_extra_field(ush tag, struct zlist far *pZEntry)
+#else
+local int remove_extra_field(tag, pZEntry)
   ush tag;
   struct zlist far *pZEntry;
-#endif /* def NO_PROTO */
+#endif
 {
   char  *pUExtra;
   char  *pOldUExtra;
@@ -2867,7 +2877,10 @@ int readlocal(localz, z)
 {
   char buf[LOCHEAD + 1];
   struct zlist far *locz;
+  int utf8 = 0;
 
+  /* Other work needs to be done to enable split support for utilities,
+     and this needs to be coordinated with UnZip as crypt.c is shared. */
 #ifndef UTIL
   ulg start_disk = 0;
   uzoff_t start_offset = 0;
@@ -2958,6 +2971,7 @@ int readlocal(localz, z)
   locz->crc = LG(LOCCRC + buf);
   locz->nam = SH(LOCNAM + buf);
   locz->ext = SH(LOCEXT + buf);
+  locz->thresh_mthd = locz->how;
 
   /* Initialize all fields pointing to malloced data to NULL */
   locz->zname = locz->name = locz->iname = locz->extra = NULL;
@@ -2977,10 +2991,16 @@ int readlocal(localz, z)
     return ferror(in_file) ? ZE_READ : ZE_EOF;
   locz->iname[z->nam] = '\0';                  /* terminate name */
 #ifdef UNICODE_SUPPORT
+  if (locz->lflg & GPBF_11_UTF8) {
+    /* UTF-8 bit set */
+    utf8 = 1;
+  }
+  else
   if (unicode_mismatch != 3)
     read_Unicode_Path_local_entry(locz);
 #endif
 #ifdef WIN32
+  if (!utf8)
   {
     /* translate archive name from OEM if came from OEM-charset environment */
     unsigned hostver = (z->vem & 0xff);
@@ -4324,6 +4344,7 @@ local int scanzipf_fixnew()
         z->atx = 0;
         z->off = 0;
         z->dosflag = 0;
+        z->thresh_mthd = 0;
 
         /* Initialize all fields pointing to malloced data to NULL */
         z->zname = z->name = z->iname = z->extra = z->cextra = z->comment = NULL;
@@ -4452,6 +4473,7 @@ local int scanzipf_fixnew()
         cz->atx = LG(CENATX + scbuf);
         cz->off = LG(CENOFF + scbuf);
         cz->dosflag = (cz->vem & 0xff00) == 0;
+        cz->thresh_mthd = cz->how;
 
         /* Initialize all fields pointing to malloced data to NULL */
         cz->zname = cz->name = cz->iname = cz->extra = cz->cextra = NULL;
@@ -4742,8 +4764,8 @@ local int scanzipf_regnew()
 
   char    scbuf[SCAN_BUFSIZE];  /* buffer just enough for all header types */
   char   *split_path;
-  ulg     eocdr_disk;
-  uzoff_t eocdr_offset;
+  ulg     eocdr_disk = 0;
+  uzoff_t eocdr_offset = 0;
 #ifdef ZIP64_SUPPORT
   ulg     z64eocdr_disk;
   uzoff_t z64eocdr_offset;
@@ -4956,7 +4978,7 @@ local int scanzipf_regnew()
 
   /* if input or output are split archives, must be different archives */
   if ((total_disks != 1 || split_method) && !show_files &&
-      strcmp(in_path, out_path) == 0) {
+      (out_path && strcmp(in_path, out_path) == 0)) {
     fclose(in_file);
     in_file = NULL;
     zipwarn("cannot update a split archive (use --out option)", "");
@@ -5553,6 +5575,8 @@ local int scanzipf_regnew()
       z->atx = LG(CENATX + scbuf);
       z->off = LG(CENOFF + scbuf);      /* adjust_offset is added below */
       z->dosflag = (z->vem & 0xff00) == 0;
+
+      z->thresh_mthd = z->how;          /* default to how - AES may change */
 
       /* Initialize all fields pointing to malloced data to NULL */
       z->zname = z->name = z->iname = z->extra = z->cextra = z->comment = NULL;
@@ -6303,7 +6327,13 @@ local ush get_aes_vendor_version( z)
  *
  * Returns the converted string, or NULL if error.
  */
+#ifndef NO_PROTO
 char *ustring_upper_lower(char *utf8_string, int caseupperlower)
+#else
+char *ustring_upper_lower(utf8_string, caseupperlower)
+  char *utf8_string;
+  int caseupperlower;
+#endif
 {
   int i;
   wchar_t *wchar_string;
@@ -6333,12 +6363,13 @@ char *ustring_upper_lower(char *utf8_string, int caseupperlower)
  *
  * Returns number characters converted.
  */
-int astring_upper_lower( OFT( char *)ascii_string,
-                         OFT( int) caseupperlower)
-#ifdef NO_PROTO
+#ifndef NO_PROTO
+int astring_upper_lower(char *ascii_string, int caseupperlower)
+#else
+int astring_upper_lower(ascii_string, caseupperlower)
   char *ascii_string;
   int caseupperlower;
-#endif /* def NO_PROTO */
+#endif
 {
   int i;
 
@@ -6356,9 +6387,13 @@ int astring_upper_lower( OFT( char *)ascii_string,
 
 
 
+#ifndef NO_PROTO
+int putlocal(struct zlist far *z, int rewrite)
+#else
 int putlocal(z, rewrite)
   struct zlist far *z;    /* zip entry to write local header for */
   int rewrite;            /* did seek to rewrite */
+#endif
 /* Write a local header described by *z to file *f.  Return an error code
    in the ZE_ class. */
 {
@@ -6395,12 +6430,16 @@ int putlocal(z, rewrite)
      no impact on unzips that should ignore it like other unknown extra fields.
      The result is that all Zip64 decisions should be automatic now (-fz and
      -fz- should not be needed) and Zip64 will only be used when it actually
-     is needed (if the output is seekable).
+     is needed (that is, if the output is seekable).
 
      The placeholder approach also works if streaming stdin.  Even though we
      don't know the file size, there is no longer a need to flag stdin as Zip64
      ahead of time.  However, if use_descriptors is set (the output can't be
      updated), this approach can't be used.
+
+     If the output is not seekable (use_descriptors is set), then check the
+     threshold and assume Zip64 needed if the threshold is exceeded.  The
+     threshold is always exceeded if input is stdin.
 
      If rewrite is set then don't count bytes written for splits as these bytes
      have already been counted.
@@ -6411,7 +6450,8 @@ int putlocal(z, rewrite)
   ush nam = z->nam;     /* size of name to write to header */
   char *iname = NULL;   /* name to write to header */
   char *uname = NULL;   /* UTF-8 name to write to header */
-  ush how = z->how;
+  ush how = z->how;     /* how stored (may be 99 for AES) */
+  ush thresh_mthd = z->thresh_mthd; /* mthd used for Zip64 threshold */
 #ifdef IZ_CRYPT_AES_WG
   ush aes_vendor_version;       /* AES_WG encryption strength. */
 #endif /* def IZ_CRYPT_AES_WG */
@@ -6445,16 +6485,23 @@ int putlocal(z, rewrite)
   else 
     zip64_threshold = (uzoff_t)4 * GiB;
 
-  if (how == STORE)
+  if (thresh_mthd == COPYING)
+    /* copying entry so sizing is exact */
+    zip64_threshold -= 0;
+  else if (thresh_mthd == STORE)
     zip64_threshold -= ZIP64_MARGIN_MB_STORE * MiB;
-  else if (how == DEFLATE)
+  else if (thresh_mthd == DEFLATE)
     zip64_threshold -= ZIP64_MARGIN_MB_DEFLATE * MiB;
-  else if (how == BZIP2)
+  else if (thresh_mthd == BZIP2)
     zip64_threshold -= ZIP64_MARGIN_MB_BZIP2 * MiB;
-  else if (how == LZMA)
+  else if (thresh_mthd == LZMA)
     zip64_threshold -= ZIP64_MARGIN_MB_LZMA * MiB;
-  else if (how == PPMD)
+  else if (thresh_mthd == PPMD)
     zip64_threshold -= ZIP64_MARGIN_MB_PPMD * MiB;
+  else {
+    sprintf(errbuf, "Zip64 margin not set for mthd = %d", thresh_mthd);
+    ZIPERR(ZE_LOGIC, errbuf);
+  }
 
   /* Check if input file size exceeds threshold. */
   if (z->len > zip64_threshold || streaming_in)
@@ -6486,15 +6533,36 @@ int putlocal(z, rewrite)
         z->ver = ZIP64_MIN_VER;
       was_zip64 = 1;
     }
-# ifdef USE_ZIP64_PLACEHOLDER
-    else if (zip64_threshold_exceeded && !use_descriptors)
+    else if (zip64_threshold_exceeded)
     {
-      /* The entry does not (yet) require Zip64, but it might.  We make space
-         for the Zip64 extra field just in case, but only if we can rewrite
-         the local header. */
-      zip64_placeholder_used = 1;
-    }
+      if (use_descriptors)
+      {
+        /* We are likely streaming to stdout or the output is not seekable, so
+           we will be stuck with the decision we make now.  If the threshold
+           was exceeded, go with Zip64. */
+        if (force_zip64 != 0)
+        {
+          zip64_entry = 1;
+          if (z->ver < ZIP64_MIN_VER)
+            z->ver = ZIP64_MIN_VER;
+          was_zip64 = 1;
+        }
+      }
+# ifdef USE_ZIP64_PLACEHOLDER
+      else
+      {
+        /* The entry does not (yet) require Zip64, but it might.  We make space
+           for the Zip64 extra field just in case, but only if we can rewrite
+           the local header. */
+        zip64_placeholder_used = 1;
+      }
+# else
+      /* We could force Zip64 here when the Placeholder is not used and we
+         exceed the threshold, but then entries that don't need Zip64 would
+         be forced to use it.  Instead, we revert back to requiring -fz in
+         cases where bad compression or -l push a file over the 4 GiB limit. */
 # endif
+    }
   } else {
     /* rewrite */
     was_zip64 = zip64_entry;
@@ -6698,8 +6766,11 @@ int putlocal(z, rewrite)
     }
 # endif /* 0 */
     if ((z->flg & UTF8_BIT) || utf8_native) {
-      /* If this flag is set, then restore UTF-8 as path name */
+      /* If this flag is set, then restore UTF-8 as path name. */
       use_uname = 1;
+      /* If utf8_native, make sure bit is set. */
+      z->lflg |= UTF8_BIT;
+      z->flg |= UTF8_BIT;
       tempzn -= nam;
       nam = (ush)strlen(uname);
       tempzn += nam;
@@ -6810,9 +6881,11 @@ int putlocal(z, rewrite)
       /* If adding comments with -st, need to add the comment before
          the initial write of local header so space is allocated in
          the archive. */
+#if 0
 #if !defined(ZIPLIB) && !defined(ZIPDLL)
       char *p;
-      char e[MAXCOM+1];
+      char e[MAXCOMLINE+1];
+#endif
 #endif
       if (comment_stream == NULL)
 #ifndef RISCOS
@@ -6824,6 +6897,8 @@ int putlocal(z, rewrite)
 #if defined(ZIPLIB) || defined(ZIPDLL)
       ecomment(z);
 #else
+      get_entry_comment(z);
+# if 0
       if (noisy) {
         if (z->com && z->comment) {
           z->comment[z->com] = '\0';
@@ -6836,7 +6911,7 @@ int putlocal(z, rewrite)
           zfprintf(mesg, "\nEnter comment for %s:\n ", z->oname);
         }
       }
-      if (fgets(e, MAXCOM+1, comment_stream) != NULL)
+      if (fgets(e, MAXCOMLINE+1, comment_stream) != NULL)
       {
         if (strlen(e) > 1) {
           if (strlen(e) == 2 && e[0] == '\t')
@@ -6861,6 +6936,7 @@ int putlocal(z, rewrite)
           z->com = (ush)comment_size;
         }
       }
+# endif
 #endif
     }
 
@@ -6872,7 +6948,7 @@ int putlocal(z, rewrite)
       remove_extra_field(EF_STREAM, z);
   }
 #endif /* STREAM_EF_SUPPORT */
-  
+
   /* local file header signature */
   append_ulong_to_mem(LOCSIG, &block, &offset, &blocksize);
   /* version needed to extract */
@@ -7075,6 +7151,15 @@ int putextended(z)
        extra field if the input size is unknown so we can seek back and update it.
        12/28/05 EG
        Updated 5/21/2006, 1/9/2014 EG
+
+       With the implementation of a Placeholder extra field to leave room for
+       a possible Zip64 extra field if needed, it's now possible to handle
+       situations such as when a file is just below the 4.0 GiB limit but poor
+       compression pushes the compressed file over the limit.  Also, with
+       Zip64 thresholds implemented, only when streaming to stdout is used
+       (output is not updatable) and the input is over the threshold (or is
+       stdin) will Zip64 be assumed.  In most other cases now Zip64 should
+       only be used when needed.  4/23/2015 EG
     */
   } else {
     /* for encryption */
@@ -7240,6 +7325,8 @@ int putcentral(z)
     if (z->flg & UTF8_BIT || utf8_native) {
       /* If this flag is set, then restore UTF-8 as path name */
       use_uname = 1;
+      /* If utf8_native, make sure bit is set. */
+      z->flg |= UTF8_BIT;
       tempzn -= nam;
       nam = (ush)strlen(uname);
       tempzn += nam;
@@ -7863,6 +7950,10 @@ int zipcopy(z)
     localz->len = LG(LOCLEN + buf);
   }
 
+  /* mthd is used in putlocal() to determine thresholds.  As we are copying,
+     the size of the data should not change so flag that. */
+  localz->thresh_mthd = COPYING;
+
   if (fix == 2) {
     /* Do some sanity checks to make reasonably sure this is a local header */
     ush os = localz->ver >> 8;
@@ -8061,6 +8152,25 @@ int zipcopy(z)
       return ZE_MEM;
     }
     strcpy(localz->iname, z->iname);
+
+#ifdef UNICODE_SUPPORT
+    free(localz->uname);
+    free(z->uname);
+    if (is_utf8_string(z->iname, NULL, NULL, NULL, NULL)) {
+      localz->uname = string_dup(z->iname, "localz->uname");
+      z->uname = string_dup(z->iname, "z->uname");
+    }
+    else {
+      localz->uname = local_to_utf8_string(z->iname);
+      z->uname = local_to_utf8_string(z->iname);
+    }
+#else
+/* SMSd. */
+# if 0
+    localz->uname = string_dup(z->iname, "localz->uname");
+    z->uname = string_dup(z->iname, "z->uname");
+# endif /* 0 */
+#endif
   }
 
   /* update disk and offset */
@@ -8265,6 +8375,7 @@ int zipcopy(z)
     z->nam = localz->nam;
     z->ext = localz->ext;
     z->extra = localz->extra;
+    z->thresh_mthd = z->how;
     /* copy local extra fields to central directory for now */
     z->cext = localz->ext;
     z->cextra = NULL;

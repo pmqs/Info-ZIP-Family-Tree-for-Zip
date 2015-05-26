@@ -3,7 +3,7 @@
 
 /---------------------------------------------------------------------/
 
-Info-ZIP Licence
+Info-ZIP License
 
 This is version 2009-Jan-02 of the Info-ZIP license.
 The definitive version of this document should be available at
@@ -106,6 +106,10 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #  include "zlib.h"
 #endif
 
+#if defined(UNIX) && defined(__APPLE__)
+# define UNIX_APPLE
+#endif
+
 /* Enable support for new Streaming Attributes/Comments ef (2014-04-07 EG) */
 #ifndef STREAM_EF_SUPPORT
 # ifndef NO_STREAM_EF_SUPPORT
@@ -176,16 +180,18 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 
 #endif
 
+#ifdef WIN32
 /* For Windows we need to define S_ISLNK as Windows does not define it (or
    use it), but we need it. */
-#if defined(SYMLINKS) && defined(WIN32)
-# ifndef S_ISLNK
-#  ifndef S_IFLNK
-#   define S_IFLNK  0120000
-#  endif
-# define S_ISLNK(m) (((m)& S_IFMT) == S_IFLNK)
-# endif /* ndef S_ISLNK */
-#endif
+# ifdef SYMLINKS
+#  ifndef S_ISLNK
+#   ifndef S_IFLNK
+#    define S_IFLNK  0120000
+#   endif
+#   define S_ISLNK(m) (((m)& S_IFMT) == S_IFLNK)
+#  endif /* ndef S_ISLNK */
+# endif
+#endif /* WIN32 */
 
 /* These are not defined in VS 2010 WinNT.h, but are used in the
    reparse point code in nt.c and by any caller of WinDirObjectInfo(). */
@@ -241,10 +247,13 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #  include "aesnew/ccm.h"
 #endif
 
+/* SMSd. */
+#if 0
 /* In the utilities, the crc32() function is only used for UNICODE_SUPPORT. */
 #if defined(UTIL) && !defined(UNICODE_SUPPORT)
 #  define CRC_TABLE_ONLY
 #endif
+#endif /* 0 */
 
 #define MIN_MATCH  3
 #define MAX_MATCH  258
@@ -296,13 +305,20 @@ typedef struct iztimes {
 #define EC64LOC 16
 #define EC64REC 52
 
-/* flist, zlist flags bit masks. */
-#define FLAGS_DIR    0x00000001
-#define FLAGS_APLDBL 0x00000002
 
-/* flist, zlist flags bit tests. */
-#define IS_FLAGS_DIR    (flags & FLAGS_DIR)
-#define IS_FLAGS_APLDBL (flags & FLAGS_APLDBL)
+/* --------------------- */
+/* zflags - used by flist, zlist and newname() */
+
+/* zflags bit masks. */
+#define ZFLAG_DIR    0x00000001
+#define ZFLAG_APLDBL 0x00000002
+#define ZFLAG_FIFO   0x00000004
+
+/* zflags bit tests. */
+#define IS_ZFLAG_DIR(zflags)    ((zflags) & ZFLAG_DIR)
+#define IS_ZFLAG_APLDBL(zflags) ((zflags) & ZFLAG_APLDBL)
+#define IS_ZFLAG_FIFO(zflags)   ((zflags) & ZFLAG_FIFO)
+
 
 /* ---------------------------------- */
 /* General Purpose Bit Flag (2 bytes) */
@@ -397,6 +413,29 @@ typedef struct iztimes {
 
 /* ---------------------------------- */
 
+/* Binary Detection */
+
+#if 1
+# define ALLOW_TEXT_BIN_RESTART
+#endif
+/* When a file is labeled as text and later determined to include
+   binary, if this is defined, scrap the entry and redo it as
+   binary.  This happens in zipup.c.  The output must be seekable
+   and other conditions must be met (such as output is not split).
+   Seems to work so this is now enabled by default. */
+
+/* ---------------------------------- */
+
+/* PIPES and STDIN */
+
+# define STDIN_PIPE_PERMS 0600
+/* The default permission given files that are read from stdin.  This is
+   currently only used by unix.c.  Undefine this to allow files created
+   from stdin to inherit permissions from the OS (typically 0600 on Linux). */
+
+/* ---------------------------------- */
+
+/* GENERAL LIMITS */
 
 #define MAX_COM_LEN (32766L)
 /* The entire record must be less than 65535, so the comment length needs to
@@ -420,7 +459,7 @@ typedef struct iztimes {
 #define ERRBUF_SIZE (FNMAX + 65536)
 /* Size of errbuf[] error message buffer.  Also used for some similar
    buffers.  Should be big enough to hold the message and a couple paths.
-   Was FNMAX+4081. Long paths on Windows can be up to 32k. */
+   Was FNMAX+4081.  Long paths on Windows can be up to 32k. */
 
 
 /* INCLUDE FILES and ARGUMENT FILES */
@@ -465,6 +504,9 @@ typedef struct iztimes {
  * least this large (but less than 4 GiB) and output is seekable,
  * use of the Zip64 ef placeholder is considered.  These values are
  * used in putlocal().
+ *
+ * For methods that can revert to Store, the margin for that method
+ * should be no smaller than the margin for Store.
  */
 
 #define ZIP64_MARGIN_MB_STORE              1  /* 1 MiB */
@@ -489,6 +531,8 @@ struct zlist {
      in scanzipf_reg() depends on u being set to ver and then stepping
      through as a byte array.  Ack.  Should be fixed.  5/25/2005 EG */
   /* All the new read code does not rely on this order.  */
+  /* This list has been modified significantly.  Do not use the old
+     scanzipf_reg() without changes. */
   ush vem, ver, flg, how;
   ulg tim, crc;
   uzoff_t siz, len;             /* zip64 support 08/29/2003 R.Nausedat */
@@ -521,12 +565,11 @@ struct zlist {
 #endif
   int mark;                     /* Marker for files to operate on */
   int trash;                    /* Marker for files to delete */
-  int current;                  /* Marker for files that are current to what is on OS (filesync) */
+  int current;                  /* Marker for files current to what is on OS (filesync) */
   int dosflag;                  /* Set to force MSDOS file attributes */
-#if defined( UNIX) && defined( __APPLE__)
-  int flags;
-#endif /* defined( UNIX) && defined( __APPLE__) */
+  int zflags;                   /* Special flags for Zip use */
   int encrypt_method;
+  ush thresh_mthd;              /* Compression method used to determine Zip64 threshold */
   struct zlist far *nxt;        /* Pointer to next header in list */
 };
 struct flist {
@@ -541,16 +584,13 @@ struct flist {
   wchar_t *namew;               /* Windows wide character version of name */
   wchar_t *inamew;              /* Windows wide character version of iname */
   wchar_t *znamew;              /* Windows wide character version of zname */
-
 # endif
 #endif
   int dosflag;                  /* Set to force MSDOS file attributes */
   uzoff_t usize;                /* usize from initial scan */
   struct flist far *far *lst;   /* Pointer to link pointing here */
   struct flist far *nxt;        /* Link to next name */
-#if defined( UNIX) && defined( __APPLE__)
-  int flags;
-#endif /* defined( UNIX) && defined( __APPLE__) */
+  int zflags;                   /* Special flags for Zip use */
 };
 struct plist {
   char *zname;                  /* External version of internal name */
@@ -660,7 +700,7 @@ struct plist {
 #define DOSTIME_2038_01_18      ((ulg)0x74320000L)
 
 
-#define MAXCOM 256      /* Maximum one-line comment size */
+#define MAXCOMLINE 256       /* Maximum one-line comment size */
 
 extern int comadd;           /* 1=add comments for new files */
 extern extent comment_size;  /* comment size */
@@ -699,10 +739,10 @@ extern int recurse;             /* Recurse into directories encountered */
 extern int dispose;             /* Remove files after put in zip file */
 extern int pathput;             /* Store path with name */
 
-#if defined( UNIX) && defined( __APPLE__)
+#ifdef UNIX_APPLE
 extern int data_fork_only;
 extern int sequester;
-#endif /* defined( UNIX) && defined( __APPLE__) */
+#endif /* UNIX_APPLE */
 
 #ifdef RISCOS
 extern int scanimage;           /* Scan through image files */
@@ -715,8 +755,9 @@ extern int scanimage;           /* Scan through image files */
 #define LZMA 14                 /* LZMA compression method */
 #define PPMD 98                 /* PPMd compression method */
 #define AESWG 99                /* AES WinZip/Gladman encryption */
+#define COPYING 9998            /* Used by z->threshold_mthd to flag using zipcopy() */
 #ifdef CD_ONLY_SUPPORT
-# define CD_ONLY 999            /* Only store cd (not a real compression) */
+# define CD_ONLY 9999           /* Only store cd (not a real compression) */
 #endif
 
 #define LAST_KNOWN_COMPMETHOD   DEFLATE
@@ -735,6 +776,7 @@ extern int scanimage;           /* Scan through image files */
 
 /* --------------------------------------------------------------
  * Store method default file name suffix list.
+ * Files with these suffixes are stored (not compressed) by default.
  * The -n/--suffixes option can override this list.
  *
  * .7z      7-Zip archive
@@ -749,12 +791,12 @@ extern int scanimage;           /* Scan through image files */
  * .pea     PeaZip archive
  * .rar     RAR archive
  * .rz      RZIP file (good on very large files with distance redundancy)
- * .tbz2    tar archive with bzip2 compression
- * .tgz     tar archive with gzip compression
- * .tlz     tar archive with LZMA compression
- * .txz     tar archive with XZ compression
+ * .tbz2    Tar archive with bzip2 compression
+ * .tgz     Tar archive with gzip compression
+ * .tlz     Tar archive with LZMA compression
+ * .txz     Tar archive with XZ compression
  * .xz      XZ file (uses LZMA2 to get very high compression ratios)
- * .Z       compress file
+ * .Z       Compress file
  * .zip     ZIP archive
  * .zipx    ZIP archive (extended format)
  * .zoo     ZOO archive
@@ -785,8 +827,7 @@ _rar:_rz:_tbz2:_tgz:_tlz:_txz:_xz:_Z:_zip:_zipx:_zoo:_zz"
     /* RISCOS */
 # define MTHD_SUFX_0 "68E:D96:DDC";
 #endif /* ndef RISCOS [else] */
-/* ----------------------------------------------------------- */
-
+/* -------------------------------------------------------------- */
 
 #define AESENCRED 99            /* AES (WG) encrypted */
 
@@ -1215,10 +1256,15 @@ extern int show_what_doing;     /* Diagnostic message flag. */
  * and perror.
  * Defined in fileio.c.
  */
-
-int zprintf OF((const char *format, ...));
-int zfprintf OF((FILE *file, const char *format, ...));
+#ifndef NO_PROTO
+int zprintf(const char *format, ...);
+int zfprintf(FILE *file, const char *format, ...);
+void zperror(const char *);
+#else
+int zprintf OF((const char *, ...));
+int zfprintf OF((FILE *, const char *, ...));
 void zperror OF((const char *));
+#endif
 
 
 /* Diagnostic functions */
@@ -1378,7 +1424,11 @@ void print_utf8 OF((ZCONST char *));
 # if 0
    int encr_passwd OF((int, char *, int, ZCONST char *));
 # endif
-   int simple_encr_passwd OF((int modeflag, char *pwbuf, size_t bufsize));
+# ifndef NO_PROTO
+   int simple_encr_passwd(int modeflag, char *pwbuf, size_t bufsize);
+# else
+   int simple_encr_passwd OF((int, char *, size_t));
+# endif
 #endif
 
         /* in zipup.c */
@@ -1412,7 +1462,11 @@ void print_utf8 OF((ZCONST char *));
 #endif /* !UTIL */
 char *ziptyp OF((char *));
 int readzipfile OF((void));
+#ifndef NO_PROTO
+int putlocal(struct zlist far *z, int rewrite);
+#else
 int putlocal OF((struct zlist far *, int));
+#endif
 int putextended OF((struct zlist far *));
 int putcentral OF((struct zlist far *));
 /* zip64 support 09/05/2003 R.Nausedat */
@@ -1466,6 +1520,13 @@ void display_dot OF((int, int));
 
 int set_locale();
 
+int get_entry_comment(struct zlist far *);
+
+/* Make copy of string */
+char *string_dup OF((ZCONST char *, char *));
+/* Replace substring with string */
+char *string_replace OF((char *, char *, char *, int, int));
+
 int destroy OF((char *));
 int replace OF((char *, char *));
 int getfileattr OF((char *));
@@ -1517,9 +1578,9 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
    char *get_win32_utf8path OF((char *));
 # endif /* def UNICODE_SUPPORT_WIN32 */
 
-# if defined( UNIX) && defined( __APPLE__)
+# ifdef UNIX_APPLE
    int make_apl_dbl_header( char *name, int *hdr_size);
-# endif /* defined( UNIX) && defined( __APPLE__) */
+# endif /* UNIX_APPLE */
 
 # if !(defined(VMS) && defined(VMS_PK_EXTRA))
    int set_extra_field OF((struct zlist far *, iztimes *));
@@ -1531,9 +1592,14 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
 # endif /* MY_ZCALLOC */
 #endif /* !UTIL */
 
+#ifndef NO_PROTO
+  int is_utf8_string(ZCONST char *instring, int *has_bom, int *count, int *ascii_count, int *utf8_count);
+#else
+  int is_utf8_string OF((ZCONST char *, int *, int *, int *, int *));
+#endif
+
 #ifdef UNICODE_SUPPORT
 int is_utf8_file OF((FILE *infile, int *has_bom, int *count, int *ascii_count, int *utf8_count));
-int is_utf8_string OF((ZCONST char *instring, int *has_bom, int *count, int *ascii_count, int *utf8_count));
 int read_utf8_bom OF((FILE *infile));
 int is_utf16LE_file OF((FILE *infile));
 #endif
@@ -1582,6 +1648,10 @@ int strmatch OF((char *s1, char *s2, int case_sensitive, int maxmatch));
 /* for strmatch */
 #define ENTIRE_STRING 0
 
+/* for string_replace */
+#define REPLACE_FIRST 1
+#define REPLACE_ALL 0
+
 
 void init_upper    OF((void));
 int  namecmp       OF((ZCONST char *string1, ZCONST char *string2));
@@ -1604,7 +1674,12 @@ zvoid far **search OF((ZCONST zvoid *, ZCONST zvoid far **, extent,
 void envargs       OF((int *, char ***, char *, char *));
 void expand_args   OF((int *, char ***));
 
-int  is_text_buf   OF((ZCONST char *buf_ptr, unsigned buf_size));
+#ifndef NO_PROTO
+  int  is_text_buf(ZCONST char *buf_ptr, unsigned buf_size);
+#else
+  int  is_text_buf OF((ZCONST char *buf_ptr, unsigned buf_size));
+#endif
+
 /* this is no longer used ...
 unsigned int adler16 OF((unsigned int, ZCONST uch *, extent));
 */
@@ -1714,10 +1789,18 @@ void     bi_init      OF((char *, unsigned int, int));
 /* Upper/Lower case */
 
   /* Convert local string to uppercase/lowercase */
-int astring_upper_lower OF((char *ascii_string, int upper));
-  
+#ifndef NO_PROTO
+  int astring_upper_lower(char *ascii_string, int upper);
+#else
+  int astring_upper_lower OF((char *, int));
+#endif
+
   /* Convert UTF-8 string to uppercase/lowercase */
-char *ustring_upper_lower OF((char *utf8_string, int upper));
+#ifndef NO_PROTO
+  char *ustring_upper_lower(char *utf8_string, int upper);
+#else
+  char *ustring_upper_lower OF((char *, int));
+#endif
 
 
 #ifdef ENABLE_ENTRY_TIMING
@@ -1750,7 +1833,11 @@ char *ustring_upper_lower OF((char *utf8_string, int upper));
 #endif
 
 /* this needs to be global for LZMA */
-local unsigned iz_file_read_bt OF((char *buf, unsigned size));
+#ifndef NO_PROTO
+  local unsigned iz_file_read_bt(char *buf, unsigned size);
+#else
+  local unsigned iz_file_read_bt OF((char *, unsigned));
+#endif
 
 
 /* Case conversion options - used with -Cl and -Cu */
@@ -1759,9 +1846,6 @@ local unsigned iz_file_read_bt OF((char *buf, unsigned size));
 #define CASE_LOWER 2
 
 
-
-/* Make copy of string */
-char *string_dup OF((ZCONST char *in_string, char *error_message));
 
 
 /*---------------------------------------------------------------------
@@ -1784,8 +1868,8 @@ char *string_dup OF((ZCONST char *in_string, char *error_message));
   int is_ascii_string OF((char *mbstring));
   int is_ascii_stringw OF((wchar_t *wstring));
 
-  zwchar *wchar_to_wide_string(wchar_t *wchar_string);
-  wchar_t *wide_to_wchar_string(zwchar *wide_string);
+  zwchar *wchar_to_wide_string OF((wchar_t *wchar_string));
+  wchar_t *wide_to_wchar_string OF((zwchar *wide_string));
 
   char *utf8_to_local_string OF((char *utf8_string));
   char *local_to_utf8_string OF((char *local_string));

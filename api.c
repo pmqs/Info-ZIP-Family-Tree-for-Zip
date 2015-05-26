@@ -1,7 +1,7 @@
 /*
   api.c - Zip 3
 
-  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -84,11 +84,14 @@ ZPOPT ZipOpts;
 char **argVee;
 unsigned int argCee;
 
+char szExcludeList[PATH_MAX];
+char szIncludeList[PATH_MAX];
+char szRootDir[PATH_MAX];
+char szTempDir[PATH_MAX];
+
 /*---------------------------------------------------------------------------
     Local functions
   ---------------------------------------------------------------------------*/
-
-char szRootDir[PATH_MAX], szExcludeList[PATH_MAX], szIncludeList[PATH_MAX], szTempDir[PATH_MAX];
 
 int ParseString(LPSTR s, unsigned int ArgC)
 {
@@ -102,7 +105,7 @@ str1 = (char *) malloc(lstrlen(s)+4);
 lstrcpy(str1, s);
 lstrcat(str1, " @");
 
-if ((szRootDir != NULL) && (szRootDir[0] != '\0'))
+if (szRootDir[0] != '\0')
     {
     root_flag = TRUE;
     if (szRootDir[lstrlen(szRootDir)-1] != '\\')
@@ -345,7 +348,7 @@ if (ZipOpts.szTempDir) lstrcpy(szTempDir, ZipOpts.szTempDir);
 
 getcwd(szOrigDir, PATH_MAX); /* Save current drive and directory */
 
-if ((szRootDir != NULL) && (szRootDir[0] != '\0'))
+if (szRootDir[0] != '\0')
    {
 #ifdef WIN32
    char c;
@@ -688,7 +691,7 @@ if (ZipOpts.ExcludeList != NULL)  /* Exclude file list -x */
         return ZE_MEM;
     }
 
-if (szIncludeList != NULL && szIncludeList[0] != '\0') /* Include file list -i */
+if (szIncludeList[0] != '\0')           /* Include file list -i */
     {
     if (AllocMemory(argCee, "-i", "Include file list", FALSE) != ZE_OK)
         return ZE_MEM;
@@ -698,7 +701,7 @@ if (szIncludeList != NULL && szIncludeList[0] != '\0') /* Include file list -i *
     if (AllocMemory(argCee, "@", "End of Include List", FALSE) != ZE_OK)
         return ZE_MEM;
     }
-if (szExcludeList != NULL && szExcludeList[0] != '\0')  /* Exclude file list -x */
+if (szExcludeList[0] != '\0')           /* Exclude file list -x */
     {
     if (AllocMemory(argCee, "-x", "Exclude file list", FALSE) != ZE_OK)
         return ZE_MEM;
@@ -711,7 +714,7 @@ if (szExcludeList != NULL && szExcludeList[0] != '\0')  /* Exclude file list -x 
         return ZE_MEM;
     }
 
-if ((szTempDir != NULL) && (szTempDir[0] != '\0')) /* Use temporary directory -b */
+if (szTempDir[0] != '\0')               /* Use temporary directory -b */
     {
     if (AllocMemory(argCee, "-b", "Temp dir switch command", FALSE) != ZE_OK)
         return ZE_MEM;
@@ -731,7 +734,7 @@ if ((ZipOpts.szProgressSize != NULL) && (ZipOpts.szProgressSize[0] != '\0')) /* 
 if (AllocMemory(argCee, C.lpszZipFN, "Zip file name", FALSE) != ZE_OK)
     return ZE_MEM;
 
-if ((szRootDir != NULL) && (szRootDir[0] != '\0'))
+if (szRootDir[0] != '\0')
     {
     if (szRootDir[lstrlen(szRootDir)-1] != '\\')
          lstrcat(szRootDir, "\\"); /* append trailing \\ */
@@ -793,11 +796,11 @@ int encr_passwd(int modeflag, char *pwbuf, int size, const char *zfn)
     }
 #endif
 
-/* Zip does not understand passwords for individual files (as UnZip does), so passing
-   the Zip file name (zfn) does not make sense and is, in fact, misleading, as passwords
-   are generic and not associated with a particular file in Zip.  If the caller uses
-   both the Zip and UnZip DLLs, they will need to supply separate password functions
-   to each. */
+/* Zip does not understand passwords for individual files (as UnZip does), so
+   passing the Zip file name (zfn) does not make sense and is, in fact,
+   misleading, as passwords are generic and not associated with a particular file
+   in Zip.  If the caller uses both the Zip and UnZip DLLs, they will need to
+   supply separate password functions to each. */
 
 int simple_encr_passwd(int modeflag, char *pwbuf, size_t bufsize)
 {
@@ -1228,14 +1231,18 @@ int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
 
 /* ZpVersion()
  *
- * The user calls this to get version information.  This should be done before calling
- * ZpZip() to make sure the current DLL is compatible.
+ * The user calls this to get version information.  This should be done before
+ * calling ZpZip() to make sure the current DLL is compatible.
  */
+
+#define FEATURE_LIST_SIZE 1000   /* Make sure this is big enough to hold
+                                    everything.  If you change it here,
+                                    may need to update example apps. */
 
 void ZIPEXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
 {
     char tempstring[100];       /* size of biggest entry */
-    char featurelist[1000];     /* make sure this is big enough to hold everything */
+    char featurelist[FEATURE_LIST_SIZE + 1];     
 
     p->structlen = ZPVER_LEN;
 

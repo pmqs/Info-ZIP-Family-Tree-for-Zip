@@ -15,6 +15,7 @@
 
 #include "zip.h"
 #include "crc32.h"
+#include <errno.h>
 
 #ifdef MACOS
 # include "helpers.h"
@@ -909,9 +910,9 @@ int filter(name, casesensitive)
 
 
 #ifdef UNICODE_SUPPORT_WIN32
-int newnamew(namew, isdir, casesensitive)
+int newnamew(namew, zflags, casesensitive)
   wchar_t *namew;             /* name to add (or exclude) */
-  int  isdir;                 /* true for a directory */
+  int  zflags;                /* true for a directory */
   int  casesensitive;         /* true for case-sensitive matching */
 /* Add (or exclude) the name of an existing disk file.  Return an error
    code in the ZE_ class. */
@@ -962,7 +963,7 @@ int newnamew(namew, isdir, casesensitive)
 
   /* Search for name in zip file.  If there, mark it, else add to
      list of new names to do (or remove from that list). */
-  if ((inamew = ex2inw(namew, isdir, &dosflag)) == NULL)
+  if ((inamew = ex2inw(namew, IS_ZFLAG_DIR(zflags), &dosflag)) == NULL)
     return ZE_MEM;
 
   /* Discard directory names with zip -rj */
@@ -982,7 +983,7 @@ int newnamew(namew, isdir, casesensitive)
     dosify = 0;
     pathput = 1;
     /* zname is temporarly mis-used as "undosmode" iname pointer */
-    if ((znamew = ex2inw(namew, isdir, NULL)) != NULL) {
+    if ((znamew = ex2inw(namew, IS_ZFLAG_DIR(zflags), NULL)) != NULL) {
       undosmw = in2exw(znamew);
       free(znamew);
     }
@@ -1080,6 +1081,7 @@ int newnamew(namew, isdir, casesensitive)
     if (name == label) {
        label = z->name;
     }
+    z->zflags = zflags;
   } else if (pcount == 0 || filter(undosm, casesensitive)) {
 
     /* Check that we are not adding the zip file to itself. This
@@ -1172,6 +1174,9 @@ int newnamew(namew, isdir, casesensitive)
     f->oname = oname;
     oname = NULL;
     f->dosflag = dosflag;
+
+    f->zflags = zflags;
+
     *fnxt = f;
     f->lst = fnxt;
     f->nxt = NULL;
@@ -1193,26 +1198,26 @@ int newnamew(namew, isdir, casesensitive)
 }
 #endif /* UNICODE_SUPPORT_WIN32 */
 
-int newname(name, flags, casesensitive)
+int newname(name, zflags, casesensitive)
   char *name;           /* name to add (or exclude) */
-  int  flags;           /* &FLAGS_DIR = directory, &FLAGS_APLDBL = AppleDouble. */
+  int  zflags;           /* ZFLAG_DIR = directory, ZFLAG_APLDBL = AppleDouble. */
   int  casesensitive;   /* true for case-sensitive matching */
 /* Add (or exclude) the name of an existing disk file.  Return an error
    code in the ZE_ class. */
 {
 
-#if defined( UNIX) && defined( __APPLE__)
+#ifdef UNIX_APPLE
   /* AppleDouble special name pointers.
    * name_archv is stored in the archive.
    * name_flsys is sought in the file system.
    */
   char *name_archv;     /* Arg name or AppleDouble "._" name. */
   char *name_flsys;     /* Arg name or AppleDouble "/rsrc" name. */
-#else /* defined( UNIX) && defined( __APPLE__) */
+#else /* not UNIX_APPLE */
   /* On non-Mac-OS-X systems, use the file name argument as-is. */
 # define name_archv name
 # define name_flsys name
-#endif /* defined( UNIX) && defined( __APPLE__) [else] */
+#endif /* not UNIX_APPLE */
 
   char *iname, *zname;  /* internal name, external version of iname */
   char *undosm;         /* zname version with "-j" and "-k" options disabled */
@@ -1222,9 +1227,9 @@ int newname(name, flags, casesensitive)
   int dosflag;
   int pad_name;         /* Pad for name (may include APL_DBL_xxx). */
 
-#if defined( UNIX) && defined( __APPLE__)
+#ifdef UNIX_APPLE
   /* Create special names for an AppleDouble file. */
-  if (IS_FLAGS_APLDBL)
+  if (IS_ZFLAG_APLDBL(zflags))
   {
     char *name_archv_p;
     char *rslash;
@@ -1281,7 +1286,7 @@ int newname(name, flags, casesensitive)
     name_archv = name;
     name_flsys = name;
   }
-#endif /* defined( UNIX) && defined( __APPLE__) */
+#endif /* UNIX_APPLE */
 
   /* Scanning files ...
    *
@@ -1314,7 +1319,7 @@ int newname(name, flags, casesensitive)
 
   /* Search for name in zip file.  If there, mark it, else add to
      list of new names to do (or remove from that list). */
-  if ((iname = ex2in(name_archv, IS_FLAGS_DIR, &dosflag)) == NULL)
+  if ((iname = ex2in(name_archv, IS_ZFLAG_DIR(zflags), &dosflag)) == NULL)
     return ZE_MEM;
 
   /* Discard directory names with zip -rj */
@@ -1336,7 +1341,7 @@ int newname(name, flags, casesensitive)
 
 #if defined( UNIX) && defined( __APPLE__)
     /* Free the special AppleDouble name storage. */
-    if (IS_FLAGS_APLDBL)
+    if (IS_ZFLAG_APLDBL(zflags))
     {
       free( name_archv);
       free( name_flsys);
@@ -1351,7 +1356,7 @@ int newname(name, flags, casesensitive)
     dosify = 0;
     pathput = 1;
     /* zname is temporarly mis-used as "undosmode" iname pointer */
-    if ((zname = ex2in(name_archv, IS_FLAGS_DIR, NULL)) != NULL) {
+    if ((zname = ex2in(name_archv, IS_ZFLAG_DIR(zflags), NULL)) != NULL) {
       undosm = in2ex(zname);
       free(zname);
     }
@@ -1414,6 +1419,9 @@ int newname(name, flags, casesensitive)
     if (name == label) {
       label = z->name;
     }
+    if (IS_ZFLAG_FIFO(zflags))
+      z->zflags |= ZFLAG_FIFO;
+
   } else if (pcount == 0 || filter(undosm, casesensitive)) {
 
     /* Check that we are not adding the zip file to itself. This
@@ -1454,14 +1462,14 @@ int newname(name, flags, casesensitive)
         free((zvoid *)iname);
         free(oname);
 
-#if defined( UNIX) && defined( __APPLE__)
+#ifdef UNIX_APPLE
         /* Free the special AppleDouble name storage. */
-        if (IS_FLAGS_APLDBL)
+        if (IS_ZFLAG_APLDBL(zflags))
         {
           free( name_archv);
           free( name_flsys);
         }
-#endif /* defined( UNIX) && defined( __APPLE__) */
+#endif /* UNIX_APPLE */
 
         return ZE_OK;
     }
@@ -1469,13 +1477,13 @@ int newname(name, flags, casesensitive)
 
     /* allocate space and add to list */
     pad_name = PAD;
-#if defined( UNIX) && defined( __APPLE__)
-    if (IS_FLAGS_APLDBL)
+#ifdef UNIX_APPLE
+    if (IS_ZFLAG_APLDBL(zflags))
     {
        /* Add storage for AppleDouble name suffix. */
        pad_name += strlen( APL_DBL_SUFX);
     }
-#endif /* defined( UNIX) && defined( __APPLE__) */
+#endif /* UNIX_APPLE */
 
     if ((f = (struct flist far *)farmalloc(sizeof(struct flist))) == NULL ||
         fcount + 1 < fcount ||
@@ -1494,17 +1502,18 @@ int newname(name, flags, casesensitive)
     f->iname = iname;
     f->zname = zname;
 
-#if defined( UNIX) && defined( __APPLE__)
+#ifdef UNIX_APPLE
     /* Free the special AppleDouble name storage. */
-    if (IS_FLAGS_APLDBL)
+    if (IS_ZFLAG_APLDBL(zflags))
     {
       free( name_archv);
       free( name_flsys);
     }
-#endif /* defined( UNIX) && defined( __APPLE__) */
+#endif /* UNIX_APPLE */
 
 #ifdef UNICODE_SUPPORT
     /* Unicode */
+    /* WIN32 should be using newnamew() */
     f->uname = local_to_utf8_string(iname);
 #ifdef UNICODE_SUPPORT_WIN32
     f->namew = NULL;
@@ -1519,9 +1528,7 @@ int newname(name, flags, casesensitive)
     f->oname = oname;
     f->dosflag = dosflag;
 
-#if defined( UNIX) && defined( __APPLE__)
-    f->flags = flags;
-#endif /* defined( UNIX) && defined( __APPLE__) */
+    f->zflags = zflags;
 
     *fnxt = f;
     f->lst = fnxt;
@@ -2415,7 +2422,7 @@ int bfcopy(n)
 
         }
       }
-    }
+    } /* des */
 
 
     if (des_good) {
@@ -3173,7 +3180,7 @@ int close_split(disk_number, tempfile, temp_name)
   return ZE_OK;
 }
 
-/* bfwrite
+/* bfwrite - buffered fwrite
    Does the fwrite but also counts bytes and does splits */
 size_t bfwrite(buffer, size, count, mode)
   ZCONST void *buffer;
@@ -3260,11 +3267,14 @@ size_t bfwrite(buffer, size, count, mode)
       }
 
       /* close this split */
-      if (split_method == 1 && current_local_disk == current_disk) {
-        /* keep split open so can update it */
+      if (split_method == 1 && current_local_disk == current_disk && !use_descriptors) {
+        /* if using split_method 1 (rewrite headers) and still working on current disk
+           and we are not using data descriptors (if we are, we can't rewrite the local
+           headers and so putlocal() won't be called to rewrite them and that's where
+           the split is closed), keep split open so can update it */
         current_local_tempname = tempzip;
       } else {
-        /* close split */
+        /* we won't be updating the split, so close it */
         close_split(current_disk, y, tempzip);
         y = NULL;
         free(tempzip);
@@ -3790,11 +3800,276 @@ int set_locale()
 
 
 
+int get_entry_comment(z)
+  struct zlist far *z;
+{
+  char e[MAX_COM_LEN + 1];
+  char eline[MAXCOMLINE + 1];
+  char *p;
+  int comlen;
+  int eline_len;
+
+  if (noisy) {
+    if (z->com && z->comment) {
+      char *c;
+      /* add leading space to indent each line of comment */
+      c = string_replace(z->comment, "\n", "\n ", REPLACE_ALL, CASE_INS);
+      sprintf(errbuf, "\nCurrent comment for %s:\n %s", z->oname, c);
+      print_utf8(errbuf);
+      free(c);
+      sprintf(errbuf, "\nEnter comment for %s:\n ", z->oname);
+      print_utf8(errbuf);
+      sprintf(errbuf, "(ENTER=keep, TAB ENTER=remove, SPACE ENTER=multiline)\n ");
+      print_utf8(errbuf);
+    } else {
+      sprintf(errbuf, "\nEnter comment for %s:\n ", z->oname);
+      print_utf8(errbuf);
+      sprintf(errbuf, "(SPACE ENTER=multiline)\n ");
+      print_utf8(errbuf);
+    }
+  }
+  if (fgets(e, MAXCOMLINE+1, comment_stream) != NULL)
+  {
+    if (strlen(e) > 1) {
+      if (strlen(e) == 2 && e[0] == '\t') {
+        /* remove the comment */
+        e[0] = '\0';
+      }
+      if (strlen(e) == 2 && e[0] == ' ') {
+        /* get multi-line comment */
+        e[0] = '\0';
+        sprintf(errbuf, "\nEnter multi-line comment for %s:\n", z->oname);
+        print_utf8(errbuf);
+        sprintf(errbuf, "(Enter line with just \".\" to end)\n ");
+        print_utf8(errbuf);
+        comlen = 0;
+        while (fgets(eline, MAXCOMLINE+1, comment_stream) != NULL)
+        {
+          if (strlen(eline) == 2 && eline[0] == '.')
+            break;
+          eline_len = strlen(eline);
+          if (comlen + eline_len > MAX_COM_LEN) {
+            /* limit total comment length to MAX_COM_LEN */
+            eline_len = MAX_COM_LEN - comlen;
+            eline[eline_len] = '\0';
+          }
+          strcat(e, eline);
+          comlen = strlen(e);
+          if (comlen >= MAX_COM_LEN) {
+            sprintf(errbuf, "Max comment length reached (%ld)", MAX_COM_LEN);
+            zipwarn(errbuf, "");
+            break;
+          }
+          zfprintf(mesg, " ");
+        }
+      } /* multi-line comment */
+      /* get space for new comment */
+      if ((p = (char *)malloc((comment_size = strlen(e))+1)) == NULL)
+      {
+        ZIPERR(ZE_MEM, "was reading comment lines (s2)");
+      }
+      strcpy(p, e);
+      if (p[comment_size - 1] == '\n')
+        p[--comment_size] = 0;
+      if (z->com && z->comment) {
+        free(z->comment);
+        z->com = 0;
+      }
+      z->comment = p;
+      if (comment_size == 0) {
+        free(z->comment);
+        z->comment = NULL;
+      }
+      /* zip64 support 09/05/2003 R.Nausedat */
+      z->com = (ush)comment_size;
+    }
+  }
+
+  return z->com;
+}
+
+
+#if 0
+/* Currently unused. */
+
+/* trim_string() - trim leading and trailing white space from string
+ *
+ * Returns trimmed malloc'd copy of string.
+ */
+#ifndef NO_PROTO
+char *trim_string(char *instring)
+#else
+char *trim_string(instring)
+  char *instring;
+#endif
+{
+  char *trimmed_string = NULL;
+  int i;
+  int j;
+  int non_white_start = 0;
+  int non_white_end = -1;
+  int len;
+  int trimmed_len = 0;
+  int c;
+
+  if (instring == NULL)
+    return NULL;
+  
+  len = (int)strlen(instring);
+
+  if (len > 0) {
+    /* find first non-white char */
+    for (i = 0; instring[i]; i++) {
+      c = (unsigned char)instring[i];
+      if (!isspace(c))
+        break;
+    }
+    non_white_start = i;
+
+    if (non_white_start != len) {
+      /* find last non-white char */
+      for (i = len - 1; i >= 0; i--) {
+        c = (unsigned char)instring[i];
+        if (!isspace(c))
+          break;
+      }
+      non_white_end = i;
+    }
+  } /* len > 0 */
+
+  trimmed_len = non_white_end - non_white_start + 1;
+  if (trimmed_len <= 0)
+    trimmed_len = 0;
+
+  if ((trimmed_string = (char *)malloc(trimmed_len + 1)) == NULL) {
+    sprintf(errbuf, "Could not allocate memory in trim_string()\n");
+    ZIPERR(ZE_MEM, errbuf);
+  }
+
+  j = 0;
+  if (trimmed_len > 0) {
+    for (i = non_white_start; i <= non_white_end; i++) {
+      trimmed_string[j++] = instring[i];
+    }
+  }
+  trimmed_string[j] = '\0';
+
+  return trimmed_string;
+}
+#endif /* trim_string() */
 
 
 
+/* string_dup - duplicate a string
+ *
+ * Returns a duplicate of the string, or NULL.
+ */
+#ifndef NO_PROTO
+char *string_dup(ZCONST char *in_string,
+                 char *error_message)
+#else
+char *string_dup(in_string, error_message)
+  ZCONST char *in_string;
+  char *error_message;
+#endif
+{
+  char *out_string;
+
+  if (in_string == NULL)
+    return NULL;
+
+  if ((out_string = (char *)malloc((strlen(in_string) + 1) * sizeof(char))) == NULL) {
+    sprintf(errbuf, "could not allocate memory in string_dup: %s", error_message);
+    ZIPERR(ZE_MEM, errbuf);
+  }
+
+  strcpy(out_string, in_string);
+  return out_string;
+}
 
 
+/* string_replace - replace substring with string
+ *
+ * Not MBCS aware!
+ *
+ * in_string - string to find substrings in and replace
+ * find - the string to find
+ * replace - the string to replace find with
+ * replace_times - how many replacements to do, if 0 (or REPLACE_ALL) replace all occurrences
+ * case_sens - match case sensitive (CASE_INS, CASE_SEN)
+ *
+ * Returns malloc'd string with replacements, or NULL.
+ */
+char *string_replace(char *in_string, char *find, char *replace, int replace_times, int case_sens)
+{
+  int i;
+  int j;
+  int in_len;
+  int find_len;
+  int replace_len;
+  int out_len;
+  int possible_times;
+  int possible_increase;
+  int replacements = 0;
+  char *out_string;
+  char *return_string;
+
+  if (in_string == NULL)
+    return NULL;
+  if (find == NULL)
+    return NULL;
+  if (replace == NULL)
+    return NULL;
+
+  in_len = strlen(in_string);
+  find_len = strlen(find);
+  replace_len = strlen(replace);
+
+  if (find_len == 0)
+    return string_dup(in_string, "string_replace");
+
+  /* calculate max length of out_string */
+  possible_times = in_len/find_len + 1;
+  if (possible_times < 0) {
+    /* find won't fit in in_string */
+    return string_dup(in_string, "string_replace");
+  }
+  if (replace_times && replace_times < possible_times)
+    possible_times = replace_times;
+
+  possible_increase = replace_len - find_len;
+  if (possible_increase < 0)
+    possible_increase = 0;
+  out_len = in_len + possible_times * possible_increase + 1;
+
+  if ((out_string = (char *)malloc(out_len)) == NULL) {
+    ZIPERR(ZE_MEM, "string_replace");
+  }
+
+  out_string[0] = '\0';
+
+  for (i = 0, j = 0; i < in_len; )
+  {
+    if (!(replace_times && replacements >= replace_times) &&
+        strmatch(in_string + i, find, case_sens, find_len)) {
+      /* copy replace string to out_string */
+      strcat(out_string, replace);
+      i += find_len;
+      j += replace_len;
+      replacements++;
+    }
+    else {
+      /* copy character to out_string */
+      out_string[j++] = in_string[i++];
+      out_string[j] = '\0';
+    }
+  }
+
+  return_string = string_dup(out_string, "string_replace");
+  free(out_string);
+
+  return return_string;
+}
 
 
 
@@ -3888,71 +4163,6 @@ int is_utf16LE_file(FILE *infile)
 #endif /* UNICODE_SUPPORT */
 
 
-/* SMSd. */
-#if 0
-
-/* trim_string() - trim leading and trailing white space from string
- *
- * Returns trimmed malloc'd copy of string.
- */
-char *trim_string(char *instring)
-{
-  char *trimmed_string = NULL;
-  int i;
-  int j;
-  int non_white_start = 0;
-  int non_white_end = -1;
-  int len;
-  int trimmed_len = 0;
-  int c;
-
-  if (instring == NULL)
-    return NULL;
-  
-  len = (int)strlen(instring);
-
-  if (len > 0) {
-    /* find first non-white char */
-    for (i = 0; instring[i]; i++) {
-      c = (unsigned char)instring[i];
-      if (!isspace(c))
-        break;
-    }
-    non_white_start = i;
-
-    if (non_white_start != len) {
-      /* find last non-white char */
-      for (i = len - 1; i >= 0; i--) {
-        c = (unsigned char)instring[i];
-        if (!isspace(c))
-          break;
-      }
-      non_white_end = i;
-    }
-  } /* len > 0 */
-
-  trimmed_len = non_white_end - non_white_start + 1;
-  if (trimmed_len <= 0)
-    trimmed_len = 0;
-
-  if ((trimmed_string = (char *)malloc(trimmed_len + 1)) == NULL) {
-    sprintf(errbuf, "Could not allocate memory in trim_string()\n");
-    ZIPERR(ZE_MEM, errbuf);
-  }
-
-  j = 0;
-  if (trimmed_len > 0) {
-    for (i = non_white_start; i <= non_white_end; i++) {
-      trimmed_string[j++] = instring[i];
-    }
-  }
-  trimmed_string[j] = '\0';
-
-  return trimmed_string;
-}
-
-/* SMSd. */
-#endif /* 0 */
 
 
 
@@ -4177,35 +4387,6 @@ local int utf8_chars(utf8)
 #endif
 
 #endif /* UNICODE_SUPPORT */
-
-
-
-/* string_dup()
- *
- * Duplicate a string.
- *
- * Returns a duplicate of the string, or NULL.
- */
-char *string_dup( OFT( ZCONST char *)in_string,
-                 OFT(  char *)error_message)
-#ifdef NO_PROTO
-  ZCONST char *in_string;
-  char *error_message;
-#endif /* def NO_PROTO */
-{
-  char *out_string;
-
-  if (in_string == NULL)
-    return NULL;
-
-  if ((out_string = (char *)malloc((strlen(in_string) + 1) * sizeof(char))) == NULL) {
-    sprintf(errbuf, "could not allocate memory in string_dup: %s", error_message);
-    ZIPERR(ZE_MEM, errbuf);
-  }
-
-  strcpy(out_string, in_string);
-  return out_string;
-}
 
 
 
@@ -4476,6 +4657,152 @@ zwchar *utf8_to_wide_string(char *utf8_string);
 #endif
 
 
+/* is_utf8_string - determine if valid UTF-8 in string
+ *
+ * instring - in - string to look at
+ * has_bom - out - if not NULL, set to 1 if string starts with BOM, else 0
+ * count - out - if not NULL, receives the total char count
+ * ascii_count - out - if not NULL, receives the count of ASCII 7-bit chars found
+ * utf8_count - out - if not NULL, receives the count of UTF-8 chars found
+ *
+ * Reads UTF-8 sequences until end of string.  Does not decode or
+ * validate the actual characters.
+ *
+ * Skips over and ignores BOM if found.
+ *
+ * This is a string version of is_utf8_file().  See the notes there.
+ *
+ * Returns 1 if found UTF-8 and all valid, 0 otherwise.
+ */
+int is_utf8_string(ZCONST char *instring, int *has_bom, int *count, int *ascii_count, int *utf8_count)
+{
+  unsigned long char_count = 0;
+  unsigned long ascii_char_count = 0;
+  unsigned long utf8_char_count = 0;
+  unsigned char uc;
+  int bad_utf8 = 0;
+  int index = 0;
+  int      t, r;
+  unsigned int lead;
+  int is_utf8;
+  int b1, b2, b3;
+  int string_has_bom = 0;
+  int len = (int)strlen(instring);
+
+#if 0
+  printf("len = %d\n", len);
+  for (t = 0; instring[t]; t++) {
+    uc = (unsigned char)instring[t];
+    printf(" %2x", uc);
+  }
+  printf("\n");
+#endif
+
+  if (has_bom)
+    *has_bom = 0;
+  if (count)
+    *count = 0;
+  if (ascii_count)
+    *ascii_count = 0;
+  if (utf8_count)
+    *utf8_count = 0;
+
+  /* check for UTF-8 BOM */
+  b1 = instring[index++];
+  if (b1 == 0xef) {
+    b2 = instring[index++];
+    if (b2 == 0xbb) {
+      b3 = instring[index++];
+      if (b3 == 0xbf) {
+        string_has_bom = 1;
+      }
+    }
+  }
+
+  if (has_bom)
+    *has_bom = string_has_bom;
+
+  if (!string_has_bom)
+    index = 0;
+
+  /* Run through bytes, looking for good and bad UTF-8 characters. */
+  for (; instring[index];)
+  {
+    uc = (unsigned char)instring[index++];
+
+    lead = uc;
+    if (lead < 0x80) {
+      r = 1;              /* an ascii-7 character */
+      char_count++;
+      ascii_char_count++;
+      continue;
+    }
+    else if (lead < 0xC0) {
+      bad_utf8 = 1;       /* error: trailing byte without lead byte */
+#if 0
+      printf("no lead\n");
+#endif
+      break;
+    }
+    else if (lead < 0xE0)
+      r = 2;              /* an 11 bit character */
+    else if (lead < 0xF0)
+      r = 3;              /* a 16 bit character */
+    else if (lead < 0xF8)
+      r = 4;              /* a 21 bit character (the most currently used) */
+    else if (lead < 0xFC)
+      r = 5;              /* a 26 bit character (shouldn't happen) */
+    else if (lead < 0xFE)
+      r = 6;              /* a 31 bit character (shouldn't happen) */
+    else {
+      bad_utf8 = 1;       /* error: invalid lead byte */
+      break;
+    }
+    for (t = 1; t < r; t++) {
+      if (index == len) {
+        bad_utf8 = 1;     /* incomplete UTF-8 character */
+        break;
+      }
+      uc = (unsigned char)instring[index++];
+
+      if (uc < 0x80 || uc >= 0xC0) {
+        bad_utf8 = 1;     /* error: not enough valid trailing bytes */
+#if 0
+        printf("short trail\n");
+#endif
+        break;
+      }
+    } /* for */
+    if (bad_utf8)
+      break;
+    char_count++;
+    utf8_char_count++;
+  } /* for */
+
+  if (bad_utf8)
+    is_utf8 = 0;
+  else {
+    if (utf8_char_count)
+      is_utf8 = 1;
+    else
+      is_utf8 = 0;
+  }
+#if 0
+  printf("\nis_utf8_string:  instring:  %s\n", instring);
+  printf("is_utf8_string:  has bom %d  count %d  ascii7 %d  utf8 %d  = is UTF-8 %d\n",
+         string_has_bom, char_count, ascii_char_count, utf8_char_count, is_utf8);
+#endif
+
+  if (count)
+    *count = char_count;
+  if (ascii_count)
+    *ascii_count = ascii_char_count;
+  if (utf8_count)
+    *utf8_count = utf8_char_count;
+
+  return is_utf8;
+}
+
 
 #ifdef UNICODE_SUPPORT
 
@@ -4649,153 +4976,6 @@ int is_utf8_file(FILE *infile, int *has_bom, int *count, int *ascii_count, int *
 
   if (has_bom)
     *has_bom = has_utf8_bom;
-  if (count)
-    *count = char_count;
-  if (ascii_count)
-    *ascii_count = ascii_char_count;
-  if (utf8_count)
-    *utf8_count = utf8_char_count;
-
-  return is_utf8;
-}
-
-
-/* is_utf8_string - determine if valid UTF-8 in string
- *
- * instring - in - string to look at
- * has_bom - out - if not NULL, set to 1 if string starts with BOM, else 0
- * count - out - if not NULL, receives the total char count
- * ascii_count - out - if not NULL, receives the count of ASCII 7-bit chars found
- * utf8_count - out - if not NULL, receives the count of UTF-8 chars found
- *
- * Reads UTF-8 sequences until end of string.  Does not decode or
- * validate the actual characters.
- *
- * Skips over and ignores BOM if found.
- *
- * This is a string version of is_utf8_file().  See the notes there.
- *
- * Returns 1 if found UTF-8 and all valid, 0 otherwise.
- */
-int is_utf8_string(ZCONST char *instring, int *has_bom, int *count, int *ascii_count, int *utf8_count)
-{
-  unsigned long char_count = 0;
-  unsigned long ascii_char_count = 0;
-  unsigned long utf8_char_count = 0;
-  unsigned char uc;
-  int bad_utf8 = 0;
-  int index = 0;
-  int      t, r;
-  unsigned int lead;
-  int is_utf8;
-  int b1, b2, b3;
-  int string_has_bom = 0;
-  int len = (int)strlen(instring);
-
-#if 0
-  printf("len = %d\n", len);
-  for (t = 0; instring[t]; t++) {
-    uc = (unsigned char)instring[t];
-    printf(" %2x", uc);
-  }
-  printf("\n");
-#endif
-
-  if (has_bom)
-    *has_bom = 0;
-  if (count)
-    *count = 0;
-  if (ascii_count)
-    *ascii_count = 0;
-  if (utf8_count)
-    *utf8_count = 0;
-
-  /* check for UTF-8 BOM */
-  b1 = instring[index++];
-  if (b1 == 0xef) {
-    b2 = instring[index++];
-    if (b2 == 0xbb) {
-      b3 = instring[index++];
-      if (b3 == 0xbf) {
-        string_has_bom = 1;
-      }
-    }
-  }
-
-  if (has_bom)
-    *has_bom = string_has_bom;
-
-  if (!string_has_bom)
-    index = 0;
-
-  /* Run through bytes, looking for good and bad UTF-8 characters. */
-  for (; instring[index];)
-  {
-    uc = (unsigned char)instring[index++];
-
-    lead = uc;
-    if (lead < 0x80) {
-      r = 1;              /* an ascii-7 character */
-      char_count++;
-      ascii_char_count++;
-      continue;
-    }
-    else if (lead < 0xC0) {
-      bad_utf8 = 1;       /* error: trailing byte without lead byte */
-#if 0
-      printf("no lead\n");
-#endif
-      break;
-    }
-    else if (lead < 0xE0)
-      r = 2;              /* an 11 bit character */
-    else if (lead < 0xF0)
-      r = 3;              /* a 16 bit character */
-    else if (lead < 0xF8)
-      r = 4;              /* a 21 bit character (the most currently used) */
-    else if (lead < 0xFC)
-      r = 5;              /* a 26 bit character (shouldn't happen) */
-    else if (lead < 0xFE)
-      r = 6;              /* a 31 bit character (shouldn't happen) */
-    else {
-      bad_utf8 = 1;       /* error: invalid lead byte */
-      break;
-    }
-    for (t = 1; t < r; t++) {
-      if (index == len) {
-        bad_utf8 = 1;     /* incomplete UTF-8 character */
-        break;
-      }
-      uc = (unsigned char)instring[index++];
-
-      if (uc < 0x80 || uc >= 0xC0) {
-        bad_utf8 = 1;     /* error: not enough valid trailing bytes */
-#if 0
-        printf("short trail\n");
-#endif
-        break;
-      }
-    } /* for */
-    if (bad_utf8)
-      break;
-    char_count++;
-    utf8_char_count++;
-  } /* for */
-
-  if (bad_utf8)
-    is_utf8 = 0;
-  else {
-    if (utf8_char_count)
-      is_utf8 = 1;
-    else
-      is_utf8 = 0;
-  }
-#if 0
-  printf("\nis_utf8_string:  instring:  %s\n", instring);
-  printf("is_utf8_string:  has bom %d  count %d  ascii7 %d  utf8 %d  = is UTF-8 %d\n",
-         string_has_bom, char_count, ascii_char_count, utf8_char_count, is_utf8);
-#endif
-
   if (count)
     *count = char_count;
   if (ascii_count)
@@ -5855,10 +6035,12 @@ char *wide_to_escape_string(zwchar *wide_string)
  * that gets sent to the display (console, stdout) when
  * needed (as in progress and error messages).
  */
-char *local_to_display_string( OFT( char *)local_string)
-#ifdef NO_PROTO
+#ifndef NO_PROTO
+char *local_to_display_string(char *local_string)
+#else
+char *local_to_display_string(local_string)
   char *local_string;
-#endif /* def NO_PROTO */
+#endif
 {
   char *temp_string;
   char *display_string;
@@ -6330,23 +6512,36 @@ zwchar *utf8_to_wide_string(ZCONST char *utf8_string)
  * callbacks.  Otherwise work just like printf() and fprintf().
  *
  * zprintf() returns what printf() would return.
+ *
+ * The NO_PROTO case for zprintf() and zfprintf() is broke (can't handle
+ * arguments).
  */
-#ifdef NO_PROTO
-int zprintf( format)
+
+/* zprintf */
+
+#ifndef NO_PROTO
+int zprintf(const char *format, ...)
+#else
+int zprintf(format)
   const char *format;
-#else /* def NO_PROTO */
-int zprintf( const char *format, ...)
-#endif /* def NO_PROTO [else] */
+#endif
 {
-  va_list argptr;
   int len;
   char buf[ERRBUF_SIZE + 1];
+#ifndef NO_PROTO
+  /* handle variable length arg list */
+  va_list argptr;
 
   va_start(argptr, format);
   len = vsprintf(buf, format, argptr);
   va_end(argptr);
-  if (strlen(buf) > ERRBUF_SIZE) {
-    ZIPERR(ZE_LOGIC, "zfprintf buf overflow");
+#else
+  /* can't handle args, so just output the format string */
+  buf[0] = '\0';
+  strncat(buf, format, ERRBUF_SIZE);
+#endif
+  if (strlen(buf) >= ERRBUF_SIZE) {
+    ZIPERR(ZE_LOGIC, "zprintf buf overflow");
   }
 
 #ifdef ZIPLIB
@@ -6378,22 +6573,30 @@ int zprintf( const char *format, ...)
 }
 
 
-#ifdef NO_PROTO
-int zfprintf( file, format)
+/* zfprintf */
+
+#ifndef NO_PROTO
+int zfprintf(FILE *file, const char *format, ...)
+#else
+int zfprint(file, format)
   FILE *file;
   const char *format;
-#else /* def NO_PROTO */
-int zfprintf( FILE *file, const char *format, ...)
-#endif /* def NO_PROTO [else] */
+#endif
 {
-  va_list argptr;
   int len;
   char buf[ERRBUF_SIZE + 1];
+#ifndef NO_PROTO
+  va_list argptr;
 
   va_start(argptr, format);
   len = vsprintf(buf, format, argptr);
   va_end(argptr);
-  if (strlen(buf) > ERRBUF_SIZE) {
+#else
+  /* can't handle args, so just output the format string */
+  buf[0] = '\0';
+  strncat(buf, format, ERRBUF_SIZE);
+#endif
+  if (strlen(buf) >= ERRBUF_SIZE) {
     ZIPERR(ZE_LOGIC, "zfprintf buf overflow");
   }
 
@@ -6440,10 +6643,14 @@ int zfprintf( FILE *file, const char *format, ...)
 }
 
 
-void zperror( OFT( const char *)parm1)
-#ifdef NO_PROTO
+/* zperror */
+
+#ifndef NO_PROTO
+void zperror(const char *parm1)
+#else
+void zperror(parm1)
   const char *parm1;
-#endif /* def NO_PROTO */
+#endif
 {
   char *errstring = strerror(errno);
 
@@ -6651,11 +6858,13 @@ local int optionerr(buf, err, optind, islong)
  *
  * Returns the number of args printed.
  */
-int dump_args( OFT( char *) arrayname, OFT( char *)args OFT( []))
-#ifdef NO_PROTO
+#ifndef NO_PROTO
+int dump_args(char *arrayname, char *args[])
+#else
+int dump_args(arrayname, args)
   char *arrayname;
   char *args[];
-#endif /* def NO_PROTO */
+#endif
 {
   int i = 0;
 
@@ -6881,16 +7090,16 @@ int insert_arg(pargs, arg, at_arg, free_args)
  * 8/26/2014 EG
  */
 
-int insert_args_from_file( OFT( char ***) pargs,
-                           OFT( char *) argfilename,
-                           OFT( int) at_arg,
-                           OFT( int) recursion_depth)
-#ifdef NO_PROTO
+#ifndef NO_PROTO
+int insert_args_from_file(char ***pargs, char *argfilename, int at_arg,
+                          int recursion_depth)
+#else
+int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
   char ***pargs;
   char *argfilename;
   int at_arg;
-  int recursion_depth;
-#endif /* def NO_PROTO */
+  int recursion_depth
+#endif
 {
   FILE *argfile = NULL;
   char argfile_line[MAX_ARGFILE_LINE + 1];
@@ -7023,8 +7232,26 @@ int insert_args_from_file( OFT( char ***) pargs,
   }
   else
   {
-    /* try without extension */
-    argfile = zfopen(filename, "r");
+    /* some possible errors
+         ENOENT (2) = no such file
+         EMFILE (24) = too many files open
+     */
+    if (errno != ENOENT) {
+      sprintf(errbuf, "could not open arg file: '%s'", filename_with_extension);
+      zipwarn(errbuf, "");
+      sprintf(errbuf, "  %s", filename_with_extension);
+      perror(errbuf);
+
+      free(filename);
+      free(filename_with_extension);
+
+      /* Unwind the recursion stack */
+      return -1;
+    }
+    else {
+      /* try without extension */
+      argfile = zfopen(filename, "r");
+    }
     if (argfile)
     {
       strcpy(actual_argfile_name, filename);
@@ -7033,6 +7260,8 @@ int insert_args_from_file( OFT( char ***) pargs,
     {
       sprintf(errbuf, "could not open arg file: '%s'", filename);
       zipwarn(errbuf, "");
+      sprintf(errbuf, "  %s", filename);
+      perror(errbuf);
 
       free(filename);
       free(filename_with_extension);
