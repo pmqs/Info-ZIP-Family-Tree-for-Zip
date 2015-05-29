@@ -3,7 +3,7 @@
 !    VMS Error Message Source File for Zip
 !
 !----------------------------------------------------------------------
-! Copyright (c) 2007-2013 Info-ZIP.  All rights reserved.
+! Copyright (c) 2007-2014 Info-ZIP.  All rights reserved.
 !
 ! See the accompanying file LICENSE, version 2009-Jan-2 or later (the
 ! contents of which are also included in zip.h) for terms of use.  If,
@@ -61,12 +61,18 @@ PARMS       /ERROR    <Invalid command arguments>
 .BASE 36
 OPEN        /ERROR    <File not found or no read permission>
 .BASE 38
-COMPERR     /FATAL    <Error in compilation options>
+COMPILE     /FATAL    <Error in compilation options>
 .BASE 40
 ZIP64       /FATAL    <Attempt to read unsupported Zip64 archive>
 .BASE 42
 CRYPT       /ERROR    <Encryption error>
 .BASE 44
 COMPRESS    /ERROR    <Compression error>
+.BASE 46
+BACKUP      /ERROR    <Backup error>
+.BASE 48
+DEPTH       /ERROR    <Recursion depth limit exceeded>
+.BASE 50
+SPLIT       /ERROR    <Attempt to read unsupported split archive>
 
 .END

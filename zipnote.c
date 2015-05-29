@@ -807,8 +807,8 @@ char **argv;            /* command line tokens */
       ziperr(ZE_NOTE, "unexpected input");
     while (z != NULL && strcmp(a + 2, z->zname)
 #ifdef UNICODE_SUPPORT
-     && strcmp(a + 2, z->uname)
-#endif /* def UNICODE_SUPPORT */
+           && strcmp(a + 2, z->uname)
+#endif
      )
       z = z->nxt;                       /* allow missing entries in order */
     if (z == NULL)
