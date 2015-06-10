@@ -1,7 +1,7 @@
       INSTALL_VMS.txt -- Zip Installation Supplement for VMS (OpenVMS)
       ================================================================
 
-   Zip version 3.1.  Revised: 2014-10-20.
+   Zip version 3.1.  Revised: 2015-06-10.
 
 ------------------------------------------------------------------------
 
@@ -85,7 +85,7 @@ bzip2 compression, or to download a different bzip2 source kit:
 
       http://antinode.info/dec/sw/bzip2.html
 
-   The Zip builders for VMS wiil, by default, use the bzip2 source kit
+   The Zip builders for VMS will, by default, use the bzip2 source kit
 which is included in the Zip source kit to create the required bzip2
 object library.  The builders can also use an existing bzip2 object
 library, which is supplied by the user.  For details on how to use an
@@ -219,8 +219,9 @@ like these:
          MMS /DESC = [.vms] /MACRO = ("CCOPTS=/NAMES=AS_IS", -
           IZ_BZIP2=IZ_BZIP2_106)
 
-      The %CC-I-UNKNOWNPRAGMA complaints are still emitted, but the link
-      (and the program) should work.
+      The compiler will still emit the %CC-I-UNKNOWNPRAGMA complaints,
+      and MMS may emit %MMS-W-GWKACTNOUPD complaints (or, with MMK:
+      %MMK-I-ACTNOUPD), but the link (and the program) should work.
 
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -229,7 +230,10 @@ like these:
 
    The optional LZMA and PPMd compression methods (new in Zip version
 3.1) are enabled by default, and the required source code is included
-in the Zip source kit.
+in the Zip source kit.  The code used to implement these compression
+methods is generally written to newer C language standards than the base
+Info-ZIP code, so some very old compilers may be unable to build Zip
+if these features are enabled.
 
    To disable LZMA and/or PPMd compression, add the appropriate option
 to the builder command line.  For example:
@@ -256,6 +260,10 @@ line.  For example:
          @ [.vms]build_zip AES_WG
       or:
          MMS /DESC = [.vms] /MACRO = (AES_WG=1)
+
+   The code used to implement AES_WG encryption is generally written to
+newer C language standards than the base Info-ZIP code, so some very old
+compilers may be unable to build UnZip if this feature is enabled.
 
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
