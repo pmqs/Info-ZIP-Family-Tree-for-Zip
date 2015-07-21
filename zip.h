@@ -139,7 +139,37 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #ifndef NO_FIFO_SUPPORT
 /* Currently FIFOs (named pipes) only supported on Unix */
 # ifdef UNIX
-#  define FIFO_SUPPORT
+#  ifndef FIFO_SUPPORT
+#   define FIFO_SUPPORT
+#  endif
+# endif
+#endif
+
+/* Unix directory scan sort */
+#ifndef NO_UNIX_DIR_SCAN_SORT
+# ifdef UNIX
+#  ifndef UNIX_DIR_SCAN_SORT
+#   define UNIX_DIR_SCAN_SORT
+#  endif
+# endif
+#endif
+
+/* MAC OS X (Unix Apple) directory scan sort */
+/* This sorts "._" AppleDouble files after matching
+   primary files.  On Unix Apple, this enables
+   sorting of directory scans.  On other platforms,
+   it allows use of --apple-double to enable this
+   sorting, generally for creating a ditto compatible
+   archive on another platform that can be then
+   moved to a Unix Apple platform. */
+#ifndef NO_UNIX_APPLE_SORT
+# ifndef UNIX_APPLE_SORT
+#  define UNIX_APPLE_SORT
+#  ifdef UNIX_APPLE
+#   ifndef UNIX_DIR_SCAN_SORT
+#    define UNIX_DIR_SCAN_SORT
+#   endif
+#  endif
 # endif
 #endif
 
@@ -206,18 +236,20 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 
 /* Encryption rules.
  *
+ * By default, in normal Zip, enable Traditional, disable AES_WG.
+ *
  * User-specified macros:
  * NO_CRYPT, NO_CRYPT_TRAD, CRYPT_AES_WG.
  *
- * Macros used in code: IZ_CRYPT_AES_WG, IZ_CRYPT_ANY, IZ_CRYPT_TRAD.
- *
- * By default, in normal Zip, enable Traditional, disable AES_WG.
  * NO_CRYPT disables all.
  * NO_CRYPT_TRAD disables Traditional.
- * CRYPT_AES_WG enables AES_WG.
+ * CRYPT_AES_WG enables AES_WG.  (aes_wg directory must be populated
+ *   with iz_aes_wg code package.)
+ *
+ * Macros used in code: IZ_CRYPT_AES_WG, IZ_CRYPT_ANY, IZ_CRYPT_TRAD.
  *
  * CRYPT_AES_WG_NEW enables AES_WG encryption using newer code,
- *   but is not completed.  Don't enable.
+ *   but is no where near completed.  Doesn't work.  Don't enable.
  */
 # ifdef NO_CRYPT
    /* Disable all encryption. */
@@ -247,13 +279,13 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #  include "aesnew/ccm.h"
 #endif
 
-/* SMSd. */
+/* CRC32() is now used by zipbare(). */
 #if 0
 /* In the utilities, the crc32() function is only used for UNICODE_SUPPORT. */
 #if defined(UTIL) && !defined(UNICODE_SUPPORT)
 #  define CRC_TABLE_ONLY
 #endif
-#endif /* 0 */
+#endif
 
 #define MIN_MATCH  3
 #define MAX_MATCH  258
@@ -411,6 +443,12 @@ typedef struct iztimes {
  */
 #define IATTR_02_PKWARE_VERIF        0x0004
 
+
+
+/* ------------- */
+/* Things to set */
+/* ------------- */
+
 /* ---------------------------------- */
 
 /* Binary Detection */
@@ -437,7 +475,7 @@ typedef struct iztimes {
 
 /* GENERAL LIMITS */
 
-#define MAX_COM_LEN (32766L)
+#define MAX_COM_LEN (32766)
 /* The entire record must be less than 65535, so the comment length needs to
    be kept well below that.  Changed 65534L to 32766L. */
 
@@ -484,6 +522,16 @@ typedef struct iztimes {
    is used to prevent symlink loops). */
 
 
+/* PATH PREFIXES */
+
+#define ALLOWED_PREFIX_CHARS "!@#$%^&()-_=+/[]{}|"
+/* These are the characters allowed in -pa and -pp prefixes, in addition to
+   alphanumeric.  This list should be kept small as these characters end up
+   in paths stored in the archive.  Only include characters that tend to be
+   allowed in file system paths on most ports.  '/' is included so that a
+   prefix can put paths in a directory. */
+
+
 /* --------------------------------------- */
 
 /* Zip64 */
@@ -505,8 +553,15 @@ typedef struct iztimes {
  * use of the Zip64 ef placeholder is considered.  These values are
  * used in putlocal().
  *
+ * These margins were empirically determined and may need adjustment.
+ *
  * For methods that can revert to Store, the margin for that method
  * should be no smaller than the margin for Store.
+ *
+ * (Store has a margin because the addition of meta data grows the
+ * file slightly.  Compression methods can grow files that refuse to
+ * compress by quite a bit due to internal bookkeeping taking more
+ * space than is recovered by compression.)
  */
 
 #define ZIP64_MARGIN_MB_STORE              1  /* 1 MiB */
@@ -521,8 +576,57 @@ typedef struct iztimes {
 #define MiB   (0x100000)
 #define GiB   (0x40000000)
 
+
 /* --------------------------------------- */
 
+/* Testing */
+
+#if 0
+# define UNICODE_EXTRACT_TEST
+#endif
+/* If set, enables -sC where file paths (with no contents)
+   can be extracted.  This is used to test certain features
+   in Zip before UnZip has them implemented, and provides a
+   check of those features when implemented in UnZip.  For
+   development only! */
+
+#if 0
+# define UNICODE_TESTS_OPTION
+#endif
+/* If set, enables -UT that runs a set of tests to determine
+   level of Unicode support available.  This feature is still
+   being developed and is not ready for inclusion in the main
+   executable. */
+
+
+/* --------------------------------------- */
+
+/* List of UnZip features needed to test the archive. */
+
+/* bit 0 reserved (set when valid feature set, 0 otherwise) */
+#define UNZIP_UNSHRINK_SUPPORT       0x000002  /*  1 */
+#define UNZIP_DEFLATE64_SUPPORT      0x000004  /*  2 */
+#define UNZIP_UNICODE_SUPPORT        0x000008  /*  3 */
+#define UNZIP_WIN32_WIDE             0x000010  /*  4 */
+#define UNZIP_LARGE_FILE_SUPPORT     0x000020  /*  5 */
+#define UNZIP_ZIP64_SUPPORT          0x000040  /*  6 */
+#define UNZIP_BZIP2_SUPPORT          0x000080  /*  7 */
+#define UNZIP_LZMA_SUPPORT           0x000100  /*  8 */
+#define UNZIP_PPMD_SUPPORT           0x000200  /*  9 */
+#define UNZIP_IZ_CRYPT_TRAD          0x000400  /* 10 */
+#define UNZIP_IZ_CRYPT_AES_WG        0x000800  /* 11 */
+#define UNZIP_SPLITS_BASIC           0x001000  /* 12 */
+#define UNZIP_SPLITS_MEDIA           0x002000  /* 13 */
+#define UNZIP_WIN_LONG_PATH          0x004000  /* 14 */
+#define UNZIP_KEYFILE                0x008000  /* 15 */
+
+/* These are bit masks.  All unused bits must be set to 0. */
+
+/* Set below to highest bit number used. */
+#define MAX_UNZIP_FEATURE_BIT  15
+
+
+/* --------------------------------------- */
 
 /* Structures for in-memory file information */
 struct zlist {
@@ -591,6 +695,9 @@ struct flist {
   struct flist far *far *lst;   /* Pointer to link pointing here */
   struct flist far *nxt;        /* Link to next name */
   int zflags;                   /* Special flags for Zip use */
+#ifdef UNIX_APPLE_SORT
+  char *saved_iname;
+#endif
 };
 struct plist {
   char *zname;                  /* External version of internal name */
@@ -624,10 +731,11 @@ struct plist {
 #define EF_TIME         0x5455   /* Universal timestamp ("UT") */
 #define EF_UTFPTH       0x7075   /* Unicode UTF-8 path ("up") */
 #define EF_VMCMS        0x4704   /* VM/CMS Extra Field ID ("G")*/
+#define EF_ZIP64        0x0001   /* ID for zip64 extra field */
 
 #define EF_STREAM       0x6C78   /* Extended Local Header (Stream) ("xl") */
 
-#define EF_PLACEHOLDER  0x5048   /* NO-OP Placeholder tag ("PH") */
+#define EF_PLACEHOLDER  0x4850   /* NO-OP Placeholder tag ("PH") */
 
 
 /* Definitions for extra field handling: */
@@ -948,11 +1056,12 @@ extern uzoff_t bad_bytes_so_far;/* bad bytes skipped so far */
 extern uzoff_t bytes_total;     /* total bytes to process (from initial scan) */
 
 #ifdef ENABLE_ENTRY_TIMING
- extern int performance_time;   /* 1=output total execution time */
- extern uzoff_t start_time;     /* start time */
- extern uzoff_t start_zip_time; /* when start zipping files (after scan) in usec */
- extern uzoff_t current_time;   /* current time in usec */
+extern int performance_time;   /* 1=output total execution time */
+extern uzoff_t start_time;     /* start time */
+extern uzoff_t start_zip_time; /* when start zipping files (after scan) in usec */
+extern uzoff_t current_time;   /* current time in usec */
 #endif
+
 extern time_t clocktime;        /* current time */
 
 /* logfile 6/5/05 */
@@ -1009,10 +1118,12 @@ extern int binary_full_check;       /* 1=check entire file for binary before
 extern uzoff_t cd_total_entries;  /* num of entries as read from Zip64 EOCDR */
 extern uzoff_t total_cd_total_entries; /* num entries across all archives */
 
+extern int sort_apple_double;   /* 1=sort Zip added "._" files after primary files */
+extern int sort_apple_double_all;/* 1=ignore AppleDouble zflag and sort all "._" files */
 
 #if defined(WIN32)
 extern int only_archive_set;    /* only include if DOS archive bit set */
-extern int clear_archive_bits;   /* clear DOS archive bit of included files */
+extern int clear_archive_bits;  /* clear DOS archive bit of included files */
 #endif
 extern int linkput;             /* Store symbolic links as such (-y) */
 #define FOLLOW_ALL 2
@@ -1042,6 +1153,7 @@ extern int include_stream_ef;   /* 1=include stream ef that allows full stream e
 extern int cd_only;             /* 1=create cd_only compression archive (central dir only) */
 
 extern int sf_usize;            /* include usize in -sf listing */
+extern int sf_comment;          /* include entry comments in -sf listing */
 
 extern char *tempzip;           /* temp file name */
 extern FILE *y;                 /* output file now global for splits */
@@ -1161,6 +1273,8 @@ extern uzoff_t last_progress_chunk;  /* used to determine when to send next repo
 
 
 extern char *key;               /* Encryption password.  (NULL, if none.) */
+extern char *passwd;            /* Password before keyfile content added */
+extern int pass_pswd_to_unzip;  /* 1=put password on cmd line to unzip to test */
 extern int force_ansi_key;      /* Only ANSI characters for password (char codes 32 - 126) */
 extern int allow_short_key;     /* Allow password to be shorter than minimum */
 extern int encryption_method;   /* See above defines */
@@ -1168,7 +1282,6 @@ extern char *keyfile;           /* File to read (end part of) password from */
 extern char *keyfile_pass;      /* (piece of) password from keyfile */
 
 #ifdef IZ_CRYPT_AES_WG
-
   /* Values for aes_vendor_version. */
 # define AES_WG_VEND_VERS_AE1 0x0001    /* AE-1. */
 # define AES_WG_VEND_VERS_AE2 0x0002    /* AE-2. */
@@ -1182,7 +1295,7 @@ extern char *keyfile_pass;      /* (piece of) password from keyfile */
  extern unsigned char zpwd_verifier[PWD_VER_LENGTH];
  extern prng_ctx aes_rnp;
  extern unsigned char auth_code[20]; /* returned authentication code */
-#endif
+#endif /* IZ_CRYPT_AES_WG */
 
 #ifdef IZ_CRYPT_AES_WG_NEW
 # define PWD_VER_LENGTH 2
@@ -1408,12 +1521,23 @@ extern int aflag;
 #ifdef CMS_MVS
 extern int bflag;
 #endif /* CMS_MVS */
-void zipmessage_nl OF((ZCONST char *, int));
-void zipmessage OF((ZCONST char *, ZCONST char *));
-void zipwarn OF((ZCONST char *, ZCONST char *));
-void zipwarn_i OF((char *, int, ZCONST char *, ZCONST char *));
-void ziperr OF((int, ZCONST char *));
-void print_utf8 OF((ZCONST char *));
+
+#ifndef NO_PROTO
+ void zipmessage_nl(ZCONST char *, int);
+ void zipmessage(ZCONST char *, ZCONST char *);
+ void zipwarn(ZCONST char *, ZCONST char *);
+ void zipwarn_i(char *, int, ZCONST char *, ZCONST char *);
+ void ziperr(int, ZCONST char *);
+ void print_utf8(ZCONST char *);
+#else
+ void zipmessage_nl OF((ZCONST char *, int));
+ void zipmessage OF((ZCONST char *, ZCONST char *));
+ void zipwarn OF((ZCONST char *, ZCONST char *));
+ void zipwarn_i OF((char *, int, ZCONST char *, ZCONST char *));
+ void ziperr OF((int, ZCONST char *));
+ void print_utf8 OF((ZCONST char *));
+#endif
+
 #ifdef UTIL
 #  define error(msg)    ziperr(ZE_LOGIC, msg)
 #else
@@ -1450,6 +1574,12 @@ void print_utf8 OF((ZCONST char *));
 #  ifdef BZIP2_SUPPORT
    void bz_compress_free OF((void));
 #  endif
+
+# ifndef RISCOS
+   int suffixes OF((char *, char *));
+# else
+   int filetypes OF((char *, char *));
+# endif
 #endif /* !UTIL */
 
         /* in zipfile.c */
@@ -1481,6 +1611,23 @@ char *copy_nondup_extra_fields OF((char *, unsigned, char *, unsigned, unsigned 
 
 int read_inc_file OF((char *));
 
+#ifdef IZ_CRYPT_AES_WG
+# ifndef NO_PROTO
+ int read_crypt_aes_cen_extra_field(struct zlist far *pZEntry,
+                                    ush *aes_vendor_version,
+                                    int *aes_strength,
+                                    ush *comp_method);
+# else
+ int read_crypt_aes_cen_extra_field();
+# endif
+#endif
+
+#ifndef NO_PROTO
+int exceeds_zip64_threshold(struct zlist far *z);
+#else
+ int exceeds_zip64_threshold();
+#endif
+
 
         /* in fileio.c */
 void display_dot OF((int, int));
@@ -1497,7 +1644,11 @@ void display_dot OF((int, int));
 # endif
    int check_dup_sort OF((int sort_found));
    int filter OF((char *, int));
+#ifndef NO_PROTO
+   int newname(char *name, int zflags, int casesensitive);
+#else
    int newname OF((char *, int, int));
+#endif
 # ifdef UNICODE_SUPPORT_WIN32
    int newnamew OF((wchar_t *, int, int));
 # endif
@@ -1521,11 +1672,6 @@ void display_dot OF((int, int));
 int set_locale();
 
 int get_entry_comment(struct zlist far *);
-
-/* Make copy of string */
-char *string_dup OF((ZCONST char *, char *));
-/* Replace substring with string */
-char *string_replace OF((char *, char *, char *, int, int));
 
 int destroy OF((char *));
 int replace OF((char *, char *));
@@ -1593,7 +1739,8 @@ int fcopy OF((FILE *, FILE *, uzoff_t));
 #endif /* !UTIL */
 
 #ifndef NO_PROTO
-  int is_utf8_string(ZCONST char *instring, int *has_bom, int *count, int *ascii_count, int *utf8_count);
+  int is_utf8_string(ZCONST char *instring, int *has_bom, int *count,
+                     int *ascii_count, int *utf8_count);
 #else
   int is_utf8_string OF((ZCONST char *, int *, int *, int *, int *));
 #endif
@@ -1603,7 +1750,6 @@ int is_utf8_file OF((FILE *infile, int *has_bom, int *count, int *ascii_count, i
 int read_utf8_bom OF((FILE *infile));
 int is_utf16LE_file OF((FILE *infile));
 #endif
-char *trim_string OF((char *instring));
 # ifdef UNICODE_SUPPORT_WIN32
 wchar_t *local_to_wchar_string OF ((ZCONST char *));
 # endif
@@ -1635,11 +1781,8 @@ int DisplayNumString OF ((FILE *file, uzoff_t i));
 int WriteNumString OF((uzoff_t num, char *outstring));
 uzoff_t ReadNumString OF((char *numstring));
 
-/* returns true if abbrev is abbreviation for matchstring */
-int abbrevmatch OF((char *matchstring, char *abbrev, int cs, int minmatch));
 
-/* returns true if strings match up to maxmatch (0 = entire string) */
-int strmatch OF((char *s1, char *s2, int case_sensitive, int maxmatch));
+/* string functions */
 
 /* for abbrevmatch and strmatch */
 #define CASE_INS 0
@@ -1651,6 +1794,53 @@ int strmatch OF((char *s1, char *s2, int case_sensitive, int maxmatch));
 /* for string_replace */
 #define REPLACE_FIRST 1
 #define REPLACE_ALL 0
+
+/* for string_find */
+#define LAST_MATCH -1
+#define NO_MATCH -1
+
+/* for check_zipfile */
+#define TESTING_TEMP 1
+#define TESTING_FINAL_NAME 0
+
+        /* in fileio.c */
+
+/* Make copy of string */
+char *string_dup OF((ZCONST char *in_string, char *error_message, int fluff));
+
+/* Replace substring with string */
+#ifndef NO_PROTO
+char *string_replace(char *in_string, char *find, char *replace,
+                     int replace_times, int case_sens);
+#else
+char *string_replace OF((char *, char *, char *, int, int));
+#endif
+
+char *trim_string OF((char *instring));
+
+/* find string find within instring */
+#ifndef NO_PROTO
+int string_find (char *instring, char *find, int case_sens, int occurrence);
+#else
+int string_find OF((char *, char *, int, int));
+#endif
+
+        /* in util.c */
+
+/* returns true if abbrev is abbreviation for matchstring */
+#ifndef NO_PROTO
+int abbrevmatch (char *matchstring, char *abbrev, int cs, int minmatch);
+#else
+int abbrevmatch OF((char *, char *, int, int));
+#endif
+
+/* returns true if strings match up to maxmatch (0 = entire string) */
+#ifndef NO_PROTO
+int strmatch (char *s1, char *s2, int case_sensitive, int maxmatch);
+#else
+int strmatch OF((char *, char *, int, int));
+#endif
+
 
 
 void init_upper    OF((void));

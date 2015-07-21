@@ -21,9 +21,9 @@
 # include "helpers.h"
 #endif
 
-#if defined( UNIX) && defined( __APPLE__)
+#ifdef UNIX_APPLE
 #  include "unix/macosx.h"
-#endif /* defined( UNIX) && defined( __APPLE__) */
+#endif
 
 #ifdef VMS
 # include "vms/vms.h"
@@ -651,6 +651,12 @@ int check_dup_sort(sort_found_list)
   struct flist far **s;         /* sorted table */
   struct flist far **nodup;     /* sorted table without duplicates */
   struct flist far *t;          /* temporary variable */
+#ifdef UNIX_APPLE_SORT
+  char *iname;
+  int slash;
+  int iname_len;
+  int jj;
+#endif
 
 #if 0
   zprintf(" {check_dup_sort}\n");
@@ -678,6 +684,77 @@ int check_dup_sort(sort_found_list)
     nodup = &s[k];              /* Valid entries are at end of array s */
 
 
+#ifdef UNIX_APPLE_SORT
+    /* This presort code is executed if:
+         Platform is Unix Apple and:
+           -ad- is not used to turn off AD sorting.
+             dir/file -> dir/._file
+         Platform is not Unix Apple and:
+           -ad is used to turn on file system AppleDouble sorting.
+       Both normal "._" and sequestered "__MACOSX/._" AppleDouble paths
+       are sorted the same, except that if both occur for a primary
+       file, the normal AppleDouble path is preferred.
+       This code preprocesses the found list, replacing normal "._" and
+       sequestered "__MACOSX/._" AppleDouble paths with paths that sort
+       correctly.  The original paths are saved and restored after the sort. */
+    if (sort_apple_double) {
+      int seq;
+
+      for (j = 0; j < fcount; j++)
+      {
+        nodup[j]->saved_iname = NULL;
+        seq = 0;
+        if (sort_apple_double_all || IS_ZFLAG_APLDBL(nodup[j]->zflags)) {
+          /* save the actual path to restore it after sort */
+          nodup[j]->saved_iname = nodup[j]->iname;
+          /* make copy to alter so sorts where we want */
+          iname = string_dup(nodup[j]->iname, "Unix Apple sort", 0);
+          iname_len = strlen(iname);
+          /* sequestered paths */
+          if (strncmp(iname, "__MACOSX/", 9) == 0) {
+            /* remove leading sequester dir */
+            for (jj = 9; jj <= iname_len; jj++) {
+              iname[jj - 9] = iname[jj];
+            }
+            iname_len = strlen(iname);
+            seq = 1;
+          } /* __MACOSX */
+          /* find last slash */
+          for (slash = iname_len - 1; slash >= 0; slash--) {
+            if (iname[slash] == '/') break;
+          }
+          if (slash < iname_len - 3 &&
+              iname[slash + 1] == '.' &&
+              iname[slash + 2] == '_') {
+            /* looks like AppleDouble file - convert to sort format */
+            /* somedir/._filename -> somedir/filename@, where @ = \01 */
+            for (jj = slash + 1; jj < iname_len - 1; jj++) {
+              iname[jj] = iname[jj + 2];
+            }
+            /* If both normal "._" and sequestered AppleDouble paths exist
+               for the same main entry, normal AppleDouble paths are given
+               precedence over sequestered paths as far as who gets to be
+               directly below the main entry.  If Zip is creating AD paths
+               internally, they should be all normal or all sequestered
+               and both should not occur for the same primary file.  If
+               -ad is used to sort AD paths from the file system, then
+               no telling what might be read, and this order may matter. */
+            if (seq)
+              iname[iname_len - 2] = '\02';
+            else
+              iname[iname_len - 2] = '\01';
+            iname[iname_len - 1] = '\0';
+            nodup[j]->iname = iname;
+          }
+          else {
+            free(iname);
+            nodup[j]->saved_iname = NULL;
+          }
+        } /* AppleDouble */
+      } /* for */
+    } /* sort_apple_double */
+#endif
+
     /* sort only valid items and check for unique internal names (f->iname) */
 
     /* use fqcmpz_icfirst, which sorts first ignoring case, then using case,
@@ -689,11 +766,25 @@ int check_dup_sort(sort_found_list)
     qsort((char *)nodup, fcount, sizeof(struct flist far *), fqcmpz);
 #endif
 
+
+#ifdef UNIX_APPLE_SORT
+    /* Restore AppleDouble paths. */
+    if (sort_apple_double) {
+      for (j = 0; j < fcount; j++)
+      {
+        if (nodup[j]->saved_iname) {
+          free(nodup[j]->iname);
+          nodup[j]->iname = nodup[j]->saved_iname;
+        }
+      } /* for */
+    } /* sort_apple_double */
+#endif
+
     for (j = 1; j < fcount; j++)
     {
       if (strcmp(nodup[j - 1]->iname, nodup[j]->iname) == 0)
       {
-        char tempbuf[FNMAX+4081];
+        char tempbuf[ERRBUF_SIZE + 1];  /* was FNMAX+4081 */
 
         sprintf(errbuf, "  first full name: %s\n", nodup[j - 1]->name);
         sprintf(tempbuf, " second full name: %s\n", nodup[j]->name);
@@ -1198,10 +1289,14 @@ int newnamew(namew, zflags, casesensitive)
 }
 #endif /* UNICODE_SUPPORT_WIN32 */
 
+#ifndef NO_PROTO
+int newname(char *name, int zflags, int casesensitive)
+#else
 int newname(name, zflags, casesensitive)
   char *name;           /* name to add (or exclude) */
-  int  zflags;           /* ZFLAG_DIR = directory, ZFLAG_APLDBL = AppleDouble. */
+  int  zflags;          /* ZFLAG_DIR = directory, ZFLAG_APLDBL = AppleDouble */
   int  casesensitive;   /* true for case-sensitive matching */
+#endif
 /* Add (or exclude) the name of an existing disk file.  Return an error
    code in the ZE_ class. */
 {
@@ -1339,14 +1434,14 @@ int newname(name, zflags, casesensitive)
 #endif /* !AMIGA */
     free((zvoid *)iname);
 
-#if defined( UNIX) && defined( __APPLE__)
+#ifdef UNIX_APPLE
     /* Free the special AppleDouble name storage. */
     if (IS_ZFLAG_APLDBL(zflags))
     {
       free( name_archv);
       free( name_flsys);
     }
-#endif /* defined( UNIX) && defined( __APPLE__) */
+#endif
 
     return ZE_OK;
   }
@@ -3856,7 +3951,7 @@ int get_entry_comment(z)
           strcat(e, eline);
           comlen = strlen(e);
           if (comlen >= MAX_COM_LEN) {
-            sprintf(errbuf, "Max comment length reached (%ld)", MAX_COM_LEN);
+            sprintf(errbuf, "Max comment length reached (%d)", MAX_COM_LEN);
             zipwarn(errbuf, "");
             break;
           }
@@ -3962,15 +4057,19 @@ char *trim_string(instring)
 
 /* string_dup - duplicate a string
  *
+ * in_string      = string to duplicate
+ * error_message  = error message if memory can't be allocated
+ * fluff          = extra bytes to allocate
+ *
  * Returns a duplicate of the string, or NULL.
  */
 #ifndef NO_PROTO
-char *string_dup(ZCONST char *in_string,
-                 char *error_message)
+char *string_dup(ZCONST char *in_string, char *error_message, int fluff)
 #else
 char *string_dup(in_string, error_message)
   ZCONST char *in_string;
   char *error_message;
+  int fluff;
 #endif
 {
   char *out_string;
@@ -3978,7 +4077,10 @@ char *string_dup(in_string, error_message)
   if (in_string == NULL)
     return NULL;
 
-  if ((out_string = (char *)malloc((strlen(in_string) + 1) * sizeof(char))) == NULL) {
+  if (fluff < 0)
+    return NULL;
+
+  if ((out_string = (char *)malloc((strlen(in_string) + fluff + 1) * sizeof(char))) == NULL) {
     sprintf(errbuf, "could not allocate memory in string_dup: %s", error_message);
     ZIPERR(ZE_MEM, errbuf);
   }
@@ -4000,7 +4102,18 @@ char *string_dup(in_string, error_message)
  *
  * Returns malloc'd string with replacements, or NULL.
  */
-char *string_replace(char *in_string, char *find, char *replace, int replace_times, int case_sens)
+#ifndef NO_PROTO
+char *string_replace(char *in_string, char *find, char *replace,
+                     int replace_times, int case_sens)
+#else
+char *string_replace(in_string, find, replace,
+                     replace_times, case_sens)
+  char *in_string;
+  char *find;
+  char *replace;
+  int replace_times;
+  int case_sens;
+#endif
 {
   int i;
   int j;
@@ -4026,13 +4139,13 @@ char *string_replace(char *in_string, char *find, char *replace, int replace_tim
   replace_len = strlen(replace);
 
   if (find_len == 0)
-    return string_dup(in_string, "string_replace");
+    return string_dup(in_string, "string_replace", 0);
 
   /* calculate max length of out_string */
   possible_times = in_len/find_len + 1;
   if (possible_times < 0) {
     /* find won't fit in in_string */
-    return string_dup(in_string, "string_replace");
+    return string_dup(in_string, "string_replace", 0);
   }
   if (replace_times && replace_times < possible_times)
     possible_times = replace_times;
@@ -4065,10 +4178,61 @@ char *string_replace(char *in_string, char *find, char *replace, int replace_tim
     }
   }
 
-  return_string = string_dup(out_string, "string_replace");
+  return_string = string_dup(out_string, "string_replace", 0);
   free(out_string);
 
   return return_string;
+}
+
+
+/* string_find - find a substring in a string
+ *
+ * instring    - input string
+ * findstring  - substring to find in instring
+ * case_sens   - if 0, search is case insensitive (CASE_INS, CASE_SEN)
+ * occurrence  - search for this many matches (LAST_MATCH (-1) for last)
+ *
+ * Matches can overlap, i.e. if instring = "aaa" and find = "aa", 2 matches
+ * will be found.
+ *
+ * Returns the (zero-based) index of substring, or NO_MATCH (-1) if not found.
+ */
+#ifndef NO_PROTO
+int string_find (char *instring, char *find, int case_sens, int occurrence)
+#else
+int string_find (instring, find, case_sens, occurrence)
+  char *instring;
+  char *find;
+  int case_sens;
+  int occurrence;
+#endif
+{
+  int start;
+  int matches = 0;
+  int instring_len;
+  int find_len;
+  int match_start = 0;
+
+  if (instring == NULL || find == NULL) {
+    return NO_MATCH;
+  }
+
+  instring_len = strlen(instring);
+  find_len = strlen(find);
+
+  for (start = 0; start < instring_len - find_len; start++) {
+    if (strmatch(instring + start, find, case_sens, find_len)) {
+      match_start = start;
+      matches++;
+    }
+    if ((occurrence != LAST_MATCH) && (matches >= occurrence))
+      break;
+  }
+
+  if (matches == 0)
+    return NO_MATCH;
+  else
+    return match_start;
 }
 
 
@@ -4657,6 +4821,7 @@ zwchar *utf8_to_wide_string(char *utf8_string);
 #endif
 
 
+
 /* is_utf8_string - determine if valid UTF-8 in string
  *
  * instring - in - string to look at
@@ -5055,7 +5220,7 @@ wchar_t *utf8_to_wchar_string(ZCONST char *utf8_string)
     coutbuf = (char *)outbuf;
     strcpy(coutbuf, "z\0y\0\0\0");
 
-    inp = string_dup(utf8_string, "utf8_to_wchar_string");
+    inp = string_dup(utf8_string, "utf8_to_wchar_string", 0);
     outp = coutbuf;
 
     inbytesleft = utf8_string_len;
@@ -5886,7 +6051,7 @@ char *wide_to_local_string(zwchar *wide_string)
   char *tocode   = charsetname;
 
   char *inp;
-  char *outp;
+  char *outp; 
 
   int i;
   int k;
@@ -6834,7 +6999,7 @@ local int optionerr(buf, err, optind, islong)
   int optind;
   int islong;
 {
-  char optname[50];
+  char optname[100];
 
   if (options[optind].name && options[optind].name[0] != '\0') {
     if (islong)
