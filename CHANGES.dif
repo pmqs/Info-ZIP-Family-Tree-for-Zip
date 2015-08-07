@@ -1,0 +1,23 @@
+
+------------------------ 2015-08-06 version 3.1d47+ -----------------------
+
+ 1. Bad error message.  api.c (SMS)
+ 2. Moved some Windows-specific, conditional macro definitions (from
+    zip.h to win32/nt.h) to get them processed after winnt.h.  zip.h,
+    win32/nt.h (SMS)
+ 3. _CRT_SECURE_NO_WARNINGS was not defined for all configurations in
+    the Windows vc10 project descriptions for the bzip2 library in both
+    the normal program and DLL directories, causing avoidable compiler
+    warnings.  win32/vc10/libbz2/libbz2.vcxproj,
+    windll/vc10/libbz2/libbz2.vcxproj (SMS)
+ 4. Changed some type casts to clear some compiler warnings.  zipfile.c,
+    zipnote.c (SMS)
+ 5. In the Windows vc10 builders, added the MASM option
+    UseSafeExceptionHandlers (/safeseh), for configurations which use
+    the assembler, to mark assembly-code object files as safe, to
+    satisfy the linker in VS 2015 on Windows 10.  Added some missing
+    data for the Debug_ASM configurations in the ZipNote project file.
+    win32/vc10/zip/zip.vcxproj, win32/vc10/zipcloak/zipcloak.vcxproj,
+    win32/vc10/zipnote/zipnote.vcxproj,
+    win32/vc10/zipsplit/zipsplit.vcxproj (SMS)
+

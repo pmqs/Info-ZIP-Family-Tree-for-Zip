@@ -223,17 +223,6 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 # endif
 #endif /* WIN32 */
 
-/* These are not defined in VS 2010 WinNT.h, but are used in the
-   reparse point code in nt.c and by any caller of WinDirObjectInfo(). */
-#ifdef NTSD_EAS
-# ifndef IO_REPARSE_TAG_DEDUP
-#  define IO_REPARSE_TAG_DEDUP (0x80000013)
-# endif
-# ifndef IO_REPARSE_TAG_NFS
-#  define IO_REPARSE_TAG_NFS (0x80000014)
-# endif
-#endif
-
 /* Encryption rules.
  *
  * By default, in normal Zip, enable Traditional, disable AES_WG.
@@ -524,7 +513,7 @@ typedef struct iztimes {
 
 /* PATH PREFIXES */
 
-#define ALLOWED_PREFIX_CHARS "!@#$%^&()-_=+/[]{}|"
+#define ALLOWED_PREFIX_CHARS "!@#$%^&()-_=+/[]{}|."
 /* These are the characters allowed in -pa and -pp prefixes, in addition to
    alphanumeric.  This list should be kept small as these characters end up
    in paths stored in the archive.  Only include characters that tend to be
@@ -1314,6 +1303,7 @@ extern int allow_arg_files;     /* 1=process arg files (@argfile), 0=@ not signi
 extern int case_upper_lower;    /* Upper or lower case added/updated output paths */
 extern char *path_prefix;       /* Prefix to add to all new archive entries */
 extern int path_prefix_mode;    /* 0=Prefix all paths, 1=Prefix only added/updated paths */
+extern char *stdin_name;        /* Name to change default stdin "-" to */
 extern int all_ascii;           /* Skip binary check and handle all files as text */
 extern char *zipfile;           /* New or existing zip archive (zip file) */
 extern FILE *in_file;           /* Current input file for spits */

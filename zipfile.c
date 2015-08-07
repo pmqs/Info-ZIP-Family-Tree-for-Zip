@@ -180,6 +180,20 @@
 #endif
 
 #if 0
+#ifdef IZ_CRYPT_AES_WG
+# ifndef NO_PROTO
+ int read_crypt_aes_cen_extra_field(struct zlist far *pZEntry,
+                                    ush *aes_vendor_version,
+                                    int *aes_strength,
+                                    ush *comp_method);
+# else
+ int read_crypt_aes_cen_extra_field();
+# endif
+#endif
+#endif
+
+
+#if 0
 #ifdef STREAM_EF_SUPPORT
  local int add_Stream_local_extra_field(struct zlist far *pZEntry);
 #endif
@@ -200,6 +214,9 @@ local void write_ulong_to_mem OF((ulg, char *));
  local void write_int64_to_mem OF((uzoff_t, char *));
 #endif /* def ZIP64_SUPPORT */
 local void write_string_to_mem OF((char *, char *));
+
+local void read_ushort_from_mem OF((ush *, char *));
+local void read_ulong_from_mem OF((ulg *, char *));
 
 #if 0
  local char *get_extra_field OF((ush, char *, unsigned));           /* zip64 */
@@ -535,6 +552,36 @@ local void write_string_to_mem(strValue, pPtr)
   }
 }
 
+
+#ifndef NO_PROTO
+local void read_ushort_from_mem(ush *usValue,
+                                char *pPtr)
+#else
+local void read_ushort_from_mem(usValue,
+                                pPtr)
+  ush usValue;
+  char *pPtr;
+#endif
+{
+  *usValue  = (ush)(*pPtr++);
+  *usValue |= ((ush)(*pPtr)) << 8;
+}
+
+#ifndef NO_PROTO
+local void read_ulong_from_mem(ulg *uValue,
+                               char *pPtr)
+#else
+local void read_ulong_from_mem(uValue,
+                                pPtr)
+  ulg uValue;
+  char *pPtr;
+#endif
+{
+  *uValue  = (ulg)(*pPtr++);
+  *uValue |= ((ulg)(*pPtr++)) << 8;
+  *uValue |= ((ulg)(*pPtr++)) << 16;
+  *uValue |= ((ulg)(*pPtr++)) << 24;
+}
 
 
 /* same as above but allocate memory as needed and keep track of current end
@@ -1465,8 +1512,6 @@ local int add_local_zip64_extra_field(pZEntry)
   return ZE_OK;
 }
 
-#endif /* ZIP64_SUPPORT */
-
 /* add_local_zip64_placeholder_extra_field - add no-op extra field to reserve space
  *
  * pZEntry - pointer to the zlist entry.
@@ -1583,6 +1628,8 @@ local int add_local_zip64_placeholder_extra_field(pZEntry)
 
   return ZE_OK;
 }
+
+#endif /* ZIP64_SUPPORT */
 
 
 
@@ -1958,13 +2005,13 @@ local int add_crypt_aes_local_extra_field( OFT( struct zlist far *)pZEntry,
         if( pExtra == NULL )
           ziperr(ZE_MEM, "AES_WG local extra field");
         /* move all before AES_WG EF */
-        usTemp = (extent) (pOldExtra - pZEntry->extra);
+        usTemp = (ush)(pOldExtra - pZEntry->extra);
         pTemp = pExtra;
         memcpy( pTemp, pZEntry->extra, usTemp );
         /* move all after old AES_WG EF */
         pTemp = pExtra + usTemp;
         pOldTemp = pOldExtra + ZIP_EF_HEADER_SIZE + blocksize;
-        usTemp = pZEntry->ext - usTemp - blocksize;
+        usTemp = (ush)(pZEntry->ext - usTemp - blocksize);
         memcpy( pTemp, pOldTemp, usTemp);
         /* replace extra fields */
         pZEntry->ext = newEFSize;
@@ -2074,7 +2121,7 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
         if( pExtra == NULL )
           ziperr(ZE_MEM, "AES_WG local extra field");
         /* move all before AES_WG EF */
-        usTemp = (extent) (pOldExtra - pZEntry->cextra);
+        usTemp = (ush)(pOldExtra - pZEntry->cextra);
         pTemp = pExtra;
         memcpy( pTemp, pZEntry->cextra, usTemp );
         /* move all after old AES_WG EF */
@@ -2119,6 +2166,59 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
 }
 
 
+/* read_crypt_aes_cen_extra_field - get values from AES extra field
+ *
+ * Returns 1 on success, 0 on fail.
+ */
+#ifndef NO_PROTO
+int read_crypt_aes_cen_extra_field(struct zlist far *pZEntry,
+                                   ush *aes_vendor_version,
+                                   int *aes_strength,
+                                   ush *comp_method)
+#else
+int read_crypt_aes_cen_extra_field(pZEntry,
+                                   aes_vendor_version,
+                                   aes_strength,
+                                   comp_method)
+  struct zlist far *pZEntry;
+  ush *aes_vendor_version;
+  int *aes_strength;
+  ush *comp_method;
+#endif
+{
+  char  *pExtra;
+
+  /* find start of AES_WG extra field */
+  if (pZEntry->cext == 0 || pZEntry->cextra == NULL) {
+    return 0;
+  }
+
+  /* check if we have existing AES_WG extra field ... */
+  pExtra = get_extra_field(EF_AES_WG, pZEntry->cextra, pZEntry->cext);
+  if (pExtra == NULL) {
+    /* not found */
+    return 0;
+  }
+
+  /* found it - get the stored values */
+
+  /* AES_WG extra field members
+    *
+    * offset   size     content
+    * 0        2        Extra field header ID (0x9901)
+    * 2        2        Data size (currently 7, but subject to possible increase in the future)
+    * 4        2        Integer version number specific to the zip vendor
+    * 6        2        2-character vendor ID
+    * 8        1        Integer mode value indicating AES encryption strength
+    * 9        2        The actual compression method used to compress the file
+    */
+  read_ushort_from_mem(aes_vendor_version, pExtra);
+  *aes_strength = *(pExtra + 8);
+  read_ushort_from_mem(comp_method, pExtra);
+
+  return 1;
+}
+
 #endif /* IZ_CRYPT_AES_WG */
 
 
@@ -2152,11 +2252,14 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
  *     0   0    1   2  "version made by" field is included
  *     0   1    2   2  "internal file attributes" field is included
  *     0   2    4   4  "external file attributes" field is included
+ *
+ *  The comment field was removed.
+ *
  *     0   3    8 2+n  "file comment length" and "file comment" fields
  *                     are included
  *
  * In this version, we are storing all of the above, except for the
- * comment field which is only included if comment length > 0.
+ * comment field.  That used to be included if comment length > 0
  *
  * Currently there is no Central Directory equivalent to this ef.
  * This could change in the future if information is added that is
@@ -2175,13 +2278,16 @@ local int add_Stream_local_extra_field(pZEntry)
   char  *pOldTemp;
   char  *pTemp;
   ush   usBitmap;
+#ifdef STREAM_COMMENTS
   ush   usCommentLength = 0;
+#endif
   ush   newEFSize;
   ush   usTemp;
   ush   usDataLen;
   ush   blocksize;
   ush   usLocalLen;
-  
+
+#ifdef STREAM_COMMENTS
   /* Do we have a comment for this entry? */
   if (pZEntry->com > 0 && pZEntry->comment != NULL) {
     usCommentLength = pZEntry->com;
@@ -2194,6 +2300,7 @@ local int add_Stream_local_extra_field(pZEntry)
     usDataLen = 1 + 2 + 2 + 4 + 2 + usCommentLength;
   }
   else
+#endif
   {
     /* does not include comment */
     usBitmap = 0x07; /* 00000111 */
@@ -2284,6 +2391,7 @@ local int add_Stream_local_extra_field(pZEntry)
   write_ushort_to_mem(pZEntry->att, pUExtra + 7);
   /* external attributes (4 bytes) */
   write_ulong_to_mem(pZEntry->atx, pUExtra + 9);
+#ifdef STREAM_COMMENTS
   /* comment */
   if (usCommentLength > 0)
   {
@@ -2293,6 +2401,7 @@ local int add_Stream_local_extra_field(pZEntry)
     /* comment (variable) */
     write_string_to_mem(pZEntry->comment, pUExtra + 15);
   }
+#endif
 
   return ZE_OK;
 }
@@ -2971,6 +3080,10 @@ int readlocal(localz, z)
   locz->crc = LG(LOCCRC + buf);
   locz->nam = SH(LOCNAM + buf);
   locz->ext = SH(LOCEXT + buf);
+
+  /* Default to using how as the compression method used to determine Zip64
+     threshold.  (This is generally the case, unless AES used or just copying
+     the entry.  These special cases are handled elsewhere.) */
   locz->thresh_mthd = locz->how;
 
   /* Initialize all fields pointing to malloced data to NULL */
@@ -4473,6 +4586,10 @@ local int scanzipf_fixnew()
         cz->atx = LG(CENATX + scbuf);
         cz->off = LG(CENOFF + scbuf);
         cz->dosflag = (cz->vem & 0xff00) == 0;
+
+        /* Default to using how as the compression method used to determine Zip64
+           threshold.  (This is generally the case, unless AES used or just copying
+           the entry.  These special cases are handled elsewhere.) */
         cz->thresh_mthd = cz->how;
 
         /* Initialize all fields pointing to malloced data to NULL */
@@ -5576,6 +5693,9 @@ local int scanzipf_regnew()
       z->off = LG(CENOFF + scbuf);      /* adjust_offset is added below */
       z->dosflag = (z->vem & 0xff00) == 0;
 
+      /* Default to using how as the compression method used to determine Zip64
+         threshold.  (This is generally the case, unless AES used or just copying
+         the entry.  These special cases are handled elsewhere.) */
       z->thresh_mthd = z->how;          /* default to how - AES may change */
 
       /* Initialize all fields pointing to malloced data to NULL */
@@ -6386,6 +6506,71 @@ int astring_upper_lower(ascii_string, caseupperlower)
 /* --------------------------------------------------------------- */
 
 
+#ifdef ZIP64_SUPPORT
+
+int exceeds_zip64_threshold(z)
+  struct zlist far *z;
+{
+  uzoff_t usize;
+  int streaming_in;
+  ush thresh_mthd;
+  uzoff_t zip64_threshold;
+  char *name;
+  int zip64_threshold_exceeded = 0;
+
+  /* use these from z */
+  name = z->name;
+  usize = z->len;
+  thresh_mthd = z->thresh_mthd;
+
+  /* If input is stdin then streaming stdin.  No problem with that.
+
+     The problem is updating the local header data in the output once the sizes
+     and crc are known.  If the output is not seekable, then need data descriptors
+     and also need to assume Zip64 will be needed as don't know yet.  Even if the
+     output is seekable, if the input is streamed need to write the Zip64 extra field
+     before writing the data or there won't be room for it later if we need it.
+
+     The streaming stdin case is resolved by using the placeholder extra field
+     described above so we can update the local header if Zip64 is needed.
+  */
+  streaming_in = (strcmp(name, "-") == 0);
+
+  if (translate_eol == 1)
+    zip64_threshold = (uzoff_t)2 * GiB;
+  else
+    zip64_threshold = (uzoff_t)4 * GiB;
+
+  if (thresh_mthd == COPYING)
+    /* copying entry so sizing is exact */
+    zip64_threshold -= 0;
+  else if (thresh_mthd == STORE)
+    zip64_threshold -= ZIP64_MARGIN_MB_STORE * MiB;
+  else if (thresh_mthd == DEFLATE)
+    zip64_threshold -= ZIP64_MARGIN_MB_DEFLATE * MiB;
+  else if (thresh_mthd == BZIP2)
+    zip64_threshold -= ZIP64_MARGIN_MB_BZIP2 * MiB;
+  else if (thresh_mthd == LZMA)
+    zip64_threshold -= ZIP64_MARGIN_MB_LZMA * MiB;
+  else if (thresh_mthd == PPMD)
+    zip64_threshold -= ZIP64_MARGIN_MB_PPMD * MiB;
+  else {
+    sprintf(errbuf, "Zip64 margin not set for mthd = %d", thresh_mthd);
+    ZIPERR(ZE_LOGIC, errbuf);
+  }
+
+  /* Check if input file size exceeds threshold. */
+  if (usize > zip64_threshold || streaming_in)
+    /* If the result might require Zip64 or the input is being streamed
+       (and so the size is not known), make space for a possible Zip64
+       extra field. */
+    zip64_threshold_exceeded = 1;
+
+  return zip64_threshold_exceeded;
+}
+
+#endif
+
 
 #ifndef NO_PROTO
 int putlocal(struct zlist far *z, int rewrite)
@@ -6449,7 +6634,9 @@ int putlocal(z, rewrite)
   extent blocksize = 0; /* size of block */
   ush nam = z->nam;     /* size of name to write to header */
   char *iname = NULL;   /* name to write to header */
+#ifdef UNICODE_SUPPORT
   char *uname = NULL;   /* UTF-8 name to write to header */
+#endif
   ush how = z->how;     /* how stored (may be 99 for AES) */
   ush thresh_mthd = z->thresh_mthd; /* mthd used for Zip64 threshold */
 #ifdef IZ_CRYPT_AES_WG
@@ -6462,11 +6649,10 @@ int putlocal(z, rewrite)
   int streaming_in = 0; /* streaming stdin */
   int was_zip64 = 0;
 
-  uzoff_t zip64_threshold;
   int zip64_threshold_exceeded = 0;
   static int zip64_placeholder_used = 0;
 
-
+#if 0
   /* If input is stdin then streaming stdin.  No problem with that.
 
      The problem is updating the local header data in the output once the sizes
@@ -6509,6 +6695,9 @@ int putlocal(z, rewrite)
        (and so the size is not known), make space for a possible Zip64
        extra field. */
     zip64_threshold_exceeded = 1;
+#endif
+
+  zip64_threshold_exceeded = exceeds_zip64_threshold(z);
 
   if (!rewrite) {
     zip64_entry = 0;
@@ -6735,6 +6924,7 @@ int putlocal(z, rewrite)
     iname = new_path;
     tempzn += new_path_len - nam;
     nam = new_path_len;
+#ifdef UNICODE_SUPPORT
     if (uname) {
       oldlen = (int)strlen(uname);
       new_path_len = path_prefix_len + oldlen;
@@ -6746,6 +6936,32 @@ int putlocal(z, rewrite)
       free(uname);
       uname = new_path;
     }
+#endif
+  }
+
+  if (iname[0] == '-' && iname[1] == '\0' && stdin_name && z->mark) {
+    int new_path_len;
+    char *new_path;
+    
+    new_path_len = (int)strlen(stdin_name);
+    new_path = string_dup(stdin_name, "stdin_name putlocal new_path", 0);
+
+    free(iname);
+    iname = new_path;
+    tempzn += new_path_len - 1;
+    nam = new_path_len;
+
+#ifdef UNICODE_SUPPORT
+    uname = string_dup(stdin_name, "stdin_name putlocal uname", 0);
+
+    if (is_utf8_string(iname, NULL, NULL, NULL, NULL)) {
+      /* If uname is UTF-8, revert back to "-" for standard name.
+         This is needed if using extra field. */
+      free(iname);
+      iname = string_dup("-", "stdin_name putlocal iname -> -", 0);
+      nam = 1;
+    }
+#endif
   }
 
 #ifdef UNICODE_SUPPORT
@@ -6804,10 +7020,7 @@ int putlocal(z, rewrite)
   if (use_uname) {
     /* path is UTF-8 or utf8_native */
     free(iname);
-    if ((iname = malloc(strlen(uname) + 1)) == NULL) {
-      ZIPERR(ZE_MEM, "putlocal uname->iname");
-    }
-    strcpy(iname, uname);
+    iname = string_dup(uname, "putlocal uname->iname", 0);
     nam = (ush)strlen(iname);
     /* iname = z->uname; */
   }
@@ -6877,28 +7090,29 @@ int putlocal(z, rewrite)
 #ifdef STREAM_EF_SUPPORT
   if (include_stream_ef) {
 
+# ifdef STREAM_COMMENTS
     if (comadd && !rewrite) {
       /* If adding comments with -st, need to add the comment before
          the initial write of local header so space is allocated in
          the archive. */
-#if 0
-#if !defined(ZIPLIB) && !defined(ZIPDLL)
+#  if 0
+#   if !defined(ZIPLIB) && !defined(ZIPDLL)
       char *p;
       char e[MAXCOMLINE+1];
-#endif
-#endif
+#   endif
+#  endif
       if (comment_stream == NULL)
-#ifndef RISCOS
+#  ifndef RISCOS
         comment_stream = (FILE*)fdopen(fileno(stderr), "r");
-#else
+#  else
         comment_stream = stderr;
-#endif
+#  endif
 
-#if defined(ZIPLIB) || defined(ZIPDLL)
+#  if defined(ZIPLIB) || defined(ZIPDLL)
       ecomment(z);
-#else
+#  else
       get_entry_comment(z);
-# if 0
+#   if 0
       if (noisy) {
         if (z->com && z->comment) {
           z->comment[z->com] = '\0';
@@ -6936,16 +7150,18 @@ int putlocal(z, rewrite)
           z->com = (ush)comment_size;
         }
       }
-# endif
-#endif
-    }
+#   endif /* 0 */
+#  endif
+    } /* comadd && !rewrite */
+# endif /* STREAM_COMMENTS */
 
     if (include_stream_ef) {
       add_Stream_local_extra_field(z);
     }
-  } else
+  } /* include_stream_ef */
+  else
   {
-      remove_extra_field(EF_STREAM, z);
+    remove_extra_field(EF_STREAM, z);
   }
 #endif /* STREAM_EF_SUPPORT */
 
@@ -7013,8 +7229,10 @@ int putlocal(z, rewrite)
   append_string_to_mem(iname, nam, &block, &offset, &blocksize);
 #endif
   free(iname);
+#ifdef UNICODE_SUPPORT
   if (uname)
     free(uname);
+#endif
 #if 0
   if (path_prefix) {
     free(iname);
@@ -7204,7 +7422,9 @@ int putcentral(z)
   uzoff_t off = 0;      /* offset to start of local header */
   ush nam = z->nam;     /* size of name to write to header */
   char *iname = NULL;   /* name to write to header */
+#ifdef UNICODE_SUPPORT
   char *uname = NULL;   /* UTF-8 name to write to header */
+#endif
 #ifdef IZ_CRYPT_AES_WG
   ush aes_vendor_version;       /* AES_WG encryption strength. */
 #endif /* def IZ_CRYPT_AES_WG */
@@ -7301,6 +7521,7 @@ int putcentral(z)
     iname = new_path;
     tempzn += new_path_len - nam;
     nam = new_path_len;
+#ifdef UNICODE_SUPPORT
     if (uname) {
       oldlen = (int)strlen(uname);
       new_path_len = path_prefix_len + oldlen;
@@ -7312,6 +7533,32 @@ int putcentral(z)
       free(uname);
       uname = new_path;
     }
+#endif
+  }
+
+
+  if (iname[0] == '-' && iname[1] == '\0' && stdin_name && z->mark) {
+    int new_path_len;
+    char *new_path;
+    
+    new_path_len = (int)strlen(stdin_name);
+    new_path = string_dup(stdin_name, "stdin_name putcentral new_path", 0);
+
+    free(iname);
+    iname = new_path;
+    tempzn += new_path_len - 1;
+    nam = new_path_len;
+#ifdef UNICODE_SUPPORT
+    uname = string_dup(stdin_name, "stdin_name putcentral uname", 0);
+
+    if (is_utf8_string(iname, NULL, NULL, NULL, NULL)) {
+      /* If uname is UTF-8, revert back to "-" for standard name.
+         This is needed if using extra field. */
+      free(iname);
+      iname = string_dup("-", "stdin_name putcentral iname -> -", 0);
+      nam = 1;
+    }
+#endif
   }
 
 #ifdef UNICODE_SUPPORT
@@ -7360,10 +7607,7 @@ int putcentral(z)
   if (use_uname) {
     /* path is UTF-8 or utf8_native */
     free(iname);
-    if ((iname = malloc(strlen(uname) + 1)) == NULL) {
-      ZIPERR(ZE_MEM, "putcentral uname->iname");
-    }
-    strcpy(iname, uname);
+    iname = string_dup(uname, "putcentral uname->iname", 0);
     nam = (ush)strlen(iname);
     /* iname = z->uname; */
   }
@@ -7579,8 +7823,10 @@ int putcentral(z)
 #endif
 
   free(iname);
+#ifdef UNICODE_SUPPORT
   if (uname)
     free(uname);
+#endif
 #if 0
   if (path_prefix) {
     free(iname);
@@ -7950,8 +8196,9 @@ int zipcopy(z)
     localz->len = LG(LOCLEN + buf);
   }
 
-  /* mthd is used in putlocal() to determine thresholds.  As we are copying,
-     the size of the data should not change so flag that. */
+  /* thresh_mthd is used in putlocal() to determine thresholds.  As we are
+     copying, the size of the data should not change.  Setting thresh_mthd
+     to COPYING implies margin is zero (size is exact). */
   localz->thresh_mthd = COPYING;
 
   if (fix == 2) {
@@ -8157,19 +8404,18 @@ int zipcopy(z)
     free(localz->uname);
     free(z->uname);
     if (is_utf8_string(z->iname, NULL, NULL, NULL, NULL)) {
-      localz->uname = string_dup(z->iname, "localz->uname");
-      z->uname = string_dup(z->iname, "z->uname");
+      localz->uname = string_dup(z->iname, "localz->uname", 0);
+      z->uname = string_dup(z->iname, "z->uname", 0);
     }
     else {
       localz->uname = local_to_utf8_string(z->iname);
       z->uname = local_to_utf8_string(z->iname);
     }
 #else
-/* SMSd. */
 # if 0
     localz->uname = string_dup(z->iname, "localz->uname");
     z->uname = string_dup(z->iname, "z->uname");
-# endif /* 0 */
+# endif
 #endif
   }
 
@@ -8375,6 +8621,7 @@ int zipcopy(z)
     z->nam = localz->nam;
     z->ext = localz->ext;
     z->extra = localz->extra;
+    /* Default the method to determine Zip64 threshold to how. */
     z->thresh_mthd = z->how;
     /* copy local extra fields to central directory for now */
     z->cext = localz->ext;

@@ -337,6 +337,10 @@ local void freeup()
     free(path_prefix);
     path_prefix = NULL;
   }
+  if (stdin_name) {
+    free(stdin_name);
+    stdin_name = NULL;
+  }
   if (tempath != NULL)
   {
     free((zvoid *)tempath);
@@ -763,6 +767,8 @@ local void license()
 
   for (i = 0; i < sizeof(swlicense)/sizeof(char *); i++)
     zprintf("%s\n", swlicense[i]);
+  zprintf("\n");
+  zprintf("See \"zip -v\" for encryption notices (if encryption included).\n");
 }
 
 # ifdef VMSCLI
@@ -1254,18 +1260,19 @@ local void help_extended()
 "  -R patterns match ends of paths.  Given n is the number of directory",
 "  components in the pattern, where n is one more than the number of",
 "  slashes in the pattern, -R will compare the last n components of",
-"  each path to the pattern.  For -R, * does not cross slashes (directory",
-"  boundaries).  So if pattern contains 2 slashes, last 3 components of",
-"  path are compared.  For instance, if pattern is *.txt, then one component",
-"  will be matched against (last one, the file name) and foo.txt, a/bar.txt"
-"  and b/a/foobar.txt all match.  Pattern foo/* will look at the last two",
-"  components of each path and compare to pattern.  Paths like .../foo/bar.txt",
-"  will match.  Note that subdirectories below foo/ will not be recursed.",
-"  Pattern *a/*.txt will match a/bar.txt and b/a/foobar.txt, but not foo.txt",
-"  (as looking for two components, not one).  Pattern *a* will match only",
-"  filenames with 'a', such as 'bar' in a/bar.txt, however deep.  -R patterns",
-"  do not match directories themselves, as these always end in / (unless",
-"  pattern includes end /).",
+"  each path to the pattern.  (-R matches against internal paths, so",
+"  the slash is the directory separator for all ports.)  For -R, * does",
+"  not cross slashes (directory boundaries).  So if pattern contains 2",
+"  slashes, last 3 components of path are compared.  For instance, if pattern",
+"  is *.txt, then one component will be matched against (last one, the file",
+"  name) and foo.txt, a/bar.txt and b/a/foobar.txt all match.  Pattern foo/*",
+"  will look at the last two components of each path and compare to pattern.",
+"  Paths like .../foo/bar.txt will match.  Note that subdirectories below",
+"  foo/ will not be recursed.  Pattern *a/*.txt will match a/bar.txt and",
+"  b/a/foobar.txt, but not foo.txt (as looking for two components, not one).",
+"  Pattern *a* will match only filenames with 'a', such as 'bar' in a/bar.txt,",
+"  however deep.  -R patterns do not match directories themselves, as these",
+"  always end in / (unless pattern includes end /).",
 "",
 "  Use -i and -x with either -r or -R to include only or exclude files.",
 "",
@@ -2918,7 +2925,7 @@ local void get_unzip_features(unzippath, version, features)
   char *beta_string;
 
   if (show_what_doing) {
-    zfprintf(mesg, "sd:  get unzip version and features\n");
+    zipmessage("sd:  get unzip version and features", "");
   }
 
   cmd[0] = '\0';
@@ -3065,9 +3072,10 @@ local void get_unzip_features(unzippath, version, features)
 
       if (success) {
         if (show_what_doing) {
-          zfprintf(mesg, "sd:  UnZip %4.2f (%s) number %s beta %s\n",
-                   UnZip_Version, unzip_version_string, number_string,
-                   beta_string);
+          sprintf(errbuf, "sd:  UnZip %4.2f (%s) number %s beta %s",
+                  UnZip_Version, unzip_version_string, number_string,
+                  beta_string);
+          zipmessage(errbuf, "");
         }
 
         /* Currently only UnZip 6.1c and later support basic split archives.
@@ -3081,7 +3089,7 @@ local void get_unzip_features(unzippath, version, features)
             (UnZip_Version > 6.1)) {             /* or UnZip 6.11 or later */
           at_least_61c = 1;
           if (show_what_doing) {
-            zfprintf(mesg, "sd:  at least UnZip 6.1c with basic split support\n");
+            zipmessage("sd:  at least UnZip 6.1c with basic split support", "");
           }
         }
         if (at_least_61c) {
@@ -3099,8 +3107,6 @@ local void get_unzip_features(unzippath, version, features)
           }
           /* look for compilation options */
           if (strstr(buf, "    UNSHRINK_SUPPORT"))
-
-
             unzip_supported_features |= UNZIP_UNSHRINK_SUPPORT;
           else if (strstr(buf, "    DEFLATE64_SUPPORT"))
             unzip_supported_features |= UNZIP_DEFLATE64_SUPPORT;
@@ -3122,6 +3128,9 @@ local void get_unzip_features(unzippath, version, features)
             unzip_supported_features |= UNZIP_IZ_CRYPT_TRAD;
           else if (strstr(buf, "    IZ_CRYPT_AES_WG"))
             unzip_supported_features |= UNZIP_IZ_CRYPT_AES_WG;
+          /* This is to support UnZip 5.52. */
+          else if (strstr(buf, "[decryption, version 2.9"))
+            unzip_supported_features |= UNZIP_IZ_CRYPT_TRAD;
         } /* while */
       } /* read rest of popen output */
     } /* first line */
@@ -3134,8 +3143,9 @@ local void get_unzip_features(unzippath, version, features)
   }
 
   if (show_what_doing) {
-    zfprintf(mesg, "sd:  got unzip supported feature set:  %04x\n",
-              unzip_supported_features);
+    sprintf(errbuf, "sd:  got unzip supported feature set:  %04lx",
+            unzip_supported_features);
+    zipmessage(errbuf, "");
   }
 
   *version = UnZip_Version;
@@ -3169,7 +3179,7 @@ local int check_unzip_version(unzippath, needed_unzip_features)
   int unzip_supports_needed_features = 1;
 
   if (show_what_doing) {
-    zfprintf(mesg, "sd:  check unzip version\n");
+    zipmessage("sd:  check unzip version", "");
   }
 
   if (unzip_supported_features == 0) {
@@ -3179,11 +3189,14 @@ local int check_unzip_version(unzippath, needed_unzip_features)
   }
   
   if (show_what_doing) {
-    zfprintf(mesg, "sd:  unzip version:  %4.2f\n", unzip_version);
-    zfprintf(mesg, "sd:  unzip supported features:  %04x\n",
+    sprintf(errbuf, "sd:  unzip version:  %4.2f", unzip_version);
+    zipmessage(errbuf, "");
+    sprintf(errbuf, "sd:  unzip supported features:  %04lx",
              unzip_supported_features);
-    zfprintf(mesg, "sd:  needed unzip features:     %04x\n",
+    zipmessage(errbuf, "");
+    sprintf(errbuf, "sd:  needed unzip features:     %04lx",
              needed_unzip_features);
+    zipmessage(errbuf, "");
   }
 
   for (bit = 0; bit <= MAX_UNZIP_FEATURE_BIT; bit++) {
@@ -3367,8 +3380,8 @@ local char *parse_TT_string(unzip_string, temp_zip_path,
   char *key;             /* key = passwd + keyfile password content (text only) */
   int *unzip_being_used; /* returns 1 if {u} (UnZip being used), else 0 */
 {
-  /* Given the unzip command string provided by user, find {...} placeholders
-   * and replace with values as appropriate.
+  /* Given the -TT unzip command string provided by user, find {...}
+   * placeholders and replace with values as appropriate.
    *
    * The caller needs to surround input parameters with quotes as needed as
    * well as deal with embedded quotes.
@@ -3433,7 +3446,7 @@ local char *parse_TT_string(unzip_string, temp_zip_path,
      provided to zip.  Replace {}, {p}, {k}, or {y} with the respective
      content.  Exit with error if format flawed.  (Seems safer to just
      give up than to press on with flawed command string.) */
-  unzip_string_len = strlen(unzip_string);
+  unzip_string_len = (int)strlen(unzip_string);
   for (i = 0; i < unzip_string_len; ) {
     if (unzip_string[i] == '{') {
       int ii = i + 1;
@@ -3442,7 +3455,7 @@ local char *parse_TT_string(unzip_string, temp_zip_path,
         /* temp file path goes here */
         unzip_cmd[j] = '\0';
         strcat(unzip_cmd, temp_zip_path);
-        j += strlen(temp_zip_path);
+        j += (int)strlen(temp_zip_path);
         tempname_added = 1;
         i += 2;
       }
@@ -3453,7 +3466,7 @@ local char *parse_TT_string(unzip_string, temp_zip_path,
           /* {p} */
           unzip_cmd[j] = '\0';
           strcat(unzip_cmd, passwd);
-          j += strlen(passwd);
+          j += (int)strlen(passwd);
           i += 3;
         }
         else if (unzip_string[ii] == ':') {
@@ -3499,7 +3512,7 @@ local char *parse_TT_string(unzip_string, temp_zip_path,
                       /* {p} */
                       unzip_cmd[j] = '\0';
                       strcat(unzip_cmd, passwd);
-                      j += strlen(passwd);
+                      j += (int)strlen(passwd);
                       n += 3;
                     }
                     else if (unzip_string[n + 1] == 'y' && unzip_string[n + 2] == '}') {
@@ -3507,7 +3520,7 @@ local char *parse_TT_string(unzip_string, temp_zip_path,
                       /* this should be checked for text only */
                       unzip_cmd[j] = '\0';
                       strcat(unzip_cmd, key);
-                      j += strlen(key);
+                      j += (int)strlen(key);
                       n += 3;
                     }
                     else {
@@ -3523,7 +3536,9 @@ local char *parse_TT_string(unzip_string, temp_zip_path,
                 } /* for */
               } /* pass_pswd_to_unzip */
               else {
-                zipmessage("  note:  use -pu to pass password to unzip (could be unsecure)", "");
+                zipmessage(
+              "  note:  add -pu to pass password to unzip (could be unsecure)",
+                  "");
               }
               i = content_end + 1;
             } /* passwd */
@@ -3542,7 +3557,7 @@ local char *parse_TT_string(unzip_string, temp_zip_path,
           /* {k} */
           unzip_cmd[j] = '\0';
           strcat(unzip_cmd, keyfile);
-          j += strlen(keyfile);
+          j += (int)strlen(keyfile);
           i += 3;
         }
         else if (unzip_string[ii] == ':') {
@@ -3590,7 +3605,7 @@ local char *parse_TT_string(unzip_string, temp_zip_path,
                     /* {k} */
                     unzip_cmd[j] = '\0';
                     strcat(unzip_cmd, keyfile);
-                    j += strlen(keyfile);
+                    j += (int)strlen(keyfile);
                     n += 3;
                   }
                   else {
@@ -3623,7 +3638,7 @@ local char *parse_TT_string(unzip_string, temp_zip_path,
           if (key && pass_pswd_to_unzip) {
             unzip_cmd[j] = '\0';
             strcat(unzip_cmd, key);
-            j += strlen(key);
+            j += (int)strlen(key);
             i += 3;
           }
         }
@@ -3680,7 +3695,8 @@ local char *build_unzip_command(unzip_path, temp_zip_path, passwd, keyfile)
   char *keyfile;         /* keyfile path (can be NULL) */
 {
   /* Build the command string from the given components, accounting for
-   * existence of password or keyfile.
+   * existence of password or keyfile.  This is used whenever -TT is not
+   * used.
    *
    * The caller needs to surround input parameters with quotes as needed as
    * well as deal with embedded quotes.
@@ -3695,14 +3711,14 @@ local char *build_unzip_command(unzip_path, temp_zip_path, passwd, keyfile)
   unzip_cmd[0] = '\0';
 
   if (unzip_path) {
-    len += strlen(unzip_path);
+    len += (int)strlen(unzip_path);
     if (len > MAX_UNZIP_COMMAND_LEN) {
       ZIPERR(ZE_UNZIP, "unzip command too long");
     }
     strcat(unzip_cmd, unzip_path);
   }
   else {
-    len += strlen("unzip");
+    len += (int)strlen("unzip");
     if (len > MAX_UNZIP_COMMAND_LEN) {
       ZIPERR(ZE_UNZIP, "unzip command too long");
     }
@@ -3710,23 +3726,31 @@ local char *build_unzip_command(unzip_path, temp_zip_path, passwd, keyfile)
   }
 
   if (unzip_verbose) {
-    len += strlen(" -t");
+    len += (int)strlen(" -t");
     if (len > MAX_UNZIP_COMMAND_LEN) {
       ZIPERR(ZE_UNZIP, "unzip command too long");
     }
     strcat(unzip_cmd, " -t");
   }
   else {
-    len += strlen(" -tqq");
+    len += (int)strlen(" -tqq");
     if (len > MAX_UNZIP_COMMAND_LEN) {
       ZIPERR(ZE_UNZIP, "unzip command too long");
     }
     strcat(unzip_cmd, " -tqq");
   }
 
+#ifdef QDOS
+  len += strlen(" -Q4");
+  if (len > MAX_UNZIP_COMMAND_LEN) {
+    ZIPERR(ZE_UNZIP, "unzip command too long");
+  }
+  strcat(unzip_cmd, " -Q4");
+#endif
+
   if (passwd) {
     if (pass_pswd_to_unzip) {
-      len += strlen(" -P ") + strlen(passwd);
+      len += (int)strlen(" -P ") + (int)strlen(passwd);
       if (len > MAX_UNZIP_COMMAND_LEN) {
         ZIPERR(ZE_UNZIP, "unzip command too long");
       }
@@ -3734,12 +3758,13 @@ local char *build_unzip_command(unzip_path, temp_zip_path, passwd, keyfile)
       strcat(unzip_cmd, passwd);
     }
     else {
-      zipmessage("  note:  use -pu to pass password to unzip (could be unsecure)", "");
+      zipmessage(
+        "  note:  add -pu to pass password to unzip (could be unsecure)", "");
     }
   }
 
   if (keyfile) {
-    len += strlen(" -kf ") + strlen(keyfile);
+    len += (int)strlen(" -kf ") + (int)strlen(keyfile);
     if (len > MAX_UNZIP_COMMAND_LEN) {
       ZIPERR(ZE_UNZIP, "unzip command too long");
     }
@@ -3748,7 +3773,7 @@ local char *build_unzip_command(unzip_path, temp_zip_path, passwd, keyfile)
   }
 
   /* append tempname to end */
-  len += strlen(" ") + strlen(temp_zip_path);
+  len += (int)strlen(" ") + (int)strlen(temp_zip_path);
   if (len > MAX_UNZIP_COMMAND_LEN) {
     ZIPERR(ZE_UNZIP, "unzip command too long");
   }
@@ -3760,14 +3785,18 @@ local char *build_unzip_command(unzip_path, temp_zip_path, passwd, keyfile)
   return cmd;
 }
 
+
 /* quote_arg()
  *
- * Add quotation and/or escapes to a shell/CLI argument string,
- * appropriate to the local operating system or shell/CLI.
+ * Add quotation and/or escapes to a shell (VMS: DCL) argument string
+ * appropriate to the local operating system or shell  (Unix, Windows,
+ * etc.).  This is mainly used to build the command line to pass to
+ * UnZip (or other application when -TT used) to test an archive.
  * Return malloc()'d result.
  *
  *    All:     Add " at beginning and end.
  *    MSDOS:   % -> "^%"
+ *             " -> \""
  *    Unix:    ! -> "'!'"
  *             $ -> \$
  *             \ -> \\
@@ -3796,17 +3825,20 @@ local char *quote_arg(instring)
 
 #ifdef MSDOS
 # define QA_FACTOR 4            /* Worst case (MSDOS): % -> "^%"  */
-#else /* def MSDOS */
+
+#else /* not MSDOS */
 # ifdef VMS
 #  define QA_FACTOR 3           /* Worst case (VMS): " -> """  */
-# else /* def VMS */
+
+# else /* not MSDOS or VMS */
 #  define QA_FACTOR 5           /* Worst case (Unix): ! -> "'!'"  */
-# endif /* def VMS [else] */
-#endif /* def MSDOS [else] */
+# endif /* VMS [else] */
+#endif /* MSDOS [else] */
+
 #define QA_INCR 2               /* Surrounding quotation marks. */
 
-  tempstring = (char *)malloc(QA_FACTOR * strlen(instring) + QA_INCR + 1);
-  if (tempstring == NULL) {
+  i = QA_FACTOR * (int)strlen(instring) + QA_INCR + 1;
+  if ((tempstring = (char *)malloc(i)) == NULL) {
     ZIPERR(ZE_MEM, "quote_arg");
   }
 
@@ -3816,7 +3848,8 @@ local char *quote_arg(instring)
 
   for (i = 0; instring[i]; i++) {
     c = instring[i];
-#ifdef MSDOS
+
+#ifdef MSDOS /* or Windows */
     if (c == '%')               /* Percent. */
     {
       tempstring[j++] = '"';    /* Add (closing) quotation mark. */
@@ -3824,17 +3857,27 @@ local char *quote_arg(instring)
       tempstring[j++] = '%';    /* Original character (%). */
       c = '"';                  /* Prepare (re-opening) quotation mark. */
     }
-#else /* def MSDOS */
+    else if (c == '"')          /* Quotation mark. */
+    {
+      tempstring[j++] = '\\';   /* Add backslash (escape). */
+      tempstring[j++] = '"';    /* Add quote (acts as closing and literal). */
+    }
+#else /* not def MSDOS */
+
+# ifdef VMS
     if (c == '"')               /* Quotation mark. */
     {
-# ifdef VMS
       tempstring[j++] = '"';    /* Add two quotation marks. */
       tempstring[j++] = '"';
-# else /* def VMS */
-      tempstring[j++] = '\\';   /* Add backslash (escape). */
-# endif /* def VMS [else] */
     }
-# ifdef UNIX
+# else /* not def VMS */
+
+    /* UNIX is default for others */
+
+    if (c == '"')               /* Quotation mark. */
+    {
+      tempstring[j++] = '\\';   /* Add backslash (escape). */
+    }
     else if (c == '!')          /* Exclamation.  (Inefficient.) */
     {
       tempstring[j++] = '"';    /* Add (closing) quotation mark. */
@@ -3844,13 +3887,15 @@ local char *quote_arg(instring)
       c = '"';                  /* Prepare (re-opening) quotation mark. */
     }
     else if ((c == '$') ||      /* Dollar sign. */
-     (c == '`') ||              /* Grave accent (backtick). */
-     (c == '\\'))               /* Backslash. */
+             (c == '`') ||      /* Grave accent (backtick). */
+             (c == '\\'))       /* Backslash. */
     {
       tempstring[j++] = '\\';   /* Add backslash (escape). */
     }
-# endif /* def UNIX */
+
+# endif /* def VMS [else] */
 #endif /* def MSDOS [else] */
+
     tempstring[j++] = c;        /* Original (or other last) character. */
   }
 
@@ -3880,12 +3925,9 @@ local void check_zipfile(zipname, zippath, is_temp)
 
 # if (defined(MSDOS) && !defined(__GO32__)) || defined(__human68k__)
 
-#if 0
-  if ((qzipname = (char *)malloc(strlen(zipname) + 3)) == NULL)
-    ziperr(ZE_MEM, "was creating unzip qzipname");
-#endif
-
 #  ifdef MSDOS
+  /* MSDOS and Windows */
+
   /* Add quotes for MSDOS.  8/11/04 */
 
   /* accept spaces in name and path */
@@ -3896,35 +3938,31 @@ local void check_zipfile(zipname, zippath, is_temp)
   qzipname = string_dup(zipname, "qzipname");
 #  endif
 
-#if 0
-#  ifdef MSDOS
-  strcpy(qzipname, "\"");
-  strcat(qzipname, zipname);
-  strcat(qzipname, "\"");
-#  else
-  strcpy(qzipname, zipname);
-#  endif
-#endif
-
   if (show_what_doing) {
     if (unzip_string) {
-      zfprintf(mesg, "sd:  unzip -TT string:  %s\n", unzip_string);
+      sprintf(errbuf, "sd:  unzip -TT string:  %s", unzip_string);
+      zipmessage(errbuf, "");
     }
     if (unzip_path) {
-      zfprintf(mesg, "sd:  unzip -TU path:    %s\n", unzip_path);
+      sprintf(errbuf, "sd:  unzip -TU path:    %s", unzip_path);
+      zipmessage(errbuf, "");
     }
   }
 
-  /* Put double quotes around and change " to \" in each string. */
+  /* Put double quotes around and escape special characters in each string. */
   qpasswd = quote_arg(passwd);
   qkeyfile = quote_arg(keyfile);
   qkey = quote_arg(key);
 
   if (show_what_doing) {
-    zfprintf(mesg, "sd:  qzipname:  %s\n", qzipname);
-    zfprintf(mesg, "sd:  qpasswd:   %s\n", qpasswd);
-    zfprintf(mesg, "sd:  qkeyfile:  %s\n", qkeyfile);
-    zfprintf(mesg, "sd:  qkey:      %s\n", qkey);
+    sprintf(errbuf, "sd:  qzipname:  %s", qzipname);
+    zipmessage(errbuf, "");
+    sprintf(errbuf, "sd:  qpasswd:   %s", qpasswd);
+    zipmessage(errbuf, "");
+    sprintf(errbuf, "sd:  qkeyfile:  %s", qkeyfile);
+    zipmessage(errbuf, "");
+    sprintf(errbuf, "sd:  qkey:      %s", qkey);
+    zipmessage(errbuf, "");
   }
 
   if (unzip_string) {
@@ -3957,69 +3995,12 @@ local void check_zipfile(zipname, zippath, is_temp)
     }
   }
 
-#if 0
-    /* Replace first {} with archive name.  If no {} append name to string. */
-    brackets = strstr(unzip_path, "{}");
-
-    if ((cmd = (char *)malloc(strlen(unzip_path) + strlen(zipnam) + 3)) == NULL)
-      ziperr(ZE_MEM, "was creating unzip cmd (1)");
-
-    if (brackets) {
-      /* have {} so replace with temp name */
-      len = (int)(brackets - unzip_path);
-      strcpy(cmd, unzip_path);
-      cmd[len] = '\0';
-      strcat(cmd, " ");
-      strcat(cmd, zipnam);
-      strcat(cmd, " ");
-      strcat(cmd, brackets + 2);
-    } else {
-      /* No {} so append temp name to end */
-      strcpy(cmd, unzip_path);
-      strcat(cmd, " ");
-      strcat(cmd, zipnam);
-    }
-
-    /* Replace first {p} with password given to zip.  If no password
-     * was given (-P or -e), any {p} remains in the command string.  If
-     * a password was given but no {p}, we don't know where to put the
-     * password so don't include it.
-     *
-     * Since we don't know what utility is being used, we don't know how
-     * to pass the password other than by using the command line.
-     */
-    if (key && pass_pswd_to_unzip) {
-      char *passwd_here;   /* where password goes */
-
-      passwd_here = strstr(cmd, "{p}");
-
-      if (passwd_here) {
-        /* have {p} so replace with password */
-        if ((cmd2 = (char *)malloc(strlen(cmd) + strlen(key) + 3)) == NULL)
-          ziperr(ZE_MEM, "was creating unzip cmd (2)");
-
-        /* put quotes around password */
-        len = (int)(passwd_here - cmd);
-        strcpy(cmd2, cmd);
-        cmd2[len] = '\0';
-        strcat(cmd2, "\"");
-        strcat(cmd2, key);
-        strcat(cmd2, "\"");
-        strcat(cmd2, passwd_here + 3);
-
-        /* Replace cmd with new string with password. */
-        free(cmd);
-        cmd = cmd2;
-      } else {
-        /* don't know where password should go, so don't include */
-      }
-    }
-#endif
-
   if (show_what_doing) {
-    zfprintf(mesg, "sd:  unzip command:     %s\n", cmd);
+    sprintf(errbuf, "sd:  unzip command:     %s", cmd);
+    zipmessage(errbuf, "");
   }
 
+  /* Skip unzip version check for -TT as don't know what app being used. */
   if (!unzip_string) {
     if (check_unzip_version(unzip_path, needed_unzip_features) == 0) {
       ZIPERR(ZE_UNZIP, zipfile);
@@ -4038,6 +4019,8 @@ local void check_zipfile(zipname, zippath, is_temp)
   else { /* result > 0 */
     if (unzip_being_used) {
 #if 0
+    /* Now we only interpret unzip error if we "know" unzip was used. */
+
     /* guess if unzip was command used */
     if (string_find(cmd, "unzip ", CASE_INS, 1) == 0 ||
         string_find(cmd, "/unzip ", CASE_INS, 1) != NO_MATCH) {
@@ -4065,158 +4048,6 @@ local void check_zipfile(zipname, zippath, is_temp)
   free(cmd);
 
 
-    /* The above does it all now. */
-#if 0
-  else {
-    /* No -TT or -TU, so use local unzip command.
-     *
-     * Currently the password is passed on the command line.  We are looking
-     * at passing a password to UnZip by other than the command line.
-     */
-
-    /* Here is where we need to check for the version of unzip the user
-     * has.  If creating a Zip64 archive need UnZip 6 or later or may fail.
-     */
-    char *cmd;
-    char *qpasswd;
-    char *qkeyfile;
-
-    /* these are NULL if input is NULL */
-    qpasswd = quote_arg(passwd);
-    qkeyfile = quote_arg(keyfile);
-
-    if (qpasswd && !pass_pswd_to_unzip) {
-      free(qpasswd);
-      qpasswd = NULL;
-    }
-    if (check_unzip_version("unzip") == 0) {
-      ZIPERR(ZE_UNZIP, zipfile);
-    }
-
-    cmd = build_unzip_command(unzip_path, zipnam, qpasswd, qkeyfile);
-
-    if (show_what_doing) {
-      zfprintf(mesg, "sd:  unzip command:    %s\n", cmd);
-    }
-
-    result = system(cmd);
-
-    if (result == -1) {
-      /* system() call failed */
-      zperror("test zip archive");
-    }
-    else if (result == 0) {
-      /* worked */
-    }
-    else {
-      warn_unzip_return(result);
-    }
-
-#if 0
-    if (passwd && pass_pswd_to_unzip) {
-      /* Put quotes around password */
-      if ((p = (char *)malloc(strlen(passwd) + 3)) == NULL)
-          ziperr(ZE_MEM, "was creating unzip p (1)");
-      strcpy(p, "\"");
-      strcat(p, passwd);
-      strcat(p, "\"");
-
-      if (show_what_doing) {
-        sprintf(errbuf, "unzip %s -P %s %s", ver, qpasswd, zipnam);
-        zfprintf(mesg, "sd:  unzip command:  %s\n", errbuf);
-      }
-      /* Run "unzip" with "-P pwd". */
-      status = (int)spawnlp(P_WAIT, "unzip", "unzip", ver, "-P", p, zipnam, NULL);
-      free(p);
-    } /* passwd && pass_pswd_to_unzip */
-    else {
-      /* no password */
-      if (show_what_doing) {
-        sprintf(errbuf, "unzip %s %s", ver, zipnam);
-        zfprintf(mesg, "sd:  unzip command:  %s\n", errbuf);
-      }
-      /* Run "unzip" without "-P pwd". */
-      status = (int)spawnlp(P_WAIT, "unzip", "unzip", ver, zipnam, NULL);
-    }
-#endif
-#  ifdef __human68k__
-    if (result == -1)
-      zperror("unzip");
-#  else
-/*
- * unzip isn't in PATH range, assume an absolute path to zip in argv[0]
- * and hope that unzip is in the same directory.
- */
-    if (result == -1) {
-      p = MBSRCHR(zippath, '\\');
-      path = MBSRCHR((p == NULL ? zippath : p), '/');
-      if (path != NULL)
-        p = path;
-      if (p != NULL) {
-        len = (int)(p - zippath) + 1;
-        if ((path = malloc(len + sizeof("unzip.exe"))) == NULL)
-          ziperr(ZE_MEM, "was creating unzip path");
-        memcpy(path, zippath, len);
-        strcpy(&path[len], "unzip.exe");
-
-        if (check_unzip_version(path) == 0)
-          ZIPERR(ZE_UNZIP, zipfile);
-
-        cmd = build_unzip_command(path, zipnam, qpasswd, qkeyfile);
-
-        if (show_what_doing) {
-          zfprintf(mesg, "sd:  unzip command:    %s\n", cmd);
-        }
-        result = system(cmd);
-
-        if (result == -1) {
-          /* system() call failed */
-          zperror("test zip archive");
-        }
-        else if (result == 0) {
-          /* worked */
-        }
-        else {
-          warn_unzip_return(result);
-        }
-
-#if 0
-        if (key && pass_pswd_to_unzip) {
-          char *k;
-
-          /* Put quotes around password */
-          if ((k = (char *)malloc(strlen(key) + 3)) == NULL)
-              ziperr(ZE_MEM, "was creating unzip k (2)");
-          strcpy(k, "\"");
-          strcat(k, key);
-          strcat(k, "\"");
-
-          status = (int)spawnlp(P_WAIT, path, "unzip", verbose ? "-t" : "-tqq",
-                                "-P", k, zipnam, NULL);
-          free(k);
-        } else {
-          status = (int)spawnlp(P_WAIT, path, "unzip", verbose ? "-t" : "-tqq",
-                                zipnam, NULL);
-        }
-        free(path);
-#endif
-      }
-      if (result == -1)
-        zperror("unzip");
-    } /* result == -1 */
-
-    if (qpasswd)
-      free(qpasswd);
-    if (qkeyfile)
-      free(qkeyfile);
-    if (cmd)
-      free(cmd);
-
-#  endif /* ?__human68k__ */
-  } /* no -TT or -TU */
-
-#endif /* 0 */
-
   if (result != 0)
 
 
@@ -4229,10 +4060,16 @@ local void check_zipfile(zipname, zippath, is_temp)
 
   if (show_what_doing) {
     if (unzip_string) {
-      zfprintf(mesg, "sd:  unzip -TT string:  %s\n", unzip_string);
+      sprintf(errbuf, "sd:  unzip -TT string:  %s", unzip_string);
+      zipmessage(errbuf, "");
     }
     if (unzip_path) {
-      zfprintf(mesg, "sd:  unzip -TU path:    %s\n", unzip_path);
+      sprintf(errbuf, "sd:  unzip -TU path:    %s", unzip_path);
+      zipmessage(errbuf, "");
+    }
+    if (!unzip_string && !unzip_path) {
+      sprintf(errbuf, "sd:  using default unzip");
+      zipmessage(errbuf, "");
     }
   }
 
@@ -4242,37 +4079,29 @@ local void check_zipfile(zipname, zippath, is_temp)
   qkeyfile = quote_arg(keyfile);
   qkey = quote_arg(key);
 
-#ifdef UNIX
-  /* Escape ' on command line to '"'"'. */
-
-  /* These don't seem needed on Unix. */
-  /* SMSd.  Right.  See quote_arg(). */
-# if 0
-  t = string_replace(qzipname, "'", "'\"'\"'", REPLACE_ALL, CASE_INS);
-  free(qzipname);
-  qzipname = t;
-
-  t = string_replace(qpasswd, "'", "'\"'\"'", REPLACE_ALL, CASE_INS);
-  free(qpasswd);
-  qpasswd = t;
-# endif
-#endif
-
   if (show_what_doing) {
-    zfprintf(mesg, "sd:  qzipname:  %s\n", qzipname);
-    zfprintf(mesg, "sd:  qpasswd:   %s\n", qpasswd);
-    zfprintf(mesg, "sd:  qkeyfile:  %s\n", qkeyfile);
-    zfprintf(mesg, "sd:  qkey:      %s\n", qkey);
+    sprintf(errbuf, "sd:  qzipname:  %s", qzipname);
+    zipmessage(errbuf, "");
+    sprintf(errbuf, "sd:  qpasswd:   %s", qpasswd);
+    zipmessage(errbuf, "");
+    sprintf(errbuf, "sd:  qkeyfile:  %s", qkeyfile);
+    zipmessage(errbuf, "");
+    sprintf(errbuf, "sd:  qkey:      %s", qkey);
+    zipmessage(errbuf, "");
   }
 
   if (unzip_string) {
-    /* Build command string to execute.  Test app may not be unzip. */
+    /* -TT
+     * Build command string to execute.  Test app may not be unzip.
+     */
     cmd = parse_TT_string(unzip_string, qzipname, qpasswd, qkeyfile, qkey,
                           &unzip_being_used);
   }
   else {
-    /* Build command string to execute.  Test app assumed to be unzip. */
-    /* build_unzip_command() handles case where unzip_path is NULL. */
+    /* -TU or default
+     * Build command string to execute.  Test app assumed to be unzip.
+     * build_unzip_command() handles case where unzip_path is NULL.
+     */
     cmd = build_unzip_command(unzip_path, qzipname, qpasswd, qkeyfile);
     unzip_being_used = 1;
   }
@@ -4295,198 +4124,21 @@ local void check_zipfile(zipname, zippath, is_temp)
     }
   }
 
-#if 0 /* old UNIX and others */
-
-  char *cmd;
-  char *cp1;
-  char *cp2;
-  int keylen = 0;
-  int len;
-  char *cmd2 = NULL;
-
-#  ifdef UNIX
-#   define STRCPY_QU strcpy_qu          /* Add apostrophe quotation. */
-#  else /* def UNIX */
-#   define STRCPY_QU strcpy             /* Simply copy. */
-#  endif /* def UNIX [else] */
-
-  /* Tell picky compilers to shut up about unused variables */
-  zippath = zippath;
-
-  /* Calculate archive name length (including quotation). */
-  len = strlen(zipname);                /* Archive name. */
-#  ifdef UNIX
-  /* 2013-10-18 SMS
-   * Count apostrophes in the archive name.  With surrounding
-   * apostrophes (added below), an embedded apostrophe must be
-   * replaced by >'"'"'<
-   * (apostrophe+quotation+apostrophe+quotation+apostrophe).  (Gack.)
-   */
-  for (cp1 = zipname; *cp1; cp1++)
-  {
-    if (*cp1 == '\'')
-      len += 4;                         /* >'< -> >'"'"'<. */
-  }
-  /* Add two for the surrounding apostrophes. */
-  len += 2;
-#  endif /* def UNIX */
-
-  /* Calculate password length (including quotation). */
-  if (key && pass_pswd_to_unzip)
-  {
-#  ifdef VMS
-    keylen = strlen(key) + 2;                   /* Add 2 for quotation. */
-#  else
-    keylen = strlen(key);
-#  endif
-
-#  ifdef UNIX
-    /* 2013-10-18 SMS
-     * Count apostrophes in the password.  With surrounding
-     * apostrophes (added below), an embedded apostrophe must be
-     * replaced by >'"'"'<
-     * (apostrophe+quotation+apostrophe+quotation+apostrophe).  (Gack.)
-     */
-    for (cp1 = key; *cp1; cp1++)
-    {
-      if (*cp1 == '\'')
-        keylen += 4;                    /* >'< -> >'"'"'<. */
-    }
-    /* Add two for the surrounding apostrophes. */
-    keylen += 2;
-#  endif /* def UNIX */
-  } /* key && pass_pswd_to_unzip */
-
-  if (unzip_path)
-  {
-    /* User gave us an unzip command (which may not use our UnZip). */
-    char *brackets;             /* Pointer to "{}" or "{p}" marker. */
-
-    /* Size of UnZip path + space + archive name (=len) + NUL.
-     * (We might need two less, if "{}" is replaced in unzip_path.)
-     */
-    len += strlen(unzip_path) + 2;
-
-    if ((cmd = malloc(len)) == NULL) {
-      ziperr(ZE_MEM, "building command string for testing archive (1)");
-    }
-
-    /* Replace first {} with archive name.  If no {}, append name to string. */
-    brackets = strstr(unzip_path, "{}");
-    if (brackets)
-    {
-      /* Replace "{}" with the archive name. */
-      len = brackets - unzip_path;      /* Length, pre-{}. */
-      strncpy(cmd, unzip_path, len);    /* Command, pre-{}. */
-      cmd[len] = '\0';                  /* NUL-terminate. */
-#  if 0
-      /* The user should supply a space here, if one is desired. */
-      strcat(cmd, " ");
-#  endif
-
-      /* Append the archive name (apostrophe-quoted on Unix) here. */
-      STRCPY_QU((cmd + strlen(cmd)), zipname);
-#  if 0
-      /* The user should supply a space here, if one is desired. */
-      strcat(cmd, " ");
-#  endif
-      strcat(cmd, brackets + 2);        /* Command, post-{}. */
-    }
-    else
-    {
-      /* No {}, so append a space and the archive name. */
-      strcpy(cmd, unzip_path);
-      strcat(cmd, " ");
-
-      /* Append the archive name (apostrophe-quoted on Unix) here. */
-      STRCPY_QU((cmd + strlen(cmd)), zipname);
-    }
-
-    /* fprintf(stderr, " 1. cmd = >%s<\n", cmd); */
-
-    /* Replace the first {p} with password given to zip.  If no password
-     * was given (-P or -e), any {p} remains in the command string.  If
-     * password but no {p}, we don't know where to put the password so
-     * it is not passed to the unzip utility.
-     *
-     * If pass_pswd_to_unzip is not set, then no password substitution
-     * occurs (and any {p} remains, so there should be no {p} in the -TT
-     * string if this is not set).
-     */
-    if (key && pass_pswd_to_unzip)
-    {
-      brackets = strstr(cmd, "{p}");
-
-      if (brackets) {
-        /* Have {p}, so replace with password.
-         * Allocate space for command plus (possibly quoted) password.
-         * Removing {p} makes room for terminating NULL.
-         */
-        if ((cmd2 = (char *)malloc(strlen(cmd) + keylen)) == NULL)
-          ziperr(ZE_MEM, "was creating unzip cmd (2)");
-        len = brackets - cmd;
-        strncpy(cmd2, cmd, len);                /* Command, pre-{p}. */
-        STRCPY_QU((cmd2 + strlen(cmd2)), key);  /* Password (quoted?). */
-        strcat(cmd2, (brackets + 3));           /* Command, post-{p}. */
-        free(cmd);                              /* Free original cmd storage. */
-        cmd = cmd2;                             /* Use revised cmd. */
-      }
-    }
-    free(unzip_path);
-    unzip_path = NULL;
-  } /* unzip_path */
-  else
-  {
-    /* No -TT, so use local unzip command */
-    if (check_unzip_version("unzip") == 0)
-      ZIPERR(ZE_UNZIP, zipfile);
-
-    /* Size of UnZip command + -P pw + space + archive name (=len) + NUL. */
-    if ((cmd = malloc(24 + keylen + len)) == NULL) {
-      ziperr(ZE_MEM, "building command string for testing archive (2)");
-    }
-
-    strcpy(cmd, "unzip -t ");
-#  ifdef QDOS
-    strcat(cmd, "-Q4 ");
-#  endif
-    if (!verbose) strcat(cmd, "-qq ");
-
-    /* fprintf( stderr, " 2.  cmd = >%s<\n", cmd); */
-
-    if (key && pass_pswd_to_unzip)
-    {
-      /* Add -P password. */
-      strcat(cmd, "-P ");
-#  ifdef VMS
-      strcat(cmd, "\"");                        /* Quote password on VMS. */
-#  endif
-      STRCPY_QU((cmd + strlen(cmd)), key);      /* Password (quoted?). */
-#  ifdef VMS
-      strcat(cmd, "\"");                        /* Quote password on VMS. */
-#  endif
-      strcat(cmd, " ");
-    }
-
-    /* Append the archive name (apostrophe-quoted on Unix) here. */
-    STRCPY_QU((cmd + strlen(cmd)), zipname);
-  }
-
-  /* fprintf(stderr, " 2p. cmd = >%s<\n", cmd); */
-
-#endif /* old UNIX and others */
-
   if (show_what_doing) {
-    zfprintf(mesg, "sd:  unzip command:     %s\n", cmd);
+    sprintf(errbuf, "sd:  unzip command:     %s", cmd);
+    zipmessage(errbuf, "");
   }
 
+  /* Only check unzip version if not using -TT. */
   if (!unzip_string) {
     if (check_unzip_version(unzip_path, needed_unzip_features) == 0) {
       ZIPERR(ZE_UNZIP, zipfile);
     }
   }
 
+  /* Test the archive. */
   result = system(cmd);
+
 #  ifdef VMS
   /* Convert success severity to 0, others to non-zero. */
   result = ((result & STS$M_SUCCESS) == 0);
@@ -4503,7 +4155,7 @@ local void check_zipfile(zipname, zippath, is_temp)
     }
     if (!is_temp) {
       sprintf(errbuf,
-              "as multi-disk archive tested or --out used, failed archive remains\n");
+        "as multi-disk archive tested or --out used, failed archive remains\n");
       zfprintf(mesg, "%", errbuf);
       if (logfile) {
         zfprintf(logfile, "%s", errbuf);
@@ -4526,7 +4178,7 @@ local void check_zipfile(zipname, zippath, is_temp)
 #endif /* ndef ZIP_DLL_LIB */
 
 
-/* get_filters() is replaced by the following
+/* get_filters() is replaced by add_filter() and filterlist_to_patterns()
 local int get_filters(argc, argv)
 */
 
@@ -5865,8 +5517,7 @@ void suffixes_option(value)
 */
 
 /* Single-letter option IDs are set to the shortopt char (like 'a').  For
-   multichar short options set to arbitrary unused constant (like
-   o_aa). */
+   multichar short options set to arbitrary unused constant (like o_aa). */
 #define o_aa            0x101
 #define o_ad            0x102
 #define o_as            0x103
@@ -5930,33 +5581,34 @@ void suffixes_option(value)
 #define o_sf            0x161
 #define o_sF            0x162
 #define o_si            0x163
-#define o_so            0x164
-#define o_sp            0x165
-#define o_sP            0x166
-#define o_ss            0x167
-#define o_st            0x168
-#define o_su            0x169
-#define o_sU            0x170
-#define o_sv            0x171
-#define o_tn            0x172
-#define o_tt            0x173
-#define o_TT            0x174
-#define o_TU            0x175
-#define o_TV            0x176
-#define o_UN            0x177
-#define o_UT            0x178
-#define o_ve            0x179
-#define o_vq            0x180
-#define o_VV            0x181
-#define o_wl            0x182
-#define o_ws            0x183
-#define o_ww            0x184
-#define o_yy            0x185
-#define o_z64           0x186
-#define o_atat          0x187
-#define o_vn            0x188
-#define o_et            0x189
-#define o_exex          0x190
+#define o_SI            0x164
+#define o_so            0x165
+#define o_sp            0x166
+#define o_sP            0x167
+#define o_ss            0x168
+#define o_st            0x169
+#define o_su            0x170
+#define o_sU            0x171
+#define o_sv            0x172
+#define o_tn            0x173
+#define o_tt            0x174
+#define o_TT            0x175
+#define o_TU            0x176
+#define o_TV            0x177
+#define o_UN            0x178
+#define o_UT            0x179
+#define o_ve            0x180
+#define o_vq            0x181
+#define o_VV            0x182
+#define o_wl            0x183
+#define o_ws            0x184
+#define o_ww            0x185
+#define o_yy            0x186
+#define o_z64           0x187
+#define o_atat          0x188
+#define o_vn            0x189
+#define o_et            0x190
+#define o_exex          0x191
 
 
 /* the below is mainly from the old main command line
@@ -5967,10 +5619,12 @@ void suffixes_option(value)
    depend on some option being disabled, and let's the user know that an
    option does exist, but that their version of Zip doesn't support it.
    This needs to be reconciled with -so. */
+/* Limit long option names to 18 characters or less to avoid problems showing
+   them in -so. */
 struct option_struct far options[] = {
   /* short longopt        value_type        negatable        ID    name */
     {"0",  "store",       o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '0',  "store"},
-    {"1",  "compress-1",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '1',  "compress 1"},
+    {"1",  "compress-1",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '1',  "compress 1 (fastest)"},
     {"2",  "compress-2",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '2',  "compress 2"},
     {"3",  "compress-3",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '3',  "compress 3"},
     {"4",  "compress-4",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '4',  "compress 4"},
@@ -5978,7 +5632,7 @@ struct option_struct far options[] = {
     {"6",  "compress-6",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '6',  "compress 6"},
     {"7",  "compress-7",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '7',  "compress 7"},
     {"8",  "compress-8",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '8',  "compress 8"},
-    {"9",  "compress-9",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '9',  "compress 9"},
+    {"9",  "compress-9",  o_OPT_EQ_VALUE,   o_NOT_NEGATABLE, '9',  "compress 9 (most compression)"},
     {"A",  "adjust-sfx",  o_NO_VALUE,       o_NOT_NEGATABLE, 'A',  "adjust self extractor offsets"},
 #ifdef WIN32
     {"AC", "archive-clear", o_NO_VALUE,     o_NOT_NEGATABLE, o_AC, "clear DOS archive bit of included files"},
@@ -6105,7 +5759,7 @@ struct option_struct far options[] = {
     {"p",  "paths",       o_NO_VALUE,       o_NEGATABLE,     'p',  "store paths"},
     {"pa", "prefix-add-path",o_REQUIRED_VALUE,o_NOT_NEGATABLE,o_pa,"add prefix to added/updated paths"},
     {"pn", "non-ansi-password", o_NO_VALUE, o_NEGATABLE,     o_pn, "allow non-ANSI password"},
-    {"ps", "allow-short-password", o_NO_VALUE, o_NEGATABLE,  o_ps, "allow short password"},
+    {"ps", "allow-short-pass", o_NO_VALUE, o_NEGATABLE,  o_ps, "allow short password"},
     {"pp", "prefix-path", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_pp, "add prefix to all paths in archive"},
     {"pt", "performance-time", o_NO_VALUE,  o_NEGATABLE,     o_pt, "time execution of zip"},
     {"pu", "pswd-to-unzip", o_NO_VALUE,     o_NEGATABLE,     o_pu, "pass password to unzip for test"},
@@ -6144,6 +5798,7 @@ struct option_struct far options[] = {
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(ATARI)
     {"S",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'S',  "include system and hidden"},
 #endif /* MSDOS || OS2 || WIN32 || ATARI */
+    {"SI", "rename-stdin",o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_SI, "rename stdin from \"-\" to this"},
     {"t",  "from-date",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, 't',  "exclude before date"},
     {"tt", "before-date", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_tt, "include before date"},
 #ifdef USE_EF_UT_TIME
@@ -6616,6 +6271,7 @@ char **argv;            /* command line tokens */
 
   path_prefix = NULL;     /* Prefix to add to all new archive entries */
   path_prefix_mode = 0;   /* 0=Prefix all paths, 1=Prefix only added/updated paths */
+  stdin_name = NULL;      /* Name to change default stdin "-" to */
   tempath = NULL;         /* Path for temporary files */
   patterns = NULL;        /* List of patterns to be matched */
   pcount = 0;             /* number of patterns */
@@ -7142,7 +6798,7 @@ char **argv;            /* command line tokens */
   argnum = 0;
 
   /* get_option returns the option ID and updates parameters:
-         args    - usually same as argv if no argument file support
+         args    - usually copy of argv unless argument file adds arguments
          argcnt  - current argc for args
          value   - char* to value (free() when done with it) or NULL if no value
          negated - option was negated with trailing -
@@ -8105,6 +7761,11 @@ char **argv;            /* command line tokens */
         case 'S':
           MacZip.IncludeInvisible = true; break;
 #endif /* MACOS */
+        case o_SI:  /* Change default stdin name "-" to this */
+          if (stdin_name)
+            free(stdin_name);
+          stdin_name = value;
+          break;
         case 't':   /* Exclude files earlier than specified date */
           {
             ulg dt;
@@ -8695,8 +8356,8 @@ char **argv;            /* command line tokens */
                   else
 #endif
                     strcpy(s, "LOCAL");
-                  zfprintf(mesg, "sd: Zipfile name '%s' (%s)\n", zipfile, s);
-                  fflush(mesg);
+                  sprintf(errbuf, "sd: Zipfile name '%s' (%s)", zipfile, s);
+                  zipmessage(errbuf, "");
                 }
                 /* if in_path not set, use zipfile path as usual for input */
                 /* in_path is used as the base path to find splits */
@@ -8812,8 +8473,7 @@ char **argv;            /* command line tokens */
   /* do processing of command line and one-time tasks */
 
   if (show_what_doing) {
-    zfprintf(mesg, "sd: Command line read\n");
-    fflush(mesg);
+    zipmessage("sd: Command line read", "");
   }
 
   /* Check method-level suffix options. */
@@ -9017,6 +8677,7 @@ char **argv;            /* command line tokens */
         ZIPERR(ZE_PARMS, errbuf);
       }
     }
+
     else
     {
       /* local charset working_dir */
@@ -9312,8 +8973,8 @@ char **argv;            /* command line tokens */
 
     zipfile = ziptyp(backup_full_path);
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Zipfile name '%s'\n", zipfile);
-      fflush(mesg);
+      sprintf(errbuf, "sd: Zipfile name '%s'", zipfile);
+      zipmessage(errbuf, "");
     }
     if ((in_path = malloc(strlen(zipfile) + 1)) == NULL) {
       ZIPERR(ZE_MEM, "was processing arguments (6)");
@@ -9511,12 +9172,12 @@ char **argv;            /* command line tokens */
 
   if (show_what_doing) {
     if (in_path) {
-      sprintf(errbuf, "sd: in_path  '%s'\n", in_path);
-      print_utf8(errbuf);
+      sprintf(errbuf, "sd: in_path  '%s'", in_path);
+      zipmessage(errbuf, "");
     }
     if (out_path) {
-      sprintf(errbuf, "sd: out_path '%s'\n", out_path);
-      print_utf8(errbuf);
+      sprintf(errbuf, "sd: out_path '%s'", out_path);
+      zipmessage(errbuf, "");
     }
   }
 
@@ -9823,6 +9484,30 @@ char **argv;            /* command line tokens */
     }
   }
 
+  /* Check stdin name */
+  if (stdin_name) {
+    int i;
+    char last_c = '\0';
+    char c;
+    char *allowed_other_chars = ALLOWED_PREFIX_CHARS;
+
+    for (i = 0; (c = stdin_name[i]); i++) {
+      if (!isprint(c)) {
+        ZIPERR(ZE_PARMS, "option -SI (--name-stdin): non-print char in name");
+      }
+      if (!isalnum(c) && !strchr(allowed_other_chars, c)) {
+        strcpy(errbuf, "option -SI (--name_stdin), only alphanum and \"");
+        strcat(errbuf, allowed_other_chars);
+        strcat(errbuf, "\" allowed");
+        ZIPERR(ZE_PARMS, errbuf);
+      }
+      if (last_c == '.' && c == '.') {
+        ZIPERR(ZE_PARMS, "option -SI (--name_stdin): \"..\" not allowed");
+      }
+      last_c = c;
+    }
+  }
+
 
   /* -TT and -TU */
   if (unzip_string && unzip_path) {
@@ -10063,8 +9748,6 @@ char **argv;            /* command line tokens */
       } else {
         ZIPERR(r, "-");
       }
-
-
     }
 
     /* Specify stdout ("-") as the archive. */
@@ -10082,8 +9765,7 @@ char **argv;            /* command line tokens */
 
   if (zipfile && !strcmp(zipfile, "-")) {
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Zipping to stdout\n");
-      fflush(mesg);
+      zipmessage("sd: Zipping to stdout", "");
     }
     zip_to_stdout = 1;
   }
@@ -10123,15 +9805,13 @@ char **argv;            /* command line tokens */
 
     /* Open zip file and temporary output file */
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Open zip file and create temp file (-FF)\n");
-      fflush(mesg);
+      zipmessage("sd: Open zip file and create temp file (-FF)", "");
     }
     diag("opening zip file and creating temporary zip file");
     x = NULL;
     tempzn = 0;
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Creating new zip file (-FF)\n");
-      fflush(mesg);
+      zipmessage("sd: Creating new zip file (-FF)", "");
     }
 #if defined(UNIX) && !defined(NO_MKSTEMP)
     {
@@ -10169,8 +9849,8 @@ char **argv;            /* command line tokens */
         ZIPERR(ZE_TEMP, tempzip);
       }
       if (show_what_doing) {
-        zfprintf(mesg, "sd: Temp file (1u): %s\n", tempzip);
-        fflush(mesg);
+        sprintf(errbuf, "sd: Temp file (1u): %s", tempzip);
+        zipmessage(errbuf, "");
       }
       if ((y = fdopen(yd, FOPW_TMP)) == NULL) {
         ZIPERR(ZE_TEMP, tempzip);
@@ -10181,8 +9861,8 @@ char **argv;            /* command line tokens */
       ZIPERR(ZE_TEMP, out_path);
     }
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Temp file (1n): %s\n", tempzip);
-      fflush(mesg);
+      sprintf(errbuf, "sd: Temp file (1n): %s", tempzip);
+      zipmessage(errbuf, "");
     }
     Trace((stderr, "zip diagnostic: tempzip: %s\n", tempzip));
     if ((y = zfopen(tempzip, FOPW_TMP)) == NULL) {
@@ -10214,8 +9894,7 @@ char **argv;            /* command line tokens */
 
     /* Write central directory and end header to temporary zip */
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Writing central directory (-FF)\n");
-      fflush(mesg);
+      zipmessage("sd: Writing central directory (-FF)", "");
     }
     diag("writing central directory");
     k = 0;                        /* keep count for end header */
@@ -10313,8 +9992,8 @@ char **argv;            /* command line tokens */
 
     for (; ap; ) {
       if (show_what_doing) {
-        zfprintf(mesg, "sd: Scanning incremental archive:  %s\n", ap->name);
-        fflush(mesg);
+        sprintf(errbuf, "sd: Scanning incremental archive:  %s", ap->name);
+        zipmessage(errbuf, "");
       }
 
       if (backup_type == BACKUP_INCR) {
@@ -10343,8 +10022,8 @@ char **argv;            /* command line tokens */
 
 
   if (show_what_doing) {
-    zfprintf(mesg, "sd: Reading archive:  %s\n", zipfile);
-    fflush(mesg);
+    sprintf(errbuf, "sd: Reading archive:  %s", zipfile);
+    zipmessage(errbuf, "");
   }
 
   /* read zipfile if exists */
@@ -10358,8 +10037,7 @@ char **argv;            /* command line tokens */
     ZIPERR(r, zipfile);
   }
   if (show_what_doing) {
-    zfprintf(mesg, "sd: Archive read or no archive\n");
-    fflush(mesg);
+    zipmessage("sd: Archive read or no archive", "");
   }
 
 
@@ -10434,8 +10112,7 @@ char **argv;            /* command line tokens */
     if (action == ARCHIVE) {
       /* find in archive */
       if (show_what_doing) {
-        zfprintf(mesg, "sd: Scanning archive entries\n");
-        fflush(mesg);
+        zipmessage("sd: Scanning archive entries", "");
       }
       for (; filelist; ) {
         char *name = filelist->name;
@@ -10468,8 +10145,7 @@ char **argv;            /* command line tokens */
     } else {
       /* try find matching files on OS first then try find entries in archive */
       if (show_what_doing) {
-        zfprintf(mesg, "sd: Scanning files\n");
-        fflush(mesg);
+        zipmessage("sd: Scanning files", "");
       }
       for (; filelist; ) {
         no_wild = filelist->verbatim;
@@ -10509,9 +10185,7 @@ char **argv;            /* command line tokens */
     int salt_len;
 
     if (show_what_doing) {
-        zfprintf(mesg,
-         "sd: Initializing AES_WG encryption random number pool\n");
-        fflush(mesg);
+      zipmessage("sd: Initializing AES_WG encryption random number pool", "");
     }
 
     /*
@@ -10536,6 +10210,7 @@ char **argv;            /* command line tokens */
     }
 #ifdef FAKE_SALT
     memset(zsalt, 1, salt_len);         /* Feel free to discard. */
+    zipwarn("using fake salt for debugging - ENCRYPTION COMPROMISED!!", "");
 #else
     prng_rand(zsalt, salt_len, &aes_rnp);
 #endif
@@ -10545,12 +10220,11 @@ char **argv;            /* command line tokens */
     */
 
     if (show_what_doing) {
-        zfprintf(mesg, "sd: AES_WG random number pool initialized\n");
-        /*
-        fprintf(mesg, "sd: AES_WG random number pool initialized in %d s\n",
-         pool_init_time);
-        */
-        fflush(mesg);
+      zipmessage("sd: AES_WG random number pool initialized", "");
+      /*
+      fprintf(mesg, "sd: AES_WG random number pool initialized in %d s\n",
+       pool_init_time);
+      */
     }
   }
 #endif
@@ -10561,8 +10235,7 @@ char **argv;            /* command line tokens */
     time_t pool_init_time;
 
     if (show_what_doing) {
-        zfprintf(mesg, "sd: Initializing AES_WG\n");
-        fflush(mesg);
+        zipmessage("sd: Initializing AES_WG", "");
     }
 
     pool_init_start = time(NULL);
@@ -10575,8 +10248,8 @@ char **argv;            /* command line tokens */
     pool_init_time = time(NULL) - pool_init_start;
 
     if (show_what_doing) {
-        zfprintf(mesg, "sd: AES initialized in %d s\n", pool_init_time);
-        fflush(mesg);
+        sprintf(errbuf, "sd: AES initialized in %d s", pool_init_time);
+        zipmessage(errbuf, "");
     }
   }
 #endif
@@ -10604,8 +10277,7 @@ char **argv;            /* command line tokens */
 
 
   if (show_what_doing) {
-    zfprintf(mesg, "sd: Applying filters\n");
-    fflush(mesg);
+    zipmessage("sd: Applying filters", "");
   }
   /* Clean up selections ("3 <= kk <= 5" now) */
   if (kk != 4 && first_listarg == 0 &&
@@ -10627,6 +10299,9 @@ char **argv;            /* command line tokens */
 
   /* Currently we only sort the found list for Unix.  Other ports tend to sort
    * it on their own.
+   *
+   * Sorting is also done when requested (-ad) to put AppleDouble files after
+   * the files they go with.  This is supported on most ports.
    *
    * Now sort function fqcmpz_icfirst() is used for all ports.  This implies
    * that all ports support strcasecmp() (except Windows, which uses
@@ -10652,16 +10327,15 @@ char **argv;            /* command line tokens */
 
   if (show_what_doing) {
     if (sort_found_list)
-      zfprintf(mesg, "sd: Checking dups, sorting found list\n");
+      zipmessage("sd: Checking dups, sorting found list", "");
     else
-      zfprintf(mesg, "sd: Checking dups\n");
+      zipmessage("sd: Checking dups", "");
     if (sort_apple_double_all)
-      zfprintf(mesg, "sd: AppleDouble sorting of found files enabled\n");
+      zipmessage("sd: AppleDouble sorting of found files enabled", "");
 #ifdef UNIX_APPLE
     else if (!sort_apple_double)
-      zfprintf(mesg, "sd: AppleDouble sorting disabled\n");
+      zipmessage("sd: AppleDouble sorting disabled", "");
 #endif
-    fflush(mesg);
   }
 
   /* remove duplicates in found list */
@@ -10677,9 +10351,17 @@ char **argv;            /* command line tokens */
   if (zcount)
     free((zvoid *)zsort);
 
+/* 2015-07-31 SMS.
+ * Added HAVE_LONG_LONG to determine proper output format.
+ * (Knowing the actual size of zcount might be better.)
+ */
   if (show_what_doing) {
-    zfprintf(mesg, "sd: zcount = %d\n", zcount);
-    fflush(mesg);
+#ifdef HAVE_LONG_LONG
+    sprintf(errbuf, "sd: zcount = %llu", (unsigned long long)zcount);
+#else /* def HAVE_LONG_LONG */
+    sprintf(errbuf, "sd: zcount = %lu", (unsigned long)zcount);
+#endif /* def HAVE_LONG_LONG [else] */
+    zipmessage(errbuf, "");
   }
 
 /* 2010-10-01 SMS.
@@ -10740,8 +10422,7 @@ char **argv;            /* command line tokens */
      updating or freshening, compare date with entry in old zip file.
      Unmark if it doesn't exist or is too old, else update marked count. */
   if (show_what_doing) {
-    zfprintf(mesg, "sd: Scanning files to update\n");
-    fflush(mesg);
+    zipmessage("sd: Scanning files to update", "");
   }
 #ifdef MACOS
   PrintStatProgress("Getting file information ...");
@@ -10905,6 +10586,7 @@ char **argv;            /* command line tokens */
           /* usize is -1 for directories */
           z->mark = 0;
         }
+
         else {
           /* usize is -1 for directories and -2 for devices */
           if (tf == z->tim &&
@@ -10934,8 +10616,8 @@ char **argv;            /* command line tokens */
 
   /* Remove entries from found list that do not exist or are too old */
   if (show_what_doing) {
-    zfprintf(mesg, "sd: fcount = %u\n", (unsigned)fcount);
-    fflush(mesg);
+    sprintf(errbuf, "sd: fcount = %u", (unsigned)fcount);
+    zipmessage(errbuf, "");
   }
 
   diag("stating new entries");
@@ -11039,25 +10721,27 @@ char **argv;            /* command line tokens */
   PrintStatProgress("done");
 #endif
 
+#ifndef ZIP_DLL_LIB
   if (test && !unzip_string) {
     /* If we are testing the archive with unzip (unzip_string from -TT can
        use other than unzip, so we skip this check in that case), then get
        a list of needed unzip features and check if the unzip has them. */
 
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Gathering test information\n");
+      zipmessage("sd: Gathering test information", "");
     }
     /* get list of features believed needed to check archive */
     needed_unzip_features = get_needed_unzip_features();
 
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Verifying unzip can test archive\n");
+      zipmessage("sd: Verifying unzip can test archive", "");
     }
     /* verify path to unzip and see if unzip has what it needs */
     if (check_unzip_version(unzip_path, needed_unzip_features) == 0) {
       ZIPERR(ZE_UNZIP, zipfile);
     }
   } /* test */
+#endif
 
 
   if (show_files) {
@@ -11806,8 +11490,7 @@ char **argv;            /* command line tokens */
 
   /* Open zip file and temporary output file */
   if (show_what_doing) {
-    zfprintf(mesg, "sd: Open zip file and create temp file\n");
-    fflush(mesg);
+    zipmessage("sd: Open zip file and create temp file", "");
   }
   diag("opening zip file and creating temporary zip file");
   x = NULL;
@@ -11880,8 +11563,7 @@ char **argv;            /* command line tokens */
   else
   {
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Creating new zip file\n");
-      fflush(mesg);
+      zipmessage("sd: Creating new zip file", "");
     }
     /* See if there is something at beginning of disk 1 to copy.
        If not, do nothing as zipcopy() will open files to read
@@ -11936,8 +11618,8 @@ char **argv;            /* command line tokens */
         ZIPERR(ZE_TEMP, tempzip);
       }
       if (show_what_doing) {
-        zfprintf(mesg, "sd: Temp file (2u): %s\n", tempzip);
-        fflush(mesg);
+        sprintf(errbuf, "sd: Temp file (2u): %s", tempzip);
+        zipmessage(errbuf, "");
       }
       if ((y = fdopen(yd, FOPW_TMP)) == NULL) {
         ZIPERR(ZE_TEMP, tempzip);
@@ -11948,8 +11630,8 @@ char **argv;            /* command line tokens */
       ZIPERR(ZE_TEMP, out_path);
     }
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Temp file (2n): %s\n", tempzip);
-      fflush(mesg);
+      sprintf(errbuf, "sd: Temp file (2n): %s", tempzip);
+      zipmessage(errbuf, "");
     }
     if ((y = zfopen(tempzip, FOPW_TMP)) == NULL) {
       ZIPERR(ZE_TEMP, tempzip);
@@ -12009,8 +11691,7 @@ char **argv;            /* command line tokens */
     if (split_method) {
       /* add spanning signature */
       if (show_what_doing) {
-        zfprintf(mesg, "sd: Adding spanning/splitting signature at top of archive\n");
-        fflush(mesg);
+        zipmessage("sd: Adding spanning/splitting signature at top of archive", "");
       }
       /* write the spanning signature at the top of the archive */
       errbuf[0] = 0x50 /*'P' except for EBCDIC*/;
@@ -12032,8 +11713,7 @@ char **argv;            /* command line tokens */
     diag("going through old zip file");
 #endif
   if (zfiles != NULL && show_what_doing) {
-    zfprintf(mesg, "sd: Going through old zip file\n");
-    fflush(mesg);
+    zipmessage("sd: Going through old zip file", "");
   }
 
 #ifdef ENABLE_USER_PROGRESS
@@ -12786,8 +12466,7 @@ char **argv;            /* command line tokens */
 
   /* Process the edited found list, adding them to the zip file */
   if (show_what_doing) {
-    zfprintf(mesg, "sd: Zipping up new entries\n");
-    fflush(mesg);
+    zipmessage("sd: Zipping up new entries", "");
   }
 
 #ifdef ENABLE_USER_PROGRESS
@@ -13070,8 +12749,7 @@ char **argv;            /* command line tokens */
 
   /* Get one line comment for each new entry */
   if (show_what_doing) {
-    zfprintf(mesg, "sd: Get comment if any\n");
-    fflush(mesg);
+    zipmessage("sd: Get comment if any", "");
   }
 #if defined(AMIGA) || defined(MACOS)
   if (comadd || filenotes)
@@ -13473,8 +13151,7 @@ char **argv;            /* command line tokens */
 #endif /* def ENABLE_USER_PROGRESS */
 
   if (show_what_doing) {
-    zfprintf(mesg, "sd: Writing central directory\n");
-    fflush(mesg);
+    zipmessage("sd: Writing central directory", "");
   }
   diag("writing central directory");
   k = 0;                        /* keep count for end header */
@@ -13526,8 +13203,7 @@ char **argv;            /* command line tokens */
   t = tempzn - c;               /* compute length of central */
   diag("writing end of central directory");
   if (show_what_doing) {
-    zfprintf(mesg, "sd: Writing end of central directory\n");
-    fflush(mesg);
+    zipmessage("sd: Writing end of central directory", "");
   }
 
   if ((r = putend(k, t, c, zcomlen, zcomment)) != ZE_OK) {
@@ -13580,8 +13256,7 @@ char **argv;            /* command line tokens */
   {
     diag("replacing old zip file with new zip file");
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Replacing old zip file\n");
-      fflush(mesg);
+      zipmessage("sd: Replacing old zip file", "");
     }
     if ((r = replace(out_path, tempzip)) != ZE_OK)
     {
@@ -13629,8 +13304,7 @@ char **argv;            /* command line tokens */
   }
   if (strcmp(zipfile, "-")) {
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Setting file type\n");
-      fflush(mesg);
+      zipmessage("sd: Setting file type", "");
     }
 
     set_filetype(out_path);
@@ -13647,8 +13321,7 @@ char **argv;            /* command line tokens */
     char end_datetime[20];
 
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Creating -BT control file\n");
-      fflush(mesg);
+      zipmessage("sd: Creating -BT control file", "");
     }
 
     if ((fcontrol = zfopen(backup_control_path, "w")) == NULL) {
@@ -13756,8 +13429,7 @@ char **argv;            /* command line tokens */
   /* close random pool */
   if (encryption_method >= AES_MIN_ENCRYPTION) {
     if (show_what_doing) {
-      zfprintf(mesg, "sd: Closing AES_WG random pool\n");
-      fflush(mesg);
+      zipmessage("sd: Closing AES_WG random pool", "");
     }
     prng_end(&aes_rnp);
     free(zsalt);

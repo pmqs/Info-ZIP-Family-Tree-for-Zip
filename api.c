@@ -84,9 +84,9 @@ ZPOPT ZipOpts;
 char **argVee;
 unsigned int argCee;
 
+char szRootDir[PATH_MAX];
 char szExcludeList[PATH_MAX];
 char szIncludeList[PATH_MAX];
-char szRootDir[PATH_MAX];
 char szTempDir[PATH_MAX];
 
 /*---------------------------------------------------------------------------
@@ -691,7 +691,7 @@ if (ZipOpts.ExcludeList != NULL)  /* Exclude file list -x */
         return ZE_MEM;
     }
 
-if (szIncludeList[0] != '\0')           /* Include file list -i */
+if (szIncludeList[0] != '\0') /* Include file list -i */
     {
     if (AllocMemory(argCee, "-i", "Include file list", FALSE) != ZE_OK)
         return ZE_MEM;
@@ -701,7 +701,7 @@ if (szIncludeList[0] != '\0')           /* Include file list -i */
     if (AllocMemory(argCee, "@", "End of Include List", FALSE) != ZE_OK)
         return ZE_MEM;
     }
-if (szExcludeList[0] != '\0')           /* Exclude file list -x */
+if (szExcludeList[0] != '\0')  /* Exclude file list -x */
     {
     if (AllocMemory(argCee, "-x", "Exclude file list", FALSE) != ZE_OK)
         return ZE_MEM;
@@ -714,7 +714,7 @@ if (szExcludeList[0] != '\0')           /* Exclude file list -x */
         return ZE_MEM;
     }
 
-if (szTempDir[0] != '\0')               /* Use temporary directory -b */
+if (szTempDir[0] != '\0') /* Use temporary directory -b */
     {
     if (AllocMemory(argCee, "-b", "Temp dir switch command", FALSE) != ZE_OK)
         return ZE_MEM;
@@ -1193,7 +1193,7 @@ int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
   ret = GetCurrentDirectory(MAX_ZIP_ARG_SIZE, OrigDir);
   if ( ret == 0 )
   {
-    sprintf(msg, "ZpZip:  GetCurrentDirectory failed: ", GetLastError());
+    sprintf(msg, "ZpZip:  GetCurrentDirectory failed (%d)", GetLastError());
     return ZpErrorMessage(ZE_PARMS, msg);
   }
   if (ret > MAX_ZIP_ARG_SIZE)

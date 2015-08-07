@@ -853,7 +853,7 @@ char **argv;            /* command line tokens */
     while ((a = zgetline(abf, WRBUFSIZ+1)) != NULL)
       if ((r = catalloc(&zcomment, a)) != ZE_OK)
         ziperr(r, "was building new zipfile comment");
-    zcomlen = (unsigned int)strlen(zcomment);
+    zcomlen = (ush)strlen(zcomment);
     if (!is_text_buf(zcomment, zcomlen)) {
       ziperr(ZE_NOTE, "binary not allowed in zip file comment");
     }

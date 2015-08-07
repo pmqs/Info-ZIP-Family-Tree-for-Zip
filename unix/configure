@@ -4,7 +4,7 @@
 
 #==============================================================================
 # unix/configure: Detect feature support and pass that information to Makefile.
-# - For Zip, ZipNote, ZipCloak and ZipSplit             Revised: 2015-03-04
+# - For Zip, ZipNote, ZipCloak and ZipSplit             Revised: 2015-07-31
 #
 # Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 #
@@ -1856,6 +1856,31 @@ else
   echo '  Yes.'
 fi
 
+# Check for (64-bit) "long long" type(s).
+echon 'Check for "long long"...'
+cat > conftest.c << _EOF_
+#include <sys/types.h>
+int main()
+{
+  long long s;
+  unsigned long long u;
+  return !(sizeof( s) == 8);
+}
+_EOF_
+$CC_TST $CFLAGS -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo '  No.'
+else
+  ./conftest
+  status=$?
+  if [ $status -ne 0 ]; then
+    echo '  No (not 64-bit).'
+  else
+    echo '  Yes (HAVE_LONG_LONG).'
+    CFLAGS_TST="${CFLAGS_TST} -DHAVE_LONG_LONG"
+  fi
+fi
 
 # Check for signed char type.
 echon 'Check for signed char type...'
@@ -2298,6 +2323,13 @@ int main()
     return 1;
   }
 
+  /* For this test, we should here try to set a UTF-8 locale.
+     If successful, then we should still compile in native
+     UTF-8 support.  But this test only sets UTF8_MAYBE_NATIVE,
+     and that macro really doesn't do anything, so no real
+     need.  Zip now adjusts to the locale (UTF-8 or not) at
+     run time. */
+
   return 0;
 }
 _EOF_
@@ -2327,11 +2359,12 @@ fi
 if [ -n "${NO_ICONV}" ]; then
   echo "Use of iconv disabled - no iconv check done."
 else
-  echo "Check for iconv for character set translations..."
+  echo "Check for iconv for character set translations (and if iconv has UTF-8)..."
   have_iconv=0
   need_iconv_lib=0
   #
   cat > conftest.c << _EOF_
+#include <stdio.h>
 #include <iconv.h>
 int main()
 {
@@ -2342,7 +2375,7 @@ int main()
    char *inbuf = "conversion worked";  /* Include only reversible chars here. */
    size_t inbytesleft;
 
-   char *outbuf[20];
+   char outbuf[20];
    size_t outbytesleft = 20;
 
    char *fromcode = "ASCII";
@@ -2357,13 +2390,13 @@ int main()
 
    cd = iconv_open(tocode, fromcode);
    if (cd == (iconv_t)-1)
-     return -1;
+     return 201;
    iconv_result = iconv(cd, &inp, &inbytesleft, &outp, &outbytesleft);
    close_result = iconv_close(cd);
    if (iconv_result == (size_t)-1)
-     return -2;
+     return 202;
    if (close_result == -1)
-     return -3;
+     return 203;
 
    outlen = 20 - outbytesleft;
    outbuf[outlen] = '\0';
@@ -2394,11 +2427,21 @@ _EOF_
     if [ $have_iconv -eq 1 ]; then
       ./conftest
       status=$?
-      if [ $status -lt 0 ]; then
-        echo "  Error using iconv."
+      if [ $status -eq 201 ]; then
+        echo "  Error using iconv (iconv_open() failed).  Unicode table missing?"
+        echo '^^ no iconv support.'
+      elif [ $status -eq 202 ]; then
+        echo "  Error using iconv (iconv() failed)."
+        echo '^^ no iconv support.'
+      elif [ $status -eq 203 ]; then
+        echo "  Error using iconv (iconv_close() failed)."
+        echo '^^ no iconv support.'
+      elif [ $status -lt 0 ]; then
+        echo "  Error using iconv (unknown error)."
         echo '^^ no iconv support.'
       elif [ $status -gt 0 ]; then
         echo "  iconv performing unexpected non-reversible conversions."
+        echo "    (performed $status non-reversible conversions)"
         echo '^^ no iconv support.'
       else
         CFLAGS_TST="${CFLAGS_TST} -DHAVE_ICONV"

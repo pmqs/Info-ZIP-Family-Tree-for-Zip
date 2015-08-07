@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -35,6 +35,19 @@
 
 /* Progress dot control.  See fileio.c for details. */
 #define PROGRESS_DOTS_PER_FLUSH 64
+
+
+/* 2015-07-31 SMS.
+ * "long long" type.
+ */
+#ifdef __VAX
+# define Z_LONGLONG long
+# define UZ_LONGLONG unsigned long
+#else
+# define HAVE_LONG_LONG
+# define Z_LONGLONG long long
+# define UZ_LONGLONG unsigned long long
+#endif
 
 
 /* 2004-11-09 SMS.
