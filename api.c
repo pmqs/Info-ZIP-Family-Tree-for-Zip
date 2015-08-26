@@ -1259,7 +1259,7 @@ void ZIPEXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct
     strcpy(p->RevDate, REVDATE);
     strcpy(p->RevYMD, REVYMD);
 #ifdef ZLIB_VERSION
-    strcpy(p->zlib_version, ZLIB_VERSION);
+    strcpy(p->zlib_Version, ZLIB_VERSION);
     p->flag |= 2;
 #else
     p->zlib_Version[0] = '\0';

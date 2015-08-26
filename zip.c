@@ -150,7 +150,8 @@ char _version[] = VERSION;
 
 #ifdef ZIP_DLL_LIB
 jmp_buf zipdll_error_return;
-# ifdef ZIP64_SUPPORT
+# ifdef WIN32
+  /* This kluge is for VB 6 only */
   unsigned long low, high; /* returning 64 bit values for systems without an _int64 */
   uzoff_t filesize64;
 # endif /* def ZIP64_SUPPORT */
@@ -2502,7 +2503,7 @@ local void version_info()
   
   if (charsetname)
   {
-    zprintf("Current charset:  %s\n", charsetname);
+    zprintf("Current charset/code page:  %s\n", charsetname);
     zprintf("\n");
   }
 
@@ -4753,7 +4754,7 @@ ZCONST char *zfn;
 int simple_encr_passwd(modeflag, pwbuf, bufsize)
   int modeflag;
   char *pwbuf;
-  int bufsize;
+  size_t bufsize;
 {
     /* Tell picky compilers to shut up about unused variables */
     modeflag = modeflag; pwbuf = pwbuf; bufsize = bufsize;
@@ -6774,8 +6775,29 @@ char **argv;            /* command line tokens */
 
 
 #if defined(UNICODE_SUPPORT_WIN32) && defined(WIN32_WIDE_CMD_LINE)
-  /* If on Windows getting input as wide, show Unicode directly. */
+  /* If on Windows getting input as wide, show Unicode directly
+     (as well as a Windows console window can display it). */
   unicode_show = 1;
+#endif
+
+
+#ifdef ZIPDLL
+  /* The DLL requires all structure elements to be specific sizes, in
+     this case file size MUST be 64-bit.  There is no size checking of
+     structure elements when the DLL is called.  For the LIB there is
+     size checking at compile time so we can be more accomodating of
+     ports without 64-bit variables (like VMS).  As long as a LIB user
+     uses API_FILESIZE_T as set for that port, it should all work, in
+     theory.  Currently Unix and Windows uses unsigned long long for
+     API_FILESIZE_T.  VAX VMS uses unsigned long (32-bit), while
+     other VMS uses unsigned long long (64-bit). */
+  if (sizeof(API_FILESIZE_T) != 8) {
+
+    /* Could use this here. */
+    /* BUILD_BUG_ON(sizeof(API_FILESIZE_T) != 8); */
+
+    ZIPERR(ZE_COMPILE, "DLL compiled without 64-bit file support");
+  }
 #endif
 
 
@@ -8071,7 +8093,7 @@ char **argv;            /* command line tokens */
 #  endif /* def IZ_CRYPT_TRAD [else] */
           }
           if (strmatch("AES", value, CASE_INS, 3)) {
-# if defined( IZ_CRYPT_AES_WG) || defined( IZ_CRYPT_AES_WG_NEW)
+# if defined(IZ_CRYPT_AES_WG) || defined(IZ_CRYPT_AES_WG_NEW)
             if (abbrevmatch("AES128", value, CASE_INS, 5)) {
               encryption_method = AES_128_ENCRYPTION;
             }
@@ -10149,7 +10171,7 @@ char **argv;            /* command line tokens */
       }
       for (; filelist; ) {
         no_wild = filelist->verbatim;
-#ifdef ETWODD_SUPPORT
+#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
         if (etwodd && strcmp(filelist->name, "-") == 0) {
           ZIPERR(ZE_PARMS, "can't use -et (--etwodd) with input from stdin");
         }
@@ -10208,12 +10230,12 @@ char **argv;            /* command line tokens */
     if ((zsalt = malloc(salt_len)) == NULL) {
       ZIPERR(ZE_MEM, "Getting memory for salt");
     }
-#ifdef FAKE_SALT
+# ifdef FAKE_SALT
     memset(zsalt, 1, salt_len);         /* Feel free to discard. */
     zipwarn("using fake salt for debugging - ENCRYPTION COMPROMISED!!", "");
-#else
+# else
     prng_rand(zsalt, salt_len, &aes_rnp);
-#endif
+# endif
 
     /*
     pool_init_time = time(NULL) - pool_init_start;
@@ -10355,12 +10377,36 @@ char **argv;            /* command line tokens */
  * Added HAVE_LONG_LONG to determine proper output format.
  * (Knowing the actual size of zcount might be better.)
  */
+/* Using "ll" doesn't work in printf() on older Windows.
+ *
+ * Properly typing fcount and zcount and using that type
+ * is on the ToDo list for Zip 3.1e.  For now, just need
+ * to get this diagnostic print statement to work.
+ *
+ * Sizing fcount and zcount is impacted both by the use
+ * of Zip64 or not and by limits on each platform (both
+ * the availability of 64-bit integers and the size of
+ * size_t).
+ *
+ * For now, we will make the assumption that the number
+ * of entries to archive will not exceed the size of an
+ * unsigned long (2 trillion).  fcount and zcount are
+ * extent, which are size_t, which are unsigned int
+ * (on 32-bit WIN32), which are unsigned long (32-bit).
+ * When compiled as 64-bit, size_t becomes an unsigned
+ * long long.  And the zip standard allows up to unsigned
+ * long long entries in an archive.  However, the current
+ * practical limit for the number of entries in a Zip
+ * archive is probably less than 1 billion, so for now the
+ * unsigned long assumption here when -sd is used seems
+ * reasonable.  (The below is only used when -sd diagnostics
+ * are used.)  Again, this will be cleaned up in Zip 3.1e,
+ * and something like zip_fuzofft() but for size_t might
+ * come out of that for displaying these values, whatever
+ * size they are at the moment.  2015-08-04 EG */
+
   if (show_what_doing) {
-#ifdef HAVE_LONG_LONG
-    sprintf(errbuf, "sd: zcount = %llu", (unsigned long long)zcount);
-#else /* def HAVE_LONG_LONG */
-    sprintf(errbuf, "sd: zcount = %lu", (unsigned long)zcount);
-#endif /* def HAVE_LONG_LONG [else] */
+    sprintf(errbuf, "sd: zcount = %ld", (ulg) zcount);
     zipmessage(errbuf, "");
   }
 
@@ -10616,7 +10662,7 @@ char **argv;            /* command line tokens */
 
   /* Remove entries from found list that do not exist or are too old */
   if (show_what_doing) {
-    sprintf(errbuf, "sd: fcount = %u", (unsigned)fcount);
+    sprintf(errbuf, "sd: fcount = %lu", (ulg)fcount);
     zipmessage(errbuf, "");
   }
 
@@ -10762,26 +10808,26 @@ char **argv;            /* command line tokens */
         /* -sf alone */
         if (pcount || before || after) {
           zfprintf(mesg, "Archive contains (filtered):\n");
-          strcpy(action_string, "Archive contains");
+          strcpy(action_string, "archive contains");
         } else {
           zfprintf(mesg, "Archive contains:\n");
-          strcpy(action_string, "Archive contains");
+          strcpy(action_string, "archive contains");
         }
       } else if (action == DELETE) {
         zfprintf(mesg, "Would Delete:\n");
-        strcpy(action_string, "Would Delete:");
+        strcpy(action_string, "would delete");
       } else if (action == FRESHEN) {
         zfprintf(mesg, "Would Freshen:\n");
-        strcpy(action_string, "Would Freshen");
+        strcpy(action_string, "would freshen");
       } else if (action == ARCHIVE) {
         zfprintf(mesg, "Would Copy:\n");
-        strcpy(action_string, "Would Copy");
+        strcpy(action_string, "would copy");
       } else if (filesync) {
         zfprintf(mesg, "Would Add to/Freshen in/Delete from archive:\n");
-        strcpy(action_string, "Would Sync:");
+        strcpy(action_string, "would sync");
       } else {
         zfprintf(mesg, "Would Add/Update:\n");
-        strcpy(action_string, "Would Add/Update");
+        strcpy(action_string, "would update");
       }
       fflush(mesg);
     }
@@ -10816,8 +10862,10 @@ char **argv;            /* command line tokens */
         count++;
         if ((zoff_t)z->len > 0)
           bytes += z->len;
-#ifdef WINDLL
-        if (lpZipUserFunctions->service != NULL)
+
+#ifdef ZIP_DLL_LIB
+        /* zlist show files */
+        if (show_files && lpZipUserFunctions->service != NULL)
         {
           char us[100];
           char cs[100];
@@ -10846,7 +10894,8 @@ char **argv;            /* command line tokens */
                                              perc))
             ZIPERR(ZE_ABORT, "User terminated operation");
         }
-#endif
+#endif /* ZIP_DLL_LIB */
+
         if (noisy && (show_files == 1 || show_files == 3)) {
           /* sf, su */
 #ifdef UNICODE_SUPPORT
@@ -10935,7 +10984,7 @@ char **argv;            /* command line tokens */
             zfprintf(logfile, "  %s\n", z->oname);
           }
 #endif /* def UNICODE_SUPPORT [else] */
-        }
+        } /* logfile && !(show_files == 5 || show_files == 6) */
 
 #ifdef UNICODE_EXTRACT_TEST
         /* UNICODE_EXTRACT_TEST adds code that extracts a directory
@@ -11177,7 +11226,7 @@ char **argv;            /* command line tokens */
           free(c);
         }
       }
-    } /* for */
+    } /* for zlist */
 
    /* found list files */
     for (f = found; f != NULL; f = f->nxt) {
@@ -11206,10 +11255,12 @@ char **argv;            /* command line tokens */
           }
         }
         free(escaped_unicode);
-      } else {
+      } /* unicode_escape_all */
+      else {
 #endif /* UNICODE_SUPPORT */
         if (noisy && (show_files == 1 || show_files == 3 || show_files == 5)) {
           /* sf, su, sU */
+          strcpy(action_string, "would add");
 #ifdef UNICODE_SUPPORT
           if (unicode_show && f->uname) {
             if (filesync) {
@@ -11258,7 +11309,7 @@ char **argv;            /* command line tokens */
 #endif /* def UNICODE_SUPPORT [else] */
         }
 #ifdef UNICODE_SUPPORT
-      }
+      } /* not unicode_escape_all */
 #endif
 
       if (sf_usize) {
@@ -11270,8 +11321,9 @@ char **argv;            /* command line tokens */
           zfprintf(logfile, "  (%s)", errbuf);
       }
 
-#ifdef WINDLL
-      if (lpZipUserFunctions->service != NULL)
+#ifdef ZIP_DLL_LIB
+      /* found list show files */
+      if (show_files && lpZipUserFunctions->service != NULL)
       {
         char us[100];
         char cs[100];
@@ -11299,14 +11351,14 @@ char **argv;            /* command line tokens */
                                            perc))
           ZIPERR(ZE_ABORT, "User terminated operation");
       }
-#endif /* WINDLL */
+#endif /* ZIP_DLL_LIB */
 
       if (noisy && mesg_displayed)
         zfprintf(mesg, "\n");
       if (logfile && log_displayed)
         zfprintf(logfile, "\n");
 
-    } /* for */
+    } /* for found */
 
     if (!(filesync && show_files)) {
       char e[10];
@@ -11356,20 +11408,21 @@ char **argv;            /* command line tokens */
         }
       }
     }
-#ifdef WINDLL
+#ifdef ZIP_DLL_LIB
     if (*lpZipUserFunctions->finish != NULL) {
       char susize[100];
       char scsize[100];
       long p;
+      API_FILESIZE_T abytes = (API_FILESIZE_T)bytes;
 
       strcpy(susize, zip_fzofft(bytes, NULL, "u"));
       strcpy(scsize, "");
       p = 0;
-      (*lpZipUserFunctions->finish)(susize, scsize, bytes, 0, p);
+      (*lpZipUserFunctions->finish)(susize, scsize, abytes, 0, p);
     }
-#endif /* WINDLL */
+#endif /* ZIP_DLL_LIB */
     RETURN(finish(ZE_OK));
-  }
+  } /* show_files */
 
   /* Make sure there's something left to do */
   if (k == 0 && found == NULL && !diff_mode &&
@@ -11742,11 +11795,11 @@ char **argv;            /* command line tokens */
 #endif /* def ENABLE_USER_PROGRESS */
 
         if (action == FRESHEN) {
-          strcpy(action_string, "Freshen");
+          strcpy(action_string, "freshen");
         } else if (filesync && z->current) {
-          strcpy(action_string, "Current");
+          strcpy(action_string, "current");
         } else if (!(filesync && z->current)) {
-          strcpy(action_string, "Update");
+          strcpy(action_string, "update");
         }
 
         if (verbose || !(filesync && z->current))
@@ -11784,7 +11837,7 @@ char **argv;            /* command line tokens */
             mesg_line_started = 1;
             fflush(mesg);
           }
-        }
+        } /* noisy */
         if (logall)
         {
           if (action == FRESHEN) {
@@ -11817,7 +11870,7 @@ char **argv;            /* command line tokens */
             logfile_line_started = 1;
             fflush(logfile);
           }
-        }
+        } /* logall */
 
         /* Get local header flags and extra fields */
         if (readlocal(&localz, z) != ZE_OK) {
@@ -11841,6 +11894,8 @@ char **argv;            /* command line tokens */
         if (!(filesync && z->current) &&
              (r = zipup(z)) != ZE_OK && r != ZE_OPEN && r != ZE_MISS)
         {
+          /* zipup error */
+
           zipmessage_nl("", 1);
           /*
           if (noisy)
@@ -11867,6 +11922,7 @@ char **argv;            /* command line tokens */
           sprintf(errbuf, "was zipping %s", z->name);
           ZIPERR(r, errbuf);
         }
+        
         if (filesync && z->current)
         {
           /* if filesync if entry matches OS just copy */
@@ -11898,7 +11954,8 @@ char **argv;            /* command line tokens */
             }
           }
           */
-        }
+        } /* filesync && z->current */
+        
         if (r == ZE_OPEN || r == ZE_MISS)
         {
           o = 1;
@@ -11929,9 +11986,11 @@ char **argv;            /* command line tokens */
               sprintf(errbuf, "was zipping %s", z->name);
               ZIPERR(r, errbuf);
             }
+            strcpy(action_string, "can't open/read");
           } else {
             zipwarn_indent("file and directory with the same name (1): ",
              z->oname);
+            strcpy(action_string, "filename=dirname");
           }
           zipwarn_indent("will just copy entry over: ", z->oname);
           if ((r = zipcopy(z)) != ZE_OK)
@@ -11940,18 +11999,80 @@ char **argv;            /* command line tokens */
             ZIPERR(r, errbuf);
           }
           z->mark = 0;
+        } /* r == ZE_OPEN || r == ZE_MISS */
+
+#ifdef ZIP_DLL_LIB
+        /* zip it up */
+        if (lpZipUserFunctions->service != NULL)
+        {
+          char us[100];
+          char cs[100];
+          long perc = 0;
+          char *oname;
+          char *uname;
+
+
+          oname = z->oname;
+# ifdef UNICODE_SUPPORT
+          uname = z->uname;
+# else
+          uname = NULL;
+# endif
+
+          WriteNumString(z->siz, cs);
+          WriteNumString(z->len, us);
+          if (z->siz)
+            perc = percent(z->len, z->siz);
+
+          if ((*lpZipUserFunctions->service)(oname,
+                                             uname,
+                                             us,
+                                             cs,
+                                             z->len,
+                                             z->siz,
+                                             action_string,
+                                             perc))
+            ZIPERR(ZE_ABORT, "User terminated operation");
         }
+# if defined(WIN32) && defined(LARGE_FILE_SUPPORT)
+        else
+        {
+          char *oname;
+          char *uname;
+
+          oname = z->oname;
+#  ifdef UNICODE_SUPPORT
+          uname = z->uname;
+#  else
+          uname = NULL;
+#  endif
+          /* no int64 support in caller */
+          filesize64 = z->siz;
+          low = (unsigned long)(filesize64 & 0x00000000FFFFFFFF);
+          high = (unsigned long)((filesize64 >> 32) & 0x00000000FFFFFFFF);
+          if (lpZipUserFunctions->service_no_int64 != NULL) {
+            if ((*lpZipUserFunctions->service_no_int64)(oname,
+                                                        uname,
+                                                        low,
+                                                        high))
+                      ZIPERR(ZE_ABORT, "User terminated operation");
+          }
+        }
+# endif /* defined(WIN32) && defined(LARGE_FILE_SUPPORT) */
+#endif /* ZIP_DLL_LIB */
+
         files_so_far++;
         good_bytes_so_far += z->len;
         bytes_so_far += len;
         w = &z->nxt;
-      }
+      } /* zip it up (action != ARCHIVE && action != DELETE) */
+
       else if (action == ARCHIVE && cd_only)
       {
         /* for cd_only compression archives just write central directory */
         DisplayRunningStats();
         /* just note the entry */
-        strcpy(action_string, "Note entry");
+        strcpy(action_string, "note entry");
         if (noisy) {
 #ifdef UNICODE_SUPPORT
           if (unicode_show && z->uname) {
@@ -11996,8 +12117,8 @@ char **argv;            /* command line tokens */
 
         /* ------------------------------------------- */
 
-#ifdef WINDLL
-        /* int64 support in caller */
+#ifdef ZIP_DLL_LIB
+        /* cd_only */
         if (lpZipUserFunctions->service != NULL)
         {
           char us[100];
@@ -12028,6 +12149,7 @@ char **argv;            /* command line tokens */
                                              perc))
             ZIPERR(ZE_ABORT, "User terminated operation");
         }
+# if defined(WIN32) && defined(LARGE_FILE_SUPPORT)
         else
         {
           char *oname;
@@ -12051,12 +12173,15 @@ char **argv;            /* command line tokens */
               ZIPERR(ZE_ABORT, "User terminated operation");
           }
         }
+# endif /* defined(WIN32) && defined(LARGE_FILE_SUPPORT) */
+
 /* strange but true: if I delete this and put these two endifs adjacent to
    each other, the Aztec Amiga compiler never sees the second endif!  WTF?? PK */
-#endif /* WINDLL */
+#endif /* ZIP_DLL_LIB */
         /* ------------------------------------------- */
 
-      }
+      } /* action == ARCHIVE && cd_only */
+
       else if (action == ARCHIVE)
       {
 #ifdef DEBUG
@@ -12069,7 +12194,7 @@ char **argv;            /* command line tokens */
           skip_this_disk = 0;
         if (skip_this_disk - 1 == z->dsk) {
           /* skipping this disk */
-          strcpy(action_string, "Skip");
+          strcpy(action_string, "skip");
           if (noisy) {
             zfprintf(mesg, " skipping: %s", z->oname);
             mesg_line_started = 1;
@@ -12087,7 +12212,7 @@ char **argv;            /* command line tokens */
           }
         } else {
           /* copying this entry */
-          strcpy(action_string, "Copy");
+          strcpy(action_string, "copy");
           if (noisy && !comadd) {
 #ifdef UNICODE_SUPPORT
             if (unicode_show && z->uname) {
@@ -12200,8 +12325,8 @@ char **argv;            /* command line tokens */
 
         /* ------------------------------------------- */
 
-#ifdef WINDLL
-        /* int64 support in caller */
+#ifdef ZIP_DLL_LIB
+        /* action ARCHIVE */
         if (lpZipUserFunctions->service != NULL)
         {
           char us[100];
@@ -12232,17 +12357,18 @@ char **argv;            /* command line tokens */
                                              perc))
             ZIPERR(ZE_ABORT, "User terminated operation");
         }
+# if defined(WIN32) && defined(LARGE_FILE_SUPPORT)
         else
         {
           char *oname;
           char *uname;
 
           oname = z->oname;
-# ifdef UNICODE_SUPPORT
+#  ifdef UNICODE_SUPPORT
           uname = z->uname;
-# else
+#  else
           uname = NULL;
-# endif
+#  endif
           /* no int64 support in caller */
           if (lpZipUserFunctions->service_no_int64 != NULL) {
             filesize64 = z->siz;
@@ -12255,15 +12381,18 @@ char **argv;            /* command line tokens */
               ZIPERR(ZE_ABORT, "User terminated operation");
           }
         }
+# endif /* defined(WIN32) && defined(LARGE_FILE_SUPPORT) */
+
 /* strange but true: if I delete this and put these two endifs adjacent to
    each other, the Aztec Amiga compiler never sees the second endif!  WTF?? PK */
 #endif /* WINDLL */
         /* ------------------------------------------- */
 
-      }
-      else
+      } /* action == ARCHIVE */
+
+      else /* Delete */
       {
-        strcpy(action_string, "Delete");
+        strcpy(action_string, "delete");
         DisplayRunningStats();
         if (noisy)
         {
@@ -12305,8 +12434,8 @@ char **argv;            /* command line tokens */
         bytes_so_far += z->siz;
 
         /* ------------------------------------------- */
-#ifdef WINDLL
-        /* int64 support in caller */
+#ifdef ZIP_DLL_LIB
+        /* delete */
         if (lpZipUserFunctions->service != NULL)
         {
           char us[100];
@@ -12338,17 +12467,18 @@ char **argv;            /* command line tokens */
                                              perc))
             ZIPERR(ZE_ABORT, "User terminated operation");
         }
+# if defined(WIN32) && defined(LARGE_FILE_SUPPORT)
         else
         {
           char *oname;
           char *uname;
 
           oname = z->oname;
-# ifdef UNICODE_SUPPORT
+#  ifdef UNICODE_SUPPORT
           uname = z->uname;
-# else
+#  else
           uname = NULL;
-# endif
+#  endif
           /* no int64 support in caller */
           filesize64 = z->siz;
           low = (unsigned long)(filesize64 & 0x00000000FFFFFFFF);
@@ -12358,13 +12488,15 @@ char **argv;            /* command line tokens */
                                                         uname,
                                                         low,
                                                         high))
-                      ZIPERR(ZE_ABORT, "User terminated operation");
+              ZIPERR(ZE_ABORT, "User terminated operation");
           }
         }
+# endif /* defined(WIN32) && defined(LARGE_FILE_SUPPORT) */
+
 /* ZIP64_SUPPORT - I added comments around // comments - does that help below? EG */
 /* strange but true: if I delete this and put these two endifs adjacent to
    each other, the Aztec Amiga compiler never sees the second endif!  WTF?? PK */
-#endif /* WINDLL */
+#endif /* ZIP_DLL_LIB */
         /* ------------------------------------------- */
 
         v = z->nxt;                     /* delete entry from list */
@@ -12384,7 +12516,8 @@ char **argv;            /* command line tokens */
         farfree((zvoid far *)z);
         *w = v;
         zcount--;
-      }
+      } /* Delete */
+
     } /* z->mark == 1 */
     else
     { /* z->mark != 1 */
@@ -12412,7 +12545,7 @@ char **argv;            /* command line tokens */
         if (filesync) {
           /* Delete entries if don't match a file on OS */
           BlankRunningStats();
-          strcpy(action_string, "Delete");
+          strcpy(action_string, "delete");
           if (noisy)
           {
 #ifdef UNICODE_SUPPORT
@@ -12461,7 +12594,7 @@ char **argv;            /* command line tokens */
         w = &z->nxt;
       } /* action != ARCHIVE */
     } /* z->mark != 1 */
-  } /* while */
+  } /* while w in zlist */
 
 
   /* Process the edited found list, adding them to the zip file */
@@ -12478,6 +12611,8 @@ char **argv;            /* command line tokens */
   Trace((stderr, "zip diagnostic: fcount=%u\n", (unsigned)fcount));
   for (f = found; f != NULL; f = fexpel(f))
   {
+    /* process found list */
+
     uzoff_t len;
     /* add a new zfiles entry and set the name */
     if ((z = (struct zlist far *)farmalloc(sizeof(struct zlist))) == NULL) {
@@ -12570,7 +12705,7 @@ char **argv;            /* command line tokens */
     u_p_name = z->oname;
 #endif /* def ENABLE_USER_PROGRESS */
 
-    strcpy(action_string, "Add");
+    strcpy(action_string, "add");
 
     if (noisy)
     {
@@ -12625,7 +12760,7 @@ char **argv;            /* command line tokens */
       */
       sprintf(errbuf, "was zipping %s", z->oname);
       ZIPERR(r, errbuf);
-    }
+    } /* zipup */
     if (r == ZE_OPEN || r == ZE_MISS)
     {
       o = 1;
@@ -12655,9 +12790,11 @@ char **argv;            /* command line tokens */
           sprintf(errbuf, "was zipping %s", z->name);
           ZIPERR(r, errbuf);
         }
+        strcpy(action_string, "can't open/read");
       } else {
         zipwarn_indent("file and directory with the same name (2): ",
          z->oname);
+        strcpy(action_string, "filename=dirname");
       }
       files_so_far++;
       bytes_so_far += len;
@@ -12686,6 +12823,69 @@ char **argv;            /* command line tokens */
     }
     else
     {
+      /* Not ZE_OPEN or ZE_MISS */
+#ifdef ZIP_DLL_LIB
+      /* process found list */
+      if (lpZipUserFunctions->service != NULL)
+      {
+        char us[100];
+        char cs[100];
+        long perc = 0;
+        char *oname;
+        char *uname;
+
+
+        oname = z->oname;
+# ifdef UNICODE_SUPPORT
+        uname = z->uname;
+# else
+        uname = NULL;
+# endif
+        if (uname == NULL)
+          uname = z->oname;
+
+        WriteNumString(z->siz, cs);
+        WriteNumString(z->len, us);
+        if (z->siz)
+          perc = percent(z->len, z->siz);
+
+        if ((*lpZipUserFunctions->service)(oname,
+                                           uname,
+                                           us,
+                                           cs,
+                                           z->len,
+                                           z->siz,
+                                           action_string,
+                                           perc))
+          ZIPERR(ZE_ABORT, "User terminated operation");
+      }
+# if defined(WIN32) && defined(LARGE_FILE_SUPPORT)
+      else
+      {
+        char *oname;
+        char *uname;
+
+        oname = z->oname;
+#  ifdef UNICODE_SUPPORT
+        uname = z->uname;
+#  else
+        uname = NULL;
+#  endif
+        /* no int64 support in caller */
+        filesize64 = z->siz;
+        low = (unsigned long)(filesize64 & 0x00000000FFFFFFFF);
+        high = (unsigned long)((filesize64 >> 32) & 0x00000000FFFFFFFF);
+        if (lpZipUserFunctions->service_no_int64 != NULL) {
+          if ((*lpZipUserFunctions->service_no_int64)(oname,
+                                                      uname,
+                                                      low,
+                                                      high))
+                    ZIPERR(ZE_ABORT, "User terminated operation");
+        }
+      }
+# endif /* defined(WIN32) && defined(LARGE_FILE_SUPPORT) */
+#endif /* ZIP_DLL_LIB */
+
       files_so_far++;
       /* current size of file (just before reading) */
       good_bytes_so_far += z->len;
@@ -12695,7 +12895,7 @@ char **argv;            /* command line tokens */
       w = &z->nxt;
       zcount++;
     }
-  }
+  } /* for found list (processing) */
 
   /* NULLing this here prevents check_zipfile() from using
      the password. */
@@ -12972,7 +13172,8 @@ char **argv;            /* command line tokens */
      *
      * Now:
      * Read comment text lines until ".\n" or EOF.
-     * Allocate (additional) storage in increments of MAXCOMLINE+3.  (MAXCOMLINE = 256)
+     * Allocate (additional) storage in increments of MAXCOMLINE+3.
+     *   (MAXCOMLINE = 256)
      * Read pieces up to MAXCOMLINE+1.
      * Convert a read-terminating "\n" character to "\r\n".
      * (If too long, truncate at maximum allowed length (and complain)?)
@@ -13011,19 +13212,37 @@ char **argv;            /* command line tokens */
       if (fgets((new_zcomment + new_zcomlen), (MAXCOMLINE + 1), comment_stream) == NULL)
       {
         if (new_zcomlen == 0)
+
+/* SMSd. */
+#if 0
           keep_current = 1;
+#endif
+          keep_current = (zcomlen > 0);
+
         break;
       }
 
       new_read = (int)strlen(new_zcomment + new_zcomlen);
-      
+
+/* SMSd. */
+#if 0
+fprintf( stderr, " new_zcomlen = %d, new_read = %d.\n",
+ new_zcomlen, new_read);
+
+fprintf( stderr, " >%s<\n", (new_zcomment + new_zcomlen));
+
       /* If the first line is empty or just a newline, keep current comment */
       if (new_zcomlen == 0 &&
           (new_read == 0 || strcmp((new_zcomment), "\n") == 0))
       {
         keep_current = 1;
+
+/* SMSd. */
+fprintf( stderr, " keep_current = 1.\n");
+
         break;
       }
+#endif /* 0 */
 
       /* Detect ".\n" comment terminator in new line read.  Quit, if found. */
       if (new_zcomlen &&
@@ -13099,6 +13318,12 @@ char **argv;            /* command line tokens */
         *(zcomment + zcomlen) = '\0';
       }
     }
+
+/* SMSd. */
+#if 0
+fprintf( stderr, " zcomment = %08x .\n", zcomment);
+#endif /* 0 */
+
     if (noisy)
       if (!comment_from_tty) {
         /* Display what we read from stdin. */
@@ -13183,18 +13408,20 @@ char **argv;            /* command line tokens */
     fflush(logfile);
   }
 
-#ifdef WINDLL
+#ifdef ZIP_DLL_LIB
   if (*lpZipUserFunctions->finish != NULL) {
     char susize[100];
     char scsize[100];
     long p;
+    API_FILESIZE_T api_n = (API_FILESIZE_T)n;
+    API_FILESIZE_T api_t = (API_FILESIZE_T)t;
 
     WriteNumString(n, susize);
     WriteNumString(t, scsize);
     p = percent(n, t);
-    (*lpZipUserFunctions->finish)(susize, scsize, n, t, p);
+    (*lpZipUserFunctions->finish)(susize, scsize, api_n, api_t, p);
   }
-#endif
+#endif /* ZIP_DLL_LIB */
 
   if (cd_only) {
     zipwarn("cd_only mode: archive has no data - use only for diffs", "");

@@ -1,7 +1,7 @@
 /*
   win32/osdep.h
 
-  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -46,6 +46,85 @@
 #  undef _MBCS
 #endif
 
+
+/* ------------------------------------------------------------- */
+
+/* Determine which version of MS C is being used.
+ *
+ * Here are some of the values:
+ *
+ * MSVC++ 14.0 _MSC_VER == 1900 (Visual Studio 2015)
+ * MSVC++ 12.0 _MSC_VER == 1800 (Visual Studio 2013)
+ * MSVC++ 11.0 _MSC_VER == 1700 (Visual Studio 2012)
+ * MSVC++ 10.0 _MSC_VER == 1600 (Visual Studio 2010)
+ * MSVC++ 9.0  _MSC_VER == 1500 (Visual Studio 2008)
+ * MSVC++ 8.0  _MSC_VER == 1400 (Visual Studio 2005)
+ * MSVC++ 7.1  _MSC_VER == 1310 (Visual Studio 2003)
+ * MSVC++ 7.0  _MSC_VER == 1300
+ * MSVC++ 6.0  _MSC_VER == 1200
+ * MSVC++ 5.0  _MSC_VER == 1100
+ */
+
+#if defined(_MSC_VER)
+/* Using MS C */
+
+/* --------------------------- */
+
+/* Get Windows version */
+
+# if (_MSC_VER >= 1400)
+
+#  include <sdkddkver.h>
+
+#  ifdef _WIN32_WINNT_WINXP
+#   if WINVER >= _WIN32_WINNT_WINXP
+#    ifndef AT_LEAST_WINXP
+#     define AT_LEAST_WINXP
+#    endif
+#   endif
+#  endif
+
+#  ifdef _WIN32_WINNT_VISTA
+#   if WINVER >= _WIN32_WINNT_VISTA
+#    ifndef AT_LEAST_WINVISTA
+#     define AT_LEAST_WINVISTA
+#    endif
+#   endif
+#  endif
+
+# else
+
+/* Assume if VS 6, it's being used on Windows NT or later. */
+
+#  if (_MSC_VER >= 1200)
+#   ifndef AT_LEAST_WINXP
+#    define AT_LEAST_WINXP
+#   endif
+#  endif
+# endif
+
+/* --------------------------- */
+
+/* Define Z_HANDLE */
+/* HANDLE may be defined in earlier VS versions. */
+
+# if (_MSC_VER >= 1600)
+#  define Z_INTPTR_T intptr_t
+# else
+#  define Z_INTPTR_T long
+# endif
+
+/* --------------------------- */
+
+#endif /* defined(_MSC_VER) */
+
+#ifdef __MINGW32__
+# define Z_INTPTR_T intptr_t
+#endif
+
+/* ------------------------------------------------------------- */
+
+
 /* Get types and stat */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -64,12 +143,46 @@
 #endif
 
 #define USE_CASE_MAP
-#define PROCNAME(n) (action == ADD || action == UPDATE ? wild(n) : \
-                     procname(n, filter_match_case))
+
+
+/* UNICODE */
+#ifdef WIN32
+  /* assume wide character conversion functions */
+# ifndef UNICODE_SUPPORT
+#   ifndef NO_UNICODE_SUPPORT
+#     define UNICODE_SUPPORT
+#     ifndef UNICODE_WCHAR
+#      define UNICODE_WCHAR
+#     endif
+#   endif
+# endif
+
+  /* Windows has setlocale */
+# ifndef NO_SETLOCALE
+#  ifndef HAVE_SETLOCALE
+#   define HAVE_SETLOCALE
+#  endif
+# endif
+
+  /* Windows does not have nl_langinfo */
+# ifndef HAVE_NL_LANGINFO
+#  ifndef NO_NL_LANGINFO
+#   define NO_NL_LANGINFO
+#  endif
+# endif
+
+#endif
+
+# define PROCNAME(n) (action == ADD || action == UPDATE ? wild(n) : \
+                      procname(n, filter_match_case))
+
 #define BROKEN_FSEEK
 #ifndef __RSXNT__
 #  define HAVE_FSEEKABLE
 #endif
+
+/* wild() for use with Windows with UNICODE_SUPPORT */
+int wild(char *path);
 
 
 /* popen
@@ -142,6 +255,20 @@
     /* base types for file offsets and file sizes */
     typedef __int64             zoff_t;
     typedef unsigned __int64    uzoff_t;
+
+#if 0
+    /* No longer used.  See note in tailor.h. */
+ 
+    /* base 64-bit types (used by api.h) */
+    /* These must be 64-bit. */
+#  define Z_LONGLONG __int64
+#  define UZ_LONGLONG unsigned __int64
+#endif
+
+    /* The file size type used by API calls.  This overrides
+       the default unsigned long long set in zip.h.  This
+       MUST be 64-bit for the DLL. */
+#  define API_FILESIZE_T unsigned __int64
 
     /* 64-bit stat struct */
     typedef struct _stati64 z_stat;
@@ -258,15 +385,11 @@
 #endif
 
 
-  /* UNICODE */
-#ifdef WIN32
-  /* assume wide character conversion functions */
-# ifndef UNICODE_SUPPORT
-#   ifndef NO_UNICODE_SUPPORT
-#     define UNICODE_SUPPORT
-#   endif
-# endif
-#endif
+/* 2013-04-11 SMS.  Have zrewind() in zipup.h. */
+#ifndef NO_ETWODD_SUPPORT
+# define ETWODD_SUPPORT
+#endif /* ndef NO_ETWODD_SUPPORT */
+
 
 #if 0
   /* this is now generic */
@@ -289,9 +412,12 @@
  *                  use "S" for sequential access on NT to prevent the NT
  *                  file cache eating up memory with large .zip files
  */
+/* Mode S not accepted when modifying stdout, i.e. stdout does not support
+   sequential access.  Added FOPW_STDOUT for this case.  2014-06-25 EG */
 #define FOPR "rb"
 #define FOPM "r+b"
 #define FOPW "wbS"
+#define FOPW_STDOUT "wb"
 
 #if (defined(__CYGWIN__) && !defined(NO_MKTIME))
 #  define NO_MKTIME             /* Cygnus' mktime() implementation is buggy */
@@ -321,6 +447,14 @@
 #   define REENTRANT
 # endif
 #endif /* WINDLL */
+
+/*
+ * ASM controls inclusion of assembler code.
+ *
+ * ASMV controls activation of longest match assembler code.
+ *
+ * ASM_CRC controls activation of CRC calculation assembler code.
+ */
 
 /* Enable use of optimized x86 assembler version of longest_match() for
    MSDOS, WIN32 and OS2 by default. */
@@ -625,9 +759,20 @@ int getch_win32(void);
     * However, the existence of this symbol is used as "symlinks supported"
     * indicator in the generic Zip code (see tailor.h). So, for a simple
     * work-around, this symbol is undefined here. */
+
+   /* Zip is migrating to using SYMLINKS for indicating symlink
+    * support.  This is to better support symlinks on platforms like
+    * Win32 that now implement symlinks as reparse points and mainly use
+    * their own ways of working with them.  2014-05-30 EG */
+#ifdef SYMLINKS
+# undef SYMLINKS
+#endif
+#if 0
 #  ifdef S_IFLNK
 #    undef S_IFLNK
 #  endif
+#endif
+
 #  ifdef UNICODE_SUPPORT
      /* Watcom C does not supply wide-char definitions in the "standard"
       * headers like MSC; so we have to pull in a wchar-specific header.
@@ -635,3 +780,14 @@ int getch_win32(void);
 #    include <wchar.h>
 #  endif
 #endif /* __WATCOMC__ */
+
+/* 2013-05-28 SMS.
+ * Define missing stat-related macros.
+ */
+#ifndef S_ISDIR
+# define S_ISDIR(m)  (((m)& _S_IFMT) == _S_IFDIR)
+#endif
+
+#ifndef S_ISREG
+# define S_ISREG(m)  (((m)& _S_IFMT) == _S_IFREG)
+#endif

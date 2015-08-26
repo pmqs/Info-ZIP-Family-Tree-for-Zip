@@ -27,6 +27,12 @@
 #include "revision.h"
 #include "crc32.h"
 #include "crypt.h"
+
+#ifdef WIN32
+/* This is needed to define FILE_ATTRIBUTE_REPARSE_POINT and related. */
+# include <Windows.h>
+#endif
+
 #ifdef USE_ZLIB
 #  include "zlib.h"
 #endif
@@ -137,11 +143,6 @@
 #endif
 
 /* Local functions */
-#ifndef RISCOS
-   local int suffixes OF((char *, char *));
-#else
-   local int filetypes OF((char *, char *));
-#endif
 local unsigned iz_file_read OF((char *buf, unsigned size));
 #ifdef USE_ZLIB
   local int zl_deflate_init OF((int pack_level));
@@ -273,7 +274,7 @@ local unsigned in_size;     /* size of current input buffer */
 # endif /* ZP_NEED_MEMCOMPR */
 #endif /* ?USE_ZLIB */
 
-#if defined( UNIX) && defined( __APPLE__)
+#ifdef UNIX_APPLE
 char btrbslash;             /* Saved character had better be a slash. */
 unsigned char *file_read_fake_buf;
 size_t file_read_fake_len;
@@ -284,7 +285,7 @@ local int translate_eol_lcl;
 #else
 /* Use normal (unmodified) "-l[l]" flag. */
 #  define TRANSLATE_EOL translate_eol
-#endif /* defined( UNIX) && defined( __APPLE__) */
+#endif /* UNIX_APPLE */
 
 #ifdef BZIP2_SUPPORT
 local int bzipInit;         /* flag: bzip2lib is initialized */
@@ -310,6 +311,9 @@ local uzoff_t isize;         /* input file size. global only for debugging */
 local int file_binary = 0;
 local int file_binary_final = 0;
 
+/* This is set when a text file is found to be binary and we are allowed
+   to restart the compression/store. */
+local int restart_as_binary = 0;
 
 /* open_for_append()
  *
@@ -340,12 +344,18 @@ int open_for_append(y)
      to beginning and write there (unlike Unix, where writing
      puts us back at end of file).
    */
+#  if 0
   int flag;
 
+  /* This check sometimes fails, where O_APPEND is set when the
+     file is fully seekable.  As a separate check is used to
+     determine if there is content already in the output file
+     on Windows, this check is not needed for Windows. */
   flag = y->_flag;
   if (flag & O_APPEND) {
     return 1;
   }
+#  endif
   return 0;
 
 # else
@@ -446,7 +456,7 @@ int percent(n, m)
 
 #ifndef RISCOS
 
-local int suffixes(fname, sufx_list)
+int suffixes(fname, sufx_list)
   char *fname;                  /* name to check suffix of */
   char *sufx_list;              /* list of suffixes separated by : or ; */
 /* Return true if fname ends in any of the suffixes in sufx_list. */
@@ -500,7 +510,7 @@ local int suffixes(fname, sufx_list)
 
 #else /* RISCOS */
 
-local int filetypes(fname, sufx_list)
+int filetypes(fname, sufx_list)
 char *fname;                    /* extra field of file to check filetype of */
 char *sufx_list;                /* list of filetypes separated by : or ; */
 /* Return true if fname is any of the filetypes in sufx_list. */
@@ -579,9 +589,9 @@ int l;                  /* True if this file is a symbolic link. */
       return ZE_MEM;
     while ((k = iz_file_read( b, SBSZ)) > 0 && k != (extent)EOF);
 
-#if defined( UNIX) && defined( __APPLE__)
+#ifdef UNIX_APPLE
     file_read_fake_len = 0;             /* Reset Mac-specific size. */
-#endif /* defined( UNIX) && defined( __APPLE__) */
+#endif
 
     /* Rewind file, if appropriate. */
     if (ifile != fbad)                  /* Necessary test? */
@@ -655,14 +665,15 @@ struct zlist far *z;    /* zip entry to compress */
   int auth_len;
 #endif
 
-#ifdef WINDLL
+#ifdef ZIP_DLL_LIB
   /* progress callback */
   long percent_all_entries_processed;
   long percent_this_entry_processed;
   uzoff_t bytetotal;
 #endif
 
-#ifdef WINDLL
+#if defined(ZIP_DLL_LIB) && defined(WIN32) 
+  /* This kluge is only for VB 6 */
 # ifdef ZIP64_SUPPORT
   extern uzoff_t filesize64;
   extern unsigned long low;
@@ -677,6 +688,21 @@ struct zlist far *z;    /* zip entry to compress */
   wchar_t wtarget_name[MAX_SYMLINK_WTARGET_NAME_LENGTH + 2];
   wchar_t *wpath;
 #endif
+
+#ifdef ALLOW_TEXT_BIN_RESTART
+  zoff_t saved_bytes_this_split;
+  zoff_t saved_tempzn;
+#endif
+
+  int is_fifo_to_skip = 0;
+
+  is_fifo_to_skip = IS_ZFLAG_FIFO(z->zflags) && !allow_fifo;
+
+  /* This is set when a text file is later found to contain binary and
+     we are allowed to restart the compression/store.  Currently not
+     supported if using descriptors (streaming) or output is split.
+     This just forces file_binary = 1 at first read. */
+  restart_as_binary = 0;
 
   /* local variable may be updated later */
   z->encrypt_method = encryption_method;
@@ -730,10 +756,10 @@ struct zlist far *z;    /* zip entry to compress */
 
     /* Get information for this object. */
     if (WinDirObjectInfo(wpath,
-                          &attr,
-                          &reparse_tag,
-                          wtarget_name,
-                          MAX_SYMLINK_WTARGET_NAME_LENGTH) == 1)
+                         &attr,
+                         &reparse_tag,
+                         wtarget_name,
+                         MAX_SYMLINK_WTARGET_NAME_LENGTH) == 1)
     {
 #  if 0
       zipwarn("Could not get Windows object info for path:  ", z->name);
@@ -788,7 +814,7 @@ struct zlist far *z;    /* zip entry to compress */
 #endif
 
 
-#if defined( UNIX) && defined( __APPLE__)
+#ifdef UNIX_APPLE
   /* Special treatment for AppleDouble "._" file:
    * Never translate EOL in an (always binary) AppleDouble file.
    * Add AppleDouble header size to AppleDouble resource fork file size,
@@ -796,34 +822,34 @@ struct zlist far *z;    /* zip entry to compress */
    * (Determining this size requires analysis of the extended
    * attributes, where they are available.)
    */
-  if ((z->flags & FLAGS_APLDBL) == 0)
+  if (!IS_ZFLAG_APLDBL(z->zflags))
   {
     /* Normal file, not an AppleDouble "._" file. */
     translate_eol_lcl = translate_eol;  /* Translate EOL normally. */
     file_read_fake_len = 0;             /* No fake AppleDouble file data. */
   }
-  else
+  else /* not !IS_ZFLAG_APLDBL(z->zflags) */
   {
     /* AppleDouble "._" file. */
     /* Never translate EOL in an (always binary) AppleDouble file. */
     translate_eol_lcl = 0;
     /* Truncate name at "/rsrc" for getattrlist(). */
-    btrbslash = z->name[ strlen( z->name)- strlen( APL_DBL_SUFX)];
-    z->name[ strlen( z->name)- strlen( APL_DBL_SUFX)] = '\0';
+    btrbslash = z->name[strlen(z->name) - strlen(APL_DBL_SUFX)];
+    z->name[strlen(z->name) - strlen(APL_DBL_SUFX)] = '\0';
 
     /* Create the AppleDouble header (in allocated storage).  It will
      * contain the Finder info, and, if available, any extended
      * attributes.
      */
-    r = make_apl_dbl_header( z->name, &j);
+    r = make_apl_dbl_header(z->name, &j);
 
     /* Restore name suffix ("/rsrc"). */
-    z->name[ strlen( z->name)] = btrbslash;
+    z->name[strlen(z->name)] = btrbslash;
 
     /* Increment the AppleDouble file size by the size of the header. */
     q += j;
-  } /* if ((z->flags& FLAGS_APLDBL) == 0) [else] */
-#endif /* defined( UNIX) && defined( __APPLE__) */
+  } /* not !IS_ZFLAG_APLDBL(z->zflags) */
+#endif /* UNIX_APPLE */
 
   if (tim == 0 || q == (zoff_t) -3)
     return ZE_OPEN;
@@ -870,11 +896,13 @@ struct zlist far *z;    /* zip entry to compress */
 
   last_progress_chunk = 0;
 
-#ifdef WINDLL
+#ifdef ZIP_DLL_LIB
 
   /* Initial progress callback.  Updates in iz_file_read(). */
 /*  if (progress_chunk_size > 0) { */
   if (progress_chunk_size > 0 && lpZipUserFunctions->progress != NULL) {
+    API_FILESIZE_T bytes_expected = (API_FILESIZE_T)bytes_expected_this_entry;
+
     if (bytes_total > 0) {
       if (bytes_total < ((uzoff_t)1 << (sizeof(uzoff_t) * 8 - 15))) {
         percent_all_entries_processed = (long)((10000 * bytes_so_far) / bytes_total);
@@ -903,25 +931,25 @@ struct zlist far *z;    /* zip entry to compress */
                                         unicode_entry_name,
                                         percent_this_entry_processed,
                                         percent_all_entries_processed,
-                                        bytes_expected_this_entry,
+                                        bytes_expected,
                                         usize_string,
                                         action_string)) {
       ZIPERR(ZE_ABORT, "User terminated operation");
     }
   }
-#endif /* WINDLL */
+#endif /* ZIP_DLL_LIB */
 
 
-#if defined( UNIX) && defined( __APPLE__)
-  if (z->flags& FLAGS_APLDBL) {
+#ifdef UNIX_APPLE
+  if (IS_ZFLAG_APLDBL(z->zflags)) {
     z->att = (ush)FT_BINARY;   /* AppleDouble files are always binary. */
   }
   else {
     z->att = (ush)FT_UNKNOWN;  /* will be changed later */
   }
-#else /* defined( UNIX) && defined( __APPLE__) */
+#else /* not UNIX_APPLE */
   z->att = (ush)FT_UNKNOWN;    /* will be changed later */
-#endif /* defined( UNIX) && defined( __APPLE__) [else] */
+#endif /* not UNIX_APPLE */
 
   z->atx = 0; /* may be changed by set_extra_field() */
 
@@ -1020,11 +1048,39 @@ struct zlist far *z;    /* zip entry to compress */
   /* Now is a good time.  For now allow storing for testing.  12/16/05 EG */
   /* By release need to force deflation based on reports some inflate
      streamed data to find the end of the data */
-  /* Need to handle bzip2 */
+  /* Need to handle bzip2 and other compression methods. */
+
+  /* The only time Zip needs to look for a data descriptor is when the
+     input is streamed from stdin and we are copying entries.  This is
+     now properly handled. */
 #ifdef NO_STREAMING_STORE
   if (use_descriptors && m == STORE)
   {
       m = DEFLATE;
+  }
+#endif
+
+
+  
+#ifdef ALLOW_TEXT_BIN_RESTART
+  /* If we are converting line ends or character set using -l, -ll or -a,
+     and a file labeled as "text" using first buffers is later found to
+     be "binary", we reset some things and jump back here to reprocess
+     the file as binary.  Output must be seekable (!use_descriptors) and
+     output can't be split archive.  Restarting when output is split is
+     more work, but may be added soon. */
+  saved_bytes_this_split = bytes_this_split;
+  saved_tempzn = tempzn;
+
+Restart_As_Binary:
+
+  if (restart_as_binary) {
+# if defined(MMAP) || defined(BIG_MEM)
+    remain = (ulg)-1L; /* changed only for MMAP or BIG_MEM */
+# endif /* MMAP || BIG_MEM */
+# if (!defined(USE_ZLIB) || defined(MMAP) || defined(BIG_MEM))
+    window_size = 0L;
+# endif /* !USE_ZLIB || MMAP || BIG_MEM */
   }
 #endif
 
@@ -1041,26 +1097,28 @@ struct zlist far *z;    /* zip entry to compress */
   else
   {
 #if !(defined(VMS) && defined(VMS_PK_EXTRA))
-    if (extra_fields) {
+    if (extra_fields && !restart_as_binary) {
       /* create select extra fields and change z->att and z->atx if desired */
       /* On WinNT this is where security is handled. */
+      /* if we're restarting as binary, already did this */
       set_extra_field(z, &f_utim);
 # ifdef QLZIP
       if(qlflag)
           a |= (S_IXUSR) << 16;   /* Cross compilers don't set this */
 # endif
 # ifdef RISCOS
-  for (sufx_i = 0; mthd_lvl[ sufx_i].method >= 0; sufx_i++)
-  {
-    /* Note: filetypes() checks for a null suffix list. */
-    if (filetypes( z->extra, mthd_lvl[ sufx_i].suffixes))
-    {
-      /* Found a match for this method. */
-      mthd = mthd_lvl[ sufx_i].method;
-      break;
-    }
-  }
+      for (sufx_i = 0; mthd_lvl[ sufx_i].method >= 0; sufx_i++)
+      {
+        /* Note: filetypes() checks for a null suffix list. */
+        if (filetypes( z->extra, mthd_lvl[ sufx_i].suffixes))
+        {
+          /* Found a match for this method. */
+          mthd = mthd_lvl[ sufx_i].method;
+          break;
+        }
+      }
 # endif /* def RISCOS */
+
 
       /* For now allow store for testing */
 #ifdef NO_STREAMING_STORE
@@ -1074,12 +1132,15 @@ struct zlist far *z;    /* zip entry to compress */
     }
 #endif /* !(VMS && VMS_PK_EXTRA) */
 
-    /* symlink or mount point */
-    if (l || mp) {
+    if (l || mp) {               /* symlink or mount point */
       ifile = fbad;
       mthd = STORE;
     }
-    else if (isdir) { /* directory */
+    else if (is_fifo_to_skip) {  /* FIFO we are not reading */
+      ifile = fbad;
+      mthd = STORE;
+    }
+    else if (isdir) {            /* directory */
       ifile = fbad;
       mthd = STORE;
       q = 0;
@@ -1103,7 +1164,7 @@ struct zlist far *z;    /* zip entry to compress */
       }
       else
 #endif /* CMS_MVS */
-#if defined(UNICODE_SUPPORT) && defined(WIN32)
+#ifdef UNICODE_SUPPORT_WIN32
       if (!no_win32_wide) {
         /*
         if ((ifile = zwopen(z->namew, fhow)) == fbad)
@@ -1113,6 +1174,7 @@ struct zlist far *z;    /* zip entry to compress */
            return ZE_OPEN;
         }
         */
+        /* open files with paths possibly longer than 256 bytes */
         if ((ifile = zwopen_read_long(z->namew)) == fbad)
         {
            free(tempextra);
@@ -1127,14 +1189,14 @@ struct zlist far *z;    /* zip entry to compress */
            return ZE_OPEN;
         }
       }
-#else /* defined(UNICODE_SUPPORT) && defined(WIN32) [else] */
+#else /* not UNICODE_SUPPORT_WIN32 */
       if ((ifile = zopen(z->name, fhow)) == fbad)
       {
          free(tempextra);
          free(tempcextra);
          return ZE_OPEN;
       }
-#endif /* defined(UNICODE_SUPPORT) && defined(WIN32) [else] */
+#endif /* not UNICODE_SUPPORT_WIN32 */
     }
 
     z->tim = tim;
@@ -1363,10 +1425,10 @@ struct zlist far *z;    /* zip entry to compress */
           * pseudo-random seed datum.  (The high 16 bits of the "CRC"
           * are used in the Traditional encryption header.)
           *
-          * This use of the file time as the CRC and then the use of a
-          * data descriptor to hold the CRC is not standard, but is
-          * readable by various utilities out there.  We do it this way
-          * to avoid reading a file more than once and to support streaming.
+          * This use of file time as the CRC and then use of a data
+          * descriptor to hold the CRC is not standard, but is readable
+          * by various utilities out there.  We do it this way to avoid
+          * reading a file more than once and to support streaming.
           */
         z->crc = z->tim << 16;
       }
@@ -1407,6 +1469,8 @@ struct zlist far *z;    /* zip entry to compress */
     z->atx |= (S_IFLNK << 16) | 0x1ff0000;
 #endif
 
+
+
 #ifdef IZ_CRYPT_AES_WG
   /* Initialize AES encryption
    *
@@ -1439,7 +1503,7 @@ struct zlist far *z;    /* zip entry to compress */
       int ret;
 
       zpwd = (unsigned char *)key;
-      zpwd_len = strlen(key);
+      zpwd_len = (int)strlen(key);
 
       /* these values probably need tweeking */
 
@@ -1494,6 +1558,8 @@ struct zlist far *z;    /* zip entry to compress */
 
 
 #ifdef IZ_CRYPT_AES_WG_NEW
+  /* This "new" unfinished code is getting old and should not be used without
+     significant work. */
   /* Initialize AES encryption
    *
    * Data size:           This value is currently 7, but vendors should not assume
@@ -1595,6 +1661,10 @@ struct zlist far *z;    /* zip entry to compress */
   }
 #endif
 
+  /* Update method as putlocal needs it.  z->how may be something like
+      99 if AES encryption was used. */
+  z->thresh_mthd = mthd;
+
   if ((r = putlocal(z, PUTLOCAL_WRITE)) != ZE_OK) {
     if (ifile != fbad)
       zclose(ifile);
@@ -1608,7 +1678,6 @@ struct zlist far *z;    /* zip entry to compress */
   z->dsk = current_local_disk;
 
   tempzn += 4 + LOCHEAD + z->nam + z->ext;
-
 
 #ifdef IZ_CRYPT_ANY
   /* write out encryption header at top of file data */
@@ -1722,6 +1791,12 @@ struct zlist far *z;    /* zip entry to compress */
 
     /* nothing to write */
   }
+  else if (is_fifo_to_skip) {
+
+    /* named pipe we are skipping */
+
+    /* nothing to write */
+  }
   else if (mthd != STORE) {
 
     /* compress */
@@ -1778,6 +1853,41 @@ struct zlist far *z;    /* zip entry to compress */
           zipwarn("-l used on binary file - corrupted?", errbuf);
         else
           zipwarn("-ll used on binary file - corrupted?", errbuf);
+
+#ifdef ALLOW_TEXT_BIN_RESTART
+        /* Binary restart.  Seek back to start of this entry, jump back
+           earlier in zipup(), and start again as binary.  The Store
+           (not compressing) case is handled farther down.
+           
+           We do not yet support restarting if writing split archives.  In
+           that case we stick with the above warning and leave the file
+           corrupted. */
+
+        if (ifile != fbad && split_method == 0 && !use_descriptors
+            && strcmp(z->name, "-") && !IS_ZFLAG_FIFO(z->zflags)) {
+          /* Seek back to start of entry */
+          if (zfseeko(y, z->off, SEEK_SET) != 0) {
+            zipwarn("  attempt to seek back to restart file failed", "");
+          }
+          else {
+            /* seek succeeded */
+
+            /* SPLITS NOT HANDLED YET */
+            bytes_this_split = saved_bytes_this_split;
+            bytes_this_entry = 0;
+            bytes_read_this_entry = 0;
+            tempzn = saved_tempzn;
+            /* need to jump to disk with start of this entry here */
+        
+            zipmessage("    remarking text file as binary and redoing...", "");
+            restart_as_binary = 1;
+            /* reset flag - will be set to binary in iz_file_read() */
+            file_binary = -1;
+
+            goto Restart_As_Binary;
+          }
+        }
+#endif
       }
     }
 #endif
@@ -1893,6 +2003,8 @@ struct zlist far *z;    /* zip entry to compress */
       z->att = (file_binary_final ? (ush)FT_BINARY : (ush)FT_ASCII_TXT);
     }
 
+    free((zvoid *)b);
+
     if (z->att == (ush)FT_BINARY && TRANSLATE_EOL)
     {
       sprintf(errbuf, " (%s)", z->oname);
@@ -1911,14 +2023,52 @@ struct zlist far *z;    /* zip entry to compress */
           zipwarn("-l used on binary file - corrupted?", errbuf);
         else
           zipwarn("-ll used on binary file - corrupted?", errbuf);
+
+#ifdef ALLOW_TEXT_BIN_RESTART
+        /* Binary restart.  Seek back to start of this entry, jump back
+           earlier in zipup(), and start again as binary.  The compressing
+           (not Store) case is handled above.
+           
+           We do not yet support restarting if writing split archives.  In
+           that case we stick with the above warning and leave the file
+           corrupted. */
+
+        if (ifile != fbad && split_method == 0 && !use_descriptors
+            && strcmp(z->name, "-") && !IS_ZFLAG_FIFO(z->zflags)) {
+          /* Seek back to start of entry */
+          if (zfseeko(y, z->off, SEEK_SET) != 0) {
+            zipwarn("  attempt to seek back to restart file failed", "");
+          }
+          else {
+            /* seek succeeded */
+
+            /* SPLITS NOT HANDLED YET */
+            bytes_this_split = saved_bytes_this_split;
+            bytes_this_entry = 0;
+            bytes_read_this_entry = 0;
+            tempzn = saved_tempzn;
+            /* need to jump to disk with start of this entry here */
+        
+            zipmessage("    remarking text file as binary and redoing...", "");
+            restart_as_binary = 1;
+            /* reset flag - will be set to binary in iz_file_read() */
+            file_binary = -1;
+
+            zclose(ifile);
+
+            goto Restart_As_Binary;
+          }
+        }
+#endif
+
       }
     }
 
-    free((zvoid *)b);
     s = isize;
 
   } /* store */
 
+  /* zerr = (k == (extent)(-1L)) */
   if (ifile != fbad && zerr(ifile)) {
     zperror("\nzip warning");
     if (logfile)
@@ -2026,6 +2176,7 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
 
     /* See if can seek back to local header.  If not, write data descriptor. */
 #ifdef BROKEN_FSEEK
+
     if ((z->flg & 8) || !seekable(y) || zfseeko(y, z->off, SEEK_SET))
 #else
     if ((z->flg & 8) || zfseeko(y, z->off, SEEK_SET))
@@ -2153,6 +2304,10 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
           return ZE_READ;
       }
 
+      /* Update method as putlocal needs it.  z->how may be something like
+         99 if AES encryption was used. */
+      z->thresh_mthd = mthd;
+
       /* if local header in another split, putlocal will close it */
       if ((r = putlocal(z, PUTLOCAL_REWRITE)) != ZE_OK)
         return r;
@@ -2223,7 +2378,7 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
 #endif
   if (mthd == DEFLATE)
     strcpy(methodstring, "deflated");
-  else
+  else if (mthd == STORE)
     strcpy(methodstring, "stored");
 
   if (noisy || logall)
@@ -2262,7 +2417,11 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
     fflush(logfile);
   }
 
-#ifdef WINDLL
+  /* The Service callback is processed on return of zipup().  Calling
+     it here is redundant. */
+#ifdef ZIP_DLL_LIB
+
+#if 0
 # ifdef ZIP64_SUPPORT
    /* The DLL api has been updated and uses a different
       interface.  7/24/04 EG */
@@ -2293,17 +2452,18 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
                                        perc))
       ZIPERR(ZE_ABORT, "User terminated operation");
   }
+#  if defined(WIN32) && defined(LARGE_FILE_SUPPORT)
   else
   {
     char *oname;
     char *uname;
 
     oname = z->oname;
-#ifdef UNICODE_SUPPORT
+#   ifdef UNICODE_SUPPORT
     uname = z->uname;
-#else
+#   else
     uname = NULL;
-#endif
+#   endif
 
     filesize64 = isize;
     low = (unsigned long)(filesize64 & 0x00000000FFFFFFFF);
@@ -2316,7 +2476,8 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
         ZIPERR(ZE_ABORT, "User terminated operation");
     }
   }
-# else
+#  endif /* defined(WIN32) && defined(LARGE_FILE_SUPPORT) */
+# else /* not Zip64 */
   if (lpZipUserFunctions->ServiceApplication != NULL)
   {
     if ((*lpZipUserFunctions->ServiceApplication)(z->zname, isize))
@@ -2325,18 +2486,21 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
     }
   }
 
-# endif
+# endif /* Zip64 */
+#endif
 
   /* Final progress callback. */
   if (progress_chunk_size > 0 && lpZipUserFunctions->progress != NULL) {
     /* Callback parameters:
             entry_name                     - name of this entry
             unicode_entry_name             - unicode name, if any, or NULL
-            percent_this_entry_processed   - % of this entry processed * 100 (integer)
-            percent_all_entries_processed  - % of all entries processed * 100 (integer)
+            percent_this_entry_processed   - % of this entry processed * 100
+            percent_all_entries_processed  - % of all entries processed * 100
             bytes_expected_this_entry      - total bytes expected this entry
-            usize_string                   - the string version of total bytes (e.g. "4.4k")
+            usize_string                   - string total bytes (e.g. "4.4k")
     */
+    API_FILESIZE_T bytes_expected = (API_FILESIZE_T)bytes_expected_this_entry;
+
     if (bytes_total > 0) {
       if (bytes_total < ((uzoff_t)1 << (sizeof(uzoff_t) * 8 - 15))) {
         percent_all_entries_processed
@@ -2358,22 +2522,23 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
     }
 
 /*
-    zprintf("\n  progress %5.2f%% all  %5.2f%%  %s\n", (float)percent_all_entries_processed/100,
-                                                      (float)percent_this_entry_processed/100,
-                                                       entry_name);
+    zprintf("\n  progress %5.2f%% all  %5.2f%%  %s\n",
+           (float)percent_all_entries_processed/100,
+           (float)percent_this_entry_processed/100,
+           entry_name);
 */
 
     if ((*lpZipUserFunctions->progress)(entry_name,
                                         unicode_entry_name,
                                         percent_this_entry_processed,
                                         percent_all_entries_processed,
-                                        bytes_expected_this_entry,
+                                        bytes_expected,
                                         usize_string,
                                         action_string)) {
       ZIPERR(ZE_ABORT, "User terminated operation");
     }
   }
-#endif
+#endif /* ZIP_DLL_LIB */
   
   return ZE_OK;
 }
@@ -2393,14 +2558,18 @@ local unsigned iz_file_read(buf, size)
  * end of file.
  *
  * Now, if -ll (translate_eol == 2), and last char was \r, read next char
- * (probably \n) and add to buf.
+ * (probably \n) and add to buf.  An extra char at end of buf is now removed
+ * from that buf and added to front of next buf.
  *
  * For -l (translate_eol == 1), now read at least 1 byte.
  */
 {
   unsigned len;
   char *b;
-  uzoff_t isize_prev;    /* Previous isize.  Used for overflow check. */
+  uzoff_t isize_prev;           /* Previous isize.  Used for overflow check. */
+  static int char_was_saved = 0;/* 1= a character was saved from last buf. */
+  static char saved_char = 0;   /* Character that was saved. */
+  static int eof_reached = 0;
 
 #ifdef WINDLL
   uzoff_t current_progress_chunk;
@@ -2409,7 +2578,7 @@ local unsigned iz_file_read(buf, size)
   uzoff_t bytetotal;
 #endif
 
-#if defined( UNIX) && defined( __APPLE__)
+#ifdef UNIX_APPLE
   /* Supply data from fake file buffer, if available.
    * Always binary, never translated.
    */
@@ -2419,7 +2588,7 @@ local unsigned iz_file_read(buf, size)
     file_read_fake_len -= len;
   } else
   /* Otherwise, read real data from the real file. */
-#endif /* defined( UNIX) && defined( __APPLE__) */
+#endif /* UNIX_APPLE */
 #if defined(MMAP) || defined(BIG_MEM)
   if (remain == 0L) {
     return 0;
@@ -2452,7 +2621,10 @@ local unsigned iz_file_read(buf, size)
     if (file_binary < 0)
     {
       /* first read */
-      file_binary = is_text_buf(buf, len) ? 0 : 1;
+      if (restart_as_binary)
+        file_binary = 1;
+      else
+        file_binary = is_text_buf(buf, len) ? 0 : 1;
       file_binary_final = file_binary;
     }
     else if (file_binary_final != 1 && binary_full_check) {
@@ -2517,7 +2689,7 @@ local unsigned iz_file_read(buf, size)
   } /* translate_eol == 0 */
 
   else if (TRANSLATE_EOL == 1) {
-    /* translate_eol == 1 */
+    /* translate_eol == 1 (-l) */
     /* Transform LF to CR LF */
     size >>= 1;
     /* read at least 1 byte */
@@ -2541,7 +2713,10 @@ local unsigned iz_file_read(buf, size)
     if (file_binary < 0)
     {
       /* first read */
-      file_binary = is_text_buf(b, size) ? 0 : 1;
+      if (restart_as_binary)
+        file_binary = 1;
+      else
+        file_binary = is_text_buf(b, size) ? 0 : 1;
       file_binary_final = file_binary;
     }
     else if (file_binary_final != 1 && binary_full_check)
@@ -2579,18 +2754,72 @@ local unsigned iz_file_read(buf, size)
     } else { /* do not translate binary */
       memcpy(buf, b, size);
     }
-  } /* translate_eol == 1 */
+  } /* translate_eol == 1 (-l) */
 
   else {
-    /* translate_eol == 2 */
+    /* translate_eol == 2 (-ll) */
     /* Transform CR LF to LF and suppress final ^Z */
+    /* Any unmatched CRs are not removed.  This allows -l to
+       restore an entry processed with -ll (to some extent). */
     char buf2[2];
     int len2;
+
+    if (file_binary < 0)
+    {
+      /* before first read */
+      char_was_saved = 0;
+      eof_reached = 0;
+    }
+
     b = buf;
-    if (size > 1)
-      /* make room for potential end \n */
-      size--;
-    size = len = zread(ifile, buf, size);
+
+    if (char_was_saved) {
+      /* This handles a \r at end of buf by saving it for the
+         next read.  That allows matching it with a \n on that
+         next read, if there is one.  If another char was read
+         to check for a match (to prevent size = 0), that char
+         might have been saved.  In either case, we just stick
+         the saved char at the beginning of the buffer. */
+      char_was_saved = 0;
+      /* add saved CR to front of buffer */
+      buf[0] = saved_char;
+      if (size > 1) {
+        size = len = zread(ifile, buf + 1, size - 1);
+        if (len == (unsigned)EOF) {
+          /* error - return error */
+          return len;
+        }
+        else if (len == 0) {
+          /* eof - flag it and return \r */
+          eof_reached = 1;
+          size = len = 1;
+        }
+        else {
+          size = len = size + 1;
+        }
+      }
+    } /* char_was_saved */
+    else {
+      /* check for previous EOF */
+      /* if (zeof(ifile)) */
+      if (eof_reached) {
+        size = len = 0;
+      }
+      else {
+        if (size > 1024) {
+          /* Make room for appending extra \n when last char in
+             buf is \r and we read an extra char to see if \n.
+             Assumes caller's buffer is larger than 1024.  If
+             size is less than that, then should already be
+             room in buffer for another char.  Note that \n
+             is only appended if matches preceeding \r, and
+             so \r \n pair will be reduced to \n.  Original
+             size is never exceeded. */
+          size--;
+        }
+        size = len = zread(ifile, buf, size);
+      }
+    }
 
     if (len == (unsigned)EOF || len == 0) {
       if (file_binary < 0 && len == 0) {
@@ -2601,16 +2830,47 @@ local unsigned iz_file_read(buf, size)
       return len;
     }
     if (buf[size - 1] == '\r') {
-      /* Read one more char, which should be \n.  We do
-         not handle the case where another \r is read.
-         This might be done by storing the last \r until
-         the next buffer read. */
-      len2 = zread(ifile, buf2, 1);
-      if (len2 > 0) {
-        buf[size++] = buf2[0];
-        len++;
+      /* If size > 1, just save the \r for next read.  If
+         size == 1, we need to return something, so read
+         next char.  If \n, append to buffer and let code
+         below convert \r \n to \n.  If not \n, then \r is
+         not matched, so return that and save extra char
+         for next read. */
+      if (size > 1) {
+        /* Just remove the end \r and save for next read. */
+        char_was_saved = 1;
+        saved_char = buf[size - 1];
+        size--;
       }
-    }
+      else {
+        /* Need to return something, so we read the next
+           char.  If \n, let code below convert \r \n to
+           \n.  If not, save extra char for next read
+           and return the \r. */
+        len2 = zread(ifile, buf2, 1);
+        if (len2 == EOF) {
+          /* Error - return error. */
+          return len2;
+        }
+        else if (len2 == 0) {
+          /* EOF - flag and continue. */
+          eof_reached = 1;
+        }
+        else if (buf2[0] == '\n') {
+          /* Matching \n for \r - add to buffer so \r \n pair
+             can be converted to \n below. */
+          size++;
+          buf[size - 1] = buf2[0];
+        }
+        else {
+          /* Extra char not \n, so \r not matched.  Save extra
+             char and return the \r. */
+          char_was_saved = 1;
+          saved_char = buf2[0];
+        }
+      } /* size == 1 */
+      len = size;
+    } /* end \r */
 
     bytes_read_this_entry += len;
 
@@ -2619,7 +2879,10 @@ local unsigned iz_file_read(buf, size)
     if (file_binary < 0)
     {
       /* first read */
-      file_binary = is_text_buf(b, size) ? 0 : 1;
+      if (restart_as_binary)
+        file_binary = 1;
+      else
+        file_binary = is_text_buf(b, size) ? 0 : 1;
       file_binary_final = file_binary;
     }
     else if (file_binary_final != 1 && binary_full_check)
@@ -2675,8 +2938,9 @@ local unsigned iz_file_read(buf, size)
          if (buf[len-1] == CTRLZ) len--; /* suppress final ^Z */
       }
 #endif
-      /* Should be OK if it is a text file. */
       buf -= len;
+
+      /* Should be OK if it is a text file. */
       if (buf[len-1] == CTRLZ) len--; /* suppress final ^Z */
     }
   } /* translate_eol == 2 */
@@ -2693,10 +2957,12 @@ local unsigned iz_file_read(buf, size)
     ZIPERR(ZE_BIG, "overflow in byte count");
   }
   
-#ifdef WINDLL
+#ifdef ZIP_DLL_LIB
   /* If progress_chunk_size is defined and ProgressReport() exists,
      see if time to send user progress information. */
   if (progress_chunk_size > 0 && lpZipUserFunctions->progress != NULL) {
+    API_FILESIZE_T bytes_expected = (API_FILESIZE_T)bytes_expected_this_entry;
+
     current_progress_chunk = bytes_read_this_entry / progress_chunk_size;
     if (current_progress_chunk > last_progress_chunk) {
       /* Send progress report to application */
@@ -2740,23 +3006,24 @@ local unsigned iz_file_read(buf, size)
       }
 
 /*
-      zprintf("\n  progress %5.2f%% all  %5.2f%%  %s\n", (float)percent_all_entries_processed/100,
-                                                        (float)percent_this_entry_processed/100,
-                                                         entry_name);
+      zprintf("\n  progress %5.2f%% all  %5.2f%%  %s\n",
+              (float)percent_all_entries_processed/100,
+              (float)percent_this_entry_processed/100,
+              entry_name);
 */
 
       if ((*lpZipUserFunctions->progress)(entry_name,
                                           unicode_entry_name,
                                           percent_this_entry_processed,
                                           percent_all_entries_processed,
-                                          bytes_expected_this_entry,
+                                          bytes_expected,
                                           usize_string,
                                           action_string)) {
         ZIPERR(ZE_ABORT, "User terminated operation");
       }
     }
   }
-#endif /* WINDLL */
+#endif /* ZIP_DLL_LIB */
 
   return len;
 }
@@ -2911,6 +3178,8 @@ void flush_outbuf(o_buf, o_idx)
     }
     *o_idx = 0;
 }
+#endif /* ?USE_ZLIB */
+
 
 /* ===========================================================================
  * Return true if the zip file can be seeked. This is used to check if
@@ -2926,7 +3195,6 @@ int seekable(y)
 {
     return fseekable(y) && !open_for_append(y);
 }
-#endif /* ?USE_ZLIB */
 
 
 /* ===========================================================================

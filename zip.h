@@ -223,17 +223,37 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 # endif
 #endif /* WIN32 */
 
+
+/* ---------- */
+/* Encryption */
+
+/* The file iz_aes.h includes aes_wg/iz_con.h, which sets
+   AES_WG_KIT_INSTALLED if the iz_aes_wg.zip AES WG kit is installed
+   in the aes_wg directory.  If iz_aes.h sees this set, it defaults
+   to setting CRYPT_AES_WG to enable AES WG encryption, unless
+   NO_CRYPT_AES_WG is defined.  iz_aes.h ensures that
+   CRYPT_AES_WG and NO_CRYPT_AES_WG are not both defined. */
+#include "iz_aes.h"
+
+
 /* Encryption rules.
  *
  * By default, in normal Zip, enable Traditional, disable AES_WG.
  *
  * User-specified macros:
- * NO_CRYPT, NO_CRYPT_TRAD, CRYPT_AES_WG.
+ * NO_CRYPT, NO_CRYPT_TRAD, CRYPT_AES_WG, NO_CRYPT_AES_WG.
  *
- * NO_CRYPT disables all.
- * NO_CRYPT_TRAD disables Traditional.
- * CRYPT_AES_WG enables AES_WG.  (aes_wg directory must be populated
- *   with iz_aes_wg code package.)
+ *   NO_CRYPT disables all.
+ *
+ *   NO_CRYPT_TRAD disables Traditional (ZipCrypto) encryption.
+ *
+ *   CRYPT_AES_WG enables AES_WG.  This is now the default if
+ *     the iz_aes_wg.zip AES WG source kit has been expanded in
+ *     the aes_wg/ directory.
+ *
+ *   NO_CRYPT_AES_WG disables AES_WG.  This is the default if the
+ *     AES WG source kit has not been added to aes_wg/.  If that
+ *     kit has been added, this disables AES WG encryption.
  *
  * Macros used in code: IZ_CRYPT_AES_WG, IZ_CRYPT_ANY, IZ_CRYPT_TRAD.
  *
@@ -242,14 +262,30 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
  */
 # ifdef NO_CRYPT
    /* Disable all encryption. */
+#if 0
+/* Disabling these here makes no sense as they could not have been
+   set yet. */
 #  undef IZ_CRYPT_AES_WG
 #  undef IZ_CRYPT_AES_WG_NEW
 #  undef IZ_CRYPT_TRAD
-# else /* def NO_CRYPT */
+#endif
+#  ifdef IZ_CRYPT_TRAD
+#   undef IZ_CRYPT_TRAD
+#  endif
+#  ifdef CRYPT_AES_WG
+#    undef CRYPT_AES_WG
+#    ifndef NO_CRYPT_AES_WG
+#     define NO_CRYPT_AES_WG
+#    endif
+#  endif
+# else /* not def NO_CRYPT */
    /* Allow encryption to be enabled. */
 #  ifdef NO_CRYPT_TRAD
     /* Disable Traditional encryption. */
-#   undef IZ_CRYPT_TRAD
+    /* There should be no way this was set. */
+#   ifdef IZ_CRYPT_TRAD
+#    undef IZ_CRYPT_TRAD
+#   endif
 #  else /* def NO_CRYPT_TRAD */
     /* Enable Traditional encryption. */
 #   define IZ_CRYPT_TRAD 1
@@ -267,6 +303,9 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #  define IZ_CRYPT_AES_WG_NEW 1
 #  include "aesnew/ccm.h"
 #endif
+
+/* ---------- */
+
 
 /* CRC32() is now used by zipbare(). */
 #if 0
@@ -696,11 +735,14 @@ struct plist {
 };
 
 
+/* --------------------------------------- */
+
 /* internal file type attribute */
 #define FT_UNKNOWN     (-1)
 #define FT_BINARY      (0)
 #define FT_ASCII_TXT   (1)
 #define FT_EBCDIC_TXT  (2)
+
 
 /* Extra field block ID codes (tags): */
 #define EF_ACL          0x4C41   /* ACL, access control list ("AL") */
@@ -762,10 +804,12 @@ struct plist {
 #define EB_UX2_GID        2     /* byte offset of GID in "Ux" field data */
 #define EB_UX2_VALID      (1 << 8)      /* UID/GID present */
 
+
 /* ASCII definitions for line terminators in text files: */
 #define LF     10        /* '\n' on ASCII machines; must be 10 due to EBCDIC */
 #define CR     13        /* '\r' on ASCII machines; must be 13 due to EBCDIC */
 #define CTRLZ  26        /* DOS & OS/2 EOF marker (used in fileio.c, vms.c) */
+
 
 /* return codes of password fetches (negative: user abort; positive: error) */
 #define IZ_PW_ENTERED   0       /* got some PWD string, use/try it */
@@ -777,6 +821,7 @@ struct plist {
 /* mode flag values of password prompting function */
 #define ZP_PW_ENTER     0       /* request for encryption password */
 #define ZP_PW_VERIFY    1       /* request for reentering password */
+
 
 /* Error return codes and PERR macro */
 #include "ziperr.h"
@@ -802,6 +847,7 @@ struct plist {
 extern int comadd;           /* 1=add comments for new files */
 extern extent comment_size;  /* comment size */
 extern FILE *comment_stream; /* set to stderr if anything is read from stdin */
+
 
 /* Public globals */
 extern uch upper[256];          /* Country dependent case map table */
@@ -871,6 +917,7 @@ extern int scanimage;           /* Scan through image files */
 # define LAST_KNOWN_COMPMETHOD  PPMD
 #endif
 
+
 /* --------------------------------------------------------------
  * Store method default file name suffix list.
  * Files with these suffixes are stored (not compressed) by default.
@@ -924,6 +971,8 @@ _rar:_rz:_tbz2:_tgz:_tlz:_txz:_xz:_Z:_zip:_zipx:_zoo:_zz"
     /* RISCOS */
 # define MTHD_SUFX_0 "68E:D96:DDC";
 #endif /* ndef RISCOS [else] */
+
+
 /* -------------------------------------------------------------- */
 
 #define AESENCRED 99            /* AES (WG) encrypted */
@@ -1479,6 +1528,20 @@ void zperror OF((const char *));
 # define UNIXLIB
 #endif
 
+
+/* --------------------------------------- */
+
+/* The filesize type used for API (LIB/DLL) calls defaults to
+   unsigned long long.  A port can override this by setting it
+   here (or in osdep.h). */
+
+#ifdef ZIP_DLL_LIB
+# ifndef API_FILESIZE_T
+#  define API_FILESIZE_T unsigned long long
+# endif
+#endif
+
+
 #ifdef ZIP_DLL_LIB
 /*---------------------------------------------------------------------------
     Prototypes for public Zip API (DLL and LIB) functions.
@@ -1555,9 +1618,9 @@ extern int bflag;
      void zl_deflate_free OF((void));
 #  else
      void flush_outbuf OF((char *, unsigned *));
-     int seekable OF((FILE *));
      extern unsigned (*read_buf) OF((char *, unsigned int));
 #  endif /* !USE_ZLIB */
+     int seekable OF((FILE *));
 #  ifdef ZP_NEED_MEMCOMPR
      ulg memcompress OF((char *, ulg, char *, ulg));
 #  endif

@@ -121,21 +121,18 @@ local z_uint4 keys[3];          /* keys defining the pseudo-random sequence */
 #  endif
 # endif
 
-# ifdef IZ_CRYPT_ANY
+# include "crc32.h"
 
-#  include "crc32.h"
-
-#  ifdef IZ_CRC_BE_OPTIMIZ
+# ifdef IZ_CRC_BE_OPTIMIZ
 local z_uint4 near crycrctab[256];
 local z_uint4 near *cry_crctb_p = NULL;
 local z_uint4 near *crytab_init OF((__GPRO));
-#   define CRY_CRC_TAB  cry_crctb_p
-#   undef CRC32
-#   define CRC32(c, b, crctab) (crctab[((int)(c) ^ (b)) & 0xff] ^ ((c) >> 8))
-#  else
-#   define CRY_CRC_TAB  CRC_32_TAB
-#  endif /* ?IZ_CRC_BE_OPTIMIZ */
-# endif /* def IZ_CRYPT_ANY */
+#  define CRY_CRC_TAB  cry_crctb_p
+#  undef CRC32
+#  define CRC32(c, b, crctab) (crctab[((int)(c) ^ (b)) & 0xff] ^ ((c) >> 8))
+# else /* def IZ_CRC_BE_OPTIMIZ */
+#  define CRY_CRC_TAB  CRC_32_TAB
+# endif /* def IZ_CRC_BE_OPTIMIZ [else] */
 
 # ifdef IZ_CRYPT_TRAD
 
@@ -152,6 +149,7 @@ int decrypt_byte(__G)
     temp = ((unsigned)GLOBAL(keys[2]) & 0xffff) | 2;
     return (int)(((temp * (temp ^ 1)) >> 8) & 0xff);
 }
+
 
 /***********************************************************************
  * Update the encryption keys with the next byte of plain text
@@ -225,8 +223,8 @@ local z_uint4 near *crytab_init(__G)
 #  ifdef IZ_CRYPT_TRAD
 
 /***********************************************************************
- * Write (Traditional) encryption header to file zfile using the password
- * passwd and the cyclic redundancy check crc.
+ * Write (Traditional) encryption header to file zfile using the
+ * password passwd and the cyclic redundancy check crc.
  */
 void crypthead(passwd, crc)
     ZCONST char *passwd;         /* password string */
@@ -278,12 +276,14 @@ void crypthead(passwd, crc)
  * A bug has been found when encrypting large files that don't
  * compress.  See trees.c for the details and the fix.
  */
-unsigned zfwrite(buf, item_size, nb)
+unsigned int zfwrite(buf, item_size, nb)
     zvoid *buf;                 /* data buffer */
     extent item_size;           /* size of each item in bytes */
     extent nb;                  /* number of items */
 {
+#ifdef IZ_CRYPT_TRAD
     int t;                      /* temporary */
+#endif
 
     if (key != (char *)NULL)    /* key is the global password pointer */
     {
@@ -590,6 +590,8 @@ int zipcloak(z, passwd)
     /* read the local header */
     res = readlocal(&localz, z);
 
+    /* readlocal() has already set localz->thresh_mthd = localz->how. */
+
     /* Update (assumed only one) disk.  Caller is responsible for offset. */
     z->dsk = 0;
 
@@ -608,9 +610,9 @@ int zipcloak(z, passwd)
     }
     else
     {
-        /* Determine AES encryption salt length, and header+trailer length.
-         * Header has salty stuff.  Trialer has Message Authentication
-         * Code (MAC).
+        /* Determine AES encryption salt length, and header+trailer
+         * length.  Header has salty stuff.  Trailer has Message
+         * Authentication Code (MAC).
          */
         /*                Note: v-- No parentheses in SALT_LENGTH def'n.   --v */
         salt_len = SALT_LENGTH( (encryption_method - (AES_MIN_ENCRYPTION - 1)) );
@@ -640,9 +642,6 @@ int zipcloak(z, passwd)
     /* Add size of encryption header (AES_WG: header+trailer). */
     localz->siz += HEAD_LEN;
     z->siz = localz->siz;
-
-    /* Pass real storage method to putlocal before AES might change it. */
-    z->thresh_mthd = z->how;
 
     /* Put out the local header. */
     if ((res = putlocal(localz, PUTLOCAL_WRITE)) != ZE_OK) return res;
@@ -741,12 +740,14 @@ int zipbare(z, passwd)
 #   ifdef ZIP10
     int c0                /* byte preceding the last input byte */
 #   endif
+#   ifdef IZ_CRYPT_TRAD
     int c1;               /* last input byte */
+    int b;                /* bytes in buffer */
+#   endif
     /* all file offset and size now zoff_t - 8/28/04 EG */
     zoff_t size;          /* size of input data */
     struct zlist far *localz; /* local header */
     uch buf[1024];        /* write buffer */
-    int b;                /* bytes in buffer */
     zoff_t z_siz;
     int passwd_ok;
     int r;                /* size of encryption header */
@@ -771,18 +772,22 @@ int zipbare(z, passwd)
     ush vend = 0;               /* AES encryption vendor (should be "AE" (LE: x4541)). */
     zoff_t pos_local = 0;       /* Local header position. */
     zoff_t pos = 0;             /* End data position. */
+#   if defined(IZ_CRYPT_AES_WG) || defined(IZ_CRYPT_AES_WG_NEW)
     ulg crc;                    /* To calculate CRC. */
-
+#   endif
 
     /* Read local header. */
     res = readlocal(&localz, z);
 
-    /* Some work is needed to let crypt support Zip splits.  It also requires
-       coordination with UnZip, which does not yet support splits, but that
-       is also in the works.  As crypt is caught in the middle, some more
-       work is needed to coordinate that multi-part implementation with what
-       Zip does and somehow get crypt to support Zip, UnZip, and ZipCloak
-       splits.  Both zipbare() and zipcloak() need modifications. */
+    /* 2015-05-23  EG.
+     * Some work is needed to let crypt support Zip splits.  It also
+     * requires coordination with UnZip, which does not yet support
+     * splits, but that is also in the works.  As crypt is caught in the
+     * middle, some more work is needed to coordinate that multi-part
+     * implementation with what Zip does and somehow get crypt to
+     * support Zip, UnZip, and ZipCloak splits.  Both zipbare() and
+     * zipcloak() need modifications.
+     */
 
     /* Update (assumed only one) disk.  Caller is responsible for offset. */
     z->dsk = 0;
@@ -893,9 +898,14 @@ int zipbare(z, passwd)
     localz->flg = z->flg &= ~9;         /* Clear the encryption and */
     z->lflg = localz->lflg &= ~9;       /* data-descriptor flags. */
 
-    localz->crc = z->crc;               /* Use correct CRC from central.  This is 0 if
-                                           AE-2, in which case we need to recalculate
-                                           the CRC. */
+    /* Use correct CRC from central.  This is zero if AE-2, in which
+     * case we need to recalculate the CRC.
+     */
+    localz->crc = z->crc;
+
+    /* readlocal() has already set localz->thresh_mthd = localz->how.
+     * If AES, then code below revises these.
+     */
 
 #   ifdef IZ_CRYPT_AES_WG
     if (how_orig == AESENCRED)
@@ -935,9 +945,6 @@ int zipbare(z, passwd)
 
     pos_local = zftello(y);
 
-    /* Give actual store method to putlocal(). */
-    localz->thresh_mthd = aes_mthd;
-
     /* Put out the (modified) local extra field. */
     if ((res = putlocal(localz, PUTLOCAL_WRITE)) != ZE_OK)
         return res;
@@ -952,19 +959,20 @@ int zipbare(z, passwd)
          */
         nout = 0;
         if (vers == AES_WG_VEND_VERS_AE2) {
-            /* CRC is set to zero for AE-2, so need to calculate it to
-               update the decrypted entry. */
+            /* CRC is set to zero for AE-2, so we need to calculate it
+             * to update the decrypted entry.
+             */
             crc = CRCVAL_INITIAL;
         }
         for (size = z_siz; (size > 0) && (nout < z->siz);)
         {
-            nn = IZ_MIN( sizeof(buf), (size_t)size );
+            nn = IZ_MIN( sizeof(buf), (size_t)size);
             n = fread( buf, 1, nn, in_file);
             if (n == nn)
             {
-                fcrypt_decrypt( buf, n, &zctx );
-                n = IZ_MIN( n, (size_t)(z->siz - nout) );
-                bfwrite( buf, 1, n, BFWRITE_DATA );
+                fcrypt_decrypt( buf, n, &zctx);
+                n = IZ_MIN( n, (size_t)(z->siz - nout));
+                bfwrite( buf, 1, n, BFWRITE_DATA);
                 if (vers == 2) {
                     crc = crc32(crc, (uch *)buf, n);
                 }
@@ -977,8 +985,9 @@ int zipbare(z, passwd)
             size -= nn;         /* Bytes left to read. */
         }
         if (vers == AES_WG_VEND_VERS_AE2) {
-            /* We need to update the local header only if AE-2 to replace
-               missing CRC. */
+            /* We need to update the local header only if AE-2 to
+             * replace the missing CRC.
+             */
             localz->crc = z->crc = crc;
             /* Update local extra field. */
             pos = zftello(y);
