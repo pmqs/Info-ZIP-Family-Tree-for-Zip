@@ -1,3 +1,14 @@
+/*
+  netware.c
+
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
+  (the contents of which are also included in zip.h) for terms of use.
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -937,7 +948,7 @@ void version_local()
       " (16-bit)",
 #endif
 
-#ifdef __DATE__
+#if defined( __DATE__) && !defined( NO_BUILD_DATE)
       " on ", __DATE__
 #else
       "", ""

@@ -1,7 +1,7 @@
 /*
-  win32/win32.c - Zip 3
+  win32/win32.c - Zip 3.1
 
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -26,8 +26,13 @@
 #include <ctype.h>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+/* for CommandLineToArgvW() */
+#include <shellapi.h>
+
 /* for LARGE_FILE_SUPPORT but may not be needed */
 #include <io.h>
+/* Defines _SH_DENYNO */
+#include <share.h>
 
 #ifdef __RSXNT__
 #  include <alloca.h>
@@ -45,6 +50,7 @@
 
 #define EAID     0x0009
 
+
 #if (defined(__MINGW32__) && !defined(USE_MINGW_GLOBBING))
    int _CRT_glob = 0;   /* suppress command line globbing by C RTL */
 #endif
@@ -53,9 +59,9 @@
 
 #ifdef NT_TZBUG_WORKAROUND
 local int FSusesLocalTime(const char *path);
-#ifdef UNICODE_SUPPORt
+# ifdef UNICODE_SUPPORT
 local int FSusesLocalTimeW(const wchar_t *path);
-#endif
+# endif
 #endif
 #if (defined(USE_EF_UT_TIME) || defined(NT_TZBUG_WORKAROUND))
 local int FileTime2utime(FILETIME *pft, time_t *ut);
@@ -98,7 +104,7 @@ int IsFileSystemOldFAT(char *dir)
     if ( !GetVolumeInformation(root, NULL, 0,
                                NULL, &vfnsize, &vfsflags,
                                NULL, 0)) {
-        fprintf(mesg, "zip diagnostic: GetVolumeInformation failed\n");
+        zfprintf(mesg, "zip diagnostic: GetVolumeInformation failed\n");
         return(FALSE);
     }
 
@@ -140,7 +146,7 @@ int IsFileSystemOldFATW(wchar_t *dir)
     if ( !GetVolumeInformationW(root, NULL, 0,
                                 NULL, &vfnsize, &vfsflags,
                                 NULL, 0)) {
-        fprintf(mesg, "zip diagnostic: GetVolumeInformation failed\n");
+        zfprintf(mesg, "zip diagnostic: GetVolumeInformation failed\n");
         return(FALSE);
     }
 
@@ -168,7 +174,7 @@ DWORD dwAttr;
   if ( dwAttr == 0xFFFFFFFF ) {
     zipwarn("reading file attributes failed: ", name);
     /*
-    fprintf(mesg, "zip diagnostic: GetFileAttributes failed");
+    zfprintf(mesg, "zip diagnostic: GetFileAttributes failed");
     fflush();
     */
     return(0x20); /* the most likely, though why the error? security? */
@@ -185,6 +191,7 @@ DWORD dwAttr;
 int GetFileModeW(wchar_t *namew)
 {
 DWORD dwAttr;
+int failed = 0;
 #if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
   wchar_t *ansi_namew = (wchar_t *)alloca((wcslen(namew) + 1) * sizeof(wchar_t));
 
@@ -194,10 +201,61 @@ DWORD dwAttr;
 
   dwAttr = GetFileAttributesW(namew);
   if ( dwAttr == 0xFFFFFFFF ) {
-    char *name = wchar_to_local_string(namew);
-    zipwarn("reading file attributes failed: ", name);
-    free(name);
-    return(0x20); /* the most likely, though why the error? security? */
+#ifdef WINDOWS_LONG_PATHS
+    size_t namew_len = wcslen(namew);
+    
+    if (namew_len > MAX_PATH && include_windows_long_paths) {
+      wchar_t *namew_long;
+      size_t namew_long_len;
+      size_t j;
+      wchar_t *full_path = NULL;
+
+      if ((full_path = _wfullpath(NULL, namew, 0)) != NULL) {
+# if 0
+          sprintf(errbuf, "    full_path namew: '%S'", full_path);
+          zipmessage(errbuf, "");
+# endif
+      }
+      if (full_path) {
+        if ((namew_long = malloc((wcslen(full_path) + 5) * sizeof(wchar_t))) == NULL) {
+          ZIPERR(ZE_MEM, "GetFileModeW");
+        }
+      } else {
+        if ((namew_long = malloc((namew_len + 5) * sizeof(wchar_t))) == NULL) {
+          ZIPERR(ZE_MEM, "GetFileModeW");
+        }
+      }
+      wcscpy(namew_long, L"\\\\?\\");
+      if (full_path) {
+        wcscat(namew_long, full_path);
+        free(full_path);
+      } else {
+        wcscat(namew_long, namew);
+      }
+      namew_long_len = wcslen(namew_long);
+      for (j = 0; j < namew_long_len; j++) {
+        if (namew_long[j] == L'/') {
+          namew_long[j] = L'\\';
+        }
+      }
+
+      dwAttr = GetFileAttributesW(namew_long);
+      if ( dwAttr == 0xFFFFFFFF ) {
+        failed = 1;
+      }
+      free(namew_long);
+    }
+    else
+#endif
+    {
+      failed = 1;
+    }
+    if (failed) {
+      char *name = wchar_to_local_string(namew);
+      zipwarn("reading file attributes failed: ", name);
+      free(name);
+      return(0x20); /* the most likely, though why the error? security? */
+    }
   }
   return(
           (dwAttr&FILE_ATTRIBUTE_READONLY  ? A_RONLY   :0)
@@ -214,12 +272,12 @@ int ClearArchiveBitW(wchar_t *namew)
 DWORD dwAttr;
   dwAttr = GetFileAttributesW(namew);
   if ( dwAttr == 0xFFFFFFFF ) {
-    fprintf(mesg, "zip diagnostic: GetFileAttributes failed\n");
+    zfprintf(mesg, "zip diagnostic: GetFileAttributes failed\n");
     return(0);
   }
 
   if (!SetFileAttributesW(namew, (DWORD)(dwAttr & ~FILE_ATTRIBUTE_ARCHIVE))) {
-    fprintf(mesg, "zip diagnostic: SetFileAttributes failed\n");
+    zfprintf(mesg, "zip diagnostic: SetFileAttributes failed\n");
     perror("SetFileAttributes");
     return(0);
   }
@@ -238,12 +296,12 @@ DWORD dwAttr;
 
   dwAttr = GetFileAttributes(name);
   if ( dwAttr == 0xFFFFFFFF ) {
-    fprintf(mesg, "zip diagnostic: GetFileAttributes failed\n");
+    zfprintf(mesg, "zip diagnostic: GetFileAttributes failed\n");
     return(0);
   }
 
   if (!SetFileAttributes(name, (DWORD)(dwAttr & ~FILE_ATTRIBUTE_ARCHIVE))) {
-    fprintf(mesg, "zip diagnostic: SetFileAttributes failed\n");
+    zfprintf(mesg, "zip diagnostic: SetFileAttributes failed\n");
     perror("SetFileAttributes");
     return(0);
   }
@@ -722,7 +780,27 @@ char *getVolumeLabel(drive, vtime, vmode, vutim)
 
 #endif /* !UTIL */
 
+int GetWinVersion(DWORD *dwMajorVers, DWORD *dwMinorVers, DWORD *dwBuild)
+{
+    DWORD dwVersion = 0; 
+    *dwBuild = 0;
 
+    dwVersion = GetVersion();
+ 
+    // Get the Windows version.
+
+    *dwMajorVers = (DWORD)(LOBYTE(LOWORD(dwVersion)));
+    *dwMinorVers = (DWORD)(HIBYTE(LOWORD(dwVersion)));
+
+    // Get the build number.
+
+    if (dwVersion < 0x80000000) {
+        *dwBuild = (DWORD)(HIWORD(dwVersion));
+        return 1;
+    } else {
+        return 0;
+    }
+}
 
 int ZipIsWinNT(void)    /* returns TRUE if real NT, FALSE if Win95 or Win32s */
 {
@@ -731,6 +809,7 @@ int ZipIsWinNT(void)    /* returns TRUE if real NT, FALSE if Win95 or Win32s */
     if (g_PlatformId == 0xFFFFFFFF) {
         /* note: GetVersionEx() doesn't exist on WinNT 3.1 */
         if (GetVersion() < 0x80000000)
+            /* Apparently true for any version of Windows. */
             g_PlatformId = TRUE;
         else
             g_PlatformId = FALSE;
@@ -919,25 +998,126 @@ char *StringLower(char *szArg)
 
 int zstat_zipwin32w(const wchar_t *pathw, zw_stat *buf)
 {
-    if (!zwstat(pathw, buf))
+    int stat_failed;
+
+    stat_failed = zwstat(pathw, buf);
+#ifdef WINDOWS_LONG_PATHS
+    if (stat_failed && include_windows_long_paths) {
+        if (wcslen(pathw) > MAX_PATH) {
+            /* wstati64 does not handle \\?\, so open file using long path and pass handle to zfstat */
+            wchar_t *full_path = NULL;
+            wchar_t *pathw_long;
+            size_t pathw_long_len;
+            size_t i;
+            HANDLE h;
+            int fileID;
+
+            if ((full_path = _wfullpath(NULL, pathw, 0)) != NULL) {
+# if 0
+                sprintf(errbuf, "    full_path: '%S'", full_path);
+                zipmessage(errbuf, "");
+# endif
+                if ((pathw_long = malloc((wcslen(full_path) + 5) * sizeof(wchar_t))) == NULL) {
+                      ZIPERR(ZE_MEM, "Getting long path for zwstat");
+                }
+            } else {
+                if ((pathw_long = malloc((wcslen(pathw) + 5) * sizeof(wchar_t))) == NULL) {
+                      ZIPERR(ZE_MEM, "Getting long path for zwstat");
+                }
+            }
+            wcscpy(pathw_long, L"\\\\?\\");
+            if (full_path != NULL) {
+                wcscat(pathw_long, full_path);
+                free(full_path);
+            } else {
+                wcscat(pathw_long, pathw);
+            }
+            pathw_long_len = wcslen(pathw_long);
+            for (i = 0; i < pathw_long_len; i++) {
+                if (pathw_long[i] == L'/') {
+                    pathw_long[i] = L'\\';
+                }
+            }
+
+            h = CreateFileW(pathw_long, FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                           NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+            if (h != INVALID_HANDLE_VALUE) {
+                /* intptr_t not defined in VS 6, so use long */
+                if ((fileID = _open_osfhandle((Z_INTPTR_T)h, _O_RDONLY))==-1) {
+# if 0
+                    zprintf(  "      _open_osfhandle Failed");
+# endif
+                } else {
+                    stat_failed = zfstat(fileID, buf);
+# if 0
+                    sprintf(errbuf, "      stat_failed = %d", stat_failed);
+                    zipmessage(errbuf, "");
+# endif
+                    CloseHandle(h);
+                }
+            } else {
+# if 0
+              zprintf("      CreateFileW open failed\n");
+# endif
+            }
+
+            free(pathw_long);
+        }
+    }
+#endif
+    if (!stat_failed)
     {
 #ifdef NT_TZBUG_WORKAROUND
         /* stat was successful, now redo the time-stamp fetches */
         int fs_uses_loctime = FSusesLocalTimeW(pathw);
         HANDLE h;
         FILETIME Modft, Accft, Creft;
-#if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
-        char *ansi_path = (char *)alloca(strlen(pathw) + 1);
-
-        OemToAnsi(path, ansi_path);
-#       define Ansi_Path  ansi_path
-#else
-#       define Ansi_Path  pathw
-#endif
 
         Trace((stdout, "stat(%s) finds modtime %08lx\n", pathw, buf->st_mtime));
-        h = CreateFileW(Ansi_Path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+
+        h = CreateFileW(pathw, FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
                        NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+#ifdef WINDOWS_LONG_PATHS
+        if (h == INVALID_HANDLE_VALUE && wcslen(pathw) > MAX_PATH && include_windows_long_paths) {
+            /* try long path */
+            wchar_t *pathw_long;
+            size_t pathw_long_len;
+            size_t i;
+            wchar_t *full_path = NULL;
+
+            if ((full_path = _wfullpath(NULL, pathw, 0)) != NULL) {
+# if 0
+              sprintf(errbuf, "      CreateFileW full_path: (%d chars) '%S'", wcslen(full_path), full_path);
+              zipmessage(errbuf, "");
+# endif
+            }
+            if (full_path) {
+              if ((pathw_long = malloc((wcslen(full_path) + 5) * sizeof(wchar_t))) == NULL) {
+                  ZIPERR(ZE_MEM, "Getting full path for zwstat");
+              }
+            } else {
+              if ((pathw_long = malloc((wcslen(pathw) + 5) * sizeof(wchar_t))) == NULL) {
+                  ZIPERR(ZE_MEM, "Getting long path for zwstat");
+              }
+            }
+            wcscpy(pathw_long, L"\\\\?\\");
+            if (full_path) {
+              wcscat(pathw_long, full_path);
+              free(full_path);
+            } else {
+              wcscat(pathw_long, pathw);
+            }
+            pathw_long_len = wcslen(pathw_long);
+            for (i = 0; i < pathw_long_len; i++) {
+                if (pathw_long[i] == L'/') {
+                    pathw_long[i] = L'\\';
+                }
+            }
+
+            h = CreateFileW(pathw_long, FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                           NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+        }
+#endif
         if (h != INVALID_HANDLE_VALUE) {
             BOOL ftOK = GetFileTime(h, &Creft, &Accft, &Modft);
             CloseHandle(h);
@@ -979,7 +1159,6 @@ int zstat_zipwin32w(const wchar_t *pathw, zw_stat *buf)
                 }
             }
         }
-#       undef Ansi_Path
 #endif /* NT_TZBUG_WORKAROUND */
         return 0;
     }
@@ -987,20 +1166,35 @@ int zstat_zipwin32w(const wchar_t *pathw, zw_stat *buf)
     else
     {
         DWORD flags;
-#if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
-        char *ansi_path = (char *)alloca(strlen(pathw) + 1);
 
-        OemToAnsi(path, ansi_path);
-#       define Ansi_Path  ansi_path
-#else
-#       define Ansi_Path  pathw
+        flags = GetFileAttributesW(pathw);
+#ifdef WINDOWS_LONG_PATHS
+        if (flags == 0xFFFFFFFF && wcslen(pathw) > MAX_PATH && include_windows_long_paths) {
+            /* Try long path */
+            wchar_t *pathw_long;
+            size_t pathw_long_len;
+            size_t i;
+
+            if ((pathw_long = malloc((wcslen(pathw) + 5) * sizeof(wchar_t))) == NULL) {
+                ZIPERR(ZE_MEM, "Getting long path for GetFileAttributes");
+            }
+            wcscpy(pathw_long, L"\\\\?\\");
+            wcscat(pathw_long, pathw);
+            pathw_long_len = wcslen(pathw_long);
+            for (i = 0; i < pathw_long_len; i++) {
+                if (pathw_long[i] == L'/') {
+                    pathw_long[i] = L'\\';
+                }
+            }
+            flags = GetFileAttributesW(pathw_long);
+            free(pathw_long);
+        }
 #endif
 
-        flags = GetFileAttributesW(Ansi_Path);
         if (flags != 0xFFFFFFFF && flags & FILE_ATTRIBUTE_DIRECTORY) {
             Trace((stderr, "\nstat(\"%s\",...) failed on existing directory\n",
                    pathw));
-#ifdef LARGE_FILE_SUPPORT         /* E. Gordon 9/12/03 */
+#ifdef LARGE_FILE_SUPPORT         /* EG 9/12/03 */
             memset(buf, 0, sizeof(z_stat));
 #else
             memset(buf, 0, sizeof(struct stat));
@@ -1016,7 +1210,6 @@ int zstat_zipwin32w(const wchar_t *pathw, zw_stat *buf)
                            ((flags & FILE_ATTRIBUTE_READONLY) ? 0 : S_IWRITE);
             return 0;
         } /* assumes: stat() won't fail on non-dirs without good reason */
-#       undef Ansi_Path
     }
 #endif /* W32_STATROOT_FIX */
     return -1;
@@ -1149,6 +1342,7 @@ int getch_win32(void)
 #  endif
   return ret;
 }
+#endif /* !WINDLL */
 
 
 
@@ -1163,6 +1357,7 @@ void version_local()
     char buf[80];
 #if (defined(_MSC_VER) && (_MSC_VER > 900))
     char buf2[80];
+    char buf3[80];
 #endif
 #endif
 
@@ -1178,7 +1373,8 @@ void version_local()
 #    define COMPILER_NAME2      "(Visual C++ v2.x)"
 #  elif (_MSC_VER > 900)
     sprintf(buf2, "(Visual C++ v%d.%d)", _MSC_VER/100 - 6, _MSC_VER%100/10);
-#    define COMPILER_NAME2      buf2
+    sprintf(buf3, "%s [%s]", buf2, CONFIG_PLATFORM);
+#    define COMPILER_NAME2      buf3
 #  else
 #    define COMPILER_NAME2      "(bad version)"
 #  endif
@@ -1262,19 +1458,23 @@ void version_local()
 #endif
 
 /* Define the compile date string */
-#ifdef __DATE__
+#if defined( __DATE__) && !defined( NO_BUILD_DATE)
 #  define COMPILE_DATE " on " __DATE__
 #else
 #  define COMPILE_DATE ""
 #endif
 
-    printf(CompiledWith, COMPILER_NAME1, COMPILER_NAME2,
+#ifdef _WIN64
+    zprintf(CompiledWith, COMPILER_NAME1, COMPILER_NAME2,
+           "\nWindows NT", " (64-bit)", COMPILE_DATE);
+#else
+    zprintf(CompiledWith, COMPILER_NAME1, COMPILER_NAME2,
            "\nWindows 9x / Windows NT", " (32-bit)", COMPILE_DATE);
+#endif
 
     return;
 
 } /* end function version_local() */
-#endif /* !WINDLL */
 
 
 
@@ -1340,18 +1540,19 @@ int gettimeofday(struct timevalstruct *tv, struct timezonestruct *tz)
   return 0;
 }
 
-// #define TEST
-// #ifdef TEST
-// int main()
-// {
-//   struct timeval now;
-//   struct timezone tzone;
-//
-//   gettimeofday(&now, NULL);
-//   gettimeofday(&now, &tzone);
-// }
-// #endif
+#if 0
+ #define TEST
+ #ifdef TEST
+ int main()
+ {
+   struct timeval now;
+   struct timezone tzone;
 
+   gettimeofday(&now, NULL);
+   gettimeofday(&now, &tzone);
+ }
+ #endif
+#endif
 /* This was used by -de and -dr to get more accurate
    rate timing.  Turns out this is only good to 10 to 15 ms
    because of how Windows does time. */
@@ -1481,49 +1682,324 @@ int entropy_fun(unsigned char buf[], unsigned int len)
  */
 
 #ifdef UNICODE_SUPPORT
-# if 0
 
-  /* get the wide command line and convert to argvw */
-  /* windows ignores argv and gets argvw separately */
-  zchar **get_wide_argv(argv)
-    char **argv;
+
+/* write_console
+ *
+ * Write a string directly to the console.  Supports UTF-8, if
+ * console supports it (codepage 65001).
+ *
+ * This function could change the console to CP_UTF8, convert the string
+ * to UTF-8, and then output using WriteConsoleA, but dealing with the console
+ * code page gets messy.  Instead, the below write_consolew() is now used for
+ * Windows console writes.
+ *
+ * Needs at least Windows 2000.  The appropriate code to
+ * ensure this is only used for Windows 2000 or later needs
+ * to be added.
+ *
+ * Only write to console if output file is STDOUT or STDERR.
+ */
+unsigned long write_console(FILE *outfile, ZCONST char *instring)
+{
+  DWORD charswritten;
+  DWORD handle = 0;
+
+  /* Only write to console if using standard stream (stdout or stderr) */
+  if (outfile == stdout) {
+    handle = STD_OUTPUT_HANDLE;
+  }
+  else if (outfile == stderr) {
+    handle = STD_ERROR_HANDLE;
+  }
+
+  if (handle && isatty(fileno(outfile))) {
+    /* output file is console */
+    WriteConsoleA(
+              GetStdHandle(handle),            /* in  HANDLE hConsoleOutput */
+              instring,                        /* in  const VOID *lpBuffer */
+              (DWORD)strlen(instring),         /* in  DWORD nNumberOfCharsToWrite */
+              &charswritten,                   /* out LPDWORD lpNumberOfCharsWritten */
+              NULL);                           /* reserved */
+    return charswritten;
+  }
+
+  return fprintf(outfile, "%s", instring);
+}
+
+
+/* write_consolew
+ *
+ * Write a wide string directly to the console.  As the write is
+ * wide, the code page of the console is not important.
+ *
+ * Needs at least Windows 2000.  The appropriate code to
+ * ensure this is only used for Windows 2000 or later needs
+ * to be added.
+ *
+ * Only write to console if output file is STDOUT or STDERR.
+ */
+unsigned long write_consolew(FILE *outfile, wchar_t *instringw)
+{
+  long charswritten;
+  DWORD handle = 0;
+
+  /* Only write to console if using standard stream (stdout or stderr) */
+  if (outfile == stdout) {
+    handle = STD_OUTPUT_HANDLE;
+  }
+  else if (outfile == stderr) {
+    handle = STD_ERROR_HANDLE;
+  }
+
+  if (handle && isatty(fileno(outfile))) {
+    WriteConsoleW(
+              GetStdHandle(STD_OUTPUT_HANDLE), /* in  HANDLE hConsoleOutput */
+              instringw,                       /* in  const VOID *lpBuffer */
+              (DWORD)wcslen(instringw),        /* in  DWORD nNumberOfCharsToWrite */
+              &charswritten,                   /* out LPDWORD lpNumberOfCharsWritten */
+              NULL);                           /* reserved */
+    return charswritten;
+  }
+
+  return fprintf(outfile, "%S", instringw);
+}
+
+
+#if 0
+long write_consolew2a(wchar_t *inw)
+{
+  int bufferSize;
+  char *m;
+
+  SetConsoleOutputCP(CP_UTF8);     // output is in UTF8
+  bufferSize = WideCharToMultiByte(
+                           CP_UTF8, 0, inw, -1, NULL, 0, NULL, NULL);
+  if ((m = (char *)malloc(bufferSize)) == NULL)
+    ZIPERR(ZE_MEM, "write_consolew2");
+  WideCharToMultiByte(CP_UTF8, 0, inw, -1, m, bufferSize, NULL, NULL);
+  //wprintf(L"%S", m); // <-- upper case %S in wprintf() is used for MultiByte/utf-8
+                     //     lower case %s in wprintf() is used for WideChar
+  //printf("wcw2A:  ");
+  write_consolea(stdout, m);
+  //printf("\n");
+  free(m);
+  return 0;
+}
+#endif
+
+
+  /* get_win32_utf8_argv()
+   *
+   * Get the Win32 wide command line and convert each arg to UTF-8.
+   *
+   * By returning UTF-8, we can use the MBCS parsing functions on the results.
+   * These generally ignore actual args and only look for the ANSI single-byte
+   * reserved characters for paths and such, like '/'.  Since these match ANSI
+   * in UTF-8 and these byte values are unique in UTF-8, the fact that the MBCS
+   * character set may not be UTF-8 (and probably isn't) doesn't matter when
+   * parsing args and path parts.  When args are later interpreted, the function
+   * is_utf8_string() is used to determine if an arg is UTF-8 and, if it is, it
+   * gets converted to the proper Windows wide string using utf8_to_wide_string(),
+   * otherwise local_to_wide_string() is used and the local MBCS is converted to
+   * wide.  This allows both UTF-8 and local MBCS strings to coexist seamlessly,
+   * as long as the local MBCS does not look like UTF-8.
+   *
+   * Returns a standard argv[] with UTF-8 args.
+   */
+  char **get_win32_utf8_argv()
   {
     int i;
-    int argc;
-    int size;
-    zchar **argvw = NULL;
-    zchar *commandline = NULL;
-    zchar **a = NULL;
+    wchar_t *commandlinew = NULL;
+    wchar_t **argvw = NULL;
+    int argcw;
+    char **args = NULL;
 
-    commandline = GetCommandLineW();
-    a = CommandLineToArgvW(commandline, &argc);
+    commandlinew = GetCommandLineW();
 
-    if (a == NULL) {
-      /* failed */
-      ZIPERR(ZE_COMPERR, "get_wide_argv");
+    argvw = CommandLineToArgvW(commandlinew, &argcw);
+    if (argvw == NULL) {
+      zipwarn("Could not get wide command line", "");
+      return NULL;
     }
 
-    /* copy args so can use free_args() */
-    if ((argvw = (zchar **)malloc((argc + 1) * sizeof(zchar *))) == NULL) {
-      ZIPERR(ZE_MEM, "get_wide_argv");
+#if 0
+    printf("\nwide args:\n");
+    for( i = 0; i < argcw; i++) {
+      //printf("%d: %S  ", i, argvw[i]);
+      //wprintf(L"''%s''  ", argvw[i]);
+      printf("%2d:  '", i);
+      write_consolew2a(argvw[i]);
+      printf("'  ( ");
+      for (j = 0; argvw[i][j]; j++) printf(" %02x", argvw[i][j]);
+      printf(" )\n");
     }
-    for (i = 0; i < argc; i++) {
-      size = zstrlen(a[i]) + 1;
-      if ((argvw[i] = (zchar *)malloc(size * sizeof(zchar))) == NULL) {
-        ZIPERR(ZE_MEM, "get_wide_argv");
-      }
-      if ((argvw[i] = copy_zstring(a[i])) == NULL) {
-        ZIPERR(ZE_MEM, "get_wide_argv");
-      }
+    printf("  cmd line: '");
+    write_consolew2a(commandlinew);
+    printf("'\n");
+#endif
+    
+    /* Create array for UTF-8 args */
+    if ((args = (char **)malloc((argcw + 1) * sizeof(char *))) == NULL) {
+      ZIPERR(ZE_MEM, "get_win32_utf8_argv (1)");
     }
-    argvw[argc] = L'\0';
+    for (i = 0; i < argcw; i++) {
+      /* Convert wchar_t string to UTF-8 string */
+      args[i] = wchar_to_utf8_string_windows(argvw[i]);
+    }
+    args[i] = NULL;
 
     /* free original argvw */
-    LocalFree(a);
+    LocalFree(argvw);
 
-    return argvw;
+    return args;
   }
-# endif
+
+
+  /*------------------------------- */
+  /* from win32zip.c */
+
+wchar_t *local_to_wchar_string(ZCONST char *local_string)
+{
+  wchar_t  *qw;
+  int       ulen;
+  int       ulenw;
+
+  if (local_string == NULL)
+    return NULL;
+
+    /* get length */
+    ulenw = MultiByteToWideChar(
+                CP_ACP,            /* ANSI code page */
+                0,                 /* flags for character-type options */
+                local_string,      /* string to convert */
+                -1,                /* string length (-1 = NULL terminated) */
+                NULL,              /* buffer */
+                0 );               /* buffer length (0 = return length) */
+    if (ulenw == 0) {
+      /* failed */
+      return NULL;
+    }
+    ulenw++;
+    /* get length in bytes */
+    ulen = sizeof(wchar_t) * (ulenw + 1);
+    if ((qw = (wchar_t *)malloc(ulen + 1)) == NULL) {
+      return NULL;
+    }
+    /* convert multibyte to wide */
+    ulen = MultiByteToWideChar(
+               CP_ACP,            /* ANSI code page */
+               0,                 /* flags for character-type options */
+               local_string,      /* string to convert */
+               -1,                /* string length (-1 = NULL terminated) */
+               qw,                /* buffer */
+               ulenw);            /* buffer length (0 = return length) */
+    if (ulen == 0) {
+      /* failed */
+      free(qw);
+      return NULL;
+    }
+
+  return qw;
+}
+
+
+wchar_t *utf8_to_wchar_string_windows(ZCONST char *utf8_string)
+{
+  wchar_t  *qw;
+  int       ulen;
+  int       ulenw;
+
+  if (utf8_string == NULL)
+    return NULL;
+
+    /* get length */
+    ulenw = MultiByteToWideChar(
+                CP_UTF8,           /* UTF-8 code page */
+                0,                 /* flags for character-type options */
+                utf8_string,       /* string to convert */
+                -1,                /* string length (-1 = NULL terminated) */
+                NULL,              /* buffer */
+                0 );               /* buffer length (0 = return length) */
+    if (ulenw == 0) {
+      /* failed */
+      return NULL;
+    }
+    ulenw++;
+    /* get length in bytes */
+    ulen = sizeof(wchar_t) * (ulenw + 1);
+    if ((qw = (wchar_t *)malloc(ulen + 1)) == NULL) {
+      return NULL;
+    }
+    /* convert multibyte to wide */
+    ulen = MultiByteToWideChar(
+               CP_UTF8,           /* UTF-8 code page */
+               0,                 /* flags for character-type options */
+               utf8_string,       /* string to convert */
+               -1,                /* string length (-1 = NULL terminated) */
+               qw,                /* buffer */
+               ulenw);            /* buffer length (0 = return length) */
+    if (ulen == 0) {
+      /* failed */
+      free(qw);
+      return NULL;
+    }
+
+  return qw;
+}
+
+
+
+/* Convert wchar_t string to utf8 using Windows calls
+   so any characters needing more than one wchar_t are
+   are handled by Windows */
+char *wchar_to_utf8_string_windows(wstring)
+  wchar_t *wstring;
+{
+  char     *q;           /* return string */
+  int       ulen;
+
+  if (wstring == NULL)
+    return NULL;
+
+  /* Get buffer length */
+  ulen = WideCharToMultiByte(
+                  CP_UTF8,        /* UTF-8 code page */
+                  0,              /* flags */
+                  wstring,        /* string to convert */
+                  -1,             /* input chars (-1 = NULL terminated) */
+                  NULL,           /* buffer */
+                  0,              /* size of buffer (0 = return needed size) */
+                  NULL,           /* default char */
+                  NULL);          /* used default char */
+  if (ulen == 0) {
+    /* failed */
+    return NULL;
+  }
+  ulen += 2;
+  if ((q = malloc(ulen + 1)) == NULL) {
+    return NULL;
+  }
+
+  /* Convert the Unicode string to UTF-8 */
+  if ((ulen = WideCharToMultiByte(
+                  CP_UTF8,        /* UTF-8 code page */
+                  0,              /* flags */
+                  wstring,        /* string to convert */
+                  -1,             /* input chars (-1 = NULL terminated) */
+                  q,              /* buffer */
+                  ulen,           /* size of buffer (0 = return needed size) */
+                  NULL,           /* default char */
+                  NULL)) == 0)    /* used default char */
+  {
+    free(q);
+    return NULL;
+  }
+
+  return q;
+}
+
+  /*------------------------------- */
 
 
 /* convert wide character string to multi-byte character string */
@@ -1533,13 +2009,16 @@ char *wide_to_local_string(wide_string)
 {
   int i;
   wchar_t wc;
-  int bytes_char;
-  int default_used;
   int wsize = 0;
   int max_bytes = 9;
+#if 0
+  int bytes_char;
+  int default_used;
+#endif
   char buf[9];
   char *buffer = NULL;
   char *local_string = NULL;
+  int ansi7_char = 0;
 
   if (wide_string == NULL)
     return NULL;
@@ -1556,14 +2035,7 @@ char *wide_to_local_string(wide_string)
   /* convert it */
   buffer[0] = '\0';
   for (i = 0; i < wsize; i++) {
-    if (sizeof(wchar_t) < 4 && wide_string[i] > 0xFFFF) {
-      /* wchar_t probably 2 bytes */
-      /* could do surrogates if state_dependent and wctomb can do */
-      wc = zwchar_to_wchar_t_default_char;
-    } else {
-      wc = (wchar_t)wide_string[i];
-    }
-    /* Unter some vendor's C-RTL, the Wide-to-MultiByte conversion functions
+    /* Under some vendor's C-RTL, the Wide-to-MultiByte conversion functions
      * (like wctomb() et. al.) do not use the same codepage as the other
      * string arguments I/O functions (fopen, mkdir, rmdir etc.).
      * Therefore, we have to fall back to the underlying Win32-API call to
@@ -1574,11 +2046,45 @@ char *wide_to_local_string(wide_string)
      *   Watcom  (only "C" locale, wctomb() always uses OEM CP)
      * (in other words: all supported environments except the Microsoft RTLs)
      */
+    /* Given inconsistencies between conversion routines for non-ANSI 8-bit
+     * characters, and the complications of OEM conversion, now just convert
+     * all non-ANSI characters to escapes.
+     */
+#if 0
+    if (sizeof(wchar_t) < 4 && wide_string[i] > 0xFFFF) {
+      /* wchar_t probably 2 bytes */
+      /* could do surrogates if state_dependent and wctomb can do */
+      wc = zwchar_to_wchar_t_default_char;
+    } else {
+      wc = (wchar_t)wide_string[i];
+    }
+#endif
+    wc = (wchar_t)wide_string[i];
+    ansi7_char = (wc >= 0 && wc <= 0x7f);
+
+#if 0
     bytes_char = WideCharToMultiByte(
-                          CP_ACP, WC_COMPOSITECHECK,
-                          &wc, 1,
-                          (LPSTR)buf, sizeof(buf),
-                          NULL, &default_used);
+                          CP_ACP,
+                          WC_COMPOSITECHECK,
+                          &wc,
+                          1,
+                          (LPSTR)buf,
+                          sizeof(buf),
+                          NULL,
+                          &default_used);
+#endif
+    if (ansi7_char) {
+      /* ASCII */
+      buf[0] = (char)wc;
+      buf[1] = '\0';
+      strcat(buffer, buf);
+    } else {
+      /* use escape for wide character */
+      char *e = wide_char_to_escape_string(wide_string[i]);
+      strcat(buffer, e);
+      free(e);
+    }
+#if 0
     if (default_used)
       bytes_char = -1;
     if (unicode_escape_all) {
@@ -1606,6 +2112,7 @@ char *wide_to_local_string(wide_string)
         free(e);
       }
     }
+#endif
   }
   if ((local_string = (char *)realloc(buffer, strlen(buffer) + 1)) == NULL) {
     free(buffer);
@@ -1625,8 +2132,12 @@ zwchar *local_to_wide_string(local_string)
   zwchar *wide_string;
 
   /* for now try to convert as string - fails if a bad char in string */
-  wsize = MultiByteToWideChar(CP_ACP, 0,
-                        local_string, -1, NULL, 0);
+  wsize = MultiByteToWideChar(CP_ACP,
+                              0,
+                              local_string,
+                              -1,
+                              NULL,
+                              0);
   if (wsize == (size_t)-1) {
     /* could not convert */
     return NULL;
@@ -1636,9 +2147,12 @@ zwchar *local_to_wide_string(local_string)
   if ((wc_string = (wchar_t *)malloc((wsize + 1) * sizeof(wchar_t))) == NULL) {
     ZIPERR(ZE_MEM, "local_to_wide_string");
   }
-  wsize = MultiByteToWideChar(CP_ACP, 0,
-           local_string, -1,
-           wc_string, wsize + 1);
+  wsize = MultiByteToWideChar(CP_ACP,
+                              0,
+                              local_string,
+                              -1,
+                              wc_string,
+                              wsize + 1);
   wc_string[wsize] = (wchar_t) 0;
 
   /* in case wchar_t is not zwchar */
@@ -1652,6 +2166,101 @@ zwchar *local_to_wide_string(local_string)
 
   return wide_string;
 }
+
+
+/* Replacement for zwopen that handles long paths.  Normally _wsopen is
+   used, but it doesn't understand long paths.  (Need to test this, but
+   doc does not say it does, and long path support is generally only
+   available if the Microsoft doc says it is.)  This function needs
+   wide character support. */
+
+/* Used only for reading, so flags are hardwired. */
+
+int zwopen_read_long(filename)
+  wchar_t *filename;
+{
+#ifdef WINDOWS_LONG_PATHS
+  if (wcslen(filename) > MAX_PATH && include_windows_long_paths) {
+    /* can't use int _wsopen, so use CreateFileW */
+    wchar_t *pathw_long;
+    size_t pathw_long_len;
+    size_t i;
+    HANDLE h;
+    int fileID;
+    wchar_t *full_path = NULL;
+
+    if ((full_path = _wfullpath(NULL, filename, 0)) != NULL) {
+# if 0
+        sprintf(errbuf, "      zwopen_read_long full_path: (%d chars) '%S'", wcslen(full_path), full_path);
+        zipmessage(errbuf, "");
+# endif
+    }
+    if (full_path) {
+        if ((pathw_long = malloc((wcslen(full_path) + 5) * sizeof(wchar_t))) == NULL) {
+            ZIPERR(ZE_MEM, "Getting full path for zwopen_long");
+        }
+    } else {
+        if ((pathw_long = malloc((wcslen(filename) + 5) * sizeof(wchar_t))) == NULL) {
+            ZIPERR(ZE_MEM, "Getting long path for zwopen_long");
+        }
+    }
+    wcscpy(pathw_long, L"\\\\?\\");
+    if (full_path) {
+        wcscat(pathw_long, full_path);
+        free(full_path);
+    } else {
+        wcscat(pathw_long, filename);
+    }
+    pathw_long_len = wcslen(pathw_long);
+    for (i = 0; i < pathw_long_len; i++) {
+        if (pathw_long[i] == L'/') {
+            pathw_long[i] = L'\\';
+        }
+    }
+#if 0
+    sprintf(errbuf, "      zwopen_read_long Trying: (%d chars) '%S'",
+            pathw_long_len, pathw_long);
+    zipmessage(errbuf, "");
+#endif
+    /* May need backup privilege or similar for this to allow reading file
+     * contents.  Otherwise this fails for everything.  Given that, switched to
+     * FILE_ATTRIBUTE_NORMAL which works on files the user can read without
+     * privilege.  On ToDo list is to first try requesting privilege (maybe
+     * if -! used) and use FILE_FLAG_BACKUP_SEMANTICS, then revert to
+     * FILE_ATTRIBUTE_NORMAL if that fails or user does not permit raise in
+     * privilege.
+     * 2014-04-16 EG
+     */
+    /*
+    h = CreateFileW(pathw_long, READ_CONTROL, FILE_SHARE_READ,
+                    NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+    */
+    h = CreateFileW(pathw_long, GENERIC_READ, FILE_SHARE_READ,
+                    NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    free(pathw_long);
+    if (h != INVALID_HANDLE_VALUE) {
+      /* get CRT file ID and return it */
+      /* intptr_t not defined in VS 6, so use long */
+      if ((fileID = _open_osfhandle((Z_INTPTR_T)h, O_RDONLY|O_BINARY)) == -1) {
+          zprintf(  "      _open_osfhandle Failed");
+      }
+      return fileID;
+    }
+    /* if anything failed, return -1 (as _wsopen would) */
+    return -1;
+  }
+  else
+#endif
+  {
+    /* not a long path, so open normally */
+    /* Some testing is needed, but the above may be more specific to our needs and it
+     * may be worth switching to the above for all Win32 file openings.  This may be
+     * especially true if we want to allow use of privileges.
+     */
+    return _wsopen(filename, O_RDONLY|O_BINARY, _SH_DENYNO);
+  }
+}
+
 #endif /* UNICODE_SUPPORT */
 
 

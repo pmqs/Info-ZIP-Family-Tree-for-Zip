@@ -1182,7 +1182,7 @@ void version_local()
       " 2.x/3.x (32-bit)",
 #endif
 
-#ifdef __DATE__
+#if defined( __DATE__) && !defined( NO_BUILD_DATE)
       " on ", __DATE__
 #else
       "", ""

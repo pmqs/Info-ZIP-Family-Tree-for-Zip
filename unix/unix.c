@@ -1,7 +1,7 @@
 /*
-  unix/unix.c - Zip 3.1
+  unix/unix.c - Zip 3
 
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -560,6 +560,7 @@ DIR *d;                 /* directory stream to read from */
   return e == NULL ? (char *) NULL : e->d_name;
 }
 
+
 int procname(n, caseflag)
 char *n;                /* name to process */
 int caseflag;           /* true to force case-sensitive match */
@@ -574,8 +575,9 @@ int caseflag;           /* true to force case-sensitive match */
   z_stat s;             /* result of stat() */
   struct zlist far *z;  /* steps through zfiles list */
 
-  if (strcmp(n, "-") == 0)   /* if compressing stdin */
+  if (strcmp(n, "-") == 0) { /* if compressing stdin */
     return newname(n, 0, caseflag);
+  }
   else if (LSSTAT(n, &s))
   {
     /* Not a file or directory--search for shell expression in zip file */
@@ -586,21 +588,59 @@ int caseflag;           /* true to force case-sensitive match */
       {
         z->mark = pcount ? filter(z->zname, caseflag) : 1;
         if (verbose)
-            fprintf(mesg, "zip diagnostic: %scluding %s\n",
+            zfprintf(mesg, "zip diagnostic: %scluding %s\n",
                z->mark ? "in" : "ex", z->name);
         m = 0;
+#if 0
+        zprintf(" {in procname:  match 1 (%s)}", z->name);
+#endif
       }
     }
+
+#ifdef UNICODE_SUPPORT
+    if (m) {
+      /* also check de-escaped Unicode name */
+      char *pu = escapes_to_utf8_string(p);
+#if 0
+      zprintf(" {in procname:  pu (%s)}", pu);
+#endif
+
+      for (z = zfiles; z != NULL; z = z->nxt) {
+        if (z->zuname) {
+          if (MATCH(pu, z->zuname, caseflag))
+          {
+            z->mark = pcount ? filter(z->zuname, caseflag) : 1;
+            if (verbose) {
+                zfprintf(mesg, "zip diagnostic: %scluding %s\n",
+                   z->mark ? "in" : "ex", z->oname);
+                zfprintf(mesg, "     Escaped Unicode:  %s\n",
+                   z->ouname);
+            }
+            m = 0;
+#if 0
+            zprintf(" {in procname:  match 2 (%s)}", z->zuname);
+#endif
+          }
+        }
+      } /* for */
+      free(pu);
+    }
+#endif
+
     free((zvoid *)p);
     return m ? ZE_MISS : ZE_OK;
   }
+
+#if 0
+  zprintf(" {in procname:  live name}");
+#endif
 
   /* Live name.  Recurse if directory.  Use if file or symlink (or fifo?). */
   if (S_ISREG(s.st_mode) || S_ISLNK(s.st_mode))
   {
     /* Regular file or symlink.  Add or remove name of file. */
     if ((m = newname(n, 0, caseflag)) != ZE_OK)
-      return m;
+      return m; 
 
 #ifdef __APPLE__
 
@@ -612,7 +652,7 @@ int caseflag;           /* true to force case-sensitive match */
       if (m == 0)
       {
         /* Process the AppleDouble file. */
-        if ((m = newname(n, 2, caseflag)) != ZE_OK)
+        if ((m = newname(n, ZFLAG_APLDBL, caseflag)) != ZE_OK)
           return m;
       }
     }
@@ -631,7 +671,7 @@ int caseflag;           /* true to force case-sensitive match */
       a = p + strlen(p);
       if (a[-1] != '/')
         strcpy(a, "/");
-      if (dirnames && (m = newname(p, 1, caseflag)) != ZE_OK) {
+      if (dirnames && (m = newname(p, ZFLAG_DIR, caseflag)) != ZE_OK) {
         free((zvoid *)p);
         return m;
       }
@@ -665,17 +705,21 @@ int caseflag;           /* true to force case-sensitive match */
   } /* S_ISDIR( s.st_mode) [else if] */
   else if (S_ISFIFO(s.st_mode))
   {
-    if (allow_fifo) {
-      /* FIFO (Named Pipe) - handle as normal file */
-      /* add or remove name of FIFO */
-      /* zip will stop if FIFO is open and wait for pipe to be fed and closed */
-      if (noisy) zipwarn("Reading FIFO (Named Pipe): ", n);
-      if ((m = newname(n, 0, caseflag)) != ZE_OK)
-        return m;
-    } else {
-      zipwarn("ignoring FIFO (Named Pipe) - use -FI to read: ", n);
-      return ZE_OK;
+    /* FIFO (Named Pipe) - handle as normal file by adding
+     * name of FIFO.  As of Zip 3.1, a named pipe is always
+     * included.  Zip will stop if FIFO is open and wait for
+     * pipe to be fed and closed, but only if -FI.
+     *
+     * Skipping read of FIFO is now done in zipup().
+     */
+    if (noisy) {
+      if (allow_fifo)
+        zipwarn("reading FIFO (Named Pipe): ", n);
+      else
+        zipwarn("skipping read of FIFO (Named Pipe) - use -FI to read: ", n);
     }
+    if ((m = newname(n, ZFLAG_FIFO, caseflag)) != ZE_OK)
+      return m;
   } /* S_ISFIFO( s.st_mode) [else if] */
   else
   {
@@ -818,14 +862,26 @@ ulg filetime(f, a, n, t)
     ZIPERR(ZE_MEM, "filetime");
   }
   strcpy(name, f);
+
+  /* not all systems allow stat'ing a file with / appended */
   if (name[len - 1] == '/')
     name[len - 1] = '\0';
-  /* not all systems allow stat'ing a file with / appended */
+
   if (strcmp(f, "-") == 0) {
+    /* stdin */
+    /* Generally this is either a character special device
+       (terminal directly in as stdin) or a FIFO (pipe). */
     if (zfstat(fileno(stdin), &s) != 0) {
       free(name);
       error("fstat(stdin)");
     }
+    /* Clear character special and pipe bits and set regular file bit
+       as we are storing content as regular file */
+    s.st_mode = (s.st_mode & ~(S_IFIFO | S_IFCHR)) | S_IFREG;
+#ifdef STDIN_PIPE_PERMS
+    /* Set permissions */
+    s.st_mode = (s.st_mode & ~0777) | STDIN_PIPE_PERMS;
+#endif
   }
   else if (LSSTAT(name, &s) != 0) {
     /* Accept about any file kind including directories
@@ -881,8 +937,13 @@ ulg filetime(f, a, n, t)
       *a |= MSDOS_DIR_ATTR;
     }
   }
-  if (n != NULL)
-    *n = (S_ISREG( s.st_mode) ? s.st_size : -1L);
+  if (n != NULL) {
+    if (strcmp(f, "-") == 0)
+      /* stdin relabeled above as regular, but flag no file size yet */
+      *n = -1L;
+    else
+      *n = ((S_ISREG(s.st_mode)) ? s.st_size : -1L);
+  }
   if (t != NULL) {
     t->atime = s.st_atime;
     t->mtime = s.st_mtime;
@@ -954,6 +1015,7 @@ int set_new_unix_extra_field(z, s)
   if (uid_size > 1) {
     b++;
     id = id >> 8;
+
     z->extra[z->ext + b] = (char)(id & 0xFF);
     if (uid_size > 2) {
       b++;
@@ -1173,6 +1235,177 @@ char *d;                /* directory to delete */
     return rmdir(d);
 # endif /* ?NO_RMDIR */
 }
+
+
+
+/* ------------------------------------ */
+/* Added 2014-09-06 */
+
+
+/* whole is a pathname with wildcards, wildtail points somewhere in the  */
+/* middle of it.  All wildcards to be expanded must come AFTER wildtail. */
+
+local int wild_recurse(whole, wildtail)
+  char *whole;
+  char *wildtail;
+{
+  DIR *dir;
+  char *subwild, *name, *newwhole = NULL, *glue = NULL, plug = 0, plug2;
+  extent newlen;
+  int amatch = 0, e = ZE_MISS;
+  int wholelen;
+  char *newpath;
+  int pathlen;
+
+#if 0
+  zprintf(" {in wild_recurse: whole '%s' wildtail '%s'}\n", whole, wildtail);
+#endif
+
+  if (!isshexp(wildtail)) {
+#if 0
+    zprintf(" {no wild: %s}\n", wildtail);
+#endif
+    return procname(whole, 1);
+  }
+
+  wholelen = strlen(whole);
+
+  /* back up thru path components till existing dir found */
+  do
+  {
+    name = wildtail + strlen(wildtail) - 1;
+    for (;;) {
+      if (name-- <= wildtail || *name == PATH_END) {
+        subwild = name + 1;
+        plug2 = *subwild;
+        *subwild = 0;
+        break;
+      }
+    }
+    if (glue)
+      *glue = plug;
+    glue = subwild;
+    plug = plug2;
+    dir = opendir(whole);
+  } while (!dir && subwild > wildtail);
+  wildtail = subwild;                 /* skip past non-wild components */
+
+  if ((subwild = MBSCHR(wildtail + 1, PATH_END)) != NULL) {
+    /* this "+ 1" dodges the     ^^^ hole left by *glue == 0 */
+    *(subwild++) = 0;               /* wildtail = one component pattern */
+    /* newlen = strlen(whole) + strlen(subwild) + (wholelen + 2); */
+    newlen = wholelen + 1;
+  } else
+    /* newlen = strlen(whole) + (wholelen + 1); */
+    newlen = wholelen + 1;
+  if (!dir || ((newwhole = malloc(newlen)) == NULL)) {
+    if (glue)
+      *glue = plug;
+    e = dir ? ZE_MEM : ZE_MISS;
+    goto ohforgetit;
+  }
+  strcpy(newwhole, whole);
+  newlen = strlen(newwhole);
+  if (glue)
+    *glue = plug;                           /* repair damage to whole */
+  if (!isshexp(wildtail)) {
+    e = ZE_MISS;                            /* non-wild name not found */
+    goto ohforgetit;
+  }
+
+  while ((name = readd(dir)) != NULL) {
+
+    if (strcmp(name, ".") && strcmp(name, "..") &&
+        MATCH(wildtail, name, 1)) {
+      pathlen = newlen + strlen(name) + 2;
+      if (subwild) {
+        pathlen += strlen(subwild);
+      }
+      if ((newpath = malloc(pathlen)) == NULL) {
+        e = ZE_MEM;
+        goto ohforgetit;
+      }
+      strcpy(newpath, newwhole);
+      strcat(newpath, name);
+      if (subwild) {
+        name = newpath + strlen(newpath);
+        *(name++) = PATH_END;
+        strcpy(name, subwild);
+        e = wild_recurse(newpath, name);
+      } else
+        e = procname(newpath, 1);
+      free(newpath);
+
+      if (e == ZE_OK)
+        amatch = 1;
+      else if (e != ZE_MISS)
+        break;
+    }
+  }
+
+ohforgetit:
+  if (dir) closedir(dir);
+  if (subwild) *--subwild = PATH_END;
+  if (newwhole) free(newwhole);
+  if (e == ZE_MISS && amatch)
+    e = ZE_OK;
+  return e;
+}
+
+
+int wild(w)
+  char *w;               /* path/pattern to match */
+/* If not in exclude mode, expand the pattern based on the contents of the
+   file system.  Return an error code in the ZE_ class. */
+{
+    char *p;             /* path */
+    char *q;             /* tail */
+    int e;               /* result */
+
+#if 0
+    zprintf(" {in wild: %s}\n", w);
+#endif
+    /* special handling of stdin request */
+    if (strcmp(w, "-") == 0)   /* if compressing stdin */
+        return newname(w, 0, 0);
+
+    /* Allocate and copy pattern, leaving room to add "." if needed */
+    if ((p = malloc(strlen(w) + 3)) == NULL)
+        return ZE_MEM;
+
+#if 0
+    /* Apparently on Unix a leading "./" is not needed to recurse. */
+    p[0] = '\0';
+
+    if (strncmp(w, "./", 2) &&
+        strncmp(w, "../", 3) &&
+        w[0] != '/') {
+      /* if relative, add ./ if not there */
+      strcat(p, "./");
+    }
+    strcat(p, w);
+#endif
+    strcpy(p, w);
+
+    /* set tail to front to start */
+    q = p;
+
+#if 0
+    zprintf(" {wild calling wild_recurse with: %s}\n", p);
+#endif
+    /* Here we go */
+    e = wild_recurse(p, q);
+#if 0
+    zprintf(" {wild returning: %d}\n", e);
+#endif
+
+    free((zvoid *)p);
+    return e;
+}
+
+
+/* ------------------------------------ */
+
 
 #endif /* !UTIL */
 
@@ -1657,7 +1890,7 @@ void version_local()
 
 
 /* Define the compile date string */
-#ifdef __DATE__
+#if defined( __DATE__) && !defined( NO_BUILD_DATE)
 #  define COMPILE_DATE " on " __DATE__
 #else
 #  define COMPILE_DATE ""
@@ -1794,3 +2027,4 @@ void *memmove(dest0, source0, length)
 }
 
 #endif /* def NEED_MEMMOVE */
+

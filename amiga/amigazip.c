@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 1999-Oct-05 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -481,12 +481,13 @@ void version_local()
 # endif
 #endif
 
-#ifdef __DATE__
+#if defined( __DATE__) && !defined( NO_BUILD_DATE)
   sprintf(buf4," on %s",__DATE__);
 #else
   strcpy(buf4," unknown date");
 #endif
 
+/******/
 #if 0
 #ifdef __TIME__
   sprintf(buf5," at %s",__TIME__);
@@ -494,6 +495,7 @@ void version_local()
   strcpy(buf5," unknown time");
 #endif
 #endif /* 0 */
+/******/
 
 /* Print strings using "CompiledWith" mask defined above.
  *  ("Compiled with %s%s under %s%s%s%s.")
@@ -504,7 +506,7 @@ void version_local()
      buf2,
      buf3,
      buf4,
-     "",    /* buf3 (time) not used. */
+     "",    /* buf5 (time) not used */
      "" );  /* buf6 not used */
 
 } /* end function version_local() */

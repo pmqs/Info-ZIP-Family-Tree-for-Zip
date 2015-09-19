@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 1999-Oct-05 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -672,7 +672,7 @@ void version_local()
 
       " (Atari ST/TT/Falcon030)",
 
-#ifdef __DATE__
+#if defined( __DATE__) && !defined( NO_BUILD_DATE)
       " on ", __DATE__
 #else
       "", ""

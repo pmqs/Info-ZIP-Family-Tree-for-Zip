@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -511,7 +511,7 @@ int set_extra_field(z, z_utim)
       return RET_ERROR;
   }
 
-  if ((extra = malloc( EB_HEADSIZE+ EB_L_TH_SIZE)) == NULL) {
+  if ((extra = malloc(EB_HEADSIZE + EB_L_TH_SIZE)) == NULL) {
     fprintf(stderr, "set_extra_field: Insufficient memory.\n" );
     return RET_ERROR;
   }
@@ -546,7 +546,12 @@ int set_extra_field(z, z_utim)
 
 void version_local()
 {
-  printf("Compiled with THEOS C 5.28 for THEOS 4.x on %s %s.\n\n",
-    __DATE__, __TIME__);
+  printf("Compiled with THEOS C 5.28 for THEOS 4.x%s%s%s%s.\n\n",
+#if defined( __DATE__) && !defined( NO_BUILD_DATE)
+    " on ", __DATE__, " ", __TIME__
+#else
+    "", "", "", ""
+#endif
+   );
 }
 

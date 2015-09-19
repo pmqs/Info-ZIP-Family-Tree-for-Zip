@@ -56,6 +56,7 @@
 #endif
 
 #include <ctype.h>
+#include <errno.h>
 
 #include "crypt.h"
 #include "revision.h"
@@ -1096,7 +1097,7 @@ long ZpErrorMessage(int errcode, char *message)
  *
  * CommandLine       - Command line to Zip that it's to execute.
  * CurrentDir        - Dir to set as current dir.  Must be set for DLL.  Can
- *                     be NULL for LIB (if NULL app Current Dir used.)
+ *                     be NULL for LIB (if NULL, app Current Dir used.)
  * lpZipUserFunc     - Structure that caller sets callback addresses in.
  *                     Make sure any unused callback is set to NULL.
  * ProgressChunkSize - If progress callback is used, this must be set to the
@@ -1105,23 +1106,29 @@ long ZpErrorMessage(int errcode, char *message)
  *                     in the same form as used elsewhere in Zip, e.g. 50m for
  *                     50 MiB.  This can be NULL if the progress callback is
  *                     not used.
+ *
+ * Note that, on Windows, CommandLine can contain UTF-8 strings (if Unicode
+ * support is enabled), which Zip will detect and convert to wide character
+ * Unicode strings for processing.  On other ports, CommandLine should be in
+ * the current character set.  If that character set is UTF-8, then UTF-8 is
+ * supported.
  */
 
 int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
                        LPZIPUSERFUNCTIONS lpZipUserFunc, char *ProgressChunkSize)
 {
-  char msg[MAX_ZIP_ARG_SIZE + 1];
   int ZipReturn = 0;
   int argc;
   char **argv;
+  DWORD ret = 0;
+#if 0
+  char msg[MAX_ZIP_ARG_SIZE + 1];
   int i;
   char arg[MAX_ZIP_ARG_SIZE + 1];
   char parsed[MAX_ZIP_ARG_SIZE + 1];
-#if 0
-  char parsedcommandline[MAX_ARG_SIZE + 1];
-#endif
-  DWORD ret = 0;
+  char parsedcommandline[MAX_ZIP_ARG_SIZE + 1];
   char OrigDir[MAX_ZIP_ARG_SIZE + 1];
+#endif
 
   mesg = stdout;
 
@@ -1146,7 +1153,8 @@ int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
 
 #ifdef ZIPDLL
   /* The DLL does not know the app's current dir, so must be told.  The
-     LIB, however, has the same current dir as the caller. */
+     LIB, however, has the same current dir as the caller, so its OK
+     for CurrentDir to be NULL on a LIB call. */
   if (CurrentDir == NULL || strlen(CurrentDir) == 0)
   {
     return ZpErrorMessage(ZE_PARMS,
@@ -1169,6 +1177,7 @@ int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
   /* convert string command line to argv array */
   argc = commandline_to_argv(CommandLine, &argv);
 
+#if 0
   /* convert argv back to string and pass back to caller to
      verify command line was parsed correctly */
   parsed[0] = '\0';
@@ -1182,14 +1191,13 @@ int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
     }
   }
 
-#if 0
   strcpy(parsedcommandline, "CommandLine as seen by DLL:  ");
   strcat(parsedcommandline, parsed);
   MessageBoxA(NULL, parsedcommandline, "ZpZip",
                 MB_OK | MB_ICONINFORMATION);
 #endif
 
-#ifdef WINDLL
+#if 0
   ret = GetCurrentDirectory(MAX_ZIP_ARG_SIZE, OrigDir);
   if ( ret == 0 )
   {
@@ -1207,11 +1215,44 @@ int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
   printf("ZpZip:  DLL original directory:  '%s'\n", OrigDir);
 #endif
 
-#ifdef WINDLL
-  if( !SetCurrentDirectory(CurrentDir) )
-  {
-    sprintf(msg, "ZpZip:  SetCurrentDirectory failed (%d)\n", GetLastError());
-    return ZpErrorMessage(ZE_PARMS, msg);
+  if (CurrentDir) {
+# ifdef UNICODE_SUPPORT_WIN32
+    int dir_utf8 = is_utf8_string(CurrentDir, NULL, NULL, NULL, NULL);
+    wchar_t *dirw;
+
+    if (dir_utf8) {
+      /* UTF-8 CurrentDir */
+      dirw = utf8_to_wchar_string(CurrentDir);
+      if (dirw == NULL) {
+        ZIPERR(ZE_PARMS, "converting CurrentDir to wide");
+      }
+      if (_wchdir(dirw)) {
+        sprintf(errbuf, "changing to dir: %S\n  %s", dirw, strerror(errno));
+        free(dirw);
+        ZIPERR(ZE_PARMS, errbuf);
+      }
+    }
+    else {
+      /* local charset CurrentDir */
+      if (CHDIR(CurrentDir)) {
+        sprintf(errbuf, "changing to dir: %s\n  %s", CurrentDir, strerror(errno));
+        ZIPERR(ZE_PARMS, errbuf);
+      }
+    }
+# else /* not UNICODE_SUPPORT_WIN32 */
+    if (CHDIR(CurrentDir)) {
+      sprintf(errbuf, "changing to dir: %s\n  %s", CurrentDir, strerror(errno));
+      ZIPERR(ZE_PARMS, errbuf);
+    }
+# endif /* def UNICODE_SUPPORT_WIN32 else */
+  }
+
+#if 0
+    if( !SetCurrentDirectory(CurrentDir) )
+    {
+      sprintf(msg, "ZpZip:  SetCurrentDirectory failed (%d)\n", GetLastError());
+      return ZpErrorMessage(ZE_PARMS, msg);
+    }
   }
 #endif
 

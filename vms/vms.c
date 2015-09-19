@@ -501,7 +501,7 @@ void version_local()
       "",
 #endif /* def VMS_VERSION */
 
-#ifdef __DATE__
+#if defined( __DATE__) && !defined( NO_BUILD_DATE)
       " on ", __DATE__
 #else
       "", ""
