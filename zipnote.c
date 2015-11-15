@@ -553,7 +553,9 @@ char **argv;            /* command line tokens */
 
   char **args;                /* copy of argv that can be freed */
 
+#ifdef UNICODE_SUPPORT
   int utf8;
+#endif
 
 #ifdef THEOS
   setlocale(LC_CTYPE, "I");
@@ -790,7 +792,7 @@ char **argv;            /* command line tokens */
 
   /* Process stdin, replacing comments */
   z = zfiles;
-#ifdef WIN32
+#ifdef UNICODE_SUPPORT_WIN32
   /* Remove a UTF-8 BOM if any */
   utf8 = read_utf8_bom(stdin);
 # if 0

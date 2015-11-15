@@ -34,6 +34,8 @@
   IZ_CRYPT_AES_WG blocks).  This code is provided under the Info-ZIP
   license.  If this code enabled, it uses the Gladman AES code (or
   equivalent), which is distributed separately.
+
+  See crypt.h for additional information.
  */
 
 #define ZCRYPT_INTERNAL         /* Ensure <windows.h>, where applicable. */
@@ -133,6 +135,7 @@ local z_uint4 near *crytab_init OF((__GPRO));
 # else /* def IZ_CRC_BE_OPTIMIZ */
 #  define CRY_CRC_TAB  CRC_32_TAB
 # endif /* def IZ_CRC_BE_OPTIMIZ [else] */
+
 
 # ifdef IZ_CRYPT_TRAD
 
@@ -626,7 +629,7 @@ int zipcloak(z, passwd)
         res = fcrypt_init(
          (encryption_method- (AES_MIN_ENCRYPTION- 1)),  /* AES mode. */
          (unsigned char*) passwd,                       /* Password. */
-         strlen( passwd),                               /* Password length. */
+         (unsigned int)strlen(passwd),                  /* Password length. */
          zsalt,                                         /* Salt. */
          zpwd_verifier,                                 /* Password vfy buf. */
          &zctx);                                        /* AES context. */
@@ -779,15 +782,14 @@ int zipbare(z, passwd)
     /* Read local header. */
     res = readlocal(&localz, z);
 
-    /* 2015-05-23  EG.
-     * Some work is needed to let crypt support Zip splits.  It also
-     * requires coordination with UnZip, which does not yet support
-     * splits, but that is also in the works.  As crypt is caught in the
-     * middle, some more work is needed to coordinate that multi-part
-     * implementation with what Zip does and somehow get crypt to
-     * support Zip, UnZip, and ZipCloak splits.  Both zipbare() and
-     * zipcloak() need modifications.
-     */
+    /* Some work is needed to let crypt support Zip splits.  This is
+       preventing split support in ZipCloak.  As ZCRYPT is now fixed
+       at 3.0 (see notes in crypt.h), it may be best to let the Zip
+       and UnZip versions of crypt.c part ways and make the changes
+       needed in the Zip version of crypt.c.  (Changes to the Zip
+       version of crypt.c are already documented in the Zip change log,
+       rather than some ZCRYPT log.)  Both zipbare() and zipcloak()
+       need modifications. */
 
     /* Update (assumed only one) disk.  Caller is responsible for offset. */
     z->dsk = 0;
@@ -822,12 +824,12 @@ int zipbare(z, passwd)
         }
 
         /* Initialize the AES decryption machine for the password check. */
-        fcrypt_init( aes_mode,                  /* AES mode. */
-                     (unsigned char*) passwd,   /* Password. */
-                     strlen( passwd),           /* Password length. */
-                     h,                         /* Salt. */
-                     hh,                        /* PASSWORD_VERIFIER. */
-                     &zctx);                    /* AES context. */
+        fcrypt_init( aes_mode,                          /* AES mode. */
+                     (unsigned char*) passwd,           /* Password. */
+                     (unsigned int)strlen(passwd),      /* Password length. */
+                     h,                                 /* Salt. */
+                     hh,                                /* PASSWORD_VERIFIER. */
+                     &zctx);                            /* AES context. */
 
         /* Check the password verifier. */
         if (memcmp( (h+ HEAD_LEN- PWD_VER_LENGTH), hh, PWD_VER_LENGTH))
@@ -966,13 +968,13 @@ int zipbare(z, passwd)
         }
         for (size = z_siz; (size > 0) && (nout < z->siz);)
         {
-            nn = IZ_MIN( sizeof(buf), (size_t)size);
-            n = fread( buf, 1, nn, in_file);
+            nn = IZ_MIN(sizeof(buf), (size_t)size);
+            n = fread(buf, 1, nn, in_file);
             if (n == nn)
             {
-                fcrypt_decrypt( buf, n, &zctx);
-                n = IZ_MIN( n, (size_t)(z->siz - nout));
-                bfwrite( buf, 1, n, BFWRITE_DATA);
+                fcrypt_decrypt(buf, n, &zctx);
+                n = IZ_MIN(n, (size_t)(z->siz - nout));
+                bfwrite(buf, 1, n, BFWRITE_DATA);
                 if (vers == 2) {
                     crc = crc32(crc, (uch *)buf, n);
                 }
@@ -1336,6 +1338,7 @@ local int testkey(__G__ hd_len, h, key)
 } /* end function testkey() */
 
 # endif /* (defined(UNZIP) && !defined(FUNZIP)) */
+
 
 #else /* def IZ_CRYPT_ANY */
 

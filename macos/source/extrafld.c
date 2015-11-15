@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2000-Apr-09 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -291,6 +291,8 @@ static int add_JLEE_ef( struct zlist far *z )
     if ( l_ef == NULL ) {
         return ZE_MEM;
     }
+    z->extra = l_ef;
+    l_ef += z->ext;
 
     /* Allocate memory for the  central extra fields. */
     if ( z->cextra && z->cext != 0 ) {
@@ -300,12 +302,9 @@ static int add_JLEE_ef( struct zlist far *z )
         z->cext = 0;
     }
     if ( c_ef == NULL ) {
-        free( l_ef);
+        free(l_ef);
         return ZE_MEM;
     }
-
-    z->extra = l_ef;
-    l_ef += z->ext;
     z->cextra = c_ef;
     c_ef += z->cext;
 

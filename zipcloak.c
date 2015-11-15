@@ -99,6 +99,10 @@ void ziperr(code, msg)
     int code;               /* error code from the ZE_ class */
     ZCONST char *msg;       /* message about how it happened */
 {
+    if (mesg_line_started) {
+      mesg_line_started = 0;
+      fprintf(mesg, "\n");
+    }
     if (PERR(code)) perror("zipcloak error");
     fprintf(mesg, "zipcloak error: %s (%s)\n", ZIPERRORS(code), msg);
     if (tempzf != NULL) fclose(tempzf);
@@ -147,6 +151,9 @@ local void handler(sig)
 #endif /* ndef NO_EXCEPT_SIGNALS */
 
 
+/* This is no longer used.  Instead, cryptnote and cryptAESnote
+   in revision.h are now used. */
+#if 0
 static ZCONST char *public[] = {
 "The encryption code of this program is not copyrighted and is",
 "put in the public domain. It was originally written in Europe",
@@ -156,6 +163,7 @@ static ZCONST char *public[] = {
 "740.13(e)) of 6 June 2002.  (Prior to January 2000, re-export",
 "from the US was a violation of US law.)"
 };
+#endif
 
 /***********************************************************************
  * Print license information to stdout.
@@ -168,10 +176,13 @@ local void license()
         puts(swlicense[i]);
     }
     putchar('\n');
+#if 0
     printf("Export notice:\n");
     for (i = 0; i < sizeof(public)/sizeof(char *); i++) {
         puts(public[i]);
     }
+#endif
+    /* encryption notices moved to -v, as Zip includes them there */
 }
 
 
@@ -228,45 +239,51 @@ local void help()
 }
 
 
-static ZCONST char *extended_help_info[] = {
-"",
-"Extended help for ZipCloak %s (%s)",
-"",
-"General:",
-"  ZipCloak encrypts and decrypts entries in an archive.  The encryption",
-"  capabilities are similar to those of Zip and the decryption capabilities",
-"  are similar to those of UnZip.",
-"",
-"  The default action is to encrypt all unencrypted entries in the zip file.",
-"",
-"  If -d is specified, all encrypted entries are decrypted.  If the given",
-"  password does not work for an entry, the entry is just copied and left",
-"  encrypted.",
-"",
-"Keyfiles:",
-"  A keyfile allows using virtually any file as (part of) the password.  If",
-"    -kf keyfile",
-"  is used, the first 128 non-NULL bytes of file keyfile are read.  Once any",
-"  password is read (prompted or using -P), keyfile bytes are appended to the",
-"  end of the password to a total length of 128 bytes.  If the contents of",
-"  keyfile are text, then the user of the archive can just append the keyfile",
-"  bytes to the end of the password in any utility that can decrypt the",
-"  archive.  If keyfile has non-text, then the user of the archive needs the",
-"  keyfile and must use an unzipper that understands keyfiles (like ZipCloak)."
-};
-
 /***********************************************************************
  * Print extended help to stdout.
  */
 local void extended_help()
 {
-    extent i;             /* counter for help array */
+  extent i;             /* counter for help array */
 
-    printf(help_info[0], VERSION, REVDATE);
+  /* help array */
+  static ZCONST char *text[] = {
+"",
+"Extended help for ZipCloak 3.1",
+"",
+"ZipCloak encrypts and decrypts entries in an archive.  The encryption",
+"capabilities are similar to those of Zip and the decryption capabilities",
+"are similar to those of UnZip.",
+"",
+"Use \"zipcloak -so\" to see all short and long options.",
+"",
+"The default action is to encrypt all unencrypted entries in the zip file.",
+"",
+"If -d is specified, all encrypted entries are decrypted.  If the given",
+"password does not work for an entry, the entry is just copied and left",
+"encrypted.",
+"",
+"A keyfile allows using virtually any file as (part of) the password.  If",
+"  -kf keyfile",
+"is used, the first 128 non-NULL bytes of file keyfile are read.  Once any",
+"password is read (prompted or using -P), keyfile bytes are appended to the",
+"end of the password to a total length of 128 bytes.  If the contents of",
+"keyfile are text, then the user of the archive can just append the keyfile",
+"bytes to the end of the password in any utility that can decrypt the",
+"archive.  If keyfile has non-text, then user of the archive needs the",
+"keyfile and must use an unzipper that understands keyfiles (or use",
+"ZipCloak first to decrypt the entries).",
+"",
+"Currently ZipCloak does not read or write split archives.  This should",
+"be addressed shortly.",
+"",
+"See the ZipCloak manual for additional information.",
+""
+  };
 
-    for (i = 1; i < sizeof(extended_help_info)/sizeof(char *); i++) {
-        printf("%s\n", extended_help_info[i]);
-    }
+  for (i = 0; i < sizeof(text)/sizeof(char *); i++) {
+    printf("%s\n", text[i]);
+  }
 }
 
 
@@ -341,7 +358,7 @@ local void version_info()
   /* Fill in IZ_AES_WG version. */
 #if IZ_CRYPT_AES_WG
   sprintf( aes_wg_opt_ver,
-    "IZ_CRYPT_AES_WG      (AES encryption (WinZip/Gladman), ver %d.%d%s)",
+    "IZ_CRYPT_AES_WG      (IZ AES encryption (WinZip/Gladman), ver %d.%d%s)",
     IZ_AES_WG_MAJORVER, IZ_AES_WG_MINORVER, IZ_AES_WG_BETA_VER);
 #endif
 
@@ -364,6 +381,74 @@ local void version_info()
   for (i = 0; (int)i < (int)(sizeof(comp_opts)/sizeof(char *) - 1); i++)
   {
     printf("        %s\n",comp_opts[i]);
+  }
+
+#ifdef IZ_CRYPT_TRAD
+  puts("\n");
+  for (i = 0; i < sizeof(cryptnote)/sizeof(char *); i++) {
+      puts(cryptnote[i]);
+  }
+#endif
+
+#if defined(IZ_CRYPT_AES_WG) || defined(IZ_CRYPT_AES_WG_NEW)
+  puts("\n");
+  for (i = 0; i < sizeof(cryptAESnote)/sizeof(char *); i++) {
+      puts(cryptAESnote[i]);
+  }
+#endif
+}
+
+
+void show_options()
+{
+  int i;
+
+  /* show all options */
+  printf("available options:\n");
+  printf(" %-2s  %-18s %-4s %-3s %-30s\n", "sh", "long", "val", "neg", "description");
+  printf(" %-2s  %-18s %-4s %-3s %-30s\n", "--", "----", "---", "---", "-----------");
+  for (i = 0; options[i].option_ID; i++) {
+    printf(" %-2s  %-18s ", options[i].shortopt, options[i].longopt);
+    switch (options[i].value_type) {
+      case o_NO_VALUE:
+        printf("%-4s ", "");
+        break;
+      case o_REQUIRED_VALUE:
+        printf("%-4s ", "req");
+        break;
+      case o_OPTIONAL_VALUE:
+        printf("%-4s ", "opt");
+        break;
+      case o_VALUE_LIST:
+        printf("%-4s ", "list");
+        break;
+      case o_ONE_CHAR_VALUE:
+        printf("%-4s ", "char");
+        break;
+      case o_NUMBER_VALUE:
+        printf("%-4s ", "num");
+        break;
+      case o_OPT_EQ_VALUE:
+        printf("%-4s ", "=val");
+        break;
+      default:
+        printf("%-4s ", "unk");
+    }
+    switch (options[i].negatable) {
+      case o_NEGATABLE:
+        printf("%-3s ", "neg");
+        break;
+      case o_NOT_NEGATABLE:
+        printf("%-3s ", "");
+        break;
+      default:
+        printf("%-3s ", "unk");
+    }
+    if (options[i].name) {
+      printf("%-30s\n", options[i].name);
+    }
+    else
+      printf("\n");
   }
 }
 
@@ -418,6 +503,8 @@ int simple_encr_passwd(modeflag, pwbuf, size)
 #define o_kf            0x103   /* -kf/--keyfile. */
 #define o_pn            0x104   /* -pn/--non-ansi-password.  See also zip.c. */
 #define o_ps            0x105   /* -ps/--allow-short-password. */
+#define o_so            0x106   /* -so/--show-options. */
+
 
 /* options for zipcloak - 3/5/2004 EG */
 struct option_struct far options[] = {
@@ -435,15 +522,14 @@ struct option_struct far options[] = {
     {"hh", "more-help",   o_NO_VALUE,       o_NOT_NEGATABLE, o_hh, "extended help"},
     {"kf", "keyfile",     o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_kf, "read (part of) password from keyfile"},
     {"L",  "license",     o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
-    {"l",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
+    {"l",  "license",     o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
     {"O",  "output-file", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'O',  "output to new archive"},
     {"pn", "non-ansi-password", o_NO_VALUE, o_NEGATABLE,     o_pn, "allow non-ANSI password"},
-    {"ps", "allow-short-password", o_NO_VALUE, o_NEGATABLE,  o_ps, "allow short password"},
+    {"ps", "short-password", o_NO_VALUE,    o_NEGATABLE,     o_ps, "allow short password"},
     {"P",  "password",    o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'P',  "encrypt entries, option value is password"},
+    {"so", "show-options",o_NO_VALUE,       o_NOT_NEGATABLE, o_so, "show available options on this system"},
     {"v",  "version",     o_NO_VALUE,       o_NOT_NEGATABLE, 'v',  "version"},
-#ifdef IZ_CRYPT_AES_WG
-    {"Y", "encryption-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Y', "set encryption method"},
-#endif /* def IZ_CRYPT_AES_WG */
+    {"Y", "encryption-method",o_REQUIRED_VALUE,o_NOT_NEGATABLE,'Y',"set encryption method"},
     /* the end of the list */
     {NULL, NULL,          o_NO_VALUE,       o_NOT_NEGATABLE, 0,    NULL} /* end has option_ID = 0 */
   };
@@ -739,38 +825,60 @@ int main(argc, argv)
           break;
         case 'q':   /* Quiet operation, suppress info messages */
           noisy = 0;  break;
+        case o_so:  /* Show available options */
+          show_options();
+          EXIT(ZE_OK);
         case 'v':   /* Show version info */
           version_info();
           EXIT(ZE_OK);
 
-#ifdef IZ_CRYPT_AES_WG
         case 'Y':   /* Encryption method */
+#ifdef IZ_CRYPT_AES_WG
 #  ifdef IZ_CRYPT_TRAD
-          if (abbrevmatch("Traditional", value, CASE_INS, 1)) {
+          if (abbrevmatch("Traditional", value, CASE_INS, 1) ||
+              abbrevmatch("ZipCrypto", value, CASE_INS, 1)) {
             encryption_method = TRADITIONAL_ENCRYPTION;
           } else
 #  endif /* def IZ_CRYPT_TRAD */
           if (abbrevmatch("AES128", value, CASE_INS, 5)) {
             encryption_method = AES_128_ENCRYPTION;
-          } else if (abbrevmatch("AES192", value, CASE_INS, 5)) {
+          } else if (abbrevmatch("AES192",  value, CASE_INS, 5)) {
             encryption_method = AES_192_ENCRYPTION;
           } else if (abbrevmatch("AES256", value, CASE_INS, 4)) {
             encryption_method = AES_256_ENCRYPTION;
-          } else {
-            zipwarn(
+          } else if (abbrevmatch("AES1",  value, CASE_INS, 1) ||
+                     abbrevmatch("AES",  value, CASE_INS, 1)) {
+            zipwarn("Ambiguous encryption method abbreviation:  ", value);
+            zipwarn("valid encryption methods are:  ",
 #  ifdef IZ_CRYPT_TRAD
- "valid encryption methods are:  Traditional, AES128, AES192, and AES256", "");
+            "Traditional (ZipCrypto), AES128, AES192, and AES256");
 #  else /* def IZ_CRYPT_TRAD */
- "valid encryption methods are:  AES128, AES192, and AES256", "");
+            "AES128, AES192, and AES256");
+#  endif /* def IZ_CRYPT_TRAD [else] */
+            free(value);
+            ziperr(ZE_PARMS,
+             "Option -Y (--encryption-method):  unknown method");
+          } else {
+            zipwarn("valid encryption methods are:  ",
+#  ifdef IZ_CRYPT_TRAD
+            "Traditional (ZipCrypto), AES128, AES192, and AES256");
+#  else /* def IZ_CRYPT_TRAD */
+            "AES128, AES192, and AES256");
 #  endif /* def IZ_CRYPT_TRAD [else] */
 
             free(value);
-            ZIPERR(ZE_PARMS,
+            ziperr(ZE_PARMS,
              "Option -Y (--encryption-method):  unknown method");
           }
           free(value);
-          break;
+#else
+# ifdef IZ_CRYPT_TRAD
+          ziperr(ZE_PARMS, "No -Y, only Traditional (ZipCrypto) encryption enabled");
+# else
+          ziperr(ZE_PARMS, "No -Y, no encryption methods supported");
+# endif
 #endif
+          break;
         case o_NON_OPTION_ARG:
           /* not an option */
           /* no more options as permuting */
@@ -840,7 +948,7 @@ int main(argc, argv)
         }
         prng_rand( zsalt,
              /* Note: v-- No parentheses in SALT_LENGTH def'n. --v */
-         SALT_LENGTH( (encryption_method- (AES_MIN_ENCRYPTION- 1))),
+         SALT_LENGTH( (encryption_method - (AES_MIN_ENCRYPTION - 1))),
          &aes_rnp);
 
         pool_init_time = time(NULL) - pool_init_start;
@@ -850,6 +958,11 @@ int main(argc, argv)
     /* Read zip file */
     if ((res = readzipfile()) != ZE_OK) ziperr(res, zipfile);
     if (zfiles == NULL) ziperr(ZE_NAME, zipfile);
+
+    /* If this is a split archive, exit as zipcloak() can't read them yet. */
+    if (total_disks != 1) {
+      ziperr(ZE_SPLIT, "split archives not yet supported");
+    }
 
     /* Check for something to do */
     for (z = zfiles; z != NULL; z = z->nxt) {
@@ -946,7 +1059,7 @@ int main(argc, argv)
       keyfile_pass = NULL;
       if (count > 0) {
         keyfilebuf[count] = '\0';
-        keyfile_pass = string_dup(keyfilebuf, "read keyfile");
+        keyfile_pass = string_dup(keyfilebuf, "read keyfile", 0);
         zipmessage("Keyfile read", "");
       }
     } /* keyfile */
@@ -1032,14 +1145,17 @@ int main(argc, argv)
         }
       }
 
-      if ((e = malloc(REAL_PWLEN+2)) == NULL) {
-        ZIPERR(ZE_MEM, "was verifying encryption password (1)");
-      }
-      r = simple_encr_passwd(ZP_PW_VERIFY, e, REAL_PWLEN+1);
-      r = (strcmp(key, e));
-      free((zvoid *)e);
-      if (r) {
-        ZIPERR(ZE_PARMS, "passwords did not match");
+      if (!decrypt) {
+        /* Only verify password if encrypting. */
+        if ((e = malloc(REAL_PWLEN+2)) == NULL) {
+          ZIPERR(ZE_MEM, "was verifying encryption password (1)");
+        }
+        r = simple_encr_passwd(ZP_PW_VERIFY, e, REAL_PWLEN+1);
+        r = (strcmp(key, e));
+        free((zvoid *)e);
+        if (r) {
+          ZIPERR(ZE_PARMS, "passwords did not match");
+        }
       }
     } /* key_needed */
 
@@ -1062,7 +1178,7 @@ int main(argc, argv)
       strcat(newkey, keyfile_pass);
       free(keyfile_pass);
       keyfile_pass = NULL;
-      key = string_dup(newkey, "merge keyfile");
+      key = string_dup(newkey, "merge keyfile", 0);
     } /* merge password and keyfile */
 
     if (key) {
@@ -1072,52 +1188,54 @@ int main(argc, argv)
       }
     }
 
-    /* Need to repeat these checks on password + keyfile merged key. */
-    if ((encryption_method == AES_256_ENCRYPTION) && (strlen(key) < AES_256_MIN_PASS)) {
-      if (allow_short_key)
-      {
-        sprintf(errbuf, "Password shorter than minimum of %d chars", AES_256_MIN_PASS);
-        zipwarn(errbuf, "");
+    if (keyfile_pass) {
+      /* Need to repeat these checks on password + keyfile merged key. */
+      if ((encryption_method == AES_256_ENCRYPTION) && (strlen(key) < AES_256_MIN_PASS)) {
+        if (allow_short_key)
+        {
+          sprintf(errbuf, "Password shorter than minimum of %d chars", AES_256_MIN_PASS);
+          zipwarn(errbuf, "");
+        }
+        else
+        {
+          sprintf(errbuf,
+                  "AES256 password must be at least %d chars (longer is better)",
+                  AES_256_MIN_PASS);
+          zipwarn(errbuf, "");
+          ZIPERR(ZE_PARMS, "AES256 password too short");
+        }
       }
-      else
-      {
-        sprintf(errbuf,
-                "AES256 password must be at least %d chars (longer is better)",
-                AES_256_MIN_PASS);
-        zipwarn(errbuf, "");
-        ZIPERR(ZE_PARMS, "AES256 password too short");
+      if ((encryption_method == AES_192_ENCRYPTION) && (strlen(key) < AES_192_MIN_PASS)) {
+        if (allow_short_key)
+        {
+          sprintf(errbuf, "Password shorter than minimum of %d chars", AES_192_MIN_PASS);
+          zipwarn(errbuf, "");
+        }
+        else
+        {
+          sprintf(errbuf,
+                  "AES192 password must be at least %d chars (longer is better)",
+                  AES_192_MIN_PASS);
+          zipwarn(errbuf, "");
+          ZIPERR(ZE_PARMS, "AES192 password too short");
+        }
       }
-    }
-    if ((encryption_method == AES_192_ENCRYPTION) && (strlen(key) < AES_192_MIN_PASS)) {
-      if (allow_short_key)
-      {
-        sprintf(errbuf, "Password shorter than minimum of %d chars", AES_192_MIN_PASS);
-        zipwarn(errbuf, "");
+      if ((encryption_method == AES_128_ENCRYPTION) && (strlen(key) < AES_128_MIN_PASS)) {
+        if (allow_short_key)
+        {
+          sprintf(errbuf, "Password shorter than minimum of %d chars", AES_128_MIN_PASS);
+          zipwarn(errbuf, "");
+        }
+        else
+        {
+          sprintf(errbuf,
+                  "AES128 password must be at least %d chars (longer is better)",
+                  AES_128_MIN_PASS);
+          zipwarn(errbuf, "");
+          ZIPERR(ZE_PARMS, "AES128 password too short");
+        }
       }
-      else
-      {
-        sprintf(errbuf,
-                "AES192 password must be at least %d chars (longer is better)",
-                AES_192_MIN_PASS);
-        zipwarn(errbuf, "");
-        ZIPERR(ZE_PARMS, "AES192 password too short");
-      }
-    }
-    if ((encryption_method == AES_128_ENCRYPTION) && (strlen(key) < AES_128_MIN_PASS)) {
-      if (allow_short_key)
-      {
-        sprintf(errbuf, "Password shorter than minimum of %d chars", AES_128_MIN_PASS);
-        zipwarn(errbuf, "");
-      }
-      else
-      {
-        sprintf(errbuf,
-                "AES128 password must be at least %d chars (longer is better)",
-                AES_128_MIN_PASS);
-        zipwarn(errbuf, "");
-        ZIPERR(ZE_PARMS, "AES128 password too short");
-      }
-    }
+    } /* keyfile_pass */
 
 /* SMSd. */
 #if 0
@@ -1140,7 +1258,7 @@ fprintf( stderr, " key = %08x : >%s<.\n", key, key);
         /* Set the (global) AES_WG encryption strength, which is used by
          * zipfile.c:putlocal() and putcentral().
          */
-        aes_strength = encryption_method- (AES_MIN_ENCRYPTION- 1);
+        aes_strength = encryption_method - (AES_MIN_ENCRYPTION - 1);
     }
 #endif /* def IZ_CRYPT_AES_WG */
 
@@ -1150,7 +1268,7 @@ fprintf( stderr, " key = %08x : >%s<.\n", key, key);
         /* Save the current offset in the output file for later use as
          * the central directory offset to the local header.
          */
-        entry_offset = zftello( y);
+        entry_offset = zftello(y);
 
         if (decrypt && (z->flg & 1)) {
             printf("decrypting: %s", z->zname);
@@ -1273,6 +1391,7 @@ struct option_struct far options[] =
 
 
 
+#if 0
 int rename_split( t, o)
   char *t;
   char *o;
@@ -1283,6 +1402,7 @@ int rename_split( t, o)
 
     return 0;
 }
+#endif
 
 
 int set_filetype( o)
@@ -1304,6 +1424,7 @@ ZCONST char *h;
 }
 
 
+#if 0
 void zipmessage( a, b)
 ZCONST char *a, *b;
 {
@@ -1311,8 +1432,10 @@ ZCONST char *a, *b;
     a = a;
     b = b;
 }
+#endif
 
 
+#if 0
 void zipmessage_nl( a, nl)
 ZCONST char *a;
 int nl;
@@ -1321,6 +1444,7 @@ int nl;
     a = a;
     nl = nl;
 }
+#endif
 
 
 void zipwarn( msg1, msg2)
@@ -1337,14 +1461,14 @@ int main()
 {
     int i;
 
-    printf( "This is ZipCloak %s (%s), by Info-ZIP.\n", VERSION, REVDATE);
+    printf("This is ZipCloak %s (%s), by Info-ZIP.\n", VERSION, REVDATE);
 
     for (i = 0; i < sizeof(no_cloak_msg)/sizeof(char *); i++)
     {
-        printf( "%s\n", no_cloak_msg[ i]);
+        printf("%s\n", no_cloak_msg[ i]);
     }
 
-    EXIT( ZE_COMPERR);  /* Error in compilation options. */
+    EXIT(ZE_COMPILE);  /* Error in compilation options. */
 }
 
 #endif /* CRYPT [else] */

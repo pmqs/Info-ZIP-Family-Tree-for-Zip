@@ -1373,8 +1373,9 @@ int wild(w)
     if ((p = malloc(strlen(w) + 3)) == NULL)
         return ZE_MEM;
 
-#if 0
+#if 1
     /* Apparently on Unix a leading "./" is not needed to recurse. */
+    /* Apparently it is if wildcards are involved. */
     p[0] = '\0';
 
     if (strncmp(w, "./", 2) &&
@@ -1384,8 +1385,9 @@ int wild(w)
       strcat(p, "./");
     }
     strcat(p, w);
-#endif
+#else
     strcpy(p, w);
+#endif
 
     /* set tail to front to start */
     q = p;

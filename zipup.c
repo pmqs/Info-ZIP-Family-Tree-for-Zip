@@ -544,7 +544,7 @@ char *sufx_list;                /* list of filetypes separated by : or ; */
 
 
 /* SMS */
-#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+#ifdef ETWODD_SUPPORT
 /*
  * zread_file(): Pre-read a (non-directory) file and calculate its CRC.
  * This is only used when encrypting a file using ETWODD.  The standard
@@ -610,7 +610,7 @@ int l;                  /* True if this file is a symbolic link. */
 
   return sts;
 }
-#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
+#endif /* def ETWODD_SUPPORT */
 
 
 /* Note: a zip "entry" includes a local header (which includes the file
@@ -652,7 +652,6 @@ struct zlist far *z;    /* zip entry to compress */
   char *tempextra = NULL;
   char *tempcextra = NULL;
 
-  char methodstring[100];
   int perc;
 
 #ifdef IZ_CRYPT_AES_WG
@@ -673,7 +672,7 @@ struct zlist far *z;    /* zip entry to compress */
 #endif
 
 #if defined(ZIP_DLL_LIB) && defined(WIN32) 
-  /* This kluge is only for VB 6 */
+  /* This kluge is only for VB 6 (and may not be needed for that). */
 # ifdef ZIP64_SUPPORT
   extern uzoff_t filesize64;
   extern unsigned long low;
@@ -725,6 +724,7 @@ struct zlist far *z;    /* zip entry to compress */
   unicode_entry_name = NULL;
 #endif
 
+  strcpy(method_string, "(unknown method)");
 
 #if defined(UNICODE_SUPPORT) && defined(WIN32)
   if ((!no_win32_wide) && (z->namew != NULL))
@@ -933,7 +933,9 @@ struct zlist far *z;    /* zip entry to compress */
                                         percent_all_entries_processed,
                                         bytes_expected,
                                         usize_string,
-                                        action_string)) {
+                                        action_string,
+                                        method_string,
+                                        info_string)) {
       ZIPERR(ZE_ABORT, "User terminated operation");
     }
   }
@@ -2107,7 +2109,7 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
 */
 
   /* Check real CRC against pre-read CRC. */
-#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+#ifdef ETWODD_SUPPORT
   if (etwodd)                   /* Encrypt Trad without extended header. */
   {
     if (!isdir && (z->crc != crc))
@@ -2120,7 +2122,7 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
       z->lflg |= 8;
     }
   }
-#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
+#endif /* def ETWODD_SUPPORT */
 
   if (isdir && !(l || mp))
   {
@@ -2359,27 +2361,27 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
 
   /* Display statistics */
 
-  strcpy(methodstring, "(unknown method)");
+  strcpy(method_string, "(unknown method)");
   perc = percent(isize, s);
 #ifdef BZIP2_SUPPORT
   if (mthd == BZIP2)
-    strcpy(methodstring, "bzipped");
+    strcpy(method_string, "bzipped");
   else
 #endif
 #ifdef LZMA_SUPPORT
   if (mthd == LZMA)
-    strcpy(methodstring, "LZMAed");
+    strcpy(method_string, "LZMAed");
   else
 #endif
 #ifdef PPMD_SUPPORT
   if (mthd == PPMD)
-    strcpy(methodstring, "PPMded");
+    strcpy(method_string, "PPMded");
   else
 #endif
   if (mthd == DEFLATE)
-    strcpy(methodstring, "deflated");
+    strcpy(method_string, "deflated");
   else if (mthd == STORE)
-    strcpy(methodstring, "stored");
+    strcpy(method_string, "stored");
 
   if (noisy || logall)
   {
@@ -2401,7 +2403,7 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
                zip_fzofft(isize, NULL, "u"), zip_fzofft(s, NULL, "u"));
     }
     if (mthd != STORE)
-      zfprintf(mesg, " (%s%s %d%%)\n", methodstring, l_str_p, perc);
+      zfprintf(mesg, " (%s%s %d%%)\n", method_string, l_str_p, perc);
     else
       zfprintf(mesg, " (stored 0%%)\n");
     mesg_line_started = 0;
@@ -2410,7 +2412,7 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
   if (logall)
   {
     if (mthd != STORE)
-      zfprintf(logfile, " (%s%s %d%%)\n", methodstring, l_str_p, perc);
+      zfprintf(logfile, " (%s%s %d%%)\n", method_string, l_str_p, perc);
     else
       zfprintf(logfile, " (stored 0%%)\n");
     logfile_line_started = 0;
@@ -2534,7 +2536,9 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
                                         percent_all_entries_processed,
                                         bytes_expected,
                                         usize_string,
-                                        action_string)) {
+                                        action_string,
+                                        method_string,
+                                        info_string)) {
       ZIPERR(ZE_ABORT, "User terminated operation");
     }
   }
@@ -3018,7 +3022,9 @@ local unsigned iz_file_read(buf, size)
                                           percent_all_entries_processed,
                                           bytes_expected,
                                           usize_string,
-                                          action_string)) {
+                                          action_string,
+                                          method_string,
+                                          info_string)) {
         ZIPERR(ZE_ABORT, "User terminated operation");
       }
     }

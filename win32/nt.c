@@ -1,7 +1,7 @@
 /*
-  win32/nt.c - Zip 3
+  win32/nt.c - Zip 3.1
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -38,6 +38,14 @@ Author:
 
 --*/
 
+/*
+    Support for symlinks (and detection of other reparse point objects) added.
+    This is added below Scott's code, except as noted.
+
+    2014/06/11 EG
+ */
+
+
 #include "../zip.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -46,6 +54,14 @@ Author:
 #  include "../win32/rsxntwin.h"
 #endif
 #include "../win32/nt.h"
+
+/* ================================ */
+/* Includes added to support reparse point additions below (including
+   symlinks). */
+
+#include <malloc.h>
+#include <winioctl.h>
+/* ================================ */
 
 #ifdef NTSD_EAS         /* This file is only needed for NTSD handling */
 
@@ -147,6 +163,8 @@ static BOOL Shutdown(VOID)
 }
 #endif /* never */
 
+
+/* This should be upadated to work with wide filenames.  2014/06/13 */
 
 static VOID GetRemotePrivilegesGet(char *FileName, PDWORD dwRemotePrivileges)
 {
@@ -358,6 +376,9 @@ BOOL ZipGetVolumeCaps(
     return bSuccess;
 }
 
+
+/* This should be updated to work with wide filenames.  2014/06/13 */
+
 BOOL SecurityGet(
     char *resource,
     PVOLUMECAPS VolumeCaps,
@@ -489,4 +510,476 @@ static VOID InitLocalPrivileges(VOID)
 
     CloseHandle(hToken);
 }
+
+
+
+
+
+#ifdef WINDOWS_SYMLINKS
+
+/* ========================================================================= */
+
+/* Handle symlinks (and detect other reparse point objects).
+ *
+ * The below heavily based on streams.c generously supplied by Kai-Uwe Rommel
+ * and used with permission.
+ *
+ * streams.c
+ *   Author:   <Rommel@ars.de>
+ *   Created: Sun Jun 03 2001
+ *
+ * 2014/06/11 EG
+ */
+
+
+typedef struct _REPARSE_DATA_BUFFER {
+  ULONG  ReparseTag;
+  USHORT ReparseDataLength;
+  USHORT Reserved;
+  union {
+    struct {
+      USHORT SubstituteNameOffset;
+      USHORT SubstituteNameLength;
+      USHORT PrintNameOffset;
+      USHORT PrintNameLength;
+      ULONG  Flags;
+      WCHAR  PathBuffer[1];
+    } SymbolicLinkReparseBuffer;
+    struct {
+      USHORT SubstituteNameOffset;
+      USHORT SubstituteNameLength;
+      USHORT PrintNameOffset;
+      USHORT PrintNameLength;
+      WCHAR  PathBuffer[1];
+    } MountPointReparseBuffer;
+    struct {
+      UCHAR DataBuffer[1];
+    } GenericReparseBuffer;
+  };
+} REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
+
+
+/* WinDirObjectInfo
+ *
+ * For the Windows directory object pointed to by path, determine
+ * type of object (file, directory, etc.) and, if a mount point,
+ * symlink, etc., return type of reparse object and, if relevant,
+ * object's target name.  For a symlink, target name is target of
+ * symlink.  For mount point, target name is the mount point.
+ *
+ * wpath                   - (in)  Wide character path of object to examine.
+ * attr                    - (out) Attributes associated with this object.
+ * reparse_tag             - (out) Type of reparse tag, or 0 if not a reparse tag.
+ * wtarget_name            - (out) Name of target, if applicable, or NULL.
+ * max_wtarget_name_length - (in)  Size (in bytes) of wtarget_name buffer.
+ *
+ * Returns 1 on success, 0 on error.
+ *
+ * 2014/06/14 EG
+ */
+int WinDirObjectInfo(wchar_t *wpath,
+                     unsigned long *attr,
+                     unsigned long *reparse_tag,
+                     wchar_t *wtarget_name,
+                     size_t max_wtarget_name_length)
+{
+  HANDLE hfile;
+  BY_HANDLE_FILE_INFORMATION bhfi;
+  DWORD dwRead, dwAttr;
+  int i;
+
+  size_t len;
+
+  i = (int)wcslen(wpath);
+
+  /* wprintf(L"\nPath to WinDirObjectInfo (wide char):  (%d)  \"%s\"\n", i, wpath); */
+
+  *attr = 0;
+  *reparse_tag = 0;
+  wcscpy(wtarget_name, L"");
+
+  dwAttr = GetFileAttributesW(wpath);
+  if (dwAttr == (DWORD) -1) {
+/*    wprintf(L"\nBad path to WinDirObjectInfo:  \"%s\"\n", wpath); */
+    return 0;
+  }
+  else
+  {
+
+    if (dwAttr & FILE_ATTRIBUTE_DIRECTORY)
+      *attr |= FILE_ATTRIBUTE_DIRECTORY;
+
+    if (dwAttr & FILE_ATTRIBUTE_REPARSE_POINT)
+      *attr |= FILE_ATTRIBUTE_REPARSE_POINT;
+
+    if (dwAttr & FILE_ATTRIBUTE_COMPRESSED)
+      *attr |= FILE_ATTRIBUTE_COMPRESSED;
+
+    if (dwAttr & FILE_ATTRIBUTE_ENCRYPTED)
+      *attr |= FILE_ATTRIBUTE_ENCRYPTED;
+
+    if (dwAttr & FILE_ATTRIBUTE_OFFLINE)
+      *attr |= FILE_ATTRIBUTE_OFFLINE;
+
+    if (dwAttr & FILE_ATTRIBUTE_SPARSE_FILE)
+      *attr |= FILE_ATTRIBUTE_SPARSE_FILE;
+
+    if (dwAttr & FILE_ATTRIBUTE_TEMPORARY)
+      *attr |= FILE_ATTRIBUTE_TEMPORARY;
+
+    if ((hfile = CreateFileW(wpath,
+                            GENERIC_READ,
+                            FILE_SHARE_READ|FILE_SHARE_WRITE,
+                            0,
+                            OPEN_EXISTING,
+                            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+                            0)) == INVALID_HANDLE_VALUE)
+      return 0;
+
+    if (!GetFileInformationByHandle(hfile,
+                                    &bhfi))
+    {
+      CloseHandle(hfile);
+      return 0;
+    }
+
+    if (dwAttr & FILE_ATTRIBUTE_REPARSE_POINT)
+    {
+      REPARSE_DATA_BUFFER *reparse =
+        (REPARSE_DATA_BUFFER *) alloca(MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+
+      if (DeviceIoControl(hfile,
+                          FSCTL_GET_REPARSE_POINT,
+                          0,
+                          0, 
+                          (LPVOID) reparse,
+                          8192,
+                          &dwRead,
+                          0))
+      {
+        switch (reparse->ReparseTag)
+        {
+        case IO_REPARSE_TAG_MOUNT_POINT:
+          len = reparse->MountPointReparseBuffer.PrintNameLength;
+          if (len > max_wtarget_name_length) {
+            CloseHandle(hfile);
+            zprintf("wtarget_name buffer not large enough (need %d bytes)\n", len);
+          }
+          wcsncpy(wtarget_name,
+                  reparse->MountPointReparseBuffer.PathBuffer
+                    + reparse->MountPointReparseBuffer.PrintNameOffset / sizeof(wchar_t),
+                  len / sizeof(wchar_t));
+          wtarget_name[len / sizeof(wchar_t)] = L'\0';
+	        /* wprintf(L" * mount point -> '%s'\n", wtarget_name); */
+          *reparse_tag = IO_REPARSE_TAG_MOUNT_POINT;
+          break;
+
+        case IO_REPARSE_TAG_SYMLINK:
+          len = reparse->SymbolicLinkReparseBuffer.PrintNameLength;
+          if (len > max_wtarget_name_length) {
+            CloseHandle(hfile);
+            zprintf("wtarget_name buffer not large enough (need %d bytes)\n", len);
+          }
+          wcsncpy(wtarget_name,
+                  reparse->SymbolicLinkReparseBuffer.PathBuffer
+                    + reparse->SymbolicLinkReparseBuffer.PrintNameOffset / sizeof(wchar_t),
+                  len / sizeof(wchar_t));
+          wtarget_name[len / sizeof(wchar_t)] = L'\0';
+          /* wprintf(L" * symbolic link -> '%s'\n", wtarget_name); */
+          *reparse_tag = IO_REPARSE_TAG_SYMLINK;
+          break;
+
+        case IO_REPARSE_TAG_HSM:
+          /* printf(" * HSM\n"); */
+          *reparse_tag = IO_REPARSE_TAG_HSM;
+          break;
+
+        case IO_REPARSE_TAG_HSM2:
+          /* printf(" * HSM2\n"); */
+          *reparse_tag = IO_REPARSE_TAG_HSM2;
+          break;
+
+        case IO_REPARSE_TAG_SIS:
+          /* printf(" * SIS\n"); */
+          *reparse_tag = IO_REPARSE_TAG_SIS;
+          break;
+
+        case IO_REPARSE_TAG_WIM:
+          /* printf(" * WIM\n"); */
+          *reparse_tag = IO_REPARSE_TAG_WIM;
+          break;
+
+        case IO_REPARSE_TAG_CSV:
+          /* printf(" * CSV\n"); */
+          *reparse_tag = IO_REPARSE_TAG_CSV;
+          break;
+
+        case IO_REPARSE_TAG_DFS:
+          /* printf(" * DFS\n"); */
+          *reparse_tag = IO_REPARSE_TAG_DFS;
+          break;
+
+        case IO_REPARSE_TAG_DFSR:
+          /* printf(" * DFSR\n"); */
+          *reparse_tag = IO_REPARSE_TAG_DFSR;
+          break;
+
+        case IO_REPARSE_TAG_DEDUP:
+          /* printf(" * DEDUP\n"); */
+          *reparse_tag = IO_REPARSE_TAG_DEDUP;
+          break;
+
+        case IO_REPARSE_TAG_NFS:
+          /* printf(" * NFS\n"); */
+          *reparse_tag = IO_REPARSE_TAG_NFS;
+          break;
+
+        default:
+          /* printf(" * unknown reparse point\n"); */
+          break;
+        }
+      }
+    }
+
+    CloseHandle(hfile);
+  }
+
+  return 1;
+}
+
+
+/* isWinSymlink()
+ *
+ * Determine if path is a real Windows symlink.
+ *
+ * Returns 1 if symlink, 0 if not or error.
+ *
+ * 2014/06/14 EG
+ */
+int isWinSymlink(char *path)
+{
+  unsigned long attr;
+  unsigned long reparse_tag;
+  wchar_t wtarget_name[MAX_SYMLINK_WTARGET_NAME_LENGTH + 2];
+  wchar_t *wpath;
+  int result;
+  int utf8;
+
+  utf8 = is_utf8_string(path, NULL, NULL, NULL, NULL);
+  if (utf8)
+    wpath = utf8_to_wchar_string(path);
+  else
+    wpath = local_to_wchar_string(path);
+
+  attr = 0;
+  reparse_tag = 0;
+
+  result = WinDirObjectInfo(wpath,
+                            &attr,
+                            &reparse_tag,
+                            wtarget_name,
+                            MAX_SYMLINK_WTARGET_NAME_LENGTH);
+  free(wpath);
+
+  if (result)
+  {
+    if (attr & FILE_ATTRIBUTE_REPARSE_POINT)
+    {
+      if (reparse_tag == IO_REPARSE_TAG_SYMLINK)
+      {
+        return 1;
+      }
+    }
+  }
+
+  return 0;
+}
+
+
+/* isWinSymlinkw()
+ *
+ * Determine if path is a real Windows symlink.  This
+ * version takes path as wchar string.
+ *
+ * Returns 1 if symlink, 0 if not or error.
+ *
+ * 2014/06/14 EG
+ */
+int isWinSymlinkw(wchar_t *wpath)
+{
+  unsigned long attr;
+  unsigned long reparse_tag;
+  wchar_t wtarget_name[MAX_SYMLINK_WTARGET_NAME_LENGTH + 2];
+  int result;
+
+  attr = 0;
+  reparse_tag = 0;
+
+  result = WinDirObjectInfo(wpath,
+                            &attr,
+                            &reparse_tag,
+                            wtarget_name,
+                            MAX_SYMLINK_WTARGET_NAME_LENGTH);
+  
+  if (result)
+  {
+    if (attr & FILE_ATTRIBUTE_REPARSE_POINT)
+    {
+      if (reparse_tag == IO_REPARSE_TAG_SYMLINK)
+      {
+        return 1;
+      }
+    }
+  }
+
+  return 0;
+}
+
+
+/* readlink()
+ *
+ * Windows version of Unix readlink().  Determine if path is a
+ * symlink.  If so, fill buffer with link target and return
+ * buffer byte count (including terminating NULL).  If not,
+ * return -1.
+ *
+ * This also returns the target of a mount point.
+ *
+ * 2014/06/18 EG
+ */
+int readlink(char *path, char *buf, size_t size)
+{
+  unsigned long attr;
+  unsigned long reparse_tag;
+  wchar_t wtarget_name[MAX_SYMLINK_WTARGET_NAME_LENGTH + 2];
+  wchar_t *wpath;
+  char *tempbuf;
+  size_t tempbuf_size;
+  int result;
+
+  wpath = local_to_wchar_string(path);
+
+  attr = 0;
+  reparse_tag = 0;
+
+  result = WinDirObjectInfo(wpath,
+                            &attr,
+                            &reparse_tag,
+                            wtarget_name,
+                            MAX_SYMLINK_WTARGET_NAME_LENGTH);
+  free(wpath);
+
+  if (result)
+  {
+    if (attr & FILE_ATTRIBUTE_REPARSE_POINT)
+    {
+      if (reparse_tag == IO_REPARSE_TAG_MOUNT_POINT)
+      {
+        size_t buf_len;
+
+        tempbuf = wchar_to_utf8_string(wtarget_name);
+        tempbuf_size = strlen(tempbuf);
+        if (tempbuf_size + 1 > size) {
+          free(tempbuf);
+          return -1;
+        }
+        strcpy(buf, "reparse point (Windows mount point):\n");
+        buf_len = strlen(buf);
+
+        strcat(buf, tempbuf);
+        free(tempbuf);
+        return (int)(tempbuf_size + buf_len + 1);
+      }
+      if (reparse_tag == IO_REPARSE_TAG_SYMLINK)
+      {
+        tempbuf = wchar_to_utf8_string(wtarget_name);
+        tempbuf_size = strlen(tempbuf);
+        if (tempbuf_size + 1 > size) {
+          free(tempbuf);
+          return -1;
+        }
+        strcpy(buf, tempbuf);
+        free(tempbuf);
+        return (int)(tempbuf_size + 1);
+      }
+    }
+  }
+
+  return -1;
+}
+
+
+/* readlinkw()
+ *
+ * Windows version of Unix readlink().  Determine if path is a
+ * symlink.  If so, fill buffer with link target and return
+ * buffer byte count (including terminating NULL).  If not,
+ * return -1.
+ *
+ * This also returns the target of a mount point.
+ *
+ * 2014/06/18 EG
+ */
+int readlinkw(wchar_t *wpath, char *buf, size_t size)
+{
+  unsigned long attr;
+  unsigned long reparse_tag;
+  wchar_t wtarget_name[MAX_SYMLINK_WTARGET_NAME_LENGTH + 2];
+  char *tempbuf;
+  size_t tempbuf_size;
+  int result;
+
+  attr = 0;
+  reparse_tag = 0;
+
+  result = WinDirObjectInfo(wpath,
+                            &attr,
+                            &reparse_tag,
+                            wtarget_name,
+                            MAX_SYMLINK_WTARGET_NAME_LENGTH);
+
+  if (result)
+  {
+    if (attr & FILE_ATTRIBUTE_REPARSE_POINT)
+    {
+      if (reparse_tag == IO_REPARSE_TAG_MOUNT_POINT)
+      {
+        size_t buf_len;
+
+        tempbuf = wchar_to_utf8_string(wtarget_name);
+        tempbuf_size = strlen(tempbuf);
+        if (tempbuf_size + 1 > size) {
+          free(tempbuf);
+          return -1;
+        }
+        strcpy(buf, "reparse point (Windows mount point):\n");
+        buf_len = strlen(buf);
+
+        strcat(buf, tempbuf);
+        free(tempbuf);
+        return (int)(tempbuf_size + buf_len + 1);
+      }
+      if (reparse_tag == IO_REPARSE_TAG_SYMLINK)
+      {
+        tempbuf = wchar_to_utf8_string(wtarget_name);
+        tempbuf_size = strlen(tempbuf);
+        if (tempbuf_size + 1 > size) {
+          free(tempbuf);
+          return -1;
+        }
+        strcpy(buf, tempbuf);
+        free(tempbuf);
+        return (int)(tempbuf_size + 1);
+      }
+    }
+  }
+
+  return -1;
+}
+
+#endif
+
+
+/* ========================================================================= */
+
 #endif /* NTSD_EAS */

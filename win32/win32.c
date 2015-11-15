@@ -26,8 +26,10 @@
 #include <ctype.h>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#ifndef ZIP_DLL_LIB
 /* for CommandLineToArgvW() */
-#include <shellapi.h>
+# include <shellapi.h>
+#endif
 
 /* for LARGE_FILE_SUPPORT but may not be needed */
 #include <io.h>
@@ -1373,7 +1375,11 @@ void version_local()
 #    define COMPILER_NAME2      "(Visual C++ v2.x)"
 #  elif (_MSC_VER > 900)
     sprintf(buf2, "(Visual C++ v%d.%d)", _MSC_VER/100 - 6, _MSC_VER%100/10);
+#   ifdef CONFIG_PLATFORM
     sprintf(buf3, "%s [%s]", buf2, CONFIG_PLATFORM);
+#   else
+    sprintf(buf3, "%s", buf2);
+#   endif
 #    define COMPILER_NAME2      buf3
 #  else
 #    define COMPILER_NAME2      "(bad version)"
@@ -1458,7 +1464,7 @@ void version_local()
 #endif
 
 /* Define the compile date string */
-#if defined( __DATE__) && !defined( NO_BUILD_DATE)
+#if defined(__DATE__) && !defined(NO_BUILD_DATE)
 #  define COMPILE_DATE " on " __DATE__
 #else
 #  define COMPILE_DATE ""
@@ -1789,6 +1795,7 @@ long write_consolew2a(wchar_t *inw)
 #endif
 
 
+# ifndef ZIP_DLL_LIB
   /* get_win32_utf8_argv()
    *
    * Get the Win32 wide command line and convert each arg to UTF-8.
@@ -1854,6 +1861,7 @@ long write_consolew2a(wchar_t *inw)
 
     return args;
   }
+# endif
 
 
   /*------------------------------- */

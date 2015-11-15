@@ -1,7 +1,7 @@
 /*
   unix/osdep.h - Zip 3
 
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -68,6 +68,19 @@
 #endif
 
 
+/* symlinks */
+#ifdef S_ISLNK
+# ifndef SYMLINKS
+#  define SYMLINKS
+# endif
+#endif
+
+
+/* Added 2014-09-05 */
+#define PROCNAME(n) (action == ADD || action == UPDATE ? wild(n) : \
+                     procname(n, 1))
+
+
 /* Process files in binary mode */
 #if defined(__DJGPP__) || defined(__CYGWIN__)
 #  define FOPR "rb"
@@ -87,6 +100,10 @@
 # define ETWODD_SUPPORT
 #endif /* ndef NO_ETWODD_SUPPORT */
 
+/* None of this may be needed now. */
+/* These should go away next beta. */
+#if 0
+
 /* 2013-11-18 SMS.
  * Define subsidiary object library macros based on ZIPLIB.
  * NO_ZPARCHIVE enables non-Windows api.c:comment().
@@ -100,4 +117,6 @@
 #  define USE_ZIPMAIN
 # endif
 #endif /* def ZIPLIB */
+
+#endif
 

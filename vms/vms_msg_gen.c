@@ -4,7 +4,7 @@
  * Last revised: 2013-11-29
  *
  *----------------------------------------------------------------------
- * Copyright (c) 2007-2013 Info-ZIP.  All rights reserved.
+ * Copyright (c) 2007-2014 Info-ZIP.  All rights reserved.
  *
  * See the accompanying file LICENSE, version 2009-Jan-2 or later (the
  * contents of which are also included in zip.h) for terms of use.  If,
@@ -52,7 +52,7 @@ main()
 "!    VMS Error Message Source File for Zip",
 "!",
 "!----------------------------------------------------------------------",
-"! Copyright (c) 2007-2013 Info-ZIP.  All rights reserved.",
+"! Copyright (c) 2007-2014 Info-ZIP.  All rights reserved.",
 "!",
 "! See the accompanying file LICENSE, version 2009-Jan-2 or later (the",
 "! contents of which are also included in zip.h) for terms of use.  If,",

@@ -1,7 +1,7 @@
 /*
   revision.h - Zip 3
 
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -21,18 +21,22 @@
 #define Z_PATCHLEVEL 0
 #define Z_BETALEVEL "d BETA"
 
-#define VERSION "3.1d25+ BETA"
-#define REVDATE "Feb 14th 2013"
+/* set this to 1 for a beta, 0 for a release */
+#define BETA 1
+
+#define VERSION "3.1d-BETA"
+#define REVDATE "November 15th 2015"
+#define REVYMD  "2015-11-15"
 
 /* Setting these to the Zip version seems a waste, as the version
    structure already tells the user the Zip version through Z_MAJORVER,
    Z_MINORVER, and Z_PATCHLEVEL.  Starting with Zip 3.1c, these are now
-   only updated when the DLL interface changes.  This means that these
+   only updated when the LIB/DLL interface changes.  This means that these
    numbers might stay at 3, 1, 0 for awhile if the DLL interface stays
    backward compatible. */
-#define DW_MAJORVER    3
-#define DW_MINORVER    1
-#define DW_PATCHLEVEL  0
+#define LD_MAJORVER    3
+#define LD_MINORVER    1
+#define LD_PATCHLEVEL  0
 
 #ifndef IZ_COMPANY_NAME               /* might be already defined... */
 #  define IZ_COMPANY_NAME "Info-ZIP"
@@ -41,7 +45,7 @@
 #  define ZIP_DLL_VERSION VERSION
 #endif
 
-#if !defined(WINDLL) && !defined(IZ_VERSION_SYMBOLS_ONLY)
+#if !defined(IZ_VERSION_SYMBOLS_ONLY)
 /* Copyright notice for binary executables--this notice only applies to
  * those (zip, zipcloak, zipsplit, and zipnote), not to this file
  * (revision.h).
@@ -60,9 +64,9 @@ extern ZCONST char * far cryptnote[7];
 
 ZCONST char *copyright[] = {
 # ifdef VMS
-"Copyright (c) 1990-2013 Info-ZIP - Type '%s \"-L\"' for software license."
+"Copyright (c) 1990-2015 Info-ZIP - Type '%s \"-L\"' for software license."
 # else /* def VMS */
-"Copyright (c) 1990-2013 Info-ZIP - Type '%s -L' for software license."
+"Copyright (c) 1990-2015 Info-ZIP - Type '%s -L' for software license."
 # endif /* def VMS [else] */
 /* XXX still necessary ???? */
 #ifdef AZTEC_C
@@ -81,15 +85,17 @@ ZCONST char * far versinfolines[] = {
 };
 
 #if defined(IZ_CRYPT_AES_WG) || defined(IZ_CRYPT_AES_WG_NEW)
-/* new notice - 27 September 2010 */
+/* new notice - 27 September 2010, updated 17 June 2015 */
 ZCONST char * far cryptAESnote[] = {
 "AES Strong Encryption notice:",
 "        This executable includes 256-bit AES strong encryption and may be",
-"        subject to export restrictions in many countries, including the USA."
+"        subject to export restrictions in many countries, including the USA.",
+"        US Exception TSU, Product Name: iz_aes_wg, ECCN: 5D002.C.1",
+"        See README for additional information."
 };
 #endif
 
-/* new notice - 4 March 2007 (updated 27 September 2010) */
+/* new notice - 4 March 2007, updated 27 September 2010 */
 ZCONST char * far cryptnote[] = {
 "Traditional Zip Encryption notice:",
 "        The traditional zip encryption code of this program is not",
@@ -101,7 +107,7 @@ ZCONST char * far cryptnote[] = {
 };
 
 ZCONST char * far swlicense[] = {
-"Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.",
+"Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.",
 "",
 "This is version 2009-Jan-02 of the Info-ZIP license.",
 "",

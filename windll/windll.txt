@@ -1,5 +1,8 @@
-This file is in need of update.  See api.h and api.c for the current details.
-22 May 2010 EG
+This file is mainly kept for historical reasons as well as for the details it
+has regarding WiZ.  See the various other documentation files in the windll
+directory for more up-to-date information, including WhatsNew.txt which is a
+brief overview of the new interface.  See api.h and api.c for current details.
+19 July 2014 EG
 
 The code set out below is not intended to be compiled, but is only intended as
 a very simplistic pointer to how to load and call the dll. You will have to

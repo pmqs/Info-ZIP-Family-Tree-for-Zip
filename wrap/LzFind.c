@@ -11,6 +11,9 @@
  * Wrapper for "szip/LzFind.c".
  */
 
+/* This sets LZMA_SUPPORT if LZMA enabled. */
+#include "../control.h"
+
 #ifdef LZMA_SUPPORT
 # include "../szip/LzFind.c"
 #endif

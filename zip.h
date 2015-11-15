@@ -99,6 +99,11 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
  */
 #define BUILD_BUG_ON(condition) ((void)sizeof(char[1 - 2*!!(condition)]))
 
+/* control.h enables and disables AES encryption and the additional compression
+   methods.  Currently only used for Windows.  See the comments in that file
+   for more information. */
+#include "control.h"
+
 /* Set up portability */
 #include "tailor.h"
 
@@ -173,23 +178,16 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 # endif
 #endif
 
-/* Win32 wide command line */
-#if defined(UNICODE_SUPPORT_WIN32) && defined(AT_LEAST_WINXP)
-# ifndef WIN32_WIDE_CMD_LINE
-#  ifndef NO_WIN32_WIDE_CMD_LINE
-#   define WIN32_WIDE_CMD_LINE
-#  endif
-# endif
-#endif
-
 /* Enable symlink support. */
 /* (The variable linkput is used to actually enable symlink handling.) */
 #if !defined(NO_SYMLINKS) && !defined(SYMLINKS)
+
   /* Not Windows. */
 # if defined(S_IFLNK) && !defined(WIN32)
 #  define SYMLINKS
 # endif
-  /* Windows. */
+
+/* Windows. */
 # if defined(NTSD_EAS)
     /* For now do not do symlinks on WIN32 in utilities as code is not there.  Also
        need Unicode enabled, which it should be by default on NT and later. */
@@ -208,10 +206,11 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #  endif
 # endif
 
-#endif
+#endif /* !defined(NO_SYMLINKS) && !defined(SYMLINKS) */
 
 #ifdef WIN32
 /* For Windows we need to define S_ISLNK as Windows does not define it (or
+
    use it), but we need it. */
 # ifdef SYMLINKS
 #  ifndef S_ISLNK
@@ -226,15 +225,6 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 
 /* ---------- */
 /* Encryption */
-
-/* The file iz_aes.h includes aes_wg/iz_con.h, which sets
-   AES_WG_KIT_INSTALLED if the iz_aes_wg.zip AES WG kit is installed
-   in the aes_wg directory.  If iz_aes.h sees this set, it defaults
-   to setting CRYPT_AES_WG to enable AES WG encryption, unless
-   NO_CRYPT_AES_WG is defined.  iz_aes.h ensures that
-   CRYPT_AES_WG and NO_CRYPT_AES_WG are not both defined. */
-#include "iz_aes.h"
-
 
 /* Encryption rules.
  *
@@ -255,42 +245,54 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
  *     AES WG source kit has not been added to aes_wg/.  If that
  *     kit has been added, this disables AES WG encryption.
  *
- * Macros used in code: IZ_CRYPT_AES_WG, IZ_CRYPT_ANY, IZ_CRYPT_TRAD.
+ * Macros used in code: IZ_CRYPT_AES_WG, IZ_CRYPT_ANY, IZ_CRYPT_TRAD,
+ * ETWODD_SUPPORT.
  *
  * CRYPT_AES_WG_NEW enables AES_WG encryption using newer code,
- *   but is no where near completed.  Doesn't work.  Don't enable.
+ * but is no where near completed.  Doesn't work.  Don't enable.
  */
-# ifdef NO_CRYPT
+#ifdef NO_CRYPT
    /* Disable all encryption. */
-#if 0
+# if 0
 /* Disabling these here makes no sense as they could not have been
    set yet. */
 #  undef IZ_CRYPT_AES_WG
 #  undef IZ_CRYPT_AES_WG_NEW
 #  undef IZ_CRYPT_TRAD
-#endif
+# endif
+
+# ifdef IZ_CRYPT_TRAD
+#  undef IZ_CRYPT_TRAD
+# endif
+
+# ifdef CRYPT_AES_WG
+#   undef CRYPT_AES_WG
+#   ifndef NO_CRYPT_AES_WG
+#    define NO_CRYPT_AES_WG
+#   endif
+# endif
+
+#else /* not def NO_CRYPT */
+
+/* Allow encryption to be enabled. */
+# ifdef NO_CRYPT_TRAD
+    /* Disable Traditional encryption. */
+    /* There should be no way this was set. */
 #  ifdef IZ_CRYPT_TRAD
 #   undef IZ_CRYPT_TRAD
 #  endif
-#  ifdef CRYPT_AES_WG
-#    undef CRYPT_AES_WG
-#    ifndef NO_CRYPT_AES_WG
-#     define NO_CRYPT_AES_WG
-#    endif
-#  endif
-# else /* not def NO_CRYPT */
-   /* Allow encryption to be enabled. */
-#  ifdef NO_CRYPT_TRAD
-    /* Disable Traditional encryption. */
-    /* There should be no way this was set. */
-#   ifdef IZ_CRYPT_TRAD
-#    undef IZ_CRYPT_TRAD
-#   endif
-#  else /* def NO_CRYPT_TRAD */
+
+# else /* def NO_CRYPT_TRAD */
     /* Enable Traditional encryption. */
-#   define IZ_CRYPT_TRAD 1
-#  endif /* def NO_CRYPT_TRAD [else] */
-# endif /* def NO_CRYPT [else] */
+#  define IZ_CRYPT_TRAD 1
+# endif /* def NO_CRYPT_TRAD [else] */
+
+#endif /* def NO_CRYPT [else] */
+
+#if defined(ETWODD_SUPPORT) && !defined(IZ_CRYPT_TRAD)
+  /* Disable ETWODD if no Traditional encryption. */
+# undef ETWODD_SUPPORT
+#endif
 
 #ifdef CRYPT_AES_WG
 #  define IZ_CRYPT_AES_WG 1
@@ -996,7 +998,13 @@ extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
 extern int level;               /* Compression level, global (-0, ..., -9) */
 extern int levell;              /* Compression level, adjusted by mthd, sufx. */
 
+#define MAX_ACTION_STRING 100
+#define MAX_METHOD_STRING 100
+#define MAX_INFO_STRING 100
+
 extern char action_string[];    /* action string, such as "Freshen" */           
+extern char method_string[];    /* method string, such as "Deflate" */           
+extern char info_string[];      /* additional info, such as "AES256" */           
 
 /* Normally Traditional Zip encryption processes the entry in one pass,
    resulting in the CRC.  However at this point the entry is encrypted, so
@@ -1012,9 +1020,9 @@ extern char action_string[];    /* action string, such as "Freshen" */
    structure of AES WG encrypted entries, it is suggested that Traditional
    encryption just not be used for any sensitive information, which avoids
    the issue. */
-#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+#ifdef ETWODD_SUPPORT
 extern int etwodd;              /* Encrypt Trad without data descriptor. */
-#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
+#endif /* def ETWODD_SUPPORT */
 
 /* Compression method and level (with file name suffixes). */
 typedef struct
@@ -1529,6 +1537,20 @@ void zperror OF((const char *));
 #endif
 
 
+/* Win32 wide command line */
+#if defined(UNICODE_SUPPORT_WIN32) && defined(AT_LEAST_WINXP)
+
+/* Do not get wide command line if getting command line from DLL/LIB. */
+# ifndef ZIP_DLL_LIB
+#  ifndef WIN32_WIDE_CMD_LINE
+#   ifndef NO_WIN32_WIDE_CMD_LINE
+#    define WIN32_WIDE_CMD_LINE
+#   endif
+#  endif
+# endif
+#endif
+
+
 /* --------------------------------------- */
 
 /* The filesize type used for API (LIB/DLL) calls defaults to
@@ -1620,7 +1642,8 @@ extern int bflag;
      void flush_outbuf OF((char *, unsigned *));
      extern unsigned (*read_buf) OF((char *, unsigned int));
 #  endif /* !USE_ZLIB */
-     int seekable OF((FILE *));
+   int seekable OF((FILE *));
+
 #  ifdef ZP_NEED_MEMCOMPR
      ulg memcompress OF((char *, ulg, char *, ulg));
 #  endif

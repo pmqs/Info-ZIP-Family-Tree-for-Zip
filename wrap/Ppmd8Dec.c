@@ -11,6 +11,9 @@
  * Wrapper for "szip/Ppmd8Dec.c".
  */
 
+/* This sets PPMD_SUPPORT if PPMd enabled. */
+#include "../control.h"
+
 #ifdef PPMD_SUPPORT
 # include "../szip/Ppmd8Dec.c"
 #endif

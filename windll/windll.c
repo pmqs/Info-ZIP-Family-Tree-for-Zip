@@ -1,7 +1,7 @@
 /*
   windll/windll.c - Zip 3
 
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -80,12 +80,26 @@ return 1;
 LPSTR szCommentBuf;
 HANDLE hStr;
 
+#if 0
 void comment(unsigned int comlen)
 {
+#if 0
 unsigned int i;
-if (comlen > 65534L)
-   comlen = (unsigned int) 65534L;
-hStr = GlobalAlloc( GPTR, (DWORD)65535L);
+#endif
+long maxcomlen = 32766;
+long newcomlen = 0;
+
+#if 0
+printf("WINDLL comment\n");
+#endif
+
+/* The entire record must be less than 65535, so the comment length needs to be
+   kept well below that.  Changed 65534L to 32767L.  EG */
+if (comlen > 32766L)
+   comlen = (unsigned int) 32766L;
+
+#if 0
+hStr = GlobalAlloc( GPTR, (DWORD)32767L);
 if ( !hStr )
    {
    hStr = GlobalAlloc( GPTR, (DWORD) 2);
@@ -95,7 +109,7 @@ if ( !hStr )
    }
 
 szCommentBuf = GlobalLock(hStr);
-if (comlen)
+if (comlen && zcomment)
    {
    for (i = 0; i < comlen; i++)
        szCommentBuf[i] = zcomment[i];
@@ -103,17 +117,56 @@ if (comlen)
    }
 else
    szCommentBuf[0] = '\0';
-free(zcomment);
-zcomment = malloc(1);
+if (zcomment)
+  free(zcomment);
+zcomment = (char *)malloc(1);
 *zcomment = 0;
 if (lpZipUserFunctions->comment) {
-  lpZipUserFunctions->comment(szCommentBuf);
+lpZipUserFunctions->comment(szCommentBuf, comlen);
+#endif
+
+if (zcomment == NULL) {
+  /* create zero length string to pass to callback */
+  if ((zcomment = (char *)malloc(1)) == NULL) {
+    ZIPERR(ZE_MEM, "getting comment from callback (1)");
+  }
+  *zcomment = 0;
+  comlen = 0;
+} else {
+  /* make sure zcomment is NULL terminated */
+  zcomment[comlen] = '\0';
+}
+
+if (lpZipUserFunctions->acomment) {
+  szCommentBuf = lpZipUserFunctions->acomment(zcomment, maxcomlen, &newcomlen);
+  
+  if (newcomlen > maxcomlen)
+    newcomlen = maxcomlen;
+  szCommentBuf[newcomlen] = '\0';
+
+  if (zcomment)
+    free(zcomment);
+  if ((zcomment = (char *)malloc((newcomlen + 1) * sizeof(char))) == NULL) {
+    ZIPERR(ZE_MEM, "getting comment from callback (2)");
+  }
+
+  zcomlen = (ush)newcomlen;
+  strcpy(zcomment, szCommentBuf);
+
+#if 0
+  for (i = 0; i < newcomlen && szCommentBuf[i]; i++)
+    zcomment[i] = szCommentBuf[i];
+  zcomment[i] = '\0';
+#endif
+
 }
 return;
 }
+#endif
 
 #define STDIO_BUF_SIZE 16384
 
+#if 0
 int __far __cdecl printf(const char *format, ...)
 {
 va_list argptr;
@@ -135,6 +188,10 @@ va_end(argptr);
 WinAssert(strlen(pszBuffer) < STDIO_BUF_SIZE);
 if (lpZipUserFunctions->print) {
   len = lpZipUserFunctions->print(pszBuffer, len);
+}
+else
+{
+  len = write(fileno(stdout),(char far *)(pszBuffer), len);
 }
 GlobalUnlock(hMemory);
 GlobalFree(hMemory);
@@ -166,6 +223,10 @@ if ((file == stderr) || (file == stdout))
      if (lpZipUserFunctions->print) {
        len = lpZipUserFunctions->print(pszBuffer, len);
      }
+     else
+     {
+       len = write(fileno(stdout),(char far *)(pszBuffer), len);
+     }
    }
 else
    len = write(fileno(file),(char far *)(pszBuffer), len);
@@ -173,10 +234,13 @@ GlobalUnlock(hMemory);
 GlobalFree(hMemory);
 return len;
 }
+#endif
 
+#if 0
 void __far __cdecl perror(const char *parm1)
 {
-printf("%s", parm1);
+  zprintf("%s", parm1);
 }
+#endif
 
 

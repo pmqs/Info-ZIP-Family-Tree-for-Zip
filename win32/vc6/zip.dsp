@@ -4,7 +4,7 @@
 
 # TARGTYPE "Win32 (x86) Console Application" 0x0103
 
-CFG=zip - Win32 lzma Debug
+CFG=zip - Win32 Debug
 !MESSAGE This is not a valid makefile. To build this project using NMAKE,
 !MESSAGE use the Export Makefile command and run
 !MESSAGE 
@@ -13,7 +13,7 @@ CFG=zip - Win32 lzma Debug
 !MESSAGE You can specify a configuration when running NMAKE
 !MESSAGE by defining the macro CFG on the command line. For example:
 !MESSAGE 
-!MESSAGE NMAKE /f "zip.mak" CFG="zip - Win32 lzma Debug"
+!MESSAGE NMAKE /f "zip.mak" CFG="zip - Win32 Debug"
 !MESSAGE 
 !MESSAGE Possible choices for configuration are:
 !MESSAGE 
@@ -21,8 +21,6 @@ CFG=zip - Win32 lzma Debug
 !MESSAGE "zip - Win32 ASM Debug" (based on "Win32 (x86) Console Application")
 !MESSAGE "zip - Win32 Release" (based on "Win32 (x86) Console Application")
 !MESSAGE "zip - Win32 Debug" (based on "Win32 (x86) Console Application")
-!MESSAGE "zip - Win32 lzma Debug" (based on "Win32 (x86) Console Application")
-!MESSAGE "zip - Win32 lzma Release" (based on "Win32 (x86) Console Application")
 !MESSAGE 
 
 # Begin Project
@@ -84,14 +82,16 @@ LINK32=link.exe
 # PROP BASE Use_Debug_Libraries 0
 # PROP BASE Output_Dir "zip___Win32_Release"
 # PROP BASE Intermediate_Dir "zip___Win32_Release"
+# PROP BASE Ignore_Export_Lib 0
 # PROP BASE Target_Dir ""
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 0
 # PROP Output_Dir "zip___Win32_Release"
 # PROP Intermediate_Dir "zip___Win32_Release"
+# PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
-# ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /FD /c
-# ADD CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NO_ASM" /D "INCLUDE_LZMA_AS_SOURCE" /FD /c
+# ADD BASE CPP /nologo /W3 /GX /O2 /D "NO_ASM" /D "LZMA_SUPPORT" /D "PPMD_SUPPORT" /D "BZIP2_SUPPORT" /D "BZ_NO_STDIO" /D "BZIP2_USEBZIP2DIR" /D "WIN32" /FD /c
+# ADD CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NO_ASM" /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -107,6 +107,7 @@ LINK32=link.exe
 # PROP BASE Use_Debug_Libraries 1
 # PROP BASE Output_Dir "zip___Win32_Debug"
 # PROP BASE Intermediate_Dir "zip___Win32_Debug"
+# PROP BASE Ignore_Export_Lib 0
 # PROP BASE Target_Dir ""
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 1
@@ -114,8 +115,8 @@ LINK32=link.exe
 # PROP Intermediate_Dir "zip___Win32_Debug"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
-# ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /FD /GZ /c
-# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "NO_ASM" /D "INCLUDE_LZMA_AS_SOURCE" /FR /FD /GZ /c
+# ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "NO_ASM" /D "LZMA_SUPPORT" /D "INCLUDE_LZMA_AS_SOURCE" /D "WIN32" /D "BZIP2_SUPPORT" /D "BZ_NO_STDIO" /D "BZIP2_USEBZIP2DIR" /D "PPMD_SUPPORT" /FR /FD /GZ /c
+# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "NO_ASM" /FR /FD /GZ /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -124,54 +125,6 @@ BSC32=bscmake.exe
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
 # ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
-
-!ELSEIF  "$(CFG)" == "zip - Win32 lzma Debug"
-
-# PROP BASE Use_MFC 0
-# PROP BASE Use_Debug_Libraries 1
-# PROP BASE Output_Dir "zip___Win32_lzma_Debug"
-# PROP BASE Intermediate_Dir "zip___Win32_lzma_Debug"
-# PROP BASE Ignore_Export_Lib 0
-# PROP BASE Target_Dir ""
-# PROP Use_MFC 0
-# PROP Use_Debug_Libraries 1
-# PROP Output_Dir "zip___Win32_lzma_Debug"
-# PROP Intermediate_Dir "zip___Win32_lzma_Debug"
-# PROP Ignore_Export_Lib 0
-# PROP Target_Dir ""
-# ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "NO_ASM" /FR /FD /GZ /c
-# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "NO_ASM" /D "LZMA_SUPPORT" /D "INCLUDE_LZMA_AS_SOURCE" /FR /FD /GZ /c
-# ADD BASE RSC /l 0x409 /d "_DEBUG"
-# ADD RSC /l 0x409 /d "_DEBUG"
-BSC32=bscmake.exe
-# ADD BASE BSC32 /nologo
-# ADD BSC32 /nologo
-LINK32=link.exe
-# ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
-
-!ELSEIF  "$(CFG)" == "zip - Win32 lzma Release"
-
-# PROP BASE Use_MFC 0
-# PROP BASE Use_Debug_Libraries 0
-# PROP BASE Output_Dir "zip___Win32_lzma_Release"
-# PROP BASE Intermediate_Dir "zip___Win32_lzma_Release"
-# PROP BASE Target_Dir ""
-# PROP Use_MFC 0
-# PROP Use_Debug_Libraries 0
-# PROP Output_Dir "zip___Win32_lzma_Release"
-# PROP Intermediate_Dir "zip___Win32_lzma_Release"
-# PROP Target_Dir ""
-# ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NO_ASM" /FD /c
-# ADD CPP /nologo /W3 /GX /O2 /D "BACKUP_SUPPORT" /D "WIN32" /D "NO_ASM" /D "LZMA_SUPPORT" /D "INCLUDE_LZMA_AS_SOURCE" /FR /FD /c
-# ADD BASE RSC /l 0x409 /d "NDEBUG"
-# ADD RSC /l 0x409 /d "NDEBUG"
-BSC32=bscmake.exe
-# ADD BASE BSC32 /nologo
-# ADD BSC32 /nologo
-LINK32=link.exe
-# ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
 
 !ENDIF 
 
@@ -181,14 +134,32 @@ LINK32=link.exe
 # Name "zip - Win32 ASM Debug"
 # Name "zip - Win32 Release"
 # Name "zip - Win32 Debug"
-# Name "zip - Win32 lzma Debug"
-# Name "zip - Win32 lzma Release"
 # Begin Group "Source Files"
 
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
-SOURCE=..\..\lzma\Alloc.c
+SOURCE=..\..\wrap\aescrypt.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\wrap\aeskey.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\wrap\aestab.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\bzip2\blocksort.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\bzip2\bzlib.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\bzip2\compress.c
 # End Source File
 # Begin Source File
 
@@ -196,11 +167,23 @@ SOURCE=..\..\crc32.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\bzip2\crctable.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\crypt.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\bzip2\decompress.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\deflate.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\wrap\fileenc.c
 # End Source File
 # Begin Source File
 
@@ -212,11 +195,23 @@ SOURCE=..\..\globals.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\lzma\LzFind.c
+SOURCE=..\..\wrap\hmac.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\lzma\LzmaEnc.c
+SOURCE=..\..\bzip2\huffman.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\wrap\LzFind.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\wrap\LzmaDec.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\wrap\LzmaEnc.c
 # End Source File
 # Begin Source File
 
@@ -224,7 +219,31 @@ SOURCE=..\nt.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\lzma\SzFile.c
+SOURCE=..\..\wrap\Ppmd8.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\wrap\Ppmd8Dec.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\wrap\Ppmd8Enc.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\wrap\prng.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\wrap\pwd2key.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\bzip2\randtable.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\wrap\sha1.c
 # End Source File
 # Begin Source File
 
@@ -252,6 +271,10 @@ SOURCE=..\win32zip.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\zbz2err.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\zip.c
 # End Source File
 # Begin Source File
@@ -273,6 +296,18 @@ SOURCE=..\..\zipup.c
 # Begin Source File
 
 SOURCE=..\..\lzma\Alloc.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\bzip2\bzlib.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\bzip2\bzlib_private.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\control.h
 # End Source File
 # Begin Source File
 
@@ -305,6 +340,14 @@ SOURCE=..\nt.h
 # Begin Source File
 
 SOURCE=..\osdep.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\szip\Ppmd.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\szip\Ppmd8.h
 # End Source File
 # Begin Source File
 
@@ -380,18 +423,10 @@ InputName=crc_i386
 
 !ELSEIF  "$(CFG)" == "zip - Win32 Release"
 
-# PROP Exclude_From_Build 1
-
-!ELSEIF  "$(CFG)" == "zip - Win32 Debug"
-
-# PROP Exclude_From_Build 1
-
-!ELSEIF  "$(CFG)" == "zip - Win32 lzma Debug"
-
 # PROP BASE Exclude_From_Build 1
 # PROP Exclude_From_Build 1
 
-!ELSEIF  "$(CFG)" == "zip - Win32 lzma Release"
+!ELSEIF  "$(CFG)" == "zip - Win32 Debug"
 
 # PROP BASE Exclude_From_Build 1
 # PROP Exclude_From_Build 1
@@ -429,18 +464,10 @@ InputName=match32
 
 !ELSEIF  "$(CFG)" == "zip - Win32 Release"
 
-# PROP Exclude_From_Build 1
-
-!ELSEIF  "$(CFG)" == "zip - Win32 Debug"
-
-# PROP Exclude_From_Build 1
-
-!ELSEIF  "$(CFG)" == "zip - Win32 lzma Debug"
-
 # PROP BASE Exclude_From_Build 1
 # PROP Exclude_From_Build 1
 
-!ELSEIF  "$(CFG)" == "zip - Win32 lzma Release"
+!ELSEIF  "$(CFG)" == "zip - Win32 Debug"
 
 # PROP BASE Exclude_From_Build 1
 # PROP Exclude_From_Build 1

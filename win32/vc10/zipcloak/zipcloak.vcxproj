@@ -159,7 +159,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>CRYPT_AES_WG;WIN32;_CONSOLE;UTIL;CONFIG_PLATFORM="$(Configuration)_$(Platform)";_DEBUG;NO_ASM</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;UTIL;CONFIG_PLATFORM="$(Configuration)_$(Platform)";_DEBUG;NO_ASM</PreprocessorDefinitions>
       <ExpandAttributedSource>false</ExpandAttributedSource>
       <PreprocessToFile>false</PreprocessToFile>
     </ClCompile>
@@ -174,7 +174,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;NO_ASM;UTIL;x_CRYPT_AES_WG;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;UTIL;_DEBUG;NO_ASM;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
       <ExpandAttributedSource>false</ExpandAttributedSource>
       <PreprocessToFile>false</PreprocessToFile>
     </ClCompile>
@@ -189,7 +189,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>CRYPT_AES_WG;WIN32;_CONSOLE;UTIL;CONFIG_PLATFORM="$(Configuration)_$(Platform)";_DEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;UTIL;CONFIG_PLATFORM="$(Configuration)_$(Platform)";_DEBUG</PreprocessorDefinitions>
       <ExpandAttributedSource>false</ExpandAttributedSource>
       <PreprocessToFile>false</PreprocessToFile>
     </ClCompile>
@@ -207,7 +207,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;UTIL;x_CRYPT_AES_WG;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;UTIL;_DEBUG;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
       <ExpandAttributedSource>false</ExpandAttributedSource>
       <PreprocessToFile>false</PreprocessToFile>
     </ClCompile>
@@ -227,7 +227,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>CRYPT_AES_WG;WIN32;_CONSOLE;UTIL;CONFIG_PLATFORM="$(Configuration)_$(Platform)";NDEBUG;NO_ASM</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;UTIL;CONFIG_PLATFORM="$(Configuration)_$(Platform)";NDEBUG;NO_ASM</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -244,7 +244,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;NO_ASM;UTIL;x_CRYPT_AES_WG;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;UTIL;NDEBUG;NO_ASM;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -261,7 +261,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>CRYPT_AES_WG;WIN32;_CONSOLE;UTIL;CONFIG_PLATFORM="$(Configuration)_$(Platform)";NDEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;UTIL;CONFIG_PLATFORM="$(Configuration)_$(Platform)";NDEBUG</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -281,7 +281,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;UTIL;x_CRYPT_AES_WG;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;UTIL;NDEBUG;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

@@ -709,14 +709,14 @@ int check_dup_sort(sort_found_list)
           nodup[j]->saved_iname = nodup[j]->iname;
           /* make copy to alter so sorts where we want */
           iname = string_dup(nodup[j]->iname, "Unix Apple sort", 0);
-          iname_len = strlen(iname);
+          iname_len = (int)strlen(iname);
           /* sequestered paths */
           if (strncmp(iname, "__MACOSX/", 9) == 0) {
             /* remove leading sequester dir */
             for (jj = 9; jj <= iname_len; jj++) {
               iname[jj - 9] = iname[jj];
             }
-            iname_len = strlen(iname);
+            iname_len = (int)strlen(iname);
             seq = 1;
           } /* __MACOSX */
           /* find last slash */
@@ -3433,8 +3433,8 @@ size_t bfwrite(buffer, size, count, mode)
             ZIPERR(ZE_TEMP, tempzip);
           }
           if (show_what_doing) {
-            zfprintf(mesg, "sd: Temp file (0u): %s\n", tempzip);
-            fflush(mesg);
+            sprintf(errbuf, "sd: Temp file (0u): %s", tempzip);
+            zipmessage(errbuf, "");
           }
           if ((y = fdopen(yd, FOPW_TMP)) == NULL) {
             ZIPERR(ZE_TEMP, tempzip);
@@ -3445,9 +3445,8 @@ size_t bfwrite(buffer, size, count, mode)
           ZIPERR(ZE_MEM, "allocating temp filename");
         }
         if (show_what_doing) {
-
-          zfprintf(mesg, "sd: Temp file (0n): %s\n", tempzip);
-          fflush(mesg);
+          sprintf(errbuf, "sd: Temp file (0n): %s", tempzip);
+          zipmessage(errbuf, "");
         }
         if ((y = zfopen(tempzip, FOPW_TMP)) == NULL) {
           ZIPERR(ZE_TEMP, tempzip);
@@ -3942,14 +3941,14 @@ int get_entry_comment(z)
         {
           if (strlen(eline) == 2 && eline[0] == '.')
             break;
-          eline_len = strlen(eline);
+          eline_len = (int)strlen(eline);
           if (comlen + eline_len > MAX_COM_LEN) {
             /* limit total comment length to MAX_COM_LEN */
             eline_len = MAX_COM_LEN - comlen;
             eline[eline_len] = '\0';
           }
           strcat(e, eline);
-          comlen = strlen(e);
+          comlen = (int)strlen(e);
           if (comlen >= MAX_COM_LEN) {
             sprintf(errbuf, "Max comment length reached (%d)", MAX_COM_LEN);
             zipwarn(errbuf, "");
@@ -4097,7 +4096,8 @@ char *string_dup(in_string, error_message)
  * in_string - string to find substrings in and replace
  * find - the string to find
  * replace - the string to replace find with
- * replace_times - how many replacements to do, if 0 (or REPLACE_ALL) replace all occurrences
+ * replace_times - how many replacements to do, if 0 (or REPLACE_ALL) replace
+ *   all occurrences
  * case_sens - match case sensitive (CASE_INS, CASE_SEN)
  *
  * Returns malloc'd string with replacements, or NULL.
@@ -4134,9 +4134,9 @@ char *string_replace(in_string, find, replace,
   if (replace == NULL)
     return NULL;
 
-  in_len = strlen(in_string);
-  find_len = strlen(find);
-  replace_len = strlen(replace);
+  in_len = (int)strlen(in_string);
+  find_len = (int)strlen(find);
+  replace_len = (int)strlen(replace);
 
   if (find_len == 0)
     return string_dup(in_string, "string_replace", 0);
@@ -4217,8 +4217,8 @@ int string_find (instring, find, case_sens, occurrence)
     return NO_MATCH;
   }
 
-  instring_len = strlen(instring);
-  find_len = strlen(find);
+  instring_len = (int)strlen(instring);
+  find_len = (int)strlen(find);
 
   for (start = 0; start < instring_len - find_len; start++) {
     if (strmatch(instring + start, find, case_sens, find_len)) {
@@ -4715,14 +4715,14 @@ void zipwarn_i(mesg_prefix, indent, a, b)
     fflush(logfile);
   }
 
-#ifdef WINDLL
+#ifdef ZIP_DLL_LIB
   if (*lpZipUserFunctions->error != NULL) {
 #if 0
     sprintf(buf, "%s%s %s%s\n", prefix, warning, a, b);
 #endif
     (*lpZipUserFunctions->error)(ebuf);
   }
-#endif
+#endif /* ZIP_DLL_LIB */
 }
 
 

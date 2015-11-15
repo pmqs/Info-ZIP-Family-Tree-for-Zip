@@ -122,6 +122,9 @@
 /* Symbolic links are not supported, but some compilers may define S_IFLNK. */
 #ifndef NO_SYMLINKS
 # define NO_SYMLINKS
+# ifdef SYMLINKS
+#  undef SYMLINKS
+# endif
 #endif
 
 #ifdef MATCH

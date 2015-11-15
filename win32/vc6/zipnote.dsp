@@ -43,7 +43,7 @@ RSC=rc.exe
 # PROP Intermediate_Dir "zipnote___Win32_Release"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /FD /c
-# ADD CPP /nologo /W3 /GX /O2 /D "UTIL" /D "WIN32" /D "NO_ASM" /FD /c
+# ADD CPP /nologo /W3 /GX /O2 /D "WIN32" /D "UTIL" /D "NO_ASM" /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -67,7 +67,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "NO_ASM" /FD /GZ /c
-# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "UTIL" /D "WIN32" /D "NO_ASM" /FR /FD /GZ /c
+# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "UTIL" /D "NO_ASM" /FR /FD /GZ /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -92,7 +92,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "UTIL" /D "WIN32" /FR /FD /GZ /c
-# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "UTIL" /D "WIN32" /FR /FD /GZ /c
+# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "UTIL" /FR /FD /GZ /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe

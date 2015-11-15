@@ -51,10 +51,10 @@ Originals of the changed files may be found in the "szip/orig/" directory.
       Building UnZip and Zip with LZMA and/or PPMd Compression Support
       ----------------------------------------------------------------
 
-   The build instructions (found in the file INSTALL and/or an
-OS-specific INSTALL supplement, in both the UnZip and Zip source kits)
-describe how to build UnZip and Zip with support for LZMA and/or PPMd
-compression.
+   The build instructions (found either in the file INSTALL and/or an
+OS-specific INSTALL supplement, depending on OS, in both the UnZip and
+Zip source kits) describe how to build UnZip and Zip with support for
+LZMA and/or PPMd compression.
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

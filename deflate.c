@@ -1,7 +1,7 @@
 /*
   deflate.c - Zip 3
 
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2005-Feb-10 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -562,17 +562,17 @@ local void check_match(start, match, length)
     /* check that the match is indeed a match */
     if (memcmp((char*)window + match,
                 (char*)window + start, length) != EQUAL) {
-        fprintf(mesg,
+        zfprintf(mesg,
             " start %d, match %d, length %d\n",
             start, match, length);
         error("invalid match");
     }
     if (verbose > 1) {
-        fprintf(mesg,"\\[%d,%d]", start-match, length);
+        zfprintf(mesg,"\\[%d,%d]", start-match, length);
 #ifndef WINDLL
         do { putc(window[start++], mesg); } while (--length != 0);
 #else
-        do { fprintf(stdout,"%c",window[start++]); } while (--length != 0);
+        do { zfprintf(stdout,"%c",window[start++]); } while (--length != 0);
 #endif
     }
 }

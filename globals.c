@@ -1,7 +1,7 @@
 /*
-  globals.c - Zip 3
+  globals.c - Zip 3.1
 
-  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -28,10 +28,10 @@ char errbuf[ERRBUF_SIZE + 1];  /* defined in zip.h, was FNMAX+4081 */
 int recurse = 0;        /* 1=recurse into directories encountered */
 int dispose = 0;        /* 1=remove files after put in zip file */
 int pathput = 1;        /* 1=store path with name */
-#if defined( UNIX) && defined( __APPLE__)
+#ifdef UNIX_APPLE
 int data_fork_only = 0; /* 1=no AppleDouble supplement file. */
 int sequester = 0;      /* 1=sequester AppleDouble files in __MACOSX. */
-#endif /* defined( UNIX) && defined( __APPLE__) */
+#endif
 #ifdef RISCOS
 int scanimage = 1;      /* 1=scan through image files */
 #endif
@@ -45,15 +45,17 @@ int translate_eol = 0;  /* Translate end-of-line LF -> CR LF */
 int level = 6;          /* 0=fastest compression, 9=best compression */
 int levell;             /* Compression level, adjusted by method, suffix. */
 
-char action_string[20];
+char action_string[MAX_ACTION_STRING];
+char method_string[MAX_METHOD_STRING];
+char info_string[MAX_INFO_STRING];
 
 int comadd = 0;              /* 1=add comments for new files */
 extent comment_size = 0;     /* comment size */
 FILE *comment_stream = NULL; /* set to stderr if anything is read from stdin */
 
-#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+#ifdef ETWODD_SUPPORT
 int etwodd;             /* Encrypt Traditional without data descriptor. */
-#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
+#endif
 
 #ifdef VMS
    int prsrv_vms = 0;   /* 1=preserve idiosyncratic VMS file names. */
@@ -85,6 +87,12 @@ int using_utf8 = 0;       /* 1 if current character set UTF-8 */
 # ifdef WIN32
    int no_win32_wide = -1;   /* 1 = no wide functions, like GetFileAttributesW() */
 # endif
+#endif
+
+#ifdef FILE_SYSTEM_CASE_INS
+   int file_system_case_sensitive = 0;
+#else
+   int file_system_case_sensitive = 1;
 #endif
 
 char *localename = NULL;      /* What setlocale() returns */
@@ -137,6 +145,10 @@ int log_utf8 = 0;             /* log names as UTF-8 */
 
 char *startup_dir = NULL;     /* dir that Zip starts in (current dir ".") */
 char *working_dir = NULL;     /* dir user asked to change to for zipping */
+#ifdef UNICODE_SUPPORT_WIN32
+wchar_t *startup_dirw = NULL; /* dir that Zip starts in (current dir ".") */
+wchar_t *working_dirw = NULL; /* dir user asked to change to for zipping */
+#endif
 
 int hidden_files = 0;         /* process hidden and system files */
 int volume_label = 0;         /* add volume label */
@@ -162,9 +174,18 @@ char *backup_full_path = NULL;      /* full archive of backup set */
 char *backup_output_path = NULL;    /* path of output archive before final */
 #endif
 
+int binary_full_check = 0;          /* 1=check entire file for binary before
+                                       calling it text */
+
 uzoff_t cd_total_entries;     /* num of entries as read from (Zip64) EOCDR */
 uzoff_t total_cd_total_entries; /* num of entries across all archives */
 
+#ifdef UNIX_APPLE
+int sort_apple_double = 1;    /* 1=sort Zip added "._" files after primary files */
+#else
+int sort_apple_double = 0;    /* 1=sort Zip added "._" files after primary files */
+#endif
+int sort_apple_double_all = 0;/* 1=ignore AppleDouble zflag and sort all "._" files */
 
 int linkput = 0;              /* 1=store symbolic links as such (-y) */
 int follow_mount_points = 1;  /* 0=skip mount points (-yy), 1=follow normal, 2=follow all (-yy-) */
@@ -180,6 +201,7 @@ int include_stream_ef = 0;    /* 1=include stream ef that allows full stream ext
 int cd_only = 0;              /* 1=create cd_only compression archive (central dir only) */
 
 int sf_usize = 0;             /* include usize in -sf listing */
+int sf_comment = 0;           /* include entry comments in -sf listing */
 
 int output_seekable = 1;      /* 1 = output seekable 3/13/05 EG */
 
@@ -192,11 +214,15 @@ int output_seekable = 1;      /* 1 = output seekable 3/13/05 EG */
 
 /* encryption */
 char *key = NULL;             /* Scramble password if scrambling */
+char *passwd = NULL;          /* Password before keyfile content added */
+int pass_pswd_to_unzip = 0;   /* 1=put password on cmd line to unzip to test */
 int encryption_method = 0;    /* See definitions in zip.h */
 ush aes_vendor_version;
 int aes_strength;
 int force_ansi_key = 1;       /* Only ANSI characters for password (32 - 126) */
 int allow_short_key = 0;      /* Allow password to be shorter than minimum */
+char *keyfile = NULL;         /* File to read (end part of) password from */
+char *keyfile_pass = NULL;    /* (piece of) password from keyfile */
 
 #ifdef IZ_CRYPT_AES_WG
   int key_size = 0;
@@ -228,6 +254,7 @@ int allow_short_key = 0;      /* Allow password to be shorter than minimum */
 
 /* Compression methods and levels (with file name suffixes).
    Now STORE list set just above get_option() loop. */
+/* Seems first char of method must be unique unless code in zip.c fixed. */
 mthd_lvl_t mthd_lvl[] = {
 /* method, level, level_sufx, method_str, suffixes. */
  { STORE,   -1, -1, "store",   NULL },          /* STORE  (Must be element 0) */
@@ -247,6 +274,7 @@ mthd_lvl_t mthd_lvl[] = {
 
 
 char *tempath = NULL;     /* Path for temporary files */
+
 FILE *mesg;               /* stdout by default, stderr for piping */
 
 char **args = NULL;       /* Copy of argv that can be updated and freed */
@@ -257,11 +285,15 @@ int case_upper_lower = CASE_PRESERVE; /* Upper or lower case added/updated outpu
 
 char *path_prefix = NULL; /* Prefix to add to all new archive entries */
 int path_prefix_mode = 0; /* 0=Prefix all paths, 1=Prefix only added/updated paths */
+char *stdin_name = NULL;  /* Name to change default stdin "-" to */
 
 int all_ascii = 0;        /* Skip binary check and handle all files as text */
 
 #ifdef UNICODE_SUPPORT
  int utf8_native = 1;     /* 1=force storing UTF-8 as standard per AppNote bit 11 */
+#endif
+#ifdef UNICODE_SUPPORT_WIN32
+ int win32_utf8_argv = 0; /* 1=got UTF-8 from win32 wide command line */
 #endif
 int unicode_escape_all = 0; /* 1=escape all non-ASCII characters in paths */
 int unicode_mismatch = 1; /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */

@@ -450,6 +450,9 @@
 #endif
 
 
+/* --------------------------------------- */
+
+
 #if (defined(USE_ZLIB) && defined(ASM_CRC))
 #  undef ASM_CRC
 #endif
@@ -768,6 +771,12 @@ typedef struct ztimbuf {
 /*#  undef S_IFLNK */
 #endif
 
+#if 0
+/* This will likely go away soon.  The API no long uses this, now
+   using API_FILESIZE_T instead, defined in zip.h to uzoff_t.  But
+   there may be another need for 64-bit quantities when the uses of
+   uzoff_t and zoff_t are clarified later.  So it stays for now. */
+
 /* long long */
 /* These must be 64-bit.  Any platform using api.h must define these. */
 /* A platform without long long should define it as something
@@ -781,6 +790,9 @@ typedef struct ztimbuf {
 #ifndef UZ_LONGLONG
 # define UZ_LONGLONG unsigned long long
 #endif
+#endif
+
+/*---------------------------------------------------------------------*/
 
 /* uint4 for crypt.c */
 #ifndef Z_UINT4_DEFINED
@@ -1098,7 +1110,12 @@ typedef struct ztimbuf {
 #     endif /* ? (_MSC_VER >= 1400) */
 
       /* 64-bit, UTF-8-capable fopen */
-#     define zfopen fopen_utf8
+#     ifdef UNICODE_SUPPORT_WIN32
+#      define zfopen fopen_utf8
+#     else
+#      define zfopen fopen
+#     endif
+
       /* changed from fdopen() to _fdopen() - 2014-06-25 EG */
 #     define zfdopen _fdopen
 

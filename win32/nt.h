@@ -3,25 +3,23 @@
 
   Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2003-May-08 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
+  If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 #ifndef _NT_ZIP_H
 #define _NT_ZIP_H
 
 /* These are not defined in VS 2010 WinNT.h, but are used in the reparse
- * point code in nt.c and by any caller of WinDirObjectInfo().
- */
-#ifdef NTSD_EAS
+   point code in nt.c and by any caller of WinDirObjectInfo(). */
 # ifndef IO_REPARSE_TAG_DEDUP
 #  define IO_REPARSE_TAG_DEDUP (0x80000013)
 # endif
 # ifndef IO_REPARSE_TAG_NFS
 #  define IO_REPARSE_TAG_NFS (0x80000014)
 # endif
-#endif
+
 
 /* central header for EF_NTSD "SD" extra field */
 

@@ -11,6 +11,9 @@
  * Wrapper for "szip/LzmaEnc.c".
  */
 
+/* This sets LZMA_SUPPORT if LZMA enabled. */
+#include "../control.h"
+
 #ifdef LZMA_SUPPORT
 # include "../szip/LzmaEnc.c"
 #endif

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -872,7 +872,7 @@ int procname( char *n, int caseflag)
   if (S_ISDIR( s.st_mode))
   {
     /* Directory. */
-    if (dirnames && (m = newname(n, 1, caseflag)) != ZE_OK) {
+    if (dirnames && (m = newname(n, ZFLAG_DIR, caseflag)) != ZE_OK) {
       return m;
     }
     /* recurse into directory */

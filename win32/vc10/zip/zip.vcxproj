@@ -159,14 +159,14 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>CRYPT_AES_WG;WIN32;_CONSOLE;NO_ASM;BZIP2_SUPPORT;LZMA_SUPPORT;PPMD_SUPPORT;_DEBUG;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;NO_ASM;_DEBUG;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
       <ExpandAttributedSource>false</ExpandAttributedSource>
       <PreprocessToFile>false</PreprocessToFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>libbz2.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -175,7 +175,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>disabled_CRYPT_AES_WG;WIN32;CONFIG_PLATFORM="$(Configuration)_$(Platform)";_CONSOLE;NO_ASM;BZIP2_SUPPORT;LZMA_SUPPORT;PPMD_SUPPORT;_DEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;CONFIG_PLATFORM="$(Configuration)_$(Platform)";_CONSOLE;NO_ASM;_DEBUG</PreprocessorDefinitions>
       <ExpandAttributedSource>false</ExpandAttributedSource>
       <PreprocessToFile>false</PreprocessToFile>
     </ClCompile>
@@ -192,14 +192,14 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>CRYPT_AES_WG;WIN32;_CONSOLE;_DEBUG;BZIP2_SUPPORT;LZMA_SUPPORT;PPMD_SUPPORT;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;_DEBUG;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
       <ExpandAttributedSource>false</ExpandAttributedSource>
       <PreprocessToFile>false</PreprocessToFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>libbz2.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <MASM>
       <UseSafeExceptionHandlers>true</UseSafeExceptionHandlers>
@@ -211,7 +211,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>disabled_CRYPT_AES_WG;WIN32;CONFIG_PLATFORM="$(Configuration)_$(Platform)";_DEBUG;_CONSOLE;BZIP2_SUPPORT;LZMA_SUPPORT;PPMD_SUPPORT</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;CONFIG_PLATFORM="$(Configuration)_$(Platform)";_DEBUG;_CONSOLE</PreprocessorDefinitions>
       <ExpandAttributedSource>false</ExpandAttributedSource>
       <PreprocessToFile>false</PreprocessToFile>
     </ClCompile>
@@ -232,14 +232,14 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>CRYPT_AES_WG;WIN32;_CONSOLE;NDEBUG;NO_ASM;BZIP2_SUPPORT;LZMA_SUPPORT;PPMD_SUPPORT;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;NDEBUG;NO_ASM;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>libbz2.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -250,7 +250,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>disabled_CRYPT_AES_WG;WIN32;CONFIG_PLATFORM="$(Configuration)_$(Platform)";NDEBUG;_CONSOLE;NO_ASM;BZIP2_SUPPORT;LZMA_SUPPORT;PPMD_SUPPORT</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;CONFIG_PLATFORM="$(Configuration)_$(Platform)";NDEBUG;_CONSOLE;NO_ASM</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -269,14 +269,14 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>CRYPT_AES_WG;WIN32;_CONSOLE;NDEBUG;BZIP2_SUPPORT;LZMA_SUPPORT;PPMD_SUPPORT;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;NDEBUG;CONFIG_PLATFORM="$(Configuration)_$(Platform)"</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>libbz2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <MASM>
       <UseSafeExceptionHandlers>true</UseSafeExceptionHandlers>
@@ -290,7 +290,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>disabled_CRYPT_AES_WG;WIN32;CONFIG_PLATFORM="$(Configuration)_$(Platform)";NDEBUG;_CONSOLE;BZIP2_SUPPORT;LZMA_SUPPORT;PPMD_SUPPORT</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;CONFIG_PLATFORM="$(Configuration)_$(Platform)";NDEBUG;_CONSOLE</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -315,14 +315,21 @@
     <ClCompile Include="..\..\..\wrap\aescrypt.c" />
     <ClCompile Include="..\..\..\wrap\aeskey.c" />
     <ClCompile Include="..\..\..\wrap\aestab.c" />
+    <ClCompile Include="..\..\..\wrap\blocksort.c" />
+    <ClCompile Include="..\..\..\wrap\bzlib.c" />
+    <ClCompile Include="..\..\..\wrap\compress.c" />
+    <ClCompile Include="..\..\..\wrap\crctable.c" />
+    <ClCompile Include="..\..\..\wrap\decompress.c" />
     <ClCompile Include="..\..\..\wrap\fileenc.c" />
     <ClCompile Include="..\..\..\wrap\hmac.c" />
+    <ClCompile Include="..\..\..\wrap\huffman.c" />
     <ClCompile Include="..\..\..\wrap\LzFind.c" />
     <ClCompile Include="..\..\..\wrap\LzmaEnc.c" />
     <ClCompile Include="..\..\..\wrap\Ppmd8.c" />
     <ClCompile Include="..\..\..\wrap\Ppmd8Enc.c" />
     <ClCompile Include="..\..\..\wrap\prng.c" />
     <ClCompile Include="..\..\..\wrap\pwd2key.c" />
+    <ClCompile Include="..\..\..\wrap\randtable.c" />
     <ClCompile Include="..\..\..\wrap\sha1.c" />
     <ClCompile Include="..\..\..\zbz2err.c" />
     <ClCompile Include="..\..\..\zip.c" />
@@ -345,6 +352,7 @@
     <ClInclude Include="..\..\..\aes_wg\prng.h" />
     <ClInclude Include="..\..\..\aes_wg\pwd2key.h" />
     <ClInclude Include="..\..\..\aes_wg\sha1.h" />
+    <ClInclude Include="..\..\..\control.h" />
     <ClInclude Include="..\..\..\crc32.h" />
     <ClInclude Include="..\..\..\crypt.h" />
     <ClInclude Include="..\..\..\ebcdic.h" />

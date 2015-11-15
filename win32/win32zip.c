@@ -1,7 +1,7 @@
 /*
-  win32/win32zip.c - Zip 3
+  win32/win32zip.c - Zip 3.1
 
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -35,6 +35,11 @@
 #endif
 
 #include <io.h>
+
+/* VS 6 does not define  this */
+#ifndef INVALID_FILE_ATTRIBUTES
+# define INVALID_FILE_ATTRIBUTES 0xFFFFFFFF
+#endif
 
 #define PAD           0
 #define PATH_END      '/'
@@ -116,6 +121,10 @@ ZCONST wchar_t *nw;          /* directory to open */
   wchar_t *pw;              /* malloc'd temporary string */
   wchar_t *qw;
   size_t i;
+  wchar_t *full_path = NULL;
+  size_t pw_len;
+  wchar_t *pw_long;
+  size_t j;
 
   if ((dw = (zDIRSCANW *)malloc(sizeof(zDIRSCANW))) == NULL) {
     return NULL;
@@ -139,7 +148,52 @@ ZCONST wchar_t *nw;          /* directory to open */
   }
   qw[i] = (wchar_t)'\0';
 
+  pw_len = wcslen(pw);
+#if 0
+  if (pw_len > MAX_PATH) {
+    zprintf("long path\n");
+  }
+#endif
   dw->d_hFindFile = FindFirstFileW(pw, &dw->d_fdw);
+#ifdef WINDOWS_LONG_PATHS
+  if (pw_len > MAX_PATH && dw->d_hFindFile == INVALID_HANDLE_VALUE && include_windows_long_paths)
+  {
+    if ((full_path = _wfullpath(full_path, pw, 0)) != NULL) {
+#if 0
+      sprintf(errbuf, "    full_path: '%S'", full_path);
+      zipmessage(errbuf, "");
+#endif
+      if ((pw_long = (wchar_t *)malloc(wcslen(full_path) * sizeof(wchar_t) +
+          (2 + sizeof(wild_match_all) + 4) * sizeof(wchar_t))) == NULL) {
+        ZIPERR(ZE_MEM, "Could not allocate long path");
+      }
+    } else {
+      if ((pw_long = (wchar_t *)malloc(wcslen(pw) * sizeof(wchar_t) +
+          (2 + sizeof(wild_match_all) + 4) * sizeof(wchar_t))) == NULL) {
+        ZIPERR(ZE_MEM, "Could not allocate long path");
+      }
+    }
+    /* add long path prefix */
+    wcscpy(pw_long, L"\\\\?\\");
+    if (full_path) {
+      wcscat(pw_long, full_path);
+      free(full_path);
+    } else {
+      wcscat(pw_long, pw);
+    }
+    for (j = 0; j < wcslen(pw_long); j++) {
+      if (pw_long[j] == L'/') {
+        pw_long[j] = L'\\';
+      }
+    }
+
+    /* try again */
+    dw->d_hFindFile = FindFirstFileW(pw_long, &dw->d_fdw);
+
+    free(pw_long);
+  }
+#endif
+
   free((zvoid *)pw);
 
   if (dw->d_hFindFile == INVALID_HANDLE_VALUE)
@@ -618,153 +672,13 @@ char *get_win32_utf8path(p)
 
 #define ONENAMELEN 255
 
-/* whole is a pathname with wildcards, wildtail points somewhere in the  */
-/* middle of it.  All wildcards to be expanded must come AFTER wildtail. */
-
 
 #ifdef UNICODE_SUPPORT
 
-wchar_t *local_to_wchar_string(local_string)
-  char *local_string;       /* path to get utf-8 name for */
-{
-  wchar_t  *qw;
-  int       ulen;
-  int       ulenw;
-
-  if (local_string == NULL)
-    return NULL;
-
-    /* get length */
-    ulenw = MultiByteToWideChar(
-                CP_ACP,            /* ANSI code page */
-                0,                 /* flags for character-type options */
-                local_string,      /* string to convert */
-                -1,                /* string length (-1 = NULL terminated) */
-                NULL,              /* buffer */
-                0 );               /* buffer length (0 = return length) */
-    if (ulenw == 0) {
-      /* failed */
-      return NULL;
-    }
-    ulenw++;
-    /* get length in bytes */
-    ulen = sizeof(wchar_t) * (ulenw + 1);
-    if ((qw = (wchar_t *)malloc(ulen + 1)) == NULL) {
-      return NULL;
-    }
-    /* convert multibyte to wide */
-    ulen = MultiByteToWideChar(
-               CP_ACP,            /* ANSI code page */
-               0,                 /* flags for character-type options */
-               local_string,      /* string to convert */
-               -1,                /* string length (-1 = NULL terminated) */
-               qw,                /* buffer */
-               ulenw);            /* buffer length (0 = return length) */
-    if (ulen == 0) {
-      /* failed */
-      free(qw);
-      return NULL;
-    }
-
-  return qw;
-}
 
 
-wchar_t *utf8_to_wchar_string(utf8_string)
-  char *utf8_string;       /* path to get utf-8 name for */
-{
-  wchar_t  *qw;
-  int       ulen;
-  int       ulenw;
-
-  if (utf8_string == NULL)
-    return NULL;
-
-    /* get length */
-    ulenw = MultiByteToWideChar(
-                CP_UTF8,           /* UTF-8 code page */
-                0,                 /* flags for character-type options */
-                utf8_string,       /* string to convert */
-                -1,                /* string length (-1 = NULL terminated) */
-                NULL,              /* buffer */
-                0 );               /* buffer length (0 = return length) */
-    if (ulenw == 0) {
-      /* failed */
-      return NULL;
-    }
-    ulenw++;
-    /* get length in bytes */
-    ulen = sizeof(wchar_t) * (ulenw + 1);
-    if ((qw = (wchar_t *)malloc(ulen + 1)) == NULL) {
-      return NULL;
-    }
-    /* convert multibyte to wide */
-    ulen = MultiByteToWideChar(
-               CP_UTF8,           /* UTF-8 code page */
-               0,                 /* flags for character-type options */
-               utf8_string,       /* string to convert */
-               -1,                /* string length (-1 = NULL terminated) */
-               qw,                /* buffer */
-               ulenw);            /* buffer length (0 = return length) */
-    if (ulen == 0) {
-      /* failed */
-      free(qw);
-      return NULL;
-    }
-
-  return qw;
-}
-
-
-
-/* Convert wchar_t string to utf8 using Windows calls
-   so any characters needing more than one wchar_t are
-   are handled by Windows */
-char *wchar_to_utf8_string(wstring)
-  wchar_t *wstring;
-{
-  char     *q;           /* return string */
-  int       ulen;
-
-  if (wstring == NULL)
-    return NULL;
-
-  /* Get buffer length */
-  ulen = WideCharToMultiByte(
-                  CP_UTF8,        /* UTF-8 code page */
-                  0,              /* flags */
-                  wstring,        /* string to convert */
-                  -1,             /* input chars (-1 = NULL terminated) */
-                  NULL,           /* buffer */
-                  0,              /* size of buffer (0 = return needed size) */
-                  NULL,           /* default char */
-                  NULL);          /* used default char */
-  if (ulen == 0) {
-    /* failed */
-    return NULL;
-  }
-  ulen += 2;
-  if ((q = malloc(ulen + 1)) == NULL) {
-    return NULL;
-  }
-
-  /* Convert the Unicode string to UTF-8 */
-  if ((ulen = WideCharToMultiByte(
-                  CP_UTF8,        /* UTF-8 code page */
-                  0,              /* flags */
-                  wstring,        /* string to convert */
-                  -1,             /* input chars (-1 = NULL terminated) */
-                  q,              /* buffer */
-                  ulen,           /* size of buffer (0 = return needed size) */
-                  NULL,           /* default char */
-                  NULL)) == 0)    /* used default char */
-  {
-    free(q);
-    return NULL;
-  }
-
-  return q;
-}
+/* whole is a pathname with wildcards, wildtail points somewhere in the  */
+/* middle of it.  All wildcards to be expanded must come AFTER wildtail. */
 
 
 local int wild_recursew(whole, wildtail)
@@ -780,6 +694,7 @@ local int wild_recursew(whole, wildtail)
     /* Enable longer file paths (from MAX_PATH to 32,767).  Requires paths
        using this path to be increased accordingly, so not yet enabled.  Also
        need to update the file open call. - EG */
+    /* Most of this may be implemented now elsewhere.  2014-04-16 EG */
     wchar_t *longpath;
 
     longpath = malloc(32800);
@@ -796,8 +711,41 @@ local int wild_recursew(whole, wildtail)
 #endif
             return procnamew(whole, 0);
         }
-        else
+        else {
+            wchar_t *converted_whole;
+            int r;
+            
+            /* check if this is an escape string */
+#if 0
+            if (is_ascii_stringw(whole)) {
+#endif
+                /* ascii wide string */
+                if (wcsstr(whole, L"#U") || wcsstr(whole, L"#L")) {
+                    /* string may have Unicode escapes */
+
+                    /* convert any escapes back and see if find match */
+                    converted_whole = escapes_to_wchar_string(whole);
+
+                    if (converted_whole) {
+                        /* check if file exists */
+                        /* use longpath here if above code enabled */
+                        if (GetFileAttributesW(converted_whole) != INVALID_FILE_ATTRIBUTES) {
+#if defined(__RSXNT__)  /* RSXNT/EMX C rtl uses OEM charset */
+                            CharToOemW(converted_whole, converted_whole);
+#endif
+                            r = procnamew(converted_whole, 0);
+                            free(converted_whole);
+                            return r;
+                        }
+                        free(converted_whole);
+                    }
+                }
+#if 0
+            }
+#endif
+
             return ZE_MISS;                     /* woops, no wildcards! */
+        }
     }
 
     /* back up thru path components till existing dir found */
@@ -972,7 +920,7 @@ int has_win32_wide() {
   no_win32_wide = 1;
 
   /* get attributes for this directory */
-  r = GetFileAttributes(".");
+  r = GetFileAttributesA(".");
 
   /* Change == to & in below checks - stronghorse */
 
@@ -998,66 +946,73 @@ int wild(w)
 /* If not in exclude mode, expand the pattern based on the contents of the
    file system.  Return an error code in the ZE_ class. */
 {
-    char *p;             /* path */
-    char *q;             /* diskless path */
-    int e;               /* result */
+  char *p;             /* path */
+  char *q;             /* diskless path */
+  int e;               /* result */
 #ifdef UNICODE_SUPPORT
-    wchar_t *pw;         /* wide path */
-    wchar_t *qw;         /* wide diskless path */
+  int utf8 = is_utf8_string(w, NULL, NULL, NULL, NULL);
+  wchar_t *pw;         /* wide path */
+  wchar_t *qw;         /* wide diskless path */
 #endif
 
-    if (volume_label == 1) {
-      volume_label = 2;
-      label = getVolumeLabel((w != NULL && isascii((uch)w[0]) && w[1] == ':')
-                             ? to_up(w[0]) : '\0',
-                             &label_time, &label_mode, &label_utim);
-      if (label != NULL)
-        (void)newname(label, 0, 0);
-      if (w == NULL || (isascii((uch)w[0]) && w[1] == ':' && w[2] == '\0'))
-        return ZE_OK;
-      /* "zip -$ foo a:" can be used to force drive name */
-    }
-    /* special handling of stdin request */
-    if (strcmp(w, "-") == 0)   /* if compressing stdin */
-        return newname(w, 0, 0);
+  if (volume_label == 1) {
+    volume_label = 2;
+    label = getVolumeLabel((w != NULL && isascii((uch)w[0]) && w[1] == ':')
+                           ? to_up(w[0]) : '\0',
+                           &label_time, &label_mode, &label_utim);
+    if (label != NULL)
+      (void)newname(label, 0, 0);
+    if (w == NULL || (isascii((uch)w[0]) && w[1] == ':' && w[2] == '\0'))
+      return ZE_OK;
+    /* "zip -$ foo a:" can be used to force drive name */
+  }
+  /* special handling of stdin request */
+  if (strcmp(w, "-") == 0)   /* if compressing stdin */
+    return newname(w, 0, 0);
 
-    /* Allocate and copy pattern, leaving room to add "." if needed */
-    if ((p = malloc(strlen(w) + 2)) == NULL)
-        return ZE_MEM;
-    strcpy(p, w);
+  /* Allocate and copy pattern, leaving room to add "." if needed */
+  if ((p = malloc(strlen(w) + 2)) == NULL)
+    return ZE_MEM;
+  strcpy(p, w);
 
-    /* Normalize path delimiter as '/' */
-    for (q = p; *q; INCSTR(q))            /* use / consistently */
-        if (*q == '\\')
-            *q = '/';
+  /* Normalize path delimiter as '/' */
+  for (q = p; *q; INCSTR(q))            /* use / consistently */
+    if (*q == '\\')
+        *q = '/';
 
 #ifdef UNICODE_SUPPORT
-    if (!no_win32_wide) {
-      /* wide char version */
+  if (!no_win32_wide) {
+    /* wide char version */
+    if (utf8) {
+      /* as from Win32 wide command line converted to UTF-8 */
+      pw = utf8_to_wchar_string(p);
+    } else {
+      /* as from argv in local character set */
       pw = local_to_wchar_string(p);
+    }
 
-      /* Separate the disk part of the path */
-      if ((qw = wcschr(pw, ':')) != NULL) {
-          if (wcschr(++qw, ':'))     /* sanity check for safety of wild_recurse */
-              return ZE_MISS;
-      } else
-          qw = pw;
+    /* Separate the disk part of the path */
+    if ((qw = wcschr(pw, ':')) != NULL) {
+      if (wcschr(++qw, ':'))     /* sanity check for safety of wild_recurse */
+        return ZE_MISS;
+    } else
+      qw = pw;
 
-      /* Normalize bare disk names */
-      if (qw > pw && !*qw)
-          wcscpy(qw, L".");
+    /* Normalize bare disk names */
+    if (qw > pw && !*qw)
+      wcscpy(qw, L".");
     } else {
       /* multibyte version */
       /* Separate the disk part of the path */
       if ((q = MBSCHR(p, ':')) != NULL) {
-          if (MBSCHR(++q, ':'))     /* sanity check for safety of wild_recurse */
-              return ZE_MISS;
+        if (MBSCHR(++q, ':'))     /* sanity check for safety of wild_recurse */
+          return ZE_MISS;
       } else
-          q = p;
+        q = p;
 
       /* Normalize bare disk names */
       if (q > p && !*q)
-          strcpy(q, ".");
+        strcpy(q, ".");
     }
 #else
     /* multibyte version */
@@ -1073,22 +1028,22 @@ int wild(w)
         strcpy(q, ".");
 #endif
 
-    /* Here we go */
+  /* Here we go */
 #ifdef UNICODE_SUPPORT
-    if (!no_win32_wide) {
-      /* use wide Unicode directory scan */
-      e = wild_recursew(pw, qw);
+  if (!no_win32_wide) {
+    /* use wide Unicode directory scan */
+    e = wild_recursew(pw, qw);
 
-      free(pw);
-    } else {
-      /* use multibyte directory scan */
-      e = wild_recurse(p, q);
-    }
-#else
+    free(pw);
+  } else {
+    /* use multibyte directory scan */
     e = wild_recurse(p, q);
+  }
+#else
+  e = wild_recurse(p, q);
 #endif
-    free((zvoid *)p);
-    return e;
+  free((zvoid *)p);
+  return e;
 }
 
 
@@ -1141,7 +1096,7 @@ local int procname_win32(n, caseflag, attribs)
       {
         z->mark = pcount ? filter(z->zname, caseflag) : 1;
         if (verbose)
-            fprintf(mesg, "zip diagnostic: %scluding %s\n",
+            zfprintf(mesg, "zip diagnostic: %scluding %s\n",
                z->mark ? "in" : "ex", z->oname);
         m = 0;
       }
@@ -1154,7 +1109,7 @@ local int procname_win32(n, caseflag, attribs)
         /* It seems something is lost in going from a listed
            name from zip -su in a console window to using that
            name in a command line.  This kluge may fix it
-           and just takes zuname, converts to oem (i.e.ouname),
+           and just takes zuname, converts to oem (i.e. ouname),
            then converts it back which ends up not the same as
            started with.
          */
@@ -1166,9 +1121,9 @@ local int procname_win32(n, caseflag, attribs)
         {
           z->mark = pcount ? filter(uname, caseflag) : 1;
           if (verbose) {
-              fprintf(mesg, "zip diagnostic: %scluding %s\n",
+              zfprintf(mesg, "zip diagnostic: %scluding %s\n",
                  z->mark ? "in" : "ex", z->oname);
-              fprintf(mesg, "     Escaped Unicode:  %s\n",
+              zfprintf(mesg, "     Escaped Unicode:  %s\n",
                  z->ouname);
           }
           m = 0;
@@ -1266,6 +1221,7 @@ local int procname_win32w(nw, caseflag, attribs)
   wchar_t *pw;          /* path for recursion */
   zw_stat s;            /* result of stat() */
   struct zlist far *z;  /* steps through zfiles list */
+  int do_not_follow = 0;/* if 1, do not recurse */
 
   if (wcscmp(nw, L"-") == 0)   /* if compressing stdin */
     return newnamew(nw, 0, caseflag);
@@ -1291,36 +1247,69 @@ local int procname_win32w(nw, caseflag, attribs)
           )
   {
     wchar_t *unamew = NULL;
+    char *uzname = NULL;
+    char *p = NULL;
+
     /* Not a file or directory--search for shell expression in zip file */
     pw = ex2inw(nw, 0, (int *)NULL);     /* shouldn't affect matching chars */
+    p = wchar_to_local_string(pw);
     m = 1;
     for (z = zfiles; z != NULL; z = z->nxt) {
       if (MATCHW(pw, z->znamew, caseflag))
       {
-        z->mark = pcount ? filter(z->zname, caseflag) : 1;
+        /* UTF-8 version of wide name */
+        uzname = wchar_to_utf8_string(z->znamew);
+        z->mark = pcount ? filter(uzname, caseflag) : 1;
+        free(uzname);
         if (verbose)
-            fprintf(mesg, "zip diagnostic: %scluding %s\n",
+            zfprintf(mesg, "zip diagnostic: %scluding %s\n",
                z->mark ? "in" : "ex", z->oname);
         m = 0;
       }
     }
-    /* also check escaped Unicode names */
-    for (z = zfiles; z != NULL; z = z->nxt) {
-      if (z->zuname) {
-        unamew = z->znamew;
-        if (MATCHW(pw, unamew, caseflag))
-        {
-          z->mark = pcount ? filter(z->iname, caseflag) : 1;
-          if (verbose) {
-              fprintf(mesg, "zip diagnostic: %scluding %s\n",
-                 z->mark ? "in" : "ex", z->oname);
-              fprintf(mesg, "     Escaped Unicode:  %s\n",
-                 z->ouname);
+    /* also check escaped Unicode names, but only if no match so far */
+    if (m) {
+      for (z = zfiles; z != NULL; z = z->nxt) {
+        if (z->zuname) {
+#if 0
+          printf("e p = '%s'\ne i = '%s'\ne u = '%s'\n", p, z->iname, z->zuname);
+          {
+            int i;
+
+            printf("e p = ");
+            for (i = 0; p[i]; i++) printf(" %02i", p[i]);
+            printf("\n");
+
+            printf("e i = ");
+            for (i = 0; z->iname[i]; i++) printf(" %02i", z->iname[i]);
+            printf("\n");
+
+            printf("e o = ");
+            for (i = 0; z->oname[i]; i++) printf(" %02i", z->oname[i]);
+            printf("\n");
+
+            printf("e u = ");
+            for (i = 0; z->zuname[i]; i++) printf(" %02i", z->zuname[i]);
+            printf("\n");
           }
-          m = 0;
+#endif
+          if (MATCH(p, z->iname, caseflag))
+          {
+#if 0
+            printf("utf8_path = %x    flg = %x\n", z->utf8_path, z->flg);
+#endif
+            z->mark = pcount ? filter(z->iname, caseflag) : 1;
+            if (verbose) {
+                zfprintf(mesg, "zip diagnostic: %scluding %s\n",
+                   z->mark ? "in" : "ex", z->oname);
+                zfprintf(mesg, "     Escaped Unicode:  %s\n",
+                   z->ouname);
+            }
+            m = 0;
+          }
         }
       }
-    }
+    } /* m */
     free((zvoid *)pw);
     return m ? ZE_MISS : ZE_OK;
   }
@@ -1329,6 +1318,141 @@ local int procname_win32w(nw, caseflag, attribs)
   for (pw = nw; *pw; pw++)    /* use / consistently */
     if (*pw == (wchar_t)'\\')
       *pw = (wchar_t)'/';
+
+
+#ifdef WINDOWS_SYMLINKS
+    /* ---------------------------------------------------------- */
+    /* Handle Windows symlinks, reparse points, and mount points. */
+    {
+      /* These are returned with applicable attributes set. */
+      unsigned long attr = 0;
+      unsigned long reparse_tag = 0;
+      wchar_t wtarget_name[MAX_SYMLINK_WTARGET_NAME_LENGTH + 2];
+      char *n;
+
+      /* Get information for this object. */
+      if (WinDirObjectInfo(nw,
+                           &attr,
+                           &reparse_tag,
+                           wtarget_name,
+                           MAX_SYMLINK_WTARGET_NAME_LENGTH) != 0)
+      {
+        if (attr & FILE_ATTRIBUTE_REPARSE_POINT)
+        {
+          switch (reparse_tag)
+          {
+            case IO_REPARSE_TAG_MOUNT_POINT:
+              if (follow_mount_points == FOLLOW_NONE) {
+# if 0
+                n = wchar_to_local_string(nw);
+                zipmessage("  Not following mount point:  ", n);
+# endif
+                do_not_follow = 1;
+              }
+              break;
+
+            case IO_REPARSE_TAG_SYMLINK:
+              if (linkput) {
+# if 0
+                n = wchar_to_local_string(nw);
+                zipmessage("  Not following symlink:  ", n);
+# endif
+                do_not_follow = 1;
+              }
+              break;
+
+            case IO_REPARSE_TAG_HSM:
+              if (follow_mount_points != FOLLOW_ALL) {
+                /* Ignore HSM */
+                n = wchar_to_local_string(nw);
+                zipwarn("Skipping HSM directory object:  ", n);
+                /* Return without processing this entry, i.e. skip it */
+                return ZE_OK;
+              }
+              break;
+
+            case IO_REPARSE_TAG_HSM2:
+              if (follow_mount_points != FOLLOW_ALL) {
+                /* Ignore HSM2 */
+                n = wchar_to_local_string(nw);
+                zipwarn("Skipping HSM2 directory object:  ", n);
+                /* Return without processing this entry, i.e. skip it */
+                return ZE_OK;
+              }
+              break;
+
+            case IO_REPARSE_TAG_SIS:
+              /* Treat as normal file */
+              break;
+
+            case IO_REPARSE_TAG_WIM:
+              if (follow_mount_points == FOLLOW_NONE) {
+                /* Ignore WIM */
+                n = wchar_to_local_string(nw);
+                zipwarn("Skipping WIM directory object:  ", n);
+                /* Return without processing this entry, i.e. skip it */
+                return ZE_OK;
+              }
+              break;
+
+            case IO_REPARSE_TAG_CSV:
+              if (follow_mount_points == FOLLOW_NONE) {
+                /* Ignore CSV */
+                n = wchar_to_local_string(nw);
+                zipwarn("Skipping CSV directory object:  ", n);
+                /* Return without processing this entry, i.e. skip it */
+                return ZE_OK;
+              }
+              /* Ignore CSV */
+              break;
+
+            case IO_REPARSE_TAG_DFS:
+              if (follow_mount_points == FOLLOW_NONE) {
+                /* Ignore DFS */
+                n = wchar_to_local_string(nw);
+                zipwarn("Skipping DFS directory object:  ", n);
+                /* Return without processing this entry, i.e. skip it */
+                return ZE_OK;
+              }
+              break;
+
+            case IO_REPARSE_TAG_DFSR:
+              if (follow_mount_points == FOLLOW_NONE) {
+                /* Ignore DFSR */
+                n = wchar_to_local_string(nw);
+                zipwarn("Skipping DFSR directory object:  ", n);
+                /* Return without processing this entry, i.e. skip it */
+                return ZE_OK;
+              }
+              break;
+
+            case IO_REPARSE_TAG_DEDUP:
+              /* Treat as normal file */
+              break;
+
+            case IO_REPARSE_TAG_NFS:
+              if (follow_mount_points == FOLLOW_NONE) {
+                /* Ignore NFS */
+                n = wchar_to_local_string(nw);
+                zipwarn("Skipping NFS directory object:  ", n);
+                /* Return without processing this entry, i.e. skip it */
+                return ZE_OK;
+              }
+              break;
+
+            default:
+              /* Ignore anything else */
+              break;
+          }
+        }  /* reparse point */
+      }  /* WinDirObjectInfo */
+    }
+#endif /* WINDOWS_SYMLINKS */
+
+
+  /* UnZip 6.00 and earlier can't handle symlink with trailing '/'.  So only
+      for Windows a directory symlink includes trailing '/'.  Windows needs
+      it to distinguish a file from a directory symlink. */
   if (S_ISDIR( s.st_mode))
   {
     /* Directory.  Add trailing / to the directory name. */
@@ -1348,7 +1472,11 @@ local int procname_win32w(nw, caseflag, attribs)
       }
     }
     /* recurse into directory */
-    if (recurse && (dw = OpenDirScanW(nw)) != NULL)
+#if 0
+    sprintf(errbuf, "  Recursing: (%d) '%S'", wcslen(nw), nw);
+    zipmessage(errbuf, "");
+#endif
+    if (recurse && !do_not_follow && (dw = OpenDirScanW(nw)) != NULL)
     {
       while ((ew = readdw(dw)) != NULL) {
         if (wcscmp(ew, L".") && wcscmp(ew, L".."))
@@ -1416,9 +1544,23 @@ int procnamew(nw, caseflag)
 
 int procname(n, caseflag)
   char *n;             /* name to process */
-  int caseflag;         /* true to force case-sensitive match */
+  int caseflag;        /* true to force case-sensitive match */
 {
+#ifdef UNICODE_SUPPORT_WIN32
+  int utf8 = is_utf8_string(n, NULL, NULL, NULL, NULL);
+
+  if (utf8) {
+    int r;
+    wchar_t *nw = utf8_to_wchar_string(n);
+    r = procname_win32w(nw, caseflag, INVALID_WIN32_FILE_ATTRIBS);
+    free(nw);
+    return r;
+  }
+  else
+#endif
+  {
     return procname_win32(n, caseflag, INVALID_WIN32_FILE_ATTRIBS);
+  }
 }
 
 char *ex2in(x, isdir, pdosflag)
@@ -1641,7 +1783,7 @@ ulg filetime(f, a, n, t)
 
   /* converted to malloc instead of using FNMAX - 11/8/04 EG */
   char *name;
-  unsigned int len = strlen(f);
+  unsigned int len = (unsigned int)strlen(f);
   int isstdin = !strcmp(f, "-");
 
   if (f == label) {
@@ -1677,20 +1819,24 @@ ulg filetime(f, a, n, t)
   }
 
   if (a != NULL) {
-#ifdef WIN32_OEM
+#if 0
+# ifdef WIN32_OEM
     /* When creating DOS-like archives with OEM-charset names, only the
        standard FAT attributes should be used.
        (Note: On a Win32 system, the UNIX style attributes from stat()
               do not contain any additional information...)
      */
     *a = (isstdin ? 0L : (ulg)GetFileMode(name));
-#else
+# else
     *a = ((ulg)s.st_mode << 16) | (isstdin ? 0L : (ulg)GetFileMode(name));
+# endif
 #endif
+    /* On Windows, now always just store the mode (attributes) */
+    *a = (isstdin ? 0L : (ulg)GetFileMode(name));
   }
   if (n != NULL)
     /* device return -1 */
-    *n = (S_ISREG( s.st_mode) ? s.st_size : -1L);
+    *n = (S_ISREG(s.st_mode) ? s.st_size : -1L);
   if (t != NULL) {
     t->atime = s.st_atime;
     t->mtime = s.st_mtime;
@@ -1723,7 +1869,7 @@ ulg filetimew(fw, a, n, t)
 
   /* converted to malloc instead of using FNMAX - 11/8/04 EG */
   wchar_t *namew;
-  unsigned int len = wcslen(fw);
+  unsigned int len = (unsigned int)wcslen(fw);
   int isstdin = !wcscmp(fw, L"-");
   wchar_t *labelw = local_to_wchar_string(label);
 
@@ -1751,29 +1897,41 @@ ulg filetimew(fw, a, n, t)
       error("fstat(stdin)");
     }
     time((time_t *)&sw.st_mtime);       /* some fstat()s return time zero */
-  } else if (LSSTATW(namew, &sw) != 0) {
+  } else {
+#if 0
+    sprintf(errbuf, "Path part to LSSTATW (%d): '%S'", wcslen(namew), namew);
+    zipmessage(errbuf, "");
+#endif
+    if (LSSTATW(namew, &sw) != 0) {
              /* Accept about any file kind including directories
               * (stored with trailing / with -r option)
               */
-    free(namew);
-    return 0;
+      /* stat does not handle long paths */
+      free(namew);
+      return 0;
+    }
   }
 
   if (a != NULL) {
-#ifdef WIN32_OEM
+#if 0
+# ifdef WIN32_OEM
     /* When creating DOS-like archives with OEM-charset names, only the
        standard FAT attributes should be used.
        (Note: On a Win32 system, the UNIX style attributes from stat()
               do not contain any additional information...)
      */
     *a = (isstdin ? 0L : (ulg)GetFileModeW(namew));
-#else
+# else
     *a = ((ulg)sw.st_mode << 16) | (isstdin ? 0L : (ulg)GetFileModeW(namew));
+# endif
 #endif
+    /* On Windows, now always just store the mode (attributes) */
+    *a = (isstdin ? 0L : (ulg)GetFileModeW(namew));
   }
-  if (n != NULL)
+  if (n != NULL) {
     /* device return -1 */
     *n = (S_ISREG( sw.st_mode) ? sw.st_size : -1L);
+  }
   if (t != NULL) {
     t->atime = sw.st_atime;
     t->mtime = sw.st_mtime;
@@ -1889,10 +2047,10 @@ local void GetSD(char *path, char **bufptr, ush *size,
 
   if (noisy) {
     sprintf(errbuf, " (%ld bytes security)", bytes);
-    fprintf(mesg, "%s", errbuf);
+    zfprintf(mesg, "%s", errbuf);
     mesg_line_started = 1;
     if (logall) {
-      fprintf(logfile, "%s", errbuf);
+      zfprintf(logfile, "%s", errbuf);
       logfile_line_started = 1;
     }
   }
@@ -1985,7 +2143,7 @@ int set_extra_field(z, z_utim)
 {
 
 #ifdef NTSD_EAS
-  if(ZipIsWinNT()) {
+  if(ZipIsWinNT() && !no_security) {
     /* store SECURITY_DECRIPTOR data in local header,
        and size only in central headers */
     GetSD(z->name, &z->extra, &z->ext, &z->cextra, &z->cext);
@@ -1994,7 +2152,10 @@ int set_extra_field(z, z_utim)
 
 #ifdef USE_EF_UT_TIME
   /* store extended time stamps in both headers */
-  return GetExtraTime(z, z_utim);
+  if (!no_universal_time)
+    return GetExtraTime(z, z_utim);
+  else
+    return ZE_OK;
 #else /* !USE_EF_UT_TIME */
   return ZE_OK;
 #endif /* ?USE_EF_UT_TIME */

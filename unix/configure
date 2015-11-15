@@ -1362,6 +1362,7 @@ esac
 
 if [ -n "${NO_AES_WG}" ]; then
   echo "AES_WG encryption disabled."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_CRYPT_AES_WG"
 else
   echon "Check AES_WG (AES WinZip/Gladman) encryption support..."
   if [ -d "${SRCDIR}/aes_wg" ]; then
@@ -1391,16 +1392,19 @@ _EOF_
         echo '  No.'
         echo "^^ AES_WG test build failed. Check aes_wg/ directory."
         echo "^^ Unable to include AES_WG encryption support."
+        CFLAGS_TST="${CFLAGS_TST} -DNO_CRYPT_AES_WG"
       fi
     else
       echo '  No.'
       echo "^^ AES_WG source code not found in aes_wg/ directory."
       echo "^^ Unable to include AES_WG encryption support."
+      CFLAGS_TST="${CFLAGS_TST} -DNO_CRYPT_AES_WG"
     fi
   else
     echo '  No.'
     echo "^^ Directory aes_wg not found."
     echo "^^ Unable to include AES_WG encryption support."
+    CFLAGS_TST="${CFLAGS_TST} -DNO_CRYPT_AES_WG"
   fi
 fi
 

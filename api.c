@@ -1019,6 +1019,8 @@ int ZIPEXPENTRY ZpZipTest(char *CommandLine, char *CurrentDir, LPZIPUSERFUNCTION
                                    fsize,
                                    csize,
                                    "Add",
+                                   "Deflate",
+                                   "",
                                    perc))
     {
       printf("ZpZip: service:  Zip operation would have been aborted\n");
@@ -1036,7 +1038,9 @@ int ZIPEXPENTRY ZpZipTest(char *CommandLine, char *CurrentDir, LPZIPUSERFUNCTION
                                     500,
                                     300,
                                     "300",
-                                    "Add"))
+                                    "Add",
+                                    "Deflate",
+                                    ""))
     {
       printf("ZpZip: progress:  Zip operation would have been aborted\n");
       aborted = 1;
@@ -1491,15 +1495,15 @@ void comment(unsigned int comlen)
 #endif /* NO_ZPARCHIVE */
 
 
-#if defined(ZIPLIB) || defined(ZIPDLL)
+#ifdef ZIP_DLL_LIB
 
 /* The entire record must be less than 65535, so the comment length needs to
    be kept well below that.  Changed 65534L to 32766L.  EG */
 
 /* This moved to zip.h */
-#if 0
-# define MAX_COM_LEN (32766L)
-#endif
+# if 0
+#  define MAX_COM_LEN (32766L)
+# endif
 
 
 /* acomment() - Get the archive comment. */
@@ -1585,11 +1589,11 @@ void ecomment(struct zlist far *z)
     char *uname;
 
     oname = z->oname;
-#ifdef UNICODE_SUPPORT
+# ifdef UNICODE_SUPPORT
     uname = z->uname;
-#else
+# else
     uname = NULL;
-#endif
+# endif
 
     if (maxcomlen > MAX_COM_LEN)
       maxcomlen = MAX_COM_LEN;

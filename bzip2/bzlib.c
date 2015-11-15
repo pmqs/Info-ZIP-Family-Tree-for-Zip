@@ -8,8 +8,8 @@
    This file is part of bzip2/libbzip2, a program and library for
    lossless, block-sorting data compression.
 
-   bzip2/libbzip2 version 1.0.5 of 10 December 2007
-   Copyright (C) 1996-2007 Julian Seward <jseward@bzip.org>
+   bzip2/libbzip2 version 1.0.6 of 6 September 2010
+   Copyright (C) 1996-2010 Julian Seward <jseward@bzip.org>
 
    Please read the WARNING, DISCLAIMER and PATENTS sections in the 
    README file.
@@ -1361,11 +1361,41 @@ int BZ_API(BZ2_bzBuffToBuffDecompress)
 
 /*---------------------------------------------------*/
 /*--
-   return version like "0.9.5d, 4-Sept-1999".
+   2005-10-03 SMS.
+   return version like "1.0.3, 15-Feb-2005".
 --*/
 const char * BZ_API(BZ2_bzlibVersion)(void)
 {
-   return BZ_VERSION;
+   static char vers[ 32] = BZ_VERSION_BASE;
+   static int done = False;
+
+   if (!done)
+   {
+      done = True;
+      strcat( vers, ", ");
+      strcat( vers, BZ_VERSION_DATE);
+   }
+   return vers;
+}
+
+/*---------------------------------------------------*/
+/*--
+   2005-10-03 SMS.
+   Actually return version like "0.9.0c".
+--*/
+const char * BZ_API(BZ2_bzlibVersionBase)(void)
+{
+   return BZ_VERSION_BASE;
+}
+
+/*---------------------------------------------------*/
+/*--
+   2005-10-03 SMS.
+   Return version-associated date.
+--*/
+const char * BZ_API(BZ2_bzlibVersionDate)(void)
+{
+   return BZ_VERSION_DATE;
 }
 
 

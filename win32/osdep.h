@@ -72,7 +72,7 @@
 
 /* Get Windows version */
 
-# if (_MSC_VER >= 1400)
+# if (_MSC_VER >= 1400)  /* VS 2005 */
 
 #  include <sdkddkver.h>
 
@@ -105,10 +105,9 @@
 
 /* --------------------------- */
 
-/* Define Z_HANDLE */
-/* HANDLE may be defined in earlier VS versions. */
+/* Define Z_INTPTR_T */
 
-# if (_MSC_VER >= 1600)
+# if (_MSC_VER >= 1600)  /* VS 2010 */
 #  define Z_INTPTR_T intptr_t
 # else
 #  define Z_INTPTR_T long
@@ -117,6 +116,8 @@
 /* --------------------------- */
 
 #endif /* defined(_MSC_VER) */
+
+/* Define Z_INTPTR_T for MINGW */
 
 #ifdef __MINGW32__
 # define Z_INTPTR_T intptr_t

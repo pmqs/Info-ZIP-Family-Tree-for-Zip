@@ -81,10 +81,10 @@ FILE *fp;
     zoff_t x;
 
     return (fp == NULL ||
-     ((zfseeko( fp, ((zoff_t) -1), SEEK_CUR) == 0) &&   /* Seek ok. */
-     ((x = zftello( fp)) != ((zoff_t) -1)) &&           /* Tell ok. */
-     (zfseeko( fp, ((zoff_t) 1), SEEK_CUR) == 0) &&     /* Seek ok. */
-     (zftello( fp) == x+ 1)));                          /* Tells agree. */
+     ((zfseeko(fp, ((zoff_t) -1), SEEK_CUR) == 0) &&   /* Seek ok. */
+     ((x = zftello(fp)) != ((zoff_t) -1)) &&           /* Tell ok. */
+     (zfseeko(fp, ((zoff_t) 1), SEEK_CUR) == 0) &&     /* Seek ok. */
+     (zftello(fp) == x + 1)));                          /* Tells agree. */
 }
 #endif /* HAVE_FSEEKABLE */
 
@@ -116,8 +116,7 @@ ZCONST char *p;         /* candidate sh expression */
   return NULL;
 }
 
-#ifdef UNICODE_SUPPORT
-# ifdef WIN32
+#ifdef UNICODE_SUPPORT_WIN32
 
 wchar_t *isshexpw(pw)
   ZCONST wchar_t *pw;   /* candidate sh expression */
@@ -133,12 +132,6 @@ wchar_t *isshexpw(pw)
   return NULL;
 }
 
-# endif
-#endif
-
-
-#ifdef UNICODE_SUPPORT
-# ifdef WIN32
 
 local long recmatchw(pw, sw, cs)
 ZCONST wchar_t *pw;     /* sh pattern to match */
@@ -277,8 +270,7 @@ int cs;                 /* flag: force case-sensitive matching */
           recmatchw(pw, sw + 1, cs) : 0;
 }
 
-# endif
-#endif
+#endif /* UNICODE_SUPPORT_WIN32 */
 
 
 local int recmatch(p, s, cs)
@@ -540,6 +532,7 @@ int cs;                 /* force case-sensitive match if TRUE */
 
 #endif
 
+
 /* XXX  also suitable for OS2?  Atari?  Human68K?  TOPS-20?? */
 
 int dosmatch(p, s, cs)
@@ -570,6 +563,7 @@ int cs;                 /* force case-sensitive match if TRUE */
 }
 
 #endif /* DOS || WIN32 */
+
 
 zvoid far **search(b, a, n, cmp)
 ZCONST zvoid *b;        /* pointer to value to search for */
@@ -651,6 +645,7 @@ void init_upper()
 #else /* !MSDOS16 */
 #  ifndef OS2
 
+
 void init_upper()
 {
   unsigned int c;
@@ -670,6 +665,7 @@ void init_upper()
 #  endif /* !OS2 */
 
 #endif /* ?MSDOS16 */
+
 
 int namecmp(string1, string2)
   ZCONST char *string1, *string2;
@@ -693,6 +689,7 @@ int namecmp(string1, string2)
   }
 }
 
+
 #ifdef EBCDIC
 char *strtoasc(char *str1, ZCONST char *str2)
 {
@@ -702,6 +699,7 @@ char *strtoasc(char *str1, ZCONST char *str2)
   return old;
 }
 
+
 char *strtoebc(char *str1, ZCONST char *str2)
 {
   char *old;
@@ -709,6 +707,7 @@ char *strtoebc(char *str1, ZCONST char *str2)
   while (*str1++ = (char)ebcdic[(uch)(*str2++)]);
   return old;
 }
+
 
 char *memtoasc(char *mem1, ZCONST char *mem2, unsigned len)
 {
@@ -718,6 +717,7 @@ char *memtoasc(char *mem1, ZCONST char *mem2, unsigned len)
      *mem1++ = (char)ascii[(uch)(*mem2++)];
   return old;
 }
+
 
 char *memtoebc(char *mem1, ZCONST char *mem2, unsigned len)
 {
@@ -1017,6 +1017,35 @@ void expand_args(argcp, argvp)
 #endif /* ?DOS */
 }
 
+#endif /* UTIL */
+
+
+#ifdef DEBUGNAMES
+#undef free
+int Free(x)
+void *x;
+{
+    if (x == (void *) 0xdeadbeef)
+        exit(-1);
+    free(x);
+    return 0;
+}
+
+int printnames()
+{
+     struct zlist far *z;
+
+     for (z = zfiles; z != NULL; z = z->nxt)
+           zfprintf(mesg, "%s %s %s %p %p %p %08x %08x %08x\n",
+                            z->name, z->zname, z->iname,
+                            z->name, z->zname, z->iname,
+                            *((int *) z->name), *((int *) z->zname),
+                            *((int *) z->iname));
+     return 0;
+}
+
+#endif /* DEBUGNAMES */
+
 
 /* Fast routine for detection of plain text
  * (ASCII or an ASCII-compatible extension such as ISO-8859, UTF-8, etc.)
@@ -1035,7 +1064,7 @@ int is_text_buf(buf_ptr, buf_size)
     unsigned i;
     unsigned char c;
 
-    /* If user wants all files handled as text, we're done.  This is
+    /* If user wants all files handled as text, we're done.  This
        supports transferring some annoying files from EBCDIC (Z/OS)
        to ASCII systems where we want the EBCDIC-to-ASCII translation
        to always happen regardless of file contents. */
@@ -1064,35 +1093,6 @@ int is_text_buf(buf_ptr, buf_size)
 
     return result;
 }
-
-#endif /* UTIL */
-
-
-#ifdef DEBUGNAMES
-#undef free
-int Free(x)
-void *x;
-{
-    if (x == (void *) 0xdeadbeef)
-        exit(-1);
-    free(x);
-    return 0;
-}
-
-int printnames()
-{
-     struct zlist far *z;
-
-     for (z = zfiles; z != NULL; z = z->nxt)
-           fprintf(mesg, "%s %s %s %p %p %p %08x %08x %08x\n",
-                            z->name, z->zname, z->iname,
-                            z->name, z->zname, z->iname,
-                            *((int *) z->name), *((int *) z->zname),
-                            *((int *) z->iname));
-     return 0;
-}
-
-#endif /* DEBUGNAMES */
 
 
 /* Below is used to format zoff_t values, which can be either long or long long
@@ -1239,10 +1239,11 @@ int DisplayNumString(file, i)
     if (*s != ' ') break;
     s++;
   }
-  fprintf(file, "%s", s);
+  zfprintf(file, "%s", s);
 
   return 0;
 }
+
 
 /* Read numbers with trailing size multiplier (like 10M) and return number.
    10/30/04 EG */
@@ -1288,15 +1289,18 @@ uzoff_t ReadNumString( numstring )
   /* get multiplier */
   multchar = toupper(numstring[i]);
 
-  if (multchar == 'K') {
+  if (multchar == 'K') {         /* kilo */
     mult <<= 10;
-  } else if (multchar == 'M') {
+  } else if (multchar == 'M') {  /* mega */
     mult <<= 20;
-  } else if (multchar == 'G') {
+  } else if (multchar == 'G') {  /* giga */
     mult <<= 30;
+
 #ifdef LARGE_FILE_SUPPORT
-  } else if (multchar == 'T') {
+  } else if (multchar == 'T') {  /* tera */
     mult <<= 40;
+  } else if (multchar == 'P') {  /* peta */
+    mult <<= 50;
 #endif
   } else {
     return (uzoff_t)-1;
@@ -1375,6 +1379,10 @@ int WriteNumString( num, outstring )
     *outstring = 'T';
     outstring++;
     written++;
+  } else if (mult == 5) {
+    *outstring = 'P';
+    outstring++;
+    written++;
   } else {
     *outstring = '?';
     outstring++;
@@ -1437,11 +1445,15 @@ unsigned int adler16(chksum, buf, len)
 
 
 /* returns true if abbrev is abbreviation for matchstring */
+#ifndef NO_PROTO
+int abbrevmatch (char *matchstring, char *abbrev, int case_sensitive, int minmatch)
+#else
 int abbrevmatch (matchstring, abbrev, case_sensitive, minmatch)
   char *matchstring;
   char *abbrev;
   int case_sensitive;
   int minmatch;
+#endif
 {
   int cnt = 0;
   char *m;
@@ -1473,5 +1485,54 @@ int abbrevmatch (matchstring, abbrev, case_sensitive, minmatch)
     return 0;
   }
   /* either abbreviation or match */
+  return 1;
+}
+
+
+/* strmatch - returns true if strings match
+   string1         first string to compare
+   string2         second string to compare
+   case_sensitive  1 = case sensitive match, 0 = case insensitive
+   maxmatch        match if matches to this many chars, 0 = entire string */
+#ifndef NO_PROTO
+int strmatch (char *string1, char *string2, int case_sensitive, int maxmatch)
+#else
+int strmatch (string1, string2, case_sensitive, maxmatch)
+  char *string1;
+  char *string2;
+  int case_sensitive;
+  int maxmatch;
+#endif
+{
+  int cnt = 0;
+  char *s1;
+  char *s2;
+
+  s1 = string1;
+  s2 = string2;
+
+  for (; *s1 && *s2; s1++, s2++) {
+    cnt++;
+    if (case_sensitive) {
+      if (*s1 != *s2) {
+        /* mismatch */
+        return 0;
+      }
+    } else {
+      if (toupper(*s1) != toupper(*s2)) {
+        /* mismatch */
+        return 0;
+      }
+    }
+    if (cnt == maxmatch) {
+      /* enough */
+      return 1;
+    }
+  }
+  if (*s1 || *s2) {
+    /* one string longer than other */
+    return 0;
+  }
+  /* strings match */
   return 1;
 }

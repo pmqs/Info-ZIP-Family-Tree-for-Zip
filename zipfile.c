@@ -2095,7 +2095,7 @@ local int add_crypt_aes_cen_extra_field( OFT( struct zlist far *) pZEntry,
       if (pExtra == NULL)
         ziperr( ZE_MEM, "AES_WG local extra field" );
       /* move old extra field and update pointer and length */
-      memmove( pExtra, pZEntry->cextra, pZEntry->cext);
+      memmove(pExtra, pZEntry->cextra, pZEntry->cext);
       free( pZEntry->cextra );
       pZEntry->cextra = pExtra;
       pExtra += pZEntry->cext;
@@ -4477,9 +4477,11 @@ local int scanzipf_fixnew()
           in_central_directory = 0;
         }
 
-        if (r == ZE_EOF)
+        if (r == ZE_EOF) {
           /* user said no more splits */
+          zipwarn("if .zip split not read, may need to -FF resulting archive", "");
           break;
+        }
         else if (r == ZE_OK) {
           zcount++;
           files_total++;

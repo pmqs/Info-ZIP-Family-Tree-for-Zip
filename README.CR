@@ -1,6 +1,6 @@
 _____________________________________________________________________________
 
-This is Info-ZIP's README.CR for zcrypt29.zip, last updated 3 September 2011.
+This is Info-ZIP's README.CR for zcrypt29.zip, last updated 5 November 2015.
 _____________________________________________________________________________
 
 
@@ -24,7 +24,7 @@ we know).
 (The ability to export from the US is new and is due to a change in the Bureau
 of Export Administration's regulations, as published in Volume 65, Number
 10, of the Federal Register [14 January 2000].  Info-ZIP filed the required
-notification via e-mail on 9 April 2000; see the USexport.msg file in this
+notification via e-mail on 9 April 2000; see the USexport_orig.msg file in this
 archive.  However, as of June 2002, it can now be freely distributed in both
 source and object forms from the USA under License Exception TSU of the U.S.
 Export Administration Regulations (section 740.13(e)) of 6 June 2002.)  Export
@@ -61,8 +61,9 @@ now GNU Privacy Guard (GPG), PGP Universal 2.0, and various others based
 on OpenPGP.
 
 We are currently adding AES strong encryption to Zip 3.1 and UnZip 6.1.
-See the README files in those distributions for more information.
-Traditional encryption must be enabled to add AES encryption.
+See the README files in those distributions for more information.  Public
+beta Zip 3.1d includes AES encryption.  Public beta UnZip 6.1c is also
+expected to include AES encryption.
 
 Zip 2.3x and UnZip 5.5x and later are compatible with PKZIP 2.04g.  (Thanks
 to Phil Katz for accepting our suggested minor changes to the zipfile format.)
@@ -79,17 +80,22 @@ IMPORTANT NOTE:
   this problem.
 
 
-Contents that were distributed and now are part of the main source files:
+Contents that were distributed and now are part of the main source kits:
 
-  file           what it is
-  ----           ----------
-  README.CR      this file
-  LICENSE        Info-ZIP license (terms of reuse and redistribution)
-  USexport.msg   export notice sent to US Bureau of Export Administration
-  WHERE          where Zip/UnZip/WiZ and related utilities can be found
-  crypt.c        code for encryption and decryption
-  crypt.h        code for encryption and decryption
-  file_id.diz    description file for some BBSes
+  file                 what it is
+  ----                 ----------
+  README.CR            this file
+  LICENSE              Info-ZIP license (terms of reuse and redistribution)
+  USexport_orig.msg    original export notice sent to US Bureau of Export
+                       Administration
+  USexport_aes_wg.msg  latest notice for AES encryption sent
+  USexport_zcrypt.msg  latest notice for zcrypt encryption sent
+  WHERE                where Zip/UnZip/WiZ and related utilities can be found
+  crypt.c              code for zcrypt encryption and decryption
+  crypt.h              code for zcrypt encryption and decryption
+  file_id.diz          description file for some BBSes
+
+The files crypt.c and crypt.h are also required for AES encryption.
 
 Most all of the files are in Unix (LF only) format.  On MSDOS systems, you
 can use the -a option of UnZip to convert the source files to CRLF

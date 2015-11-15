@@ -1,5 +1,7 @@
 Timezone strings:
 -----------------
+(See the Unix "timezone" man page for more information.)
+
 This is a description of valid timezone strings for ENV[ARC]:TZ:
 "XPG3TZ - time zone information"
 The form of the time zone information is based on the XPG3 specification of

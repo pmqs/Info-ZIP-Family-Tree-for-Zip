@@ -1,9 +1,9 @@
 /*
-  zipsplit.c - Zip 3
+  zipsplit.c - Zip 3.1
 
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -26,7 +26,34 @@
 extern void globals_dummy( void);
 #endif /* def VMS */
 
+/* The below comments are getting old as floppy disks fade into the distance,
+   but are still relevant in some quarters.  Nowadays CD, DVD, and other
+   removable media sizes probably are the more likely output size, as well as
+   2 GB to get around the FAT32 limitation.  Nonetheless, we keep the below
+   floppy disk description for historical reasons.
+   
+   Different OS have different native capacities.  The IBM HD format (the
+   most commonly used nowadays) is just one of them.  (This was set to 36000L.)
+   On other systems other smaller and larger capacities are used.  The default
+   split size here assumes the split will fit exactly on a standard IBM HD floppy
+   with no other files and no free space (based on advertised capacity).  In
+   practice, the user may want to leave some free space on the IBM HD floppy to
+   avoid problems using floppys with bad sectors and the like. I suggest this be
+   set to 1400000L instead. Note that single density (SD) and double density (DD)
+   3.5" disks are still in use on some systems due to hardware limitations.  In
+   practice, a user should always specify the split size based on their needs. */
+
 #define DEFSIZ 1474560L /* Default split size (change in help() too) */
+
+/* If USE_LONG_TEMPLATE set, increase output path template size to include
+   more of the output path.  Some ports, like CMS, do not support this.
+   To revert to previous 8.3 filename behavior, undefine this. */
+#ifndef NO_USE_LONG_TEMPLATE
+# ifndef USE_LONG_TEMPLATE
+#  define USE_LONG_TEMPLATE
+# endif
+#endif
+
 #ifdef MSDOS
 #  define NL 2          /* Number of bytes written for a \n */
 #else /* !MSDOS */
@@ -36,6 +63,7 @@ extern void globals_dummy( void);
 #  define INDEX "zipspl/idx"      /* Name of index file */
 #  define TEMPL_FMT "%%0%dld"
 #  define TEMPL_SIZ 13
+#  define MAX_BASE 8
 #  define ZPATH_SEP '.'
 #else
 #ifdef QDOS
@@ -43,17 +71,24 @@ extern void globals_dummy( void);
 #  define INDEX "zipsplit_idx"    /* Name of index file */
 #  define TEMPL_FMT "%%0%dld_zip"
 #  define TEMPL_SIZ 17
+#  define MAX_BASE 8
 #  define exit(p1) QDOSexit()
 #else
 #ifdef VM_CMS
 #  define INDEX "zipsplit.idx"    /* Name of index file */
 #  define TEMPL_FMT "%%0%dld.zip"
 #  define TEMPL_SIZ 21
+#  define MAX_BASE 8
 #  define ZPATH_SEP '.'
 #else
 #  define INDEX "zipsplit.idx"    /* Name of index file */
 #  define TEMPL_FMT "%%0%dld.zip"
-#  define TEMPL_SIZ 17
+#  ifdef USE_LONG_TEMPLATE
+#    define MAX_BASE 240
+#  else
+#    define MAX_BASE 8
+#  endif
+#  define TEMPL_SIZ (MAX_BASE + 9)
 #  define ZPATH_SEP '.'
 #endif /* VM_CMS */
 #endif /* QDOS */
@@ -84,10 +119,12 @@ int main OF((int, char **));
 
 
 /* Output zip files */
-local char template[TEMPL_SIZ]; /* name template for output files */
+local char templat[TEMPL_SIZ];  /* name template for output files */
+                                /* renamed from template as that's reserved now */
 local int zipsmade = 0;         /* number of zip files made */
 local int indexmade = 0;        /* true if index file made */
 local char *path = NULL;        /* space for full name */
+local int path_size;            /* size of path to malloc */
 local char *name;               /* where name goes in path[] */
 
 
@@ -125,6 +162,7 @@ int set_filetype(out_path)
   return ZE_OK;
 }
 
+#if 0
 /* rename a split
  * A split has a tempfile name until it is closed, then
  * here rename it as out_path the final name for the split.
@@ -134,6 +172,11 @@ int set_filetype(out_path)
  * splits, if that makes sense) then this would get used.  But if that
  * happens these utility versions should be dropped and the main ones
  * used.
+ *
+ * Switched over to using main version, now in fileio.c.
+ *
+ * zipsplit can handle input split archives.  Creating output split
+ * archives still not supported.
  */
 int rename_split(temp_name, out_path)
   char *temp_name;
@@ -153,7 +196,9 @@ int rename_split(temp_name, out_path)
   }
   return ZE_OK;
 }
+#endif
 
+#if 0
 void zipmessage_nl(a, nl)
 ZCONST char *a;     /* message string to output */
 int nl;             /* 1 = add nl to end */
@@ -186,6 +231,7 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
     fflush(mesg);
   }
 }
+#endif
 
 local zvoid *talloc(s)
 extent s;
@@ -243,7 +289,7 @@ ZCONST char *h;         /* message about how it happened */
   }
   for (; zipsmade; zipsmade--)
   {
-    sprintf(name, template, zipsmade);
+    sprintf(name, templat, zipsmade);
     destroy(path);
   }
   tfreeall();
@@ -266,13 +312,24 @@ int s;                  /* signal number (ignored) */
 }
 #endif /* ndef NO_EXCEPT_SIGNALS */
 
+/* Print a warning message to mesg (usually stderr) and return. */
 
 void zipwarn(a, b)
 ZCONST char *a, *b;     /* message strings juxtaposed in output */
-/* Print a warning message to mesg (usually stderr) and return. */
 {
-  fprintf(mesg, "zipsplit warning: %s%s\n", a, b);
+  zipwarn_i("zipsplit warning:", 0, a, b);
 }
+
+
+/* zipwarn_indent(): zipwarn(), with message indented. */
+
+void zipwarn_indent(a, b)
+ZCONST char *a, *b;
+{
+    zipwarn_i("zipsplit warning:", 1, a, b);
+}
+
+
 
 
 local void license()
@@ -299,23 +356,27 @@ local void help()
 #else
 "Usage:  zipsplit [-tipqs] [-n size] [-r room] [-b path] zipfile",
 #endif
-"  -t   report how many files it will take, but don't make them",
+"-t  --total-only   report how many files it will take, but don't make them",
 #ifdef RISCOS
-"  -i   make index (" INDEX ") and count its size against first zip file",
+"-i  --index-file   make index (" INDEX ") and count its size against first zip file",
 #else
-"  -i   make index (zipsplit.idx) and count its size against first zip file",
+"-i  --index-file   make index (.idx) and count its size against first zip file",
 #endif
-"  -n   make zip files no larger than \"size\" (default = 1440K)",
-"  -r   leave room for \"room\" bytes on the first disk (default = 0)",
+"-n  --split size   make zip files no larger than \"size\" (default = 1440K)", /* was 36000 */
+"         (for -n: 1k = 1024, 1m = 1 MiB, 1g = 1 GiB)",
+"-r  --room rm      leave room for \"rm\" bytes on first disk (default = 0)",
 #ifdef VM_CMS
-"  -b   use \"fm\" as the filemode for the output zip files",
+"-b  --filemode fm  use \"fm\" as the filemode for the output zip files",
 #else
-"  -b   use \"path\" for the output zip files",
+"-b  --outdir path  use \"path\" as dir for the output zip files",
 #endif
-"  -q   quieter operation, suppress some informational messages",
-"  -p   pause between output zip files",
-"  -s   do a sequential split even if it takes more zip files",
-"  -h   show this help    -v   show version info    -L   show software license"
+"-q  --quiet        quieter operation, suppress some informational messages",
+"-p  --pause        pause between output zip files",
+"-s  --sequential   do a sequential split even if it takes more zip files",
+"-v  --version      show version info",
+"-L  --license      show software license",
+"-h  --help         show this help",
+"-hh --more-help    show extended help"
   };
 
   for (i = 0; i < sizeof(copyright)/sizeof(char *); i++) {
@@ -326,6 +387,89 @@ local void help()
   {
     printf(text[i], VERSION, REVDATE);
     putchar('\n');
+  }
+}
+
+
+local void extended_help()
+/* Print extended help to stdout. */
+{
+  extent i;             /* counter for extended help array */
+
+  /* help array */
+  static ZCONST char *text[] = {
+"",
+"Extended help for ZipSplit 3.1",
+"",
+"ZipSplit splits a zipfile (archive) into smaller zipfiles, each no larger",
+"than some capacity (set by -n, which defaults to 1440k).  Note that the",
+"output files are complete separate archives.  In contrast, zip -s creates",
+"a single archive split into parts, where all parts are needed to normally",
+"read and extract from the archive.  (See the Zip documentation for more",
+"on split archives.)",
+"",
+"ZipSplit 3.1 now supports long options similar to Zip.  Use -so to see",
+"the complete list of options supported.  Note that command line processing",
+"has changed, ZipSplit now using the same parser as Zip.  Though the new",
+"processing should be completely compatible with old zipsplit command lines,",
+"it's possible there's a non-standard zipsplit command line out there that",
+"is no longer supported.  Check any use of ZipSplit to make sure proper",
+"syntax is used.",
+"",
+"Option -n sets capacity of each bin (destination zipfile/disk).  With",
+"ZipSplit 3.1, -n now can use a size suffix similar to Zip -s option, for",
+"example k (1 KiB), m (1 MiB), and g (1GiB).  So -n=740m sets maximum size:",
+"of bin/disk to 740 MiB (740 * 1024 * 1024).",
+"",
+"-r sets room left on first disk, such as for documentation.  It takes a",
+"number of bytes similar to -n.  For example, -r=10k would leave 10,240",
+"bytes of space on the first disk.",
+"",
+"-t displays how many disks a split operation would need (how many output",
+"archives would be generated).  This can be used to make sure the proper",
+"number of removable media are available, or to see the results of using",
+"different -n, -s and -r.",
+"",
+"Normally destination archives are written to the current directory.  Use",
+"-b destdir to write the output zip files to destdir.  destdir must exist.",
+"",
+"-p will pause ZipSplit after each disk (archive) is created.  This allows",
+"changing media for each output zip file.",
+"",
+"-s instructs ZipSplit to perform \"simple\" splitting.  Entries are written",
+"in sequence to the output zip files.  This can take more disks than normal",
+"\"greedy\" splitting, but leaves entries in the same order as in the",
+"original archive.  Without -s, ZipSplit tries to fill each disk to capacity,",
+"even if entries get scattered among output disks.",
+"",
+"-i creates an index file showing which split each entry in original archive",
+"ended up in.",
+"",
+"ZipSplit can read split archives (as created by zip -s).  These are handled",
+"like any other archive and the input split size does not impact how ZipSplit",
+"creates the output archives.  This allows a large split archive to be",
+"divided into a number of separate smaller archives that may be easier to",
+"work with.  In particular, older versions of UnZip can accept a set of",
+"multiple archives and extract from them as a unit, where as those older",
+"UnZip versions can't handle the split archive.",
+"",
+"Limits vary by OS and build, but with LARGE FILE SUPPORT enabled, max size",
+"of an archive is around 2^62 bytes (4 EiB), max number of files in an",
+"archive around 2^31 (2 billion) and max number of disks that can be written",
+"around 2^31 (2 billion).  Of course performance may be a factor as these",
+"limits are approached.",
+"",
+"For example:",
+"  zipsplit original.zip -n 720m -s -i -b foo/bar",
+"would split entries in original.zip into zip files no larger than 720 MiB",
+"using sequential split (entries are written in the order they appear in",
+"original.zip).  The output zip files are written to subdirectory foo/bar/",
+"and an index file is created."
+  };
+
+  for (i = 0; i < sizeof(text)/sizeof(char *); i++)
+  {
+    printf("%s\n", text[i]);
   }
 }
 
@@ -362,6 +506,60 @@ local void version_info()
 }
 
 
+void show_options()
+{
+  int i;
+
+  /* show all options */
+  printf("available options:\n");
+  printf(" %-2s  %-18s %-4s %-3s %-30s\n", "sh", "long", "val", "neg", "description");
+  printf(" %-2s  %-18s %-4s %-3s %-30s\n", "--", "----", "---", "---", "-----------");
+  for (i = 0; options[i].option_ID; i++) {
+    printf(" %-2s  %-18s ", options[i].shortopt, options[i].longopt);
+    switch (options[i].value_type) {
+      case o_NO_VALUE:
+        printf("%-4s ", "");
+        break;
+      case o_REQUIRED_VALUE:
+        printf("%-4s ", "req");
+        break;
+      case o_OPTIONAL_VALUE:
+        printf("%-4s ", "opt");
+        break;
+      case o_VALUE_LIST:
+        printf("%-4s ", "list");
+        break;
+      case o_ONE_CHAR_VALUE:
+        printf("%-4s ", "char");
+        break;
+      case o_NUMBER_VALUE:
+        printf("%-4s ", "num");
+        break;
+      case o_OPT_EQ_VALUE:
+        printf("%-4s ", "=val");
+        break;
+      default:
+        printf("%-4s ", "unk");
+    }
+    switch (options[i].negatable) {
+      case o_NEGATABLE:
+        printf("%-3s ", "neg");
+        break;
+      case o_NOT_NEGATABLE:
+        printf("%-3s ", "");
+        break;
+      default:
+        printf("%-3s ", "unk");
+    }
+    if (options[i].name) {
+      printf("%-30s\n", options[i].name);
+    }
+    else
+      printf("\n");
+  }
+}
+
+
 local extent simple(a, n, c, d)
 uzoff_t *a;     /* items to put in bins, return value: destination bins */
 extent n;       /* number of items */
@@ -372,7 +570,7 @@ uzoff_t d;      /* amount to deduct from first bin */
    is deducted initially from the first bin (space for index).  The entries
    in a[] are replaced by the destination bins. */
 {
-  extent k;     /* current bin number */
+  uzoff_t k;    /* current bin number (was extent) */
   uzoff_t t;    /* space used in current bin */
 
   t = k = 0;
@@ -384,14 +582,15 @@ uzoff_t d;      /* amount to deduct from first bin */
       t = 0;
     }
     t += *a;
-    *(ulg huge *)a++ = k;
+    /* *(ulg huge *)a++ = k; */
+    *a++ = k;
   }
-  return k + 1;
+  return (extent)k + 1;
 }
 
 
 local int descmp(a, b)
-ZCONST zvoid *a, *b;          /* pointers to pointers to ulg's to compare */
+ZCONST zvoid *a, *b;          /* pointers to pointers to uzoff_t's (was ulg's) to compare */
 /* Used by qsort() in greedy() to do a descending sort. */
 {
   return **(uzoff_t **)a < **(uzoff_t **)b ? 1 :
@@ -400,10 +599,10 @@ ZCONST zvoid *a, *b;          /* pointers to pointers to ulg's to compare */
 
 
 local extent greedy(a, n, c, d)
-uzoff_t *a;         /* items to put in bins, return value: destination bins */
+uzoff_t *a;     /* items to put in bins, return value: destination bins */
 extent n;       /* number of items */
-uzoff_t c;          /* capacity of each bin */
-uzoff_t d;          /* amount to deduct from first bin */
+uzoff_t c;      /* capacity of each bin */
+uzoff_t d;      /* amount to deduct from first bin */
 /* Return the number of bins of capacity c that are needed to contain the
    items with sizes a[0..n-1] placed non-sequentially into the bins.  The
    value d is deducted initially from the first bin (space for index).
@@ -411,10 +610,10 @@ uzoff_t d;          /* amount to deduct from first bin */
 {
   uzoff_t *b;   /* space left in each bin (malloc'ed for each m) */
   uzoff_t *e;   /* copy of argument a[] (malloc'ed) */
-  extent i;     /* steps through items */
-  extent j;     /* steps through bins */
-  extent k;     /* best bin to put current item in */
-  extent m;     /* current number of bins */
+  uzoff_t i;    /* steps through items (was extent) */
+  uzoff_t j;    /* steps through bins (was extent) */
+  uzoff_t k;    /* best bin to put current item in (was extent) */
+  uzoff_t m;    /* current number of bins (was extent) */
   uzoff_t **s;  /* pointers to e[], sorted descending (malloc'ed) */
   uzoff_t t;    /* space left in best bin (index k) */
 
@@ -441,15 +640,17 @@ uzoff_t d;          /* amount to deduct from first bin */
     return 0;                           /* only to make compiler happy */
   }
   memcpy((char *)e, (char *)a, n * sizeof(uzoff_t));
-  for (t = i = 0; i < n; i++)
+  for (t = i = 0; i < (uzoff_t)n; i++)
     t += *(s[i] = e + i);
-  m = (extent)((t + c - 1) / c) - 1;    /* pre-decrement for loop */
-  qsort((char *)s, n, sizeof(ulg *), descmp);
+  /* avoid m = -1 */
+  if (t == 0) t = 1;
+  m = (zoff_t)((t + c - 1) / c) - 1;    /* pre-decrement for loop */
+  qsort((char *)s, n, sizeof(uzoff_t *), descmp);
 
   /* Stuff bins until successful */
   do {
     /* Increment the number of bins, allocate and initialize bins */
-    if ((b = (uzoff_t *)malloc(++m * sizeof(uzoff_t))) == NULL)
+    if ((b = (uzoff_t *)malloc((size_t)(++m * sizeof(uzoff_t)))) == NULL)
     {
       free((zvoid *)s);
       free((zvoid *)e);
@@ -486,16 +687,39 @@ uzoff_t d;          /* amount to deduct from first bin */
   /* Done--clean up and return the number of bins needed */
   free((zvoid *)s);
   free((zvoid *)e);
-  return m;
+  return (extent)m;
 }
 
+
 /* keep compiler happy until implement long options - 11/4/2003 EG */
+/* initial filling of table - 11/6/2014 EG */
+
+#define o_hh 0x101
+#define o_so 0x102
+
 struct option_struct far options[] = {
-  /* short longopt        value_type        negatable        ID    name */
-    {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
-    /* the end of the list */
-    {NULL, NULL,          o_NO_VALUE,       o_NOT_NEGATABLE, 0,    NULL} /* end has option_ID = 0 */
-  };
+/* short longopt        value_type        negatable        ID    name */
+#ifdef VM_CMS
+  {"b",  "filemode",    o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'b',  "output directory"},
+#else
+  {"b",  "outdir",      o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'b',  "output directory"},
+#endif
+  {"h",  "help",        o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
+  {"hh", "more-help",   o_NO_VALUE,       o_NOT_NEGATABLE, o_hh, "extended help"},
+  {"i",  "index-file",  o_NO_VALUE,       o_NOT_NEGATABLE, 'i',  "make index"},
+  {"L",  "license",     o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
+  {"l",  "license",     o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
+  {"n",  "split-size",  o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'n',  "split size bytes (e.g. 1440k = 1440 KiB)"},
+  {"p",  "pause",       o_NO_VALUE,       o_NOT_NEGATABLE, 'p',  "pause between splits"},
+  {"q",  "quiet",       o_NO_VALUE,       o_NOT_NEGATABLE, 'q',  "suppress info messages"},
+  {"r",  "room-first",  o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'r',  "leave bytes room on first disk"},
+  {"s",  "sequential",  o_NO_VALUE,       o_NOT_NEGATABLE, 's',  "just split sequentially, even if more splits"},
+  {"so", "show-options",o_NO_VALUE,       o_NOT_NEGATABLE, o_so, "show available options on this system"},
+  {"t",  "total-only",  o_NO_VALUE,       o_NOT_NEGATABLE, 't',  "just report how many disks would be needed"},
+  {"v",  "version",     o_NO_VALUE,       o_NOT_NEGATABLE, 'v',  "show version information"},
+  /* the end of the list */
+  {NULL, NULL,          o_NO_VALUE,       o_NOT_NEGATABLE, 0,    NULL} /* end has option_ID = 0 */
+};
 
 
 local int retry()
@@ -540,6 +764,21 @@ char **argv;            /* command line tokens */
   struct zlist far **w; /* malloc'ed table for zfiles linked list */
   int x;                /* if true, make an index file */
   struct zlist far *z;  /* steps through zfiles linked list */
+
+  int used_simple = 0;  /* 0=used greedy, 1=used simple (sequential) */
+
+  /* used by get_option */
+  unsigned long option;       /* option ID returned by get_option */
+  int argcnt = 0;             /* current argcnt in args */
+  int argnum = 0;             /* arg number */
+  int optchar = 0;            /* option state */
+  char *value = NULL;         /* non-option arg, option value or NULL */
+  int negated = 0;            /* 1 = option negated */
+  int fna = 0;                /* current first non-opt arg */
+  int optnum = 0;             /* index in table */
+
+  char **args;                /* copy of argv that can be freed */
+
 #ifdef AMIGA
   char tailchar;         /* temporary variable used in name generation below */
 #endif
@@ -559,40 +798,10 @@ char **argv;            /* command line tokens */
   }
 #endif /* def VMS */
 
-#ifdef UNICODE_SUPPORT
-# ifdef UNIX
-  /* For Unix, set the locale to UTF-8.  Any UTF-8 locale is
-     OK and they should all be the same.  This allows seeing,
-     writing, and displaying (if the fonts are loaded) all
-     characters in UTF-8. */
-  {
-    char *loc;
 
-    /*
-      loc = setlocale(LC_CTYPE, NULL);
-      printf("  Initial language locale = '%s'\n", loc);
-    */
+  /* reading and setting locale now done by common function in fileio.c */
+  set_locale();
 
-    loc = setlocale(LC_CTYPE, "en_US.UTF-8");
-
-    /*
-      printf("langinfo %s\n", nl_langinfo(CODESET));
-    */
-
-    if (loc != NULL) {
-      /* using UTF-8 character set so can set UTF-8 GPBF bit 11 */
-      using_utf8 = 1;
-      /*
-        printf("  Locale set to %s\n", loc);
-      */
-    } else {
-      /*
-        printf("  Could not set Unicode UTF-8 locale\n");
-      */
-    }
-  }
-# endif
-#endif
 
   /* If no args, show help */
   if (argc == 1)
@@ -607,7 +816,7 @@ char **argv;            /* command line tokens */
   init_upper();           /* build case map table */
 
 #ifndef NO_EXCEPT_SIGNALS
-  /* Establish signal handler (if desired). */
+  /* Establish signal handler. */
   signal(SIGINT, handler);
 # ifdef SIGTERM                 /* Amiga has no SIGTERM */
   signal(SIGTERM, handler);
@@ -628,6 +837,10 @@ char **argv;            /* command line tokens */
   signal(SIGSEGV, handler);
 # endif
 #endif /* ndef NO_EXCEPT_SIGNALS */
+
+
+#if 0
+  /* old command line processing */
 
   /* Go through args */
   k = h = x = d = u = 0;
@@ -702,7 +915,7 @@ char **argv;            /* command line tokens */
           break;
         case 2:
           /* Split size value.  100 is smallest allowed zip file size. */
-          c = ReadNumString( argv[r]);
+          c = ReadNumString(argv[r]);
           if ((c == (uzoff_t)-1) || (c < 100))
             ziperr( ZE_PARMS,
              "invalid split size value.  Use option -h for help.");
@@ -710,20 +923,145 @@ char **argv;            /* command line tokens */
           break;
         default:        /* k must be 3 */
           /* Room to leave value. */
-          i = ReadNumString( argv[r]);
+          i = ReadNumString(argv[r]);
           if (i == (uzoff_t)-1)
             ziperr( ZE_PARMS,
              "invalid room-to-leave value.  Use option -h for help.");
           k = 0;
           break;
       }
+
+#else
+
+  /* new command line processing */
+
+  k = h = x = d = u = 0;
+  c = DEFSIZ;
+ 
+  zipfile = NULL;
+
+  /* make copy of args that can use with insert_arg() */
+  args = copy_args(argv, 0);
+
+  /*
+  -------------------------------------------
+  Process command line using get_option
+  -------------------------------------------
+
+  Each call to get_option() returns either a command
+  line option and possible value or a non-option argument.
+  Arguments are permuted so that all options (-r, -b temp)
+  are returned before non-option arguments (zipfile).
+  Returns 0 when nothing left to read.
+  */
+
+  /* set argnum = 0 on first call to init get_option */
+  argnum = 0;
+
+  /* get_option returns the option ID and updates parameters:
+          args    - usually same as argv if no argument file support
+          argcnt  - current argc for args
+          value   - char* to value (free() when done with it) or NULL if no value
+          negated - option was negated with trailing -
+  */
+
+  while ((option = get_option(&args, &argcnt, &argnum,
+                              &optchar, &value, &negated,
+                              &fna, &optnum, 0)))
+  {
+    switch (option)
+    {
+      case 'b':   /* Specify output directory */
+        if (tempath) {
+          ziperr(ZE_PARMS, "more than one output directory specified");
+        }
+        tempath = value;
+        break;
+      case 'h':   /* Show help */
+        help();
+        EXIT(ZE_OK);
+      case o_hh:   /* Show more help */
+        extended_help();
+        EXIT(ZE_OK);
+      case 'i':   /* Make an index file */
+        x = 1;
+        break;
+      case 'l':   /* Show copyright and disclaimer */
+        case 'L':
+        license();
+        EXIT(ZE_OK);
+      case 'n':   /* Split size */
+        /* Split size value.  100 is smallest allowed zip file size. */
+        c = ReadNumString(value);
+        free(value);
+        if ((c == (uzoff_t)-1) || (c < 100)) {
+          ziperr( ZE_PARMS,
+            "invalid split size value (100 bytes smallest allowed size)");
+        }
+        break;
+      case 'p':   /* Pause */
+        u = 1;
+        break;
+      case 'q':   /* Quiet operation, suppress info messages */
+        noisy = 0;
+        break;
+      case 'r':   /* Room to leave */
+        i = ReadNumString(value);
+        free(value);
+        if (i == (uzoff_t)-1) {
+          ziperr( ZE_PARMS,
+            "invalid room-to-leave value.  Use option -h for help.");
+        }
+        break;
+      case 's':   /* Only try simple */
+        h = 1;
+        break;
+      case o_so:  /* Show available options */
+        show_options();
+        EXIT(ZE_OK);
+      case 't':   /* Just report number of disks */
+        d = 1;
+        break;
+      case 'v':   /* Show version info */
+        version_info();
+        EXIT(ZE_OK);
+
+      case o_NON_OPTION_ARG:
+        /* not an option */
+        /* no more options as permuting */
+        /* just dash also ends up here */
+
+        if (strcmp(value, "-") == 0) {
+          ziperr(ZE_PARMS, "zip file cannot be stdin");
+        } else if (zipfile != NULL) {
+          ziperr(ZE_PARMS, "can only specify one zip file");
+        }
+
+        if ((zipfile = ziptyp(value)) == NULL) {
+          ziperr(ZE_MEM, "was processing arguments");
+        }
+        free(value);
+        break;
+
+      default:
+        ziperr(ZE_PARMS, "unknown option");
+    }
+  }
+
+  free_args(args);
+
+#endif
+
   if (zipfile == NULL)
     ziperr(ZE_PARMS, "need to specify zip file");
 
   if ((in_path = malloc(strlen(zipfile) + 1)) == NULL) {
-    ziperr(ZE_MEM, "input");
+    ziperr(ZE_MEM, "input archive path");
   }
   strcpy(in_path, zipfile);
+
+  /* Tell readzipfile there is no out_path */
+  out_path = NULL;
 
   /* Read zip file */
   if ((r = readzipfile()) != ZE_OK)
@@ -744,15 +1082,22 @@ char **argv;            /* command line tokens */
   t = 0;
   for (j = 0, z = zfiles; j < zcount; j++, z = z->nxt)
   {
+#if 0
+    zoff_t aj = 0;
+    printf("  -- entry:  (%s)  '%s' \n", zip_fzofft(z->siz, NULL, "u"), z->name);
+    aj = 8 + LOCHEAD + CENHEAD + 2 * (zoff_t)z->nam + 2 * (zoff_t)z->cext + z->com + z->siz;
+    printf("      aj %s\n", zip_fzofft(aj, NULL, "u"));
+#endif
     w[j] = z;
     if (x)
       i += z->nam + 6 + NL;
     /* New scanzip_reg only reads central directory so use cext for ext */
+    /* This is only an estimate */
     t += a[j] = 8 + LOCHEAD + CENHEAD +
            2 * (zoff_t)z->nam + 2 * (zoff_t)z->cext + z->com + z->siz;
     if (a[j] > c) {
-      sprintf(errbuf, "Entry is larger than max split size of: %s",
-       zip_fzofft(c, NULL, "u"));
+      sprintf(errbuf, "Entry (%s) is larger than max split size of: %s",
+          zip_fzofft(a[j], NULL, "u"), zip_fzofft(c, NULL, "u"));
       zipwarn(errbuf, "");
       zipwarn("use -n to set split size", "");
       ziperr(ZE_BIG, z->zname);
@@ -760,8 +1105,10 @@ char **argv;            /* command line tokens */
   }
 
   /* Decide on split to use, report number of files */
-  if (h)
+  if (h) {
     s = simple(a, zcount, c, i);
+    used_simple = 1;
+  }
   else
   {
     if ((p = (uzoff_t *)talloc(zcount * sizeof(uzoff_t))) == NULL)
@@ -769,18 +1116,22 @@ char **argv;            /* command line tokens */
     memcpy((char *)p, (char *)a, zcount * sizeof(uzoff_t));
     s = simple(a, zcount, c, i);
     g = greedy(p, zcount, c, i);
-    if (s <= g)
+    if (s <= g) {
       tfree((zvoid *)p);
+      used_simple = 1;
+    }
     else
     {
       tfree((zvoid *)a);
       a = p;
       s = g;
+      used_simple = 0;
     }
   }
-  printf("%ld zip files w%s be made (%s%% efficiency)\n",
-         (ulg)s, d ? "ould" : "ill",
-         zip_fzofft( ((200 * ((t + c - 1)/c)) / s + 1) / 2, NULL, "d"));
+  printf("%ld zip %s w%s be made (%s%% efficiency) using %s splitting\n",
+         (ulg)s, (s == 1) ? "file" : "files", d ? "ould" : "ill",
+         zip_fzofft( ((200 * ((t + c - 1)/c)) / s + 1) / 2, NULL, "d"),
+         (used_simple == 1) ? "simple" : "greedy");
   if (d)
   {
     tfreeall();
@@ -791,8 +1142,8 @@ char **argv;            /* command line tokens */
 
   /* Set up path for output files */
   /* Point "name" past the path, where the filename should go */
-  if ((path = (char *)talloc(tempath == NULL ? 13 : strlen(tempath) + 14)) ==
-      NULL)
+  path_size = (tempath == NULL ? (MAX_BASE + 5) : (int)strlen(tempath) + (MAX_BASE + 6));
+  if ((path = (char *)talloc(path_size)) == NULL)
     ziperr(ZE_MEM, "was making output file names");
   if (tempath == NULL)
      name = path;
@@ -876,19 +1227,19 @@ char **argv;            /* command line tokens */
 #endif /* QDOS */
 
   r = 0;
-  while ((g = *q++) != '\0' && g != ZPATH_SEP && r < 8 - k)
-    template[r++] = (char)g;
-  if (r == 0)
-    template[r++] = '_';
+  while ((g = *q++) != '\0' && g != ZPATH_SEP && r < MAX_BASE - k)
+    templat[r++] = (char)g;
+  if (r == 0 || r < MAX_BASE - k)
+    templat[r++] = '_';
   else if (g >= '0' && g <= '9')
-    template[r - 1] = (char)(template[r - 1] == '_' ? '-' : '_');
-  sprintf(template + r, TEMPL_FMT, k);
+    templat[r - 1] = (char)(templat[r - 1] == '_' ? '-' : '_');
+  sprintf(templat + r, TEMPL_FMT, k);
 #ifdef VM_CMS
   /* For CMS, add the "path" as the filemode at the end */
   if (tempath)
   {
-     strcat(template,".");
-     strcat(template,tempath);
+     strcat(templat,".");
+     strcat(templat,tempath);
   }
 #endif
 
@@ -927,8 +1278,8 @@ char **argv;            /* command line tokens */
         ziperr(ZE_CREAT, path);
       }
       for (j = 0; j < zcount; j++)
-        fprintf(f, "%5s %s\n",
-         zip_fzofft( (a[j] + 1), NULL, "d"), w[j]->zname);
+        fprintf(f, "%5ld %s\n",
+         (unsigned long)(a[j] + 1), w[j]->zname);
 
       if ((j = ferror(f)) != 0 || fclose(f))
       {
@@ -940,9 +1291,9 @@ char **argv;            /* command line tokens */
     }
 
     /* create output zip file j */
-    sprintf(name, template, j + 1L);
+    sprintf(name, templat, j + 1L);
     printf("creating: %s\n", path);
-    zipsmade = j + 1;
+    zipsmade = (int)(j + 1);
     if ((y = f = fopen(path, FOPW)) == NULL)
     {
       if (u && retry()) goto redobin;
@@ -1004,6 +1355,9 @@ char **argv;            /* command line tokens */
   if (u)
     fputs("Done.\n", mesg);
   tfreeall();
+
+  if (tempath)
+    free(tempath);
 
   RETURN(0);
 }

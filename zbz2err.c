@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -34,7 +34,16 @@
 #ifdef BZIP2_SUPPORT
 
 /* Ask the MS VS linker to search for the bzip2 library. */
-# ifdef WIN32
+/* The below only works for Visual Studio 2010 build (Windows 7) and later
+   (maybe also Vista).  It does not work with how bzip2 is included in the
+   VS 6 build (Windows XP), which does not use a bzip2 static library.  As
+   the library is not used, looking for the library generates an error, so
+   we just don't look for it before Vista.
+ */
+/* If BZIP2_USEBZIP2DIR is defined, then Zip on WIN32 is not using the libbz2
+   library (is compiling in the code instead), so this is not used in that case.
+ */
+# if defined(WIN32) && (WINVER >= 0x0600) && !defined(BZIP2_USEBZIP2DIR)
 #  pragma comment( lib, "libbz2")
 # endif
 
@@ -48,16 +57,16 @@
      read before defining the function.
    */
 # ifdef VMS
-#  ifdef BZIP2_USEBZIP2DIR
-#   include "bzip2/bzlib.h"
-#  else
+#   ifdef BZIP2_USEBZIP2DIR
+#     include "bzip2/bzlib.h"
+#   else
       /* If IZ_BZIP2 is defined as the location of the bzip2 files then
          assume the location has been added to include path.  For Unix
          this is done by the configure script. */
       /* Also do not need path for bzip2 include if OS includes support
          for bzip2 library. */
-#   include "bzlib.h"
-#  endif
+#     include "bzlib.h"
+#   endif
 # endif
 
 /* Provide a prototype locally, to shut up potential compiler warnings. */

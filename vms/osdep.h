@@ -37,6 +37,7 @@
 #define PROGRESS_DOTS_PER_FLUSH 64
 
 
+#if 0
 /* 2015-07-31 SMS.
  * "long long" type.
  */
@@ -47,6 +48,13 @@
 # define HAVE_LONG_LONG
 # define Z_LONGLONG long long
 # define UZ_LONGLONG unsigned long long
+#endif
+
+#ifdef __VAX
+# define API_FILESIZE_T unsigned long
+#else
+# define API_FILESIZE_T unsigned long long
+#endif
 #endif
 
 

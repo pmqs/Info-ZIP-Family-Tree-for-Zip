@@ -1,9 +1,9 @@
 /*
   ttyio.c - Zip 3
 
-  Copyright (c) 1990-2012 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -361,9 +361,9 @@ int screensize(tt_rows, tt_cols)
 #ifdef DEBUG_WINSZ
         if (firsttime) {
             firsttime = FALSE;
-            fprintf(stderr, "ttyio.c screensize():  ws_row = %d\n",
+            zfprintf(stderr, "ttyio.c screensize():  ws_row = %d\n",
               wsz.ws_row);
-            fprintf(stderr, "ttyio.c screensize():  ws_col = %d\n",
+            zfprintf(stderr, "ttyio.c screensize():  ws_col = %d\n",
               wsz.ws_col);
         }
 #endif
@@ -378,7 +378,7 @@ int screensize(tt_rows, tt_cols)
 #ifdef DEBUG_WINSZ
         if (firsttime) {
             firsttime = FALSE;
-            fprintf(stderr,
+            zfprintf(stderr,
               "ttyio.c screensize():  ioctl(TIOCGWINSZ) failed\n"));
         }
 #endif

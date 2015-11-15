@@ -10,14 +10,14 @@
 /* This file is used to enable and disable encryption and compression
  * methods.
  *
- * Currently this is only used for Windows.
+ * Currently this file is only used for Windows.
  *
  * Unix (including MAC OS X) and VMS use scripts to detect and set these
  * settings.  Other ports have not been tested with the additional encryption
  * and compression methods enabled.
  *
  * Other settings, such as NO_UNICODE_SUPPORT, can also be set in this
- * file.  See the comment at the bottom of this file for more on this.
+ * file.  See the comments at the bottom of this file for more on this.
  */
 
 #ifndef __control_h           /* Don't include more than once. */
@@ -59,6 +59,20 @@
 # endif
 
 
+/* On Windows, if compiling in bzip2 (as VS 6 and VS 2010 do) rather than
+ * build the bzip2 library and link to it, set bzip2 compilation settings.
+ * (Do not alter these, unless linking to the bzip2 library instead.)
+ */
+#ifdef BZIP2_SUPPORT
+# ifndef BZ_NO_STDIO
+#  define BZ_NO_STDIO
+# endif
+# ifndef BZIP2_USEBZIP2DIR
+#  define BZIP2_USEBZIP2DIR
+# endif
+#endif
+
+
 /* If there are other compilation settings you need set when Zip on
  * Windows is built, they can be specified here.  For instance,
  * #define NO_CRYPT_TRAD
@@ -71,9 +85,10 @@
 
 /* Settings global to all platforms can be specified here, but this should
  * be done with caution as the Unix and VMS build environments use scripts
- * that could be disrupted by overriding what they set here.  The preferred
- * approach is to provide such settings to the platform specific build
- * scripts.
+ * that could be disrupted by overriding them here.  In particular, linker
+ * settings may not be properly set if the build scripts are not told that
+ * a feature is enabled or disabled here.  Preferred approach is to provide
+ * such settings to Unix and VMS via the platform specific build scripts.
  */
 
 

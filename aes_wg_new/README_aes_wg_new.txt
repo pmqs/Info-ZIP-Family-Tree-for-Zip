@@ -1,1 +1,0 @@
-Do not use this code.  It is still in development and does not yet work with Zip.

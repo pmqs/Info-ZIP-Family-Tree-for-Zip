@@ -1,7 +1,7 @@
 /*
   ziperr.h - Zip 3
 
-  Copyright (c) 1990-2011 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -43,7 +43,7 @@
 #define ZE_MEM          4       /* out of memory */
 #define ZE_LOGIC        5       /* internal logic error */
 #define ZE_BIG          6       /* entry too large to split, read, or write */
-#define ZE_NOTE         7       /* invalid comment format */
+#define ZE_NOTE         7       /* invalid comment format (Zip and ZipNote) */
 #define ZE_TEST         8       /* zip test (-T) failed or out of memory */
 #define ZE_ABORT        9       /* user interrupt or termination */
 #define ZE_TEMP         10      /* error using a temp file */
@@ -54,12 +54,16 @@
 #define ZE_CREAT        15      /* couldn't open to write */
 #define ZE_PARMS        16      /* bad command line */
 #define ZE_OPEN         18      /* could not open a specified file to read */
-#define ZE_COMPERR      19      /* error in compilation options */
+#define ZE_COMPILE      19      /* error in compilation options */
 #define ZE_ZIP64        20      /* Zip64 not supported */
 #define ZE_CRYPT        21      /* encryption error */
 #define ZE_COMPRESS     22      /* compression error */
+#define ZE_BACKUP       23      /* backup (-BT) error */
+#define ZE_DEPTH        24      /* recursion depth limit exceeded */
+#define ZE_SPLIT        25      /* split archive not supported, split error */
+#define ZE_UNZIP        26      /* could not run unzip or incompatible unzip */
 
-#define ZE_MAXERR       22      /* the highest error number */
+#define ZE_MAXERR       26      /* the highest error number */
 
 
 /* Error messages for the ziperr() function in the zip programs. */
@@ -80,7 +84,7 @@ struct
 /*  6 */ { "BIG",     "Entry too big to split, read, or write",
                                                       ZE_S_ERROR },
 /*  7 */ { "NOTE",    "Invalid comment format",       ZE_S_ERROR },
-/*  8 */ { "TEST",    "Zip file invalid, could not spawn unzip, or wrong unzip",
+/*  8 */ { "TEST",    "Zip file invalid or test error",
                                                       ZE_S_SEVERE },
 /*  9 */ { "ABORT",   "Interrupted",                  ZE_S_ERROR },
 /* 10 */ { "TEMP",    "Temporary file failure",       ZE_S_SEVERE | ZE_S_PERR },
@@ -93,11 +97,18 @@ struct
 /* 17 */ { "",        "",                             ZE_S_UNUSED },
 /* 18 */ { "OPEN",    "File not found or no read permission",
                                                       ZE_S_ERROR | ZE_S_PERR },
-/* 19 */ { "COMPERR", "Error in compilation options", ZE_S_SEVERE },
+/* 19 */ { "COMPILE", "Error in compilation options", ZE_S_SEVERE },
 /* 20 */ { "ZIP64",   "Attempt to read unsupported Zip64 archive",
                                                       ZE_S_SEVERE },
 /* 21 */ { "CRYPT",   "Encryption error",             ZE_S_ERROR },
-/* 22 */ { "COMPRESS","Compression error",            ZE_S_ERROR }
+/* 22 */ { "COMPRESS","Compression error",            ZE_S_ERROR },
+/* 23 */ { "BACKUP",  "Backup error",                 ZE_S_ERROR },
+/* 24 */ { "DEPTH",   "Recursion depth limit exceeded",
+                                                      ZE_S_ERROR },
+/* 25 */ { "SPLIT",   "Attempt to read unsupported split archive",
+                                                      ZE_S_ERROR },
+/* 26 */ { "UNZIP",   "Could not run unzip or incompatible unzip",
+                                                      ZE_S_ERROR }
 #  ifdef AZTEC_C
           ,     /* extremely lame compiler bug workaround */
 #  endif

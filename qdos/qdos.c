@@ -1,7 +1,7 @@
 /*
   qdos/qdos.c
 
-  Copyright (c) 1990-2013 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -749,7 +749,7 @@ local int GetExtraTime(struct zlist far *z, iztimes *z_utim, unsigned ut_flg)
 
     if (eb_c_ptr == NULL)
     {
-      free( eb_l_ptr);
+      free(eb_l_ptr);
       return ZE_MEM;
     }
 
@@ -830,7 +830,7 @@ int set_extra_field (struct zlist *z, iztimes *z_utim )
             return ZE_MEM;
         if ((cq = (qdosextra *) calloc(sizeof(qdosextra), 1)) == NULL)
         {
-            free( lq);
+            free(lq);
             return ZE_MEM;
         }
 

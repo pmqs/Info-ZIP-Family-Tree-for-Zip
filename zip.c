@@ -769,7 +769,8 @@ local void license()
   for (i = 0; i < sizeof(swlicense)/sizeof(char *); i++)
     zprintf("%s\n", swlicense[i]);
   zprintf("\n");
-  zprintf("See \"zip -v\" for encryption notices (if encryption included).\n");
+  zprintf("See \"zip -v\" for additional copyright information and encryption notices.\n");
+  zprintf("\n");
 }
 
 # ifdef VMSCLI
@@ -2157,6 +2158,8 @@ local void version_info()
 
 # ifdef IZ_CRYPT_AES_WG
   static char aes_wg_opt_ver[81];
+  static char aes_wg_opt_ver2[81];
+  static char aes_wg_opt_ver3[81];
 # endif /* def IZ_CRYPT_AES_WG */
 
   /* Bzip2 option string storage (with version). */
@@ -2169,14 +2172,17 @@ local void version_info()
 
 # ifdef LZMA_SUPPORT
   static char lzma_opt_ver[81];
+  static char lzma_opt_ver2[81];
 # endif
 
 # ifdef PPMD_SUPPORT
   static char ppmd_opt_ver[81];
+  static char ppmd_opt_ver2[81];
 # endif
 
 # ifdef IZ_CRYPT_TRAD
   static char crypt_opt_ver[81];
+  static char crypt_opt_ver2[81];
 # endif
 
   /* Non-default AppleDouble resource fork suffix. */
@@ -2269,16 +2275,19 @@ local void version_info()
 # endif
 # ifdef LZMA_SUPPORT
     lzma_opt_ver,
+    lzma_opt_ver2,
 # endif
 # ifdef PPMD_SUPPORT
     ppmd_opt_ver,
+    ppmd_opt_ver2,
 # endif
 # ifdef SYMLINKS
 #  ifdef VMS
     "SYMLINKS             (symbolic links supported, if C RTL permits)",
 #  else
 #   ifdef WIN32
-    "SYMLINKS             (symbolic links (reparse points) supported)",
+    "SYMLINKS             (Windows symbolic links supported)",
+    "REPARSE_POINTS       (Windows reparse/mount points supported)",
 #   else
     "SYMLINKS             (symbolic links supported)",
 #   endif
@@ -2324,13 +2333,16 @@ local void version_info()
 
 # ifdef IZ_CRYPT_TRAD
     crypt_opt_ver,
+    crypt_opt_ver2,
 #  ifdef ETWODD_SUPPORT
     "ETWODD_SUPPORT       (encrypt Traditional w/o data descriptor if -et)",
-#  endif /* def ETWODD_SUPPORT */
+#  endif
 # endif
 
 # ifdef IZ_CRYPT_AES_WG
     aes_wg_opt_ver,
+    aes_wg_opt_ver2,
+    aes_wg_opt_ver3,
 # endif
 
 # ifdef IZ_CRYPT_AES_WG_NEW
@@ -2412,13 +2424,6 @@ local void version_info()
 # endif /* 0 */
 
 
-  /* Fill in IZ_AES_WG version. */
-# ifdef IZ_CRYPT_AES_WG
-  sprintf( aes_wg_opt_ver,
-    "IZ_CRYPT_AES_WG      (AES encryption (IZ WinZip/Gladman), ver %d.%d%s)",
-    IZ_AES_WG_MAJORVER, IZ_AES_WG_MINORVER, IZ_AES_WG_BETA_VER);
-# endif
-
   /* Fill in bzip2 version.  (32-char limit valid as of bzip 1.0.3.) */
 # ifdef BZIP2_SUPPORT
   sprintf( bz_opt_ver,
@@ -2427,6 +2432,7 @@ local void version_info()
     "    bzip2 code and library copyright (c) Julian R Seward");
   sprintf( bz_opt_ver3,
     "    (See the bzip2 license for terms of use)");
+  i++;
 # endif
 
   /* Fill in LZMA version. */
@@ -2434,6 +2440,8 @@ local void version_info()
   sprintf(lzma_opt_ver,
     "LZMA_SUPPORT         (LZMA compression, ver %s)",
     MY_VERSION);
+  sprintf(lzma_opt_ver2,
+    "    LZMA code placed in public domain by Igor Pavlov");
   i++;
 # endif
 
@@ -2442,14 +2450,30 @@ local void version_info()
   sprintf(ppmd_opt_ver,
     "PPMD_SUPPORT         (PPMd compression, ver %s)",
     MY_VERSION);
+  sprintf(ppmd_opt_ver2,
+    "    PPMd code placed in public domain by Igor Pavlov");
   i++;
 # endif
 
 # ifdef IZ_CRYPT_TRAD
   sprintf(crypt_opt_ver,
-    "IZ_CRYPT_TRAD        (Traditional (weak) encryption, ver %d.%d%s)",
+    "IZ_CRYPT_TRAD        (Traditional (weak) encryption, ZCRYPT ver %d.%d%s)",
     CR_MAJORVER, CR_MINORVER, CR_BETA_VER);
+  sprintf(crypt_opt_ver2,
+    "    Copyright (c) Info-ZIP; parts placed in public domain (see below)");
 # endif /* def IZ_CRYPT_TRAD */
+
+  /* Fill in IZ_AES_WG version. */
+# ifdef IZ_CRYPT_AES_WG
+  sprintf(aes_wg_opt_ver,
+    "IZ_CRYPT_AES_WG      (AES encryption (IZ WinZip/Gladman), ver %d.%d%s)",
+    IZ_AES_WG_MAJORVER, IZ_AES_WG_MINORVER, IZ_AES_WG_BETA_VER);
+  sprintf(aes_wg_opt_ver2,
+    "    AES code copyright (c) Dr Brian Gladman");
+  sprintf(aes_wg_opt_ver3,
+    "    (See the AES license for terms of use)");
+# endif
+
 
   for (i = 0; (int)i < (int)(sizeof(comp_opts)/sizeof(char *) - 1); i++)
   {
@@ -3064,10 +3088,12 @@ local void get_unzip_features(unzippath, version, features)
         }
         number_string = string_dup(unzip_version_string, "number_string", 0);
         number_string[i] = '\0';
-        beta_string = string_dup(unzip_version_string + i, "beta_string", 0);
-        if (sscanf(number_string, "%f ", &UnZip_Version) < 1) {
-          zipwarn("unexpected UnZip version: ", unzip_version_string);
-          success = 0;
+        if (unzip_version_string[i]) {
+          beta_string = string_dup(unzip_version_string + i, "beta_string", 0);
+          if (sscanf(number_string, "%f ", &UnZip_Version) < 1) {
+            zipwarn("unexpected UnZip version: ", unzip_version_string);
+            success = 0;
+          }
         }
       }
 
@@ -4392,6 +4418,7 @@ local long add_apath(path)
   if ((apath_entry = (struct filelist_struct *) malloc(sizeof(struct filelist_struct))) == NULL) {
     ZIPERR(ZE_MEM, "adding incremental archive path entry");
   }
+
   if ((name = malloc(strlen(path) + 1)) == NULL) {
     ZIPERR(ZE_MEM, "adding incremental archive path");
   }
@@ -4968,6 +4995,9 @@ static ulg datetime(arg, curtime)
 
 
 
+
+
+
 #if defined(UNICODE_SUPPORT) && defined(UNICODE_TESTS_OPTION)
 /* Unicode_Tests
  *
@@ -5307,6 +5337,7 @@ void suffixes_option(value)
     else if ((j != 0) && (lvl == 0))
     {
       /* Setting something else to 0 */
+
       sprintf( errbuf, "Can't set default level for compression method \"%s\" to 0",
         mthd_lvl[ j].method_str);
       free(value);
@@ -5699,7 +5730,7 @@ struct option_struct far options[] = {
 #ifdef IZ_CRYPT_ANY
     {"e",  "encrypt",     o_NO_VALUE,       o_NOT_NEGATABLE, 'e',  "encrypt entries, ask for password"},
 #endif
-#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+#ifdef ETWODD_SUPPORT
     {"et", "etwodd",      o_NO_VALUE,       o_NOT_NEGATABLE, o_et, "encrypt Traditional without data descriptor"},
 #endif
 #ifdef OS2
@@ -6140,9 +6171,9 @@ char **argv;            /* command line tokens */
   filesync = 0;         /* 1=file sync, delete entries not on file system */
   adjust = 0;           /* 1=adjust offsets for sfx'd file (keep preamble) */
   level = 6;            /* 0=fastest compression, 9=best compression */
-# if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+# ifdef ETWODD_SUPPORT
   etwodd = 0;           /* Encrypt Trad without data descriptor. */
-# endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
+# endif
   translate_eol = 0;    /* Translate end-of-line LF -> CR LF */
 # ifdef VMS
   prsrv_vms = 0;        /* Preserve idiosyncratic VMS file names. */
@@ -6783,7 +6814,8 @@ char **argv;            /* command line tokens */
 
 #ifdef ZIPDLL
   /* The DLL requires all structure elements to be specific sizes, in
-     this case file size MUST be 64-bit.  There is no size checking of
+     this case file size MUST be 64-bit to ensure the caller knows what
+     size it will be.  There is no size checking of
      structure elements when the DLL is called.  For the LIB there is
      size checking at compile time so we can be more accomodating of
      ports without 64-bit variables (like VMS).  As long as a LIB user
@@ -7323,11 +7355,11 @@ char **argv;            /* command line tokens */
           break;
         case o_EA:
           ZIPERR(ZE_PARMS, "-EA (extended attributes) not yet implemented");
-#if defined(IZ_CRYPT_TRAD) && defined(ETWODD_SUPPORT)
+#ifdef ETWODD_SUPPORT
         case o_et:      /* Encrypt Traditional without data descriptor. */
           etwodd = 1;
           break;
-#endif /* defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT) */
+#endif
         case 'F':   /* fix the zip file */
 #if defined(ZIPLIB) || defined(ZIPDLL)
           ZIPERR(ZE_PARMS, "-F not yet supported for LIB or DLL");
@@ -8723,7 +8755,7 @@ char **argv;            /* command line tokens */
       free(current_dirw);
     }
 
-# else
+# else /* not UNICODE_SUPPORT_WIN32 */
     /* save startup dir */
     if (startup_dir)
       free(startup_dir);
@@ -8753,7 +8785,7 @@ char **argv;            /* command line tokens */
       zipmessage(errbuf, "");
       free(current_dir);
     }
-# endif /* UNICODE_SUPPORT_WIN32 */
+# endif /* def UNICODE_SUPPORT_WIN32 else */
 
   }
 #endif /* CHANGE_DIRECTORY */
@@ -9216,7 +9248,7 @@ char **argv;            /* command line tokens */
 # endif /* defined( IZ_CRYPT_AES_WG) || defined( IZ_CRYPT_AES_WG_NEW) */
 
   /* ----------------- */
-  if (key_needed && noisy) {
+  if (noisy) {
     if (encryption_method == TRADITIONAL_ENCRYPTION) {
       zipmessage("Using traditional (weak ZipCrypto) zip encryption", "");
     } else if (encryption_method == AES_128_ENCRYPTION) {
@@ -10171,7 +10203,7 @@ char **argv;            /* command line tokens */
       }
       for (; filelist; ) {
         no_wild = filelist->verbatim;
-#if defined( IZ_CRYPT_TRAD) && defined( ETWODD_SUPPORT)
+#ifdef ETWODD_SUPPORT
         if (etwodd && strcmp(filelist->name, "-") == 0) {
           ZIPERR(ZE_PARMS, "can't use -et (--etwodd) with input from stdin");
         }
@@ -10218,12 +10250,12 @@ char **argv;            /* command line tokens */
     aes_rnp.entropy = entropy_fun;
     prng_init(aes_rnp.entropy, &aes_rnp);
     /* and the salt */
-#if 0
+# if 0
     if ((zsalt = malloc(32)) == NULL) {
       ZIPERR(ZE_MEM, "Getting memory for salt");
     }
     prng_rand(zsalt, SALT_LENGTH(1), &aes_rnp);
-#endif
+# endif
 
     /* We now allow using a "fake" salt for debugging purposes (ONLY). */
     salt_len = SALT_LENGTH(encryption_method - (AES_MIN_ENCRYPTION - 1));
@@ -10249,7 +10281,7 @@ char **argv;            /* command line tokens */
       */
     }
   }
-#endif
+#endif /* def IZ_CRYPT_AES_WG */
 
 #ifdef IZ_CRYPT_AES_WG_NEW
   if (encryption_method >= AES_MIN_ENCRYPTION) {
@@ -10789,6 +10821,11 @@ char **argv;            /* command line tokens */
   } /* test */
 #endif
 
+  /* Default initialization of method string.  This is set in zipup(). */
+  strcpy(method_string, "");
+
+  /* Default initialization of info string. */
+  strcpy(info_string, "");
 
   if (show_files) {
     uzoff_t count = 0;
@@ -10891,6 +10928,8 @@ char **argv;            /* command line tokens */
                                              z->len,
                                              z->siz,
                                              action_string,
+                                             method_string,
+                                             info_string,
                                              perc))
             ZIPERR(ZE_ABORT, "User terminated operation");
         }
@@ -11348,6 +11387,8 @@ char **argv;            /* command line tokens */
                                            f->usize,
                                            0,
                                            action_string,
+                                           method_string,
+                                           info_string,
                                            perc))
           ZIPERR(ZE_ABORT, "User terminated operation");
       }
@@ -12031,6 +12072,8 @@ char **argv;            /* command line tokens */
                                              z->len,
                                              z->siz,
                                              action_string,
+                                             method_string,
+                                             info_string,
                                              perc))
             ZIPERR(ZE_ABORT, "User terminated operation");
         }
@@ -12146,6 +12189,8 @@ char **argv;            /* command line tokens */
                                              z->siz,
                                              z->len,
                                              action_string,
+                                             method_string,
+                                             info_string,
                                              perc))
             ZIPERR(ZE_ABORT, "User terminated operation");
         }
@@ -12354,6 +12399,8 @@ char **argv;            /* command line tokens */
                                              z->siz,
                                              z->len,
                                              action_string,
+                                             method_string,
+                                             info_string,
                                              perc))
             ZIPERR(ZE_ABORT, "User terminated operation");
         }
@@ -12464,6 +12511,8 @@ char **argv;            /* command line tokens */
                                              z->siz,
                                              z->len,
                                              action_string,
+                                             method_string,
+                                             info_string,
                                              perc))
             ZIPERR(ZE_ABORT, "User terminated operation");
         }
@@ -12498,6 +12547,7 @@ char **argv;            /* command line tokens */
    each other, the Aztec Amiga compiler never sees the second endif!  WTF?? PK */
 #endif /* ZIP_DLL_LIB */
         /* ------------------------------------------- */
+
 
         v = z->nxt;                     /* delete entry from list */
         free((zvoid *)(z->iname));
@@ -12856,6 +12906,8 @@ char **argv;            /* command line tokens */
                                            z->len,
                                            z->siz,
                                            action_string,
+                                           method_string,
+                                           info_string,
                                            perc))
           ZIPERR(ZE_ABORT, "User terminated operation");
       }
@@ -13178,8 +13230,7 @@ char **argv;            /* command line tokens */
      * Convert a read-terminating "\n" character to "\r\n".
      * (If too long, truncate at maximum allowed length (and complain)?)
      */
-    /* Keep old comment until got new one.  Should be a way to display the
-       old comment and keep it.  */
+    /* Keep old comment until got new one. */
     new_zcomment = NULL;
     new_zcomlen = 0;
     while (1)
@@ -13211,40 +13262,25 @@ char **argv;            /* command line tokens */
       /* Read up to (MAXCOMLINE + 1) characters.  Quit if none available. */
       if (fgets((new_zcomment + new_zcomlen), (MAXCOMLINE + 1), comment_stream) == NULL)
       {
-        if (new_zcomlen == 0)
-
-/* SMSd. */
-#if 0
+        if (comment_from_tty && new_zcomlen == 0)
           keep_current = 1;
-#endif
-          keep_current = (zcomlen > 0);
-
         break;
       }
 
       new_read = (int)strlen(new_zcomment + new_zcomlen);
+      
+      if (comment_from_tty) {
+        /* If the first line is empty or just a newline, keep current comment */
+        if (new_zcomlen == 0 &&
+            (new_read == 0 || strcmp((new_zcomment), "\n") == 0))
+        {
+          keep_current = 1;
+          break;
+        }
+      } /* comment_from_tty */
 
-/* SMSd. */
-#if 0
-fprintf( stderr, " new_zcomlen = %d, new_read = %d.\n",
- new_zcomlen, new_read);
-
-fprintf( stderr, " >%s<\n", (new_zcomment + new_zcomlen));
-
-      /* If the first line is empty or just a newline, keep current comment */
-      if (new_zcomlen == 0 &&
-          (new_read == 0 || strcmp((new_zcomment), "\n") == 0))
-      {
-        keep_current = 1;
-
-/* SMSd. */
-fprintf( stderr, " keep_current = 1.\n");
-
-        break;
-      }
-#endif /* 0 */
-
-      /* Detect ".\n" comment terminator in new line read.  Quit, if found. */
+      /* Detect ".\n" comment terminator in new line read.  Quit, if found.
+         For backward compatibility, allow this with stdin. */
       if (new_zcomlen &&
           (new_read == 0 || strcmp((new_zcomment + new_zcomlen), ".\n") == 0))
         break;
@@ -13257,7 +13293,8 @@ fprintf( stderr, " keep_current = 1.\n");
       { /* Have terminating "\n". */
         if ((new_zcomlen <= 1) || (*(new_zcomment + new_zcomlen - 2) != '\r'))
         {
-          /* either lone "\n" or "\n" is not already preceded by "\r", so insert "\r". */
+          /* either lone "\n" or "\n" is not already preceded by "\r",
+             so insert "\r". */
           *(new_zcomment + new_zcomlen - 1) = '\r';
           new_zcomlen++;
           *(new_zcomment + new_zcomlen - 1) = '\n';
@@ -13318,14 +13355,8 @@ fprintf( stderr, " keep_current = 1.\n");
         *(zcomment + zcomlen) = '\0';
       }
     }
-
-/* SMSd. */
-#if 0
-fprintf( stderr, " zcomment = %08x .\n", zcomment);
-#endif /* 0 */
-
     if (noisy)
-      if (!comment_from_tty) {
+      if (zcomment && !comment_from_tty) {
         /* Display what we read from stdin. */
           fprintf(mesg, "%s", zcomment);
           if (zcomment[zcomlen-1] != '\n') {

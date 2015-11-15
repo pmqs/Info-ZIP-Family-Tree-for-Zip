@@ -22,9 +22,16 @@ be interpreted as unsigned (non-negative) numbers.
 
 Christian Spieler, 20010517
 
+----
+
 Updated to include the Unicode extra fields.  Added new Unix extra field.
 
-Ed Gordon, 20060819, 20070607, 20070909, 20080426, 20080509
+Added new proposed Extended Local File Header (Stream) extra field.
+
+Added Placeholder extra field.
+
+Ed Gordon, 20060819, 20070607, 20070909, 20080426, 20080509, 20140416,
+20150605
 
                         -------------------------
 
@@ -1337,7 +1344,7 @@ The following are detailed descriptions of the known extra-field block types:
 
 
          -Info-ZIP New Unix Extra Field:
-          ====================================
+          =============================
 
           Currently stores Unix UIDs/GIDs up to 32 bits.
           (Last Revision 20080509)
@@ -1370,3 +1377,154 @@ The following are detailed descriptions of the known extra-field block types:
           If both the old 16-bit Unix extra field (tag 0x7855, Info-ZIP Unix)
           and this extra field are present, the values in this extra field
           supercede the values in that extra field.
+
+
+
+         -Extended Local File Header Extra Field:
+          ======================================
+
+          The following is the layout of the extended local file header
+          extra field, otherwise known as the "streaming extra field."
+          This extra field allows information to be included in the local
+          file header that could previously only be stored in the central
+          directory.  The purpose of this extra field is to allow full
+          extraction of entries from an archive being streamed in without
+          waiting for information from the central directory farther down
+          the stream.
+
+          Note: all fields stored in Intel low-byte/high-byte order.
+
+          Value           Size       Description
+          -----           ----       -----------
+ (Stream) 0x6C78          2 bytes    Tag for this extra block type ("xl")
+          Size            2 bytes    Data size for this block
+          Bitmap          m bytes    Determines which fields below this
+                                     point are included
+          Version Made By 2 bytes    As in Central Directory File Header
+          Int File Attrs  2 bytes    As in Central Directory File Header
+          Ext File Attrs  4 bytes    As in Central Directory File Header
+
+          This extra block is used to include information in the local file
+          header that previously has only been included in fields in the
+          central directory file header for this entry.  This extra field
+          is intended for use only in the local header, not the central
+          directory.
+
+          The information in this local extra field must match the information
+          in the central directory header for this entry, or this extra field
+          should be considered invalid.  The purpose of this local extra field
+          is to provide in the local header a copy of central directory
+          information required for the proper extraction of entries so that
+          entries can be extracted as they appear in the stream.
+
+          If this streaming extra field is present in the central directory
+          header, the information must match the information already in the
+          central directory header as well as information in the local header
+          streaming extra field, if present.
+
+
+          The bitmap identifies which fields actually appear in this block.
+          Fields always appear in the exact order listed in the bitmap,
+          starting from byte zero/bit zero.  If fields are added to this extra
+          block in the future, they will appear at the location (in the order)
+          indicated by the respective bit in the bitmap.  A 1 at a bit position
+          in the bitmap indicates presence of the corresponding field block,
+          while a 0 indicates the field block is absent.  This allows for
+          removing obsolete fields in the future.  A map bit may map to
+          multiple fields, where a 1 means those fields are present.  The size
+          of each field block must be determined, either as a fixed size field
+          or by including a length count at the start of the field block.
+
+          The bitmap consists of as many bytes as needed to define the
+          contents of this extra block.  For each byte in the bitmap, bit 7 is
+          1 if and only if there is a following byte in the bitmap.  Bit 7
+          will be 0 in the last byte of the bitmap.  Currently only one map
+          byte is used, so bit 7 of that byte is 0.  Bitmap bytes are stored
+          in order, starting with Byte 0 immediately following Size.  For
+          example, for a three byte BitMap:
+
+            +--+--+--+--+--+--+--+--+
+            |  Tag                  |
+            +--+--+--+--+--+--+--+--+
+            |  Tag                  |
+            +--+--+--+--+--+--+--+--+
+            |  Size                 |
+            +--+--+--+--+--+--+--+--+
+            |  Size                 |
+            +--+--+--+--+--+--+--+--+
+            Bitmap (showing locations of bit numbers 0, 1, and 2):
+            +--+--+--+--+--+--+--+--+
+            | 1|  |  |  |  | 2| 1| 0|  Byte 0
+            +--+--+--+--+--+--+--+--+
+            | 1|  |  |  |  |  |  |  |  Byte 1
+            +--+--+--+--+--+--+--+--+
+            | 0|  |  |  |  |  |  |  |  Byte 2
+            +--+--+--+--+--+--+--+--+
+              ^
+              |
+              +-------- Bit 7
+
+            +--+--+--+--+--+--+--+--+
+            |  Version Made By      |
+            +--+--+--+--+--+--+--+--+
+            ...
+
+          The current field blocks and bitmap mappings are shown below.
+          (MB = Map Byte (numbered starting from 0), BN = Bit Number,
+          MV = Mask Value and FBS = Field Block Size = number of bytes in
+          this field block when present.)  Currently only one byte is
+          needed for the Bitmap.  This one byte map consists of the
+          following bits ORed together:
+
+            MB  BN   MV  FBS Description
+            --  --   --  --- ------------
+             0   0    1   2  "version made by" field is included
+             0   1    2   2  "internal file attributes" field is included
+             0   2    4   4  "external file attributes" field is included
+
+          The bitmap to include all these fields would be the one byte (bit 0
+          on the right):
+
+            00000111
+
+          A user of this extra block should verify that this is a correctly
+          formatted block by summing the expected sizes (FBS) of each present
+          field block, adding to this the size of the bitmap in bytes, and
+          comparing to Size.  If they do not match, this extra block should
+          not be used.
+
+
+
+         -Info-ZIP Placeholder Extra Field:
+          ================================
+
+          This extra field holds no data.  It is only used to reserve space
+          in the local header extra field block for possible use by another
+          extra field.  Currently this is only used to reserve space for the
+          Zip64 local extra field.  No data should ever be stored in this
+          extra field and it should always be ignored.
+          (Last Revision 20150605)
+
+          Value         Size        Description
+          -----         ----        -----------
+  (PHold) 0x4850        Short       tag for this extra block type ("PH")
+          TSize         Short       total data size for this block
+          Data          Variable    see below
+
+          The size of this extra field is selected to match the size of the
+          extra field it is reserving space for.  The purpose of this extra
+          field is to reserve space in the extra field block so that another
+          extra field can use the space later.
+
+          The main use currently is to reserve space for the Zip64 local
+          header extra field when the size of the input data is not known
+          (for instance, when the input is a stream).  If, once the data is
+          read, Zip64 is needed, this Placeholder extra field can be replaced
+          by the Zip64 local extra field.  If not, the Placeholder remains
+          and should be ignored.  This allows rewriting the local header
+          after data is read without it changing size.
+
+          Though the contents of this extra field should never be used and so
+          does not need to be specified, it is recommended that the Data field
+          be written with all zero (character code 0x00) bytes.
+

@@ -1,9 +1,9 @@
 /*
   trees.h - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -343,7 +343,11 @@ local uzoff_t input_len;        /* total byte length of input file */
 /* input_len is for debugging only since we can get it by other means. */
 #endif
 
-local ush *file_type;       /* pointer to UNKNOWN, BINARY or ASCII */
+local ush *file_type;       /* pointer to file type attribute:
+                                 FT_UNKNOWN
+                                 FT_BINARY
+                                 FT_ASCII_TXT
+                                 FT_EBCDIC_TXT */
 local int *file_method;     /* pointer to DEFLATE or STORE */
 
 /* ===========================================================================
@@ -450,7 +454,7 @@ local void copy_block     OF((char *buf, unsigned len, int header));
 
 #else /* DEBUG */
 #  define send_code(c, tree) \
-     { if (verbose>1) fprintf(mesg,"\ncd %3d ",(c)); \
+     { if (verbose>1) zfprintf(mesg,"\ncd %3d ",(c)); \
        send_bits(tree[c].Code, tree[c].Len); }
 #endif
 
@@ -822,7 +826,7 @@ local void build_tree(desc)
         tree[n].Dad = tree[m].Dad = (ush)node;
 #ifdef DUMP_BL_TREE
         if (tree == bl_tree) {
-            fprintf(mesg,"\nnode %d(%d), sons %d(%d) %d(%d)",
+            zfprintf(mesg,"\nnode %d(%d), sons %d(%d) %d(%d)",
                     node, tree[node].Freq, n, tree[n].Freq, m, tree[m].Freq);
         }
 #endif
@@ -1022,7 +1026,7 @@ uzoff_t flush_block(buf, stored_len, eof)
     flag_buf[last_flags] = flags; /* Save the flags for the last 8 items */
 
      /* Check if the file is ascii or binary */
-    if (*file_type == (ush)UNKNOWN) set_file_type();
+    if (*file_type == (ush)FT_UNKNOWN) set_file_type();
 
     /* Construct the literal and distance trees */
     build_tree((tree_desc near *)(&l_desc));
@@ -1063,7 +1067,7 @@ uzoff_t flush_block(buf, stored_len, eof)
 #else
     if (stored_len <= opt_lenb && eof && file_method != NULL &&
         cmpr_bytelen == (uzoff_t)0 && cmpr_len_bits == 0L &&
-        seekable() && !use_descriptors) {
+        seekable(y) && !use_descriptors) {
 #endif
         /* Since LIT_BUFSIZE <= 2*WSIZE, the input data must be there: */
         if (buf == NULL) error ("block vanished");
@@ -1260,6 +1264,8 @@ local void compress_block(ltree, dtree)
  * the file will be flagged as BINARY in the archive.
  *
  * IN assertion: the fields freq of dyn_ltree are set.
+ *
+ * Need to handle UTF-8 and EBCDIC text.
  */
 local void set_file_type()
 {
@@ -1275,12 +1281,12 @@ local void set_file_type()
     for (n = 0; n <= 31; n++, mask >>= 1)
         if ((mask & 1) && (dyn_ltree[n].Freq != 0))
         {
-            *file_type = BINARY;
+            *file_type = FT_BINARY;
             return;
         }
 
     /* Check for textual ("white-listed") bytes. */
-    *file_type = ASCII;
+    *file_type = FT_ASCII_TXT;
     if (dyn_ltree[9].Freq != 0 || dyn_ltree[10].Freq != 0
             || dyn_ltree[13].Freq != 0)
         return;
@@ -1291,7 +1297,7 @@ local void set_file_type()
     /* This deflate stream is either empty, or
      * it has tolerated ("gray-listed") bytes only.
      */
-    *file_type = BINARY;
+    *file_type = FT_BINARY;
 }
 
 
