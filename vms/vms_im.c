@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2014 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2016 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -129,6 +129,8 @@ int set_extra_field(z, z_utim)
     if (!vms_native)
     {
 #ifdef USE_EF_UT_TIME
+      if (!no_universal_time)
+      {
        /*
         *  A `portable' zipfile entry is created. Create an "UT" extra block
         *  containing UNIX style modification time stamp in UTC, which helps
@@ -166,12 +168,13 @@ int set_extra_field(z, z_utim)
         z->cext = z->ext = (EB_HEADSIZE+ EB_UT_LEN( 1));
         z->extra = (char *) xtra;
         z->cextra = (char *) cxtra;
-
+      }
 #endif /* USE_EF_UT_TIME */
 
         return RET_SUCCESS;
     }
 
+    /* else, vms_native */
     /*
      *  Initialize RMS control blocks and link them
      */
