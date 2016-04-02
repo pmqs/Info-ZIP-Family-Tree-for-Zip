@@ -1,7 +1,7 @@
       INSTALL_VMS.txt -- Zip Installation Supplement for VMS (OpenVMS)
       ================================================================
 
-   Zip version 3.1.  Revised: 2015-06-10.
+   Zip version 3.1.  Revised: 2016-04-01.
 
 ------------------------------------------------------------------------
 
@@ -263,7 +263,7 @@ line.  For example:
 
    The code used to implement AES_WG encryption is generally written to
 newer C language standards than the base Info-ZIP code, so some very old
-compilers may be unable to build UnZip if this feature is enabled.
+compilers may be unable to build Zip if this feature is enabled.
 
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
