@@ -2,10 +2,10 @@ $! BUILD_ZIP.COM
 $!
 $!     Zip 3.1 for VMS -- DCL Build procedure.
 $!
-$!     Last revised:  2015-02-17  SMS.
+$!     Last revised:  2016-04-22  SMS.
 $!
 $!----------------------------------------------------------------------
-$! Copyright (c) 2004-2015 Info-ZIP.  All rights reserved.
+$! Copyright (c) 2004-2016 Info-ZIP.  All rights reserved.
 $!
 $! See the accompanying file LICENSE, version 2009-Jan-2 or later (the
 $! contents of which are also included in zip.h) for terms of use.  If,
@@ -21,9 +21,6 @@ $!     - Suppress message file processing: "NOMSG"
 $!     - Define DCL symbols: "SYMBOLS"  (Was default before Zip 3.1.)
 $!     - Select compiler environment: "VAXC", "DECC", "GNUC"
 $!     - Disable AES_WG encryption support: "NOAES_WG"
-$!       By default, the SFX programs are built without AES_WG support.
-$!       Add "CRYPT_AES_WG_SFX=1" to the LOCAL_ZIP C macros to enable
-$!       it.  (See LOCAL_ZIP, below.)
 $!     - Direct bzip2 support: "IZ_BZIP2=dev:[dir]"
 $!       Disable bzip2 support: "NOIZ_BZIP2"
 $!       By default, bzip2 support is enabled, and uses the bzip2 source
@@ -33,22 +30,14 @@ $!       ("dev:[dir]", or a suitable logical name) to use the bzip2
 $!       header file and object library found there.  The bzip2 object
 $!       library (LIBBZ2_NS.OLB) is expected to be in a simple "[.dest]"
 $!       directory under that one ("dev:[dir.ALPHAL]", for example), or
-$!       in that directory itself.)  By default, the SFX programs are
-$!       built without bzip2 support.  Add "BZIP2_SFX=1" to the
-$!       LOCAL_ZIP C macros to enable it.  (See LOCAL_ZIP, below.)
+$!       in that directory itself.)
 $!     - Use ZLIB compression library: "IZ_ZLIB=dev:[dir]", where
 $!       "dev:[dir]" (or a suitable logical name) tells where to find
 $!       "zlib.h".  The ZLIB object library (LIBZ.OLB) is expected to be
 $!       in a "[.dest]" directory under that one ("dev:[dir.ALPHAL]",
 $!       for example), or in that directory itself.
 $!     - Disable LZMA compression support: "NOLZMA"
-$!       By default, the SFX programs are built without LZMA support.
-$!       Add "LZMA_SFX=1" to the LOCAL_ZIP C macros to enable it.
-$!       (See LOCAL_ZIP, below.)
 $!     - Disable PPMd compression support: "NOPPMD"
-$!       By default, the SFX programs are built without PPMd support.
-$!       Add "PPMD_SFX=1" to the LOCAL_ZIP C macros to enable it.
-$!       (See LOCAL_ZIP, below.)
 $!     - Enable large-file (>2GB) support: "LARGE"
 $!       Disable large-file (>2GB) support: "NOLARGE"
 $!       Large-file support is always disabled on VAX.  It is enabled by
@@ -101,16 +90,16 @@ $!     example:
 $!             $ LOCAL_ZIP = "VMS_IM_EXTRA"
 $!
 $!     Note that on a Unix system, LOCAL_ZIP contains compiler
-$!     options, such as "-g" or "-DCRYPT_AES_WG_SFX", but on a VMS
-$!     system, LOCAL_ZIP contains only C macros, such as
-$!     "CRYPT_AES_WG_SFX", and CCOPTS is used for any other kinds of
-$!     compiler options, such as "/ARCHITECTURE".  Unix compilers accept
-$!     multiple "-D" options, but VMS compilers consider only the last
-$!     /DEFINE qualifier, so the C macros must be handled differently
-$!     from other compiler options on VMS.  Thus, when using the generic
-$!     installation instructions as a guide for controlling various
-$!     optional features, some adjustment may be needed to adapt them to
-$!     a VMS build environment.
+$!     options, such as "-g" or "-DNO_CRYPT", but on a VMS system,
+$!     LOCAL_ZIP contains only C macros, such as "NO_CRYPT", and CCOPTS
+$!     is used for any other kinds of compiler options, such as
+$!     "/ARCHITECTURE".  Unix compilers accept multiple "-D" options,
+$!     but VMS compilers consider only the last /DEFINE qualifier, so
+$!     the C macros must be handled differently from other compiler
+$!     options on VMS.  Thus, when using the generic installation
+$!     instructions as a guide for controlling various optional
+$!     features, some adjustment may be needed to adapt them to a VMS
+$!     build environment.
 $!
 $!     This command procedure always generates both the "default" Zip
 $!     program with the UNIX style command interface and the "VMSCLI"
@@ -125,10 +114,10 @@ $! directory above where this procedure is situated (which had better be
 $! the main distribution directory).
 $!
 $ here = f$environment( "default")
-$ here = f$parse( here, , , "device")+ f$parse( here, , , "directory")
+$ here = "SYS$DISK:"+ f$parse( here, , , "directory")
 $!
 $ proc = f$environment( "procedure")
-$ proc_dir = f$parse( proc, , , "device")+ f$parse( proc, , , "directory")
+$ proc_dir = "SYS$DISK:"+ f$parse( proc, , , "directory")
 $ set default 'proc_dir'
 $ set default [-]
 $!
@@ -136,7 +125,8 @@ $ on error then goto error
 $ on control_y then goto error
 $ OLD_VERIFY = f$verify( 0)
 $!
-$ edit := edit                  ! override customized edit commands
+$ arch = ""                     ! Prepare for early abort.
+$ edit := edit                  ! Override customized edit commands.
 $ say := write sys$output
 $!
 $! Get LOCAL_ZIP symbol options.
@@ -429,23 +419,13 @@ $ endif
 $!
 $! Build.
 $!
-$! Sense the host architecture (Alpha, Itanium, or VAX).
+$! Sense the host architecture (Alpha, Itanium, VAX, or other).
 $!
 $ if (f$getsyi( "HW_MODEL") .lt. 1024)
 $ then
 $     arch = "VAX"
 $ else
-$     if (f$getsyi( "ARCH_TYPE") .eq. 2)
-$     then
-$         arch = "ALPHA"
-$     else
-$         if (f$getsyi( "ARCH_TYPE") .eq. 3)
-$         then
-$             arch = "IA64"
-$         else
-$             arch = "unknown_arch"
-$         endif
-$     endif
+$     arch = f$edit( f$getsyi( "ARCH_NAME"), "UPCASE")
 $ endif
 $!
 $ destl = ""
@@ -611,7 +591,7 @@ $ libzip_opt = "[.''dest']LIB_IZZIP.OPT"
 $!
 $! If DASHV was requested, then run "zip -v" (and exit).
 $!
-$ if (dashv)
+$ if (DASHV)
 $ then
 $     mcr [.'dest']zip -v
 $     goto error
@@ -619,7 +599,7 @@ $ endif
 $!
 $! If SLASHV was requested, then run "zip_cli /verbose" (and exit).
 $!
-$ if (slashv)
+$ if (SLASHV)
 $ then
 $     mcr [.'dest']zip_cli /verbose
 $     goto error
@@ -827,6 +807,23 @@ $!
 $ if (MAKE_HELP)
 $ then
 $!
+$! Ensure that [.vms] exists at the start of a search-list SYS$DISK.
+$! (Used for VMS_ZIP.RNH copy here, and ZIP_CLI.HELP below.)
+$!
+$     vms_dest_dir = f$parse( "SYS$DISK:", , , "device") + "[]vms.dir"
+$     if (f$search( vms_dest_dir) .eqs "")
+$     then
+$         create /directory /log [.vms]
+$     endif
+$!
+$! Accommodate an ODS2+NFS encoded ".RNH" source file name.
+$!
+$     if ((f$search( "[.VMS]VMS_ZIP.RNH") .eqs. "") .and. -
+       (f$search( "[.VMS]$VMS_ZIP.RNH") .nes. ""))
+$     then
+$         copy [.VMS]$VMS_ZIP.RNH SYS$DISK:[.VMS]VMS_ZIP.RNH
+$     endif
+$!
 $! Process the Unix-style help file.
 $!
 $     runoff /out = ZIP.HLP [.VMS]VMS_ZIP.RNH
@@ -933,10 +930,9 @@ $! Create the callable library link options file, if needed.
 $!
 $     if (LIBZIP .ne. 0)
 $     then
-$         def_dev_dir_orig = f$environment( "default")
 $         set default [.'dest']
 $         def_dev_dir = f$environment( "default")
-$         set default 'def_dev_dir_orig'
+$         set default [-]
 $         create /fdl = [.VMS]STREAM_LF.FDL 'libzip_opt'
 $         open /append opt_file_lib 'libzip_opt'
 $         write opt_file_lib "! DEFINE LIB_IZZIP ''def_dev_dir'"
@@ -1056,7 +1052,8 @@ $!
 $! Process the CLI help file.
 $!
 $     set default [.VMS]
-$     edit /tpu /nosection /nodisplay /command = cvthelp.tpu zip_cli.help
+$     edit /tpu /nosection /nodisplay /command = cvthelp.tpu -
+       'f$search( "ZIP_CLI.HELP")' /output = SYS$DISK:[]
 $     set default [-]
 $     runoff /output = ZIP_CLI.HLP [.VMS]ZIP_CLI.RNH
 $!
