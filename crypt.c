@@ -294,7 +294,7 @@ unsigned int zfwrite(buf, item_size, nb)
       if (encryption_method >= AES_MIN_ENCRYPTION)
       {
         /* assume all items are bytes */
-        fcrypt_encrypt(buf, item_size * nb, &zctx);
+        fcrypt_encrypt(buf, (unsigned int)(item_size * nb), &zctx);
       }
       else
       {
@@ -481,6 +481,9 @@ int ef_scan_for_aes( ef_buf, ef_len, vers, vend, mode, mthd)
  * catch underflow of ef_len caused by corrupt/malicious data.  (32-bit
  * is adequate.  Used "long" to accommodate any systems with 16-bit
  * "int".)  Made function static.
+ *
+ * 2017-06-22 SMS.  (VS 2017 complaints.)
+ * Changed long types to size_t.  (Assume size_t >= 32 bits.)
  */
 
 local int ef_strip_aes( ef_buf, ef_len)
@@ -489,10 +492,10 @@ local int ef_strip_aes( ef_buf, ef_len)
 {
     int ret = -1;               /* Return value. */
     unsigned eb_id;             /* Extra block ID. */
-    long eb_len;                /* Extra block length. */
+    size_t eb_len;              /* Extra block length. */
     uch *eb_aes;                /* Start of AES block. */
     uch *ef_buf_d;              /* Sliding extra field pointer. */
-    long ef_len_d;              /* Remaining extra field length. */
+    size_t ef_len_d;            /* Remaining extra field length. */
 
 /*---------------------------------------------------------------------------
     This function strips an EF_AES_WG block from an extra field.
@@ -547,8 +550,8 @@ local int ef_strip_aes( ef_buf, ef_len)
          * Note: memmove() is supposed to be overlap-safe.
          */
         eb_len += EB_HEADSIZE;  /* Total block size (header+data). */
-        ret = ef_len- eb_len;   /* New (reduced) extra field size. */
-        ef_len_d = ef_buf+ ef_len- eb_aes- eb_len;      /* Move size. */
+        ret = (int)(ef_len- eb_len);    /* New (reduced) extra field size. */
+        ef_len_d = (ef_buf+ ef_len- eb_aes- eb_len);    /* Move size. */
 
         if (ef_len_d > 0)
         {
@@ -972,7 +975,7 @@ int zipbare(z, passwd)
             n = fread(buf, 1, nn, in_file);
             if (n == nn)
             {
-                fcrypt_decrypt(buf, n, &zctx);
+                fcrypt_decrypt(buf, (unsigned int)n, &zctx);
                 n = IZ_MIN(n, (size_t)(z->siz - nout));
                 bfwrite(buf, 1, n, BFWRITE_DATA);
                 if (vers == 2) {

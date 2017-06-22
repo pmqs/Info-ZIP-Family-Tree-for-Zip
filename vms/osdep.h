@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2017 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -37,24 +37,10 @@
 #define PROGRESS_DOTS_PER_FLUSH 64
 
 
-#if 0
-/* 2015-07-31 SMS.
- * "long long" type.
- */
-#ifdef __VAX
-# define Z_LONGLONG long
-# define UZ_LONGLONG unsigned long
-#else
-# define HAVE_LONG_LONG
-# define Z_LONGLONG long long
-# define UZ_LONGLONG unsigned long long
-#endif
-
 #ifdef __VAX
 # define API_FILESIZE_T unsigned long
 #else
 # define API_FILESIZE_T unsigned long long
-#endif
 #endif
 
 

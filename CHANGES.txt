@@ -1,0 +1,33 @@
+ 1. Changed the VMS-specific installation instructions to reflect the
+    inclusion of the AES_WG source files in the kit.  Changed the main
+    VMS MMS/MMK builder accordingly, to enable AES_WG support by
+    default.  (vms/INSTALL_VMS.txt, vms/descrip_src.mms) [SMS]
+ 2. Cleared some build problems for pre-ANSI C compilers (C macro:
+    NO_PROTO) and some others for newer, stricter compilers.  Note:
+    api.c and api.h (and, hence, the Zip object library) still require
+    function prototypes, so they currently can't be built with NO_PROTO.
+    (fileio.c, izzip_example.c, zip.c, zip.h,zipfile.c) [SMS]
+ 3. Replaced some lost commas in the extended help text. (zip.c) [SMS]
+ 4. In the VMS CLI, /ADJUST_OFFSETS was translated as "-u" instead of
+    "-A".  (vms/cmdline.c) [SMS]
+ 5. Added "none" value to --corrupt-crcs.  Made -dt/--display-time
+    negatable.  (zip.c) [SMS] 
+ 6. Added VMS CLI qualifiers: /[NO]ADSORT (-ad), /BINARY_CHECK = { FULL
+    | [NORMAL] } (-BF), /[NO]CORRUPT_CRCS (--corrupt-crcs), /DISPLAY =
+    ([NO]ETR, [NO]RATE, [NO]TIME) (-de. -dr, -dt), /DIFFERENCE
+    [= EXCLUDE = list] (-DI), /ENCRYPT = ([NO]DESCRIPTOR, KEYFILE =
+    file) (-et, -kf), /[NO]PRINT0 (-p0), /PATTERN = (CASE = { BLIND | 
+    SENSITIVE }, [NO]REGEX) (-ic, -RE), /SHOW = FILE = ([NO]ASCII,
+    [NO]COMMENT, [NO]UNICODE, [NO]USIZE) (-sF, -su, -sU), /STDIN_NAME
+    (-SI), /[NO]SCAN_FILES (-SS), /TEST = ( [NO]PASSWORD, [NO]VERBOSE )
+    (-pu), /TIME = [NO]UNIVERSAL (-tn).  (vms/cmdline.c,
+    vms/zip_cli.cld) [SMS]  Some expected changes to the Unix-style
+    options will require more work here.
+ 7. On VMS VAX, restored definition of API_FILESIZE_T as "unsigned long"
+    instead of (the unavailable) "unsigned long long".  Removed unused
+    typedefs for UZ_LONGLONG and Z_LONGLONG.  (vms/osdep.h) [SMS]
+ 8. Changed some variable types, and added type casts to clear some (VS
+    2017) compiler warnings involving AES_WG encryption on x64 (pointer
+    math, and using aes_wg/fileenc.c:fcrypt_encrypt()).  (crypt.c) [SMS]
+ 9. Changed a variable type to clear some (VS 2017) compiler warnings
+    (using wcslen()).  (zipup.c) [SMS]

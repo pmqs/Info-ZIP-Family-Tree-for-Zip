@@ -1,7 +1,7 @@
 /*
   zipup.c - Zip 3.1
 
-  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2016 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -242,7 +242,6 @@ local ftype ifile;              /* file to compress */
 local char l_str[ 4];
 local char *l_str_p;
 
-
 /* 2012-02-07 SMS.
  * Pulled these declarations out of bzip2- and zlib-specific blocks into
  * this once-for-all set.  Changed the type from char to unsigned char,
@@ -298,7 +297,6 @@ uzoff_t isize;               /* input file size. global only for debugging */
 local uzoff_t isize;         /* input file size. global only for debugging */
 #endif /* ?DEBUG */
 
-
 /* file_binary is set using initial buffer or buffers read and initial
    binary/text decision is made based on file_binary.  file_binary_final
    is set based on all buffers, and is updated as each buffer is read.
@@ -312,7 +310,7 @@ local int file_binary = 0;
 local int file_binary_final = 0;
 
 /* This is set when a text file is found to be binary and we are allowed
-   to restart the compression/store. */
+   to restart the compression/store operation for this file. */
 local int restart_as_binary = 0;
 
 /* open_for_append()
@@ -551,7 +549,8 @@ char *sufx_list;                /* list of filetypes separated by : or ; */
  * approach we use is to read the file once, calculating the CRC as we
  * go, and then store the CRC in a data descriptor at the end.  ETWODD
  * uses this function to calculate the CRC before the main file read and
- * encryption starts.
+ * encryption starts.  This extra step allows the actual CRC to be put
+ * in the header.
  */
 int zread_file( z, l)
 struct zlist far *z;    /* Zip entry being processed. */
@@ -697,10 +696,14 @@ struct zlist far *z;    /* zip entry to compress */
 
   is_fifo_to_skip = IS_ZFLAG_FIFO(z->zflags) && !allow_fifo;
 
+  /* start with global setting */
+  use_data_descriptor = use_descriptors;
+
   /* This is set when a text file is later found to contain binary and
      we are allowed to restart the compression/store.  Currently not
      supported if using descriptors (streaming) or output is split.
-     This just forces file_binary = 1 at first read. */
+     This just forces file_binary = 1 at first read when restart
+     compression/store. */
   restart_as_binary = 0;
 
   /* local variable may be updated later */
@@ -726,7 +729,7 @@ struct zlist far *z;    /* zip entry to compress */
 
   strcpy(method_string, "(unknown method)");
 
-#if defined(UNICODE_SUPPORT) && defined(WIN32)
+#ifdef UNICODE_SUPPORT_WIN32
   if ((!no_win32_wide) && (z->namew != NULL))
     tim = filetimew(z->namew, &a, &q, &f_utim);
   else
@@ -736,12 +739,56 @@ struct zlist far *z;    /* zip entry to compress */
 #endif
 
 
+  /* If --skip-scan, assume a dir without end / is still a dir to archive.  If
+     updating an archive, this could result in a file being overwritten.  As
+     --skip-scan does fewer checks, it's also possible that an existing entry
+     isn't recognized as a match for a file found on the file system and so
+     duplicate entries may result.  Therefore, --skip-scan is not allowed when
+     archive already has entries (only no archive or empty archive allowed). */
+  if (skip_file_scan) {
+    isdir = (a & MSDOS_DIR_ATTR) != 0;
+
+    if (isdir) {
+      /* make sure / at the end of directories */
+      size_t len;
+      char *new_iname;
+
+# ifdef UNICODE_SUPPORT_WIN32
+      /* windows wide name */
+      if ((!no_win32_wide) && (z->namew != NULL))
+      {
+        wchar_t *new_inamew;
+
+        len = wcslen(z->inamew);
+        if (len > 0 && z->inamew[len - 1] != L'/') {
+          /* dir without end /, so add it */
+          /* dup the string, adding 1 char of fluff at end for adding / */
+          new_inamew = string_dupw(z->inamew, "add / to dir", 1);
+          wcscat(new_inamew, L"/");
+          free(z->inamew);
+          z->inamew = new_inamew;
+        }
+      }
+# endif
+      len = strlen(z->iname);
+      if (len > 0 && z->iname[len - 1] != '/') {
+        /* dir without end /, so add it */
+        /* dup the string, adding 1 char (byte) of fluff at end for adding / */
+        new_iname = string_dup(z->iname, "add / to dir", 1);
+        strcat(new_iname, "/");
+        free(z->iname);
+        z->iname = new_iname;
+      }
+    }
+  } /* skip_file_scan */
+
+
 /* symlinks and mount point */
 #ifdef WINDOWS_SYMLINKS
   /* ---------------------------------------------------------- */
   /* Handle Windows symlinks, reparse points, and mount points. */
   /* Skip check if stdin */
-  if (strcmp(z->name, "-") != 0)  {
+  if (!z->is_stdin)  {
 
     /* WinDirObjectInfo() requires a wide path. */
     if (z->uname) {
@@ -812,6 +859,11 @@ struct zlist far *z;    /* zip entry to compress */
      support for other platforms coming soon. */
   mp = 0;
 #endif
+
+if (l) {
+  /* we will have the size so don't need to use a data descriptor */
+  use_data_descriptor = 0;
+}
 
 
 #ifdef UNIX_APPLE
@@ -1056,7 +1108,7 @@ struct zlist far *z;    /* zip entry to compress */
      input is streamed from stdin and we are copying entries.  This is
      now properly handled. */
 #ifdef NO_STREAMING_STORE
-  if (use_descriptors && m == STORE)
+  if (use_data_descriptor && m == STORE)
   {
       m = DEFLATE;
   }
@@ -1068,7 +1120,7 @@ struct zlist far *z;    /* zip entry to compress */
   /* If we are converting line ends or character set using -l, -ll or -a,
      and a file labeled as "text" using first buffers is later found to
      be "binary", we reset some things and jump back here to reprocess
-     the file as binary.  Output must be seekable (!use_descriptors) and
+     the file as binary.  Output must be seekable (!use_data_descriptor) and
      output can't be split archive.  Restarting when output is split is
      more work, but may be added soon. */
   saved_bytes_this_split = bytes_this_split;
@@ -1087,7 +1139,7 @@ Restart_As_Binary:
 #endif
 
   /* Open file to zip up unless it is stdin */
-  if (strcmp(z->name, "-") == 0)
+  if (z->is_stdin)
   {
     ifile = (ftype)zstdin;
 #if defined(MSDOS) || defined(__human68k__)
@@ -1097,7 +1149,7 @@ Restart_As_Binary:
     z->tim = tim;
   }
   else
-  {
+  { /* !z->is_stdin */
 #if !(defined(VMS) && defined(VMS_PK_EXTRA))
     if (extra_fields && !restart_as_binary) {
       /* create select extra fields and change z->att and z->atx if desired */
@@ -1125,7 +1177,7 @@ Restart_As_Binary:
       /* For now allow store for testing */
 #ifdef NO_STREAMING_STORE
       /* For now force deflation if using data descriptors. */
-      if (use_descriptors && (mthd == STORE))
+      if (use_data_descriptor && (mthd == STORE))
       {
         mthd = DEFLATE;
       }
@@ -1262,7 +1314,7 @@ Restart_As_Binary:
     }
 #endif /* MMAP || BIG_MEM */
 
-  } /* strcmp(z->name, "-") == 0 */
+  } /* !z->is_stdin */
 
   if (extra_fields == 2) {
     unsigned lenl, lenc;
@@ -1344,6 +1396,12 @@ Restart_As_Binary:
   /* Need PKUNZIP 2.0 except for store */
   z->ver = (ush)(mthd == STORE ? 10 : 20);
 
+
+  /* Using 63 and later may not make sense.  Either the unzip
+     can handle the compression method or it can't.  The
+     63 version doesn't clarify just what is needed to read
+     this entry and may prevent reading it when otherwise
+     the unzip can. */
 #if defined( LZMA_SUPPORT) || defined( PPMD_SUPPORT)
   if ((mthd == LZMA) || (mthd == PPMD))
       z->ver = (ush)(mthd == STORE ? 10 : 63);
@@ -1383,15 +1441,15 @@ Restart_As_Binary:
        open_for_append() returns 0.  Windows is handled elsewhere.  Other
        ports not implemented and open_for_append() always returns 0. */
     if (open_for_append(y)) {
-      use_descriptors = 1;
+      use_data_descriptor = 1;
     }
 
     /* If existing file is encrypted, need to keep data descriptor. */
     if (z->flg & 9) {
-      use_descriptors = 1;
+      use_data_descriptor = 1;
     }
 
-    if (use_descriptors)
+    if (use_data_descriptor)
     {
       z->flg |= 8;              /* Explicit request for extended header. */
     }
@@ -1415,7 +1473,7 @@ Restart_As_Binary:
       {
         /* If using traditional encryption with data descriptors, don't
             allow deflate to change method. */
-        use_descriptors = 1;
+        use_data_descriptor = 1;
       }
 
       if (have_crc == 0)      /* We want/need to use an extended header. */
@@ -1663,6 +1721,84 @@ Restart_As_Binary:
   }
 #endif
 
+
+  isize = 0L;
+  crc = CRCVAL_INITIAL;
+
+#ifdef SYMLINKS
+  if (l || mp) {
+    /* symlink or mount point */
+
+    if ((b = malloc(SBSZ)) == NULL)
+       return ZE_MEM;
+
+    k = rdsymlnk(z->name, b, SBSZ);
+    b[k] = '\0';
+
+    if (l) {
+      /* symlink */
+#ifdef WIN32
+      char *local_string = utf8_to_local_string(b);
+
+      sprintf(errbuf, " (symlink to:  \"%s\")", local_string);
+      free(local_string);
+#else
+      sprintf(errbuf, " (symlink to:  \"%s\")", b);
+#endif
+      zipmessage_nl(errbuf, 0);
+    } /* symlink */
+
+#ifdef WIN32
+    if (mp) {
+      /* mount point */
+      char *local_string = utf8_to_local_string(b);
+
+      size_t i;
+      size_t len = strlen(local_string);
+
+      for (i = 0; i < len; i++) {
+        if (local_string[i] == '\n')
+          break;
+      }
+
+      sprintf(errbuf, " (mount point to:  \"%s\")", local_string + i + 1);
+      free(local_string);
+      zipmessage_nl(errbuf, 0);
+    } /* mount point */
+#endif
+
+/*
+ * compute crc first because zfwrite will alter the buffer b points to !!
+ */
+    crc = crc32(crc, (uch *) b, k);
+    isize = k;
+
+    s = k;
+
+    /* set local header information */
+    z->len = (zoff_t)s;
+    z->siz = (zoff_t)s;
+    /* for now symlinks and mount points are always stored */
+    mthd = STORE;
+    z->how = (ush)mthd;
+    /* for now symlinks and mount points are never encrypted */
+    z->encrypt_method = NO_ENCRYPTION;
+    /* version needed to extract varies by type of symlink or
+       mount point, but since this feature is not supported by
+       the AppNote, there is no clear way to represent the UnZip
+       version needed using this.  So we go with PK Version 2.0
+       as UnZip started supporting symlinks about then. */
+    z->ver = 20;
+    z->crc = crc;
+
+#ifdef MINIX
+    q = k;
+#endif /* MINIX */
+
+  } /* symlink or mount point */
+#endif /* SYMLINKS */
+
+
   /* Update method as putlocal needs it.  z->how may be something like
       99 if AES encryption was used. */
   z->thresh_mthd = mthd;
@@ -1721,71 +1857,22 @@ Restart_As_Binary:
     ZIPERR(ZE_BIG, "seek wrap - zip file too big to write");
   }
 
+
   /* Write stored or deflated file to zip file */
-  isize = 0L;
-  crc = CRCVAL_INITIAL;
 
 #ifdef SYMLINKS
   if (l || mp) {
     /* symlink or mount point */
 
-    if ((b = malloc(SBSZ)) == NULL)
-       return ZE_MEM;
-
-    k = rdsymlnk(z->name, b, SBSZ);
-    b[k] = '\0';
-
-    if (l) {
-      /* symlink */
-#ifdef WIN32
-      char *local_string = utf8_to_local_string(b);
-
-      sprintf(errbuf, " (symlink to:  \"%s\")", local_string);
-      free(local_string);
-#else
-      sprintf(errbuf, " (symlink to:  \"%s\")", b);
-#endif
-      zipmessage_nl(errbuf, 0);
-    }
-
-#ifdef WIN32
-    if (mp) {
-      /* mount point */
-      char *local_string = utf8_to_local_string(b);
-
-      size_t i;
-      size_t len = strlen(local_string);
-
-      for (i = 0; i < len; i++) {
-        if (local_string[i] == '\n')
-          break;
-      }
-
-      sprintf(errbuf, " (mount point to:  \"%s\")", local_string + i + 1);
-      free(local_string);
-      zipmessage_nl(errbuf, 0);
-    }
-#endif
-
-/*
- * compute crc first because zfwrite will alter the buffer b points to !!
- */
-    crc = crc32(crc, (uch *) b, k);
+    /* write data after local header */
     if (zfwrite(b, 1, k) != k)
     {
       free((zvoid *)b);
       return ZE_TEMP;
     }
-    isize = k;
-
-    s = k;
-
-#ifdef MINIX
-    q = k;
-#endif /* MINIX */
-
-  } else
-#endif
+  }
+  else
+#endif /* SYMLINKS */
 
   if (isdir) {
 
@@ -1807,25 +1894,27 @@ Restart_As_Binary:
     /* ... is finally set in file compression routine */
 #ifdef BZIP2_SUPPORT
     if (mthd == BZIP2) {
+      /* bzip2 */
       s = bzfilecompress(z, &mthd);
     }
     else
 #endif /* BZIP2_SUPPORT */
 #ifdef LZMA_SUPPORT
     if (mthd == LZMA) {
-
+      /* lzma */
       s = lzma_filecompress(z, &mthd);
     }
     else
 #endif /* LZMA_SUPPORT */
 #ifdef PPMD_SUPPORT
     if (mthd == PPMD) {
-
+      /* ppmd */
       s = ppmd_filecompress(z, &mthd);
     }
     else
 #endif /* PPMD_SUPPORT */
     {
+      /* deflate */
       s = filecompress(z, &mthd);
     }
     /* not sure why this is here */
@@ -1833,11 +1922,11 @@ Restart_As_Binary:
 #ifndef PGP
     if (z->att == (ush)FT_BINARY && TRANSLATE_EOL)
     {
-#ifdef UNICODE_SUPPORT
+# ifdef UNICODE_SUPPORT
       if (unicode_show && z->uname)
         sprintf(errbuf, " (%s)", z->uname);
       else
-#endif
+# endif
         sprintf(errbuf, " (%s)", z->oname);
 
       if (file_binary)
@@ -1865,8 +1954,8 @@ Restart_As_Binary:
            that case we stick with the above warning and leave the file
            corrupted. */
 
-        if (ifile != fbad && split_method == 0 && !use_descriptors
-            && strcmp(z->name, "-") && !IS_ZFLAG_FIFO(z->zflags)) {
+        if (ifile != fbad && split_method == 0 && !use_data_descriptor
+            && !z->is_stdin && !IS_ZFLAG_FIFO(z->zflags)) {
           /* Seek back to start of entry */
           if (zfseeko(y, z->off, SEEK_SET) != 0) {
             zipwarn("  attempt to seek back to restart file failed", "");
@@ -1893,7 +1982,7 @@ Restart_As_Binary:
       }
     }
 #endif
-  }
+  } /* mthd != STORE */
   else
   {
     /* store */
@@ -2035,8 +2124,8 @@ Restart_As_Binary:
            that case we stick with the above warning and leave the file
            corrupted. */
 
-        if (ifile != fbad && split_method == 0 && !use_descriptors
-            && strcmp(z->name, "-") && !IS_ZFLAG_FIFO(z->zflags)) {
+        if (ifile != fbad && split_method == 0 && !use_data_descriptor
+            && !z->is_stdin && !IS_ZFLAG_FIFO(z->zflags)) {
           /* Seek back to start of entry */
           if (zfseeko(y, z->off, SEEK_SET) != 0) {
             zipwarn("  attempt to seek back to restart file failed", "");
@@ -2112,7 +2201,7 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
 #ifdef ETWODD_SUPPORT
   if (etwodd)                   /* Encrypt Trad without extended header. */
   {
-    if (!isdir && (z->crc != crc))
+    if (!(isdir || l || mp) && (z->crc != crc))
     {
       /* CRC mismatch on a non-directory file.  Complain. */
       zfprintf( mesg, " pre-read: %08lx, read: %08lx ", z->crc, crc);
@@ -2124,7 +2213,14 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
   }
 #endif /* def ETWODD_SUPPORT */
 
-  if (isdir && !(l || mp))
+  if (l || mp)
+  {
+    /* symlink/mount point */
+
+    /* header and data already written */
+  }
+
+  else if (isdir)
   {
     /* A directory (that is not a link or mount point) */
     z->siz = 0;
@@ -2139,9 +2235,10 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
     z->lflg &= ~8;
 #endif /* 0 */
   }
+
   else
   {
-    /* file or symlink/mount point */
+    /* file */
 
     /* Try to rewrite the local header with correct information */
     z->crc = crc;
@@ -3354,7 +3451,6 @@ local zoff_t filecompress(z_entry, cmpr_method)
     return cmpr_size;
     /* --------------------------------- */
 #else /* !USE_ZLIB */
-
     /* Set the defaults for file compression. */
     read_buf = iz_file_read;
 
@@ -3565,7 +3661,7 @@ int *cmpr_method;
            binary if any binary is found in the additional read. */
         unsigned more = iz_file_read_bt(bstrm.next_in + bstrm.avail_in,
                                   (ibuf_sz - bstrm.avail_in));
-        if ((more == (unsigned) EOF || more == 0) && !use_descriptors) {
+        if ((more == (unsigned) EOF || more == 0) && !use_data_descriptor) {
             maybe_stored = TRUE;
         } else {
             bstrm.avail_in += more;
@@ -4059,7 +4155,7 @@ local zoff_t ppmd_filecompress(z_entry, cmpr_method)
    *   the uncompressed size is less than the "compressed" size.
    */
   if ((cbots.compressed_size == 0) && (isize < cbots.byte_count)
-      && !use_descriptors)
+      && !use_data_descriptor)
   {
     /* Revert to STORE.  Write out the input buffer, and use its size. */
     *cmpr_method = STORE;

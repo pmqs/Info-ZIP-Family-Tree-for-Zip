@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2017 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -65,6 +65,7 @@
 
 #include "api.h"                /* Zip specifics. */
 
+#include <ctype.h>
 #include <stdio.h>
 
 
@@ -271,7 +272,7 @@ long MyZipEComment(char *oldcomment,
     fflush(stderr);
 
     comment = fgets(newcommentstring, MAX_COM_LEN, stdin);
-    if (comment = NULL) {
+    if (comment == NULL) {
       return 0;
     }
 
@@ -292,7 +293,7 @@ long MyZipEComment(char *oldcomment,
     if (newcomment[*newcommentsize - 1] == '\n')
       newcomment[*newcommentsize - 1] = '\0';
 
-    fprintf(stderr, ".   new comment for %s (%d bytes):\n",
+    fprintf(stderr, ".   new comment for %s (%ld bytes):\n",
             filename, *newcommentsize);
     fprintf(stderr, ".     \"%s\"\n",
             newcomment);
@@ -345,7 +346,7 @@ long MyZipAComment(char *oldcomment,
     fprintf(stderr, ". Zip file comment: ");
     fflush(stderr);
     comment = fgets(newcommentstring, MAX_COM_LEN, stdin);
-    if (comment = NULL) {
+    if (comment == NULL) {
       return 0;
     }
 
@@ -365,7 +366,7 @@ long MyZipAComment(char *oldcomment,
     if (newcomment[*newcommentsize - 1] == '\n')
       newcomment[*newcommentsize - 1] = '\0';
 
-    fprintf(stderr, ".   new archive comment (%d bytes):\n",
+    fprintf(stderr, ".   new archive comment (%ld bytes):\n",
             *newcommentsize);
     fprintf(stderr, ".     \"%s\"\n",
             newcomment);
@@ -399,14 +400,14 @@ long MyZipPassword(long bufsize,
     char newpassword[MAX_PASSWORD_LEN];
 
     fprintf(stderr, ". Password callback:\n");
-    fprintf(stderr, ".   bufsize            = %d\n", bufsize);
+    fprintf(stderr, ".   bufsize            = %ld\n", bufsize);
     fprintf(stderr, ".   prompt             = '%s'\n", prompt);
 
     fprintf(stderr, ". Enter the password: ");
     fflush(stderr);
 
     passwd = fgets(newpassword, MAX_PASSWORD_LEN, stdin);
-    if (passwd = NULL) {
+    if (passwd == NULL) {
       return 0;
     }
 
@@ -560,7 +561,7 @@ int GetVersionInfo(unsigned char *maj,
   ZpVersion(&zip_ver);
 
   features[0] = '\0';
-  for (i = 0, j = 0; c = zip_ver.szFeatures[i]; i++)
+  for (i = 0, j = 0; (c = zip_ver.szFeatures[i]); i++)
   {
     features[j++] = c;
     k++;
@@ -653,7 +654,7 @@ char *argv_to_commandline(int argc, char *argv[])
     }
     /* only quote if has space */
     has_space = 0;
-    for (j = 0; c = argv[i][j]; j++)
+    for (j = 0; (c = argv[i][j]); j++)
     {
       if (isspace(c))
         has_space = 1;

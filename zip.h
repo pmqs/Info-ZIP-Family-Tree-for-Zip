@@ -11,7 +11,7 @@ ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
 a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 
-Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2016 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -137,6 +137,13 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 #ifndef NO_CD_ONLY_SUPPORT
 # ifndef CD_ONLY_SUPPORT
 #  define CD_ONLY_SUPPORT
+# endif
+#endif
+
+/* Enable SKIP SCAN (2016-03-31). */
+#ifndef NO_SKIP_SCAN
+# ifndef SKIP_SCAN
+#  define SKIP_SCAN
 # endif
 #endif
 
@@ -554,6 +561,8 @@ typedef struct iztimes {
 
 /* PATH PREFIXES */
 
+/* Currently use of these in check_path() is disabled. */
+
 #define ALLOWED_PREFIX_CHARS "!@#$%^&()-_=+/[]{}|."
 /* These are the characters allowed in -pa and -pp prefixes, in addition to
    alphanumeric.  This list should be kept small as these characters end up
@@ -561,6 +570,8 @@ typedef struct iztimes {
    allowed in file system paths on most ports.  '/' is included so that a
    prefix can put paths in a directory. */
 
+#define ALLOWED_PREFIX_CHARS_MIDDLE " "
+/* These are additional characters allowed in the middle of names. */
 
 /* --------------------------------------- */
 
@@ -704,6 +715,7 @@ struct zlist {
   int zflags;                   /* Special flags for Zip use */
   int encrypt_method;
   ush thresh_mthd;              /* Compression method used to determine Zip64 threshold */
+  int is_stdin;                 /* Set if input file is stdin */   
   struct zlist far *nxt;        /* Pointer to next header in list */
 };
 struct flist {
@@ -725,10 +737,14 @@ struct flist {
   struct flist far *far *lst;   /* Pointer to link pointing here */
   struct flist far *nxt;        /* Link to next name */
   int zflags;                   /* Special flags for Zip use */
+  int is_stdin;                 /* Set if input file is stdin */
 #ifdef UNIX_APPLE_SORT
   char *saved_iname;
 #endif
 };
+/* When adding elements that have storage to flist, be sure to add the freeing
+   of that storage to fexpel() IF used by found list.  Note that saved_iname
+   is not used by found list, just by nodup[]. */
 struct plist {
   char *zname;                  /* External version of internal name */
   char *uzname;                 /* UTF-8 version of zname */
@@ -883,6 +899,7 @@ extern char errbuf[];           /* Handy place to build error messages */
 extern int recurse;             /* Recurse into directories encountered */
 extern int dispose;             /* Remove files after put in zip file */
 extern int pathput;             /* Store path with name */
+extern int null_term_names;     /* 1=getnam() reads NULL terminated names */
 
 #ifdef UNIX_APPLE
 extern int data_fork_only;
@@ -1053,6 +1070,9 @@ extern short qlflag;
 /* 9/26/04 EG */
 extern int no_wild;             /* wildcards are disabled */
 extern int allow_regex;         /* 1 = allow [list] matching (regex) */
+extern int no_stdin;            /* 1 = don't treat "-" as stdin */
+extern int is_stdin;            /* 1 = this is stdin (overrides no_stdin) */
+extern int file_from_stdin;     /* 1 = reading file from stdin */
 extern int wild_stop_at_dir;    /* wildcards do not include / in matches */
 
 #if defined(VMS) || defined(DOS) || defined(WIN32)
@@ -1080,6 +1100,9 @@ extern int using_utf8;        /* 1 if current character set is UTF-8 */
    comment are in UTF-8 */
 #define UTF8_BIT (1 << 11)
 
+extern int purposely_corrupt_local_crc; /* used for testing only */
+extern int purposely_corrupt_central_crc; /* used for testing only */
+extern int purposely_corrupt_local_usize; /* used for testing only */
 
 /* 10/20/04 */
 extern zoff_t dot_size;         /* if not 0 then display dots every size buffers */
@@ -1183,7 +1206,11 @@ extern int extra_fields;        /* 0=create minimum, 1=don't copy old, 2=keep ol
  extern int no_security;        /* 1=exclude security information (ACLs) */
 #endif
 extern int no_universal_time;   /* 1=do not store UT extra field */
+extern int no_access_time;      /* 1=do not store Access Time component of UT */
+extern int skip_file_scan;      /* 1=skip directory searches and initial stats */
 extern int use_descriptors;     /* use data descriptors (extended headings) */
+extern int force_compression;   /* 1=force compression (no store) */
+extern int use_data_descriptor; /* initialized to use_descriptors for each entry */
 extern int allow_empty_archive; /* if no files, create empty archive anyway */
 extern int copy_only;           /* 1 = copy archive with no changes */
 extern int zip_to_stdout;       /* output to stdout */
@@ -1537,6 +1564,17 @@ void zperror OF((const char *));
 #endif
 
 
+/* Enable zipfile testing */
+#if !defined(ZIP_DLL_LIB) && !defined(NO_TEST_ZIPFILE)
+# define TEST_ZIPFILE
+#endif
+
+/* Enable checking UnZip version before doing -T test */
+#if defined(TEST_ZIPFILE) && !defined(NO_CHECK_UNZIP)
+# define CHECK_UNZIP
+#endif
+
+
 /* Win32 wide command line */
 #if defined(UNICODE_SUPPORT_WIN32) && defined(AT_LEAST_WINXP)
 
@@ -1600,10 +1638,12 @@ extern int bflag;
 #ifndef NO_PROTO
  void zipmessage_nl(ZCONST char *, int);
  void zipmessage(ZCONST char *, ZCONST char *);
+ void sdmessage(ZCONST char *, ZCONST char *);
  void zipwarn(ZCONST char *, ZCONST char *);
  void zipwarn_i(char *, int, ZCONST char *, ZCONST char *);
  void ziperr(int, ZCONST char *);
  void print_utf8(ZCONST char *);
+ void print_utf8_stderr(ZCONST char *);
 #else
  void zipmessage_nl OF((ZCONST char *, int));
  void zipmessage OF((ZCONST char *, ZCONST char *));
@@ -1611,6 +1651,7 @@ extern int bflag;
  void zipwarn_i OF((char *, int, ZCONST char *, ZCONST char *));
  void ziperr OF((int, ZCONST char *));
  void print_utf8 OF((ZCONST char *));
+ void print_utf8_stderr OF((ZCONST char *));
 #endif
 
 #ifdef UTIL
@@ -1708,7 +1749,7 @@ int exceeds_zip64_threshold(struct zlist far *z);
         /* in fileio.c */
 void display_dot OF((int, int));
 #ifndef UTIL
-   char *getnam OF((FILE *));
+   char *getnam OF((FILE *, int));
    struct flist far *fexpel OF((struct flist far *));
    char *last OF((char *, int));
 # ifdef UNICODE_SUPPORT
@@ -1747,7 +1788,7 @@ void display_dot OF((int, int));
 
 int set_locale();
 
-int get_entry_comment(struct zlist far *);
+int get_entry_comment OF((struct zlist far *));
 
 int destroy OF((char *));
 int replace OF((char *, char *));
@@ -1826,9 +1867,6 @@ int is_utf8_file OF((FILE *infile, int *has_bom, int *count, int *ascii_count, i
 int read_utf8_bom OF((FILE *infile));
 int is_utf16LE_file OF((FILE *infile));
 #endif
-# ifdef UNICODE_SUPPORT_WIN32
-wchar_t *local_to_wchar_string OF ((ZCONST char *));
-# endif
 
 void version_local OF((void));
 
@@ -1882,7 +1920,20 @@ uzoff_t ReadNumString OF((char *numstring));
         /* in fileio.c */
 
 /* Make copy of string */
-char *string_dup OF((ZCONST char *in_string, char *error_message, int fluff));
+#ifndef NO_PROTO
+char *string_dup(ZCONST char *in_string, char *error_message, int fluff);
+#else
+char *string_dup OF((ZCONST char *, char *, int));
+#endif
+
+/* Wide version of string_dup() */
+#ifdef WIN32
+# ifndef NO_PROTO
+wchar_t *string_dupw(ZCONST wchar_t *in_stringw, char *error_message, int fluff);
+# else
+wchar_t *string_dupw OF((ZCONST wchar_t *, char *, int));
+# endif
+#endif /* WIN32 */
 
 /* Replace substring with string */
 #ifndef NO_PROTO
@@ -2128,76 +2179,76 @@ void     bi_init      OF((char *, unsigned int, int));
 
   /* wide character type */
   typedef unsigned long zwchar;
-
+  
+  /* UNICODE_SUPPORT now requires support of PROTOTYPES
+   *
+   * The reasoning is that any port that supports wide character
+   * calls is likely new enough to also handle prototypes.
+   */
 
   /* check if string is all ASCII */
-  int is_ascii_string OF((char *mbstring));
-  int is_ascii_stringw OF((wchar_t *wstring));
+  int is_ascii_string(char *mbstring);
+  int is_ascii_stringw(wchar_t *wstring);
 
-  zwchar *wchar_to_wide_string OF((wchar_t *wchar_string));
-  wchar_t *wide_to_wchar_string OF((zwchar *wide_string));
+  zwchar *wchar_to_wide_string(wchar_t *wchar_string);
+  wchar_t *wide_to_wchar_string(zwchar *wide_string);
 
-  char *utf8_to_local_string OF((char *utf8_string));
-  char *local_to_utf8_string OF((char *local_string));
+  char *utf8_to_local_string(char *utf8_string);
+  char *local_to_utf8_string(char *local_string);
 
-  zwchar *utf8_to_wide_string OF((ZCONST char *utf8_string));
-  char *wide_to_utf8_string OF((zwchar *wide_string));
+  zwchar *utf8_to_wide_string(ZCONST char *utf8_string);
+  char *wide_to_utf8_string(zwchar *wide_string);
 
-  char *wide_to_local_string OF((zwchar *wide_string));
-  zwchar *local_to_wide_string OF((char *local_string));
+  char *wide_to_local_string(zwchar *wide_string);
+  zwchar *local_to_wide_string(char *local_string);
 
-  char *wide_to_escape_string OF((zwchar *wide_string));
-  char *local_to_escape_string OF((char *local_string));
-  char *utf8_to_escape_string OF((char *utf8_string));
+  char *wide_to_escape_string(zwchar *wide_string);
+  char *local_to_escape_string(char *local_string);
+  char *utf8_to_escape_string(char *utf8_string);
 
-  int zwchar_string_len OF((zwchar *wide_string));
-  zwchar *char_to_wide_string OF((char *char_string));
+  int zwchar_string_len(zwchar *wide_string);
+  zwchar *char_to_wide_string(char *char_string);
 
-  wchar_t *utf8_to_wchar_string OF((ZCONST char *utf8_string));
-  char *wchar_to_utf8_string OF((wchar_t *wchar_string));
+  wchar_t *utf8_to_wchar_string(ZCONST char *utf8_string);
+  char *wchar_to_utf8_string(wchar_t *wchar_string);
+
+  wchar_t *local_to_wchar_string(ZCONST char *local_string);
+
+  /* convert local string to multi-byte display string */
+  char *local_to_display_string(char *);
+
+  /* convert wide character to escape string */
+  char *wide_char_to_escape_string(unsigned long);
+
+  zwchar *escapes_to_wide_string(zwchar *);
+  char *escapes_to_utf8_string(char *escaped_string);
 
 #ifdef WIN32
-  char **get_win32_utf8_argv OF(());
-  wchar_t *utf8_to_wchar_string_windows OF((ZCONST char *utf8_string));
-  char *wchar_to_utf8_string_windows OF((wchar_t *wchar_string));
+  char **get_win32_utf8_argv();
+  wchar_t *utf8_to_wchar_string_windows(ZCONST char *utf8_string);
+  char *wchar_to_utf8_string_windows(wchar_t *wchar_string);
 
-  char *wchar_to_local_string OF((wchar_t *));
+  char *wchar_to_local_string(wchar_t *);
 
-#endif
-
-#ifdef WIN32
   unsigned long write_console(FILE *outfile, ZCONST char *instring);
   unsigned long write_consolew(FILE *outfile, wchar_t *instringw);
 # if 0
   long write_consolew2(wchar_t *instringw);
 # endif
-#endif
-
-
-  /* convert local string to multi-byte display string */
-  char *local_to_display_string OF((char *));
-
-  /* convert wide character to escape string */
-  char *wide_char_to_escape_string OF((unsigned long));
-
-  zwchar *escapes_to_wide_string OF((zwchar *));
-  char *escapes_to_utf8_string OF((char *escaped_string));
-#ifdef UNICODE_SUPPORT_WIN32
   /* convert escape string to wide character */
-  zwchar escape_string_to_wide_char OF((char *));
-  wchar_t *escapes_to_wchar_string OF((wchar_t *));
+  zwchar escape_string_to_wide_char(char *);
+  wchar_t *escapes_to_wchar_string(wchar_t *);
 #endif
 
-
-#if defined(__STDC_UTF_16__)
-# define UTFSIZE 16
-#else
-# if defined(__STDC_UTF_32__)
-# define UTFSIZE 32
+# if defined(__STDC_UTF_16__)
+#  define UTFSIZE 16
 # else
-# define UTFSIZE 0
+#  if defined(__STDC_UTF_32__)
+#  define UTFSIZE 32
+#  else
+#  define UTFSIZE 0
+#  endif
 # endif
-#endif
 
 #endif /* UNICODE_SUPPORT */
 

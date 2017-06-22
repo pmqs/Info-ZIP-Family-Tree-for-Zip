@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2017 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -10,10 +10,12 @@
 
 /*    Stand-alone test procedure:
  *
- * set command /object = [.vms]zip_cli.obj [.vms]zip_cli.cld
+ * @[.vms]cppcld.com "cc" [.vms]zip_cli.cld []zip_cli.cld "TEST_CLI"
+ * set command /object = zip_cli.obj zip_cli.cld
  * define /user_mode vms SYS$DISK:[.vms]
- * cc /define = (TEST, VMSCLI) /include = [] /object = [.vms] [.vms]cmdline.c
- * link /executable = [] [.vms]cmdline.obj, [.vms]zip_cli.obj
+ * cc /define = (TEST, VMSCLI) /include = ([], [.vms]) -
+ *  /object = [] [.vms]cmdline.c
+ * link cmdline.obj, zip_cli.obj
  * EXEC*UTE == "$ SYS$DISK:[]'"
  * exec cmdline [ /qualifiers ...] [parameters ...]
  */
@@ -26,7 +28,7 @@
  */
 #if 0
 # define module_name VMS_ZIP_CMDLINE
-# define module_ident "02-015"
+# define module_ident "02-016"
 #endif /* 0 */
 
 /*
@@ -44,6 +46,19 @@
 **              returned to Zip.
 **
 **  Modified by:
+**
+**      02-016          Steven Schweda          29-MAY-2017
+**              Added /[NO]ADSORT (-ad), /BINARY_CHECK =
+**              { FULL | [NORMAL] } (-BF), /[NO]CORRUPT_CRCS
+**              (--corrupt-crcs), /DISPLAY = ([NO]ETR, [MO]RATE,
+**              [NO]TIME) (-de. -dr, -dt), /DIFFERENCE [= EXCLUDE =
+**              list] (-DI), /ENCRYPT = ([NO]DESCRIPTOR, KEYFILE = file)
+**              (-et, -kf), /[NO]PRINT0 (-p0), /PATTERN = (CASE =
+**              { BLIND | SENSITIVE }, [NO]REGEX) (-ic, -RE), /SHOW =
+**              FILE = ([NO]ASCII, [NO]COMMENT, [NO]UNICODE, [NO]USIZE)
+**              (-sF, -su, -sU), /STDIN_NAME (-SI), /[NO]SCAN_FILES
+**              (-SS), /TEST = ( [NO]PASSWORD, [NO]VERBOSE ) (-pu),
+**              /TIME = [NO]UNIVERSAL (-tn).
 **
 **      02-015          Steven Schweda          24-MAR-2015
 **              Added /[NO]ARGFILES (-AF), /BACKUP = (CONTROL,
@@ -222,6 +237,7 @@ $DESCRIPTOR(cli_exclude,        "EXCLUDE");             /* -x */
 $DESCRIPTOR(cli_include,        "INCLUDE");             /* -i */
 $DESCRIPTOR(cli_exlist,         "EXLIST");              /* -x@ */
 $DESCRIPTOR(cli_inlist,         "INLIST");              /* -i@ */
+$DESCRIPTOR(cli_adsort,         "ADSORT");              /* -ad */
 $DESCRIPTOR(cli_adjust,         "ADJUST_OFFSETS");      /* -A */
 $DESCRIPTOR(cli_append,         "APPEND");              /* -g */
 $DESCRIPTOR(cli_argfiles,       "ARGFILES");            /* -AF */
@@ -239,6 +255,9 @@ $DESCRIPTOR(cli_backup_type_none, "BACKUP.TYPE.NONE");         /* -BT none*/
 #endif /* def BACKUP_SUPPORT */
 $DESCRIPTOR(cli_batch,          "BATCH");               /* -@, -@@ */
 $DESCRIPTOR(cli_before,         "BEFORE");              /* -tt */
+$DESCRIPTOR(cli_binary_check,   "BINARY_CHECK");        /* -BF */
+$DESCRIPTOR(cli_binary_check_full, "BINARY_CHECK.FULL");        /* -BF */
+$DESCRIPTOR(cli_binary_check_normal, "BINARY_CHECK.NORMAL");    /* -BF- */
 $DESCRIPTOR(cli_comments,       "COMMENTS");            /* -c,-z */
 $DESCRIPTOR(cli_comment_archive,"COMMENTS.ARCHIVE");    /* -z */
 $DESCRIPTOR(cli_comment_zipfile,"COMMENTS.ZIP_FILE");   /* -z */
@@ -259,22 +278,31 @@ $DESCRIPTOR(cli_compression_p_s,"COMPRESSION.PPMD.SUFFIX");     /* -n */
 $DESCRIPTOR(cli_compression_s,  "COMPRESSION.STORE");           /* -Zs */
 $DESCRIPTOR(cli_compression_s_s,"COMPRESSION.STORE.SUFFIX");    /* -n */
 $DESCRIPTOR(cli_copy_entries,   "COPY_ENTRIES");        /* -U */
+$DESCRIPTOR(cli_corrupt_crcs,   "CORRUPT_CRCS");        /* --corrupt-crcs */
+$DESCRIPTOR(cli_corrupt_crcs_central, "CORRUPT_CRCS.CENTRAL"); /* --corrupt-crcs */
+$DESCRIPTOR(cli_corrupt_crcs_local, "CORRUPT_CRCS.LOCAL");     /* --corrupt-crcs */
 #ifdef CHANGE_DIRECTORY
 $DESCRIPTOR(cli_default_dir,    "DEFAULT_DIRECTORY");   /* -cd */
 #endif /* def CHANGE_DIRECTORY */
 $DESCRIPTOR(cli_descriptors,    "DESCRIPTORS");         /* -fd */
 $DESCRIPTOR(cli_difference,     "DIFFERENCE");          /* -DF */
+$DESCRIPTOR(cli_difference_exclude, "DIFFERENCE.EXCLUDE"); /* -DI */
 $DESCRIPTOR(cli_dirnames,       "DIRNAMES");            /* -D */
 $DESCRIPTOR(cli_display,        "DISPLAY");             /* -d? */
 $DESCRIPTOR(cli_display_bytes,  "DISPLAY.BYTES");       /* -db */
 $DESCRIPTOR(cli_display_counts, "DISPLAY.COUNTS");      /* -dc */
 $DESCRIPTOR(cli_display_dots,   "DISPLAY.DOTS");        /* -dd, -ds */
+$DESCRIPTOR(cli_display_etr,    "DISPLAY.ETR");         /* -de */
 $DESCRIPTOR(cli_display_globaldots, "DISPLAY.GLOBALDOTS"); /* -dg */
+$DESCRIPTOR(cli_display_rate,   "DISPLAY.RATE");        /* -dr */
+$DESCRIPTOR(cli_display_time,   "DISPLAY.TIME");        /* -dt */
 $DESCRIPTOR(cli_display_usize,  "DISPLAY.USIZE");       /* -du */
 $DESCRIPTOR(cli_display_volume, "DISPLAY.VOLUME");      /* -dv */
 $DESCRIPTOR(cli_dot_version,    "DOT_VERSION");         /* -ww */
 $DESCRIPTOR(cli_encrypt,        "ENCRYPT");             /* -e, -P, -pn, -Y */
 $DESCRIPTOR(cli_encrypt_ansi,   "ENCRYPT.ANSI_PASSWORD"); /* -pn */
+$DESCRIPTOR(cli_encrypt_descriptor, "ENCRYPT.DESCRIPTOR"); /* -et */
+$DESCRIPTOR(cli_encrypt_keyfile, "ENCRYPT.KEYFILE");    /* -kf */
 $DESCRIPTOR(cli_encrypt_mthd,   "ENCRYPT.METHOD");      /* -Y */
 $DESCRIPTOR(cli_encrypt_mthd_aes128, "ENCRYPT.METHOD.AES128"); /* -Y AES128 */
 $DESCRIPTOR(cli_encrypt_mthd_aes192, "ENCRYPT.METHOD.AES192"); /* -Y AES192 */
@@ -313,11 +341,14 @@ $DESCRIPTOR(cli_log_file,       "LOG_FILE");            /* -la, -lf, -li */
 $DESCRIPTOR(cli_log_file_append, "LOG_FILE.APPEND");    /* -la */
 $DESCRIPTOR(cli_log_file_file,  "LOG_FILE.FILE");       /* -lf */
 $DESCRIPTOR(cli_log_file_info,  "LOG_FILE.INFORMATIONAL"); /* -li */
+$DESCRIPTOR(cli_log_file_utf8,  "LOG_FILE.UTF8");       /* -lu */
 $DESCRIPTOR(cli_must_match,     "MUST_MATCH");          /* -MM */
 $DESCRIPTOR(cli_output,         "OUTPUT");              /* -O */
-$DESCRIPTOR(cli_patt_case,      "PATTERN_CASE");        /* -ic[-] */
-$DESCRIPTOR(cli_patt_case_blind, "PATTERN_CASE.BLIND"); /* -ic */
-$DESCRIPTOR(cli_patt_case_sensitive, "PATTERN_CASE.SENSITIVE"); /* -ic- */
+$DESCRIPTOR(cli_pattern,        "PATTERN");             /* -ic[-], -RE */
+$DESCRIPTOR(cli_pattern_case,   "PATTERN.CASE");        /* -ic[-] */
+$DESCRIPTOR(cli_pattern_case_blind, "PATTERN.CASE.BLIND"); /* -ic */
+$DESCRIPTOR(cli_pattern_case_sensitive, "PATTERN.CASE.SENSITIVE"); /* -ic- */
+$DESCRIPTOR(cli_pattern_regex,  "PATTERN.REGEX");       /* -RE */
 $DESCRIPTOR(cli_pkzip,          "PKZIP");               /* -k */
 $DESCRIPTOR(cli_prefix,         "PREFIX");              /* -pa, -pp */
 $DESCRIPTOR(cli_prefix_all,     "PREFIX.ALL");          /* -pp */
@@ -328,14 +359,19 @@ $DESCRIPTOR(cli_pres_case_no2,  "PRESERVE_CASE.NOODS2");/* -C2- */
 $DESCRIPTOR(cli_pres_case_no5,  "PRESERVE_CASE.NOODS5");/* -C5- */
 $DESCRIPTOR(cli_pres_case_ods2, "PRESERVE_CASE.ODS2");  /* -C2 */
 $DESCRIPTOR(cli_pres_case_ods5, "PRESERVE_CASE.ODS5");  /* -C5 */
+$DESCRIPTOR(cli_print0,         "PRINT0");              /* -p0 */
 $DESCRIPTOR(cli_quiet,          "QUIET");               /* -q */
 $DESCRIPTOR(cli_recurse,        "RECURSE");             /* -r,-R */
 $DESCRIPTOR(cli_recurse_path,   "RECURSE.PATH");        /* -r */
 $DESCRIPTOR(cli_recurse_fnames, "RECURSE.FILENAMES");   /* -R */
+$DESCRIPTOR(cli_scan_files,     "SCAN_FILES");          /* -SS- */
 $DESCRIPTOR(cli_show,           "SHOW");                /* -s? */
 $DESCRIPTOR(cli_show_command,   "SHOW.COMMAND");        /* -sc */
 $DESCRIPTOR(cli_show_debug,     "SHOW.DEBUG");          /* -sd */
 $DESCRIPTOR(cli_show_files,     "SHOW.FILES");          /* -sf */
+$DESCRIPTOR(cli_show_files_ascii, "SHOW.FILES.ASCII");  /* -su */
+$DESCRIPTOR(cli_show_files_comment, "SHOW.FILES.COMMENT"); /* -sF=comment */
+$DESCRIPTOR(cli_show_files_unicode, "SHOW.FILES.UNICODE"); /* -sU */
 $DESCRIPTOR(cli_show_files_usize, "SHOW.FILES.USIZE");  /* -sF=usize */
 $DESCRIPTOR(cli_show_options,   "SHOW.OPTIONS");        /* -so */
 $DESCRIPTOR(cli_show_suffixes,  "SHOW.SUFFIXES");       /* -ss */
@@ -347,13 +383,20 @@ $DESCRIPTOR(cli_split_size,     "SPLIT.SIZE");          /* -s */
 $DESCRIPTOR(cli_split_verbose,  "SPLIT.VERBOSE");       /* -sv */
 $DESCRIPTOR(cli_statistics,     "STATISTICS");          /* -pt */
 $DESCRIPTOR(cli_statistics_time, "STATISTICS.TIME");    /* -pt */
+$DESCRIPTOR(cli_stdin_name,     "STDIN_NAME");          /* -SI */
 $DESCRIPTOR(cli_store_types,    "STORE_TYPES");         /* -n */
 $DESCRIPTOR(cli_stream,         "STREAM");              /* -st */
 $DESCRIPTOR(cli_sverbose,       "SVERBOSE");            /* -sv */
 $DESCRIPTOR(cli_symlinks,       "SYMLINKS");            /* -y */
 $DESCRIPTOR(cli_temp_path,      "TEMP_PATH");           /* -b */
 $DESCRIPTOR(cli_test,           "TEST");                /* -T */
+$DESCRIPTOR(cli_test_password,  "TEST.PASSWORD");       /* -pu */
 $DESCRIPTOR(cli_test_unzip,     "TEST.UNZIP");          /* -TT */
+$DESCRIPTOR(cli_test_verbose,   "TEST.VERBOSE");        /* -TV */
+#ifdef USE_EF_UT_TIME
+$DESCRIPTOR(cli_time,           "TIME");                /* -tn */
+$DESCRIPTOR(cli_time_universal, "TIME.UNIVERSAL");      /* -tn */
+#endif /* def USE_EF_UT_TIME */
 $DESCRIPTOR(cli_translate_eol,  "TRANSLATE_EOL");       /* -l[l] */
 $DESCRIPTOR(cli_transl_eol_lf,  "TRANSLATE_EOL.LF");    /* -l */
 $DESCRIPTOR(cli_transl_eol_crlf,"TRANSLATE_EOL.CRLF");  /* -ll */
@@ -529,12 +572,12 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 **
 **  Formal parameters:
 **
-**      argc_p          - Address of int to receive the new argc
-**      argv_p          - Address of char ** to receive the argv address
+**      argc_p          - Pointer to int to receive the new argc value.
+**      argv_p          - Pointer to char ** to receive the argv pointer.
 **
 **  Calling sequence:
 **
-**      status = vms_zip_cmdline (&argc, &argv);
+**      status = vms_zip_cmdline( &argc, &argv);
 **
 **  Returns:
 **
@@ -601,64 +644,25 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     ptr = &options[1];          /* Point to temporary buffer */
 
     /*
-    **  Copy entries.
+    **  Position AppleDouble "._" entries after corresponding mains.
     */
-#define OPT_U_  "-U"            /* Copy entries. */
+#define OPT_AD  "-ad"           /* Arrange AppleDouble "._" entries. */
+#define OPT_ADN "-ad-"          /* No special treatment for "._" entries. */
 
-    status = cli$present( &cli_copy_entries);
-    if (status & 1)
+    status = cli$present( &cli_adsort);
+    if ((status & 1) || (status == CLI$_NEGATED))
     {
-        /* /COPY_ENTRIES */
-        append_simple_opt( OPT_U_);
+        if (status == CLI$_NEGATED)
+        {
+            /* /NOADSORT */
+            append_simple_opt( OPT_ADN);
+        }
+        else
+        {
+            /* /ADSORT */
+            append_simple_opt( OPT_AD);
+        }
     }
-
-    /*
-    **  Delete the specified files from the zip file?
-    */
-#define OPT_D   "-d"            /* Delete entries. */
-
-    status = cli$present( &cli_delete);
-    if (status & 1)
-    {
-        /* /DELETE */
-        append_simple_opt( OPT_D);
-    }
-
-    /*
-    **  Freshen (only changed files).
-    */
-#define OPT_F   "-f"            /* Freshen entries. */
-
-    status = cli$present( &cli_freshen);
-    if (status & 1)
-    {
-        /* /FRESHEN */
-        append_simple_opt( OPT_F);
-    }
-
-    /*
-    **  Delete the files once they've been added to the zip file.
-    */
-#define OPT_M   "-m"            /* Move entries. */
-
-    status = cli$present( &cli_move);
-    if (status & 1)
-    {
-        /* /MOVE */
-        append_simple_opt( OPT_M);
-     }
-
-    /*
-    **  Add changed and new files.
-    */
-#define OPT_U   "-u"            /* Update entries. */
-
-    status = cli$present( &cli_update);
-    if (status & 1)
-    {
-        /* /UPDATE */
-        append_simple_opt( OPT_U);
-     }
 
     /*
     **  Adjust offsets of zip archive entries.
@@ -669,9 +673,8 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     if (status & 1)
     {
         /* /ADJUST_OFFSETS */
-        append_simple_opt( OPT_U);
+        append_simple_opt( OPT_A);
     }
-
 
     /*
     **  Enable argument files.
@@ -692,6 +695,25 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
             /* /ARGFILES */
             append_simple_opt( OPT_AF);
         }
+    }
+
+    /*
+    **  Append (allow growing of existing zip file).
+    */
+#define OPT_G   "-g"            /* Grow (append to) archive. */
+
+    status = cli$present( &cli_append);
+    if (status & 1)
+    {
+        /* /APPEND */
+        append_simple_opt( OPT_G);
+    }
+
+    status = cli$present( &cli_grow);
+    if (status & 1)
+    {
+        /* /GROW */
+        append_simple_opt( OPT_G);
     }
 
     /*
@@ -811,6 +833,29 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 #endif /* def BACKUP_SUPPORT */
 
     /*
+    **  Binary-check control.
+    */
+#define OPT_BF_  "-BF"          /* Check whole file for non-text. */
+#define OPT_BFN_ "-BF-"         /* Check first buffer for non-text. */
+
+    status = cli$present( &cli_binary_check);
+    if (status & 1)
+    {
+        status = cli$present( &cli_binary_check_full);
+        if (status & 1)
+        {
+            /* /BINARY_CHECK = FULL */
+            append_simple_opt( OPT_BF_);
+        }
+        status = cli$present( &cli_binary_check_normal);
+        if (status & 1)
+        {
+            /* /BINARY_CHECK = NORMAL */
+            append_simple_opt( OPT_BFN_);
+        }
+    }
+
+    /*
     **  Add comments?
     */
 #define OPT_C   "-c"            /* Comment, entry. */
@@ -833,6 +878,772 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         if ((status = cli$present(&cli_comment_files)) & 1)
             /* /COMMENTS = FILES */
             append_simple_opt( OPT_C);
+    }
+
+    /*
+    **  Copy entries.
+    */
+#define OPT_U_  "-U"            /* Copy entries. */
+
+    status = cli$present( &cli_copy_entries);
+    if (status & 1)
+    {
+        /* /COPY_ENTRIES */
+        append_simple_opt( OPT_U_);
+    }
+
+    /*
+    **  Corrupt CRCs (for testing).
+    */
+#define OPT_CORR  "--corrupt-crcs"      /* Corrupt CRCs. */
+
+    status = cli$present( &cli_corrupt_crcs);
+    if (status & 1)
+    {
+        int lc = 0;
+        char *opt = NULL;
+
+        status = cli$present( &cli_corrupt_crcs_central);
+        if ((status & 1) || (status == CLI$_NEGATED))
+        {
+            if (status != CLI$_NEGATED)
+            {
+                /* /CORRUPT_CRCS = CENTRAL */
+                lc |= 1;
+            }
+        }
+
+        status = cli$present( &cli_corrupt_crcs_local);
+        if ((status & 1) || (status == CLI$_NEGATED))
+        {
+            if (status != CLI$_NEGATED)
+            {
+                /* /CORRUPT_CRCS = LOCAL */
+                lc |= 2;
+            }
+        }
+
+        if (lc == 0)
+        { /* If neither is specified, then do both. */
+            lc = 3;
+        }
+
+        if (lc != 3)
+        { /* If not setting both, then clear both. */
+            append_simple_opt( OPT_CORR);
+            append_simple_opt( "none");
+        }
+
+        if (lc == 1)
+            opt = "central";
+        else if (lc == 2)
+            opt = "local";
+        else if (lc == 3)
+            opt = "both";
+
+        if (opt != NULL)
+        {
+            append_simple_opt( OPT_CORR);
+            append_simple_opt( opt);
+        }
+    }
+
+    /*
+    **  Delete the specified files from the zip file?
+    */
+#define OPT_D   "-d"            /* Delete entries. */
+
+    status = cli$present( &cli_delete);
+    if (status & 1)
+    {
+        /* /DELETE */
+        append_simple_opt( OPT_D);
+    }
+
+    /*
+    **  Display options, "-db", "-dc", "-dd", "-ds".
+    */
+#define OPT_DB  "-db"           /* Display byte counts. */
+#define OPT_DBN "-db-"          /* Display no byte counts. */
+#define OPT_DC  "-dc"           /* Display file counts. */
+#define OPT_DCN "-dc-"          /* Display no file counts. */
+#define OPT_DD  "-dd"           /* Display progress dots. */
+#define OPT_DDN "-dd-"          /* Display no progress dots. */
+#define OPT_DE  "-de"           /* Display ETR. */
+#define OPT_DEN "-de-"          /* Display no ETR. */
+#define OPT_DG  "-dg"           /* Display global progress dots. */
+#define OPT_DGN "-dg-"          /* Display no global progress dots. */
+#define OPT_DR  "-dr"           /* Display rate. */
+#define OPT_DRN "-dr-"          /* Display no rate. */
+#define OPT_DS  "-ds="          /* Progress dot size. */
+#define OPT_DT  "-dt"           /* Display member start times. */
+#define OPT_DTN "-dt-"          /* Display no member start times. */
+#define OPT_DU  "-du"           /* Display ucsize. */
+#define OPT_DUN "-du-"          /* Display no ucsize. */
+#define OPT_DV  "-dv"           /* Display volume (disk) number. */
+#define OPT_DVN "-dv-"          /* Display no volume (disk) number. */
+
+    status = cli$present( &cli_display);
+    if (status & 1)
+    {
+        status = cli$present( &cli_display_bytes);
+        if (status & 1)
+        {
+            /* /DISPLAY = BYTES */
+            append_simple_opt( OPT_DB);
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /DISPLAY = NOBYTES */
+            append_simple_opt( OPT_DBN);
+        }
+
+        status = cli$present( &cli_display_counts);
+        if (status & 1)
+        {
+            /* /DISPLAY = COUNTS */
+            append_simple_opt( OPT_DC);
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /DISPLAY = NOCOUNTS */
+            append_simple_opt( OPT_DCN);
+        }
+
+        status = cli$present( &cli_display_dots);
+        if (status & 1)
+        {
+            /* /DISPLAY = DOTS [= value] */
+            status = cli$get_value( &cli_display_dots, &work_str);
+
+            append_simple_opt( OPT_DD);
+
+            /* -dd[=value] now -dd -ds=value - 5/8/05 EG */
+            if (work_str.dsc$w_length > 0)
+            {
+                x = cmdl_len;
+                cmdl_len += strlen( OPT_DS);
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                strcpy( &the_cmd_line[ x], OPT_DS);
+
+                x = cmdl_len;
+                cmdl_len += work_str.dsc$w_length+ 1;
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                strncpy( &the_cmd_line[ x],
+                 work_str.dsc$a_pointer, work_str.dsc$w_length);
+            }
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /DISPLAY = NODOTS */
+            append_simple_opt( OPT_DDN);
+        }
+
+        status = cli$present( &cli_display_etr);
+        if (status & 1)
+        {
+            /* /DISPLAY = ETR */
+            append_simple_opt( OPT_DE);
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /DISPLAY = NOETR */
+            append_simple_opt( OPT_DEN);
+        }
+
+        status = cli$present( &cli_display_globaldots);
+        if (status & 1)
+        {
+            /* /DISPLAY = GLOBALDOTS */
+            append_simple_opt( OPT_DG);
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /DISPLAY = NOGLOBALDOTS */
+            append_simple_opt( OPT_DGN);
+        }
+
+        status = cli$present( &cli_display_rate);
+        if (status & 1)
+        {
+            /* /DISPLAY = RATE */
+            append_simple_opt( OPT_DR);
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /DISPLAY = NORATE */
+            append_simple_opt( OPT_DRN);
+        }
+
+        status = cli$present( &cli_display_time);
+        if (status & 1)
+        {
+            /* /DISPLAY = TIME */
+            append_simple_opt( OPT_DT);
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /DISPLAY = NOTIME */
+            append_simple_opt( OPT_DTN);
+        }
+
+        status = cli$present( &cli_display_usize);
+        if (status & 1)
+        {
+            /* /DISPLAY = USIZE */
+            append_simple_opt( OPT_DU);
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /DISPLAY = NOUSIZE */
+            append_simple_opt( OPT_DUN);
+        }
+
+        status = cli$present( &cli_display_volume);
+        if (status & 1)
+        {
+            /* /DISPLAY = VOLUME */
+            append_simple_opt( OPT_DV);
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /DISPLAY = NOVOLUME */
+            append_simple_opt( OPT_DVN);
+        }
+    }
+
+    /*
+    **  Default directory.
+    */
+#define OPT_CD   "-cd"          /* Set default directory. */
+
+    status = cli$present( &cli_default_dir);
+    if (status & 1)
+    {
+        /* /DEFAULT_DIRECTORY */
+        status = cli$get_value( &cli_default_dir, &work_str);
+        if (status & 1)
+        {
+            /* /DEFAULT_DIRECTORY = value (required argument) */
+            work_str.dsc$a_pointer[work_str.dsc$w_length] = '\0';
+            append_simple_opt( OPT_CD);
+            append_simple_opt( work_str.dsc$a_pointer);
+        }
+    }
+
+    /*
+    **  Data descriptors.
+    */
+#define OPT_FD  "-fd"           /* Force descriptors. */
+
+    status = cli$present( &cli_descriptors);
+    if (status & 1)
+    {
+        /* /DESCRIPTORS */
+        append_simple_opt( OPT_FD);
+    }
+
+    /*
+    **  Difference archive.  Add only new or changed files.
+    */
+#define OPT_DF  "-DF"           /* Difference archive. */
+#define OPT_DI  "-DI"           /* Difference archive exclude list. */
+
+    if ((status = cli$present( &cli_difference)) & 1)
+    {
+        /* /DIFFERENCE */
+        append_simple_opt( OPT_DF);
+
+        if ((status = cli$present( &cli_difference_exclude)) & 1)
+        {
+            /* /DIFFERENCE = EXCLUDE = list */
+            append_simple_opt( OPT_DI);
+
+            status = cli$present(&cli_difference_exclude);
+            if (status & 1)
+            { /* difference exclude list */
+                status = get_list( &cli_difference_exclude,
+                 &foreign_cmdline, '\0',
+                 &the_cmd_line, &cmdl_size, &cmdl_len);
+                if (!(status & 1)) return (status);
+            }
+        }
+    }
+
+    /*
+    **  Do not add/modify directory entries.
+    */
+#define OPT_D_  "-D"            /* No directory entries. */
+
+    status = cli$present( &cli_dirnames);
+    if (!(status & 1))
+    {
+        /* /DIRNAMES */
+        append_simple_opt( OPT_D_);
+    }
+
+    /*
+    **  Encrypt?
+    */
+#define OPT_E     "-e"          /* Encrypt. */
+#define OPT_ET    "-et"         /* Encrypt trad without data descriptor. */
+#define OPT_ETN   "-et-"        /* Encrypt trad with data descriptor. */
+#define OPT_KF    "-kf"         /* Keyfile. */
+#define OPT_P_    "-P"          /* Password. */
+#define OPT_PN    "-pn"         /* Permit non-ANSI chars in password. */
+#define OPT_PNN   "-pn-"        /* Permit only ANSI chars in password. */
+#define OPT_PS    "-ps"         /* Permit short password. */
+#define OPT_PSN   "-ps-"        /* Permit only non-short password. */
+#define OPT_Y_    "-Y"          /* Method. */
+#define OPT_YA128 "AES128"      /* Method AES128. */
+#define OPT_YA192 "AES192"      /* Method AES192. */
+#define OPT_YA256 "AES256"      /* Method AES256. */
+#define OPT_YTRAD "Traditional" /* Method Traditional. */
+
+    status = cli$present( &cli_encrypt);
+    if (status & 1)
+    {
+        char *opt;
+
+        /* /ENCRYPT. */
+        if (cli$present( &cli_encrypt_pass) & 1)
+        {
+            /* /ENCRYPT = PASSWORD = "pwd". */
+            append_simple_opt( OPT_P_);
+
+            if (cli$get_value( &cli_encrypt_pass, &work_str) & 1)
+            {
+                x = cmdl_len;
+                cmdl_len += work_str.dsc$w_length+ 1;
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                strncpy( &the_cmd_line[ x], work_str.dsc$a_pointer,
+                 work_str.dsc$w_length);
+                the_cmd_line[ cmdl_len- 1] = '\0';
+            }
+        }
+        else
+        {
+            /* /ENCRYPT (no password). */
+            append_simple_opt( OPT_E);
+        }
+
+        status = cli$present( &cli_encrypt_ansi);
+        if ((status & 1) || (status == CLI$_NEGATED))
+        {
+            /* /ENCRYPT = [NO]ANSI_PASSWORD */
+            if (status == CLI$_NEGATED)
+            {
+                /* /ENCRYPT = NOANSI_PASSWORD */
+                opt = OPT_PN;
+            }
+            else
+            {
+                /* /ENCRYPT = ANSI_PASSWORD */
+                opt = OPT_PNN;
+            }
+            append_simple_opt( opt);
+        }
+
+        status = cli$present( &cli_encrypt_descriptor);
+        if ((status & 1) || (status == CLI$_NEGATED))
+        {
+            /* /ENCRYPT = [NO]DESCRIPTOR */
+            if (status == CLI$_NEGATED)
+            {
+                /* /ENCRYPT = NODESCRIPTOR */
+                opt = OPT_ETN;
+            }
+            else
+            {
+                /* /ENCRYPT = DESCRIPTOR */
+                opt = OPT_ET;
+            }
+            append_simple_opt( opt);
+        }
+
+        if (cli$present( &cli_encrypt_keyfile) & 1)
+        {
+            /* /ENCRYPT = KEYFILE = keyfile. */
+            append_simple_opt( OPT_KF);
+
+            if (cli$get_value( &cli_encrypt_keyfile, &work_str) & 1)
+            {
+                x = cmdl_len;
+                cmdl_len += work_str.dsc$w_length+ 1;
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                strncpy( &the_cmd_line[ x], work_str.dsc$a_pointer,
+                 work_str.dsc$w_length);
+                the_cmd_line[ cmdl_len- 1] = '\0';
+            }
+        }
+
+        if (cli$present( &cli_encrypt_mthd) & 1)
+        {
+            /* /ENCRYPT = METHOD = mthd. */
+            append_simple_opt( OPT_Y_);
+
+            if (cli$present( &cli_encrypt_mthd_aes128) & 1)
+            {   /* AES128. */
+                opt = OPT_YA128;
+            }
+            else if (cli$present( &cli_encrypt_mthd_aes192) & 1)
+            {  /* AES192. */
+                opt = OPT_YA192;
+            }
+            else if (cli$present( &cli_encrypt_mthd_aes256) & 1)
+            {   /* AES256. */
+                opt = OPT_YA256;
+            }
+            else
+            {   /* Traditional. */
+                opt = OPT_YTRAD;
+            }
+            append_simple_opt( opt);
+        }
+
+        status = cli$present( &cli_encrypt_short);
+        if ((status & 1) || (status == CLI$_NEGATED))
+        {
+            /* /ENCRYPT = [NO]SHORT_PASSWORD */
+            if (status == CLI$_NEGATED)
+            {
+                /* /ENCRYPT = NOSHORT_PASSWORD */
+                opt = OPT_PS;
+            }
+            else
+            {
+                /* /ENCRYPT = SHORT_PASSWORD */
+                opt = OPT_PSN;
+            }
+            append_simple_opt( opt);
+        }
+    }
+
+    /*
+    **  Filesync.  Delete archive entry if no such file.
+    */
+#define OPT_FS  "-FS"           /* Filesync. */
+
+    if ((status = cli$present( &cli_filesync)) & 1)
+    {
+        /* /FILESYNC */
+        append_simple_opt( OPT_FS);
+    }
+
+    /*
+    **  Fix the zip archive structure.
+    */
+#define OPT_F_  "-F"            /* Fix archive. */
+#define OPT_FF  "-FF"           /* Fix archive more. */
+
+    status = cli$present( &cli_fix_archive);
+    if (status & 1)
+    {
+        char *opt;
+
+        opt = OPT_F_;
+        /* /FIX_ARCHIVE = NORMAL */
+        if ((status = cli$present( &cli_fix_full)) & 1)
+        {
+            /* /FIX_ARCHIVE = FULL */
+            opt = OPT_FF;
+        }
+        append_simple_opt( opt);
+    }
+
+    /*
+    **  Freshen (only changed files).
+    */
+#define OPT_F   "-f"            /* Freshen entries. */
+
+    status = cli$present( &cli_freshen);
+    if (status & 1)
+    {
+        /* /FRESHEN */
+        append_simple_opt( OPT_F);
+    }
+
+    /*
+    **  Show the help.
+    */
+#define OPT_H   "-h"            /* Help. */
+#define OPT_H2  "-h2"           /* Help, extended. */
+
+    status = cli$present( &cli_help);
+    if (status & 1)
+    {
+        status = cli$present( &cli_help_normal);
+        if (status & 1)
+        {
+            /* /HELP [= NORMAL] */
+            append_simple_opt( OPT_H);
+        }
+        status = cli$present( &cli_help_extended);
+        if (status & 1)
+        {
+            /* /HELP = EXTENDED */
+            append_simple_opt( OPT_H2);
+        }
+    }
+
+    /*
+    **  Junk path names (directory specs).
+    */
+#define OPT_J   "-j"
+
+    status = cli$present( &cli_junk);
+    if (status & 1)
+    {
+        /* /JUNK */
+        append_simple_opt( OPT_J);
+    }
+
+    /*
+    **  Store full path or not.  (/[NO]FULL_PATH, /[NO]JUNK.)
+    */
+#define OPT_JN  "-j-"
+
+    flag = 0;
+
+    /* /[NO]FULL_PATH */
+    status = cli$present( &cli_full_path);
+    if (status == CLI$_PRESENT)
+        flag = 1;
+    else if (status == CLI$_NEGATED)
+        flag = -1;
+
+    /* /[NO]JUNK */
+    status = cli$present( &cli_junk);
+    if (status == CLI$_PRESENT)
+        flag = -1;
+    else if (status == CLI$_NEGATED)
+        flag = 1;
+
+    if (flag > 0)
+    {
+        /* /FULL_PATH, /NOJUNK, -j- */
+        append_simple_opt( OPT_JN);
+    }
+    else if (flag < 0)
+    {
+        /* /NOFULL_PATH, /JUNK, -j */
+        append_simple_opt( OPT_J);
+    }
+
+    /*
+    **  Keep the VMS version number as part of the file name when stored.
+    */
+#define OPT_W   "-w"            /* Save VMS version. */
+
+    status = cli$present( &cli_keep_version);
+    if (status & 1)
+    {
+        /* /KEEP_VERSION */
+        append_simple_opt( OPT_W);
+    }
+
+    /*
+    **  Set zip file time to time of latest file in it.
+    */
+#define OPT_O   "-o"            /* Set archive age to that of oldest member. */
+
+    status = cli$present( &cli_latest);
+    if (status & 1)
+    {
+        /* /LATEST */
+        append_simple_opt( OPT_O);
+    }
+
+    /*
+    **  Show the software license.
+    */
+#define OPT_L_  "-L"            /* Show license. */
+
+    status = cli$present(&cli_license);
+    if (status & 1)
+    {
+        /* /LICENSE */
+        append_simple_opt( OPT_L_);
+    }
+
+    /*
+    **  Handle "-la", "-lf", "-li".
+    */
+#define OPT_LA  "-la"
+#define OPT_LAN "-la-"
+#define OPT_LF_ "-lF"
+#define OPT_LF  "-lf"
+#define OPT_LI  "-li"
+#define OPT_LIN "-li-"
+#define OPT_LU  "-lu"
+#define OPT_LUN "-lu-"
+
+    status = cli$present( &cli_log_file);
+    if (status & 1)
+    {
+        /* /LOG_FILE */
+        status = cli$present( &cli_log_file_append);
+        if (status & 1)
+        {
+            /* /LOG_FILE = APPEND */
+            append_simple_opt( OPT_LA);
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /LOG_FILE = NOAPPEND */
+            append_simple_opt( OPT_LAN);
+        }
+
+        status = cli$present( &cli_log_file_file);
+        if (status & 1)
+        {
+            /* /LOG_FILE = FILE = file */
+            status = cli$get_value(&cli_log_file_file, &work_str);
+            if (status & 1)
+            {
+                x = cmdl_len;
+                cmdl_len += strlen( OPT_LF)+ 2+ work_str.dsc$w_length;
+                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+                strcpy( &the_cmd_line[x], OPT_LF);
+                strncpy( &the_cmd_line[x+strlen( OPT_LF)+ 1],
+                 work_str.dsc$a_pointer, work_str.dsc$w_length);
+                the_cmd_line[ cmdl_len- 1] = '\0';
+            }
+            else
+            {
+                /* /LOG_FILE = FILE (without = file) */
+                append_simple_opt( OPT_LF_);
+            }
+        }
+        else
+        {
+            /* /LOG_FILE (without = FILE = file) */
+            append_simple_opt( OPT_LF_);
+        }
+
+        status = cli$present( &cli_log_file_info);
+        if (status & 1)
+        {
+            /* /LOG = INFO */
+            append_simple_opt( OPT_LI);
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /LOG_FILE = NOINFO */
+            append_simple_opt( OPT_LIN);
+        }
+
+        status = cli$present( &cli_log_file_utf8);
+        if (status & 1)
+        {
+            /* /LOG = UTF8 */
+            append_simple_opt( OPT_LU);
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /LOG_FILE = NOUTF8 */
+            append_simple_opt( OPT_LUN);
+        }
+    }
+
+    /*
+    **  Delete the files once they've been added to the zip file.
+    */
+#define OPT_M   "-m"            /* Move entries. */
+
+    status = cli$present( &cli_move);
+    if (status & 1)
+    {
+        /* /MOVE */
+        append_simple_opt( OPT_M);
+    }
+
+    /*
+    **  Pattern control: case sensitivity, regex.
+    */
+#define OPT_IC  "-ic"           /* Pattern matching: Case-insensitive. */
+#define OPT_ICN "-ic-"          /* Pattern matching: Case-sensitive. */
+#define OPT_RE_ "-RE"           /* Pattern matching: regex. */
+#define OPT_REN_ "-RE-"          /* Pattern matching: noregex. */
+
+    if ((status = cli$present( &cli_pattern)) & 1)
+    {
+        if (cli$present( &cli_pattern_case) & 1)
+        {
+            if (cli$present( &cli_pattern_case_blind) & 1)
+            {
+                /* /PATTERN = CASE = BLIND */
+                append_simple_opt( OPT_IC);
+            }
+            else if (cli$present( &cli_pattern_case_sensitive) & 1)
+            {
+                /* /PATTERN = CASE = SENSITIVE */
+                append_simple_opt( OPT_ICN);
+            }
+        }
+
+        status = cli$present( &cli_pattern_regex);
+        if ((status & 1) || (status == CLI$_NEGATED))
+        {
+            if (status & 1)
+            {
+                /* /PATTERN = REGEX */
+                append_simple_opt( OPT_RE_);
+            }
+            else
+            {
+                /* /PATTERN = NOREGEX */
+                append_simple_opt( OPT_REN_);
+            }
+        }
+    }
+
+    /*
+    **  Simulate zip file made by PKZIP.
+    */
+#define OPT_K   "-k"            /* PKZIP mode. */
+
+    status = cli$present( &cli_pkzip);
+    if (status & 1)
+    {
+        /* /PKZIP */
+        append_simple_opt( OPT_K);
+    }
+
+    /*
+    **  Add path prefix.
+    */
+#define OPT_PA  "-pa"           /* Add prefix to new (added/updated) members. */
+#define OPT_PP  "-pp"           /* Add prefix to all members. */
+
+    status = cli$present( &cli_prefix);
+    if (status & 1)
+    {
+        char *opt = NULL;
+
+        if ((status = cli$present( &cli_prefix_all)) & 1)
+        {
+            /* /PREFIX = ALL */
+            opt = OPT_PP;
+        }
+        if ((status = cli$present( &cli_prefix_new)) & 1)
+        {
+            /* /PREFIX = NEW */
+            opt = OPT_PA;
+        }
+        if (opt == NULL)
+        {
+            /* /PREFIX = NEW (default) */
+            opt = OPT_PA;
+        }
+        status = cli$get_value( &cli_prefix_path, &work_str);
+        if (status & 1)
+        {
+            append_simple_opt( opt);                    /* -pa or -pp */
+            /* /PREFIX = PATH = value */
+            work_str.dsc$a_pointer[work_str.dsc$w_length] = '\0';
+            append_simple_opt( work_str.dsc$a_pointer); /* path prefix */
+        }
     }
 
     /*
@@ -918,402 +1729,21 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
-    **  Pattern case sensitivity.
+    **  Accept "-print0" input format.
     */
-#define OPT_IC  "-ic"           /* Case-insensitive pattern matching. */
-#define OPT_ICN "-ic-"          /* Case-sensitive pattern matching. */
+#define OPT_P0  "-p0"           /* Expect "-print0" input format. */
+#define OPT_P0N "-p0-"          /* Expect normal input format. */
 
-    status = cli$present( &cli_patt_case);
+    status = cli$present( &cli_print0);
     if (status & 1)
     {
-        if (cli$present( &cli_patt_case_blind) & 1)
-        {
-            /* "-ic". */
-            append_simple_opt( OPT_IC);
-        }
-        else if (cli$present( &cli_patt_case_sensitive) & 1)
-        {
-            /* "-ic-". */
-            append_simple_opt( OPT_ICN);
-        }
+        /* /PRINT0 */
+        append_simple_opt( OPT_P0);
     }
-
-    /*
-    **  Default directory.
-    */
-#define OPT_CD   "-cd"          /* Set default directory. */
-
-    status = cli$present( &cli_default_dir);
-    if (status & 1)
-    {
-        /* /DEFAULT_DIRECTORY */
-        status = cli$get_value( &cli_default_dir, &work_str);
-        if (status & 1)
-        {
-            /* /DEFAULT_DIRECTORY = value (required argument) */
-            work_str.dsc$a_pointer[work_str.dsc$w_length] = '\0';
-            append_simple_opt( OPT_CD);
-            append_simple_opt( work_str.dsc$a_pointer);
-        }
-    }
-
-    /*
-    **  Data descriptors.
-    */
-#define OPT_FD  "-fd"           /* Force descriptors. */
-
-    status = cli$present( &cli_descriptors);
-    if (status & 1)
-    {
-        /* /DESCRIPTORS */
-        append_simple_opt( OPT_FD);
-    }
-
-    /*
-    **  Difference archive.  Add only new or changed files.
-    */
-#define OPT_DF  "-DF"           /* Difference archive. */
-
-    if ((status = cli$present( &cli_difference)) & 1)
-    {
-        /* /DIFFERENCE */
-        append_simple_opt( OPT_DF);
-    }
-
-    /*
-    **  Do not add/modify directory entries.
-    */
-#define OPT_D_  "-D"            /* No directory entries. */
-
-    status = cli$present( &cli_dirnames);
-    if (!(status & 1))
-    {
-        /* /DIRNAMES */
-        append_simple_opt( OPT_D_);
-    }
-
-    /*
-    **  Encrypt?
-    */
-#define OPT_E     "-e"          /* Encrypt. */
-#define OPT_P     "-P"          /* Password. */
-#define OPT_PN    "-pn"         /* Permit non-ANSI chars in password. */
-#define OPT_PNN   "-pn-"        /* Permit only ANSI chars in password. */
-#define OPT_PS    "-ps"         /* Permit short password. */
-#define OPT_PSN   "-ps-"        /* Permit only non-short password. */
-#define OPT_Y_    "-Y"          /* Method. */
-#define OPT_YA128 "AES128"      /* Method AES128. */
-#define OPT_YA192 "AES192"      /* Method AES192. */
-#define OPT_YA256 "AES256"      /* Method AES256. */
-#define OPT_YTRAD "Traditional" /* Method Traditional. */
-
-    status = cli$present( &cli_encrypt);
-    if (status & 1)
-    {
-        char *opt;
-
-        /* /ENCRYPT. */
-        if (cli$present( &cli_encrypt_pass) & 1)
-        {
-            /* /ENCRYPT = PASSWORD = "pwd". */
-            append_simple_opt( OPT_P);
-
-            if (cli$get_value( &cli_encrypt_pass, &work_str) & 1)
-            {
-                x = cmdl_len;
-                cmdl_len += work_str.dsc$w_length+ 1;
-                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
-                strncpy( &the_cmd_line[ x], work_str.dsc$a_pointer,
-                 work_str.dsc$w_length);
-                the_cmd_line[ cmdl_len- 1] = '\0';
-            }
-        }
-        else
-        {
-            /* /ENCRYPT (no password). */
-            append_simple_opt( OPT_E);
-        }
-
-        status = cli$present( &cli_encrypt_ansi);
-        if ((status & 1) || (status == CLI$_NEGATED))
-        {
-            /* /ENCRYPT = [NO]ANSI_PASSWORD */
-            if (status == CLI$_NEGATED)
-            {
-                /* /ENCRYPT = NOANSI_PASSWORD */
-                opt = OPT_PN;
-            }
-            else
-            {
-                /* /ENCRYPT = ANSI_PASSWORD */
-                opt = OPT_PNN;
-            }
-            append_simple_opt( opt);
-        }
-
-        if (cli$present( &cli_encrypt_mthd) & 1)
-        {
-            /* /ENCRYPT = METHOD = mthd. */
-            append_simple_opt( OPT_Y_);
-
-            if (cli$present( &cli_encrypt_mthd_aes128) & 1)
-            {   /* AES128. */
-                opt = OPT_YA128;
-            }
-            else if (cli$present( &cli_encrypt_mthd_aes192) & 1)
-            {  /* AES192. */
-                opt = OPT_YA192;
-            }
-            else if (cli$present( &cli_encrypt_mthd_aes256) & 1)
-            {   /* AES256. */
-                opt = OPT_YA256;
-            }
-            else
-            {   /* Traditional. */
-                opt = OPT_YTRAD;
-            }
-            append_simple_opt( opt);
-        }
-
-        status = cli$present( &cli_encrypt_short);
-        if ((status & 1) || (status == CLI$_NEGATED))
-        {
-            /* /ENCRYPT = [NO]SHORT_PASSWORD */
-            if (status == CLI$_NEGATED)
-            {
-                /* /ENCRYPT = NOSHORT_PASSWORD */
-                opt = OPT_PS;
-            }
-            else
-            {
-                /* /ENCRYPT = SHORT_PASSWORD */
-                opt = OPT_PSN;
-            }
-            append_simple_opt( opt);
-        }
-    }
-
-    /*
-    **  Fix the zip archive structure.
-    */
-#define OPT_F_  "-F"            /* Fix archive. */
-#define OPT_FF  "-FF"           /* Fix archive more. */
-
-    status = cli$present( &cli_fix_archive);
-    if (status & 1)
-    {
-        char *opt;
-
-        opt = OPT_F_;
-        /* /FIX_ARCHIVE = NORMAL */
-        if ((status = cli$present( &cli_fix_full)) & 1)
-        {
-            /* /FIX_ARCHIVE = FULL */
-            opt = OPT_FF;
-        }
-        append_simple_opt( opt);
-    }
-
-    /*
-    **  Filesync.  Delete archive entry if no such file.
-    */
-#define OPT_FS  "-FS"           /* Filesync. */
-
-    if ((status = cli$present( &cli_filesync)) & 1)
-    {
-        /* /FILESYNC */
-        append_simple_opt( OPT_FS);
-    }
-
-    /*
-    **  Append (allow growing of existing zip file).
-    */
-#define OPT_G   "-g"            /* Grow (append to) archive. */
-
-    status = cli$present( &cli_append);
-    if (status & 1)
-    {
-        /* /APPEND */
-        append_simple_opt( OPT_G);
-    }
-
-    status = cli$present( &cli_grow);
-    if (status & 1)
-    {
-        /* /GROW */
-        append_simple_opt( OPT_G);
-    }
-
-    /*
-    **  Show the help.
-    */
-#define OPT_H   "-h"            /* Help. */
-#define OPT_H2  "-h2"           /* Help, extended. */
-
-    status = cli$present( &cli_help);
-    if (status & 1)
-    {
-        status = cli$present( &cli_help_normal);
-        if (status & 1)
-        {
-            /* /HELP [= NORMAL] */
-            append_simple_opt( OPT_H);
-        }
-        status = cli$present( &cli_help_extended);
-        if (status & 1)
-        {
-            /* /HELP = EXTENDED */
-            append_simple_opt( OPT_H2);
-        }
-    }
-
-    /*
-    **  Junk path names (directory specs).
-    */
-#define OPT_J   "-j"
-
-    status = cli$present( &cli_junk);
-    if (status & 1)
-    {
-        /* /JUNK */
-        append_simple_opt( OPT_J);
-    }
-
-    /*
-    **  Store full path or not.  (/[NO]FULL_PATH, /[NO]JUNK.)
-    */
-#define OPT_JN  "-j-"
-
-    flag = 0;
-
-    /* /[NO]FULL_PATH */
-    status = cli$present( &cli_full_path);
-    if (status == CLI$_PRESENT)
-        flag = 1;
     else if (status == CLI$_NEGATED)
-        flag = -1;
-
-    /* /[NO]JUNK */
-    status = cli$present( &cli_junk);
-    if (status == CLI$_PRESENT)
-        flag = -1;
-    else if (status == CLI$_NEGATED)
-        flag = 1;
-
-    if (flag > 0)
     {
-        /* /FULL_PATH, /NOJUNK, -j- */
-        append_simple_opt( OPT_JN);
-    }
-    else if (flag < 0)
-    {
-        /* /NOFULL_PATH, /JUNK, -j */
-        append_simple_opt( OPT_J);
-    }
-
-    /*
-    **  Simulate zip file made by PKZIP.
-    */
-#define OPT_K   "-k"            /* PKZIP mode. */
-
-    status = cli$present( &cli_pkzip);
-    if (status & 1)
-    {
-        /* /KEEP_VERSION */
-        append_simple_opt( OPT_K);
-    }
-
-    /*
-    **  Translate end-of-line.
-    */
-#define OPT_L   "-l"            /* LF -> CR+LF. */
-#define OPT_LL  "-ll"           /* CR+LF -> LF. */
-
-    status = cli$present( &cli_translate_eol);
-    if (status & 1)
-    {
-        /* /TRANSLATE_EOL [= LF]*/
-        char *opt;
-
-        opt = OPT_L;
-        if ((status = cli$present( &cli_transl_eol_crlf)) & 1)
-        {
-            /* /TRANSLATE_EOL = CRLF */
-            opt = OPT_LL;
-        }
-        append_simple_opt( opt);
-    }
-
-    /*
-    **  Show the software license.
-    */
-#define OPT_L_  "-L"            /* Show license. */
-
-    status = cli$present(&cli_license);
-    if (status & 1)
-    {
-        /* /LICENSE */
-        append_simple_opt( OPT_L_);
-    }
-
-    /*
-    **  Set zip file time to time of latest file in it.
-    */
-#define OPT_O   "-o"            /* Set archive age to that of oldest member. */
-
-    status = cli$present( &cli_latest);
-    if (status & 1)
-    {
-        /* /LATEST */
-        append_simple_opt( OPT_O);
-    }
-
-    /*
-    **  Junk Zipfile prefix (SFX stub etc.).
-    */
-#define OPT_J_  "-J"            /* Junk SFX prolog. */
-
-    status = cli$present( &cli_unsfx);
-    if (status & 1)
-    {
-        /* /UNSFX */
-        append_simple_opt( OPT_J_);
-    }
-
-    /*
-    **  Add path prefix.
-    */
-#define OPT_PA  "-pa"           /* Add prefix to new (added/updated) members. */
-#define OPT_PP  "-pp"           /* Add prefix to all members. */
-
-    status = cli$present( &cli_prefix);
-    if (status & 1)
-    {
-        char *opt = NULL;
-
-        if ((status = cli$present( &cli_prefix_all)) & 1)
-        {
-            /* /PREFIX = ALL */
-            opt = OPT_PP;
-        }
-        if ((status = cli$present( &cli_prefix_new)) & 1)
-        {
-            /* /PREFIX = NEW */
-            opt = OPT_PA;
-        }
-        if (opt == NULL)
-        {
-            /* /PREFIX = NEW (default) */
-            opt = OPT_PA;
-        }
-        status = cli$get_value( &cli_prefix_path, &work_str);
-        if (status & 1)
-        {
-            append_simple_opt( opt);                    /* -pa or -pp */
-            /* /PREFIX = PATH = value */
-            work_str.dsc$a_pointer[work_str.dsc$w_length] = '\0';
-            append_simple_opt( work_str.dsc$a_pointer); /* path prefix */
-        }
+        /* /NOPRINT0 */
+        append_simple_opt( OPT_P0N);
     }
 
     /*
@@ -1338,6 +1768,24 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
+    **  Perform normal file scan.
+    */
+#define OPT_SS_  "-SS"          /* Skip normal file scan. */
+#define OPT_SSN_ "-SS-"         /* Perform normal file scan. */
+
+    status = cli$present( &cli_scan_files);
+    if (status & 1)
+    {
+        /* /SCAN_FILES */
+        append_simple_opt( OPT_SSN_);
+    }
+    else if (status == CLI$_NEGATED)
+    {
+        /* /NOSCAN_FILES */
+        append_simple_opt( OPT_SS_);
+    }
+
+    /*
     **  Statistics.
     */
 #define OPT_PT  "-pt"           /* Statistics, time. */
@@ -1353,16 +1801,139 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
+    **  Name for stdin archive member.
+    */
+#define OPT_SI_ "-SI"           /* Set default directory. */
+
+    status = cli$present( &cli_stdin_name);
+    if (status & 1)
+    {
+        /* /STDIN_NAME */
+        status = cli$get_value( &cli_stdin_name, &work_str);
+        if (status & 1)
+        {
+            /* /STDIN_NAME = value (required argument) */
+            work_str.dsc$a_pointer[work_str.dsc$w_length] = '\0';
+            append_simple_opt( OPT_SI_);
+            append_simple_opt( work_str.dsc$a_pointer);
+        }
+    }
+
+    /*
     **  Test Zipfile.
     */
 #define OPT_T_  "-T"            /* Test. */
+#define OPT_PU  "-pu"           /* Test: Pass password to UnZip. */
+#define OPT_PUN "-pu-"          /* Test: Pass no password to UnZip. */
+#define OPT_TT_ "-TT"           /* Test: UnZip command. */
+#define OPT_TV_ "-TV"           /* Test: Verbose. */
 
-    status = cli$present(&cli_test);
-    if (status & 1)
+    if (cli$present(&cli_test) & 1)
     {
         /* /TEST */
         append_simple_opt( OPT_T_);
+
+        if (cli$present( &cli_test_unzip) & 1)
+        {
+            /* /TEST = UNZIP = value */
+            status = cli$get_value( &cli_test_unzip, &work_str);
+            x = cmdl_len;
+            cmdl_len += strlen( OPT_TT_)+ 2+ work_str.dsc$w_length;
+            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
+            strcpy(&the_cmd_line[x], OPT_TT_);
+            strncpy(&the_cmd_line[ x+ strlen( OPT_TT_)+ 1],
+             work_str.dsc$a_pointer, work_str.dsc$w_length);
+            the_cmd_line[ cmdl_len- 1] = '\0';
+        }
+
+        status = cli$present( &cli_test_password);
+        if (status & 1)
+        {
+            /* /TEST = PASSWORD */
+            append_simple_opt( OPT_PU);
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /TEST = PASSWORD */
+            append_simple_opt( OPT_PUN);
+        }
+
+        if (cli$present( &cli_test_verbose) & 1)
+        {
+            /* /TEST = VERBOSE */
+            append_simple_opt( OPT_TV_);
+        }
     }
+
+    /*
+    **  Record universal time.
+    */
+#ifdef USE_EF_UT_TIME
+
+#define OPT_TN  "-tn"           /* Do not record UT. */
+#define OPT_TNN "-tn-"          /* Record UT. */
+
+    status = cli$present( &cli_time);
+    if (status & 1)
+    {
+        status = cli$present( &cli_time_universal);
+        if (status & 1)
+        {
+            /* /TIME = UNIVERSAL */
+            append_simple_opt( OPT_TNN);
+        }
+        else if (status == CLI$_NEGATED)
+        {
+            /* /TIME = NOUNIVERSAL */
+            append_simple_opt( OPT_TN);
+        }
+    }
+#endif /* def USE_EF_UT_TIME */
+
+    /*
+    **  Translate end-of-line.
+    */
+#define OPT_L   "-l"            /* LF -> CR+LF. */
+#define OPT_LL  "-ll"           /* CR+LF -> LF. */
+
+    status = cli$present( &cli_translate_eol);
+    if (status & 1)
+    {
+        /* /TRANSLATE_EOL [= LF] */
+        char *opt;
+
+        opt = OPT_L;
+        if ((status = cli$present( &cli_transl_eol_crlf)) & 1)
+        {
+            /* /TRANSLATE_EOL = CRLF */
+            opt = OPT_LL;
+        }
+        append_simple_opt( opt);
+    }
+
+    /*
+    **  Junk Zipfile prefix (SFX stub etc.).
+    */
+#define OPT_J_  "-J"            /* Junk SFX prolog. */
+
+    status = cli$present( &cli_unsfx);
+    if (status & 1)
+    {
+        /* /UNSFX */
+        append_simple_opt( OPT_J_);
+    }
+
+    /*
+    **  Add changed and new files.
+    */
+#define OPT_U   "-u"            /* Update entries. */
+
+    status = cli$present( &cli_update);
+    if (status & 1)
+    {
+        /* /UPDATE */
+        append_simple_opt( OPT_U);
+     }
 
     /*
     **  Be verbose.
@@ -1494,18 +2065,6 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     {
         /* /NOVOLUME_LABEL */
         append_simple_opt( OPT_DLRN);
-    }
-
-    /*
-    **  Keep the VMS version number as part of the file name when stored.
-    */
-#define OPT_W   "-w"            /* Save VMS version. */
-
-    status = cli$present( &cli_keep_version);
-    if (status & 1)
-    {
-        /* /KEEP_VERSION */
-        append_simple_opt( OPT_W);
     }
 
     /*
@@ -1671,159 +2230,6 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     }
 
     /*
-    **  Handle "-db", "-dc", "-dd", "-ds".
-    */
-#define OPT_DB  "-db"
-#define OPT_DC  "-dc"
-#define OPT_DD  "-dd"
-#define OPT_DG  "-dg"
-#define OPT_DS  "-ds="
-#define OPT_DU  "-du"
-#define OPT_DV  "-dv"
-
-    status = cli$present( &cli_display);
-    if (status & 1)
-    {
-        if ((status = cli$present( &cli_display_bytes)) & 1)
-        {
-            /* /DISPLAY = BYTES */
-            append_simple_opt( OPT_DB);
-        }
-
-        if ((status = cli$present( &cli_display_counts)) & 1)
-        {
-            /* /DISPLAY = COUNTS */
-            append_simple_opt( OPT_DC);
-        }
-
-        if ((status = cli$present( &cli_display_dots)) & 1)
-        {
-            /* /DISPLAY = DOTS [= value] */
-            status = cli$get_value( &cli_display_dots, &work_str);
-
-            append_simple_opt( OPT_DD);
-
-            /* -dd[=value] now -dd -ds=value - 5/8/05 EG */
-            if (work_str.dsc$w_length > 0)
-            {
-                x = cmdl_len;
-                cmdl_len += strlen( OPT_DS);
-                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
-                strcpy( &the_cmd_line[ x], OPT_DS);
-
-                x = cmdl_len;
-                cmdl_len += work_str.dsc$w_length+ 1;
-                CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
-                strncpy( &the_cmd_line[ x],
-                 work_str.dsc$a_pointer, work_str.dsc$w_length);
-            }
-        }
-
-        if ((status = cli$present( &cli_display_globaldots)) & 1)
-        {
-            /* /DISPLAY = GLOBALDOTS */
-            append_simple_opt( OPT_DG);
-        }
-
-        if ((status = cli$present( &cli_display_usize)) & 1)
-        {
-            /* /DISPLAY = USIZE */
-            append_simple_opt( OPT_DU);
-        }
-
-        if ((status = cli$present( &cli_display_volume)) & 1)
-        {
-            /* /DISPLAY = VOLUME */
-            append_simple_opt( OPT_DV);
-        }
-    }
-
-    /*
-    **  Handle "-la", "-lf", "-li".
-    */
-#define OPT_LA  "-la"
-#define OPT_LF  "-lf"
-#define OPT_LI  "-li"
-
-    status = cli$present( &cli_log_file);
-    if (status & 1)
-    {
-        /* /LOG_FILE */
-        if ((status = cli$present( &cli_log_file_append)) & 1)
-        {
-            /* /LOG_FILE = APPEND */
-            append_simple_opt( OPT_LA);
-        }
-
-        status = cli$present( &cli_log_file_file);
-        if (status & 1)
-        {
-            /* /LOG_FILE = FILE = file */
-            status = cli$get_value(&cli_log_file_file, &work_str);
-            x = cmdl_len;
-            cmdl_len += strlen( OPT_LF)+ 2+ work_str.dsc$w_length;
-            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
-            strcpy( &the_cmd_line[x], OPT_LF);
-            strncpy( &the_cmd_line[x+strlen( OPT_LF)+ 1],
-             work_str.dsc$a_pointer, work_str.dsc$w_length);
-            the_cmd_line[ cmdl_len- 1] = '\0';
-        }
-
-        if ((status = cli$present( &cli_log_file_info)) & 1)
-        {
-            /* /LOG = INFO */
-            append_simple_opt( OPT_LI);
-        }
-    }
-
-    /*
-    **  Handle "-s", "-sb", "-sp", "-sv".
-    */
-#define OPT_S   "-s"
-#define OPT_SB  "-sb"
-#define OPT_SP  "-sp"
-#define OPT_SV  "-sv"
-
-    status = cli$present( &cli_split);
-    if (status & 1)
-    {
-        status = cli$present( &cli_split_bell);
-        if (status & 1)
-        {
-            /* /SPLIT = BELL */
-            append_simple_opt( OPT_SB);
-        }
-
-        status = cli$present( &cli_split_pause);
-        if (status & 1)
-        {
-            /* /SPLIT = PAUSE */
-            append_simple_opt( OPT_SP);
-        }
-
-        status = cli$present( &cli_split_size);
-        if (status & 1)
-        {
-            /* /SPLIT = SIZE = size */
-            status = cli$get_value( &cli_split_size, &work_str);
-
-            append_simple_opt( OPT_S);
-
-            x = cmdl_len;
-            cmdl_len += work_str.dsc$w_length+ 1;
-            strncpy( &the_cmd_line[ x],
-             work_str.dsc$a_pointer, work_str.dsc$w_length);
-        }
-
-        status = cli$present( &cli_split_verbose);
-        if (status & 1)
-        {
-            /* /SPLIT = VERBOSE */
-            append_simple_opt( OPT_SV);
-        }
-    }
-
-    /*
     **  Handle "-sc", "-sd", "-sf", "-so", "-ss".
     */
 #define OPT_SC     "-sc"
@@ -1883,6 +2289,53 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         {
             /* /SHOW = SUFFIXES */
             append_simple_opt( OPT_SS);
+        }
+    }
+
+    /*
+    **  Handle "-s", "-sb", "-sp", "-sv".
+    */
+#define OPT_S   "-s"
+#define OPT_SB  "-sb"
+#define OPT_SP  "-sp"
+#define OPT_SV  "-sv"
+
+    status = cli$present( &cli_split);
+    if (status & 1)
+    {
+        status = cli$present( &cli_split_bell);
+        if (status & 1)
+        {
+            /* /SPLIT = BELL */
+            append_simple_opt( OPT_SB);
+        }
+
+        status = cli$present( &cli_split_pause);
+        if (status & 1)
+        {
+            /* /SPLIT = PAUSE */
+            append_simple_opt( OPT_SP);
+        }
+
+        status = cli$present( &cli_split_size);
+        if (status & 1)
+        {
+            /* /SPLIT = SIZE = size */
+            status = cli$get_value( &cli_split_size, &work_str);
+
+            append_simple_opt( OPT_S);
+
+            x = cmdl_len;
+            cmdl_len += work_str.dsc$w_length+ 1;
+            strncpy( &the_cmd_line[ x],
+             work_str.dsc$a_pointer, work_str.dsc$w_length);
+        }
+
+        status = cli$present( &cli_split_verbose);
+        if (status & 1)
+        {
+            /* /SPLIT = VERBOSE */
+            append_simple_opt( OPT_SV);
         }
     }
 
@@ -1960,30 +2413,6 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     {
         /* /MUST_MATCH */
         append_simple_opt( OPT_MM);
-    }
-
-    /*
-    **  UnZip command for archive test.
-    */
-#define OPT_TT_ "-TT"
-
-    status = cli$present( &cli_test);
-    if (status & 1)
-    {
-        /* /TEST */
-        status = cli$present(&cli_test_unzip);
-        if (status & 1)
-        {
-            /* /TEST = UNZIP = value */
-            status = cli$get_value( &cli_test_unzip, &work_str);
-            x = cmdl_len;
-            cmdl_len += strlen( OPT_TT_)+ 2+ work_str.dsc$w_length;
-            CHECK_BUF_ALLOC( the_cmd_line, &cmdl_size, cmdl_len)
-            strcpy(&the_cmd_line[x], OPT_TT_);
-            strncpy(&the_cmd_line[ x+ strlen( OPT_TT_)+ 1],
-             work_str.dsc$a_pointer, work_str.dsc$w_length);
-            the_cmd_line[ cmdl_len- 1] = '\0';
-        }
     }
 
     /*

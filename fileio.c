@@ -1,7 +1,7 @@
 /*
   fileio.c - Zip 3.1
 
-  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2017 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -60,7 +60,11 @@ extern int errno;
    For zfprintf
    ----------------------- */
 #include <stdlib.h>
-#include <stdarg.h>
+#ifdef NO_PROTO
+# include <varargs.h>
+#else
+# include <stdarg.h>
+#endif
 
 #ifdef WIN32
 /* for locale, codepage support */
@@ -211,8 +215,9 @@ char *n;                /* where to put name (must have >=FNMAX+1 bytes) */
 /* Now just set to max length allowed for paths. */
 #define GETNAM_MAX MAX_PATH_SIZE
 
-char *getnam(fp)
+char *getnam(fp, null_term)
   FILE *fp;
+  int null_term;
   /* Read a \n or \r delimited name from stdin (or whereever fp points)
      into n, and return n.  If EOF, then return NULL.  Also, if problem
      return NULL. */
@@ -220,6 +225,8 @@ char *getnam(fp)
   /* As of Zip 3.1, we trim leading and trailing white space, unless
      name is surrounded by double quotes, in which case trimming is
      only to the quotes and the quotes are then removed. */
+  /* if null_term is set, then assume names are terminated with nulls
+     (as from "find -print0").  In this case no trimming is done. */
 {
   char name[GETNAM_MAX + 1];
   int c;                /* last character read */
@@ -233,21 +240,34 @@ char *getnam(fp)
 
   while (1) {
     p = name;
-    while ((c = getc(fp)) == '\n' || c == '\r')
-      ;
+    /* skip zero length names */
+    if (null_term) {
+      /* NULLs terminate each name (as from find -print0) */
+      while ((c = getc(fp)) == '\0')
+        ;
+    }
+    else {
+      /* \n or \r terminate each name */
+      while ((c = getc(fp)) == '\n' || c == '\r')
+        ;
+    }
     if (c == EOF)
       return NULL;
     do {
       if (p - name >= GETNAM_MAX) {
         name[GETNAM_MAX - 1] = '\0';
-        sprintf(errbuf, "name read from file greater than max path length:  %d\n          %s",
+        sprintf(errbuf, "name read from file greater than max path length:  %d\n   name:  %s",
                 GETNAM_MAX, name);
-        ZIPERR(ZE_PARMS, errbuf);
+        ZIPERR(ZE_PATH, errbuf);
         return NULL;
       }
       *p++ = (char) c;
       c = getc(fp);
-    } while (c != EOF && (c != '\n' && c != '\r'));
+      if (!null_term && !c) {
+        sprintf(errbuf, "found null in name read from file when not using --print0");
+        ZIPERR(ZE_PATH, errbuf);
+      }
+    } while (c != EOF && (null_term ? c : (c != '\n' && c != '\r')));
 #ifdef WIN32
   /*
    * WIN32 strips off trailing spaces and periods in filenames
@@ -262,23 +282,37 @@ char *getnam(fp)
 #endif
     *p = 0;
 
-    /* trimming and quotes */
-    for (name_start = 0; (uc = (unsigned char)name[name_start]); name_start++) {
-      if (!isspace(uc)) break;
+    if (!null_term) {
+      /* trimming and quotes */
+
+      /* skip leading space */
+      for (name_start = 0; (uc = (unsigned char)name[name_start]); name_start++) {
+        if (!isspace(uc)) break;
+      }
+
+      /* skip trailing space */
+      for (name_end = (int)strlen(name) - 1; name_end >= 0; name_end--) {
+        uc = (unsigned char)name[name_end];
+        if (!isspace(uc)) break;
+      }
+
+      if (name[name_start] == '"' && name_start < name_end && name[name_end] == '"') {
+        /* trim outer quotes */
+        name_start++;
+        name_end--;
+      }
+      for (i = name_start; i <= name_end; i++) {
+        name2[i - name_start] = name[i];
+      }
+      name2[i - name_start] = '\0';
     }
-    for (name_end = (int)strlen(name) - 1; name_end >= 0; name_end--) {
-      uc = (unsigned char)name[name_end];
-      if (!isspace(uc)) break;
+    else {
+      /* null terminated, just copy what got */
+      for (i = 0; name[i]; i++) {
+        name2[i] = name[i];
+      }
+      name2[i] = '\0';
     }
-    if (name[name_start] == '"' && name_start < name_end && name[name_end] == '"') {
-      /* trim outer quotes */
-      name_start++;
-      name_end--;
-    }
-    for (i = name_start; i <= name_end; i++) {
-      name2[i - name_start] = name[i];
-    }
-    name2[i - name_start] = '\0';
 
     /* if we end up with an empty string, just loop and try again */
     if (name2[0])
@@ -1022,6 +1056,9 @@ int newnamew(namew, zflags, casesensitive)
   int dosflag;
   int is_utf8 = 0;
   char *path = NULL;
+  int i;
+  wchar_t *t;
+  int isstdin = 0;            /* set if input file is stdin */
 
   /* Scanning files ...
    *
@@ -1050,6 +1087,26 @@ int newnamew(namew, zflags, casesensitive)
         }
       }
     }
+  }
+
+  /* . gets changed to ././ */
+  /* search for ./, ././, ./././ and so on */
+  for (i = 0, t = namew; t[i] && t[i+1]; i += 2) {
+    if (t[i] != L'.' || t[i+1] != L'/') {
+      break;
+    }
+  }
+  
+  if (t[i] == L'\0') {
+    /* path is just a bunch of ./ - just skip */
+    return ZE_OK;
+  }
+
+  /* If the global is_stdin is set, then ignore the name.  If not,
+     if the name is "-" and no_stdin doesn't prevent it, then this
+     name is stdin. */
+  if (is_stdin || (!no_stdin && wcscmp(namew, L"-") == 0)) {
+    isstdin = 1;
   }
 
   /* Search for name in zip file.  If there, mark it, else add to
@@ -1101,7 +1158,7 @@ int newnamew(namew, zflags, casesensitive)
   /* first look for UTF-8 in zlist, as paths in new archives
      should be UTF-8 */
   path = zuname;                /* UTF-8 version of zname */
-  if ((z = zsearch(zuname)) == NULL) {
+  if (((z = zsearch(zuname)) == NULL) && !strcmp(zuname, zname)) {
     /* if not found, look for local version of name, as
        an old archive might be using local paths */
     /* this should also catch escaped Unicode */
@@ -1182,12 +1239,23 @@ int newnamew(namew, zflags, casesensitive)
 /* files match.  Just let ZIP.C compare the filenames.  That's good    */
 /* enough for CMS anyway since there aren't paths to worry about.      */
     zw_stat statbw;     /* need for wide stat */
-    wchar_t *zipfilew = local_to_wchar_string(zipfile);
+    wchar_t *zipfilew;
 
-    if (zipstate == -1)
-       zipstate = strcmp(zipfile, "-") != 0 &&
+    if (!zipfile) {
+      zipstate = 0;
+    }
+
+    if (zipstate == -1) {
+      if (is_utf8_string(zipfile, NULL, NULL, NULL, NULL)) {
+        zipfilew = utf8_to_wchar_string(zipfile);
+      }
+      else {
+        zipfilew = local_to_wchar_string(zipfile);
+      }
+      zipstate = strcmp(zipfile, "-") != 0 &&
                    zwstat(zipfilew, &zipstatbw) == 0;
-    free(zipfilew);
+      free(zipfilew);
+    }
 
     if (zipstate == 1 && (statbw = zipstatbw, zwstat(namew, &statbw) == 0
       && zipstatbw.st_mode  == statbw.st_mode
@@ -1267,6 +1335,7 @@ int newnamew(namew, zflags, casesensitive)
     f->dosflag = dosflag;
 
     f->zflags = zflags;
+    f->is_stdin = isstdin;
 
     *fnxt = f;
     f->lst = fnxt;
@@ -1288,6 +1357,7 @@ int newnamew(namew, zflags, casesensitive)
   return ZE_OK;
 }
 #endif /* UNICODE_SUPPORT_WIN32 */
+
 
 #ifndef NO_PROTO
 int newname(char *name, int zflags, int casesensitive)
@@ -1321,6 +1391,9 @@ int newname(name, zflags, casesensitive)
   struct zlist far *z;  /* where in zfiles (if found) */
   int dosflag;
   int pad_name;         /* Pad for name (may include APL_DBL_xxx). */
+  int i;
+  char *t;
+  int isstdin = 0;     /* set if input file is stdin */
 
 #ifdef UNIX_APPLE
   /* Create special names for an AppleDouble file. */
@@ -1410,6 +1483,26 @@ int newname(name, zflags, casesensitive)
         }
       }
     }
+  }
+
+  /* . gets changed to ././ */
+  /* search for ./, ././, ./././ and so on */
+  for (i = 0, t = name_archv; t[i] && t[i+1]; i += 2) {
+    if (t[i] != '.' || t[i+1] != '/') {
+      break;
+    }
+  }
+  
+  if (t[i] == '\0') {
+    /* path is just a bunch of ./ - just skip */
+    return ZE_OK;
+  }
+
+  /* If the global is_stdin is set, then ignore the name.  If not,
+     if the name is "-" and no_stdin doesn't prevent it, then this
+     name is stdin. */
+  if (is_stdin || (!no_stdin && strcmp(name_archv, "-") == 0)) {
+    isstdin = 1;
   }
 
   /* Search for name in zip file.  If there, mark it, else add to
@@ -1528,6 +1621,10 @@ int newname(name, zflags, casesensitive)
 /* enough for CMS anyway since there aren't paths to worry about.      */
     z_stat statb;      /* now use structure z_stat and function zstat globally 7/24/04 EG */
 
+    if (!zipfile) {
+      zipstate = 0;
+    }
+
     if (zipstate == -1)
         zipstate = strcmp(zipfile, "-") != 0 &&
                    zstat(zipfile, &zipstatb) == 0;
@@ -1624,6 +1721,7 @@ int newname(name, zflags, casesensitive)
     f->dosflag = dosflag;
 
     f->zflags = zflags;
+    f->is_stdin = isstdin;
 
     *fnxt = f;
     f->lst = fnxt;
@@ -3362,7 +3460,7 @@ size_t bfwrite(buffer, size, count, mode)
       }
 
       /* close this split */
-      if (split_method == 1 && current_local_disk == current_disk && !use_descriptors) {
+      if (split_method == 1 && current_local_disk == current_disk && !use_data_descriptor) {
         /* if using split_method 1 (rewrite headers) and still working on current disk
            and we are not using data descriptors (if we are, we can't rewrite the local
            headers and so putlocal() won't be called to rewrite them and that's where
@@ -3911,12 +4009,12 @@ int get_entry_comment(z)
       sprintf(errbuf, "\nCurrent comment for %s:\n %s", z->oname, c);
       print_utf8(errbuf);
       free(c);
-      sprintf(errbuf, "\nEnter comment for %s:\n ", z->oname);
+      sprintf(errbuf, "\nEnter one-line comment for %s:\n ", z->oname);
       print_utf8(errbuf);
       sprintf(errbuf, "(ENTER=keep, TAB ENTER=remove, SPACE ENTER=multiline)\n ");
       print_utf8(errbuf);
     } else {
-      sprintf(errbuf, "\nEnter comment for %s:\n ", z->oname);
+      sprintf(errbuf, "\nEnter one-line comment for %s:\n ", z->oname);
       print_utf8(errbuf);
       sprintf(errbuf, "(SPACE ENTER=multiline)\n ");
       print_utf8(errbuf);
@@ -4065,7 +4163,7 @@ char *trim_string(instring)
 #ifndef NO_PROTO
 char *string_dup(ZCONST char *in_string, char *error_message, int fluff)
 #else
-char *string_dup(in_string, error_message)
+char *string_dup(in_string, error_message, fluff)
   ZCONST char *in_string;
   char *error_message;
   int fluff;
@@ -4087,6 +4185,43 @@ char *string_dup(in_string, error_message)
   strcpy(out_string, in_string);
   return out_string;
 }
+
+
+#ifdef WIN32
+/* string_dupw - duplicate a string (wide version)
+ *
+ * in_stringw      = wide string to duplicate
+ * error_message   = error message if memory can't be allocated
+ * fluff           = extra characters to allocate
+ *
+ * Returns a duplicate of the string, or NULL.
+ */
+#ifndef NO_PROTO
+wchar_t *string_dupw(ZCONST wchar_t *in_stringw, char *error_message, int fluff)
+#else
+wchar_t *string_dupw(in_stringw, error_message, fluff)
+  ZCONST wchar_t *in_stringw;
+  char *error_message;
+  int fluff;
+#endif
+{
+  wchar_t *out_stringw;
+
+  if (in_stringw == NULL)
+    return NULL;
+
+  if (fluff < 0)
+    return NULL;
+
+  if ((out_stringw = (wchar_t *)malloc((wcslen(in_stringw) + fluff + 1) * sizeof(wchar_t))) == NULL) {
+    sprintf(errbuf, "could not allocate memory in string_dupw: %s", error_message);
+    ZIPERR(ZE_MEM, errbuf);
+  }
+
+  wcscpy(out_stringw, in_stringw);
+  return out_stringw;
+}
+#endif /* WIN32 */
 
 
 /* string_replace - replace substring with string
@@ -4659,6 +4794,62 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
 }
 
 
+void sdmessage(a, b)
+ZCONST char *a, *b;     /* message strings juxtaposed in output */
+/* Print a message for -sd.  If performance timing is enabled,
+   append elapsed time to end of message.  Always output to
+   stderr in case output is piped. */
+{
+  char cbuf[ERRBUF_SIZE + 1];
+  char ebuf[ERRBUF_SIZE + 1];
+  char timebuf[100];
+
+  cbuf[0] = '\0';
+
+  if (b) {
+    strcpy(cbuf, b);
+  }
+
+#ifdef ENABLE_ENTRY_TIMING
+  if (performance_time) {
+    zoff_t delta;
+    double secs;
+
+    current_time = get_time_in_usec();
+    delta = current_time - start_time;
+    secs = (double)delta / 1000000;
+    sprintf(timebuf, "   (%5.3f secs)", secs);
+    strcat(cbuf, timebuf);
+  }
+#endif
+
+  sprintf(ebuf, "%s%s\n", a, cbuf);
+
+  if (noisy) {
+    if (mesg_line_started)
+      zfprintf(stderr, "\n");
+#if defined(UNICODE_SUPPORT_WIN32) && !defined(ZIP_DLL_LIB)
+    print_utf8_stderr(ebuf);
+#else
+    zfprintf(stderr, "%s", ebuf);
+#endif
+    mesg_line_started = 0;
+    fflush(stderr);
+  }
+  if (logfile) {
+    if (logfile_line_started)
+      zfprintf(logfile, "\n");
+    zfprintf(logfile, "%s", ebuf);
+    logfile_line_started = 0;
+    fflush(logfile);
+  }
+#if 0
+  zipmessage(a, cbuf);
+#endif
+
+}
+
+
 /* Print a warning message to mesg (usually stderr) and return,
  * with or without indentation.
  */
@@ -4767,6 +4958,46 @@ void print_utf8(message)
 # endif
 }
 
+/* stderr version of print_utf8(). */
+void print_utf8_stderr(message)
+  ZCONST char *message;
+{
+# if defined(UNICODE_SUPPORT_WIN32) && !defined(ZIP_DLL_LIB)
+  int utf8;
+  wchar_t *wide_message = NULL;
+
+  if (unicode_show) {
+    utf8 = is_utf8_string(message, NULL, NULL, NULL, NULL);
+#if 0
+    if (utf8) {
+      write_console(mesg, message);
+    }
+    else {
+      zfprintf(mesg, "%s", message);
+      fflush(mesg);
+    }
+#else
+    if (utf8)
+      wide_message = utf8_to_wchar_string(message);
+    else
+      wide_message = local_to_wchar_string(message);
+    write_consolew(stderr, wide_message);
+#endif
+  }
+  else {
+    zfprintf(stderr, "%s", message);
+#  ifndef ZIP_DLL_LIB
+    fflush(stderr);
+#  endif
+  }
+# else /* not (UNICODE_SUPPORT_WIN32 && !ZIP_DLL_LIB) */
+  zfprintf(stderr, "%s", message);
+#  ifndef ZIP_DLL_LIB
+  fflush(stderr);
+#  endif
+# endif
+}
+
 /* ------------------------------------------------------------- */
 
 
@@ -4839,7 +5070,17 @@ zwchar *utf8_to_wide_string(char *utf8_string);
  *
  * Returns 1 if found UTF-8 and all valid, 0 otherwise.
  */
-int is_utf8_string(ZCONST char *instring, int *has_bom, int *count, int *ascii_count, int *utf8_count)
+#ifndef NO_PROTO
+int is_utf8_string(ZCONST char *instring, int *has_bom, int *count,
+ int *ascii_count, int *utf8_count)
+#else
+int is_utf8_string(instring, has_bom, count, ascii_count, utf8_count)
+  ZCONST char *instring;
+  int *has_bom;
+  int *count;
+  int *ascii_count;
+  int *utf8_count;
+#endif
 {
   unsigned long char_count = 0;
   unsigned long ascii_char_count = 0;
@@ -6583,6 +6824,34 @@ zwchar *local_to_wide_string(char *local_string)
 
 # endif /* not UNICODE_WCHAR */
 }
+
+
+wchar_t *local_to_wchar_string(ZCONST char *local_string) {
+  int local_len;
+  int wchar_len;
+  wchar_t *wchar_string;
+
+  if (local_string == NULL) {
+    return NULL;
+  }
+
+  local_len = strlen(local_string);
+
+  if ((wchar_string = (wchar_t *)malloc((local_len + 1) * sizeof(wchar_t))) == NULL) {
+    ZIPERR(ZE_MEM, "local_to_wchar_string");
+  }
+
+  wchar_len = mbstowcs(wchar_string, local_string, local_len);
+  if (wchar_len == -1) {
+    free(wchar_string);
+    return NULL;
+  }
+  wchar_string[wchar_len] = (wchar_t)'\0';
+
+  return wchar_string;
+}
+
+
 #endif /* not WIN32 */
 
 
@@ -6687,24 +6956,24 @@ zwchar *utf8_to_wide_string(ZCONST char *utf8_string)
 #ifndef NO_PROTO
 int zprintf(const char *format, ...)
 #else
-int zprintf(format)
+int zprintf(format, va_alist)
   const char *format;
+  va_dcl
 #endif
 {
   int len;
   char buf[ERRBUF_SIZE + 1];
-#ifndef NO_PROTO
-  /* handle variable length arg list */
-  va_list argptr;
+  va_list argptr;               /* Variable-length argument list pointer. */
 
+#ifndef NO_PROTO
   va_start(argptr, format);
+#else
+  va_start(argptr);
+#endif
+
   len = vsprintf(buf, format, argptr);
   va_end(argptr);
-#else
-  /* can't handle args, so just output the format string */
-  buf[0] = '\0';
-  strncat(buf, format, ERRBUF_SIZE);
-#endif
+
   if (strlen(buf) >= ERRBUF_SIZE) {
     ZIPERR(ZE_LOGIC, "zprintf buf overflow");
   }
@@ -6743,24 +7012,25 @@ int zprintf(format)
 #ifndef NO_PROTO
 int zfprintf(FILE *file, const char *format, ...)
 #else
-int zfprint(file, format)
+int zfprintf(file, format, va_alist)
   FILE *file;
   const char *format;
+  va_dcl
 #endif
 {
   int len;
   char buf[ERRBUF_SIZE + 1];
-#ifndef NO_PROTO
-  va_list argptr;
+  va_list argptr;               /* Variable-length argument list pointer. */
 
+#ifndef NO_PROTO
   va_start(argptr, format);
+#else
+  va_start(argptr);
+#endif
+
   len = vsprintf(buf, format, argptr);
   va_end(argptr);
-#else
-  /* can't handle args, so just output the format string */
-  buf[0] = '\0';
-  strncat(buf, format, ERRBUF_SIZE);
-#endif
+
   if (strlen(buf) >= ERRBUF_SIZE) {
     ZIPERR(ZE_LOGIC, "zfprintf buf overflow");
   }
@@ -7192,7 +7462,8 @@ int insert_arg(pargs, arg, at_arg, free_args)
    argnum = 0;
    newargnum = 0;
    if (args) {
-     for (; args[argnum] && argnum < at_arg; argnum++) {
+	 /* put args[argnum] after, per dcb314@hotmail.com (2016-11-26 email) */
+     for (; argnum < at_arg && args[argnum]; argnum++) {
        newargs[newargnum++] = args[argnum];
      }
    }
@@ -7263,7 +7534,7 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
   char ***pargs;
   char *argfilename;
   int at_arg;
-  int recursion_depth
+  int recursion_depth;
 #endif
 {
   FILE *argfile = NULL;
@@ -7772,7 +8043,8 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
 
   /* front half of existing args */
   if (args) {
-    for (; args[argnum] && argnum < at_arg; argnum++) {
+	/* put args[argnum] after, per dcb314@hotmail.com (2016-11-26 email) */
+    for (; argnum < at_arg && args[argnum]; argnum++) {
       totalargs[totalargcnt++] = args[argnum];
     }
   }

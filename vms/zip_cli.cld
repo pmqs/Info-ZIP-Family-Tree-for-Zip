@@ -1,14 +1,21 @@
 	Module		ZIP_CLITABLE
-	Ident		"03-110"        ! /* 2015-03-24 SMS. */
+	Ident		"03-111"        ! /* 2017-05-31 SMS. */
 
 !-----------------------------------------------------------------------
-! Copyright (c) 1997-2015 Info-ZIP.  All rights reserved.
+! Copyright (c) 1997-2017 Info-ZIP.  All rights reserved.
 !
 ! See the accompanying file LICENSE, version 2009-Jan-2 or later (the
 ! contents of which are also included in zip.h) for terms of use.  If,
 ! for some reason, all these files are missing, the Info-ZIP license
 ! may also be found at: ftp://ftp.info-zip.org/pub/infozip/license.html
 !-----------------------------------------------------------------------
+
+#ifdef TEST_CLI                 /* Define all feature macros. */
+# define BZIP2_SUPPORT
+# define CRYPT_AES_WG
+# define LZMA_SUPPORT
+# define PPMD_SUPPORT
+#endif /* def TEST_CLI */
 
 Define	Verb		ZIP
 	Parameter	P1, Label=ZIPFILE, Prompt="Zip file"
@@ -22,21 +29,26 @@ Define	Verb		ZIP
 	Qualifier	EXLIST, NonNegatable, VALUE(type=$FILE, required)
 	Qualifier	INLIST, NonNegatable, VALUE(type=$FILE, required)
 	Qualifier	ADJUST_OFFSETS, NonNegatable
+	Qualifier	ADSORT, Negatable
 	Qualifier	APPEND, NonNegatable
 	Qualifier	ARGFILES, Negatable
 	Qualifier	BACKUP, Negatable, VALUE(type=BACKUP_OPTS,
 			 required, list)
 	Qualifier	BATCH, NonNegatable, VALUE(type=$FILE)
 	Qualifier	BEFORE, NonNegatable, VALUE(type=$DATETIME)
+	Qualifier	BINARY_CHECK, NonNegatable,
+			 VALUE(type=BINARY_CHECK_OPTS)
 	Qualifier	COMMENTS, NonNegatable,
 			 VALUE(list, type=COMMENTS_OPTS)
 	Qualifier	COMPRESSION, NonNegatable,
 			 VALUE(type=COMPRESS_OPTS, list)
 	Qualifier	COPY_ENTRIES, NonNegatable
+	Qualifier	CORRUPT_CRCS, NonNegatable,
+			 VALUE(list, type=CORRUPT_OPTS)
 	Qualifier	DEFAULT_DIRECTORY, NonNegatable,
 			 VALUE(required, type=$FILE)
 	Qualifier	DESCRIPTORS, NonNegatable
-	Qualifier	DIFFERENCE, NonNegatable
+	Qualifier	DIFFERENCE, NonNegatable, VALUE(type=DIFFERENCE_OPTS)
 	Qualifier	DIRNAMES, Negatable, Default
 	Qualifier	DISPLAY, NonNegatable,
 			 VALUE(type=DISPLAY_OPTS, required, list)
@@ -53,18 +65,20 @@ Define	Verb		ZIP
 	Qualifier	LATEST, NonNegatable
 	Qualifier	LEVEL, VALUE(type=LEVEL_OPTS, required, list)
 	Qualifier	LICENSE, NonNegatable
-	Qualifier	LOG_FILE, NonNegatable,
-			 VALUE(list, required, type=LOG_OPTS)
+	Qualifier	LOG_FILE, NonNegatable, VALUE(list, type=LOG_OPTS)
 	Qualifier	MUST_MATCH, NonNegatable
 	Qualifier	OUTPUT, VALUE(required, type=$FILE)
-	Qualifier	PATTERN_CASE, NonNegatable, VALUE(type=PATT_CASE_OPTS)
+	Qualifier	PATTERN, NonNegatable,
+			 VALUE(type=PATTERN_OPTS, required, list)
 	Qualifier	PAUSE, Negatable
 	Qualifier	PKZIP, Negatable
 	Qualifier	PREFIX, VALUE(required, list, type=PREFIX_OPTS)
 	Qualifier	PRESERVE_CASE, Negatable,
 			 VALUE(type=PRES_CASE_OPTS, list)
+	Qualifier	PRINT0, Negatable
 	Qualifier	QUIET, NonNegatable
 	Qualifier	RECURSE, Negatable, VALUE(type=RECURSE_OPTS)
+	Qualifier	SCAN_FILES, Negatable,
 	Qualifier	SHOW, NonNegatable,
 			 VALUE(type=SHOW_OPTS, required, list)
 	Qualifier	SINCE, NonNegatable, VALUE(type=$DATETIME)
@@ -72,11 +86,13 @@ Define	Verb		ZIP
 			 VALUE(list, required, type=SPLIT_OPTS)
 	Qualifier	STATISTICS, NonNegatable,
 			 VALUE(list, type=STAT_OPTS)
+	Qualifier	STDIN_NAME, NonNegatable, VALUE(required)
 	Qualifier	STORE_TYPES, NonNegatable, VALUE(required, list)
 	Qualifier	STREAM, Negatable
 	Qualifier	SYMLINKS, NonNegatable
 	Qualifier	TEMP_PATH, VALUE(required, type=$FILE)
-	Qualifier	TEST, NonNegatable, VALUE(type=TEST_OPTS)
+	Qualifier	TEST, NonNegatable, VALUE(type=TEST_OPTS, list)
+	Qualifier	TIME, NonNegatable, VALUE(type=TIME_OPTS)
 	Qualifier	TRANSLATE_EOL, NonNegatable, VALUE(type=EOL_OPTS)
 	Qualifier	UNSFX, NonNegatable
 	Qualifier	VERBOSE, NonNegatable, VALUE(type=VERBOSE_OPTS, list)
@@ -144,6 +160,7 @@ Define	Verb		ZIP
 	Disallow	RECURSE.PATH and RECURSE.FILENAMES
 	Disallow	(neg EXTRA_FIELDS) and
 			 (KEEP_EXISTING or EXTRA_FIELDS.NORMAL)
+	Disallow	(neg SHOW.FILES) and SHOW.FILES.COMMENT
 	Disallow	(neg SHOW.FILES) and SHOW.FILES.USIZE
 
 	Disallow	BACKUP.TYPE and FIX_ARCHIVE
@@ -156,6 +173,8 @@ Define	Verb		ZIP
 
 	Disallow	PREFIX and (not PREFIX.PATH)
 	Disallow	PREFIX.ALL and PREFIX.NEW
+
+	Disallow	PRINT0 and (not BATCH)
 
 	Disallow	VERBOSE.NORMAL and VERSION
 
@@ -171,6 +190,10 @@ Define	Type		BACKUP_TYPE_OPTS
 	Keyword		FULL
 	Keyword		INCREMENTAL
 	Keyword		NONE, Default
+
+Define	Type		BINARY_CHECK_OPTS
+	Keyword		FULL, NonNegatable
+	Keyword		NORMAL, NonNegatable, Default
 
 Define	Type		COMMENTS_OPTS
 	Keyword		ARCHIVE, Default
@@ -205,13 +228,23 @@ Define	Type		COMPRESS_OPTS
 #endif /* def PPMD_SUPPORT */
 	Keyword		STORE, VALUE(type=COMPRESS_MTHD_OPTS, list)
 
+Define	Type		CORRUPT_OPTS
+	Keyword         CENTRAL, Negatable
+	Keyword         LOCAL, Negatable
+
+Define	Type		DIFFERENCE_OPTS
+	Keyword		EXCLUDE, VALUE(list)
+
 Define	Type		DISPLAY_OPTS
-	Keyword		BYTES
-	Keyword		COUNTS
-	Keyword		DOTS, VALUE
-	Keyword		GLOBALDOTS
-	Keyword		USIZE
-	Keyword		VOLUME
+	Keyword		BYTES, Negatable
+	Keyword		COUNTS, Negatable
+	Keyword		DOTS, VALUE, Negatable
+	Keyword		ETR, Negatable
+	Keyword		GLOBALDOTS, Negatable
+	Keyword		RATE, Negatable
+	Keyword		TIME, Negatable
+	Keyword		USIZE, Negatable
+	Keyword		VOLUME, Negatable
 
 Define	Type		ENCRYPT_METHOD_OPTS
 	Keyword		TRADITIONAL, Default
@@ -223,7 +256,9 @@ Define	Type		ENCRYPT_METHOD_OPTS
 
 Define	Type		ENCRYPT_OPTS
 	Keyword		ANSI_PASSWORD, Negatable
+	Keyword		DESCRIPTOR, Negatable
 	Keyword		METHOD, VALUE(type=ENCRYPT_METHOD_OPTS)
+	Keyword		KEYFILE, VALUE(type=$FILE, required)
 	Keyword		PASSWORD, VALUE(required)
 	Keyword		SHORT_PASSWORD, Negatable
 
@@ -271,9 +306,15 @@ Define	Type		LEVEL_OPTS
 Define	Type		LOG_OPTS
 	Keyword		APPEND, Negatable
 	Keyword		INFORMATIONAL, Negatable
-	Keyword		FILE, NonNegatable, VALUE(required, type=$FILE)
+	Keyword		FILE, NonNegatable, VALUE(type=$FILE)
+	Keyword		UTF8, Negatable
 
-Define	Type		PATT_CASE_OPTS
+Define	Type		PATTERN_OPTS
+	Keyword		CASE, NonNegatable, VALUE(required,
+			 type=PATTERN_CASE_OPTS)
+	Keyword		REGEX, Negatable
+
+Define  Type            PATTERN_CASE_OPTS
 	Keyword		BLIND
 	Keyword		SENSITIVE, Default
 
@@ -300,6 +341,9 @@ Define	Type		SHOW_OPTS
 	Keyword		SUFFIXES
 
 Define	Type		SHOW_FILES_OPTS
+	Keyword		ASCII, Negatable
+	Keyword		COMMENT, Negatable
+	Keyword		UNICODE, Negatable
 	Keyword		USIZE, Negatable
 
 Define	Type		SPLIT_OPTS
@@ -312,7 +356,12 @@ Define	Type		STAT_OPTS
 	Keyword		TIME, Default
 
 Define	Type		TEST_OPTS
+	Keyword		PASSWORD, Negatable
 	Keyword		UNZIP, VALUE(required)
+	Keyword		VERBOSE, Negatable
+
+Define	Type		TIME_OPTS
+	Keyword		UNIVERSAL, Negatable
 
 Define	Type		VERBOSE_OPTS
 	Keyword		NORMAL, Default

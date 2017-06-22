@@ -1,7 +1,7 @@
 /*
   zipfile.c - Zip 3.1
 
-  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2016 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -559,7 +559,7 @@ local void read_ushort_from_mem(ush *usValue,
 #else
 local void read_ushort_from_mem(usValue,
                                 pPtr)
-  ush usValue;
+  ush *usValue;
   char *pPtr;
 #endif
 {
@@ -573,7 +573,7 @@ local void read_ulong_from_mem(ulg *uValue,
 #else
 local void read_ulong_from_mem(uValue,
                                 pPtr)
-  ulg uValue;
+  ulg *uValue;
   char *pPtr;
 #endif
 {
@@ -6130,7 +6130,7 @@ int readzipfile()
   /* skip check if streaming */
   if (!readable) {
     if (!zip_to_stdout && fix != 2 && strcmp(in_path, out_path)) {
-      /* If -O used then in_path must exist */
+      /* If -O (--out) used then in_path must exist */
       if (fix == 1)
         zipwarn("No .zip (or .zipx) file found\n        ",
                 "(If all you have are splits (.z01, .z02, ...) and no .zip, try -FF)");
@@ -6207,10 +6207,15 @@ int readzipfile()
   {
     /* close file as the new scan opens the splits as needed */
     fclose(f);
+
+    retval = scanzipf_regnew();
+
+#if 0
 #ifndef UTIL
     retval = (fix == 2 && !adjust) ? scanzipf_fixnew() : scanzipf_regnew();
 #else
     retval = scanzipf_regnew();
+#endif
 #endif
   }
 
@@ -6536,7 +6541,7 @@ int exceeds_zip64_threshold(z)
      The streaming stdin case is resolved by using the placeholder extra field
      described above so we can update the local header if Zip64 is needed.
   */
-  streaming_in = (strcmp(name, "-") == 0);
+  streaming_in = z->is_stdin;
 
   if (translate_eol == 1)
     zip64_threshold = (uzoff_t)2 * GiB;
@@ -6621,10 +6626,10 @@ int putlocal(z, rewrite)
 
      The placeholder approach also works if streaming stdin.  Even though we
      don't know the file size, there is no longer a need to flag stdin as Zip64
-     ahead of time.  However, if use_descriptors is set (the output can't be
+     ahead of time.  However, if use_data_descriptor is set (the output can't be
      updated), this approach can't be used.
 
-     If the output is not seekable (use_descriptors is set), then check the
+     If the output is not seekable (use_data_descriptor is set), then check the
      threshold and assume Zip64 needed if the threshold is exceeded.  The
      threshold is always exceeded if input is stdin.
 
@@ -6666,7 +6671,7 @@ int putlocal(z, rewrite)
      The streaming stdin case is resolved by using the placeholder extra field
      described above so we can update the local header if Zip64 is needed.
   */
-  streaming_in = (strcmp(z->name, "-") == 0);
+  streaming_in = z->is_stdin;
 
   if (translate_eol == 1)
     zip64_threshold = (uzoff_t)2 * GiB;
@@ -6726,7 +6731,7 @@ int putlocal(z, rewrite)
     }
     else if (zip64_threshold_exceeded)
     {
-      if (use_descriptors)
+      if (use_data_descriptor)
       {
         /* We are likely streaming to stdout or the output is not seekable, so
            we will be stuck with the decision we make now.  If the threshold
@@ -6941,30 +6946,6 @@ int putlocal(z, rewrite)
 #endif
   }
 
-  if (iname[0] == '-' && iname[1] == '\0' && stdin_name && z->mark) {
-    int new_path_len;
-    char *new_path;
-    
-    new_path_len = (int)strlen(stdin_name);
-    new_path = string_dup(stdin_name, "stdin_name putlocal new_path", 0);
-
-    free(iname);
-    iname = new_path;
-    tempzn += new_path_len - 1;
-    nam = new_path_len;
-
-#ifdef UNICODE_SUPPORT
-    uname = string_dup(stdin_name, "stdin_name putlocal uname", 0);
-
-    if (is_utf8_string(iname, NULL, NULL, NULL, NULL)) {
-      /* If uname is UTF-8, revert back to "-" for standard name.
-         This is needed if using extra field. */
-      free(iname);
-      iname = string_dup("-", "stdin_name putlocal iname -> -", 0);
-      nam = 1;
-    }
-#endif
-  }
 
 #ifdef UNICODE_SUPPORT
 # if 0
@@ -7178,7 +7159,11 @@ int putlocal(z, rewrite)
   /* last mod file date time */
   append_ulong_to_mem(z->tim, &block, &offset, &blocksize);
   /* crc-32 */
-  append_ulong_to_mem(z->crc, &block, &offset, &blocksize);
+  if (purposely_corrupt_local_crc) {
+    append_ulong_to_mem(z->crc + 1, &block, &offset, &blocksize);
+  } else {
+    append_ulong_to_mem(z->crc, &block, &offset, &blocksize);
+  }
 #ifdef ZIP64_SUPPORT        /* zip64 support 09/02/2003 R.Nausedat */
                             /* changes 10/5/03 EG */
   if (zip64_entry) {
@@ -7294,7 +7279,11 @@ int putextended(z)
   /* extended local signature */
   append_ulong_to_mem(EXTLOCSIG, &block, &offset, &blocksize);
   /* crc-32 */
-  append_ulong_to_mem(z->crc, &block, &offset, &blocksize);
+  if (purposely_corrupt_local_crc) {
+    append_ulong_to_mem(z->crc + 1, &block, &offset, &blocksize);
+  } else {
+    append_ulong_to_mem(z->crc, &block, &offset, &blocksize);
+  }
 #ifdef ZIP64_SUPPORT
   if (zip64_entry) {
     /* use Zip64 entries */
@@ -7539,30 +7528,6 @@ int putcentral(z)
   }
 
 
-  if (iname[0] == '-' && iname[1] == '\0' && stdin_name && z->mark) {
-    int new_path_len;
-    char *new_path;
-    
-    new_path_len = (int)strlen(stdin_name);
-    new_path = string_dup(stdin_name, "stdin_name putcentral new_path", 0);
-
-    free(iname);
-    iname = new_path;
-    tempzn += new_path_len - 1;
-    nam = new_path_len;
-#ifdef UNICODE_SUPPORT
-    uname = string_dup(stdin_name, "stdin_name putcentral uname", 0);
-
-    if (is_utf8_string(iname, NULL, NULL, NULL, NULL)) {
-      /* If uname is UTF-8, revert back to "-" for standard name.
-         This is needed if using extra field. */
-      free(iname);
-      iname = string_dup("-", "stdin_name putcentral iname -> -", 0);
-      nam = 1;
-    }
-#endif
-  }
-
 #ifdef UNICODE_SUPPORT
   if (uname) {
     /* this bit should already be set */
@@ -7700,7 +7665,11 @@ int putcentral(z)
   /* last mod file date time */
   append_ulong_to_mem(z->tim, &block, &offset, &blocksize);
   /* crc-32 */
-  append_ulong_to_mem(z->crc, &block, &offset, &blocksize);
+  if (purposely_corrupt_central_crc) {
+    append_ulong_to_mem(z->crc + 1, &block, &offset, &blocksize);
+  } else {
+    append_ulong_to_mem(z->crc, &block, &offset, &blocksize);
+  }
   if (z->siz > ZIP_UWORD32_MAX)
   {
     /* instead of z->siz */
@@ -8574,7 +8543,7 @@ int zipcopy(z)
       localz->len = des_usize;
     } else {
       /* no end to this entry found */
-      zipwarn("no end of stream entry found: ", z->oname);
+      zipwarn("no end of stream entry (data descriptor) found: ", z->oname);
       zipwarn("rewinding and scanning for later entries", "");
 
       /* seek back in output to start of this entry so can overwrite */
