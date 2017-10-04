@@ -4,9 +4,9 @@
 
 #==============================================================================
 # unix/configure: Detect feature support and pass that information to Makefile.
-# - For Zip, ZipNote, ZipCloak and ZipSplit             Revised: 2015-07-31
+# - For Zip, ZipNote, ZipCloak and ZipSplit             Revised: 2017-08-27
 #
-# Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+# Copyright (c) 1990-2017 Info-ZIP.  All rights reserved.
 #
 # See the accompanying file LICENSE, version 2009-Jan-2 or later (the
 # contents of which are also included in zip.h) for terms of use.  If,
@@ -132,6 +132,10 @@
 #    NO_LZMA     - Disable LZMA compression.
 #    NO_PPMD     - Disable PPMd compression.
 #    IZ_ZLIB     - Use ZLIB for deflate compression.
+#    NO_NAT_ICONV- Disable using native iconv from the operating system.
+#                  (useful for FreeBSD as its iconv may not support WCHAR_T,
+#                   you may need to tune CFLAGS and LFLAGS1 to point
+#                   to the correct include and library files)
 #    NO_ICONV    - Disable using iconv for character set conversion.
 #
 #==============================================================================
@@ -204,7 +208,7 @@ echo '-'
 # Evaluate only variables in this list.  Complain about others, but continue.
 valid_v1='|AFLAGS|AS|CC|CC_BZ|CFLAGS|CFLAGS_OPT|CPP|DLLEXT'
 valid_v2='|IZ_BZIP2|IZ_ZLIB|LD|LFLAGS1|LFLAGS2|LIST|LOCAL_ZIP'
-valid_v3='|NO_AES_WG|NO_ICONV|NO_IZ_BZIP2|NO_LZMA|NO_PPMD'
+valid_v3='|NO_AES_WG|NO_NAT_ICONV|NO_ICONV|NO_IZ_BZIP2|NO_LZMA|NO_PPMD'
 valid_v4='|OSDEP_H|OSDEP_OCU|OSDEP_OCZ|OSDEP_OSU|OSDEP_OSZ'
 valid_v5='|PGMEXT|PROD|RANLIB|'
 valid_vars="${valid_v1}${valid_v2}${valid_v3}${valid_v4}${valid_v5}"
@@ -276,6 +280,7 @@ PORT_SPEC=''                               # Port specification method
 NO_AES_WG=${NO_AES_WG:-}                   # AES (WinZip/Gladman) encryption
 IZ_BZIP2=${IZ_BZIP2:-}                     # BZIP2 compression (directory)
 NO_IZ_BZIP2=${NO_IZ_BZIP2:-}               # BZIP2 compression (disable)
+NO_NAT_ICONV=${NO_NAT_ICONV:-}             # iconv native conversion
 NO_ICONV=${NO_ICONV:-}                     # iconv conversion
 NO_LZMA=${NO_LZMA:-}                       # LZMA compression
 NO_PPMD=${NO_PPMD:-}                       # PPMd compression
@@ -2132,8 +2137,7 @@ do
 done
 
 
-# Below char handling needs some work.  See note at the top of tailor.h.
-# Some updates done.
+# Check for Unicode support.  See note at the top of tailor.h.
 
 # Check for wchar.h header.
 echon 'Check for wchar.h...'
@@ -2145,13 +2149,13 @@ if [ $status -eq 0 ]; then
   CFLAGS_TST="${CFLAGS_TST} -DHAVE_WCHAR_H"
 
 
-  # Realistic check for working wide char library functions.
-  # - Add FUNCTION_NAME='function_name' to flags if found.
-  FUNCS='towupper towlower iswprint'
-  for func in $FUNCS
-  do
-    echon "Check for wide char ${func}..."
-    cat > conftest.c << _EOF_
+# Realistic check for working wide char library functions.
+# - Add FUNCTION_NAME='function_name' to flags if found.
+FUNCS='towupper towlower iswprint'
+for func in $FUNCS
+do
+  echon "Check for wide char ${func}..."
+  cat > conftest.c << _EOF_
 #include <stdlib.h>
 #include <stdio.h>
 #ifdef HAVE_CTYPE_H
@@ -2190,12 +2194,26 @@ _EOF_
   #
 
   # Note:  The below is checking for wchar_t support.  This should not be
-  # confused with zwchar strings used by the conversion functions in fileio.c.
-  # In general, wchar strings are strings of wchar_t, while wide strings are
-  # strings of zwchar.  zwchar is always 4 bytes.  On some platforms (such as
-  # modern Linux), wchar_t is 4 bytes, but this may not always be true.  (It
-  # isn't on Windows.)  For clarity, we refer to wide strings as wchar strings
-  # below as they are wchar_t strings.
+  # confused with zwchar (UCS4LE) strings used by the conversion functions in
+  # fileio.c.  In general, wchar_t strings are strings of wchar_t, while wide
+  # strings are strings of zwchar.  zwchar is always 4 bytes and should use
+  # the UCS4LE (32-bit UCS, Little Endian) encoding on all platforms that
+  # support Unicode.  On some platforms (such as modern Linux), wchar_t is also
+  # 4 bytes, but this is not always true.  (It isn't on Windows.)  Further,
+  # the encoding of wchar_t can be relied on to be Unicode only if it is
+  # STDC_ISO_10646 compliant (__STDC_ISO_10646__ is set).  If this is not set,
+  # we can still rely on wchar_t functions working as expected, but not on
+  # what's stored inside wchar_t variables.  In this case, HAVE_WCHAR is set.
+  # If the platform is also STDC_ISO_10646 compliant, UNICODE_WCHAR is also set
+  # and we can process everything using wchar_t and Zip functions.  If not, but
+  # HAVE_WCHAR is set, we still need something to do conversions from UTF-8 to
+  # wchar_t and back.  If we have iconv (checked for next) and HAVE_ICONV is
+  # set, then that is enough and we can still do Unicode.
+  
+  # If UNICODE_WCHAR is set, then also assume UNICODE_FILE_SCAN.
+
+  have_wchar=0
+  unicode_wchar=0
 
   cat > conftest.c << _EOF_
 #include <stdlib.h>
@@ -2209,6 +2227,8 @@ _EOF_
 #ifdef HAVE_WCTYPE_H
 # include <wctype.h>
 #endif
+#include <locale.h>
+
 int main()
 {
   size_t wsize;
@@ -2217,6 +2237,9 @@ int main()
   wchar_t wco;
   int i;
 
+  /* Enable Unicode locale. */
+  setlocale(LC_ALL, "en_US.UTF8");
+   
   if ((wchar_string = (wchar_t *)malloc(4 * sizeof(wchar_t))) == NULL) {
     return 0;
   }
@@ -2230,7 +2253,10 @@ int main()
   wco = towlower(wc);
   i = iswprint(wc);
 
+  /* Getting here is enough to set HAVE_WCHAR. */
+  
 #ifndef __STDC_ISO_10646__
+  printf("  No __STDC_ISO_10646__ encoding\n");
   return 1;
 #else
   printf("  UCS encoding:  __STDC_ISO_10646__ = %d (yyyymm)\n",
@@ -2255,10 +2281,16 @@ _EOF_
       echo "${errmes} - wchar_t encoding unspecified, may not be UCS."
       echo "  Otherwise have wide character support (HAVE_WCHAR)"
       CFLAGS_TST="${CFLAGS_TST} -DHAVE_WCHAR"
+      have_wchar=1
     elif [ $status -eq 2 ]; then
-      echo '-- Have wchar_t with known UCS encoding - enabling Unicode support.'
-      echo '     (UNICODE_SUPPORT, HAVE_WCHAR, UNICODE_WCHAR).'
+      UNICODE_FLAGS="UNICODE_SUPPORT, HAVE_WCHAR, UNICODE_WCHAR"
+      UNICODE_FLAGS="${UNICODE_FLAGS}, UNICODE_FILE_SCAN"
+      echo "-- Have wchar_t with known UCS encoding - enabling Unicode support."
+      echo "     (${UNICODE_FLAGS})."
       CFLAGS_TST="${CFLAGS_TST} -DUNICODE_SUPPORT -DHAVE_WCHAR -DUNICODE_WCHAR"
+      CFLAGS_TST="${CFLAGS_TST} -DUNICODE_FILE_SCAN"
+      have_wchar=1
+      unicode_wchar=1
     else
       echo "^^ No Unicode (wchar_t) support - conftest returned $status."
     fi
@@ -2268,153 +2300,235 @@ else
 fi
 
 
-# Check for setlocale() support (needed for UNICODE Native check).
-echon "Check for setlocale() support..."
-have_setlocale=0
-#
-cat > conftest.c << _EOF_
-#include <locale.h>
-int main()
-{
-  char *loc = setlocale(LC_CTYPE, "");
-  return 0;
-}
-_EOF_
-$CC_TST $CFLAGS -c conftest.c >/dev/null 2>/dev/null
-status=$?
-if [ $status -eq 0 ]; then
-  echo '  Yes (HAVE_SETLOCALE).'
-  CFLAGS_TST="${CFLAGS_TST} -DHAVE_SETLOCALE"
-  have_setlocale=1
-else
-  echo '  No (NO_SETLOCALE).'
-  echo '^^ No Unicode UTF-8 native support.'
-  CFLAGS_TST="${CFLAGS_TST} -DNO_SETLOCALE"
-fi
-
-
-# Check if native UTF-8 locale.
-if [ $have_setlocale -eq 0 ]; then
-  echo "No setlocale - skipping check for UTF-8 locale."
-else
-  echo "Check for UTF-8 locale..."
-#
-  cat > conftest.c << _EOF_
-/* Below sets a minimum requirement of having langinfo.h and
-   locale.h and having nl_langinfo() to get codeset. */
-#include <stdio.h>
-#include <langinfo.h>
-#include <locale.h>
-int main()
-{
-  char *codeset = NULL;
-
-  /* Tell base library that we support locales.  This will load the
-   * locale the user has selected.  Before setlocale() is called, a
-   * minimal "C" locale is the default.
-   */
-  setlocale(LC_CTYPE, "");
-
-  /* Get the codeset (character set encoding) currently used,
-   * for example, "UTF-8".
-   */
-  codeset = nl_langinfo(CODESET);
-
-  printf("  codeset = %s\n", codeset);
-
-  if (codeset && strcmp(codeset, "UTF-8") == 0) {
-    /* UTF-8 is native */
-    return 1;
-  }
-
-  /* For this test, we should here try to set a UTF-8 locale.
-     If successful, then we should still compile in native
-     UTF-8 support.  But this test only sets UTF8_MAYBE_NATIVE,
-     and that macro really doesn't do anything, so no real
-     need.  Zip now adjusts to the locale (UTF-8 or not) at
-     run time. */
-
-  return 0;
-}
-_EOF_
-  $CC_TST $CFLAGS -o conftest conftest.c >/dev/null 2>/dev/null
-  status=$?
-  if [ $status -eq 0 ]; then
-    ./conftest
-    status=$?
-    if [ $status -eq 1 ]; then
-      echo '  Yes, native locale is UTF-8 (UTF8_MAYBE_NATIVE).'
-      CFLAGS_TST="${CFLAGS_TST} -DUTF8_MAYBE_NATIVE"
-    elif [ $status -eq 0 ]; then
-      echo '  No, native locale is not UTF-8.'
-      echo '^^ no Unicode UTF-8 native support.'
-      echo '   --> If UTF-8 is native, just not the current local, change'
-      echo '       locale to UTF-8, make clean, then run this again'
-    fi
-  else
-    # did not compile
-    echo '  No, locale check failed.'
-    echo '^^ No Unicode UTF-8 native support.'
-  fi
-fi
-
-
 # Check for iconv.
+
+# Note:  If HAVE_WCHAR is set but UNICODE_WCHAR is not set, we can use iconv
+# to fill in the holes.  We need iconv to convert between UTF-8 and wchar_t.
+# If this is supported, we can set HAVE_ICONV.  If both HAVE_WCHAR and
+# HAVE_ICONV are set, we can enable Unicode by setting UNICODE_ICONV.  We
+# still need the wchar_t functions, so ICONV can't do it alone.
+
+# have_iconv       - iconv supports what we need (UTF-8 to wchar_t conversions)
+# need_iconv_lib   - need a library to use iconv
+
+have_iconv=0
+need_iconv_lib=0
+
 if [ -n "${NO_ICONV}" ]; then
   echo "Use of iconv disabled - no iconv check done."
 else
-  echo "Check for iconv for character set translations (and if iconv has UTF-8)..."
-  have_iconv=0
-  need_iconv_lib=0
+  echo "Check for iconv to do character set translations (and if iconv has UTF-8)..."
   #
   cat > conftest.c << _EOF_
+/* Test iconv, then test converting UTF-8 to wide, uppercase, then back to UTF-8. */
+
+#include <stdlib.h>
 #include <stdio.h>
 #include <iconv.h>
+#ifdef HAVE_CTYPE_H
+# include <ctype.h>
+#endif
+#ifdef HAVE_WCHAR_H
+# include <wchar.h>
+#endif
+#ifdef HAVE_WCTYPE_H
+# include <wctype.h>
+#endif
+#include <string.h>
+#include <locale.h>
+#include <errno.h>
+
+
+#define OUTBUF_SIZE 100
+
 int main()
 {
-   iconv_t  cd;     /* conversion descriptor */
-   size_t   iconv_result;
-   int      close_result;
+  iconv_t  cd;     /* conversion descriptor */
+  size_t   iconv_result;
+  int      close_result;
+  int i;
 
-   char *inbuf = "conversion worked";  /* Include only reversible chars here. */
-   size_t inbytesleft;
+  /* First simple test uses ASCII characters. */
+  char *inbuf_1 = "abc def";  /* Include only reversible chars here. */
+  char *fromcode_1 = "ASCII";
+  char *tocode_1   = "UTF-8";
+  char outbuf_1[OUTBUF_SIZE];
 
-   char outbuf[20];
-   size_t outbytesleft = 20;
+   
+  /* Second test uses UTF-8 encoded Greek (First 5 lower, space, first 5 upper). */
+  char *inbuf_2 = 
+    "\xCE\xB1\xCE\xB2\xCE\xB3\xCE\xB4\xCE\xB5\x20\xCE\x91\xCE\x92\xCE\x93\xCE\x94\xCE\x95";
+  char *fromcode_2 = "UTF-8";
+  char *tocode_2   = "WCHAR_T";
+  char outbuf_2[OUTBUF_SIZE];
+  wchar_t *woutbuf_2;
+   
+   
+  /* Third test converts uppercased output of second test back to UTF-8. */
+  char inbuf_3[OUTBUF_SIZE];
+  char *fromcode_3 = "WCHAR_T";
+  char *tocode_3   = "UTF-8";
+  wchar_t winbuf_3[OUTBUF_SIZE];
+  char outbuf_3[OUTBUF_SIZE];
 
-   char *fromcode = "ASCII";
-   char *tocode   = "UTF-8";
+  /* Result of conversion to wchar_t, uppercase, then back to UTF-8 should be this. */
+  char *verification_3 = 
+    "\xCE\x91\xCE\x92\xCE\x93\xCE\x94\xCE\x95\x20\xCE\x91\xCE\x92\xCE\x93\xCE\x94\xCE\x95";
 
-   char *inp = inbuf;
-   char *outp = outbuf;
+   
+  size_t inbytesleft;
+  size_t outbytesleft;
 
-   int outlen;
+  char *inp;
+  char *outp;
 
-   inbytesleft = strlen(inbuf);
+  int outlen;
+  int wlen;
 
-   cd = iconv_open(tocode, fromcode);
-   if (cd == (iconv_t)-1)
-     return 201;
-   iconv_result = iconv(cd, &inp, &inbytesleft, &outp, &outbytesleft);
-   close_result = iconv_close(cd);
-   if (iconv_result == (size_t)-1)
-     return 202;
-   if (close_result == -1)
-     return 203;
+  /* Enable Unicode locale for towupper. */
+  setlocale(LC_ALL, "");
+   
+  /* Simple ASCII to UTF-8 test. */
+   
+  inp = inbuf_1;
+  inbytesleft = strlen(inbuf_1);
+  outp = outbuf_1;
+  outbytesleft = OUTBUF_SIZE;
 
-   outlen = 20 - outbytesleft;
-   outbuf[outlen] = '\0';
-   printf("  iconv result:  '%s'\n", outbuf);
-   return iconv_result;
+  printf("  Test 1:  input string (ASCII):              '%s'\n", inbuf_1);
+  printf("           Converting %s to %s\n", fromcode_1, tocode_1);
+
+  cd = iconv_open(tocode_1, fromcode_1);
+  int eno11 = errno;
+  if (cd == (iconv_t)-1)
+  {
+    printf("    failed: %s\n",strerror(eno11));
+    return 11;
+  }
+  iconv_result = iconv(cd, &inp, &inbytesleft, &outp, &outbytesleft);
+  close_result = iconv_close(cd);
+  int eno13 = errno;
+  if (iconv_result == (size_t)-1)
+  {
+    printf("    failed: %s\n",strerror(eno11));
+    return 11;
+  }
+  if (close_result == -1)
+  {
+    printf("    failed: %s\n",strerror(eno13));
+    return 13;
+  }
+
+  outlen = OUTBUF_SIZE - outbytesleft;
+  outbuf_1[outlen] = '\0';
+
+  printf("           result (UTF-8):                    '%s'\n", outbuf_1);
+
+   
+  /* Greek UTF-8 to wchar_t test. */
+   
+  inp = inbuf_2;
+  inbytesleft = strlen(inbuf_2);
+  outp = outbuf_2;
+  outbytesleft = OUTBUF_SIZE;
+
+  printf("  Test 2:  input string (Greek) (length %d):  '%s'\n", inbytesleft, inbuf_2);
+  printf("           Converting %s to %s\n", fromcode_2, tocode_2);
+
+  cd = iconv_open(tocode_2, fromcode_2);
+  int eno21 = errno;
+  if (cd == (iconv_t)-1)
+  {
+    printf("    failed: %s\n",strerror(eno21));
+    return 21;
+  }
+  iconv_result = iconv(cd, &inp, &inbytesleft, &outp, &outbytesleft);
+  int eno22 = errno;
+  close_result = iconv_close(cd);
+  int eno23 = errno;
+  if (iconv_result == (size_t)-1)
+  {
+    printf("    failed: %s\n",strerror(eno22));
+    return 22;
+  }
+  if (close_result == -1)
+  {
+    printf("    failed: %s\n",strerror(eno23));
+    return 23;
+  }
+
+  outlen = OUTBUF_SIZE - outbytesleft;
+  woutbuf_2 = (wchar_t *)outbuf_2;
+  wlen = outlen / 4;
+
+  printf("           result (%d bytes)\n", outlen);
+   
+
+  printf("           Uppercase WCHAR_T string\n");
+   
+  /* Uppercase using wchar_t function. */
+
+  for (i = 0; i < wlen; i++)
+  {
+    winbuf_3[i] = towupper(woutbuf_2[i]);
+  }
+
+   
+  /* Convert back to UTF-8. */
+
+  inp = (char *)winbuf_3;
+  inbytesleft = wlen * 4;
+  outp = outbuf_3;
+  outbytesleft = OUTBUF_SIZE;
+
+  printf("  Test 3:  Converting %s to %s\n", fromcode_3, tocode_3);
+
+  cd = iconv_open(tocode_3, fromcode_3);
+  int eno31 = errno;
+  if (cd == (iconv_t)-1)
+  {
+    printf("    failed: %s\n",strerror(eno31));
+    return 31;
+  }
+  iconv_result = iconv(cd, &inp, &inbytesleft, &outp, &outbytesleft);
+  int eno32 = errno;
+  close_result = iconv_close(cd);
+  int eno33 = errno;
+  if (iconv_result == (size_t)-1)
+  {
+    printf("    failed: %s\n",strerror(eno32));
+    return 32;
+  }
+  if (close_result == -1)
+  {
+    printf("    failed: %s\n",strerror(eno33));
+    return 33;
+  }
+
+  outlen = OUTBUF_SIZE - outbytesleft;
+  outbuf_3[outlen] = '\0';
+
+  printf("           result:                            '%s'\n", outbuf_3);
+   
+   
+  /* Check against verification string. */
+   
+  if (strcmp(outbuf_3, verification_3) == 0)
+  {
+    printf("  Success!\n");
+    return 0;
+  }
+
+  return 41;
 }
 _EOF_
-  $CC_TST $CFLAGS -c conftest.c >/dev/null 2>/dev/null
+  $CC_TST $CFLAGS ${CFLAGS_TST} -c conftest.c >/dev/null 2>/dev/null
   status=$?
   if [ $status -eq 0 ]; then
     # Try linking with no special library.
     $CC_TST $LFLAGS1 -o conftest conftest.o >/dev/null 2>/dev/null
     status=$?
-    if [ $status -eq 0 ]; then
+    if [ $status -eq 0 ] && [ ! -n "${NO_NAT_ICONV}" ]; then
       # Success.
       echo "  Have iconv - no lib needed."
       have_iconv=1
@@ -2429,25 +2543,35 @@ _EOF_
       fi
     fi
     if [ $have_iconv -eq 1 ]; then
-      ./conftest
-      status=$?
-      if [ $status -eq 201 ]; then
+      LCUTF8=` locale -a | grep -iE "UTF-?8$" | head -1 `
+      if [ -z "${LCUTF8}" ]; then
+        echo "  No UTF8 locale found, generate one and re-run."
+        status=1
+      else
+        LC_ALL=${LCUTF8} ./conftest
+        status=$?
+      fi
+      if [ $status -eq 21 ]; then
         echo "  Error using iconv (iconv_open() failed).  Unicode table missing?"
         echo '^^ no iconv support.'
-      elif [ $status -eq 202 ]; then
+      elif [ $status -eq 22 ]; then
         echo "  Error using iconv (iconv() failed)."
         echo '^^ no iconv support.'
-      elif [ $status -eq 203 ]; then
-        echo "  Error using iconv (iconv_close() failed)."
+      elif [ $status -eq 23 ]; then
+       echo "  Error using iconv (iconv_close() failed)."
         echo '^^ no iconv support.'
       elif [ $status -lt 0 ]; then
         echo "  Error using iconv (unknown error)."
         echo '^^ no iconv support.'
       elif [ $status -gt 0 ]; then
-        echo "  iconv performing unexpected non-reversible conversions."
-        echo "    (performed $status non-reversible conversions)"
+        echo "  Error code $status returned."
         echo '^^ no iconv support.'
+#      elif [ $status -gt 0 ]; then
+#        echo "  iconv performing unexpected non-reversible conversions."
+#        echo "    (performed $status non-reversible conversions)"
+#        echo '^^ no iconv support.'
       else
+        # success
         CFLAGS_TST="${CFLAGS_TST} -DHAVE_ICONV"
         if [ $need_iconv_lib -eq 1 ]; then
           CFLAGS_TST="${CFLAGS_TST} -DICONV_NEEDS_LIB"
@@ -2456,13 +2580,26 @@ _EOF_
         else
           echo "  Can use iconv (HAVE_ICONV)."
         fi
+        
+        # if not UNICODE_WCHAR, try to set UNICODE_ICONV
+        if [ $unicode_wchar -eq 0 ]; then
+          CFLAGS_TST="${CFLAGS_TST} -DUNICODE_SUPPORT -DUNICODE_ICONV"
+          echo "  Have sufficient iconv support for Unicode support"
+          echo "  As no UNICODE_WCHAR, setting iconv Unicode support (UNICODE_ICONV)."
+          unicode_iconv=1
+        fi
       fi
+    else
+      echo "  Not able to link with iconv."
+      echo '^^ No iconv support.'
     fi
   else
     echo "  Not able to compile with iconv."
     echo '^^ No iconv support.'
   fi
 fi
+
+
 
 
 # Check for gcc no-builtin flag.
@@ -2954,6 +3091,65 @@ if ln -s /dev/null null >/dev/null 2>/dev/null ; then
 else
   echo '  No.'
   LN=ln
+fi
+
+# Check for FTS.
+echo 'Check for FTS functions support...'
+FTSCONST=yes
+if [ "${UNAME_S}" = "FreeBSD" ]; then
+  FTS=yes
+fi
+if [ "${UNAME_S}" = "NetBSD" ]; then
+  FTS=yes
+fi
+if [ "${UNAME_S}" = "OpenBSD" ]; then
+  FTS=yes
+fi
+if [ "${UNAME_S}" = "Darwin" ]; then
+  FTS=yes
+  FTSCONST=no
+fi
+if [ "${UNAME_S}" = "Linux" ]; then
+  FTSCONST=no
+  cat > conftest.c << _EOF_
+#include <gnu/libc-version.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+int main () {
+  float v = strtod(gnu_get_libc_version(),NULL);
+
+#ifdef LARGE_FILE_SUPPORT
+  if (v >= 2.23) {
+    printf("  glibc %4.2f meets min version (2.23) for FTS with LARGE_FILE_SUPPORT\n", v);
+    return 0;
+  }
+  printf("  glibc %4.2f can't be used with LARGE_FILE_SUPPORT, need 2.23\n", v);
+  return 1;
+#else
+  return 0;
+#endif
+}
+_EOF_
+  ${CC_TST} ${CFLAGS} ${CFLAGS_OPT} ${CFLAGS_TST} ${CFLAGS_USR} \
+    -o conftest conftest.c >/dev/null 2>/dev/null
+  status=$?
+  if [ $status -eq 0 ]; then
+    ./conftest
+    status=$?
+    if [ $status -eq 0 ]; then
+      FTS=yes
+    fi
+  fi
+fi
+if [ "${FTS}" = "yes" ]; then
+  CFLAGS="${CFLAGS} -DFTS_SUPPORT"
+  echo '  Yes, FTS supported.'
+  if [ "${FTSCONST}" = "yes" ]; then
+    CFLAGS="${CFLAGS} -DFTSCONST_SUPPORT"
+  fi
+else
+  echo '  No, FTS not supported.'
 fi
 
 #------------------------------------------------------------------------------
