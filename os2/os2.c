@@ -150,6 +150,8 @@ char *w;                /* path/pattern to match */
     char *p;              /* path */
     char *q;              /* diskless path */
     int e;                /* result */
+    int r;                /* temporary variable */
+    char v[5];            /* space for device current directory */
 
     if (volume_label == 1) {
       volume_label = 2;
@@ -166,10 +168,21 @@ char *w;                /* path/pattern to match */
     if (strcmp(w, "-") == 0)   /* if compressing stdin */
         return newname(w, 0, 0);
 
-    /* Allocate and copy pattern, leaving room to add "." if needed */
-    if ((p = malloc(strlen(w) + 2)) == NULL)
+    /* Allocate and copy pattern, leaving room to add "./" if needed */
+    if ((p = malloc(strlen(w) + 3)) == NULL)
         return ZE_MEM;
-    strcpy(p, w);
+
+    /* if there is no drive or directory we need to add the current directory,
+       as else opendir() doesn't work */
+    if (strrchr(w, '/') == NULL && strrchr(w, ':') == NULL)
+        strcat(strcpy(p, "./"), w);
+    else
+        strcpy(p, w);
+
+    /* catch special case: treat "*.*" as "*" for DOS-impaired people */
+    r = strlen(p);
+    if (strcmp(p + r - 3, "*.*") == 0)
+        p[r - 2] = '\0';
 
     /* Normalize path delimiter as '/' */
     for (q = p; *q; INCSTR(q))            /* use / consistently */
@@ -193,7 +206,7 @@ char *w;                /* path/pattern to match */
     return e;
 }
 
-
+#if 0
 int wild_os2(w)
 char *w;                /* path/pattern to match */
 /* If not in exclude mode, expand the pattern based on the contents of the
@@ -332,6 +345,7 @@ char *w;                /* path/pattern to match */
   free((zvoid *)a);
   return f ? ZE_OK : ZE_MISS;
 }
+#endif
 
 int procname(n, caseflag)
 char *n;                /* name to process */
