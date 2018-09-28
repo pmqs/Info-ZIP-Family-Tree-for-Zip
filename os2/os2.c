@@ -154,12 +154,14 @@ char *w;                /* path/pattern to match */
     char v[5];            /* space for device current directory */
 
     if (volume_label == 1) {
-      volume_label = 2;
-      label = getVolumeLabel((w != NULL && isascii((uch)w[0]) && w[1] == ':')
+      if (w != NULL) {
+        volume_label = 2;
+        label = getVolumeLabel((w != NULL && isascii((uch)w[0]) && w[1] == ':')
                              ? to_up(w[0]) : '\0',
                              &label_time, &label_mode, &label_utim);
-      if (label != NULL)
-        (void)newname(label, 0, 0);
+        if (label != NULL)
+          (void)newname(label, 0, 0);
+      }
       if (w == NULL || (isascii((uch)w[0]) && w[1] == ':' && w[2] == '\0'))
         return ZE_OK;
       /* "zip -$ foo a:" can be used to force drive name */
