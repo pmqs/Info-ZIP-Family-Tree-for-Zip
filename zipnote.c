@@ -1,7 +1,7 @@
 /*
   zipnote.c - Zip 3.1
 
-  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2019 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -35,8 +35,9 @@ extern void globals_dummy( void);
 #  define WRBUFSIZ FNMAX
 #endif
 
-/* Character to mark zip entry names in the comment file */
+/* Character to mark zip entry names in the zipnote (comment) file */
 #define MARK '@'
+/* Other dividers in zipnote file */
 #define MARKE " (comment above this line)"
 #define MARKZ " (zip file comment below this line)"
 
@@ -74,6 +75,10 @@ struct option_struct far options[] = {
     {"L",  "license",     o_NO_VALUE,       o_NOT_NEGATABLE, 'L',  "license"},
     {"q",  "quiet",       o_NO_VALUE,       o_NOT_NEGATABLE, 'q',  "quiet operation"},
     {"so", "show-options",o_NO_VALUE,       o_NOT_NEGATABLE, o_so, "show available options on this system"},
+#ifdef UNICODE_SUPPORT
+    {"u",  "unicode",     o_NO_VALUE,       o_NOT_NEGATABLE, 'u',  "use Unicode (UTF-8)"},
+    {"U",  "unicode",     o_NO_VALUE,       o_NOT_NEGATABLE, 'u',  "use Unicode (UTF-8)"},
+#endif
     {"v",  "version",     o_NO_VALUE,       o_NOT_NEGATABLE, 'v',  "show version"},
     {"w",  "write",       o_NO_VALUE,       o_NOT_NEGATABLE, 'w',  "write comments to zipfile"},
     /* the end of the list */
@@ -157,7 +162,13 @@ int s;                  /* signal number (ignored) */
 void zipwarn(a, b)
 ZCONST char *a, *b;     /* message strings juxtaposed in output */
 {
-  zipwarn_i("zipnote warning:", 0, a, b);
+  zipwarn_i("zipnote warning:", 0, a, b, ADD_NL);
+}
+
+void zipwarn_nonl(a, b)
+ZCONST char *a, *b;     /* message strings juxtaposed in output */
+{
+  zipwarn_i("zipnote warning:", 0, a, b, NO_NL);
 }
 
 
@@ -166,7 +177,7 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
 void zipwarn_indent(a, b)
 ZCONST char *a, *b;
 {
-    zipwarn_i("zipnote warning:", 1, a, b);
+    zipwarn_i("zipnote warning:", 1, a, b, ADD_NL);
 }
 
 
@@ -190,12 +201,12 @@ local void help()
 "",
 "ZipNote %s (%s)",
 #ifdef VM_CMS
-"Usage:  zipnote [-w] [-q] [-b fm] zipfile",
+"Usage:  zipnote [-w] [-q] [-u] [-b fm] zipfile",
 #else
-"Usage:  zipnote [-w] [-q] [-b path] zipfile",
+"Usage:  zipnote [-w] [-q] [-u] [-b path] zipfile",
 #endif
 "  the default action is to write the comments in zipfile to stdout",
-"  -w  --write          write the zipfile comments from stdin",
+"  -w  --write          write the zipfile comments from stdin to zipfile",
 #ifdef VM_CMS
 "  -b  --filemode fm    use \"fm\" as the filemode for the temporary zip file",
 #else
@@ -203,6 +214,9 @@ local void help()
 #endif
 "  -L  --license        show software license",
 "  -q  --quiet          quieter operation, suppress some informational messages",
+#ifdef UNICODE_SUPPORT
+"  -u  --unicode        output paths as UTF-8",
+#endif
 "  -v  --version        show version info",
 "  -h  --help           show this help",
 "  -hh --more-help      show extended help",
@@ -211,6 +225,7 @@ local void help()
 #ifdef VMS
 "     define/user sys$output foo.tmp",
 "     zipnote foo.zip",
+"     (then if need to edit)",
 "     edit foo.tmp",
 "     ... then you edit the comments, save, and exit ...",
 "     define/user sys$input foo.tmp",
@@ -218,23 +233,27 @@ local void help()
 #else
 # ifdef RISCOS
 "     zipnote foo/zip > foo/tmp",
+"     (then if need to edit)",
 "     <!Edit> foo/tmp",
 "     ... then you edit the comments, save, and exit ...",
 "     zipnote -w foo/zip < foo/tmp",
 # else
 #  ifdef VM_CMS
 "     zipnote foo.zip > foo.tmp",
+"     (then if need to edit)",
 "     xedit foo tmp",
 "     ... then you edit the comments, save, and exit ...",
 "     zipnote -w foo.zip < foo.tmp",
 #  else
 #   ifdef WIN32
 "     zipnote foo.zip > foo.tmp",
+"     (then if need to edit)",
 "     notepad foo.tmp",
 "     ... then you edit the comments, save, and exit ...",
 "     zipnote -w foo.zip < foo.tmp",
 #   else
 "     zipnote foo.zip > foo.tmp",
+"     (then if need to edit)",
 "     ed foo.tmp",
 "     ... then you edit the comments, save, and exit ...",
 "     zipnote -w foo.zip < foo.tmp",
@@ -244,7 +263,7 @@ local void help()
 #endif /* VMS */
 "",
 "  \"@ name\" can be followed by an \"@=newname\" line to change the name.",
-"  See the extended help for more on this."
+"  See the extended help (-hh) for more on this."
   };
 
   for (i = 0; i < sizeof(copyright)/sizeof(char *); i++) {
@@ -299,7 +318,7 @@ local void extended_help()
 "  We want to add periods at the ends of the comment lines as well as lengthen",
 "  the b comment to span two lines.  We also want to add an archive (zipfile)",
 "  comment.  So we edit ab.tmp to look like this:",
-"",
+
 "    @ a.txt",
 "    This is comment a.",
 "    @ (comment above this line)",
@@ -308,10 +327,11 @@ local void extended_help()
 "    two lines.",
 "    @ (comment above this line)",
 "    @ (zip file comment below this line)",
-"    This is the zip file comment.  It can span",
+"    This is the zipfile comment.  It can span",
 "    more than one line.",
 "",
-"  Note that Zip currently only supports one-line entry comments.",
+"  Note that most utilities out there only partially handle multi-line entry",
+"  comments, if at all.  Zip 3.1 supports them.",
 "",
 "  ZipNote also allows changing the name (path) of entries using \"@=newname\".",
 "  To show this, we rename b.txt to c.txt, updating the comment appropriately:",
@@ -329,10 +349,10 @@ local void extended_help()
 "",
 "  The \"@=newname\" line must follow the \"@ name\" line it is changing.",
 "",
-"  Currently ZipNote only supports ANSI names and comments and, in particular,",
-"  does not support UTF-8.  Do not use ZipNote on any archive that has non-ANSI",
-"  names or comments.  Do not use ZipNote to add UTF-8 names or comments.",
-"  UTF-8 support should be added shortly."
+"  ZipNote defaults to outputting ANSI paths/names.  The -u option tells",
+"  ZipNote to output UTF-8 paths.  When using the -w option to read in",
+"  the comment file (output of zipnote), zipnote now detects UTF-8 paths"
+"  and comments and flags the entry as UTF-8 if either found."
 ""
   };
 
@@ -522,24 +542,24 @@ int main(argc, argv)
 #else
 int zipnotemain(argc, argv)
 #endif
-int argc;               /* number of tokens in command line */
-char **argv;            /* command line tokens */
+int argc;                     /* number of tokens in command line */
+char **argv;                  /* command line tokens */
 /* Write the comments in the zipfile to stdout, or read them from stdin. */
 {
-  char abf[WRBUFSIZ+1]; /* input line buffer */
-  char *a;              /* pointer to line buffer or NULL */
-  zoff_t c;             /* start of central directory */
+  char abf[WRBUFSIZ+1];       /* input line buffer */
+  char *a;                    /* pointer to line buffer or NULL */
+  zoff_t c;                   /* start of central directory */
 #if 0
-  /* not used with get_option() */
-  int k;                /* next argument type */
-  char *q;              /* steps through option arguments */
+  /* not used with get_optionz() */
+  int k;                      /* next argument type */
+  char *q;                    /* steps through option arguments */
 #endif
-  int r;                /* arg counter, temporary variable */
-  zoff_t s;             /* length of central directory */
-  int t;                /* attributes of zip file */
-  int w;                /* true if updating zip file from stdin */
-  FILE *x;              /* input file for testing if can write it */
-  struct zlist far *z;  /* steps through zfiles linked list */
+  int r;                      /* arg counter, temporary variable */
+  zoff_t s;                   /* length of central directory */
+  int t;                      /* attributes of zip file */
+  int w = 0;                  /* true if updating zip file from stdin */
+  FILE *x;                    /* input file for testing if can write it */
+  struct zlist far *z;        /* steps through zfiles linked list */
 
   /* used by get_option */
   unsigned long option;       /* option ID returned by get_option */
@@ -554,11 +574,8 @@ char **argv;            /* command line tokens */
   char **args;                /* copy of argv that can be freed */
 
 #ifdef UNICODE_SUPPORT
+  int u = 0;                  /* true if outputting UTF-8 */
   int utf8;
-#endif
-
-#ifdef THEOS
-  setlocale(LC_CTYPE, "I");
 #endif
 
 #ifdef VMS
@@ -571,7 +588,6 @@ char **argv;            /* command line tokens */
     local_dummy = globals_dummy;
   }
 #endif /* def VMS */
-
 
   /* reading and setting locale now done by common function in fileio.c */
   set_locale();
@@ -586,11 +602,11 @@ char **argv;            /* command line tokens */
   /* Direct info messages to stderr; stdout is used for data output. */
   mesg = stderr;
 
-  init_upper();           /* build case map table */
+  init_upper();               /* build case map table */
 
 #ifndef NO_EXCEPT_SIGNALS
   signal(SIGINT, handler);
-# ifdef SIGTERM              /* AMIGA has no SIGTERM */
+# ifdef SIGTERM               /* AMIGA has no SIGTERM */
   signal(SIGTERM, handler);
 # endif
 # ifdef SIGABRT
@@ -672,14 +688,14 @@ char **argv;            /* command line tokens */
   w = 0;
 
   /* make copy of args that can use with insert_arg() */
-  args = copy_args(argv, 0);
+  args = copy_argsz(argv, 0);
 
   /*
   -------------------------------------------
   Process command line using get_option
   -------------------------------------------
 
-  Each call to get_option() returns either a command
+  Each call to get_optionz() returns either a command
   line option and possible value or a non-option argument.
   Arguments are permuted so that all options (-r, -b temp)
   are returned before non-option arguments (zipfile).
@@ -696,9 +712,9 @@ char **argv;            /* command line tokens */
           negated - option was negated with trailing -
   */
 
-  while ((option = get_option(&args, &argcnt, &argnum,
-                              &optchar, &value, &negated,
-                              &fna, &optnum, 0)))
+  while ((option = get_optionz(&args, &argcnt, &argnum,
+                               &optchar, &value, &negated,
+                               &fna, &optnum, 0)))
   {
     switch (option)
     {
@@ -727,6 +743,11 @@ char **argv;            /* command line tokens */
       case 'v':   /* Show version info */
         version_info();
         EXIT(ZE_OK);
+#ifdef UNICODE_SUPPORT
+      case 'u':   /* UTF-8 */
+        u = 1;
+        break;
+#endif
       case 'w':   /* Write mode */
         w = 1;
         break;
@@ -753,7 +774,7 @@ char **argv;            /* command line tokens */
     }
   }
 
-  free_args(args);
+  free_argsz(args);
 #endif
 
   if (zipfile == NULL)
@@ -775,7 +796,13 @@ char **argv;            /* command line tokens */
   {
     for (z = zfiles; z != NULL; z = z->nxt)
     {
-      printf("%c %s\n", MARK, z->zname);
+      char *name = z->zname;
+#ifdef UNICODE_SUPPORT
+      if (u && z->uname) {
+        name = z->uname;
+      }
+#endif
+      printf("%c %s\n", MARK, name);
       putclean(z->comment, z->com);
       printf("%c%s\n", MARK, MARKE);
     }
@@ -795,30 +822,37 @@ char **argv;            /* command line tokens */
 #ifdef UNICODE_SUPPORT_WIN32
   /* Remove a UTF-8 BOM if any */
   utf8 = read_utf8_bom(stdin);
-# if 0
-  if (utf8)
-  {
-    ziperr(ZE_NOTE, "UTF-8 input not yet supported");
-  }
-# endif
 #endif
   while ((a = zgetline(abf, WRBUFSIZ+1)) != NULL &&
          (a[0] != MARK || strcmp(a + 1, MARKZ)))
   {                                     /* while input and not file comment */
-    if (a[0] != MARK || a[1] != ' ')    /* better be "@ name" */
+    if (a[0] != MARK || a[1] != ' ') {  /* better be "@ name" */
+      zipwarn("expected '@ name', found:  ", "");
+      print_utf8(a);
       ziperr(ZE_NOTE, "unexpected input");
+    }
     while (z != NULL && strcmp(a + 2, z->zname)
 #ifdef UNICODE_SUPPORT
            && strcmp(a + 2, z->uname)
 #endif
      )
       z = z->nxt;                       /* allow missing entries in order */
-    if (z == NULL)
+    if (z == NULL) {
+      zipwarn_nonl("entry name not found in zipfile:  ", "");
+      print_utf8(a + 2);
+      zipmessage_nl("\n", NO_NL);
       ziperr(ZE_NOTE, "unknown entry name");
+    }
     if ((a = zgetline(abf, WRBUFSIZ+1)) != NULL && a[0] == MARK && a[1] == '=')
     {
       if (z->name != z->iname)
         free((zvoid *)z->iname);
+#ifdef UNICODE_SUPPORT
+      utf8 = is_utf8_string(a, NULL, NULL, NULL, NULL);
+      if (utf8) {
+        z->flg |= UTF8_BIT;
+      }
+#endif
       if ((z->iname = malloc(strlen(a+1))) == NULL)
         ziperr(ZE_MEM, "was changing name");
 #ifdef EBCDIC
@@ -842,10 +876,18 @@ char **argv;            /* command line tokens */
         ziperr(r, "was building new zipentry comments");
       a = zgetline(abf, WRBUFSIZ+1);
     }
+#ifdef UNICODE_SUPPORT
+    utf8 = is_utf8_string(z->comment, NULL, NULL, NULL, NULL);
+    if (utf8) {
+      z->flg |= UTF8_BIT;
+    }
+#endif
+#if 0
     if (is_utf8_string(z->comment, NULL, NULL, NULL, NULL)) {
       sprintf(errbuf, "new comment has UTF-8: %s", z->iname);
       zipwarn(errbuf, "");
     }
+#endif
     z->com = (ush)strlen(z->comment);
     z = z->nxt;                         /* point to next entry */
   }
@@ -856,13 +898,15 @@ char **argv;            /* command line tokens */
       if ((r = catalloc(&zcomment, a)) != ZE_OK)
         ziperr(r, "was building new zipfile comment");
     zcomlen = (ush)strlen(zcomment);
-    if (!is_text_buf(zcomment, zcomlen)) {
+    if (zcomlen && !is_text_buf(zcomment, zcomlen)) {
       ziperr(ZE_NOTE, "binary not allowed in zip file comment");
     }
+#if 0
     if (is_utf8_string(zcomment, NULL, NULL, NULL, NULL)) {
       sprintf(errbuf, "new zip file comment has UTF-8");
       zipwarn(errbuf, "");
     }
+#endif
   }
 
   /* Open output zip file for writing */
