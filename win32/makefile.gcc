@@ -2,11 +2,11 @@
 # native Win32-Intel binaries. Derived from makefile.w32.
 # Currently supported implementations: Cygwin and MinGW.
 # Authors: Cosmin Truta, Christian Spieler, and possibly others.
-# Last updated: 2008-Aug-09.
+# Last updated: 2009-Feb-21.
 #
 # To use, do "make -f win32/makefile.gcc".
 
-# configuration switches supported:
+# Configuration switches supported:
 #   NOASMCRC=1  disable assembler crc32 code, the generic C source code
 #               is used instead.
 #   NOASMATCH=1 disable assembler match code for deflate.
@@ -61,7 +61,7 @@ else
 CCFLAGS=$(CFLAGS) -DUSE_ZLIB $(LOC)
 endif
 UTILFLAGS=$(CCFLAGS) -DUTIL -o$@
-DLLFLAGS=$(CCFLAGS) -DWINDLL -DUSE_ZIPMAIN -o$@
+DLLFLAGS=$(CCFLAGS) -DWINDLL -DUSE_ZIPMAIN $(INC_BZ2LIB) -o$@
 CFLAGS_BZ=$(CFLG_OPT) -DBZ_NO_STDIO
 
 #AS=as
@@ -155,8 +155,15 @@ OBJS  = zipsplit.o $(OBJU)
 OBJC1 = zipcloak.o crypt_.o ttyio.o
 OBJC  = $(OBJC1) $(OBJU)
 
+OBJDLL = windll.o windllrc.o api.o
+OBJD1 = zipl.o cryptl.o ttyiol.o zipfilel.o zipupl.o fileiol.o utill.o \
+	crc32l.o $(CRCALO) globalsl.o
+OBJD2 = deflatel.o treesl.o $(MATCHLO) zbz2errl.o
+OBJDS = win32l.o win32zpl.o win32i64l.o ntl.o
+OBJD  = $(OBJDLL) $(OBJD1) $(OBJD2) $(OBJDS)
+
 ZIP_H = zip.h ziperr.h tailor.h $(OSDEP_H)
-WINDLL_H = windll/windll.h windll/structs.h
+WINDLL_H = windll/windll.h windll/structs.h api.h
 DLLDEF = windll/windll32.def
 
 ZIPS = zip.exe zipnote.exe zipsplit.exe zipcloak.exe
@@ -297,8 +304,9 @@ windll.o: windll/windll.c $(ZIP_H) $(WINDLL_H)
 windllrc.o: windll/windll.rc revision.h
 	- $(RC) -o $@ $<
 
-example.o: windll/example.c windll/example.h
-	$(CC) -c $(CFLAGS) -I. $<
+example.o: windll/examples/example.c windll/examples/example.h \
+           windll/structs.h api.h $(ZIP_H) revision.h
+	$(CC) -c $(CFLAGS) -I. -I./windll $<
 
 
 zip.exe: $(OBJZ) ziprc.o $(LIBBZIP2)

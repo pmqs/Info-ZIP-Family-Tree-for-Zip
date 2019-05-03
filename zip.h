@@ -5,13 +5,13 @@
 
 Info-ZIP Licence
 
-This is version 2007-Mar-4 of the Info-ZIP license.
+This is version 2009-Jan-02 of the Info-ZIP license.
 The definitive version of this document should be available at
 ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
 a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 
-Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -41,11 +41,13 @@ freely, subject to the above disclaimer and the following restrictions:
     2. Redistributions in binary form (compiled executables and libraries)
        must reproduce the above copyright notice, definition, disclaimer,
        and this list of conditions in documentation and/or other materials
-       provided with the distribution.  The sole exception to this condition
-       is redistribution of a standard UnZipSFX binary (including SFXWiz) as
-       part of a self-extracting archive; that is permitted without inclusion
-       of this license, as long as the normal SFX banner has not been removed
-       from the binary or disabled.
+       provided with the distribution.  Additional documentation is not needed
+       for executables where a command line license option provides these and
+       a note regarding this option is in the executable's startup banner.  The
+       sole exception to this condition is redistribution of a standard
+       UnZipSFX binary (including SFXWiz) as part of a self-extracting archive;
+       that is permitted without inclusion of this license, as long as the
+       normal SFX banner has not been removed from the binary or disabled.
 
     3. Altered versions--including, but not limited to, ports to new operating
        systems, existing ports with new graphical interfaces, versions with
@@ -83,6 +85,9 @@ freely, subject to the above disclaimer and the following restrictions:
 typedef unsigned char uch;      /* unsigned 8-bit value */
 typedef unsigned short ush;     /* unsigned 16-bit value */
 typedef unsigned long ulg;      /* unsigned 32-bit value */
+
+/* This seems needed here for MVS - see forum posting, Lutz, 2008-10-14 */
+#define __EBCDIC 2
 
 /* Set up portability */
 #include "tailor.h"
@@ -222,7 +227,6 @@ struct plist {
 #define UNKNOWN (-1)
 #define BINARY  0
 #define ASCII   1
-#define __EBCDIC 2
 
 /* extra field definitions */
 #define EF_VMCMS     0x4704   /* VM/CMS Extra Field ID ("G")*/
@@ -373,6 +377,7 @@ extern int translate_eol;       /* Translate end-of-line LF -> CR LF */
 
 /* Accomodation for /NAMES = AS_IS with old header files. */
 # define cma$tis_errno_get_addr CMA$TIS_ERRNO_GET_ADDR
+# define cma$tis_vmserrno_get_addr CMA$TIS_VMSERRNO_GET_ADDR
 # define lib$establish LIB$ESTABLISH
 # define lib$get_foreign LIB$GET_FOREIGN
 # define lib$get_input LIB$GET_INPUT
@@ -478,6 +483,8 @@ extern FILE *y;                 /* output file now global for splits */
 extern int unicode_escape_all;  /* 1=escape all non-ASCII characters in paths */
 extern int unicode_mismatch;    /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
 
+extern int mvs_mode;            /* 0=lastdot (default), 1=dots, 2=slashes */
+
 extern time_t scan_delay;       /* seconds before display Scanning files message */
 extern time_t scan_dot_time;    /* time in seconds between Scanning files dots */
 extern time_t scan_start;       /* start of file scan */
@@ -526,6 +533,11 @@ extern int logfile_line_started; /* 1=started writing a line to logfile */
 extern char *key;               /* Scramble password or NULL */
 extern char *tempath;           /* Path for temporary files */
 extern FILE *mesg;              /* Where informational output goes */
+
+extern char **args;             /* Copy of argv that can be updated and freed */
+
+extern char *path_prefix;       /* Prefix to add to all new archive entries */
+extern int all_ascii;           /* Skip binary check and handle all files as text */
 extern char *zipfile;           /* New or existing zip archive (zip file) */
 extern FILE *in_file;           /* Current input file for spits */
 extern char *in_path;           /* Name of input archive, used to track reading splits */
@@ -783,10 +795,10 @@ void version_local OF((void));
         /* in util.c */
 #ifndef UTIL
 int   fseekable    OF((FILE *));
-char *isshexp      OF((char *));
+char *isshexp      OF((ZCONST char *));
 #ifdef UNICODE_SUPPORT
 # ifdef WIN32
-   wchar_t *isshexpw     OF((wchar_t *));
+   wchar_t *isshexpw     OF((ZCONST wchar_t *));
    int dosmatchw   OF((ZCONST wchar_t *, ZCONST wchar_t *, int));
 # endif
 #endif

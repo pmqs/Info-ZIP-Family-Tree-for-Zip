@@ -153,6 +153,3 @@
      multiple versions of Zip are used on the system, and their error
      message source files differ.
 
-     Some further information may be found in the files
-     [.VMS]00README.TXT and [.VMS]00BINARY.VMS, though much of what's
-     there is now obsolete.

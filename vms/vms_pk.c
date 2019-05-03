@@ -65,12 +65,33 @@
  *                      NAM structure -> NAM[L], and so on.  (VMS.H.)
  *                      Added some should-never-appear error messages in
  *                      vms_open().
+ *    version 3.1       21-Jan-2009, Steven Schweda.
+ *                      In vms_open(), changed to reset the ACL context
+ *                      (Fib.fib$l_aclctx) before accessing a file
+ *                      (sys$qiow( IO$_ACCESS)), and to check the ACL
+ *                      status (Fib.fib$l_acl_status) as well as the
+ *                      usual function return and IOSB status values.
+ *                      (ACL read errors were happening, and were
+ *                      unnoticed.)
+ *                      Changed the error handling in vms_open() to set
+ *                      appropriate errno and vaxc$errno values, so that
+ *                      error messages from the calling function would
+ *                      be useful.  Left in abbreviated local messages
+ *                      to reveal the actual failing operation.
+ *                      Replaced the scheme where one ATR$C_READACL
+ *                      ("read the entire ACL") was used with a
+ *                      fixed-sized (ATR$S_READACL = 512 byte) buffer.
+ *                      Now, the file open access QIO gets only the ACL
+ *                      length.  Then, a right-sized buffer is allocated
+ *                      and filled, using as many ATR$C_READACL
+ *                      operations as needed.
  */
 
 #ifdef VMS                      /* For VMS only ! */
 
 #ifdef VMS_PK_EXTRA
 
+#include <errno.h>
 #include <ssdef.h>
 
 #ifndef VMS_ZIP
@@ -110,14 +131,15 @@ static PK_info_t PK_def_info =
 typedef struct
 {
     struct iosb         iosb;
-    long                vbn;
+    int                 vbn;
     uzoff_t             size;
     uzoff_t             rest;
     int                 status;
     ush                 chan;
     ush                 chan_pad;       /* alignment member */
-    long                acllen;
-    uch                 aclbuf[ATR$S_READACL];
+    int                 acllen;         /* ACL data byte count. */
+    int                 aclseg;         /* ACL data segment count. */
+    uch                 *aclbuf;        /* ACL data buffer. */
     PK_info_t           PKi;
 } ioctx_t;
 
@@ -147,6 +169,7 @@ ioctx_t *vms_open(file)
 char *file;
 {
     static struct atrdef        Atr[VMS_MAX_ATRCNT+1];
+    static struct atrdef        Atr_readacl[ 2];
     static struct NAM_STRUCT    Nam;
     static struct fibdef        Fib;
     static struct dsc$descriptor FibDesc =
@@ -159,38 +182,47 @@ char *file;
     struct FAB Fab;
     register ioctx_t *ctx;
     register struct fatdef *fat;
-    int status;
-    int i;
     ulg efblk;
     ulg hiblk;
+    int i;
+    int status;
 
     if ( (ctx=(ioctx_t *)malloc(sizeof(ioctx_t))) == NULL )
         return NULL;
     ctx -> PKi = PK_def_info;
 
-#define FILL_REQ(ix,id,b)   {       \
-    Atr[ix].atr$l_addr = GVTC &(b);      \
-    Atr[ix].atr$w_type = (id);      \
-    Atr[ix].atr$w_size = sizeof(b); \
+#define FILL_REQ( ix, id, b)   {     \
+    Atr[ ix].atr$w_type = (id);      \
+    Atr[ ix].atr$w_size = sizeof(b); \
+    Atr[ ix].atr$l_addr = GVTC &(b); \
 }
 
-    FILL_REQ(0, ATR$C_RECATTR,  ctx->PKi.ra);
-    FILL_REQ(1, ATR$C_UCHAR,    ctx->PKi.uc);
-    FILL_REQ(2, ATR$C_REVDATE,  ctx->PKi.rd);
-    FILL_REQ(3, ATR$C_EXPDATE,  ctx->PKi.ed);
-    FILL_REQ(4, ATR$C_CREDATE,  ctx->PKi.cd);
-    FILL_REQ(5, ATR$C_BAKDATE,  ctx->PKi.bd);
-    FILL_REQ(6, ATR$C_ASCDATES, ctx->PKi.rn);
-    FILL_REQ(7, ATR$C_JOURNAL,  ctx->PKi.jr);
-    FILL_REQ(8, ATR$C_RPRO,     ctx->PKi.rp);
-    FILL_REQ(9, ATR$C_FPRO,     ctx->PKi.fp);
-    FILL_REQ(10,ATR$C_UIC,      ctx->PKi.ui);
-    FILL_REQ(11,ATR$C_ACLLENGTH,ctx->acllen);
-    FILL_REQ(12,ATR$C_READACL,  ctx->aclbuf);
+    FILL_REQ(  0, ATR$C_RECATTR,   ctx->PKi.ra);
+    FILL_REQ(  1, ATR$C_UCHAR,     ctx->PKi.uc);
+    FILL_REQ(  2, ATR$C_REVDATE,   ctx->PKi.rd);
+    FILL_REQ(  3, ATR$C_EXPDATE,   ctx->PKi.ed);
+    FILL_REQ(  4, ATR$C_CREDATE,   ctx->PKi.cd);
+    FILL_REQ(  5, ATR$C_BAKDATE,   ctx->PKi.bd);
+    FILL_REQ(  6, ATR$C_ASCDATES,  ctx->PKi.rn);
+    FILL_REQ(  7, ATR$C_JOURNAL,   ctx->PKi.jr);
+    FILL_REQ(  8, ATR$C_RPRO,      ctx->PKi.rp);
+    FILL_REQ(  9, ATR$C_FPRO,      ctx->PKi.fp);
+    FILL_REQ( 10, ATR$C_UIC,       ctx->PKi.ui);
+    FILL_REQ( 11, ATR$C_ACLLENGTH, ctx->acllen);
 
-    Atr[13].atr$w_type = 0;     /* End of ATR list */
-    Atr[13].atr$w_size = 0;
-    Atr[13].atr$l_addr = GVTC NULL;
+#define ATR_TERM 12
+
+    Atr[ ATR_TERM].atr$w_type = 0;     /* End of ATR list */
+    Atr[ ATR_TERM].atr$w_size = 0;
+    Atr[ ATR_TERM].atr$l_addr = GVTC NULL;
+
+    /* Initialize (most of) the READACL item list. */
+    Atr_readacl[ 0].atr$w_type = ATR$C_READACL;
+
+    Atr_readacl[ 1].atr$w_type = 0; /* End of ATR list */
+    Atr_readacl[ 1].atr$w_size = 0;
+    Atr_readacl[ 1].atr$l_addr = GVTC NULL;
+
 
     /* Initialize RMS structures.  We need a NAM[L] to retrieve the FID. */
     Fab = cc$rms_fab;
@@ -216,8 +248,13 @@ char *file;
 
     if (!(status & 1))
     {
+        /* Put out an operation-specific complaint. */
         fprintf( stderr,
-         " vms_open(): $parse sts = %%x%08x.\n", status);
+         "\n vms_open(): $parse sts = %%x%08x.\n", status);
+
+        /* Set errno (and friend) according to the bad VMS status value. */
+        errno = EVMSERR;
+        vaxc$errno = status;
         return NULL;
     }
 
@@ -237,8 +274,13 @@ char *file;
 
     if (!(status & 1))
     {
+        /* Put out an operation-specific complaint. */
         fprintf( stderr,
-         " vms_open(): $search sts = %%x%08x.\n", status);
+         "\n vms_open(): $search sts = %%x%08x.\n", status);
+
+        /* Set errno (and friend) according to the bad VMS status value. */
+        errno = EVMSERR;
+        vaxc$errno = status;
         return NULL;
     }
 
@@ -252,8 +294,13 @@ char *file;
 
     if (!(status & 1))
     {
+        /* Put out an operation-specific complaint. */
         fprintf( stderr,
-         " vms_open(): $assign sts = %%x%08x.\n", status);
+         "\n vms_open(): $assign sts = %%x%08x.\n", status);
+
+        /* Set errno (and friend) according to the bad VMS status value. */
+        errno = EVMSERR;
+        vaxc$errno = status;
         return NULL;
     }
 
@@ -270,17 +317,40 @@ char *file;
         Fib.FIB$W_DID[ i] = 0;
     }
 
-    /* Use the IO$_ACCESS function to return info about the file. */
-    status = sys$qiow( 0, ctx->chan,
-     (IO$_ACCESS| IO$M_ACCESS), &ctx->iosb, 0, 0,
-     &FibDesc, 0, 0, 0, Atr, 0);
+    /* 2009-01-16 SMS.
+     * Reset the ACL context before first accessing this file.
+     */
+    Fib.fib$l_aclctx = 0;
 
-    if (ERR(status) || ERR(status = ctx->iosb.status))
+    /* Use the IO$_ACCESS function to return info about the file. */
+    status = sys$qiow( 0,                       /* Event flag */
+                       ctx->chan,               /* Channel */
+                       (IO$_ACCESS| IO$M_ACCESS),       /* Function code */
+                       &ctx->iosb,              /* IOSB */
+                       0,                       /* AST address */
+                       0,                       /* AST parameter */
+                       &FibDesc,                /* P1 = File Info Block */
+                       0,                       /* P2 (= File name (descr)) */
+                       0,                       /* P3 (= Resulting name len) */
+                       0,                       /* P4 (= Resultng name dscr) */
+                       Atr,                     /* P5 = Attribute descr */
+                       0);                      /* P6 (not used) */
+
+    /* Check the various status values until a bad one is found. */
+    if (ERR( status) ||
+     ERR( status = ctx->iosb.status) ||
+     ERR( status = Fib.fib$l_acl_status))
     {
+        /* Close the file. */
         vms_close(ctx);
+
+        /* Put out an operation-specific complaint. */
         fprintf( stderr,
-         " vms_open(): $qiow (access) sts = %%x%08x, iosb sts = %%x%08x.\n",
-         status, ctx->iosb.status);
+         "\n vms_open(): $qiow access sts = %%x%08x.\n", status);
+
+        /* Set errno (and friend) according to the bad VMS status value. */
+        errno = EVMSERR;
+        vaxc$errno = status;
         return NULL;
     }
 
@@ -312,6 +382,90 @@ char *file;
             ctx -> rest = ctx -> size;
         else
             ctx -> rest = ((uzoff_t) hiblk)* BLOCK_BYTES;
+    }
+
+    /* If ACL data exist, fill an allocated buffer with them. */
+    if (ctx->acllen > 0)
+    {
+        uch *acl_buf;
+        int ace_bytes;
+
+        int acl_bytes_read = 0;
+
+        /* Allocate all storage needed for this ACL. */
+        if ((acl_buf = (uch *)malloc( ctx->acllen)) == NULL )
+        {
+            /* Close the file. */
+            vms_close( ctx);
+            return NULL;
+        }
+
+        /* Save the buffer pointer, and initialize ACL segment count. */
+        ctx->aclbuf = acl_buf;
+        ctx->aclseg = 0;
+
+#define MIN( a, b) ((a < b) ? (a) : (b))
+
+        while (acl_bytes_read < ctx->acllen)
+        {
+            /* Point the item list to the next buffer segment. */
+            Atr_readacl[ 0].atr$w_size =
+             MIN( ATR$S_READACL, (ctx->acllen- acl_bytes_read));
+
+            Atr_readacl[ 0].atr$l_addr = GVTC acl_buf;
+
+            /* Use the IO$_ACCESS function to read ACL data. */
+            status = sys$qiow( 0,           /* Event flag */
+                           ctx->chan,       /* Channel */
+                           IO$_ACCESS,      /* Function code */
+                           &ctx->iosb,      /* IOSB */
+                           0,               /* AST address */
+                           0,               /* AST parameter */
+                           &FibDesc,        /* P1 = File Info Block */
+                           0,               /* P2 (= File name (descr)) */
+                           0,               /* P3 (= Resulting name len) */
+                           0,               /* P4 (= Resultng name dscr) */
+                           Atr_readacl,     /* P5 = Attribute descr */
+                           0);              /* P6 (not used) */
+
+            /* Check the various status values until a bad one is found. */
+            if (ERR( status) ||
+             ERR( status = ctx->iosb.status) ||
+             ERR( status = Fib.fib$l_acl_status))
+            {
+                /* Close the file. */
+                vms_close(ctx);
+
+                /* Put out an operation-specific complaint. */
+                fprintf( stderr,
+                 "\n vms_open(): $qiow acl access sts = %%x%08x.\n", status);
+
+                /* Set errno (et al.) according to the bad VMS status value. */
+                errno = EVMSERR;
+                vaxc$errno = status;
+                return NULL;
+            }
+
+            /* If we expect to need more than one buffer, advance the
+             * buffer pointer through the valid data.
+             */
+            if (ctx->acllen <= ATR$S_READACL)
+            {
+                /* One read should be enough. */
+                acl_bytes_read += ctx->acllen;
+            }
+            else
+            {
+                /* Expecting multiple reads.  Advance through valid data. */
+                while ((ace_bytes = *acl_buf) != 0)
+                {
+                    acl_bytes_read += ace_bytes;
+                    acl_buf += ace_bytes;
+                }
+            }
+            /* Count this ACL segment. */
+            ctx->aclseg++;
+        }
     }
 
     ctx -> status = SS$_NORMAL;
@@ -532,8 +686,10 @@ iztimes *z_utim;
         return ZE_OPEN;
 
     l = PK_HEADER_SIZE + sizeof(ctx->PKi);
+
+    /* Each ACL segment needs its own header. */
     if (ctx->acllen > 0)
-        l += PK_FLDHDR_SIZE + ctx->acllen;
+        l += PK_FLDHDR_SIZE* ctx->aclseg + ctx->acllen;
 
     if ((xtra = (uch *) malloc( l)) == NULL)
         return ZE_MEM;
@@ -552,20 +708,65 @@ iztimes *z_utim;
     memcpy(h->data, (char*)&(ctx->PKi), sizeof(ctx->PKi));
     p += sizeof(ctx->PKi);
 
+    /* Create ACL field(s).  (Re-segment ACL data as needed.) */
     if ( ctx->acllen > 0 )
     {
         struct PK_field *f;
+        uch *ace_buf;           /* ACE pointer. */
+        int ace_bytes;          /* ACE byte count.  (First byte in ACE.) */
+        uch *acl_buf;           /* Pointer to data in current ACL segment. */
+        int acl_bytes;          /* ACL bytes in the current segment. */
+
+        int acl_len = 0;        /* Total ACL bytes put out. */
 
         if (dosify)
             zipwarn("file has ACL, may be incompatible with PKUNZIP","");
 
-        f = (struct PK_field *)p;
-        f->tag = ATR$C_ADDACLENT;
-        f->size = ctx->acllen;
-        memcpy((char *)&(f->value[0]), ctx->aclbuf, ctx->acllen);
-        p += PK_FLDHDR_SIZE + ctx->acllen;
-    }
+        acl_buf = ctx->aclbuf;
 
+        while (acl_len < ctx->acllen)
+        {
+            /* Determine ACL segment byte count. */
+            if (ctx->aclseg <= 1)
+            {
+                /* Only one segment.  Its length is the length. */
+                acl_bytes = ctx->acllen;
+                acl_len = ctx->acllen;
+            }
+            else
+            {
+                /* Multiple segments.  Advance through the data until
+                 * reaching the ATR$S_READACL limit, or running out of
+                 * valid data.
+                 */
+                acl_bytes = 0;
+                ace_buf = acl_buf;
+                while ((acl_len < ctx->acllen) &&
+                 ((ace_bytes = *ace_buf) != 0) &&
+                 (acl_bytes+ ace_bytes < ATR$S_READACL))
+                {
+                    acl_bytes += ace_bytes;     /* Bytes this segment. */
+                    acl_len += ace_bytes;       /* Total bytes. */
+                    ace_buf += ace_bytes;       /* Local bufer pointer. */
+                }
+            }
+
+            /* 2009-01-21 SMS.
+             * Is it worth adding a consistency check for actual ACL
+             * segments matching expected ACL segments?  We're trusting
+             * VMS to do things reasonably.
+             */
+
+            /* Put out an ADDACLENT field for this ACL segment. */
+            f = (struct PK_field *)p;
+            f->tag = ATR$C_ADDACLENT;
+            f->size = acl_bytes;
+            memcpy( (char *)&(f->value[0]), acl_buf, acl_bytes);
+            p += PK_FLDHDR_SIZE + acl_bytes;
+
+            acl_buf += acl_bytes;               /* Main buffer pointer. */
+        }
+    }
 
     h->crc32 = CRCVAL_INITIAL;                  /* Init CRC register */
     h->crc32 = crc32(h->crc32, (uch *)(h->data), l - PK_HEADER_SIZE);
@@ -588,8 +789,16 @@ iztimes *z_utim;
 int vms_close(ctx)
 ioctx_t *ctx;
 {
+        /* Deassign the I/O channel. */
         sys$dassgn(ctx->chan);
+
+        /* Free the ACL storage, if any. */
+        if ((ctx->acllen > 0) && (ctx->aclbuf != NULL))
+            free( ctx->aclbuf);
+
+        /* Free the main context structure. */
         free(ctx);
+
         return 0;
 }
 

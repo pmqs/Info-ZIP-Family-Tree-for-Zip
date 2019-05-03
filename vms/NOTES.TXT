@@ -4,7 +4,7 @@
    This document describes some VMS-specific behavior and implementation
 details of the Info-ZIP Zip and UnZip programs.
 
-   Last modified: 2008-04-10.
+   Last modified: 2009-03-02.
 
 
    Command-line Case
@@ -43,7 +43,7 @@ directories, which were always up-cased.)
 
    The Zip and UnZip builders should work properly on ODS2 and ODS5
 disks, with old (pre-ODS5) and new (case-conscious) versions of MMS (or
-MMK).  All testing was done with SET PROCESS /CASE_LOOKUP = BLIND. 
+MMK).  All testing was done with SET PROCESS /CASE_LOOKUP = BLIND.
 Various problems may be expected with /CASE_LOOKUP = SENSITIVE.
 
    For consistency, the builders should always create product files
@@ -97,18 +97,9 @@ or, using the command procedure to build Zip:
       @ [.VMS]BUILD_ZIP.COM
       DELETE /SYMBOL /GLOBAL LOCAL_ZIP
 
-   The Zip "-v" (/VERBOSE) report should include SYMLINK_SUPPORT in its
-list of "Zip special compilation options" if Zip was built with symlink
-support.  Currently, UnZip is less convenient, but searching the UnZip
-executable (or EXTRACT.OBJ) for "symlink" should fail if symlink support
-is missing (or succeed if it's present):
-
-      $ SEARCH /NOOUTPUT UNZIP.EXE SYMLINK      ! No symlink support.
-      %SEARCH-I-NOMATCHES, no strings matched
-or:
-      $ SEARCH /NOOUTPUT EXTRACT.OBJ SYMLINK    ! Symlink support.
-      $ SHOW SYMBOL $STATUS
-        $STATUS == "%X00000001"
+   The Zip or UnZip "-v" (/VERBOSE) report should include
+SYMLINK_SUPPORT (Zip) or SYMLINKS (UnZip) in its list of "special
+compilation options" if the program was built with symlink support.
 
 
    File I/O Performance
@@ -230,7 +221,7 @@ of 3, so all the resulting VMS message codes (bits 13:3) were even.
 programs exit with standard 32-bit VMS status values which differ from
 the old ones in several ways: The official facility code is used, and
 the facility-specific bit is set.  (For compatibility with older
-versions, the internal status codes are still left-shifted by 4 bits. 
+versions, the internal status codes are still left-shifted by 4 bits.
 This also makes it easier to extract the internal status code from a
 hexadecimal representation of the VMS status code.)  The builders also
 create non-executable message files (UNZIP_MSG.EXE and ZIP_MSG.EXE) so
@@ -379,4 +370,3 @@ defects in the GNU C header files, such as:
 [...]rab.h:143: warning: unnamed struct/union that defines no instances
 
 These warnings appear to be harmless.
-

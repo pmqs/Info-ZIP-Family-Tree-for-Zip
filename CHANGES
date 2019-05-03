@@ -3572,3 +3572,289 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  2. Update INSTALL.  INSTALL (Ed)
  3. Add Zip 3.1a announcement.  zip31a.ann (Ed)
  4. Update WHATSNEW.  WHATSNEW (Ed)
+--------------------- February 5th 2009 version 3.1b01 -----------------------
+ 1. Move __EBCDIC define earlier to avoid problem in includes.  zip.h (Lutz)
+ 2. Move definition of isatty() to within ifndef MVS block as MVS seems to
+    have a good isatty().  cmsmvs/cmsmvs.h (Lutz)
+ 3. Add error message when file open fails.  cmsmvs/mvs.c (Lutz)
+ 4. Fix bug in zipnote where undefined file x was being closed instead of
+    in_file.  zipnote.c (Christian)
+ 5. Modify zip32z64 dll Options structure in backward-compatible way to permit
+    additional encryption methods later.  Replace unused fSuffix in dll Options
+    with fMisc, remove fUTF8_No and fUTF8_Native from the structure as they
+    are not backward compatible, and add bits for suffices, no UTF8, and native
+    UTF8 to fMisc.  Update fEncryption comment to note it means that encryption
+    is compiled in.  api.c, api.h (Ed)
+ 6. Update to new 2009-Jan-02 license.  LICENSE, zip.h, revision.h (Ed)
+ 7. Add special character exceptions in is_text_buf() for binary for EBCDIC.
+    util.c (Lutz)
+ 8. Add new -Y option for encryption method.  Not yet implemented.  zip.c (Ed)
+ 9. Update VBz64 example to use new fMisc.  windll/vbz64/vbzipbas.bas (Ed)
+10. If USE_STATIC_LIB, avoid double defining of printf, fprintf, and perror.
+    Change zfseeko and zftello to Win32 internal versions (though these are
+    commented out currently because they are not compatible with older
+    Win32 compilers).  Check if WinDLL functions lpZipUserFunctions->comment
+    and lpZipUserFunctions->print are not NULL before using.  api.h, tailor.h,
+    windll/windll.c (107E5eng)
+11. New Unicode character set check that enables local character support first
+    and then uses nl_langinfo() to see if already using UTF-8 as the character
+    set.  Also added alternate fix for MAEMO OS.  zip.c (Danny Milosavljevic)
+12. Numerous additional fixes for Acorn.  See
+    http://www.riscos.info/cgi-bin/bugzilla3/show_bug.cgi?id=164.  Changes
+    noted separately below. (John Tytgat)
+13. Simplified rules (a bit modeled after the unix/Makefile).  Again use
+    assembler files in acorn/match.s and acorn/sendbits.s like acorn/makefile
+    and which results in a small speed improvement.  acorn/GMakefile (John
+    Tytgat)
+14. Select APCS-32 instead of APCS-R build.  Use C swiven version instead of
+    assembler version.  Couple of cleanups.  acorn/makefile (John Tytgat)
+15. Add GAS versions for GCCSDK 4 usage (ELF instead of AOF).  Simplified
+    indirect variable loading.  Strict APCS-32 conformance instead of APCS-R.
+    acorn/match.s, acorn/sendbits.s (John Tytgat)
+16. Update ReadMe.  acorn/ReadMe (John Tytgat)
+17. No longer use own typdef os_error but use kernel.h's _kernel_oserror.
+    Cleanups.  Constify parameter pointers in swiven where it makes sense.
+    Remove SWI_OS_FSControl_54() as it wasn't used.  Couple of register bits
+    for _swiv() were wrong or could be better specified.  acorn/riscos.c,
+    acorn/riscos.h, acorn/swiven.c, acorn/swiven.h (John Tytgat)
+18. Comment out unused "argument files not enabled" message (which removes
+    a compiler warning).  fileio.c (John Tytgat)
+19. In ziptyp(), add q = q for RISCOS to avoid compiler warning on unused
+    parameter.  zipfile.c (John Tytgat)
+20. Delete assembler version of file.  This assembler version is obsolete
+    and replaced by the C version acorn/swiven.c (without any noticable
+    performance impact).  acorn/swiven.s (John Tytgat)
+21. Delete binary file as this is superceeded by Jeffrey Lee's BASIC
+    detokenized version acorn/srcrename.  acorn/srcrenameold (John Tytgat)
+--------------------- February 19th 2009 version 3.1b02 -----------------------
+ 1. Change mbstowcs size parameter to use wide character count from
+    previous call to fix bug that caused illegal memory access Win32 crashes
+    when apparently illegal multi-byte strings were passed in.  fileio.c
+    (kellner from forum)
+ 2. Update copyright date.  revision.h (Ed)
+ 3. Add items to TODO list.  TODO (Ed)
+ 4. Define ESCAPE_CHR for setting default escape character \ to ^ for
+    VMS.  Use ESCAPE_CHR in isshexp() instead of \.  util.c (SMS)
+ 5. Add nl_langinfo() check that sets NO_NL_LANGINFO if it doesn't exist.
+    In Unicode check, don't call nl_langinfo() if NO_NL_LANGINFO is set.
+    unix/configure, zip.c (Ed)
+ 6. Change z->name to z->iname in check for directory, as z->name
+    directories may not end in / on some OS.  Compare iname instead
+    of zname in zqcmp() and zuqcmp().  zip.c, zipfile.c (SMS)
+ 7. Add cma$tis_vmserrno_get_addr define.  zip.h (SMS)
+ 8. Add comment to rqcmp() that this compare is used by trash().  Add
+    note to zsearch() that 3 is unicode_mismatch which means ignore
+    Unicode and that Unicode is not trusted yet for -FF.  zipfile.c (Ed)
+ 9. Add 4th parameter for IZ_ZLIB and 5th parameter for PROD (directory
+    for production output).  Add check for valid C compiler.  Add
+    support for zlib in IZ_ZLIB directory.  Add support for PROD
+    directory.  unix/configure, unix/makefile (SMS)
+10. Updates to VMS build procedure to add NOCOMPILE and NOEXE command
+    line options and allow chosing of directory for output files.
+    vms/build_zip.com (SMS)
+11. For VMS add support for PROD=subdir and add CLEAN to CLEAN_ALL.
+    vms/descript.mms  (SMS)
+12. Add support for PROD and DEST_STD.  vms/descript_src.mms (SMS)
+13. In vms_open(), reset ACL context before reading file ACL list.
+    Change error handling to set appropriate errno and vaxc$errno
+    values.  Change ACL reading from getting all and storing in
+    buffer of 512 bytes that can be overrun in some cases to using
+    allocated buffer and reading each ACL separately.  vms/vms_pc.c
+    (SMS)
+14. Update VMS command descriptions, including adding note about
+    directories and adding note about ACL storage using -V and -VV
+    or /VMS[=ALL].  Add note for /TRANSLATE_EOL.  vms/vms_zip.rnh,
+    vms/zip_cli.help (SMS)
+15. Add ", :, \, and | to char_prop table.  Update eat_carets() to
+    better escape dots in names.  vms/vmszip.c (SMS)
+16. Move main zip header include (api.h for api.c) in front of all
+    system header includes, so that the system-specific config
+    settings are applied before reading any system headers.
+    api.h, windll/windll.c (Christian)
+17. Synchronize scope specifier at def of ucs4_char_from_utf8()
+    with scope specifier used in declaration to get rid of a compiler
+    warning.  fileio.c (Christian)
+18. Use Windows fseeki64() and ftelli64() beginning with Visual
+    Studio 2005 (VC 8.0), the first version they are publicly defined.
+    tailor.h (Christian)
+19. Add some missing "const" modifiers to read-only string arguments
+    of helper functions.  util.c, zip.h (Christian)
+20. Add (char *) cast to isshexp() return.  Add (wchar_t *) cast
+    to isshexpw() return.  Remove cast of isshexpw() parameter.
+    Remove cast from isshexp() parameter.  util.c (Christian)
+21. Add dll section accidentally left out in last beta.
+    win32/makefile.gcc (Christian)
+22. Adapt to Zip 3 (however, lcc-win32 does not (yet) work because
+    of a K&R C misinterpretation).  win32/makefile.lcc (Christian)
+23. Update comments.  win32/makefile.w10 (Christian)
+24. Correct wrong positioned merges of previous updates.
+    win32/makefile.wat (Christian)
+25. Remove unsupported configuration option NOWIN98.  Add "out:"
+    specification to dll link command.  Update clean target.
+    win32/makefile.w32 (Christian)
+26. Do not force NO_ASM for dll to allow build scripts to handle
+    this setting.  win32/osdep.h (Christian)
+27. Deactivate ftello/fseeko code when these functions are mapped
+    to system-supplied calls.  Revise fseeko code to reset error
+    flags correctly.  win32/win32i64.c (Christian)
+28. Add comment regarding fseeki64() and ftelli64().
+    win32/win32i64.c (Ed)
+29. Add missing CP_UTF8 symbol definition for lcc-win32 compiler
+    win32/win32zip.c (Christian)
+30. Add compatibility defines for VC++ 8 and newer.  Add workaround
+    for "printf" bug resulting in unresolved symbol at link time.
+    Comment out fSuffix option struct member which is not yet
+    implemented.  windll/example.c (Christian)
+31. Add missing win32i64.c to list of source files.  Change settings
+    to compile LIB library for multithreading projects (same
+    configuration as the dll compilation).
+    windll/visualc/lib/zip32z64.dsp (Christian)
+32. Remove unused local variable zipfile.  zipup.c (Christian)
+33. Create examples directory under windll to put all DLL and LIB
+    examples.  Move example files to examples directory.  Create
+    vb6 and vc8 directories under examples.  windll/examples,
+    windll/examples/vc6, windll/examples/vc8, windll/examples/VB,
+    windll/examples/VBz64 (Ed)
+34. Create projects for vc6 DLL and LIB.  windll/examples/vc6/c_dll_ex,
+    windll/examples/vc6/c_lib_ex,
+    windll/examples/vc6/c_dll_ex/c_dll_ex.dsp,
+    windll/examples/vc6/c_dll_ex/c_dll_ex.dsw,
+    windll/examples/vc6/c_lib_ex/c_lib_ex.dsp,
+    windll/examples/vc6/c_lib_ex/c_lib_ex.dsw (Ed)
+35. Add vc8 LIB example.  windll/examples/vc8/c_lib_ex/,
+    windll/examples/vc8/c_lib_ex/example.c,
+    windll/examples/vc8/c_lib_ex/example.h,
+    windll/examples/vc8/c_lib_ex/TestZip.sln,
+    windll/examples/vc8/c_lib_ex/TestZip.vcproj (107E5eng from forum)
+--------------------- February 27th 2009 version 3.1b03 -----------------------
+ 1. Add option -pp to specify a path prefix, but not implemented yet.  Add
+    global variable path_prefix.  zip.c, globals.c, zip.h (Ed)
+ 2. Restore notice date.  revision.h (Christian)
+ 3. Add include <langinfo.h> for nl_langinfo().  tailor.h (SMS)
+ 4. Add check for UTF-8 locale when nl_langinfo() is not available to check
+    for UTF-8 character set.  zip.c (Ed)
+ 5. Fix ODS5 Unicode comment.  vms/vmszip.c (SMS)
+ 6. Fix optional bzip2 support for dll build.  Add api.h to dll compile.
+    win32/makefile.gcc (Christian)
+ 7. Fix example.exe build rules.  win32/makefile.gcc, win32/makefile.w32
+    (Christian)
+ 8. Add missing "delete resource binaries" (*.res) command to clean
+    target.  win32/makefile.wat, win32/makefile.w10 (Christian)
+ 9. Update description files.  zip.aps, ziprc (Ed)
+10. Update windll/contents to document the current directory structure.
+    windll/contents (Christian, Ed)
+11. Change Visual C++ directory from visualc to vc6 to be consistent
+    with adding vc8 projects.  windll/vc6 (Ed)
+12. Remove duplicate structs.h from windll/examples subdirectory.
+    windll/examples/struct.h (Christian)
+13. Correct include directive for structs.h to point to the existing
+    file.  windll/examples/example.h (Christian)
+14. Correct target output directory and "structs.h" location in VC6
+    example project files.  windll/examples/vc6/c_dll_ex/c_dll_ex.dsp,
+    windll/examples/vc6/c_lib_ex/c_lib_ex.dsp (Christian)
+15. Add lib_here.txt file to note where lib file goes.
+    windll/examples/vc6/c_lib_ex/lib_here.txt (Ed)
+16. Correct additional include dir specifications to relative path
+    to remove references to specific directories.
+    windll/examples/vc8/c_lib_ex/TestZip.vcproj (Christian)
+17. Rename VC8 lib example TestZip project to c_lib_ex to match new
+    structure of examples directory.  Instead of local example.h and
+    example.c use common ones in windll/examples.  For now keep old
+    ones as renamed files.
+    windll/examples/vc8/c_lib_ex/c_lib_ex.sln,
+    windll/examples/vc8/c_lib_ex/c_lib_ex.vcproj,
+    windll/examples/vc8/c_lib_ex/example_old.h,
+    windll/examples/vc8/c_lib_ex/example_old.c (Ed)
+18. Add VC8 project for dll example.
+    windll/examples/vc8/c_dll_ex/c_dll_ex.sln,
+    windll/examples/vc8/c_dll_ex/c_dll_ex.vcproj (Christian)
+19. Update VC8 readme.  win32/vc8/ReadmeVC.txt (Ed)
+20. Add readme for WinDLL examples.  windll/examples/readmeex.txt (Ed)
+21. Copy C-Sharp project from Zip 2.32.  Has not been updated for Zip 3.0
+    yet.  windll/examples/csharp, windll/examples/csharp/readmecs.txt,
+    windll/examples/csharp/zip, windll/examples/csharp/zip/,
+    windll/examples/csharp/zip/app.ico, windll/examples/csharp/zip/zip.cs,
+    windll/examples/csharp/zip/assemblyinfo.cs,
+    windll/examples/csharp/zip/csharpinfozip_zipsample.csproj,
+    windll/examples/csharp/zip/form1.cs,
+    windll/examples/csharp/zip/form1.resx,
+    windll/examples/csharp/zip/zipdllprintmessageeventargs.cs,
+    windll/examples/csharp/zip/zipdllservicemessageeventargs.cs (Ed)
+22. Add readme files for VC6 and VC8 projects.
+    windll/examples/vc6/readmev6.txt, windll/examples/vc8/readmev8.txt,
+    windll/vc6/readmev6.txt, windll/v8/readmev8.txt (Ed)
+---------------------- March 17th 2009 version 3.1b04 ------------------------
+ 1. Add new -cd option as placeholder for a change directory command that
+    changes the root directory for the zipping operation.  There could be
+    complications, especially for split archives.  zip.c (Ed)
+ 2. Remove free() from option -pp command case.  zip.c (Ed)
+ 3. Implement -pp option.  In putlocal() and putcentral(), store path to
+    write to header in new iname variable and length in nam.  If path_prefix
+    not NULL, prepend to path.  zipfile.c (Ed)
+ 4. Add SYS$DISK: to link commands.  vms/build_zip.com,
+    vms/descrip.mms (SMS)
+ 5. Update link commands to use /library.  vms/descrip.mms (SMS)
+ 6. Remove INCL_BIP2_M.  vms/descrip_src.mms (SMS)
+ 7. Remove references to [.VMS]00README.TXT and [.VMS]00BINARY.VMS.
+    vms/install_vms.txt (SMS)
+ 8. Update note on determining symlink support to remove instructions
+    for searching UnZip binary for symlink and instead note -v option
+    for UnZip, as was already done for Zip.  vms/notes.txt (SMS)
+ 9. Remove stray ! from comment.  win32/makefile.gcc (Christian)
+10. Remove old borland dll and lib from contents.  Note that
+    16-bit Windows 3.x no longer supported.  windll/contents (Christian)
+---------------------- March 28th 2009 version 3.1b05 ------------------------
+ 1. Make the args variable global so arguments can be freed by freeup() and
+    when no longer needed, fixing memory leak.  globals.c, zip.h, zip.c
+    (Polo from forum, Ed)
+ 2. Update comment in freeup().  Move freeing of allocated globals from
+    finish() and ziperr() to freeup().  After tempzip is freed, set to
+    NULL.  Initialize args to NULL.  zip.c (Ed)
+ 3. Free value after add_name() while processing command line to fix memory
+    leak.  zip.c (Polo from forum)
+ 4. Move password key processing after log file opened so any errors get
+    reported to log file if open.  zip.c (Ed)
+ 5. Add check for illegal characters in path prefix string.  Currently a path
+    prefix must consist of alphanumeric characters (in the current character
+    set, i.e. checked with isalnum()), with "!@#$%^&()-_=+/[]{}|" also
+    allowed.  Also ".." is not allowed in the prefix string.  The filtering
+    is to avoid security problems.  zip.c (Ed)
+ 6. Free args after last use.  zip.c (Polo from forum)
+ 7. Add option -MV to allow setting MVS file path translation and add new
+    dots (no change) and slashes (convert all dots to slashes) modes.  Add
+    new mvs_mode global.  globals.c, zip.h, zip.c, cmsmvs/cmsmvs.c  (wesclusa
+    from forum, Ed)
+ 8. Pass Zip password (provided by -e or -P) to -T archive test option that
+    calls unzip (or a user-provided command if -TT specified) so unzip can
+    use same password to test archive.  Add {p} as placeholder for adding
+    password to -TT string.  Update unzip_path note.  Update UnZip 6 note.
+    zip.c (tkrueger from forum, Ed)
+ 9. Update description of patterns in extended help.  Update extended help
+    for -T and -TT.  Add -pp (path prefix) and -MV (MVS path translation mode)
+    to extended help.  zip.c (Ed)
+10. Update note for multi-character option defines.  zip.c (Ed)
+11. Add -aa (all-ascii) option for skipping binary check in is_text_buf(),
+    forcing all files to be handled as ASCII text.  This is useful for EBCDIC
+    translation (as for Z/OS), but made this global option in case there's
+    some other use.  zip.c, zip.h, globals.c, util.c (Lutz from forum, Ed)
+12. Add -HH option for extended help so help works even if there's case
+    problems.  zip.c (Ed)
+13. Update WhatsNew.  WHATSNEW  (Ed)
+14. Update annoucement.  zip31b.ann  (Ed)
+15. Drop new -cd option until details worked out.  zip.c (Ed)
+----------------------- March 31st 2009 version 3.1b06 -------------------------
+ 1. Add missing local declaration for len in -T code.  zip.c (Ed)
+ 2. Update README.  README (Ed)
+ 3. Update tempzn byte count in putlocal() and putcentral() to fix path prefix
+    bug.  zipfile.c (Ed)
+ 4. Add warning to -P option in extended help.  zip.c (Ed)
+ 5. Update INSTALL.  INSTALL (Ed)
+ 6. Update announcement.  zip31b.ann (Ed)
+ 7. Update TODO.  TODO (Ed)
+------------------------ April 9th 2009 version 3.1b --------------------------
+ 1. Update manual to include new options -aa, -MV, and -pp.  Update
+    descriptions of -T and -TT.  Update introduction section.  Updates for
+    -w and -ww.  Additional minor updates.  man/zip.1, zip.txt (Ed, SMS)
+ 2. Update WhatsNew.  WHATSNEW (Ed)
+ 3. Update announcement.  zip31b.ann (Ed)
+ 4. Update TODO.  TODO (Ed)

@@ -1,9 +1,9 @@
 /*
   zip.c - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -83,7 +83,7 @@ local int comadd = 0;   /* 1=add comments for new files */
 local int zipedit = 0;  /* 1=edit zip comment and all file comments */
 local int latest = 0;   /* 1=set zip file time to time of latest file */
 local int test = 0;     /* 1=test zip file with unzip -t */
-local char *unzip_path = NULL; /* where to find unzip */
+local char *unzip_path = NULL; /* where to find "unzip" for archive testing */
 local int tempdir = 0;  /* 1=use temp directory (-b) */
 local int junk_sfx = 0; /* 1=junk the sfx prefix */
 #if defined(AMIGA) || defined(MACOS)
@@ -176,7 +176,8 @@ struct filelist_struct *lastfile = NULL;  /* last file in list */
 
 local void freeup()
 /* Free all allocations in the 'found' list, the 'zfiles' list and
-   the 'patterns' list. */
+   the 'patterns' list.  Also free up any globals that were allocated
+   and close any open files. */
 {
   struct flist far *f;  /* steps through found list */
   struct zlist far *z;  /* pointer to next entry in zfiles list */
@@ -230,6 +231,53 @@ local void freeup()
     patterns = NULL;
   }
 
+  /* free up any globals */
+  if (path_prefix) {
+    free(path_prefix);
+    path_prefix = NULL;
+  }
+  if (tempath != NULL)
+  {
+    free((zvoid *)tempath);
+    tempath = NULL;
+  }
+  if (zipfile != NULL)
+  {
+    free((zvoid *)zipfile);
+    zipfile = NULL;
+  }
+  if (in_path != NULL)
+  {
+    free((zvoid *)in_path);
+    in_path = NULL;
+  }
+  if (out_path != NULL)
+  {
+    free((zvoid *)out_path);
+    out_path = NULL;
+  }
+  if (zcomment != NULL)
+  {
+    free((zvoid *)zcomment);
+    zcomment = NULL;
+  }
+  if (key != NULL) {
+    free((zvoid *)key);
+    key = NULL;
+  }
+
+  /* close any open files */
+  if (in_file != NULL)
+  {
+    fclose(in_file);
+    in_file = NULL;
+  }
+
+  /* If args still has args, free them */
+  if (args) {
+    free_args(args);
+  }
+
   /* close logfile */
   if (logfile) {
     fclose(logfile);
@@ -281,37 +329,6 @@ int e;                  /* exit code */
          "");
     }
   }
-  if (tempath != NULL)
-  {
-    free((zvoid *)tempath);
-    tempath = NULL;
-  }
-  if (zipfile != NULL)
-  {
-    free((zvoid *)zipfile);
-    zipfile = NULL;
-  }
-  if (in_file != NULL)
-  {
-    fclose(in_file);
-    in_file = NULL;
-  }
-  if (in_path != NULL)
-  {
-    free((zvoid *)in_path);
-    in_path = NULL;
-  }
-  if (out_path != NULL)
-  {
-    free((zvoid *)out_path);
-    out_path = NULL;
-  }
-  if (zcomment != NULL)
-  {
-    free((zvoid *)zcomment);
-    zcomment = NULL;
-  }
-
 
   /* If dispose, delete all files in the zfiles list that are marked */
   if (dispose)
@@ -321,8 +338,7 @@ int e;                  /* exit code */
       ZIPERR(r, "was deleting moved files and directories");
   }
 
-
-  /* Done! */
+  /* Done!  (Almost.) */
   freeup();
   return e;
 }
@@ -377,6 +393,7 @@ ZCONST char *h;         /* message about how it happened */
       destroy(tempzip);
 #endif
       free((zvoid *)tempzip);
+      tempzip = NULL;
     } else {
       /* -g option, attempt to restore the old file */
 
@@ -405,27 +422,6 @@ ZCONST char *h;         /* message about how it happened */
       fclose(y);
       y = NULL;
     }
-  }
-
-  if (key != NULL) {
-    free((zvoid *)key);
-    key = NULL;
-  }
-  if (tempath != NULL) {
-    free((zvoid *)tempath);
-    tempath = NULL;
-  }
-  if (zipfile != NULL) {
-    free((zvoid *)zipfile);
-    zipfile = NULL;
-  }
-  if (out_path != NULL) {
-    free((zvoid *)out_path);
-    out_path = NULL;
-  }
-  if (zcomment != NULL) {
-    free((zvoid *)zcomment);
-    zcomment = NULL;
   }
 
   freeup();
@@ -788,8 +784,11 @@ local void help_extended()
 "Include and Exclude:",
 "  -i pattern pattern ...   include files that match a pattern",
 "  -x pattern pattern ...   exclude files that match a pattern",
-"  Patterns are paths with optional wildcards and match paths as stored in",
-"  archive.  Exclude and include lists end at next option, @, or end of line.",
+"  Patterns are paths with optional wildcards and match entire paths as",
+"  stored in archive.  For example, aa/bb/* will match aa/bb/file.c,",
+"  aa/bb/cc/file.txt, and so on.  Also, a*b.c will match ab.c, a/b.c, and",
+"  ab/cd/efb.c.  (But see -ws to not match across slashes.)  Exclude and",
+"  include lists end at next option, @, or end of line.",
 "    zip -x pattern pattern @ zipfile path path ...",
 "",
 "Case matching:",
@@ -850,7 +849,7 @@ local void help_extended()
 "",
 "Encryption:",
 "  -e        use standard (weak) PKZip 2.0 encryption, prompt for password",
-"  -P pswd   use standard encryption, password is pswd",
+"  -P pswd   use standard encryption, password is pswd (NOT SECURE! See man.)",
 "",
 "Splits (archives created as a set of split files):",
 "  -s ssize  create split archive with splits of size ssize, where ssize nm",
@@ -924,11 +923,13 @@ local void help_extended()
 "",
 "Testing archives:",
 "  -T        test completed temp archive with unzip before updating archive",
+"             If zip given password, it gets passed to unzip.",
 "  -TT cmd   use command cmd instead of 'unzip -tqq' to test archive",
 "             On Unix, to use unzip in current directory, could use:",
 "               zip archive file1 file2 -T -TT \"./unzip -tqq\"",
-"             In cmd, {} replaced by temp archive path, else temp appended.",
-"             The return code is checked for success (0 on Unix)",
+"             In cmd, {} replaced by temp archive path, else temp appended,",
+"             and {p} replaced by password if one provided to zip.",
+"             Return code checked for success (0 on Unix)",
 "",
 "Fixing archives:",
 "  -F        attempt to fix a mostly intact archive (try this first)",
@@ -1012,6 +1013,7 @@ local void help_extended()
 "             self extractor, leaving a plain zip archive.",
 "",
 "More option highlights (see manual for additional options and details):",
+"  -pp prfx  prefix string prfx to all paths in archive",
 "  -b dir    when creating or updating archive, create the temp archive in",
 "             dir, which allows using seekable temp file when writing to a",
 "             write once CD, such archives compatible with more unzips",
@@ -1020,6 +1022,10 @@ local void help_extended()
 "             must be readable or exit with OPEN error and abort archive",
 "             (without -MM, both are warnings only, and if unreadable files",
 "             are skipped OPEN error (18) returned after archive created)",
+"  -MV=m     [MVS] set MVS path translation mode.  m is one of:",
+"              dots     - store paths as they are (typically aa.bb.cc.dd)",
+"              slashes  - change aa.bb.cc.dd to aa/bb/cc/dd",
+"              lastdot  - change aa.bb.cc.dd to aa/bb/cc.dd (default)",
 "  -nw       no wildcards (wildcards are like any other character)",
 "  -sc       show command line arguments as processed and exit",
 "  -sd       show debugging as Zip does each step",
@@ -1287,7 +1293,8 @@ local int check_unzip_version(unzippath)
 {
 #ifdef ZIP64_SUPPORT
   /* Here is where we need to check for the version of unzip the user
-   * has.  If creating a Zip64 archive need UnZip 6 or may fail.
+   * has.  If creating a Zip64 archive, we need UnZip 6 or later or
+   * testing may fail.
    */
     char cmd[4004];
     FILE *unzip_out = NULL;
@@ -1350,9 +1357,10 @@ local void check_zipfile(zipname, zippath)
 
   if (unzip_path) {
     /* if user gave us the unzip to use go with it */
-    char *here;
+    char *here;          /* where path of temp archive goes */
     int len;
     char *cmd;
+    char *cmd2 = NULL;
 
     /* Replace first {} with archive name.  If no {} append name to string. */
     here = strstr(unzip_path, "{}");
@@ -1376,20 +1384,60 @@ local void check_zipfile(zipname, zippath)
       strcat(cmd, zipnam);
     }
 
+    /* Replace first {p} with password given to zip.  If no password
+       was given (-P or -e), any {p} remains in the command string. */
+    if (key) {
+      char *passwd_here;   /* where password goes */
+
+      passwd_here = strstr(cmd, "{p}");
+
+      if (passwd_here) {
+        /* have {p} so replace with password */
+        if ((cmd2 = (char *)malloc(strlen(cmd) + strlen(key) + 2)) == NULL)
+          ziperr(ZE_MEM, "was creating unzip cmd2");
+        len = passwd_here - cmd;
+        strcpy(cmd2, cmd);
+        cmd2[len] = '\0';
+        strcat(cmd2, key);
+        strcat(cmd2, passwd_here + 3);
+      }
+    }
+    if (cmd2) {
+      free(cmd);
+      cmd = cmd2;
+    }
+
     status = system(cmd);
 
     free(unzip_path);
     unzip_path = NULL;
     free(cmd);
   } else {
+    /* No -TT, so use local unzip command */
+
     /* Here is where we need to check for the version of unzip the user
-     * has.  If creating a Zip64 archive need UnZip 6 or may fail.
+     * has.  If creating a Zip64 archive need UnZip 6 or later or may fail.
      */
     if (check_unzip_version("unzip") == 0)
       ZIPERR(ZE_TEST, zipfile);
 
-    status = spawnlp(P_WAIT, "unzip", "unzip", verbose ? "-t" : "-tqq",
-                     zipnam, NULL);
+    if (key) {
+      char *k;
+
+      /* Put quotes around password */
+      if ((k = (char *)malloc(strlen(key) + 3)) == NULL)
+          ziperr(ZE_MEM, "was creating unzip k");
+      strcpy(k, "\"");
+      strcat(k, key);
+      strcat(k, "\"");
+      
+      status = spawnlp(P_WAIT, "unzip", "unzip", verbose ? "-t" : "-tqq",
+                       "-P", k, zipnam, NULL);
+      free(k);
+    } else {
+      status = spawnlp(P_WAIT, "unzip", "unzip", verbose ? "-t" : "-tqq",
+                       zipnam, NULL);
+    }
 # ifdef __human68k__
     if (status == -1)
       perror("unzip");
@@ -1413,8 +1461,23 @@ local void check_zipfile(zipname, zippath)
         if (check_unzip_version(path) == 0)
           ZIPERR(ZE_TEST, zipfile);
 
-        status = spawnlp(P_WAIT, path, "unzip", verbose ? "-t" : "-tqq",
-                        zipnam, NULL);
+        if (key) {
+          char *k;
+
+          /* Put quotes around password */
+          if ((k = (char *)malloc(strlen(key) + 3)) == NULL)
+              ziperr(ZE_MEM, "was creating unzip k");
+          strcpy(k, "\"");
+          strcat(k, key);
+          strcat(k, "\"");
+      
+          status = spawnlp(P_WAIT, path, "unzip", verbose ? "-t" : "-tqq",
+                           "-P", k, zipnam, NULL);
+          free(k);
+        } else {
+          status = spawnlp(P_WAIT, path, "unzip", verbose ? "-t" : "-tqq",
+                           zipnam, NULL);
+        }
         free(path);
       }
       if (status == -1)
@@ -1428,6 +1491,7 @@ local void check_zipfile(zipname, zippath)
 #else /* (MSDOS && !__GO32__) || __human68k__ */
   char *cmd;
   int result;
+  char *cmd2 = NULL;
 
   /* Tell picky compilers to shut up about unused variables */
   zippath = zippath;
@@ -1494,6 +1558,30 @@ local void check_zipfile(zipname, zippath)
 # else
     strcat(cmd, zipname);
 # endif
+  }
+
+  /* Replace first {p} with password given to zip.  If no password
+     was given, any {p} remains in the command string. */
+  if (key) {
+    char *passwd_here;
+    int len;
+
+    passwd_here = strstr(cmd, "{p}");
+
+    if (passwd_here) {
+      /* have {p} so replace with password */
+      if ((cmd2 = (char *)malloc(strlen(cmd) + strlen(key) + 2)) == NULL)
+        ziperr(ZE_MEM, "was creating unzip cmd2");
+      len = passwd_here - cmd;
+      strcpy(cmd2, cmd);
+      cmd2[len] = '\0';
+      strcat(cmd2, key);
+      strcat(cmd2, passwd_here + 3);
+    }
+  }
+  if (cmd2) {
+    free(cmd);
+    cmd = cmd2;
   }
 
   result = system(cmd);
@@ -1895,59 +1983,64 @@ int set_filetype(out_path)
                         are listed with -so option, can be NULL
 */
 
-/* Most option IDs are set to the shortopt char.  For
-   multichar short options set to arbitrary unused constant. */
-#define o_AC            0x101
-#define o_AS            0x102
-#define o_C2            0x103
-#define o_C5            0x104
-#define o_db            0x105
-#define o_dc            0x106
-#define o_dd            0x107
-#define o_des           0x108
-#define o_df            0x109
-#define o_DF            0x110
-#define o_dg            0x111
-#define o_ds            0x112
-#define o_du            0x113
-#define o_dv            0x114
-#define o_FF            0x115
-#define o_FI            0x116
-#define o_FS            0x117
-#define o_h2            0x118
-#define o_ic            0x119
-#define o_jj            0x120
-#define o_la            0x121
-#define o_lf            0x122
-#define o_li            0x123
-#define o_ll            0x124
-#define o_mm            0x125
-#define o_MM            0x126
-#define o_nw            0x127
-#define o_RE            0x128
-#define o_sb            0x129
-#define o_sc            0x130
-#define o_sd            0x131
-#define o_sf            0x132
-#define o_so            0x133
-#define o_sp            0x134
-#define o_su            0x135
-#define o_sU            0x136
-#define o_sv            0x137
-#define o_tt            0x138
-#define o_TT            0x139
-#define o_UN            0x140
-#define o_ve            0x141
-#define o_VV            0x142
-#define o_ws            0x143
-#define o_ww            0x144
-#define o_z64           0x145
-#ifdef UNICODE_TEST
-#define o_sC            0x146
-#endif
+/* Most option IDs are set to the shortopt char (like 'a').  For
+   multichar short options set to arbitrary unused constant (like
+   o_aa). */
+#define o_aa            0x101
 #if defined( UNIX) && defined( __APPLE__)
-#define o_as            0x147
+#define o_as            0x102
 #endif /* defined( UNIX) && defined( __APPLE__) */
+#define o_AC            0x103
+#define o_AS            0x104
+#define o_cd            0x105
+#define o_C2            0x106
+#define o_C5            0x107
+#define o_db            0x108
+#define o_dc            0x109
+#define o_dd            0x110
+#define o_des           0x111
+#define o_df            0x112
+#define o_DF            0x113
+#define o_dg            0x114
+#define o_ds            0x115
+#define o_du            0x116
+#define o_dv            0x117
+#define o_FF            0x118
+#define o_FI            0x119
+#define o_FS            0x120
+#define o_h2            0x121
+#define o_ic            0x122
+#define o_jj            0x123
+#define o_la            0x124
+#define o_lf            0x125
+#define o_li            0x126
+#define o_ll            0x127
+#define o_mm            0x128
+#define o_MM            0x129
+#define o_MV            0x130
+#define o_nw            0x131
+#define o_pp            0x132
+#define o_RE            0x133
+#define o_sb            0x134
+#define o_sc            0x135
+#ifdef UNICODE_TEST
+#define o_sC            0x136
+#endif
+#define o_sd            0x137
+#define o_sf            0x138
+#define o_so            0x139
+#define o_sp            0x140
+#define o_su            0x141
+#define o_sU            0x142
+#define o_sv            0x143
+#define o_tt            0x144
+#define o_TT            0x145
+#define o_UN            0x146
+#define o_ve            0x147
+#define o_VV            0x148
+#define o_ws            0x149
+#define o_ww            0x150
+#define o_z64           0x151
 
 
 /* the below is mainly from the old main command line
@@ -1955,8 +2048,9 @@ int set_filetype(out_path)
 struct option_struct far options[] = {
   /* short longopt        value_type        negatable        ID    name */
 #ifdef EBCDIC
-    {"a",  "ascii",       o_NO_VALUE,       o_NOT_NEGATABLE, 'a',  "to ascii"},
+    {"a",  "ascii",       o_NO_VALUE,       o_NOT_NEGATABLE, 'a',  "to ASCII"},
 #endif /* EBCDIC */
+    {"aa", "all-ascii",   o_NO_VALUE,       o_NOT_NEGATABLE, o_aa, "all files ASCII text (skip bin check)"},
 #ifdef CMS_MVS
     {"B",  "binary",      o_NO_VALUE,       o_NOT_NEGATABLE, 'B',  "binary"},
 #endif /* CMS_MVS */
@@ -1983,6 +2077,7 @@ struct option_struct far options[] = {
 #endif /* defined( UNIX) && defined( __APPLE__) */
     {"b",  "temp-path",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'b',  "dir to use for temp archive"},
     {"c",  "entry-comments", o_NO_VALUE,    o_NOT_NEGATABLE, 'c',  "add comments for each entry"},
+    {"cd", "current-directory", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_cd, "set current dir for paths"},
 #ifdef VMS
     {"C",  "preserve-case", o_NO_VALUE,     o_NEGATABLE,     'C',  "Preserve (C-: down-) case all on VMS"},
     {"C2", "preserve-case-2", o_NO_VALUE,   o_NEGATABLE,     o_C2, "Preserve (C2-: down-) case ODS2 on VMS"},
@@ -2020,6 +2115,8 @@ struct option_struct far options[] = {
     {"H",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     {"?",  "",            o_NO_VALUE,       o_NOT_NEGATABLE, 'h',  "help"},
     {"h2", "more-help",   o_NO_VALUE,       o_NOT_NEGATABLE, o_h2, "extended help"},
+    {"hh", "",            o_NO_VALUE,       o_NOT_NEGATABLE, o_h2, "extended help"},
+    {"HH", "",            o_NO_VALUE,       o_NOT_NEGATABLE, o_h2, "extended help"},
 #endif /* !WINDLL */
     {"i",  "include",     o_VALUE_LIST,     o_NOT_NEGATABLE, 'i',  "include only files matching patterns"},
 #if defined(VMS) || defined(WIN32)
@@ -2045,6 +2142,9 @@ struct option_struct far options[] = {
     {"m",  "move",        o_NO_VALUE,       o_NOT_NEGATABLE, 'm',  "add files to archive then delete files"},
     {"mm", "",            o_NO_VALUE,       o_NOT_NEGATABLE, o_mm, "not used"},
     {"MM", "must-match",  o_NO_VALUE,       o_NOT_NEGATABLE, o_MM, "error if in file not matched/not readable"},
+#ifdef CMS_MVS
+    {"MV", "MVS",         o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_MV, "MVS path translate (dots, slashes, lastdot)"},
+#endif /* CMS_MVS */
     {"n",  "suffixes",    o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'n',  "suffixes to not compress: .gz:.zip"},
     {"nw", "no-wild",     o_NO_VALUE,       o_NOT_NEGATABLE, o_nw, "no wildcards during add or update"},
 #if defined(AMIGA) || defined(MACOS)
@@ -2053,6 +2153,7 @@ struct option_struct far options[] = {
     {"o",  "latest-time", o_NO_VALUE,       o_NOT_NEGATABLE, 'o',  "use latest entry time as archive time"},
     {"O",  "output-file", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'O',  "set out zipfile different than in zipfile"},
     {"p",  "paths",       o_NO_VALUE,       o_NOT_NEGATABLE, 'p',  "store paths"},
+    {"pp", "prefix-path", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_pp, "prefix all paths in archive with this"},
     {"P",  "password",    o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'P',  "encrypt entries, option value is password"},
 #if defined(QDOS) || defined(QLZIP)
     {"Q",  "Q-flag",      o_NUMBER_VALUE,   o_NOT_NEGATABLE, 'Q',  "Q flag"},
@@ -2091,8 +2192,8 @@ struct option_struct far options[] = {
     {"v",  "verbose",     o_NO_VALUE,       o_NOT_NEGATABLE, 'v',  "display additional information"},
     {"",   "version",     o_NO_VALUE,       o_NOT_NEGATABLE, o_ve, "(if no other args) show version information"},
 #ifdef VMS
-    {"V",  "VMS-portable", o_NO_VALUE,      o_NOT_NEGATABLE, 'V',  "Store VMS attributes, portable file format"},
-    {"VV", "VMS-specific", o_NO_VALUE,      o_NOT_NEGATABLE, o_VV, "Store VMS attributes, VMS specific format"},
+    {"V",  "VMS-portable", o_NO_VALUE,      o_NOT_NEGATABLE, 'V',  "store VMS attributes, portable file format"},
+    {"VV", "VMS-specific", o_NO_VALUE,      o_NOT_NEGATABLE, o_VV, "store VMS attributes, VMS specific format"},
     {"w",  "VMS-versions", o_NO_VALUE,      o_NOT_NEGATABLE, 'w',  "store VMS versions"},
     {"ww", "VMS-dot-versions", o_NO_VALUE,  o_NOT_NEGATABLE, o_ww, "store VMS versions as \".nnn\""},
 #endif /* VMS */
@@ -2104,6 +2205,7 @@ struct option_struct far options[] = {
 #ifdef S_IFLNK
     {"y",  "symlinks",    o_NO_VALUE,       o_NOT_NEGATABLE, 'y',  "store symbolic links"},
 #endif /* S_IFLNK */
+    {"Y", "encryption-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Y', "set encryption method"},
     {"z",  "archive-comment", o_NO_VALUE,   o_NOT_NEGATABLE, 'z',  "ask for archive comment"},
     {"Z",  "compression-method", o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'Z', "compression method"},
 #if defined(MSDOS) || defined(OS2)
@@ -2191,8 +2293,6 @@ char **argv;            /* command line tokens */
   int create_files = 0;
 #endif
 
-  char **args = NULL;  /* could be wide argv */
-
 
 #ifdef THEOS
   /* the argument expansion from the standard library is full of bugs */
@@ -2210,14 +2310,69 @@ char **argv;            /* command line tokens */
      writing, and displaying (if the fonts are loaded) all
      characters in UTF-8. */
   {
-    char *loc;
+    char *loc = NULL;
+    char *codeset = NULL;
 
     /*
       loc = setlocale(LC_CTYPE, NULL);
       printf("  Initial language locale = '%s'\n", loc);
     */
 
+    /* New check provided by Danny Milosavljevic (SourceForge) */
+
+    /* Tell base library that we support locales.  This
+       will load the locale the user has selected.  Before
+       setlocale() is called, a minimal "C" locale is the
+       default. */
+    setlocale(LC_CTYPE, "");
+
+#ifndef NO_NL_LANGINFO
+    /* get the codeset (character set encoding) currently used,
+       for example "UTF-8". */
+    codeset = nl_langinfo(CODESET);
+    /*
+      printf("  codeset = '%s'\n", codeset);
+    */
+#else
+    /* lacking a way to get codeset, get locale */
+    {
+      char *c;
+      loc = setlocale(LC_CTYPE, NULL);
+      /* for UTF-8, should be close to en_US.UTF-8 */
+      for (c = loc; c; c++) {
+        if (c == '.') {
+          /* loc is what is after '.', maybe UTF-8 */
+          loc = c + 1;
+          break;
+        }
+      }
+    }
+
+#endif
+
+    if ((codeset && strcmp(codeset, "UTF-8") == 0)
+         || (loc && strcmp(loc, "UTF-8") == 0)) {
+      /* already using UTF-8 */
+      using_utf8 = 1;
+    } else {
+      /* try setting UTF-8 */
+      if (setlocale(LC_CTYPE, "en_US.UTF-8") != NULL) {
+        using_utf8 = 1;
+      } else {
+        /*
+          printf("  Could not set Unicode UTF-8 locale\n");
+        */
+      }
+    }
+
+
+    /* Alternative fix for just MAEMO. */
+# if 0
+#  ifdef MAEMO
+    loc = setlocale(LC_CTYPE, "");
+#  else
     loc = setlocale(LC_CTYPE, "en_US.UTF-8");
+#  endif
 
     /*
       printf("langinfo %s\n", nl_langinfo(CODESET));
@@ -2234,6 +2389,7 @@ char **argv;            /* command line tokens */
         printf("  Could not set Unicode UTF-8 locale\n");
       */
     }
+# endif
   }
 # endif
 #endif
@@ -2409,6 +2565,10 @@ char **argv;            /* command line tokens */
   show_what_doing = 0;    /* 1 = show what zip doing */
   show_args = 0;          /* 1 = show command line */
   seen_doubledash = 0;    /* seen -- argument */
+
+  args = NULL;            /* copy of argv that can be freed by free_args() */
+
+  all_ascii = 0;          /* skip binary check and handle all files as text */
 
   zipfile = NULL;         /* path of usual in and out zipfile */
   tempzip = NULL;         /* name of temp file */
@@ -2920,6 +3080,25 @@ char **argv;            /* command line tokens */
           dispose = 1;  break;
         case o_MM:  /* Exit with error if input file can't be read */
           bad_open_is_error = 1; break;
+#ifdef CMS_MVS
+        case o_MV:   /* MVS path translation mode */
+          if (abbrevmatch("dots", value, 0, 1)) {
+            /* aaa.bbb.ccc.ddd stored as is */
+            mvs_mode = 1;
+          } else if (abbrevmatch("slashes", value, 0, 1)) {
+            /* aaa.bbb.ccc.ddd -> aaa/bbb/ccc/ddd */
+            mvs_mode = 2;
+          } else if (abbrevmatch("lastdot", value, 0, 1)) {
+            /* aaa.bbb.ccc.ddd -> aaa/bbb/ccc.ddd */
+            mvs_mode = 0;
+          } else {
+            zipwarn("-MV must be dots, slashes, or lastdot: ", value);
+            free(value);
+            ZIPERR(ZE_PARMS, "-MV (MVS path translate mode) bad value");
+          }
+          free(value);
+          break;
+#endif /* CMS_MVS */
         case 'n':   /* Don't compress files with a special suffix */
           special = value;
           /* special = NULL; */ /* will be set at next argument */
@@ -2940,6 +3119,11 @@ char **argv;            /* command line tokens */
           break;
         case 'p':   /* Store path with name */
           break;            /* (do nothing as annoyance avoidance) */
+        case o_pp:  /* Set prefix for paths of new entries in archive */
+          if (path_prefix)
+            free(path_prefix);
+          path_prefix = value;
+          break;
         case 'P':   /* password for encryption */
           if (key != NULL) {
             free(key);
@@ -3247,6 +3431,8 @@ char **argv;            /* command line tokens */
         case 'y':   /* Store symbolic links as such */
           linkput = 1;  break;
 #endif /* S_IFLNK */
+        case 'Y':   /* Encryption method */
+            ZIPERR(ZE_PARMS, "Option -Y (--encryption-method):  not yet implemented");
         case 'z':   /* Edit zip file comment */
           zipedit = 1;  break;
         case 'Z':   /* Compression method */
@@ -3453,6 +3639,7 @@ char **argv;            /* command line tokens */
                 }
               }
               */
+              free(value);  /* Added by Polo from forum */
               if (kk == 3) {
                 first_listarg = argnum;
                 kk = 4;
@@ -3472,42 +3659,6 @@ char **argv;            /* command line tokens */
 
 
   /* do processing of command line and one-time tasks */
-
-  /* Key not yet specified.  If needed, get/verify it now. */
-  if (key_needed) {
-    if ((key = malloc(IZ_PWLEN+1)) == NULL) {
-      ZIPERR(ZE_MEM, "was getting encryption password");
-    }
-    r = encr_passwd(ZP_PW_ENTER, key, IZ_PWLEN+1, zipfile);
-    if (r != IZ_PW_ENTERED) {
-      if (r < IZ_PW_ENTERED)
-        r = ZE_PARMS;
-      ZIPERR(r, "was getting encryption password");
-    }
-    if (*key == '\0') {
-      ZIPERR(ZE_PARMS, "zero length password not allowed");
-    }
-    if ((e = malloc(IZ_PWLEN+1)) == NULL) {
-      ZIPERR(ZE_MEM, "was verifying encryption password");
-    }
-    r = encr_passwd(ZP_PW_VERIFY, e, IZ_PWLEN+1, zipfile);
-    if (r != IZ_PW_ENTERED && r != IZ_PW_SKIPVERIFY) {
-      free((zvoid *)e);
-      if (r < ZE_OK) r = ZE_PARMS;
-      ZIPERR(r, "was verifying encryption password");
-    }
-    r = ((r == IZ_PW_SKIPVERIFY) ? 0 : strcmp(key, e));
-    free((zvoid *)e);
-    if (r) {
-      ZIPERR(ZE_PARMS, "password verification failed");
-    }
-  }
-  if (key) {
-    /* if -P "" could get here */
-    if (*key == '\0') {
-      ZIPERR(ZE_PARMS, "zero length password not allowed");
-    }
-  }
 
   if (show_what_doing) {
     fprintf(mesg, "sd: Command line read\n");
@@ -3641,6 +3792,75 @@ char **argv;            /* command line tokens */
   } else {
     /* only set logall if logfile open */
     logall = 0;
+  }
+
+
+  /* process command line options */
+
+  /* Key not yet specified.  If needed, get/verify it now. */
+  if (key_needed) {
+    if ((key = malloc(IZ_PWLEN+1)) == NULL) {
+      ZIPERR(ZE_MEM, "was getting encryption password");
+    }
+    r = encr_passwd(ZP_PW_ENTER, key, IZ_PWLEN+1, zipfile);
+    if (r != IZ_PW_ENTERED) {
+      if (r < IZ_PW_ENTERED)
+        r = ZE_PARMS;
+      ZIPERR(r, "was getting encryption password");
+    }
+    if (*key == '\0') {
+      ZIPERR(ZE_PARMS, "zero length password not allowed");
+    }
+    if ((e = malloc(IZ_PWLEN+1)) == NULL) {
+      ZIPERR(ZE_MEM, "was verifying encryption password");
+    }
+    r = encr_passwd(ZP_PW_VERIFY, e, IZ_PWLEN+1, zipfile);
+    if (r != IZ_PW_ENTERED && r != IZ_PW_SKIPVERIFY) {
+      free((zvoid *)e);
+      if (r < ZE_OK) r = ZE_PARMS;
+      ZIPERR(r, "was verifying encryption password");
+    }
+    r = ((r == IZ_PW_SKIPVERIFY) ? 0 : strcmp(key, e));
+    free((zvoid *)e);
+    if (r) {
+      ZIPERR(ZE_PARMS, "password verification failed");
+    }
+  }
+  if (key) {
+    /* if -P "" could get here */
+    if (*key == '\0') {
+      ZIPERR(ZE_PARMS, "zero length password not allowed");
+    }
+  }
+
+  /* Check path prefix */
+  if (path_prefix) {
+    int i;
+    char last_c = '\0';
+    char c;
+    char *allowed_other_chars = "!@#$%^&()-_=+/[]{}|";
+
+    for (i = 0; c = path_prefix[i]; i++) {
+      if (!isprint(c)) {
+        ZIPERR(ZE_PARMS, "option -pp (--prefix_path), non-print char in prefix");
+      }
+#if (defined(MSDOS) || defined(OS2)) && !defined(WIN32)
+      if (c == '\\') {
+        c = '/';
+        path_prefix[i] = c;
+      }
+#endif
+      if (!isalnum(c) && !strchr(allowed_other_chars, c)) {
+        strcpy(errbuf, "option -pp (--prefix_path), only alphanum and \"");
+        strcat(errbuf, allowed_other_chars);
+        strcat(errbuf, "\" allowed");
+        ZIPERR(ZE_PARMS, errbuf);
+      }
+      if (last_c == '.' && c == '.') {
+        ZIPERR(ZE_PARMS, "option -pp (--prefix_path), \"..\" not allowed");
+      }
+      last_c = c;
+    }
   }
 
 
@@ -4344,7 +4564,7 @@ char **argv;            /* command line tokens */
       } else {
         int isdirname = 0;
 
-        if (z->name && (z->name)[strlen(z->name) - 1] == '/') {
+        if (z->iname && (z->iname)[strlen(z->iname) - 1] == '/') {
           isdirname = 1;
         }
 
@@ -4794,6 +5014,11 @@ char **argv;            /* command line tokens */
   if (zfiles && total_disks != 1 && zipbeg == 4) {
     zipbeg = 0;
   }
+
+  /* Not sure yet if this is the best place to free args, but seems no need for
+     the args array after this.  Suggested by Polo from forum. */
+  free_args(args);
+  args = NULL;
 
   /* Before we get carried away, make sure zip file is writeable. This
    * has the undesired side effect of leaving one empty junk file on a WORM,

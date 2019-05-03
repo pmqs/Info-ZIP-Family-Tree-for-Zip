@@ -1,9 +1,9 @@
 /*
   api.h - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -93,8 +93,20 @@ LPSTR Date;             /* Date to include after */
 LPSTR szRootDir;        /* Directory to use as base for zipping */
 LPSTR szTempDir;        /* Temporary directory used during zipping */
 BOOL fTemp;             /* Use temporary directory '-b' during zipping */
-BOOL fSuffix;           /* include suffixes (not implemented) */
-BOOL fEncrypt;          /* encrypt files */
+/* BOOL fSuffix;           include suffixes (not implemented) */
+
+int  fMisc;             /* Misc data flags (was "include suffixes") */
+/*  Add values to set flags
+      1 = include suffixes (not implemented)
+      2 = no UTF8          Ignore UTF-8 information (except native) 
+      4 = native UTF8      Store UTF-8 as native character set
+*/
+
+int  fEncrypt;          /* encrypt method (was "encrypt files") */
+/*  Currently only one encryption method
+      1 = standard encryption
+*/
+
 BOOL fSystem;           /* include system and hidden files */
 BOOL fVolume;           /* Include volume label */
 BOOL fExtra;            /* Exclude extra attributes */
@@ -117,10 +129,8 @@ BOOL fLatestTime;       /* Set zip file time to time of latest file in it */
 BOOL fComment;          /* Put comment in zip file */
 BOOL fOffsets;          /* Update archive offsets for SFX files */
 BOOL fPrivilege;        /* Use privileges (WIN32 only) */
-BOOL fEncryption;       /* TRUE if encryption supported, else FALSE.
+BOOL fEncryption;       /* TRUE if encryption supported (compiled in), else FALSE.
                            this is a read only flag */
-BOOL fUTF8_No;          /* No UTF-8 */
-BOOL fUTF8_Native;      /* Store UTF-8 as native character set */
 LPSTR szSplitSize;      /* This string contains the size that you want to
                            split the archive into. i.e. 100 for 100 bytes,
                            2K for 2 k bytes, where K is 1024, m for meg
@@ -181,6 +191,16 @@ int   EXPENTRY ZpArchive(ZCL C, LPZPOPT Opts);
 int      EXPENTRY ZpMain            (int argc, char **argv);
 int      EXPENTRY ZpAltMain         (int argc, char **argv, ZpInit *init);
 #endif
+
+#ifndef USE_STATIC_LIB
+#define printf	ZPprintf
+#define fprintf ZPfprintf
+#define perror	ZPperror
+extern int __far __cdecl printf(const char *format, ...);
+extern int __far __cdecl fprintf(FILE *file, const char *format, ...);
+extern void __far __cdecl perror(const char *);
+#endif /* USE_STATIC_LIB */
+
 #endif /* WINDLL? || API? */
 
 #endif /* _ZIPAPI_H */

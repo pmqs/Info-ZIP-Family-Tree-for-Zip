@@ -2,12 +2,13 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2008-07-29  SMS.
+$!     Last revised:  2009-03-01  SMS.
 $!
 $!     Command arguments:
+$!     - suppress C compilation (re-link): "NOCOMPILE"
+$!     - suppress linking executables: "NOLINK"
 $!     - suppress help file processing: "NOHELP"
 $!     - suppress message file processing: "NOMSG"
-$!     - select link-only: "LINK"
 $!     - select compiler environment: "VAXC", "DECC", "GNUC"
 $!     - select large-file support: "LARGE"
 $!     - select compiler listings: "LIST"  Note that the whole argument
@@ -39,6 +40,10 @@ $!       "dev:[dir]" (or a suitable logical name) tells where to find
 $!       "zlib.h".  The ZLIB object library (LIBZ.OLB) is expected to be
 $!       in a "[.dest]" directory under that one ("dev:[dir.ALPHAL]",
 $!       for example), or in that directory itself.
+$!     - choose a destination directory for architecture-specific
+$!       product files (.EXE, .OBJ,.OLB, and so on): "PROD=subdir", to
+$!       use "[.subdir]".  The default is a name automatically generated
+$!       using rules defined below.
 $!
 $!     To specify additional options, define the global symbol
 $!     LOCAL_ZIP as a comma-separated list of the C macros to be
@@ -63,12 +68,27 @@ $!     "VMSCLI" now is the selection of the CLI style Zip executable in
 $!     the foreign command definition.)
 $!
 $!
+$!
+$! Save the current default disk:[directory], and set default to the
+$! directory above where this procedure is situated (which had better be
+$! the main distribution directory).
+$!
+$ workdir = f$environment( "default")
+$ here = f$parse( workdir, , , "device")+ f$parse( workdir, , , "directory")
+$!
+$ proc = f$environment( "procedure")
+$ proc_dir = f$parse( proc, , , "device")+ f$parse( proc, , , "directory")
+$ set default 'proc_dir'
+$ set default [-]
+$!
 $ on error then goto error
 $ on control_y then goto error
 $ OLD_VERIFY = f$verify( 0)
 $!
 $ edit := edit                  ! override customized edit commands
 $ say := write sys$output
+$!
+$! Analyze command-line options.
 $!
 $!##################### Read settings from environment ########################
 $!
@@ -123,13 +143,15 @@ $ CCOPTS = ""
 $ IZ_BZIP2 = ""
 $ IZ_ZLIB = ""
 $ LINKOPTS = "/notraceback"
-$ LINK_ONLY = 0
 $ LISTING = " /nolist"
 $ LARGE_FILE = 0
+$ MAKE_EXE = 1
 $ MAKE_HELP = 1
 $ MAKE_MSG = 1
+$ MAKE_OBJ = 1
 $ MAY_USE_DECC = 1
 $ MAY_USE_GNUC = 0
+$ PROD = ""
 $!
 $! Process command line parameters requesting optional features.
 $!
@@ -177,17 +199,21 @@ $         LINKOPTS = f$extract( (eq+ 1), 1000, opts)
 $         goto argloop_end
 $     endif
 $!
-$! Note: LINK test must follow LINKOPTS test.
-$!
-$     if (f$extract( 0, 4, curr_arg) .eqs. "LINK")
-$     then
-$         LINK_ONLY = 1
-$         goto argloop_end
-$     endif
-$!
 $     if (f$extract( 0, 4, curr_arg) .eqs. "LIST")
 $     then
 $         LISTING = "/''curr_arg'"      ! But see below for mods.
+$         goto argloop_end
+$     endif
+$!
+$     if (curr_arg .eqs. "NOCOMPILE")
+$     then
+$         MAKE_OBJ = 0
+$         goto argloop_end
+$     endif
+$!
+$     if (curr_arg .eqs. "NOEXE")
+$     then
+$         MAKE_EXE = 0
 $         goto argloop_end
 $     endif
 $!
@@ -200,6 +226,14 @@ $!
 $     if (curr_arg .eqs. "NOMSG")
 $     then
 $         MAKE_MSG = 0
+$         goto argloop_end
+$     endif
+$!
+$     if (f$extract( 0, 4, curr_arg) .eqs. "PROD")
+$     then
+$         opts = f$edit( curr_arg, "COLLAPSE")
+$         eq = f$locate( "=", opts)
+$         PROD = f$extract( (eq+ 1), 1000, opts)
 $         goto argloop_end
 $     endif
 $!
@@ -253,11 +287,6 @@ $ endif
 $!
 $!#######################################################################
 $!
-$! Find out current disk, directory, compiler and options
-$!
-$ workdir = f$environment( "default")
-$ here = f$parse( workdir, , , "device")+ f$parse( workdir, , , "directory")
-$!
 $! Sense the host architecture (Alpha, Itanium, or VAX).
 $!
 $ if (f$getsyi( "HW_MODEL") .lt. 1024)
@@ -277,7 +306,8 @@ $         endif
 $     endif
 $ endif
 $!
-$ dest = arch
+$ destl = ""
+$ destm = arch
 $ cmpl = "DEC/Compaq/HP C"
 $ opts = ""
 $ if (arch .nes. "VAX")
@@ -327,7 +357,7 @@ $         defs = "''LOCAL_ZIP' VMS"
 $         if ((.not. HAVE_VAXC_VAX .and. MAY_HAVE_GNUC) .or. MAY_USE_GNUC)
 $         then
 $             cc = "gcc"
-$             dest = "''dest'G"
+$             destm = "''destm'G"
 $             cmpl = "GNU C"
 $             opts = "GNU_CC:[000000]GCCLIB.OLB /LIBRARY,"
 $         else
@@ -337,21 +367,36 @@ $                 cc = "cc /vaxc"
 $             else
 $                 cc = "cc"
 $             endif
-$             dest = "''dest'V"
+$             destm = "''destm'V"
 $             cmpl = "VAC C"
 $         endif
-$         opts = "''opts' SYS$DISK:[.''dest']VAXCSHR.OPT /OPTIONS,"
+$         opts = "VAXC"
 $     endif
 $ endif
 $!
-$! Change the destination directory, according to the VMS_IM_EXTRA and
-$! large-file options.  Set the bzip2 directory.
+$! Set the bzip2 (and/or zlib) directory.
 $!
-$ dest = dest+ desti
-$ seek_bz = arch
+$ seek_bz = destm
+$!
+$! Change the destination directory, according to the VMS_IM_EXTRA and
+$! large-file options, or the user's specification.
+$!
 $ if (LARGE_FILE .ne. 0)
 $ then
-$     dest = "''dest'L"
+$     destl = "L"
+$ endif
+$!
+$ dest_std = destm+ desti+ destl
+$ if (PROD .eqs. "")
+$ then
+$     dest = dest_std
+$ else
+$     dest = PROD
+$ endif
+$!
+$ if (opts .eqs. "VAXC")
+$ then
+$     opts = "SYS$DISK:[.''dest']VAXCSHR.OPT /OPTIONS,"
 $ endif
 $!
 $! If BZIP2 support was selected, find the object library.
@@ -404,31 +449,37 @@ $ endif
 $!
 $! Reveal the plan.  If compiling, set some compiler options.
 $!
-$ if (LINK_ONLY)
+$ if (MAKE_OBJ)
 $ then
-$     say "Linking on ''arch' for ''cmpl'."
-$ else
 $     say "Compiling on ''arch' using ''cmpl'."
 $!
 $     DEF_UNX = "/define = (''defs')"
 $     DEF_CLI = "/define = (''defs', VMSCLI)"
 $     DEF_UTIL = "/define = (''defs', UTIL)"
+$ else
+$     if (MAKE_EXE .or. MAKE_MSG)
+$     then
+$         say "Linking on ''arch' for ''cmpl'."
+$     endif
 $ endif
 $!
 $! If [.'dest'] does not exist, either complain (link-only) or make it.
 $!
 $ if (f$search( "''dest'.DIR;1") .eqs. "")
 $ then
-$     if (LINK_ONLY)
+$     if (MAKE_OBJ)
 $     then
-$         say "Can't find directory ""[.''dest']"".  Can't link."
-$         goto error
-$     else
 $         create /directory [.'dest']
+$     else
+$         if (MAKE_EXE .or. MAKE_MSG)
+$         then
+$             say "Can't find directory ""[.''dest']"".  Can't link."
+$             goto error
+$         endif
 $     endif
 $ endif
 $!
-$ if (.not. LINK_ONLY)
+$ if (MAKE_OBJ)
 $ then
 $!
 $! Arrange to get arch-specific list file placement, if LISTING, and if
@@ -465,16 +516,19 @@ $!
 $! Show interesting facts.
 $!
 $ say "   architecture = ''arch' (destination = [.''dest'])"
-$ if (.not. LINK_ONLY)
+$ if (MAKE_OBJ)
 $ then
 $     say "   cc = ''cc'"
 $ endif
-$ say "   link = ''link'"
+$ if (MAKE_EXE)
+$ then
+$     say "   link = ''link'"
+$ endif
+$ say ""
 $ if (.not. MAKE_HELP)
 $ then
 $     say "   Not making new help files."
 $ endif
-$ say ""
 $ if (.not. MAKE_MSG)
 $ then
 $     say "   Not making new message files."
@@ -485,40 +539,39 @@ $ tmp = f$verify( 1)    ! Turn echo on to see what's happening.
 $!
 $!-------------------------------- Zip section -------------------------------
 $!
-$ if (.not. LINK_ONLY)
-$ then
-$!
 $! Process the help file, if desired.
 $!
-$     if (MAKE_HELP)
-$     then
-$         runoff /out = ZIP.HLP [.VMS]VMS_ZIP.RNH
-$     endif
+$ if (MAKE_HELP)
+$ then
+$     runoff /out = ZIP.HLP [.VMS]VMS_ZIP.RNH
+$ endif
 $!
 $! Process the message file, if desired.
 $!
-$     if (MAKE_MSG)
-$     then
+$ if (MAKE_MSG)
+$ then
 $!
 $! Create the message source file first, if it's not found.
 $!
-$         if (f$search( "[.VMS]ZIP_MSG.MSG") .eqs. "")
-$         then
-$             cc /object = [.'dest']VMS_MSG_GEN.OBJ [.VMS]VMS_MSG_GEN.C
-$             link /executable = [.'dest']VMS_MSG_GEN.EXE -
-               [.'dest']VMS_MSG_GEN.OBJ
-$             create /fdl = [.VMS]STREAM_LF.FDL [.VMS]ZIP_MSG.MSG
-$             define /user_mode sys$output [.VMS]ZIP_MSG.MSG
-$             run [.'dest']VMS_MSG_GEN.EXE
-$             purge [.VMS]ZIP_MSG.MSG
-$             delete [.'dest']VMS_MSG_GEN.EXE;*, -
-               [.'dest']VMS_MSG_GEN.OBJ;*
-$         endif
-$!
-$         message /object = [.'dest']ZIP_MSG.OBJ /nosymbols -
-           [.VMS]ZIP_MSG.MSG
-$         link /shareable = [.'dest']ZIP_MSG.EXE [.'dest']ZIP_MSG.OBJ
+$     if (f$search( "[.VMS]ZIP_MSG.MSG") .eqs. "")
+$     then
+$         cc /object = [.'dest']VMS_MSG_GEN.OBJ [.VMS]VMS_MSG_GEN.C
+$         link /executable = [.'dest']VMS_MSG_GEN.EXE -
+           [.'dest']VMS_MSG_GEN.OBJ
+$         create /fdl = [.VMS]STREAM_LF.FDL [.VMS]ZIP_MSG.MSG
+$         define /user_mode sys$output [.VMS]ZIP_MSG.MSG
+$         run [.'dest']VMS_MSG_GEN.EXE
+$         purge [.VMS]ZIP_MSG.MSG
+$         delete [.'dest']VMS_MSG_GEN.EXE;*, -
+           [.'dest']VMS_MSG_GEN.OBJ;*
 $     endif
+$!
+$     message /object = [.'dest']ZIP_MSG.OBJ /nosymbols [.VMS]ZIP_MSG.MSG
+$     link /shareable = [.'dest']ZIP_MSG.EXE [.'dest']ZIP_MSG.OBJ
+$ endif
+$!
+$ if (MAKE_OBJ)
+$ then
 $!
 $! Compile the sources.
 $!
@@ -561,31 +614,36 @@ $     libr /object /replace [.'dest']ZIP.OLB -
 $!
 $ endif
 $!
+$ if (MAKE_EXE)
+$ then
+$!
 $! Link the executable.
 $!
-$ link /executable = [.'dest']'ZIPX_UNX'.EXE -
-   [.'dest']ZIP.OBJ, -
-   [.'dest']ZIP.OLB /include = (GLOBALS 'incl_bzip2_m') /library, -
-   'lib_bzip2_opts' -
-   'lib_zlib_opts' -
-   'opts' -
-   SYS$DISK:[.VMS]ZIP.OPT /options
+$     link /executable = [.'dest']'ZIPX_UNX'.EXE -
+       SYS$DISK:[.'dest']ZIP.OBJ, -
+       SYS$DISK:[.'dest']ZIP.OLB /library, -
+       'lib_bzip2_opts' -
+       SYS$DISK:[.'dest']ZIP.OLB /library, -
+       'lib_zlib_opts' -
+       'opts' -
+       SYS$DISK:[.VMS]ZIP.OPT /options
+$!
+$ endif
 $!
 $!------------------------ Zip (CLI interface) section -----------------------
 $!
-$ if (.not. LINK_ONLY)
-$ then
-$!
 $! Process the CLI help file, if desired.
 $!
-$     if (MAKE_HELP)
-$     then
-$         set default [.VMS]
-$         edit /tpu /nosection /nodisplay /command = cvthelp.tpu -
-           zip_cli.help
-$         set default [-]
-$         runoff /output = ZIP_CLI.HLP [.VMS]ZIP_CLI.RNH
-$     endif
+$ if (MAKE_HELP)
+$ then
+$     set default [.VMS]
+$     edit /tpu /nosection /nodisplay /command = cvthelp.tpu zip_cli.help
+$     set default [-]
+$     runoff /output = ZIP_CLI.HLP [.VMS]ZIP_CLI.RNH
+$ endif
+$!
+$ if (MAKE_OBJ)
+$ then
 $!
 $! Compile the CLI sources.
 $!
@@ -610,18 +668,24 @@ $ endif
 $!
 $! Link the CLI executable.
 $!
-$ link /executable = [.'dest']'ZIPX_CLI'.EXE -
-   [.'dest']ZIPCLI.OBJ, -
-   [.'dest']ZIPCLI.OLB /library, -
-   [.'dest']ZIP.OLB /include = (GLOBALS 'incl_bzip2_m') /library, -
-   'lib_bzip2_opts' -
-   'lib_zlib_opts' -
-   'opts' -
-   SYS$DISK:[.VMS]ZIP.OPT /options
+$ if (MAKE_EXE)
+$ then
+$!
+$     link /executable = [.'dest']'ZIPX_CLI'.EXE -
+       SYS$DISK:[.'dest']ZIPCLI.OBJ, -
+       SYS$DISK:[.'dest']ZIPCLI.OLB /library, -
+       SYS$DISK:[.'dest']ZIP.OLB /library, -
+       'lib_bzip2_opts' -
+       SYS$DISK:[.'dest']ZIP.OLB /library, -
+       'lib_zlib_opts' -
+       'opts' -
+       SYS$DISK:[.VMS]ZIP.OPT /options
+$!
+$ endif
 $!
 $!--------------------------- Zip utilities section --------------------------
 $!
-$ if (.not. LINK_ONLY)
+$ if (MAKE_OBJ)
 $ then
 $!
 $! Compile the variant Zip utilities library sources.
@@ -659,24 +723,29 @@ $ endif
 $!
 $! Link the Zip utilities executables.
 $!
-$ link /executable = [.'dest']ZIPCLOAK.EXE -
-   [.'dest']ZIPCLOAK.OBJ, -
-   [.'dest']ZIPUTILS.OLB /include = (GLOBALS) /library, -
-   'lib_zlib_opts' -
-   'opts' -
-   SYS$DISK:[.VMS]ZIP.OPT /options
+$ if (MAKE_EXE)
+$ then
 $!
-$ link /executable = [.'dest']ZIPNOTE.EXE -
-   [.'dest']ZIPNOTE.OBJ, -
-   [.'dest']ZIPUTILS.OLB /include = (GLOBALS) /library, -
-   'opts' -
-   SYS$DISK:[.VMS]ZIP.OPT /OPTIONS
+$     link /executable = [.'dest']ZIPCLOAK.EXE -
+       SYS$DISK:[.'dest']ZIPCLOAK.OBJ, -
+       SYS$DISK:[.'dest']ZIPUTILS.OLB /library, -
+       'lib_zlib_opts' -
+       'opts' -
+       SYS$DISK:[.VMS]ZIP.OPT /options
 $!
-$ LINK /EXECUTABLE = [.'DEST']ZIPSPLIT.EXE -
-   [.'DEST']ZIPSPLIT.OBJ, -
-   [.'DEST']ZIPUTILS.OLB /INCLUDE = (globals) /LIBRARY, -
-   'opts' -
-   SYS$DISK:[.VMS]ZIP.OPT /options
+$     link /executable = [.'dest']ZIPNOTE.EXE -
+       SYS$DISK:[.'dest']ZIPNOTE.OBJ, -
+       SYS$DISK:[.'dest']ZIPUTILS.OLB /library, -
+       'opts' -
+       SYS$DISK:[.VMS]ZIP.OPT /OPTIONS
+$!
+$     LINK /EXECUTABLE = [.'DEST']ZIPSPLIT.EXE -
+       SYS$DISK:[.'DEST']ZIPSPLIT.OBJ, -
+       SYS$DISK:[.'DEST']ZIPUTILS.OLB /LIBRARY, -
+       'opts' -
+       SYS$DISK:[.VMS]ZIP.OPT /options
+$!
+$ endif
 $!
 $!------------------------------ Symbols section -----------------------------
 $!

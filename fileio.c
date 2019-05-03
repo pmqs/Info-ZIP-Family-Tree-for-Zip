@@ -1,9 +1,9 @@
 /*
   fileio.c - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -885,7 +885,7 @@ int newname(name, flags, casesensitive)
   int pad_name;         /* Pad for name (may include APL_DBL_xxx). */
 
 #if defined( UNIX) && defined( __APPLE__)
-  /* Create special names for an AppleDouble file. */ 
+  /* Create special names for an AppleDouble file. */
   if (isapldbl)
   {
     char *name_archv_p;
@@ -3025,7 +3025,7 @@ local int utf8_char_bytes(utf8)
  * up to the current 21-bit mappings) changed this to signed to allow -1 to
  * be returned.
  */
-long ucs4_char_from_utf8(utf8)
+local long ucs4_char_from_utf8(utf8)
   ZCONST char **utf8;
 {
   ulg  ret;
@@ -3628,7 +3628,8 @@ zwchar *local_to_wide_string(local_string)
   if ((wc_string = (wchar_t *)malloc((wsize + 1) * sizeof(wchar_t))) == NULL) {
     ZIPERR(ZE_MEM, "local_to_wide_string");
   }
-  wsize = mbstowcs(wc_string, local_string, strlen(local_string) + 1);
+  /* Fix by kellner, from forum, 12 Feb 2009 */ 
+  wsize = mbstowcs(wc_string, local_string, wsize + 1);
   wc_string[wsize] = (wchar_t) 0;
 
   /* in case wchar_t is not zwchar */
@@ -3850,7 +3851,9 @@ static ZCONST char Far num_req_val_err[] = "option %s requires number value";
 static ZCONST char Far long_op_ambig_err[] = "long option '%s' ambiguous";
 static ZCONST char Far long_op_not_sup_err[] = "long option '%s' not supported";
 
+#if 0
 static ZCONST char Far no_arg_files_err[] = "argument files not enabled\n";
+#endif
 
 
 /* below removed as only used for processing argument files */

@@ -330,11 +330,14 @@ IZ_IMP char *mktemp();
  * (differently) when <locale.h> is read later.
  */
 #ifdef UNICODE_SUPPORT
-# if defined( UNIX) || defined( VMS)
-#   include <locale.h>
-# endif /* defined( UNIX) || defined( VMS) */
-# include <wchar.h>
-# include <wctype.h>
+#  if defined( UNIX) || defined( VMS)
+#    include <locale.h>
+#    ifndef NO_NL_LANGINFO
+#      include <langinfo.h>
+#    endif
+#  endif /* defined( UNIX) || defined( VMS) */
+#  include <wchar.h>
+#  include <wctype.h>
 #endif /* def UNICODE_SUPPORT */
 
 #ifdef _MBCS
@@ -668,13 +671,30 @@ typedef struct ztimbuf {
 #     define zfstat _fstati64
 #     define zlstat lstat
 
-      /* 64-bit fseeko */
-      /* function in win32.c */
-      int zfseeko OF((FILE *, zoff_t, int));
+#     if (_MSC_VER >= 1400)
+        /* Beginning with VS 8.0 (Visual Studio 2005, MSC 14), the Microsoft
+           C rtl publishes its (previously internal) implmentations of
+           "fseeko" and "ftello" for 64-bit file offsets. */
+        /* 64-bit fseeko */
+#       define zfseeko _fseeki64
 
-      /* 64-bit ftello */
-      /* function in win32.c */
-      zoff_t zftello OF((FILE *));
+        /* 64-bit ftello */
+#       define zftello _ftelli64
+
+#     else /* MSC rtl library version < 1400 */
+
+        /* The newest MinGW port contains built-in extensions to the MSC rtl
+           that provide fseeko and ftello, but our implementations will do
+           for now. */
+        /* 64-bit fseeko */
+        /* function in win32.c */
+        int zfseeko OF((FILE *, zoff_t, int));
+
+        /* 64-bit ftello */
+        /* function in win32.c */
+        zoff_t zftello OF((FILE *));
+
+#     endif /* ? (_MSC_VER >= 1400) */
 
       /* 64-bit fopen */
 #     define zfopen fopen

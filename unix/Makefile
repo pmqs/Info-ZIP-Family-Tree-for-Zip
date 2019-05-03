@@ -179,7 +179,7 @@ uninstall:
 
 
 flags:  unix/configure
-	sh unix/configure "${CC}" "${CFLAGS_NOOPT}" "${IZ_BZIP2}"
+	sh unix/configure "${CC}" "${CFLAGS_NOOPT}" "${IZ_BZIP2}" "${IZ_ZLIB}"
 
 # These symbols, when #defined using -D have these effects on compilation:
 # ZMEM                  - includes C language versions of memset(), memcpy(),

@@ -1,9 +1,9 @@
 /*
   zipup.c - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -478,11 +478,11 @@ struct zlist far *z;    /* zip entry to compress */
   /* Add AppleDouble header size to AppleDouble resource fork file size,
    * as data for both will be stored in the AppleDouble "._" file.
    */
-  if (z->flags& FLAGS_APLDBL)
+  if (z->flags & FLAGS_APLDBL)
     q += APL_DBL_HDR_SIZE;
 
   /* Set translate_eol_lcl according to translate_eol and AppleDouble flag. */
-  if (z->flags& FLAGS_APLDBL) {
+  if (z->flags & FLAGS_APLDBL) {
     /* Never translate an (always binary) AppleDouble file. */
     translate_eol_lcl = 0;
   }
@@ -719,7 +719,7 @@ struct zlist far *z;    /* zip entry to compress */
           /* Set attribute list bits for resource fork size. */
           attr_list_rsrc.bitmapcount = ATTR_BIT_MAP_COUNT;
           attr_list_rsrc.fileattr = ATTR_FILE_RSRCLENGTH;
-  
+
           sts = getattrlist( z->name,                 /* Path. */
                              &attr_list_rsrc,         /* Attrib list. */
                              &attr_bufr_rsrc,         /* Dest buffer. */
@@ -1576,7 +1576,6 @@ local zoff_t filecompress(z_entry, cmpr_method)
     int *cmpr_method;
 {
 #ifdef USE_ZLIB
-    FILE *zipfile = y;
     int err = Z_OK;
     unsigned mrk_cnt = 1;
     int maybe_stored = FALSE;
@@ -1883,8 +1882,6 @@ local zoff_t bzfilecompress(z_entry, cmpr_method)
 struct zlist far *z_entry;
 int *cmpr_method;
 {
-    FILE *zipfile = y;
-
     int err = BZ_OK;
     unsigned mrk_cnt = 1;
     int maybe_stored = FALSE;

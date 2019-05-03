@@ -1,10 +1,10 @@
 ;===========================================================================
-; Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+; Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 ;
-; See the accompanying file LICENSE, version 1999-Oct-05 or later
+; See the accompanying file LICENSE, version 2009-Jan-2 or later
 ; (the contents of which are also included in zip.h) for terms of use.
-; If, for some reason, both of these files are missing, the Info-ZIP license
-; also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+; If, for some reason, all these files are missing, the Info-ZIP license
+; also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 ;===========================================================================
 ; sendbits.s for ARM by Sergio Monesi and Darren Salt.
 
@@ -27,18 +27,16 @@ pc      RN      15
 
         AREA    |Asm$$Code|, CODE, READONLY
 
-        =       "send_bits",0
-        ALIGN
-        &       &FF00000C
-
-        IMPORT  __rt_stkovf_split_small
         IMPORT  flush_outbuf
-
         IMPORT  bi_valid
         IMPORT  bi_buf
         IMPORT  out_size
         IMPORT  out_offset
         IMPORT  out_buf
+
+        =       "send_bits",0
+        ALIGN
+        &       &FF00000C
 
         EXPORT  send_bits
 send_bits
@@ -54,7 +52,7 @@ send_bits
         CMP     r2,#&10
         STRLE   r2,[r3]         ; short? store & return
         STRLE   r4,[r5]
-        LDMLEDB fp,{r4,r5,fp,sp,pc}^
+        LDMLEDB fp,{r4,r5,fp,sp,pc}
 
         SUB     r2,r2,#&10      ; adjust bi_valid, bi_buf
         MOV     ip,r4,LSR #16   ;  (done early, keeping the old bi_buf
@@ -80,12 +78,7 @@ send_bits
         ADD     r2,r2,#2
         STR     r2,[r1]
 
-        LDMDB   fp,{r4,r5,fp,sp,pc}^
-
-
-ptr_bi          &       bi_valid
-                &       bi_buf
-
+        LDMDB   fp,{r4,r5,fp,sp,pc}
 
         =       "bi_reverse",0
         ALIGN
@@ -99,7 +92,72 @@ loop    MOVS    r0,r0,LSR #1
         SUBS    r1,r1,#1
         BNE     loop
         MOV     r0,r2
-        MOVS    pc,lr
-
+        MOV     pc,lr
 
         END
+#elif defined(__ELF__)
+        .text
+
+        .asciz  "send_bits"
+        .align
+        .word   0xFF00000C
+
+        .global send_bits
+send_bits:
+        MOV     ip,sp
+        STMDB   sp!,{r4,r5,fp,ip,lr,pc}
+        SUB     fp,ip,#4
+        LDR     r5,=bi_buf
+        LDR     r3,=bi_valid
+        LDR     r4,[r5]
+        LDR     r2,[r3]
+        ORR     r4,r4,r0,LSL r2 @ |= value<<bi_valid
+        ADD     r2,r2,r1        @ += length
+        CMP     r2,#0x10
+        STRLE   r2,[r3]         @ short? store & return
+        STRLE   r4,[r5]
+        LDMLEDB fp,{r4,r5,fp,sp,pc}
+
+        SUB     r2,r2,#0x10     @ adjust bi_valid, bi_buf
+        MOV     ip,r4,LSR #16   @  (done early, keeping the old bi_buf
+        STR     r2,[r3]         @  in R4 for later storage)
+        STR     ip,[r5]
+
+        LDR     r0,=out_size
+        LDR     r1,=out_offset
+        LDR     r0,[r0]
+        LDR     r2,[r1]
+        SUB     r0,r0,#1
+        CMP     r2,r0           @ if out_offset >= out_size-1
+        LDRHS   r0,=out_buf
+        LDRHS   r0,[r0]
+        BLHS    flush_outbuf    @ then flush the buffer
+        LDR     r0,=out_buf
+        LDR     r1,=out_offset
+        LDR     r0,[r0]
+        LDR     r2,[r1]
+        MOV     r5,r4,LSR #8
+        STRB    r4,[r0,r2]!     @ store 'old' bi_buf
+        STRB    r5,[r0,#1]
+        ADD     r2,r2,#2
+        STR     r2,[r1]
+
+        LDMDB   fp,{r4,r5,fp,sp,pc}
+
+        .asciz  "bi_reverse"
+        .align
+        .word   0xFF00000C
+
+        .global bi_reverse
+bi_reverse:
+        MOV     r2,#0
+loop:
+        MOVS    r0,r0,LSR #1
+        ADCS    r2,r2,r2
+        SUBS    r1,r1,#1
+        BNE     loop
+        MOV     r0,r2
+        MOV     pc,lr
+
+        .end
+#endif

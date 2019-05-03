@@ -3,9 +3,10 @@
 # The above : is necessary on some buggy systems.
 
 # configure: Guess values for system-dependent variables
-# Output the flag definitions to the file "flags".
+# Output the flag definitions to the file "$PROD/flags".
 #
-# Parameters: $1 = $CC, $2 = $CFLAGS, $3 = $IZ_BZIP2
+# Parameters: $1 = $CC, $2 = $CFLAGS, $3 = $IZ_BZIP2, $4 = IZ_ZLIB,
+#             $5 = $PROD
 #
 # This file is typically called from Makefile rather than executed
 # from the command line.
@@ -28,6 +29,29 @@ CFLAGS_OPT=''
 IZ_BZIP2=${3-}
 CFLAGS_BZ=''
 
+# zlib
+IZ_ZLIB=${4-}
+
+PROD=${5-.}
+
+
+echo "Check C compiler operation"
+cat > conftest.c << _EOF_
+int main()
+{
+   return 0;
+}
+_EOF_
+$CC $CFLAGS -c conftest.c
+status=$?
+if test $status -ne 0; then
+  echo ''
+  echo "C compiler \"${CC}\" does not work as expected."
+  echo "Failing command was: $CC $CFLAGS -c conftest.c"
+  exit $status
+else
+  echo '  Ok'
+fi
 
 echo 'Check C compiler type (optimization options)'
 # Sun C?
@@ -214,6 +238,15 @@ _EOF_
       fi
     fi
   fi
+fi
+
+
+# zlib
+
+if test -n "${IZ_ZLIB}"; then
+  echo "Using (expecting) zlib in IZ_ZLIB (${IZ_ZLIB})"
+  CFLAGS="${CFLAGS} -I${IZ_ZLIB} -DUSE_ZLIB"
+  LFLAGS2="${LFLAGS2} -L${IZ_ZLIB} -lz"
 fi
 
 
@@ -478,12 +511,12 @@ $CC -o conftest conftest.c >/dev/null 2>/dev/null
 if [ $? -ne 0 ]; then
   echo -- no Unicode support
   OCRCU8=""
-  OCRCTB="crc32_.o"
+  OCRCTB="${PROD}/crc32_.o"
 else
 # have wide char support
   echo -- have wchar_t - enabling Unicode support
   CFLAGS="${CFLAGS} -DUNICODE_SUPPORT"
-  OCRCU8="crc32_.o ${OCRCU8}"
+  OCRCU8="${PROD}/crc32_.o ${OCRCU8}"
   OCRCTB=""
 fi
 
@@ -540,6 +573,16 @@ int main() { strerror( 0); return 0; }
 _EOF_
 $CC -o conftest conftest.c >/dev/null 2>/dev/null
 [ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNEED_STRERROR"
+
+
+echo Check for nl_langinfo
+cat > conftest.c << _EOF_
+#include <langinfo.h>
+int main() { char *codeset;  codeset = nl_langinfo(CODESET); return codeset; }
+_EOF_
+$CC -o conftest conftest.c >/dev/null 2>/dev/null
+[ $? -ne 0 ] && CFLAGS="${CFLAGS} -DNO_NL_LANGINFO"
+
 
 echo Check for errno declaration
 cat > conftest.c << _EOF_
@@ -691,5 +734,5 @@ echo CC=\"${CC}\" CFLAGS=\"${CFLAGS}\"  CPP=\"${CPP}\" OBJA=\"${OBJA}\" \
        BINDIR=${BINDIR} MANDIR=${MANDIR} LFLAGS1=\"${LFLAGS1}\" \
        LFLAGS2=\"${LFLAGS2}\" LN=\"${LN}\" \
        CC_BZ=\"${CC_BZ}\" CFLAGS_BZ=\"${CFLAGS_BZ}\" \
-       IZ_BZIP2=\"${IZ_BZIP2}\" LIB_BZ=\"${LIB_BZ}\" > flags
+       IZ_BZIP2=\"${IZ_BZIP2}\" LIB_BZ=\"${LIB_BZ}\" > "$PROD"/flags
 

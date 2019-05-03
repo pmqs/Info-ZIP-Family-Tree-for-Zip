@@ -17,17 +17,11 @@ the Extended Timestamp Extra Field. If you need it but you can't compile zip
 yourself, you can contact the authors at the Info-ZIP address who will do it
 for you.
 
-
-Compilation under GCC
----------------------
+Compilation under GCC on RISC OS
+--------------------------------
 
 It is recommended that you use gcc 3.4.6 release 3 or higher and the corresponding
-'make' utility. Both are available from
-<URL:http://www.riscos.info/index.php/GCCSDK>.
-
-As a minimum you will need the files gcc.zip, cc1.zip and system.zip for the C
-compiler. Compiler documentation is available in the gccdoc.zip archive. GNU make
-can be found in the utils.zip archive.
+'make' utility. Both are available from <URL:http://gccsdk.riscos.info/>.
 
 Use the "RunMe1st" file (it is an Obey file) to convert all the files from
 "filename/[chs]" to "[chs].filename" (so that zip could be easily compiled
@@ -51,17 +45,15 @@ To compile just set the CSD to the main zip directory and run 'amu'.
 Cross-compilation under GCCSDK
 ------------------------------
 
-Use of RunMe1st is not required when using GCCSDK. Instead copy the GCC makefile
-to the right place (e.g. 'cp acorn/GMakefile makefile') and then start the cross
-compiler (e.g. '/home/riscos/env/ro-make NOASM=true').
+Use of RunMe1st is not required when using GCCSDK 3.4 or GCCSDK 4
+(<URL:http://gccsdk.riscos.info/). Instead copy the GCC makefile to the right
+place (e.g. 'cp acorn/GMakefile makefile') and then start the cross compiler:
 
-The 'NOASM=true' option disables use of the RISC OS assembler code in the zip
-utilities. This is currently required for cross-compilation since the version of
-'as' in the cross-compiler uses a different assembler syntax to the native RISC OS
-version. Cross-compiled versions of zip may therefore be slower when compressing
-files, although on modern machines the difference seems to be negligible, even
-when compressing lots of data.
+  $ /home/riscos/env/ro-make E=,ff8
 
+Or when using GCCSDK 4:
+
+  $ /home/riscos/env/ro-make E=,ff8 CC=arm-unknown-riscos-gcc
 
 Acorn-specific usage instructions
 ---------------------------------
@@ -75,7 +67,7 @@ result in a zipfile containing a directory (and its content) while using the
 this second case will also be obtained (without the 'I' option) if SparkFS
 isn't loaded.
 
-When adding files to a zipfile; to maintain FileCore compliance, all
+When adding files to a zipfile; to maintain FileSwitch compliance, all
 files named "file/ext" will be added to the archive as "file.ext".
 This presents no problem if you wish to use unzip to extract them on any
 other machine, as the files are correctly named. This also presents no
@@ -118,6 +110,3 @@ since it is already a compressed file). Since RISC OS uses filetypes instead
 of suffixes, this list of suffixes is actually considered as a list of
 filetypes (3 hex digit format). By default, zip doesn't compress filetypes
 DDC (Archive, Spark or Zip), D96 (CFS files) and 68E (PackDir).
-
-
-Last updated 22 July 2008 by Jeffrey Lee

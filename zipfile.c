@@ -1,9 +1,9 @@
 /*
   zipfile.c - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -243,10 +243,10 @@ local int scanzipf_regnew OF((void));
 local int zqcmp(a, b)
 ZCONST zvoid *a, *b;          /* pointers to pointers to zip entries */
 /* Used by qsort() to compare entries in the zfile list.
- * Compares the internal names z->iname */
+ * Compares the external names, z->zname, to agree with zsearch(). */
 {
-  char *aname = (*(struct zlist far **)a)->iname;
-  char *bname = (*(struct zlist far **)b)->iname;
+  char *aname = (*(struct zlist far **)a)->zname;
+  char *bname = (*(struct zlist far **)b)->zname;
 
   return namecmp(aname, bname);
 }
@@ -255,10 +255,11 @@ ZCONST zvoid *a, *b;          /* pointers to pointers to zip entries */
 local int zuqcmp(a, b)
 ZCONST zvoid *a, *b;          /* pointers to pointers to zip entries */
 /* Used by qsort() to compare entries in the zfile list.
- * Compares the internal names z->zuname */
+ * Compares the external Unicode names z->zuname (or z->zname if no
+ * Unicode name defined), to agree with zsearch(). */
 {
-  char *aname = (*(struct zlist far **)a)->iname;
-  char *bname = (*(struct zlist far **)b)->iname;
+  char *aname = (*(struct zlist far **)a)->zname;
+  char *bname = (*(struct zlist far **)b)->zname;
 
   /* zuname could be NULL */
   if ((*(struct zlist far **)a)->zuname)
@@ -274,6 +275,10 @@ ZCONST zvoid *a, *b;          /* pointers to pointers to zip entries */
 
 local int rqcmp(a, b)
 ZCONST zvoid *a, *b;          /* pointers to pointers to zip entries */
+/* This is used by trash() to remove files from the file system before
+ * the directories they are in.  Because the entries need to sort
+ * with files before directories on systems like VMS, internal names
+ * are used. */
 /* Used by qsort() to compare entries in the zfile list.
  * Compare the internal names z->iname, but in reverse order. */
 {
@@ -341,6 +346,8 @@ struct zlist far *zsearch(n)
     if ((p = search(n, (ZCONST zvoid far **)zsort, zcount, zbcmp)) != NULL)
       return *(struct zlist far **)p;
 #ifdef UNICODE_SUPPORT
+    /* unicode_mismatch = 3 means ignore Unicode. */
+    /* Currently Unicode is not trusted for fix mode 2 (option -FF). */
     else if (unicode_mismatch != 3 && fix != 2 &&
         (p = search(n, (ZCONST zvoid far **)zusort, zcount, zubcmp)) != NULL)
       return *(struct zlist far **)p;
@@ -444,7 +451,9 @@ char *ziptyp(s)
       strcat(t, "_zip");
   }
 #    endif /* QDOS */
-#  endif /* !RISCOS */
+#  else /* !ndef RISCOS */
+  q = q;
+#  endif /* ndef RISCOS */
   return t;
 }
 #endif  /* ndef VMS */
@@ -5297,8 +5306,9 @@ int putlocal(z, rewrite)
   char *block = NULL;   /* mem block to write to */
   extent offset = 0;    /* offset into block */
   extent blocksize = 0; /* size of block */
-#ifdef UNICODE_SUPPORT
   ush nam = z->nam;     /* size of name to write to header */
+  char *iname = NULL;   /* name to write to header */
+#ifdef UNICODE_SUPPORT
   int use_uname = 0;    /* write uname to header */
 #endif
 #ifdef ZIP64_SUPPORT
@@ -5420,6 +5430,30 @@ int putlocal(z, rewrite)
   }
 #endif
 
+  /* determine name to write */
+  iname = z->iname;
+#ifdef UNICODE_SUPPORT
+  if (use_uname) {
+    /* path is UTF-8 */
+    iname = z->uname;
+  }
+#endif
+
+  if (path_prefix) {
+    int path_prefix_len = strlen(path_prefix);
+    int new_path_len = path_prefix_len + nam;
+    char *new_path;
+
+    if ((new_path = malloc(new_path_len + 1)) == NULL) {
+      ZIPERR(ZE_MEM, "putlocal path prefix");
+    }
+    strcpy(new_path, path_prefix);
+    strcat(new_path, iname);
+    iname = new_path;
+    tempzn += new_path_len - nam;
+    nam = new_path_len;
+  }
+
   append_ulong_to_mem(LOCSIG, &block, &offset, &blocksize);     /* local file header signature */
   append_ushort_to_mem(z->ver, &block, &offset, &blocksize);    /* version needed to extract */
   append_ushort_to_mem(z->lflg, &block, &offset, &blocksize);   /* general purpose bit flag */
@@ -5439,18 +5473,14 @@ int putlocal(z, rewrite)
   append_ulong_to_mem((ulg)z->siz, &block, &offset, &blocksize);    /* compressed size */
   append_ulong_to_mem((ulg)z->len, &block, &offset, &blocksize);    /* uncompressed size */
 #endif
-#ifdef UNICODE_SUPPORT
   append_ushort_to_mem(nam, &block, &offset, &blocksize);   /* file name length */
-#else
-  append_ushort_to_mem(z->nam, &block, &offset, &blocksize);   /* file name length */
-#endif
 
   append_ushort_to_mem(z->ext, &block, &offset, &blocksize);    /* extra field length */
 
 #ifdef UNICODE_SUPPORT
   if (use_uname) {
     /* path is UTF-8 */
-    append_string_to_mem(z->uname, nam, &block, &offset, &blocksize);
+    append_string_to_mem(iname, nam, &block, &offset, &blocksize);
   } else
 #endif
 #ifdef WIN32_OEM
@@ -5459,17 +5489,20 @@ int putlocal(z, rewrite)
   {
     char *oem;
 
-    if ((oem = malloc(strlen(z->iname) + 1)) == NULL)
+    if ((oem = malloc(strlen(iname) + 1)) == NULL)
       ZIPERR(ZE_MEM, "putlocal oem");
-    INTERN_TO_OEM(z->iname, oem);
-    append_string_to_mem(oem, z->nam, &block, &offset, &blocksize); /* file name */
+    INTERN_TO_OEM(iname, oem);
+    append_string_to_mem(oem, nam, &block, &offset, &blocksize); /* file name */
     free(oem);
   } else {
-    append_string_to_mem(z->iname, z->nam, &block, &offset, &blocksize); /* file name */
+    append_string_to_mem(iname, nam, &block, &offset, &blocksize); /* file name */
   }
 #else
-  append_string_to_mem(z->iname, z->nam, &block, &offset, &blocksize); /* file name */
+  append_string_to_mem(iname, nam, &block, &offset, &blocksize); /* file name */
 #endif
+  if (path_prefix) {
+    free(iname);
+  }
   if (z->ext) {
     append_string_to_mem(z->extra, z->ext, &block, &offset, &blocksize); /* extra field */
   }
@@ -5633,6 +5666,7 @@ int putcentral(z)
   extent blocksize = 0; /* size of block */
   uzoff_t off = 0;      /* offset to start of local header */
   ush nam = z->nam;     /* size of name to write to header */
+  char *iname = NULL;   /* name to write to header */
 #ifdef UNICODE_SUPPORT
   int use_uname = 0;    /* write uname to header */
 #endif
@@ -5661,6 +5695,30 @@ int putcentral(z)
     z->lflg &= ~UTF8_BIT;
   }
 #endif
+
+  /* determine name to write */
+  iname = z->iname;
+#ifdef UNICODE_SUPPORT
+  if (use_uname) {
+    /* path is UTF-8 */
+    iname = z->uname;
+  }
+#endif
+
+  if (path_prefix) {
+    int path_prefix_len = strlen(path_prefix);
+    int new_path_len = path_prefix_len + nam;
+    char *new_path;
+
+    if ((new_path = malloc(new_path_len + 1)) == NULL) {
+      ZIPERR(ZE_MEM, "putlocal path prefix");
+    }
+    strcpy(new_path, path_prefix);
+    strcat(new_path, iname);
+    iname = new_path;
+    tempzn += new_path_len - nam;
+    nam = new_path_len;
+  }
 
   off = z->off;
 
@@ -5753,7 +5811,7 @@ int putcentral(z)
 #ifdef UNICODE_SUPPORT
   if (use_uname) {
     /* path is UTF-8 */
-    append_string_to_mem(z->uname, nam, &block, &offset, &blocksize);
+    append_string_to_mem(iname, nam, &block, &offset, &blocksize);
   } else
 #endif
 #ifdef WIN32_OEM
@@ -5762,17 +5820,21 @@ int putcentral(z)
   {
     char *oem;
 
-    if ((oem = malloc(strlen(z->iname) + 1)) == NULL)
+    if ((oem = malloc(strlen(iname) + 1)) == NULL)
       ZIPERR(ZE_MEM, "putcentral oem");
-    INTERN_TO_OEM(z->iname, oem);
-    append_string_to_mem(oem, z->nam, &block, &offset, &blocksize);
+    INTERN_TO_OEM(iname, oem);
+    append_string_to_mem(oem, nam, &block, &offset, &blocksize);
     free(oem);
   } else {
-    append_string_to_mem(z->iname, z->nam, &block, &offset, &blocksize);
+    append_string_to_mem(iname, nam, &block, &offset, &blocksize);
   }
 #else
-  append_string_to_mem(z->iname, z->nam, &block, &offset, &blocksize);
+  append_string_to_mem(iname, nam, &block, &offset, &blocksize);
 #endif
+
+  if (path_prefix) {
+    free(iname);
+  }
 
   if (z->cext) {
     append_string_to_mem(z->cextra, z->cext, &block, &offset, &blocksize);

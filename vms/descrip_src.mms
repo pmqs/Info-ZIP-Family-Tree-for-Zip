@@ -1,6 +1,6 @@
-#                                               28 July 2008.  SMS.
+#                                               1 March 2009.  SMS.
 #
-#    Zip 3.0 for VMS - MMS (or MMK) Source Description File.
+#    Zip 3.1 for VMS - MMS (or MMK) Source Description File.
 #
 
 # This description file is included by other description files.  It is
@@ -80,7 +80,12 @@ DESTL = L
 .ENDIF                              # __VAX__
 .ENDIF                          # LARGE
 
-DEST = $(DESTM)$(DESTI)$(DESTL)
+DEST_STD = $(DESTM)$(DESTI)$(DESTL)
+.IFDEF PROD                     # PROD
+DEST = $(PROD)
+.ELSE                           # PROD
+DEST = $(DEST_STD)
+.ENDIF                          # PROD
 SEEK_BZ = $(DESTM)
 
 # Library module name suffix for XXX_.OBJ with GNU C.
@@ -194,7 +199,6 @@ NON_VAX_CMPL = 1
 .IFDEF IZ_BZIP2                 # IZ_BZIP2
 CDEFS_BZ = , BZIP2_SUPPORT
 CFLAGS_INCL = /INCLUDE = ([], [.VMS])
-INCL_BZIP2_M = , ZBZ2ERR
 LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2_NS.OLB /library,
 .ENDIF                          # IZ_BZIP2
 

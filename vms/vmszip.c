@@ -63,8 +63,13 @@ char hex_digit[ 16] = {
  '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
 };
 
+/* 2008-10-15 SMS.
+ * Revised the char_prop[] table to add these characters (omitted in the
+ * VMS documentation) to the caret-escape list:  "  :  \  |
+ */
+
 /* Character property table for (re-)escaping ODS5 extended file names.
-   Note that this table ignore Unicode, and does not identify invalid
+   Note that this table ignores Unicode, and does not identify invalid
    characters.
 
    ODS2 valid characters: 0-9 A-Z a-z $ - _
@@ -84,7 +89,8 @@ char hex_digit[ 16] = {
       Vertical bar (|)
 
    Characters escaped by "^":
-      SP  !  #  %  &  '  (  )  +  ,  .  ;  =  @  [  ]  ^  `  {  }  ~
+      SP  !  "  #  %  &  '  (  )  +  ,  .  :  ;  =
+       @  [  \  ]  ^  `  {  |  }  ~
 
    Either "^_" or "^ " is accepted as a space.  Period (.) is a special
    case.  Note that un-escaped < and > can also confuse a directory
@@ -117,22 +123,22 @@ unsigned char char_prop[ 256] = {
     0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  0,  0,  0,  0,  0,
 
 /*  SP  !   "   #   $   %   &   '    (   )   *   +   ,   -   .   /  */
-    2,  1,  0,  1,  0,  1,  1,  1,   1,  1,  0,  1,  1,  0,  4,  0,
+    2,  1,  1,  1,  0,  1,  1,  1,   1,  1,  0,  1,  1,  0,  4,  0,
 
 /*  0   1   2   3   4   5   6   7    8   9   :   ;   <   =   >   ?  */
-   64, 64, 64, 64, 64, 64, 64, 64,  64, 64,  0,  1,  1,  1,  1,  1,
+   64, 64, 64, 64, 64, 64, 64, 64,  64, 64,  1,  1,  1,  1,  1,  1,
 
 /*  @   A   B   C   D   E   F   G    H   I   J   K   L   M   N   O  */
     1, 64, 64, 64, 64, 64, 64,  0,   0,  0,  0,  0,  0,  0,  0,  0,
 
 /*  P   Q   R   S   T   U   V   W    X   Y   Z   [   \   ]   ^   _  */
-    0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  1,  0,  1,  1,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  1,  1,  1,  1,  0,
 
 /*  `   a   b   c   d   e   f   g    h   i   j   k   l   m   n   o  */
     1, 64, 64, 64, 64, 64, 64,  0,   0,  0,  0,  0,  0,  0,  0,  0,
 
 /*  p   q   r   s   t   u   v   w    x   y   z   {   |   }   ~  DEL */
-    0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  1,  0,  1,  1,  8,
+    0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  1,  1,  1,  1,  8,
 
     8,  8,  8,  8,  8,  8,  8,  8,   8,  8,  8,  8,  8,  8,  8,  8,
     8,  8,  8,  8,  8,  8,  8,  8,   8,  8,  8,  8,  8,  8,  8,  8,
@@ -219,19 +225,26 @@ return ((unsigned int) c1- (unsigned int) c2);
    eat_carets().
 
    Delete ODS5 extended file name escape characters ("^") in the
-   original buffer.
+   (UNIX-style) path name in its original buffer.
    Note that the current scheme does not handle all EFN cases, but it
    could be made more complicated.
 */
 
-local void eat_carets( char *str)
+/* 2008-10-15 SMS.
+ * Added code to look for a caret-escaped dot in the name field, and
+ * return a boolean value accordingly.
+ */
+
+local int eat_carets( char *str)
 /* char *str;      Source pointer. */
 {
   char *strd;   /* Destination pointer. */
   char hdgt;
   unsigned char uchr;
   unsigned char prop;
+  int caret_dot_in_name;
 
+  caret_dot_in_name = 0;
   /* Skip ahead to the first "^", if any. */
   while ((*str != '\0') && (*str != '^'))
      str++;
@@ -281,9 +294,19 @@ local void eat_carets( char *str)
           /* Convert escaped "/" (invalid Zip) to "?" (invalid VMS). */
           uchr = '?';
         }
+        else if (uchr == '.')
+        {
+          /* Record caret-dot (which may be in the name field). */
+          caret_dot_in_name = 1;
+        }
         /* Else, not a hex digit.  Must be a simple escaped character
            (or Unicode, which is not yet handled here).
         */
+      }
+      else if (uchr == '/')
+      {
+        /* Unescaped end-of-directory character.  Clear caret-dot-in-name. */
+        caret_dot_in_name = 0;
       }
       /* Else, not a caret.  Use as-is. */
       *strd = uchr;
@@ -295,6 +318,7 @@ local void eat_carets( char *str)
     /* Terminate the destination string. */
     *strd = '\0';
   }
+  return caret_dot_in_name;
 }
 
 
@@ -844,6 +868,7 @@ char *ex2in( char *x, int isdir, int *pdosflag)
   int dosflag;
   int down_case;                /* Resultant down-case flag. */
   int dir_len;                  /* Directory spec length. */
+  int escaped_dot_in_name;      /* Escaped dot in name field. */
   int ods_level;                /* File system type. */
 
   dosflag = dosify; /* default for non-DOS and non-OS/2 */
@@ -1055,8 +1080,10 @@ char *ex2in( char *x, int isdir, int *pdosflag)
     }
   }
 
-  /* Remove simple ODS5 extended file name escape characters. */
-  eat_carets( n);
+  /* Remove simple ODS5 extended file name escape characters.
+   * Note the presence of an escaped dot in the name field.
+   */
+  escaped_dot_in_name = eat_carets( n);
 
   if (isdir)
   {
@@ -1071,8 +1098,9 @@ char *ex2in( char *x, int isdir, int *pdosflag)
   else if (vmsver == 0)
   {
     /* If not keeping version numbers, truncate the name at the ";".
-       (No escaped characters are expected in the version.)
-    */
+     * (A version should always be present, and should contain no
+     * escaped characters, so a simple leftward search should work.)
+     */
     if ((ext_dir_and_name = strrchr( n, ';')) != NULL)
       *ext_dir_and_name = '\0';
   }
@@ -1083,22 +1111,30 @@ char *ex2in( char *x, int isdir, int *pdosflag)
       *ext_dir_and_name = '.';
   }
 
-  /* 2008-07-17 SMS.
+  /* 2008-10-15 SMS.
+   * Changed the scheme here to remove a trailing dot only if there's 
+   * no escaped dot in the name field.  This covers a case like "x^.y.",
+   * which had been losing its type-dot, and being archived as "x.y".
+   * This method also covers the ".." ("^..") case naturally.
+   *
+   * 2008-07-17 SMS.
    * Added code to handle "." and ".." cases,
    * and, with "-ww", to remove a dot from "name..ver".
    */
-  /* Remove a type-less dot (unless there's also no name). */
-  if ((strlen( n) > 1) && ((ext_dir_and_name = strrchr( n, '.')) != NULL))
+  /* Remove a null-type (trailing "."), unless the name is null or there
+   * is an unescaped dot in the name.
+   */
+  if ((strlen( n) > 1) &&               /* Won't leave a null result. */
+   (escaped_dot_in_name == 0) &&        /* No escaped dot in name. */
+   ((ext_dir_and_name = strrchr( n, '.')) != NULL))
   {
     if ((ext_dir_and_name[ 1] == '\0') &&       /* "name." -> "name",  */
-     (ext_dir_and_name[ -1] != '/') &&          /* but "." -> ".",     */
-     (ext_dir_and_name[ -1] != '.'))            /* and "X.." -> "X..". */
+     (ext_dir_and_name[ -1] != '/'))            /* but "." -> ".".     */
     {
       *ext_dir_and_name = '\0';
     }
     else if ((ext_dir_and_name[ 1] == ';') &&   /* "nm.;ver" -> "nm;ver",  */
-     (ext_dir_and_name[ -1] != '/') &&          /* but ".;ver" -> ".;ver", */
-     (ext_dir_and_name[ -1] != '.'))            /* and "X..;v" -> "X..;v". */
+     (ext_dir_and_name[ -1] != '/'))            /* but ".;ver" -> ".;ver". */
     {
       char *f = ext_dir_and_name+ 1;
       while (*ext_dir_and_name++ = *f++);
@@ -1106,8 +1142,7 @@ char *ex2in( char *x, int isdir, int *pdosflag)
     else if ((vmsver > 1) &&                    /* -ww, */
      (strlen( n) > 2) &&                        /* and enough characters, */
      (ext_dir_and_name[ -1] == '.') &&          /* "nm..ver" -> "nm.ver",  */
-     (ext_dir_and_name[ -2] != '/') &&          /* but "..ver" -> "..ver", */
-     (ext_dir_and_name[ -2] != '.'))            /* and "X...v" -> "X...v". */
+     (ext_dir_and_name[ -2] != '/'))            /* but "..ver" -> "..ver". */
     {
       char *f = ext_dir_and_name+ 1;
       while (*ext_dir_and_name++ = *f++);

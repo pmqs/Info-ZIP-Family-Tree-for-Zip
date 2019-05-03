@@ -1,9 +1,9 @@
 /*
   windll/windll.c - Zip 3
 
-  Copyright (c) 1990-2004 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2003-May-08 or later
+  See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -11,12 +11,12 @@
 /*
  *  windll.c by Mike White loosly based on Mark Adler's zip.c
  */
+#include "../zip.h"
 #include <windows.h>
 #include <process.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <ctype.h>
-#include "../zip.h"
 #include "windll.h"
 
 HINSTANCE hCurrentInst;
@@ -106,7 +106,9 @@ else
 free(zcomment);
 zcomment = malloc(1);
 *zcomment = 0;
-lpZipUserFunctions->comment(szCommentBuf);
+if (lpZipUserFunctions->comment) {
+  lpZipUserFunctions->comment(szCommentBuf);
+}
 return;
 }
 
@@ -131,7 +133,9 @@ WinAssert(pszBuffer);
 len = wvsprintf(pszBuffer, format, argptr);
 va_end(argptr);
 WinAssert(strlen(pszBuffer) < STDIO_BUF_SIZE);
-len = lpZipUserFunctions->print(pszBuffer, len);
+if (lpZipUserFunctions->print) {
+  len = lpZipUserFunctions->print(pszBuffer, len);
+}
 GlobalUnlock(hMemory);
 GlobalFree(hMemory);
 return len;
@@ -159,7 +163,9 @@ va_end(argptr);
 WinAssert(strlen(pszBuffer) < STDIO_BUF_SIZE);
 if ((file == stderr) || (file == stdout))
    {
-   len = lpZipUserFunctions->print(pszBuffer, len);
+     if (lpZipUserFunctions->print) {
+       len = lpZipUserFunctions->print(pszBuffer, len);
+     }
    }
 else
    len = write(fileno(file),(char far *)(pszBuffer), len);

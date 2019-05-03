@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
  * routines common to VM/CMS and MVS
@@ -120,11 +120,22 @@ int *pdosflag;          /* output: force MSDOS file attributes? */
      strcat(t,ext);
   }
 
-  /* Change all but the last '.' to '/' */
-  if (t = strrchr(n, '.')) {
-     while (--t > n)
-        if (*t == '.')
-          *t = '/';
+  /* MVS paths are in aaa.bbb.ccc.ddd form */
+  if (mvs_mode == 0) {
+    /* Change all but the last '.' to '/' */
+    if (t = strrchr(n, '.')) {
+       while (--t > n)
+          if (*t == '.')
+            *t = '/';
+  }
+  else if (mvs_mode == 1) {
+    /* Leave path in current form (aaa.bbb.ccc.ddd) */
+  }
+  else if (mvs_mode == 2) {
+    /* Change all '.' to '/' */
+    while (*t)
+      if (*t == '.')
+        *t = '/';
   }
 #else
   /* On CMS, remove the filemode (all past 2nd '.') */
