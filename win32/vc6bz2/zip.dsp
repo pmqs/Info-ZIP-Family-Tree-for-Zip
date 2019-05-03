@@ -88,6 +88,7 @@ LINK32=link.exe
 # PROP Use_Debug_Libraries 0
 # PROP Output_Dir "zip___Win32_Release_bzip2"
 # PROP Intermediate_Dir "zip___Win32_Release_bzip2"
+# PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NO_ASM" /FD /c
 # ADD CPP /nologo /W3 /GX /O2 /I "../../bzip2" /D "NO_ASM" /D "WIN32" /D "BZIP2_SUPPORT" /D "BZ_NO_STDIO" /FD /c

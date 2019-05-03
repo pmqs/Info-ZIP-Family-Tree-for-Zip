@@ -1,4 +1,4 @@
-Info-ZIP's Zip 3.0: generic C sources.
+Info-ZIP's Zip 3.1: generic C sources.
   Complete C source code for Info-ZIP's
   PKZIP-compatible .zip archiver, for
   all supported compilers and platforms
@@ -8,7 +8,7 @@ Info-ZIP's Zip 3.0: generic C sources.
   Includes Info-ZIP's ZCrypt 2.9 for
   PKWARE-compatible standard encryption
   and decryption support for Info-ZIP's
-  Zip 2.32, Zip 3.0, UnZip 5.52,
+  Zip 2.32, Zip 3.1, UnZip 5.52,
   UnZip 6.0, and WiZ 5.02 (and later).
 This is FREE (but copyrighted) software.
 See LICENSE for details on distribution

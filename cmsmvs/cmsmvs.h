@@ -39,7 +39,9 @@
 #endif
 
 #define CMS_MVS
-#define EBCDIC
+#ifndef EBCDIC
+#  define EBCDIC
+#endif
 
 #ifndef MVS  /* MVS has perfectly good definitions for the following */
 #  define NO_UNISTD_H

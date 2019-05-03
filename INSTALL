@@ -59,21 +59,22 @@ Installation on Unix (see below for installation on other systems)
           make -f unix/Makefile generic
 
      first.  If "gcc" is preferred, specify "generic_gcc" instead of
-     "generic".  This should work on most systems and automatically
-     selects compilation options based on a set of tests (in
+     "generic".  These should work on most systems and automatically
+     select compilation options based on a set of tests (in
      unix/configure), including detection of large file support
      sufficient to enable Zip64 large archive features.  If "generic"
      (or "generic_gcc" if that is used) fail, then one of the special
      targets given above may work.
 
      Among other special systems are Cray Unicos, Zilog Zeus and MINIX.
+     (See unix/Makefile for the complete list of targets.)
 
      The optimization settings for many systems should be close, but
      if you see optimization for your system is not ideal, send in
      the changes so we can improve it.
 
      By default, Zip uses the "deflate" compression method.  To add
-     the additional optional "bzip2" compression method, see the file
+     the additional "bzip2" compression method, see the file
      bzip2/install.txt.  Note that bzip2 support is provided by
      compiling or linking in the bzip2 library.  See the bzip2 site
      (http://www.bzip.org/) for more on bzip2.
@@ -174,14 +175,16 @@ Installation on other systems
      Supported compilers are Microsoft Visual C++, Borland C++, Watcom C/C++,
      and miscellaneous free GNU C implementations (gcc/mingw, CygWin, ...).
      The makefiles supplied in the win32/ subdirectory contain further
-     information.
+     information.  This list may be a little old at this point and we should
+     be looking at more recent Windows OS and tools shortly.
 
 
   Windows DLL (WIN32):
 
      Supported environments are Visual C++ (32-bit only, 5.x and newer).
      For instructions how to build the DLLs and where find the makefiles,
-     look into windll/contents.
+     look into windll/contents.  We plan to look at more recent OS and
+     tools shortly.
 
 
   OS/2:
@@ -268,8 +271,8 @@ Compiler Flags
     Note that the flag ZIP64_SUPPORT must also be set to create archives
     with large files.
 
-    This flag should be set automatically on Unix, Win32, and some
-    other ports.  Setting NO_LARGE_FILE_SUPPORT turns this flag off.
+    The LARGE_FILE_SUPPORT flag should be set automatically on Unix, Win32,
+    and some other ports.  Setting NO_LARGE_FILE_SUPPORT turns this flag off.
 
   ZIP64_SUPPORT
     Enable the Zip64 code in Zip that supports the Zip64 extensions noted
@@ -329,9 +332,9 @@ Compiler Flags
     Zip compression method deflate.
 
     This flag is set on Unix, including Mac OS X, when compiling using
-    generic if the bzip2 library is found.  Set on Win32 if the bzip2
-    projects are used.  See the VMS documentation for when VMS sets this
-    flag.  Setting NO_BZIP2_SUPPORT turns this off.
+    generic if the bzip2 library is found.  On Win32 it gets set if the
+    bzip2 projects are used.  See the VMS documentation for when VMS sets
+    this flag.  Setting NO_BZIP2_SUPPORT turns this off.
 
     See bzip2/install.txt for more on installing bzip2 support.
 
@@ -343,8 +346,11 @@ Compiler Flags
     enables the translation of OEM paths in DOS archives to ANSI and should
     eliminate some problems with funny characters showing up in path names.
 
-    If Unicode is enabled and used, Unicode paths generally override
-    local paths using OEM character sets.
+    If Unicode is enabled and used, a stored Unicode path generally overrides
+    a stored local character path (main path).  Since OEM character sets
+    are used only for the main path fields, Unicode paths when set replace
+    the main OEM character paths.  If Unicode is being stored natively
+    (in the main path), then OEM characters are not stored.
 
     This flag is on by default on most Win32 ports.  Some ports apparently
     have problems with OEM conversions.  If your port or compiler does

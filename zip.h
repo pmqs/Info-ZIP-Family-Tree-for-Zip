@@ -11,7 +11,7 @@ ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
 a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 
-Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -425,6 +425,9 @@ extern int display_bytes;       /* display running bytes remaining */
 extern int display_globaldots;  /* display dots for archive instead of for each file */
 extern int display_volume;      /* display current input and output volume (disk) numbers */
 extern int display_usize;       /* display uncompressed bytes */
+extern int display_est_to_go;   /* display estimated time to go */
+extern int display_time;        /* display time start each entry */
+extern int display_zip_rate;    /* display bytes per second rate */
 extern ulg files_so_far;        /* files processed so far */
 extern ulg bad_files_so_far;    /* files skipped so far */
 extern ulg files_total;         /* files total to process */
@@ -432,6 +435,11 @@ extern uzoff_t bytes_so_far;    /* bytes processed so far (from initial scan) */
 extern uzoff_t good_bytes_so_far;/* good bytes read so far */
 extern uzoff_t bad_bytes_so_far;/* bad bytes skipped so far */
 extern uzoff_t bytes_total;     /* total bytes to process (from initial scan) */
+#ifdef ENABLE_ENTRY_TIMING
+ extern uzoff_t start_zip_time; /* when start zipping files (after scan) in usec */
+ extern uzoff_t current_time;   /* current time in usec */
+#endif
+extern time_t clocktime;        /* current time */
 /* logfile 6/5/05 */
 extern int logall;          /* 0 = warnings/errors, 1 = all */
 extern FILE *logfile;           /* pointer to open logfile or NULL */
@@ -533,6 +541,14 @@ extern int logfile_line_started; /* 1=started writing a line to logfile */
 extern char *key;               /* Scramble password or NULL */
 extern char *tempath;           /* Path for temporary files */
 extern FILE *mesg;              /* Where informational output goes */
+/* dll progress */
+extern uzoff_t bytes_read_this_entry; /* bytes read from current input file */
+extern uzoff_t bytes_expected_this_entry; /* uncompressed size from scan */
+extern char *entry_name;        /* used by DLL to pass z->zname to file_read() */
+#ifdef ENABLE_DLL_PROGRESS
+ extern uzoff_t progress_chunk_size;  /* how many bytes before next progress report */
+ extern uzoff_t last_progress_chunk;  /* used to determine when to send next report */
+#endif
 
 extern char **args;             /* Copy of argv that can be updated and freed */
 
@@ -877,7 +893,7 @@ void     bi_init      OF((char *, unsigned int, int));
    void   vms_exit        OF((int));                           /* vms.c */
 #ifndef UTIL
 #ifdef VMSCLI
-   ulg    vms_zip_cmdline OF((int *, char ***));                /* cmdline.c */
+   unsigned int vms_zip_cmdline OF((int *, char ***));          /* cmdline.c */
    void   VMSCLI_help     OF((void));                           /* cmdline.c */
 #endif /* VMSCLI */
 #endif /* !UTIL */
@@ -929,6 +945,10 @@ void     bi_init      OF((char *, unsigned int, int));
 /*
 # endif
 */
+#endif
+
+#ifdef ENABLE_ENTRY_TIMING
+uzoff_t get_time_in_usec OF(());
 #endif
 
 

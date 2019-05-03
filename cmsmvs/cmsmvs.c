@@ -127,15 +127,18 @@ int *pdosflag;          /* output: force MSDOS file attributes? */
        while (--t > n)
           if (*t == '.')
             *t = '/';
+    }
   }
   else if (mvs_mode == 1) {
     /* Leave path in current form (aaa.bbb.ccc.ddd) */
+    t = n;
   }
   else if (mvs_mode == 2) {
     /* Change all '.' to '/' */
-    while (*t)
+    for (t = n; *t; t++)
       if (*t == '.')
         *t = '/';
+    t = n;
   }
 #else
   /* On CMS, remove the filemode (all past 2nd '.') */
@@ -192,7 +195,8 @@ ulg d;                  /* dos-style time to change it to */
 ulg filetime(f, a, n, t)
 char *f;                /* name of file to get info on */
 ulg *a;                 /* return value: file attributes */
-long *n;                /* return value: file size */
+/*    RBW  --  2009/06/12  --  sync usage here with ../zip.h  */
+zoff_t *n;              /* return value: file size */
 iztimes *t;             /* return value: access, modific. and creation times */
 {
   FILE *stream;
@@ -204,10 +208,40 @@ iztimes *t;             /* return value: access, modific. and creation times */
         return 0;
      } else {
         if (n != NULL) {
+/*
+    RBW  --  2009/07/03  --  ***  PROBLEM HERE!!!  Use of plain fseek/ftell
+             breaks large file support: file size gets truncated at 32 bits.
+             Things to try:
+	     1)  Add LARGE_FILES logic with zfseeko + zftello here.
+	     Let's just change these without any ifdefs & hope the defs in
+	     tailor.h took care of the system-specific issues? That works.
+             2)  cf. ../unix/unix.c, which uses stat instead - doesn't mess
+	     with file position.
+	     3)  Also look at zoff_t ffile_size( file) in zipfile.c - uses
+	     zfseeko + zftello.
+	     Not sure what works with pre-z/OS or CMS. Anyone who can
+	     volunteer some information here, please do so.
+	     CAVEAT:  Does the next function - set_extra_field - need some
+	     doctoring, too?
+*/
+
+/* Plain fseek() and ftell() probably should never be used.  Always
+   use zfseeko() and zftello() and ensure the port has a mapping
+   for these.  - EG  */
+
+/* #if defined(ZOS) */
            /* With byteseek, this will work */
+           zfseeko(stream, (zoff_t) 0, SEEK_END);
+           *n = zftello(stream);
+/* #else */
+           /* With byteseek, this will work */
+/*
            fseek(stream, 0L, SEEK_END);
            *n = ftell(stream);
-           Trace((mesg, "file size = %lu\n", *((ulg *)n)));
+*/
+/* #endif */
+/* This should be converted to use the 64-bit output formatter */
+/*           Trace((mesg, "file size = %lu\n", *((ulg *)n))); */
         }
         fclose(stream);
      }
@@ -215,7 +249,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
   else {
      /* Reading from stdin */
      if (n != NULL) {
-        *n = -1L;
+        *n = (zoff_t) -1;
      }
   }
 
@@ -229,7 +263,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
      *a = 0;
 
   return unix2dostime(&ltime);
-}
+}        /*    END  function filetime  */
 
 
 

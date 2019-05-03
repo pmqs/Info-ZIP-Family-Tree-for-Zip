@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -46,6 +46,20 @@
 #include <ssdef.h>
 #include <stsdef.h>
 #include <starlet.h>
+
+/* On VAX, define Goofy VAX Type-Cast to obviate /standard = vaxc.
+   Otherwise, lame system headers on VAX cause compiler warnings.
+   (GNU C may define vax but not __VAX.)
+*/
+#ifdef vax
+# define __VAX 1
+#endif /* def vax */
+
+#ifdef __VAX
+# define GVTC (unsigned int)
+#else /* def __VAX */
+# define GVTC
+#endif /* def __VAX */
 
 /* Directory file type with version, and its strlen(). */
 #define DIR_TYPE_VER ".DIR;1"
@@ -730,11 +744,21 @@ int wild( char *p)
   vms_wild(p, d);       /* pattern may be more than just directory name */
 
   /*
-   * Save version specified by user to use in recursive drops into
-   * subdirectories.
+   * For a non-directory file, save the version specified by the user
+   * for use in recursive drops into subdirectories.  (If the user
+   * specifies "-r fred.dir;1", then we don't want to save the ";1".)
    */
-  strncpy(wild_version_part, d->nam.NAM_L_VER, d->nam.NAM_B_VER);
-  wild_version_part[d->nam.NAM_B_VER] = '\0';
+
+  if (((d->nam.NAM_B_TYPE+ d->nam.NAM_B_VER) == DIR_TYPE_VER_LEN) &&
+   strncasecmp( d->nam.NAM_L_TYPE, DIR_TYPE_VER, DIR_TYPE_VER_LEN) == 0)
+  {
+    wild_version_part[ 0] = '\0';
+  }
+  else
+  {
+    strncpy(wild_version_part, d->nam.NAM_L_VER, d->nam.NAM_B_VER);
+    wild_version_part[d->nam.NAM_B_VER] = '\0';
+  }
 
   f = 0;
   while ((e = readd(d)) != NULL)        /* "dosmatch" is already built in */
@@ -1478,24 +1502,210 @@ ulg filetime( char *f, ulg *a, zoff_t *n, iztimes *t)
 #endif
 }
 
-int deletedir( char *d)
-/* char *d;                directory to delete */
+int deletedir( char *dir_name)
+/* char *dir_name;              directory to delete */
 
-/* Delete the directory *d if it is empty, do nothing otherwise.
-   Return the result of rmdir(), delete(), or system().
-   For VMS, d must be in format [x.y]z.dir;1  (not [x.y.z]).
+/* Delete the directory *dir_name if it is empty, do nothing otherwise.
+   Return the result of delete().
+   For VMS, dir_name must be in format [x.y]z.dir;1  (not [x.y.z]).
  */
+
+ /* original code from Greg Roelofs, who horked it from Mark Edwards (unzip) */
+ /*
+   int r, len;
+   char *s;
+
+   len = strlen(d);
+   if ((s = malloc(len + 34)) == NULL)
+     return 127;
+
+   system(strcat(strcpy(s, "set prot=(o:rwed) "), d));
+   r = delete(d);
+   free(s);
+   return r;
+  */
+
+  /* 2009-11-28 SMS.
+    Changed to use $QIOW instead of system( "set prot=(o:rwed) <dir>"),
+    to eliminate annoying %SET-E-PRONOTCHG messages when SET PROTECTION
+    failed.  The new scheme adds (S:D, O:D, G:D, W:D) if the original
+    protection can be read.  Otherwise, it attempts to set the protection
+    to (S:D, O:D, G:D, W:D), which will probably fail (but quietly).
+  */
+
 {
-    /* code from Greg Roelofs, who horked it from Mark Edwards (unzip) */
-    int r, len;
-    char *s;              /* malloc'd string for system command */
+    int i;
+    int ret;
+    int sts;
 
-    len = strlen(d);
-    if ((s = malloc(len + 34)) == NULL)
-      return 127;
+    struct FAB        fab;           /* File Access Block */
+    struct RAB        rab;           /* Record Access Block */
+    struct NAM_STRUCT nam;           /* Name Block */
 
-    system(strcat(strcpy(s, "set prot=(o:rwed) "), d));
-    r = delete(d);
-    free(s);
-    return r;
+    int atr_devchn;                  /* Disk device channel. */
+
+    struct fibdef    atr_fib;        /* File Information Block. */
+
+    /* Disk device name descriptor. */
+    struct dsc$descriptor_s atr_devdsc =
+     { 0, DSC$K_DTYPE_T, DSC$K_CLASS_S, NULL };
+
+    /* File Information Block descriptor. */
+    struct dsc$descriptor atr_fibdsc =
+     { sizeof( atr_fib), DSC$K_DTYPE_Z, DSC$K_CLASS_S, NULL };
+
+    /* File name descriptor. */
+    struct dsc$descriptor_s atr_fnam =
+     { 0, DSC$K_DTYPE_T, DSC$K_CLASS_S, NULL };
+
+    /* IOSB for QIO[W] miscellaneous ACP operations. */
+    struct
+    {
+        unsigned short  status;
+        unsigned short  dummy;
+        unsigned int    count;
+    } atr_acp_iosb;
+
+    /* Attribute item list: file protection, terminator. */
+    struct atrdef atr_atr[ 2] =
+     { { ATR$S_FPRO, ATR$C_FPRO, GVTC NULL },
+       { 0, 0, GVTC NULL }
+     };
+
+    unsigned short atr_prot;
+
+    /* Expanded name storage. */
+    char exp_nam[ NAM_MAXRSS];
+
+    /* Special ODS5-QIO-compatible name storage. */
+#ifdef NAML$C_MAXRSS
+    char sys_nam[ NAML$C_MAXRSS];       /* Probably need less here. */
+#endif /* NAML$C_MAXRSS */
+
+    fab = cc$rms_fab;                   /* Initialize FAB. */
+    rab = cc$rms_rab;                   /* Initialize RAB. */
+    nam = CC_RMS_NAM;                   /* Initialize NAM[L]. */
+
+    rab.rab$l_fab = &fab;               /* Point RAB to FAB. */
+    fab.FAB_NAM = &nam;                 /* Point FAB to NAM[L]. */
+
+#ifdef NAML$C_MAXRSS
+
+    fab.fab$l_dna = (char *) -1;        /* Using NAML for default name. */
+    fab.fab$l_fna = (char *) -1;        /* Using NAML for file name. */
+
+    /* Special ODS5-QIO-compatible name storage. */
+    nam.naml$l_filesys_name = sys_nam;
+    nam.naml$l_filesys_name_alloc = sizeof( sys_nam);
+
+#endif /* NAML$C_MAXRSS */
+
+    /* File specification. */
+    FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = dir_name;
+    FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen( dir_name);
+
+    /* Expanded name storage. */
+    nam.NAM_ESA = exp_nam;
+    nam.NAM_ESS = sizeof(exp_nam);
+
+    sts = sys$parse( &fab);
+    if ((sts& STS$M_SEVERITY) == STS$M_SUCCESS)
+    {
+        /* Set the address in the device name descriptor. */
+        atr_devdsc.dsc$a_pointer = &nam.NAM_DVI[ 1];
+
+        /* Set the length in the device name descriptor. */
+        atr_devdsc.dsc$w_length = (unsigned short) nam.NAM_DVI[ 0];
+
+        /* Open a channel to the disk device. */
+        sts = sys$assign( &atr_devdsc, &atr_devchn, 0, 0);
+        if ((sts& STS$M_SEVERITY) == STS$M_SUCCESS)
+        {
+            /* Move the directory ID from the NAM[L] to the FIB.
+               Clear the FID in the FIB, as we're using the name.
+            */
+            for (i = 0; i < 3; i++)
+            {
+                atr_fib.FIB$W_DID[i] = nam.NAM_DID[i];
+                atr_fib.FIB$W_FID[i] = 0;
+            }
+
+#ifdef NAML$C_MAXRSS
+
+            /* Enable fancy name characters.  Note that "fancy" here does
+               not include Unicode, for which there's no support elsewhere.
+            */
+            atr_fib.fib$v_names_8bit = 1;
+            atr_fib.fib$b_name_format_in = FIB$C_ISL1;
+
+            /* ODS5 Extended names used as input to QIO have peculiar
+               encoding (perhaps to minimize storage?), so the special
+               filesys_name result (typically containing fewer carets) must
+               be used here.
+            */
+            atr_fnam.dsc$a_pointer = nam.naml$l_filesys_name;
+            atr_fnam.dsc$w_length = nam.naml$l_filesys_name_size;
+
+#else /* def NAML$C_MAXRSS */
+
+            /* ODS2-only: Use the whole name. */
+            atr_fnam.dsc$a_pointer = nam.NAM_L_NAME;
+            atr_fnam.dsc$w_length =
+             nam.NAM_B_NAME+ nam.NAM_B_TYPE+ nam.NAM_B_VER;
+
+#endif /* def NAML$C_MAXRSS [else] */
+
+            /* Set the address in the FIB descriptor. */
+            atr_fibdsc.dsc$a_pointer = (void *) &atr_fib;
+
+            /* Set the address of the prot word in the prot descriptor. */
+            atr_atr[ 0].atr$l_addr = GVTC &atr_prot;
+
+            /* Fetch the file (directory) protection attributes. */
+            sts = sys$qiow( 0,                  /* event flag */
+                            atr_devchn,         /* channel */
+                            IO$_ACCESS,         /* function code */
+                            &atr_acp_iosb,      /* IOSB */
+                            0,                  /* AST address */
+                            0,                  /* AST parameter */
+                            &atr_fibdsc,        /* P1 = File Info Block */
+                            &atr_fnam,          /* P2 = File name */
+                            0,                  /* P3 = Rslt nm len */
+                            0,                  /* P4 = Rslt nm str */
+                            atr_atr,            /* P5 = Attributes */
+                            0);                 /* P6 (not used) */
+
+            /* Mask out or clear No-Delete bits. */
+            if ((sts & STS$M_SEVERITY) == STS$K_SUCCESS)
+            {
+                atr_prot &= 0x7777;     /* Add (S:D, O:D, G:D, W:D) */
+            }
+            else
+            {
+                atr_prot = 0x7777;      /* Set (S:D, O:D, G:D, W:D) */
+            }
+
+            /* Try to modify the file (directory) attributes. */
+            sts = sys$qiow( 0,                  /* event flag */
+                            atr_devchn,         /* channel */
+                            IO$_MODIFY,         /* function code */
+                            &atr_acp_iosb,      /* IOSB */
+                            0,                  /* AST address */
+                            0,                  /* AST parameter */
+                            &atr_fibdsc,        /* P1 = File Info Block */
+                            &atr_fnam,          /* P2 = File name */
+                            0,                  /* P3 = Rslt nm len */
+                            0,                  /* P4 = Rslt nm str */
+                            atr_atr,            /* P5 = Attributes */
+                            0);                 /* P6 (not used) */
+
+            if ((sts & STS$M_SEVERITY) == STS$K_SUCCESS)
+            {
+                sts = atr_acp_iosb.status;
+            }
+        }
+    }
+
+    ret = delete( dir_name);
+    return ret;
 }

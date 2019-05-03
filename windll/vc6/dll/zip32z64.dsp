@@ -94,6 +94,10 @@ SOURCE=..\..\..\api.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\api.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\crc32.c
 # End Source File
 # Begin Source File
@@ -143,6 +147,10 @@ SOURCE=..\..\..\win32\win32zip.c
 # Begin Source File
 
 SOURCE=..\..\..\windll\windll.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\windll.h
 # End Source File
 # Begin Source File
 

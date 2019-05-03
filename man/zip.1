@@ -12,9 +12,9 @@
 .\" 4 February 2007, 27 May 2007, 4 June 2007 by EG; 12 June 2007 by CS;
 .\" 30 August 2007, 27 April 2008, 25 May 2008, 27 May 2008 by EG,
 .\" 7 June 2008 by SMS and EG; 12 June 2008 by EG; 7 September 2008 by EG;
-.\" 3 April 2009 by EG)
+.\" 3 April 2009 by EG; 11 August 2009 by EG)
 .\"
-.TH ZIP 1L "3 April 2009 (v3.1)" Info-ZIP
+.TH ZIP 1L "12 August 2009 (v3.1)" Info-ZIP
 .SH NAME
 zip \- package and compress (archive) files
 .SH SYNOPSIS
@@ -794,6 +794,17 @@ also defaults to 10 MB) and this rate is also controlled by \fB-ds\fR.
 
 .TP
 .PD 0
+.B \-de
+.TP
+.PD
+.B \-\-display-est-to-go
+Display an estimate of the time to finish the archiving operation.  The estimate
+is based on the calculated rate of bytes / second, so the estimated times can vary as
+system loading and execution speed changes.  \fIzip\fP does not display an estimate
+until enough entries are processed to get a reasonable bytes / second rate.
+
+.TP
+.PD 0
 .B \-df
 .TP
 .PD
@@ -819,6 +830,17 @@ will turn off most output except dots every 10 MB.
 
 .TP
 .PD 0
+.B \-dr
+.TP
+.PD
+.B \-\-display-rate
+Display an estimate of the rate entries are being zipped in bytes / second.  The
+estimate can vary as system loading and execution speed changes.  \fIzip\fP does
+not display a rate estimate until enough entries are processed to get a reasonable
+rate.
+
+.TP
+.PD 0
 .B \-ds\ \fRsize
 .TP
 .PD
@@ -835,6 +857,14 @@ The \fB-v\fR option also displays dots and now defaults to
 This option does not control the dots from the "Scanning files" message as
 \fIzip\fP scans for input files.  The dot size for that is fixed at 2 seconds
 or a fixed number of entries, whichever is longer.
+
+.TP
+.PD 0
+.B \-dt
+.TP
+.PD
+.B \-\-display-time
+Display the current time as each entry is started.
 
 .TP
 .PD 0
@@ -2055,6 +2085,33 @@ is unchanged and (with the
 option) no input files are removed.  If a password is provided to \fIzip\fP
 using options \fB\-e\fP or \fB\-P\fP, that password is now used while testing
 the archive.
+
+The \fB\-T\fP option actually spawns the command "\fBunzip -tqq\fP tempname" to
+test the temporary archive (where tempname is replaced by \fIzip\fP with the path to the
+temporary archive being tested).  Usually this uses the default \fIunzip\fP on your
+system.  If this isn't doing it (such as when you create a 5 GB archive and
+your system has an old \fIunzip\fP that can't test it), either update the
+\fIunzip\fP on your system or use the \fB\-TT\fP option to specify what \fIunzip\fP
+to run.
+
+The -T option actually causes zip to spawn a command like "unzip -tqq
+tempname" to test the temporary archive, where zip replaces tempname
+with the path to the temporary archive being tested, and a "v" option on
+the zip command causes the "qq" to be omitted.  If multiple unzip
+programs are installed on the system, then a plain unzip command like
+this may not run the desired one.  (For example, "unzip" might lead to
+an old, small-file unzip program, which can't handle your 5GB archive.)
+One solution would be to change something like the (Unix) PATH or (VMS)
+symbol (or DCL$PATH) so that "unzip" runs the right program.  If this is
+not convenient, then use the zip option "-TT cmd" to specify the exact
+unzip command to be used.  For example:
+      zip -T -TT "unzipl -tqq" big_archive.zip
+      zip -T -TT '/usr/local/bin/unzip6 -tqq' big_archive.zip
+Note that -TT specifies the whole unzip command (including the "-tqq"
+options), not simply the unzip program itself.  Carelessness here can
+cause "zip -T" to extract files from the archive instead of merely
+testing it.
+
 .TP
 .PD 0
 .B \-TT\ \fPcmd

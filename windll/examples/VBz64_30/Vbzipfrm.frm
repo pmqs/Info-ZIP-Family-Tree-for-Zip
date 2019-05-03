@@ -2,10 +2,10 @@ VERSION 5.00
 Begin VB.Form Form1 
    AutoRedraw      =   -1  'True
    Caption         =   "Form1"
-   ClientHeight    =   4785
+   ClientHeight    =   3150
    ClientLeft      =   60
    ClientTop       =   345
-   ClientWidth     =   8880
+   ClientWidth     =   6570
    BeginProperty Font 
       Name            =   "MS Sans Serif"
       Size            =   9.75
@@ -16,8 +16,8 @@ Begin VB.Form Form1
       Strikethrough   =   0   'False
    EndProperty
    LinkTopic       =   "Form1"
-   ScaleHeight     =   4785
-   ScaleWidth      =   8880
+   ScaleHeight     =   3150
+   ScaleWidth      =   6570
    StartUpPosition =   1  'CenterOwner
 End
 Attribute VB_Name = "Form1"
@@ -63,14 +63,14 @@ Option Explicit
 '---------------------------------------------------------------
 
 '---------------------------------------------------------------
-' Zip32z64.dll is the new Zip32.dll based on Zip 3.1 and compiled
+' Zip32z64.dll is the new Zip32.dll based on Zip 3.0 and compiled
 ' with Zip64 support enabled.  See windll.txt in the windll directory
 ' for more on Zip32z64 and the comments in VBZipBas.bas.
 '
 ' Contact Info-Zip if problems.  This code is
 ' provided under the Info-Zip license.
 '
-' 4/24/2004, 12/4/2007, 5/22/2010 EG
+' 4/24/2004, 12/4/2007 EG
 '---------------------------------------------------------------
 
 Private Sub Form_Click()
@@ -94,7 +94,6 @@ Private Sub Form_Click()
   
   If Not SetZipOptions(ZOPT, _
                        ZipMode:=Add, _
-                       ProgressReportChunkSize:="100k", _
                        CompressionLevel:=c6_Default) Then
            ' Some additional options ...
            '            RootDirToZipFrom:="", _

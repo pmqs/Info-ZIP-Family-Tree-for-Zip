@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -213,23 +213,52 @@ int vms_stat( char *file, stat_t *s)
 #endif /* ndef CTL_FAC_IZ_ZIP [else] */
 
 
+/* Declare __posix_exit() if <stdlib.h> won't, and we use it. */
+
+#if __CRTL_VER >= 70000000 && !defined(_POSIX_EXIT)
+#  if !defined( NO_POSIX_EXIT)
+void     __posix_exit     (int __status);
+#  endif /* !defined( NO_POSIX_EXIT) */
+#endif /* __CRTL_VER >= 70000000 && !defined(_POSIX_EXIT)
+
+
 /* Return an intelligent status/severity code. */
 
 void vms_exit(e)
    int e;
 {
-  {
+#if !defined( NO_POSIX_EXIT) && (__CRTL_VER >= 70000000)
+
+    /* If the environment variable "SHELL" is defined, and not defined
+     * as "DCL" (by GNV "bash", for example), then use __posix_exit() to
+     * exit with the raw, UNIX-like status code.
+     */
+    char *sh_ptr;
+
+    sh_ptr = getenv( "SHELL");
+    if ((sh_ptr != NULL) && strcasecmp( sh_ptr, "DCL"))
+    {
+        __posix_exit( e);
+    }
+    else
+
+#endif /* #if !defined( NO_POSIX_EXIT) && (__CRTL_VER >= 70000000) */
+
+    {
 #ifndef OLD_STATUS
 
-    /*
-     * Exit with code comprising Control, Facility, (facility-specific)
-     * Message, and Severity.
-     */
-    exit( (CTL_FAC_IZ_ZIP << 16) |              /* Facility                */
-          MSG_FAC_SPEC |                        /* Facility-specific       */
-          (e << 4) |                            /* Message code            */
-          (ziperrors[ e].severity & 0x07)       /* Severity                */
-        );
+        /* If __posix_exit() is unavailable (__CRTL_VER < 70000000) or
+         * undesired (defined( NO_POSIX_EXIT)), or the environment
+         * variable "SHELL" is not defined, then:
+         *
+         * Exit with code comprising Control, Facility,
+         * (facility-specific) Message, and Severity.
+         */
+        exit( (CTL_FAC_IZ_ZIP << 16) |          /* Facility                */
+              MSG_FAC_SPEC |                    /* Facility-specific       */
+              (e << 4) |                        /* Message code            */
+              (ziperrors[ e].severity & 0x07)   /* Severity                */
+         );
 
 #else /* ndef OLD_STATUS */
 
@@ -251,17 +280,17 @@ void vms_exit(e)
      * Exit with simple SS$_NORMAL for ZE_OK.  Otherwise, exit with code
      * comprising Control, Facility, Message, and Severity.
      */
-    exit(
+        exit(
          (e == ZE_OK) ? SS$_NORMAL :            /* Success (others below)  */
-         ((CTL_FAC_IZ_ZIP << 16) |              /* Facility                */
+          ((CTL_FAC_IZ_ZIP << 16) |             /* Facility                */
           MSG_FAC_SPEC |                        /* Facility-specific (?)   */
           (e << 4) |                            /* Message code            */
           (ziperrors[ e].severity & 0x07)       /* Severity                */
-         )
-        );
+          )
+         );
 
 #endif /* ndef OLD_STATUS */
-   }
+    }
 }
 
 

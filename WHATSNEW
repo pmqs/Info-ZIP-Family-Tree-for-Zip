@@ -1,10 +1,10 @@
 What's New
 
-Last updated 2 April 2009
+Last updated 20 June 2010
 
 This file is the full list of new features and major changes for Zip 3.x
-by beta release.  See the announcement file zip31b.ann for a quick summary
-of all features and changes in Zip 3.1b (this beta).  Also see the file
+by beta release.  See the announcement file zip31c.ann for a quick summary
+of all features and changes in Zip 3.1c (this beta).  Also see the file
 README for release information, INSTALL for installation procedures, and
 the manual pages zip.txt, zipsplit.txt, zipcloak.txt, and zipnote.txt, as
 well as the extended help in Zip, for how to use the new features.  The
@@ -22,9 +22,9 @@ Below are some of the more significant items on the list for Zip 3.1
   are not yet supported (except for comments on UTF-8 native systems which
   are supported).
 - Verbose mode -v may still need work.
-- When pattern is directory add end / automatically.
+- When user pattern is a directory, add end / automatically.
 - Add C# example for Zip 3.1 (need to be converted to new DLLs) - original
-  C# example added with note.
+  C# example already added with note.
 - A way to rename paths in an archive (like ZipNote, but as creating archive).
 - UNC path support maybe.
 - Support for other languages maybe.
@@ -34,6 +34,57 @@ Below are some of the more significant items on the list for Zip 3.1
 
 MAJOR CHANGES BY BETA VERSION
 -----------------------------
+
+New things in Zip 3.1c
+
+- New EBCDIC -aa option to skip binary check.  Update EBCDIC message display code
+  to use standard display and logging functions.  Other EBCDIC updates, including
+  better handling of unprintable characters.
+- z/OS and MVS updates, including addition of 64-bit large file support.  Fixes
+  to -aa and -MV options to better support MVS.
+- MVS and z/OS makefile updates.  Create target for zos, which now works like the
+  generic target, and redirect os390 target to the zos target.  Detect z/OS or
+  OS/390 system, and set appropriate flags.  Detect IBM C compiler and set maximum
+  optimization level (this produced a 3-4x speedup in testing).
+- Add z/OS readme.
+- Update EXPENTRY entries for DLL.
+- Update extended help.
+- Fix file name memory leak.  Fix problem where patterns are not matching stored
+  paths when the -j option is used to strip the path.  Fix split_path bug and
+  memory leak.  Fix entries count rollover bug resulting in some archives with
+  large numbers of entries being rejected.
+- Add new options -dt (--display_time), -de (--display_est_to_go), and -dr
+  (--display_rate) options.  Option -dt displays the time each entry is started
+  and uses standard timing to one second resolution.  Option -de provides an
+  estimate of the time remaining to complete the operation based on the average
+  throughput rate so far.  Option -dr displays the current estimated throughput
+  rate.  Options -de and -dr use microsecond timing to get better rate estimates.
+- Add Fedora stack markings patch from Debian to prevent stack from being
+  executable.
+- For VMS, avoid saving a user-specified version (";1") when the user-specified
+  file is a directory.  Fix to eliminate annoying %SET-E-PRONOTCHG messages
+  when SET PROT failed during "zip -m" directory deletions.  Update handling of
+  exit codes.
+- Added checks for uname -m, uname -o, uname -p, uname -r, uname -s, and
+  uname -v to version information.
+- Minor Apple fixes.
+- Update DLL interface.  Add feature list that is returned to user.  Add
+  support for setting compression method from DLL.  Keep DLL Version fixed
+  at Zip 3.1 while DLL interface remains backward compatible, allowing DLL user
+  to check if DLL is compatible with calling code.  Add ProgressReport callback
+  giving user percent complete progress reports and allowing termination during
+  large file operations.  Add feature list string to Version callback so user
+  can check what features are compiled in and enabled.  Support separate Exclude
+  Before Date and Include Before Date so DLL user can set date range.  Fix bug
+  in DLL UTF-8 option bit checks.  Various cleanup changes.
+- Add bzip2 support to Windows DLL and LIB MSVS 6 projects.
+- Incomplete update of WinDLL C example.  Should be completed next beta.
+- More or less complete update of VB example that uses latest DLL interface
+  structures, sets up a ProgressReport callback, and implements new UTF8 options.
+- If logfile is specified as "-", suppress normal output (as -q) and send log
+  output to stdout.
+- Fix formatting of -dg global dot output.
+- Allow negating -j as replacement for -p, which is now deprecated.
 
 New things in Zip 3.1b
 

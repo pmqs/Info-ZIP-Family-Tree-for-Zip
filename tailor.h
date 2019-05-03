@@ -1,7 +1,7 @@
 /*
   tailor.h - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -132,12 +132,14 @@
 #   define _LARGEFILE_SOURCE    /* some OSes need this for fseeko */
 #   define _LARGEFILE64_SOURCE
 #   define _FILE_OFFSET_BITS 64 /* select default interface as 64 bit */
-#   define _LARGE_FILES         /* some OSes need this for 64-bit off_t */
+#   ifndef _LARGE_FILES
+#     define _LARGE_FILES       /* some OSes need this for 64-bit off_t */
+#   endif
 
     typedef off_t zoff_t;
     typedef unsigned long long uzoff_t;  /* unsigned zoff_t (12/29/04 EG) */
 
-    /* go with common prefix */
+    /* go with common prefix for use with printf */
 #   define ZOFF_T_FORMAT_SIZE_PREFIX "ll"
 
 # else
@@ -530,7 +532,11 @@ typedef struct ztimbuf {
      function names are mapped below. */
 
 /* ---------------------------- */
-# ifdef UNIX
+/*
+    RBW  --  2009/06/12  --  z/OS needs these 64-bit functions
+    defined for either the Unix or the MVS build.
+*/
+# if defined(UNIX) || defined(ZOS)
 
   /* Assume 64-bit file environment is defined.  The below should all
      be set to their 64-bit versions automatically.  Neat.  7/20/2004 EG */
@@ -561,6 +567,7 @@ typedef struct ztimbuf {
 
 # endif /* UNIX */
 
+
 /* ---------------------------- */
 # ifdef VMS
 
@@ -580,6 +587,7 @@ typedef struct ztimbuf {
 #   define zfdopen fdopen
 
 # endif /* def VMS */
+
 
 /* ---------------------------- */
 # ifdef WIN32
@@ -720,6 +728,7 @@ typedef struct ztimbuf {
 #   endif
 
 # endif /* WIN32 */
+
 
 #else
   /* No Large File Support or default for 64-bit environment */

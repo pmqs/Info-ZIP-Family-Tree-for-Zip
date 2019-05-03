@@ -1,7 +1,7 @@
 /*
   fileio.c - Zip 3
 
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -29,6 +29,11 @@
 #endif /* def VMS */
 
 #include <time.h>
+
+/* Tru64 needs <sys/time.h> to get timeval. */
+#if defined(__alpha) && defined(__osf__)
+#  include <sys/time.h>
+#endif /* defined(__alpha) && defined(__osf__) */
 
 #ifdef NO_MKTIME
 time_t mktime OF((struct tm *));
@@ -700,6 +705,7 @@ int newnamew(namew, isdir, casesensitive)
         return ZE_MEM;
       }
       strcpy(z->name, name);
+      if (z->oname) free(z->oname);
       z->oname = oname;
       oname = NULL;
       z->dosflag = dosflag;
@@ -1052,6 +1058,7 @@ int newname(name, flags, casesensitive)
         return ZE_MEM;
       }
       strcpy(z->name, name_flsys);
+      if (z->oname) free(z->oname);
       z->oname = oname;
       z->dosflag = dosflag;
 
@@ -2945,6 +2952,27 @@ size_t bfwrite(buffer, size, count, mode)
 }
 
 
+
+/* --- Entry Timing --- */
+
+/* If entry timing is enabled, get_time_in_us() is used
+   to determine rate in bytes / second.  */
+#ifdef ENABLE_ENTRY_TIMING
+# ifndef WIN32
+
+uzoff_t get_time_in_usec()
+{
+  struct timeval now; 
+
+  gettimeofday(&now, NULL);
+  return now.tv_sec * 1000000 + now.tv_usec;
+}
+
+# endif
+#endif
+
+
+
 #ifdef UNICODE_SUPPORT
 
 /*---------------------------------------------
@@ -3546,7 +3574,24 @@ char *local_to_display_string(local_string)
   /* convert to OEM display character set */
   local_to_oem_string(temp_string, local_string);
 #else
-# ifdef UNIX
+/*
+  RBW  --  2009/06/25  --  FIX ME!
+  Maybe we should do this for EBCDIC, but this code is definitely ASCII
+  oriented.  We need to re-think this.
+  Some casting is required, or EBCDIC numerals (0xf0, 0xf1, etc.) will
+  evaluate negative on z/OS (ergo, < ' ').
+  Make sure '^' (0x5e ->0xb0) and '@' (0x40 ->0x7c) get translated
+  properly when this code is uploaded to a mainframe to compile.
+  Substituting '@' + [0-31] throws the low 32 chars into the range of
+  ASCII upper case letters.  But no such luck with EBCDIC - and in
+  EBCDIC there is no contiguous run of 64 (' ' = 0x40) safe characters!
+  Unfortunately, I think stupid unprintable characters are allowed in
+  filenames in the USS environment (but not MVS), though I've never
+  seen anyone try to use them.
+  For now, I think we shouldn't bother.  This doesn't affect the storing
+  of filenames, just displaying them.
+*/
+# if defined(UNIX) && !defined(EBCDIC)
   /* Copy source string, expanding non-printable characters to "^x". */
   cp_dst = temp_string;
   cp_src = local_string;
@@ -3565,6 +3610,17 @@ char *local_to_display_string(local_string)
 # endif /* UNIX */
 #endif
 
+/*  RBW  --  2009/06/22  */
+/*
+  I think this block got misplaced.  
+  It used to be below the EBCDIC block.
+*/
+  if ((display_string = (char *)malloc(strlen(temp_string) + 1)) == NULL) {
+    ZIPERR(ZE_MEM, "local_to_display_string");
+  }
+  strcpy(display_string, temp_string);
+  free(temp_string);
+
 #ifdef EBCDIC
   {
     char *ebc;
@@ -3577,12 +3633,6 @@ char *local_to_display_string(local_string)
     display_string = ebc;
   }
 #endif
-
-  if ((display_string = (char *)malloc(strlen(temp_string) + 1)) == NULL) {
-    ZIPERR(ZE_MEM, "local_to_display_string");
-  }
-  strcpy(display_string, temp_string);
-  free(temp_string);
 
   return display_string;
 }

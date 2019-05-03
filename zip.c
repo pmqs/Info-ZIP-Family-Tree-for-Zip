@@ -1,7 +1,7 @@
 /*
   zip.c - Zip 3
 
-  Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -615,6 +615,7 @@ local void help()
 "  -a   translate to ASCII           -B   force binary read (text is default)",
 #else  /* !CMS_MVS */
 "  -a   translate to ASCII",
+"  -aa  Handle all files as ASCII text files, EBCDIC/ASCII conversions.",
 #endif /* ?CMS_MVS */
 #endif /* EBCDIC */
 #ifdef TANDEM
@@ -729,6 +730,7 @@ local void help_extended()
 "  -r        recurse into directories (see Recursion below)",
 "  -m        after archive created, delete original files (move into archive)",
 "  -j        junk directory names (store just file names)",
+"  -p        include relative dir path (deprecated) - use -j- instead (default)",
 "  -q        quiet operation",
 "  -v        verbose operation (just \"zip -v\" shows version information)",
 "  -c        prompt for one-line comment for each entry",
@@ -908,16 +910,26 @@ local void help_extended()
 "              (uncompressed size, except delete and copy show stored size)",
 "  -dc       display running count of entries done and entries to go",
 "  -dd       display dots every 10 MB (or dot size) while processing files",
+"  -de       display estimated time to go",
 "  -dg       display dots globally for archive instead of for each file",
 "    zip -qdgds 10m   will turn off most output except dots every 10 MB",
+"  -dr       display estimated zipping rate in bytes/sec",
 "  -ds siz   each dot is siz processed where siz is nm as splits (0 no dots)",
+"  -dt       display time started zipping entry in day/hr:min:sec format",
 "  -du       display original uncompressed size for each entry as added",
 "  -dv       display volume (disk) number in format in_disk>out_disk",
 "  Dot size is approximate, especially for dot sizes less than 1 MB",
 "  Dot options don't apply to Scanning files dots (dot/2sec) (-q turns off)",
+"  Options -de and -dr do not display for first few entries as calc rate",
 "",
 "Logging:",
 "  -lf path  open file at path as logfile (overwrite existing file)",
+"             If path is \"-\" send log output to stdout, replacing normal",
+"             output (implies -q).  Without -li, only end summary and any",
+"             errors reported.  Cannot use with -la or -v.",
+"    zip -lf - -dg -ds 10m -r archive.zip foo",
+"             will zip up directory foo, displaying just dots every 10 MB",
+"             and an end summary.",
 "  -la       append to existing logfile",
 "  -li       include info messages (default just warnings and errors)",
 "",
@@ -1011,6 +1023,10 @@ local void help_extended()
 "             are then off.  Use -A to fix offsets.",
 "  -J        Junk sfx - removes prepended extractor executable from",
 "             self extractor, leaving a plain zip archive.",
+"",
+"EBCDIC (MVS, z/OS):",
+"  -a        Translate from EBCDIC to ASCII",
+"  -aa       Handle all files as text files, do EBCDIC/ASCII conversions",
 "",
 "More option highlights (see manual for additional options and details):",
 "  -pp prfx  prefix string prfx to all paths in archive",
@@ -1207,6 +1223,33 @@ local void version_info()
   printf("        WSIZE=%u\n", WSIZE);
 #endif
 
+
+/*
+  RBW  --  2009/06/23  --  TEMP TEST for devel...drop when done.
+  Show what some critical sizes are. For z/OS, long long and off_t
+  must be 8 bytes (off_t is a typedefed long long), and fseeko must
+  take zoff_t as its 2nd arg.
+*/
+#if 0
+  printf("* size of int:         %d\n", sizeof(int));        /* May be 4 */
+  printf("* size of long:        %d\n", sizeof(long));       /* May be 4 */
+  printf("* size of long long:   %d\n", sizeof(long long));  /* Must be 8 */
+  printf("* size of off_t:       %d\n", sizeof(off_t));      /* Must be 8 */
+#  ifdef __LF
+  printf("__LF is defined.\n");
+  printf("  off_t must be defined as a long long\n");
+#  else /* not all compilers know elif */
+#   if defined(_LP64)
+  printf("_LP64 is defined.\n");
+  printf("  off_t must be defined as a long\n");
+#   else
+  printf("Neither __LF nor _LP64 is defined.\n");
+  printf("  off_t must be defined as an int\n");
+#   endif
+#  endif
+#endif
+
+
   /* Fill in bzip2 version.  (32-char limit valid as of bzip 1.0.3.) */
 #ifdef BZIP2_SUPPORT
   sprintf( bz_opt_ver,
@@ -1305,7 +1348,18 @@ local int check_unzip_version(unzippath)
     strncat(cmd, unzippath, 4000);
     strcat(cmd, " -v");
 
+# if defined(ZOS)
+    /*  RBW  --  More z/OS - MVS nonsense.  Cast shouldn't be needed. */
+    /*  Real fix is probably to find where popen is defined...        */
+    /*  The compiler seems to think it's returning an int.            */
+
+    /* Assuming the cast is needed for z/OS, probably can put it in
+       the main code version and drop this #if.  Other ports shouldn't
+       have trouble with the cast, but left it as is for now.  - EG   */
+    if ((unzip_out = (FILE *) popen(cmd, "r")) == NULL) {
+# else
     if ((unzip_out = popen(cmd, "r")) == NULL) {
+# endif
       perror("unzip pipe error");
     } else {
       if (fgets(buf, 1000, unzip_out) == NULL) {
@@ -1470,7 +1524,7 @@ local void check_zipfile(zipname, zippath)
           strcpy(k, "\"");
           strcat(k, key);
           strcat(k, "\"");
-      
+
           status = spawnlp(P_WAIT, path, "unzip", verbose ? "-t" : "-tqq",
                            "-P", k, zipnam, NULL);
           free(k);
@@ -1623,8 +1677,10 @@ local int add_filter(flag, pattern)
   int flag;
   char *pattern;
 {
-  char *iname, *p = NULL;
+  char *iname;
+  int pathput_save;
   FILE *fp;
+  char *p = NULL;
   struct filterlist_struct *filter = NULL;
 
   /* should never happen */
@@ -1657,8 +1713,14 @@ local int add_filter(flag, pattern)
         lastfilter->next = filter;   /* link to last filter in list */
         lastfilter = filter;
       }
+
+      /* always store full path for pattern matching */
+      pathput_save = pathput;
+      pathput = 1;
       iname = ex2in(p, 0, (int *)NULL);
+      pathput = pathput_save;
       free(p);
+      
       if (iname != NULL) {
         lastfilter->pattern = in2ex(iname);
         free(iname);
@@ -1683,7 +1745,13 @@ local int add_filter(flag, pattern)
       lastfilter->next = filter;   /* link to last filter in list */
       lastfilter = filter;
     }
+
+    /* always store full path for pattern matching */
+    pathput_save = pathput;
+    pathput = 1;
     iname = ex2in(pattern, 0, (int *)NULL);
+    pathput = pathput_save;
+
     if (iname != NULL) {
        lastfilter->pattern = in2ex(iname);
        free(iname);
@@ -1770,7 +1838,7 @@ local int DisplayRunningStats()
 {
   char tempstrg[100];
 
-  if (mesg_line_started) {
+  if (mesg_line_started && !display_globaldots) {
     fprintf(mesg, "\n");
     mesg_line_started = 0;
   }
@@ -1824,6 +1892,149 @@ local int DisplayRunningStats()
         fprintf(logfile, "-%4s] ", tempstrg);
     }
   }
+  if (display_time || display_est_to_go || display_zip_rate) {
+    /* get current time */
+    time(&clocktime);
+  }
+  if (display_time) {
+    struct tm *now;
+
+    now = localtime(&clocktime);
+
+    /* avoid strftime() to keep old systems (like old VMS) happy */
+    sprintf(errbuf, "%02d/%02d:%02d:%02d", now->tm_mday, now->tm_hour,
+                                           now->tm_min, now->tm_sec);
+    /* strftime(errbuf, 50, "%d/%X", now); */
+    /* strcpy(errbuf, asctime(now)); */
+
+    if (noisy) {
+      fprintf(mesg, "%s ", errbuf);
+      mesg_line_started = 1;
+    }
+    if (logall) {
+      fprintf(logfile, "%s ", errbuf);
+      logfile_line_started = 1;
+    }
+  }
+#ifdef ENABLE_ENTRY_TIMING
+  if (display_est_to_go || display_zip_rate) {
+    /* get estimated time to go */
+    uzoff_t bytes_to_go = bytes_total - bytes_so_far;
+    uzoff_t elapsed_time_in_usec;
+    uzoff_t elapsed_time_in_10msec;
+    uzoff_t bytes_per_second = 0;
+    uzoff_t time_to_go = 0;
+    int secs;
+    int mins;
+    int hours;
+
+    current_time = get_time_in_usec();
+
+    /* First time through we just finished the file scan and
+       are starting to actually zip entries.  Use that time
+       to calculate zipping speed. */
+    if (start_zip_time == 0) {
+      start_zip_time = current_time;
+    }
+    elapsed_time_in_usec = current_time - start_zip_time;
+    elapsed_time_in_10msec = elapsed_time_in_usec / 10000;
+
+    /* Seems best to wait about 90 msec for counts to stablize
+       before displaying estimates of time to go. */
+    if (display_est_to_go && elapsed_time_in_10msec > 8) {
+      /* calculate zipping rate */
+      bytes_per_second = (bytes_so_far * 100) / elapsed_time_in_10msec;
+      /* if going REALLY slow, assume at least 1 byte per second */
+      if (bytes_per_second < 1) {
+        bytes_per_second = 1;
+      }
+      /* calculate estimated time to go based on rate */
+      time_to_go = bytes_to_go / bytes_per_second;
+      secs = (int)(time_to_go % 60);
+      time_to_go /= 60;
+      mins = (int)(time_to_go % 60);
+      time_to_go /= 60;
+      hours = (int)time_to_go;
+
+      if (hours > 10) {
+        /* show hours */
+        sprintf(errbuf, "<%3dh to go>", hours);
+      } else if (hours > 0) {
+        /* show hours */
+        float h = (float)(hours + mins / 60.0);
+        sprintf(errbuf, "<%3.1fh to go>", h);
+      } else if (mins > 10) {
+        /* show minutes */
+        sprintf(errbuf, "<%3dm to go>", mins);
+      } else if (mins > 0) {
+        /* show minutes */
+        float m = (float)(mins + secs / 60.0);
+        sprintf(errbuf, "<%3.1fm to go>", m);
+      } else {
+        /* show seconds */
+        int s = mins * 60 + secs;
+        sprintf(errbuf, "<%3ds to go>", s);
+      }
+      /* sprintf(errbuf, "<%02d:%02d:%02d to go> ", hours, mins, secs); */
+      if (noisy) {
+        fprintf(mesg, "%s ", errbuf);
+        mesg_line_started = 1;
+      }
+      if (logall) {
+        fprintf(logfile, "%s ", errbuf);
+        logfile_line_started = 1;
+      }
+    }
+# if 0
+    else {
+      /* first time have no data */
+      sprintf(errbuf, "<>");
+      if (noisy) {
+        fprintf(mesg, "%s ", errbuf);
+        mesg_line_started = 1;
+      }
+      if (logall) {
+        fprintf(logfile, "%s ", errbuf);
+        logfile_line_started = 1;
+      }
+    }
+# endif
+
+    if (display_zip_rate && elapsed_time_in_usec > 0) {
+      /* calculate zipping rate */
+      bytes_per_second = (bytes_so_far * 100) / elapsed_time_in_10msec;
+      /* if going REALLY slow, assume at least 1 byte per second */
+      if (bytes_per_second < 1) {
+        bytes_per_second = 1;
+      }
+
+      WriteNumString(bytes_per_second, tempstrg);
+      sprintf(errbuf, "{%4sB/s}", tempstrg);
+      if (noisy) {
+        fprintf(mesg, "%s ", errbuf);
+        mesg_line_started = 1;
+      }
+      if (logall) {
+        fprintf(logfile, "%s ", errbuf);
+        logfile_line_started = 1;
+      }
+    }
+# if 0
+    else {
+      /* first time have no data */
+      sprintf(errbuf, "{}");
+      if (noisy) {
+        fprintf(mesg, "%s ", errbuf);
+        mesg_line_started = 1;
+      }
+      if (logall) {
+        fprintf(logfile, "%s ", errbuf);
+        logfile_line_started = 1;
+      }
+    }
+# endif
+  }
+#endif /* ENABLE_ENTRY_TIMING */
   if (noisy)
       fflush(mesg);
   if (logall)
@@ -1998,49 +2209,52 @@ int set_filetype(out_path)
 #define o_db            0x108
 #define o_dc            0x109
 #define o_dd            0x110
-#define o_des           0x111
-#define o_df            0x112
-#define o_DF            0x113
-#define o_dg            0x114
-#define o_ds            0x115
-#define o_du            0x116
-#define o_dv            0x117
-#define o_FF            0x118
-#define o_FI            0x119
-#define o_FS            0x120
-#define o_h2            0x121
-#define o_ic            0x122
-#define o_jj            0x123
-#define o_la            0x124
-#define o_lf            0x125
-#define o_li            0x126
-#define o_ll            0x127
-#define o_mm            0x128
-#define o_MM            0x129
-#define o_MV            0x130
-#define o_nw            0x131
-#define o_pp            0x132
-#define o_RE            0x133
-#define o_sb            0x134
-#define o_sc            0x135
+#define o_de            0x111
+#define o_des           0x112
+#define o_df            0x113
+#define o_DF            0x114
+#define o_dg            0x115
+#define o_dr            0x116
+#define o_ds            0x117
+#define o_dt            0x118
+#define o_du            0x119
+#define o_dv            0x120
+#define o_FF            0x121
+#define o_FI            0x122
+#define o_FS            0x123
+#define o_h2            0x124
+#define o_ic            0x125
+#define o_jj            0x126
+#define o_la            0x127
+#define o_lf            0x128
+#define o_li            0x129
+#define o_ll            0x130
+#define o_mm            0x131
+#define o_MM            0x132
+#define o_MV            0x133
+#define o_nw            0x134
+#define o_pp            0x135
+#define o_RE            0x136
+#define o_sb            0x137
+#define o_sc            0x138
 #ifdef UNICODE_TEST
-#define o_sC            0x136
+#define o_sC            0x139
 #endif
-#define o_sd            0x137
-#define o_sf            0x138
-#define o_so            0x139
-#define o_sp            0x140
-#define o_su            0x141
-#define o_sU            0x142
-#define o_sv            0x143
-#define o_tt            0x144
-#define o_TT            0x145
-#define o_UN            0x146
-#define o_ve            0x147
-#define o_VV            0x148
-#define o_ws            0x149
-#define o_ww            0x150
-#define o_z64           0x151
+#define o_sd            0x140
+#define o_sf            0x141
+#define o_so            0x142
+#define o_sp            0x143
+#define o_su            0x144
+#define o_sU            0x145
+#define o_sv            0x146
+#define o_tt            0x147
+#define o_TT            0x148
+#define o_UN            0x149
+#define o_ve            0x150
+#define o_VV            0x151
+#define o_ws            0x152
+#define o_ww            0x153
+#define o_z64           0x154
 
 
 /* the below is mainly from the old main command line
@@ -2049,8 +2263,8 @@ struct option_struct far options[] = {
   /* short longopt        value_type        negatable        ID    name */
 #ifdef EBCDIC
     {"a",  "ascii",       o_NO_VALUE,       o_NOT_NEGATABLE, 'a',  "to ASCII"},
-#endif /* EBCDIC */
     {"aa", "all-ascii",   o_NO_VALUE,       o_NOT_NEGATABLE, o_aa, "all files ASCII text (skip bin check)"},
+#endif /* EBCDIC */
 #ifdef CMS_MVS
     {"B",  "binary",      o_NO_VALUE,       o_NOT_NEGATABLE, 'B',  "binary"},
 #endif /* CMS_MVS */
@@ -2087,8 +2301,15 @@ struct option_struct far options[] = {
     {"db", "display-bytes", o_NO_VALUE,     o_NEGATABLE,     o_db, "display running bytes"},
     {"dc", "display-counts", o_NO_VALUE,    o_NEGATABLE,     o_dc, "display running file count"},
     {"dd", "display-dots", o_NO_VALUE,      o_NEGATABLE,     o_dd, "display dots as process each file"},
+#ifdef ENABLE_ENTRY_TIMING
+    {"de", "display-est-to-go", o_NO_VALUE, o_NEGATABLE,     o_de, "display estimated time to go"},
+#endif
     {"dg", "display-globaldots",o_NO_VALUE, o_NEGATABLE,     o_dg, "display dots for archive instead of files"},
-    {"ds", "dot-size",     o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_ds, "set progress dot size - default 10M bytes"},
+#ifdef ENABLE_ENTRY_TIMING
+    {"dr", "display-rate", o_NO_VALUE,      o_NEGATABLE,     o_dr, "display estimated zip rate in bytes/sec"},
+#endif
+    {"ds", "dot-size",     o_REQUIRED_VALUE,o_NOT_NEGATABLE, o_ds, "set progress dot size - default 10M bytes"},
+    {"dt", "display-time", o_NO_VALUE,      o_NOT_NEGATABLE, o_dt, "display time start each entry"},
     {"du", "display-usize", o_NO_VALUE,     o_NEGATABLE,     o_du, "display uncompressed size in bytes"},
     {"dv", "display-volume", o_NO_VALUE,    o_NEGATABLE,     o_dv, "display volume (disk) number"},
 #if defined( MACOS) || (defined( UNIX) && defined( __APPLE__))
@@ -2125,7 +2346,7 @@ struct option_struct far options[] = {
 #ifdef RISCOS
     {"I",  "no-image",    o_NO_VALUE,       o_NOT_NEGATABLE, 'I',  "no image"},
 #endif
-    {"j",  "junk-paths",  o_NO_VALUE,       o_NOT_NEGATABLE, 'j',  "strip paths and just store file names"},
+    {"j",  "junk-paths",  o_NO_VALUE,       o_NEGATABLE,     'j',  "strip paths and just store file names"},
 #ifdef MACOS
     {"jj", "absolute-path", o_NO_VALUE,     o_NOT_NEGATABLE, o_jj, "MAC absolute path"},
 #endif /* ?MACOS */
@@ -2245,7 +2466,8 @@ char **argv;            /* command line tokens */
   /* zip64 support 09/05/2003 R.Nausedat */
   uzoff_t c;            /* start of central directory */
   uzoff_t t;            /* length of central directory */
-  zoff_t k;             /* marked counter, comment size, entry count */
+  zoff_t k;             /* marked counter, entry count */
+  extent comment_size;  /* comment size */
   uzoff_t n;            /* total of entry len's */
 
   int o;                /* true if there were any ZE_OPEN errors */
@@ -2628,6 +2850,9 @@ char **argv;            /* command line tokens */
 #endif
   filter_match_case = 1;      /* default is to match case when matching archive entries */
   allow_fifo = 0;             /* 1=allow reading Unix FIFOs, waiting if pipe open */
+#ifdef ENABLE_ENTRY_TIMING
+  start_zip_time = 0;         /* after scan, when start zipping files */
+#endif
 
 #if defined(WINDLL)
   retcode = setjmp(zipdll_error_return);
@@ -2809,13 +3034,18 @@ char **argv;            /* command line tokens */
 #ifdef EBCDIC
       case 'a':
         aflag = ASCII;
-        printf("Translating to ASCII...\n");
+        zipmessage("Translating to ASCII...", "");
+        break;
+      case o_aa:
+        aflag = ASCII;
+        all_ascii = 1;
+        zipmessage("Skipping binary check, assuming all files text (ASCII)...", "");
         break;
 #endif /* EBCDIC */
 #ifdef CMS_MVS
         case 'B':
           bflag = 1;
-          printf("Using binary mode...\n");
+          zipmessage("Using binary mode...", "");
           break;
 #endif /* CMS_MVS */
 #ifdef TANDEM
@@ -2907,6 +3137,14 @@ char **argv;            /* command line tokens */
             dot_count = -1;
           }
           break;
+#ifdef ENABLE_ENTRY_TIMING
+        case o_de:
+          if (negated)
+            display_est_to_go = 0;
+          else
+            display_est_to_go = 1;
+          break;
+#endif
         case o_dg:
           /* display dots globally for archive instead of for each file */
           if (negated) {
@@ -2919,6 +3157,14 @@ char **argv;            /* command line tokens */
             dot_count = -1;
           }
           break;
+#ifdef ENABLE_ENTRY_TIMING
+        case o_dr:
+          if (negated)
+            display_zip_rate = 0;
+          else
+            display_zip_rate = 1;
+          break;
+#endif
         case o_ds:
           /* input dot_size is now actual dot size to account for
              different buffer sizes */
@@ -2952,6 +3198,12 @@ char **argv;            /* command line tokens */
             free(value);
           }
           dot_count = -1;
+          break;
+        case o_dt:
+          if (negated)
+            display_time = 0;
+          else
+            display_time = 1;
           break;
         case o_du:
           if (negated)
@@ -3037,7 +3289,11 @@ char **argv;            /* command line tokens */
             break;
 #endif /* ?MACOS */
         case 'j':   /* Junk directory names */
-          pathput = 0;  break;
+          if (negated)
+            pathput = 1;
+          else
+            pathput = 0;
+          break;
         case 'J':   /* Junk sfx prefix */
           junk_sfx = 1;  break;
         case 'k':   /* Make entries using DOS names (k for Katz) */
@@ -3118,6 +3374,7 @@ char **argv;            /* command line tokens */
           have_out = 1;
           break;
         case 'p':   /* Store path with name */
+          zipwarn("-p (include path) is deprecated.  Use -j- instead", "");
           break;            /* (do nothing as annoyance avoidance) */
         case o_pp:  /* Set prefix for paths of new entries in archive */
           if (path_prefix)
@@ -3729,41 +3986,59 @@ char **argv;            /* command line tokens */
     char *p;
     char *lastp;
 
-    /* if no extension add .log */
-    p = logfile_path;
-    /* find last / */
-    lastp = NULL;
-    for (p = logfile_path; (p = MBSRCHR(p, '/')) != NULL; p++) {
-      lastp = p;
-    }
-    if (lastp == NULL)
-      lastp = logfile_path;
-    if (MBSRCHR(lastp, '.') == NULL) {
-      /* add .log */
-      if ((p = malloc(strlen(logfile_path) + 5)) == NULL) {
-        ZIPERR(ZE_MEM, "logpath");
+    if (strlen(logfile_path) == 1 && logfile_path[0] == '-') {
+      /* log to stdout */
+      if (zip_to_stdout) {
+        ZIPERR(ZE_PARMS, "cannot send both zip and log output to stdout");
       }
-      strcpy(p, logfile_path);
-      strcat(p, ".log");
-      free(logfile_path);
-      logfile_path = p;
-    }
+      if (logfile_append) {
+        ZIPERR(ZE_PARMS, "cannot use -la when logging to stdout");
+      }
+      if (verbose) {
+        ZIPERR(ZE_PARMS, "cannot use -v when logging to stdout");
+      }
+      /* to avoid duplicate output, turn off normal messages to stdout */
+      noisy = 0;
+      /* send output to stdout */
+      logfile = stdout;
 
-    if (logfile_append) {
-      sprintf(mode, "a");
     } else {
-      sprintf(mode, "w");
+      /* not stdout */
+      /* if no extension add .log */
+      p = logfile_path;
+      /* find last / */
+      lastp = NULL;
+      for (p = logfile_path; (p = MBSRCHR(p, '/')) != NULL; p++) {
+        lastp = p;
+      }
+      if (lastp == NULL)
+        lastp = logfile_path;
+      if (MBSRCHR(lastp, '.') == NULL) {
+        /* add .log */
+        if ((p = malloc(strlen(logfile_path) + 5)) == NULL) {
+          ZIPERR(ZE_MEM, "logpath");
+        }
+        strcpy(p, logfile_path);
+        strcat(p, ".log");
+        free(logfile_path);
+        logfile_path = p;
+      }
+
+      if (logfile_append) {
+        sprintf(mode, "a");
+      } else {
+        sprintf(mode, "w");
+      }
+      if ((logfile = zfopen(logfile_path, mode)) == NULL) {
+        sprintf(errbuf, "could not open logfile '%s'", logfile_path);
+        ZIPERR(ZE_PARMS, errbuf);
+      }
     }
-    if ((logfile = zfopen(logfile_path, mode)) == NULL) {
-      sprintf(errbuf, "could not open logfile '%s'", logfile_path);
-      ZIPERR(ZE_PARMS, errbuf);
-    }
-    {
+    if (logfile != stdout) {
       /* At top put start time and command line */
 
       /* get current time */
       struct tm *now;
-      time_t clocktime;
 
       time(&clocktime);
       now = localtime(&clocktime);
@@ -3797,6 +4072,7 @@ char **argv;            /* command line tokens */
 
   /* process command line options */
 
+#if CRYPT
   /* Key not yet specified.  If needed, get/verify it now. */
   if (key_needed) {
     if ((key = malloc(IZ_PWLEN+1)) == NULL) {
@@ -3832,6 +4108,7 @@ char **argv;            /* command line tokens */
       ZIPERR(ZE_PARMS, "zero length password not allowed");
     }
   }
+#endif /* CRYPT */
 
   /* Check path prefix */
   if (path_prefix) {
@@ -4811,7 +5088,7 @@ char **argv;            /* command line tokens */
           int dir = 0;
           FILE *f;
 
-#if defined(UNICODE_SUPPORT) && defined(WIN32)
+# if defined(UNICODE_SUPPORT) && defined(WIN32)
           char *fn = NULL;
           wchar_t *fnw = NULL;
 
@@ -4838,7 +5115,7 @@ char **argv;            /* command line tokens */
             else
               f = fopen(fn, "w");
           }
-#else
+# else
           char *fn = NULL;
           if ((fn = malloc(strlen(z->zname) + 120)) == NULL)
             ZIPERR(ZE_MEM, "sC");
@@ -4854,7 +5131,7 @@ char **argv;            /* command line tokens */
             r = mkdir(fn, 0777);
           else
             f = fopen(fn, "w");
-#endif
+# endif
           if (dir) {
             if (r) {
               if (errno != 17) {
@@ -4997,7 +5274,8 @@ char **argv;            /* command line tokens */
     RETURN(finish(ZE_OK));
   }
 
-  d = (d && k == 0 && (zipbeg || zfiles != NULL)); /* d true if appending */
+  /* d true if appending */
+  d = (d && k == 0 && (zipbeg || zfiles != NULL));
 
 #if CRYPT
   /* Initialize the crc_32_tab pointer, when encryption was requested. */
@@ -6001,17 +6279,17 @@ char **argv;            /* command line tokens */
             fprintf(mesg, "Enter comment for %s:\n", z->oname);
           if (fgets(e, MAXCOM+1, comment_stream) != NULL)
           {
-            if ((p = malloc((extent)(k = strlen(e))+1)) == NULL)
+            if ((p = malloc((comment_size = strlen(e))+1)) == NULL)
             {
               free((zvoid *)e);
               ZIPERR(ZE_MEM, "was reading comment lines");
             }
             strcpy(p, e);
-            if (p[k-1] == '\n')
-              p[--k] = 0;
+            if (p[comment_size - 1] == '\n')
+              p[--comment_size] = 0;
             z->comment = p;
             /* zip64 support 09/05/2003 R.Nausedat */
-            z->com = (extent)k;
+            z->com = comment_size;
           }
         }
 #ifdef MACOS

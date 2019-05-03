@@ -36,8 +36,9 @@
 .!              Zip 3.0.
 .!      01-007          Ed Gordon               15-MAY-2007
 .!              Minor updates to Zip 3.0 help.
-.!      01-008          Steven Schweda          12-DEC-2008
+.!      01-008          Steven Schweda          21-MAY-2010
 .!              Minor tidying for version 3.1.
+.!              Adjusted /[NO]FULL_PATH and /[NO]JUNK usage.
 .!
 <INIT>
 <MAIN>
@@ -217,11 +218,11 @@ directory on a VMS system, it will regain the usual ".DIR;1" type and
 version.)
 
 You may want to make an archive ("foo.zip") that contains the files in
-[.foo], but not record the directory name, "foo".  You can use the /JUNK
-(junk path) option to leave off the path:
+[.foo], but not record the directory name, "foo".  You can use the
+/NOFULL_PATH option to leave off the path:
 
 <LITERAL>
-|  zip /junk foo [.foo]*.*
+|  zip /nofull foo [.foo]*.*
 <LARETIL>
 
 If you are short on disk space, you might not have enough room to hold
@@ -319,10 +320,10 @@ codes with facility code 1955 = %x7A3, and with the inhibit-message
 (%x10000000) and facility-specific (%x00008000) bits set:
 
 <LITERAL>
-|     %x17A38001                        normal exit
-|     %x17A38000+ 16* Zip_error_code    warnings
-|     %x17A38002+ 16* Zip_error_code    normal errors
-|     %x17A38004+ 16* Zip_error_code    fatal errors
+|%x17A38001                        normal exit
+|%x17A38000+ 16* Zip_error_code    warnings
+|%x17A38002+ 16* Zip_error_code    normal errors
+|%x17A38004+ 16* Zip_error_code    fatal errors
 <LARETIL>
 
 Note that multiplying the UNIX-style Zip error code by 16 places it
@@ -623,6 +624,7 @@ Adjust internal offsets of the Zip archive members after some data
 /APPEND
 
 /APPEND
+<NEXT>
 /GROW
 
 Grow (append to) the specified Zip archive, instead of creating a new
@@ -722,6 +724,7 @@ See also /DELETE, /FRESHEN, /GROW, /UPDATE.
 /DIRNAMES
 
 /DIRNAMES (default)
+<NEXT>
 /NODIRNAMES
 
 Store directory entries in the archive.
@@ -736,8 +739,8 @@ Enable display of progress messages.
 |  COUNTS       Running count of entries done and entries to go.
 |  DOTS = size  Dots every <size> MB while processing files.
 |               (0: no dots.)
-|  GLOBALDOTS   Progress dots reflect the whole archive instead of each
-|               file.
+|  GLOBALDOTS   Progress dots reflect the whole archive instead of
+|               each file.
 |  USIZE        Uncompressed size of each entry.
 |  VOLUME       Display the volume (disk) number each entry is being
 |               written to.
@@ -805,6 +808,7 @@ control characters (with exception of LineFeed and probably CarriageReturn).
 /EXTRA_FIELDS
 
 /EXTRA_FIELDS (default)
+<NEXT>
 /NOEXTRA_FIELDS
 
 Allows (or suppresses) the saving of any optional extra fields in the
@@ -894,7 +898,7 @@ zip /fix_archive=full /output=foo_fixfix foo
 <LARETIL>
 
 and compare the resulting archive to the archive created using
-/FIX=NORMAL.  The /FIX=FULL option may create an inconsistent archive. 
+/FIX=NORMAL.  The /FIX=FULL option may create an inconsistent archive.
 Depending on what is damaged, you can then use the /FIX=NORMAL option to
 fix that archive.
 
@@ -918,6 +922,7 @@ See also /DELETE, /DIFFERENCE, /GROW, /UPDATE.
 /FULL_PATH
 
 /FULL_PATH  (default)
+<NEXT>
 /NOFULL_PATH
 
 Directs Zip to store the directory part of the file names (relative to
@@ -927,6 +932,7 @@ Zip stores only the file names, discarding any directory information.
 /GROW
 
 /GROW
+<NEXT>
 /APPEND
 
 Grow (append to) the specified Zip archive, instead of creating a new
@@ -966,15 +972,17 @@ control characters (with exception of LineFeed and probably CarriageReturn).
 /JUNK
 
 /JUNK
+<NEXT>
 /NOJUNK (default)
 
-Junk (discard) the directory part of the file names for added entries
-(do not not save the directory structure). The /JUNK qualifier is an
-alias for /NOFULL_PATH.
+Junk (discard) the directory part of the file paths for added entries
+(do not not save the directory structure).  /JUNK is equivalent to
+/NOFULL_PATH; /NOJUNK to /FULL_PATH.
 <QUALIFIER>
 /KEEP_VERSION
 
 /KEEP_VERSION
+<NEXT>
 /NOKEEP_VERSION (default)
 
 Directs Zip to retain VMS file version numbers on names in an archive.
@@ -1025,7 +1033,7 @@ also directed to a log file.
 <LARETIL>
 
 Open a logfile at the given path.  By default, a new version will be
-created.  
+created.
 
 <LITERAL>
   APPEND
@@ -1104,6 +1112,7 @@ desired, specify the /PATTERN_CASE=BLIND option.
 /PKZIP
 
 /PKZIP
+<NEXT>
 /NOPKZIP (default)
 
 Create PKZIP-compatible archive entries.  File names and paths are
@@ -1115,6 +1124,7 @@ MSDOS (even though it wasn't).
 /PRESERVE_CASE
 
 /NOPRESERVE_CASE
+<NEXT>
 /PRESERVE_CASE[=(keyword[, ...])]
 
 Directs Zip to preserve the case of, or convert to lower-case, file names
@@ -1149,6 +1159,7 @@ src.zip *.c").
 /RECURSE
 
 /RECURSE[=KEYWORD]
+<NEXT>
 /NORECURSE (default)
 
 Directs Zip to recurse into subdirectories.
@@ -1172,10 +1183,10 @@ Controls various diagnostic messages.
 
 The keywords recognized are:
 <LITERAL>
-|  COMMAND  Show command line arguments as processed (only, then exit).
-|  DEBUG    Show Debug information.
-|  FILES    Show files to process (only, then exit).
-|  OPTIONS  Show all available command-line options on this system.
+|COMMAND  Show command line arguments as processed (only, then exit).
+|DEBUG    Show Debug information.
+|FILES    Show files to process (only, then exit).
+|OPTIONS  Show all available command-line options on this system.
 <LARETIL>
 <QUALIFIER>
 /SINCE
@@ -1442,10 +1453,9 @@ control list (ACL).
 <QUALIFIER>
 /WILDCARD
 
-<LITERAL>
 /NOWILDCARD
+<NEXT>
 /WILDCARD=NOSPAN
-<LARETIL>
 
 Controls wildcard processing.
 
@@ -1473,9 +1483,9 @@ begin with a double hyphen ("--"), and may be abbreviated to any
 unambiguous shorter string.  For example:
 
 <LITERAL>
-|  -v
-|  --verbose
-|  --verb
+|-v
+|--verbose
+|--verb
 <LARETIL>
 
 To avoid confusion, if a negatable option contains an embedded hyphen
@@ -1489,16 +1499,16 @@ behavior may change in the future, to interpret the trailing hyphen in
 Some options may be negated (or modified) by appending a "-":
 
 <LITERAL>
-|  -la-
-|  --show-files-
+|-la-
+|--show-files-
 <LARETIL>
 
 Some options take a value, which may immediately follow the option, or
 be separated by a space or "=".  For example:
 <LITERAL>
-|  -ttmmddyyyy
-|  -tt mmddyyyy
-|  -tt=mmddyyyy
+|-ttmmddyyyy
+|-tt mmddyyyy
+|-tt=mmddyyyy
 <LARETIL>
 
 <LITERAL0>
@@ -1598,14 +1608,14 @@ Zip has an option to display its copyright and license.
 
 The license is reproduced below.
 
-This is version 2007-Mar-4 of the Info-ZIP license. The definitive
-version of this document should be available at
-ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and a copy
-at http://www.info-zip.org/pub/infozip/license.html.
+This is version 2009-Jan-02 of the Info-ZIP license.
+The definitive version of this document should be available at
+ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely,
+and a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 --------------------------------------------------------
 <LITERAL0>
-|Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+|Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
 |
 |For the purposes of this copyright and license, "Info-ZIP" is defined as
 |the following set of individuals:
@@ -1615,32 +1625,35 @@ at http://www.info-zip.org/pub/infozip/license.html.
 |Dirk Haase, Greg Hartwig, Robert Heath, Jonathan Hudson, Paul Kienitz,
 |David Kirschbaum, Johnny Lee, Onno van der Linden, Igor Mandrichenko,
 |Steve P. Miller, Sergio Monesi, Keith Owens, George Petrov, Greg Roelofs,
-|Kai Uwe Rommel, Steve Salisbury, Dave Smith, Steven M. Schweda, 
+|Kai Uwe Rommel, Steve Salisbury, Dave Smith, Steven M. Schweda,
 |Christian Spieler, Cosmin Truta, Antoine Verheijen, Paul von Behren,
 |Rich Wales, Mike White.
-| 
+|
 |This software is provided "as is," without warranty of any kind, express
 |or implied.  In no event shall Info-ZIP or its contributors be held
 |liable for any direct, indirect, incidental, special or consequential
 |damages arising out of the use of or inability to use this software.
-| 
+|
 |Permission is granted to anyone to use this software for any purpose,
 |including commercial applications, and to alter it and redistribute it
 |freely, subject to the above disclaimer and the following restrictions:
-| 
+|
 |1. Redistributions of source code (in whole or in part) must retain
 |   the above copyright notice, definition, disclaimer, and this list
 |   of conditions.
-| 
+|
 |2. Redistributions in binary form (compiled executables and libraries)
 |   must reproduce the above copyright notice, definition, disclaimer,
 |   and this list of conditions in documentation and/or other materials
-|   provided with the distribution.  The sole exception to this condition
-|   is redistribution of a standard UnZipSFX binary (including SFXWiz) as
-|   part of a self-extracting archive; that is permitted without inclusion
-|   of this license, as long as the normal SFX banner has not been removed
-|   from the binary or disabled.
-| 
+|   provided with the distribution.  Additional documentation is not
+|   needed for executables where a command line license option provides
+|   these and a note regarding this option is in the executable's startup
+|   banner.  The sole exception to this condition is redistribution of
+|   standard UnZipSFX binary (including SFXWiz) as part of a
+|   self-extracting archive; that is permitted without inclusion of this
+|   license, as long as the normal SFX banner has not been removed from
+|   the binary or disabled.
+|
 |3. Altered versions -- including, but not limited to, ports to new
 |   operating systems, existing ports with new graphical interfaces,
 |   versions with modified or added functionality, and dynamic, shared,
@@ -1655,7 +1668,7 @@ at http://www.info-zip.org/pub/infozip/license.html.
 |   versions are further prohibited from misrepresentative use of the
 |   Zip-Bugs or Info-ZIP e-mail addresses or the Info-ZIP URL(s), such as
 |   to imply Info-ZIP will provide support for the altered versions.
-| 
+|
 |4. Info-ZIP retains the right to use the names "Info-ZIP", "Zip",
 |   "UnZip", "UnZipSFX", "WiZ", "Pocket UnZip", "Pocket Zip", and
 |   "MacZip" for its own source and binary releases.

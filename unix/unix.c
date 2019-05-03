@@ -1,9 +1,9 @@
 /*
   unix/unix.c - Zip 3
 
-  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -13,7 +13,9 @@
 #ifndef UTIL    /* the companion #endif is a bit of ways down ... */
 
 #include <time.h>
-
+#ifdef ENABLE_ENTRY_TIMING
+# include <sys/time.h>
+#endif
 #if defined(MINIX) || defined(__mpexl)
 #  ifdef S_IWRITE
 #    undef S_IWRITE
@@ -804,7 +806,7 @@ char *d;                /* directory to delete */
 /******************************/
 
 #if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__386BSD__) || \
-    defined(__OpenBSD__) || defined(__bsdi__) || defined( __APPLE__)
+    defined(__OpenBSD__) || defined(__bsdi__)
 #include <sys/param.h> /* for the BSD define */
 /* if we have something newer than NET/2 we'll use uname(3) */
 #if (BSD > 199103)
@@ -837,21 +839,21 @@ void version_local()
 #  endif
 #endif
 
-#ifdef BSD
+#if defined( BSD) && !defined( __APPLE__)
 # if (BSD > 199103)
     struct utsname u;
     char os_name[40];
-# else
+# else /* (BSD > 199103) */
 # if defined(__NETBSD__))
     static ZCONST char *netbsd[] = { "_ALPHA", "", "A", "B" };
     char os_name[40];
 # endif /* __NETBSD__ */
-# endif /* BSD > 199103 */
-#else /* !BSD */
+# endif /* (BSD > 199103) [else] */
+#else /* defined( BSD) && !defined( __APPLE__) */
 #if ((defined(CRAY) || defined(cray)) && defined(_UNICOS))
     char os_name[40];
 #endif /* (CRAY && defined(_UNICOS)) */
-#endif /* ?BSD */
+#endif /* defined( BSD) && !defined( __APPLE__) [else] */
 
 /* Define the compiler name and version string */
 #ifdef __GNUC__
@@ -915,32 +917,48 @@ void version_local()
 #  define OS_NAME "Silicon Graphics IRIX"
 #else
 #ifdef sun
+#  if defined(UNAME_P) && defined(UNAME_R) && defined(UNAME_S) 
+#    define OS_NAME UNAME_S" "UNAME_R" "UNAME_P
+#  else
 #  ifdef sparc
 #    ifdef __SVR4
 #      define OS_NAME "Sun SPARC/Solaris"
 #    else /* may or may not be SunOS */
 #      define OS_NAME "Sun SPARC"
 #    endif
-#  else
+#  else /* def sparc */
 #  if defined(sun386) || defined(i386)
 #    define OS_NAME "Sun 386i"
-#  else
+#  else /* defined(sun386) || defined(i386) */
 #  if defined(mc68020) || defined(__mc68020__)
 #    define OS_NAME "Sun 3"
 #  else /* mc68010 or mc68000:  Sun 2 or earlier */
 #    define OS_NAME "Sun 2"
-#  endif
-#  endif
-#  endif
-#else
+#  endif /* defined(mc68020) || defined(__mc68020__) [else] */
+#  endif /* defined(sun386) || defined(i386) [else] */
+#  endif /* def sparc [else] */
+#  endif /* defined(UNAME_P) && defined(UNAME_R) && defined(UNAME_S) */
+#else /* def sun */
 #ifdef __hpux
-#  define OS_NAME "HP-UX"
+#  if defined(UNAME_M) && defined(UNAME_R) && defined(UNAME_S) 
+#    define OS_NAME UNAME_S" "UNAME_R" "UNAME_M
+#  else
+#    define OS_NAME "HP-UX"
+#  endif
 #else
 #ifdef __osf__
-#  define OS_NAME "DEC OSF/1"
+#  if defined( SIZER_V)
+#    define OS_NAME "Tru64 "SIZER_V
+#  else /* defined( SIZER_V) */
+#    define OS_NAME "DEC OSF/1"
+#  endif /* defined( SIZER_V) [else] */
 #else
 #ifdef _AIX
-#  define OS_NAME "IBM AIX"
+#  if defined( UNAME_R) && defined( UNAME_S) && defined( UNAME_V)
+#    define OS_NAME UNAME_S" "UNAME_V"."UNAME_R
+#  else /*  */
+#    define OS_NAME "IBM AIX"
+#  endif /* [else] */
 #else
 #ifdef aiws
 #  define OS_NAME "IBM RT/AIX"
@@ -964,10 +982,14 @@ void version_local()
 #  endif
 #else
 #if defined(linux) || defined(__linux__)
-#  ifdef __ELF__
-#    define OS_NAME "Linux ELF"
+#  if defined( UNAME_M) && defined( UNAME_O)
+#    define OS_NAME UNAME_O" "UNAME_M
 #  else
-#    define OS_NAME "Linux a.out"
+#    ifdef __ELF__
+#      define OS_NAME "Linux ELF"
+#    else
+#      define OS_NAME "Linux a.out"
+#    endif
 #  endif
 #else
 #ifdef MINIX
@@ -979,12 +1001,12 @@ void version_local()
 #ifdef M_XENIX
 #  define OS_NAME "SCO Xenix"
 #else
-#ifdef BSD
+#if defined( BSD) && !defined( __APPLE__)
 # if (BSD > 199103)
 #    define OS_NAME os_name
     uname(&u);
     sprintf(os_name, "%s %s", u.sysname, u.release);
-# else
+# else /* (BSD > 199103) */
 # ifdef __NetBSD__
 #   define OS_NAME os_name
 #   ifdef NetBSD0_8
@@ -1013,7 +1035,7 @@ void version_local()
 # endif /* __bsdi__ */
 # endif /* FreeBSD */
 # endif /* NetBSD */
-# endif /* BSD > 199103 */
+# endif /* (BSD > 199103) [else] */
 #else
 #ifdef __CYGWIN__
 #  define OS_NAME "Cygwin"
@@ -1088,7 +1110,7 @@ void version_local()
 #endif /* 586 */
 #endif /* 686 */
 #endif /* Cygwin */
-#endif /* BSD */
+#endif /* defined( BSD) & !defined( __APPLE__) */
 #endif /* SCO Xenix */
 #endif /* SCO Unix */
 #endif /* Minix */
@@ -1102,6 +1124,7 @@ void version_local()
 #endif /* HP-UX */
 #endif /* Sun */
 #endif /* SGI */
+
 
 
 /* Define the compile date string */

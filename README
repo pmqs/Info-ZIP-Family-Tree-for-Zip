@@ -1,18 +1,18 @@
-Zip 3.1b is a BETA version.  Do not distribute.
+Zip 3.1c is a BETA version.  Do not distribute.
 
 Zip 3.1 is the latest Zip update of Zip 3.x with large file and split archive
 support.  For now Zip 2.3x remains available and supported, but users should
 switch to Zip 3.x at some point.
 
-Testing for Zip 3.x so far has focused mainly on Unix, VMS, Max OS X, and
-Win32, though some recent updates have been made for z/OS and MVS.  Even so,
-some ports may not be fully supported.  If you find your favorite port is
-partially or completely broke, send us the details or, better, send bug fixes.
-It's possible that unsupported ports may be dropped in the future.
+Testing for Zip 3.x so far has focused mainly on Unix, VMS, Max OS X, Win32,
+z/OS, and MVS, so it's likely some ports may not be fully supported.  If you
+find your favorite port is partially or completely broke, send us the details
+or, better, send bug fixes.  It's possible that unsupported ports may be dropped
+in the future.
 
 
 
-Copyright (c) 1990-2009 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
 See the accompanying file LICENSE (the contents of which are also included
 in unzip.h, zip.h and wiz.h) for terms of use.  If, for some reason, all
@@ -38,7 +38,7 @@ extended file attributes; conversion from Unix to MSDOS text file format; and,
 of course, the ability to run on most of your favorite operating systems.  And
 it's free.
 
-See the file zip31b.ann for a summary of new features in Zip 3.1b and WhatsNew
+See the file zip31c.ann for a summary of new features in Zip 3.1c and WhatsNew
 for the full list of new features and changes.  The file CHANGES details all
 day-to-day changes during development.
 
@@ -143,8 +143,7 @@ amounts of spam.  The new discussion forum is now available at
 http://www.info-zip.org/board/board.pl (thanks again to Hunter Goatley) and
 can be used to discuss issues, request features, and is one place new betas
 and releases are announced.  It also is a place to post bug reports, and
-patches can be submitted as attachments.  We also now get automatic
-notification of new threads created, so be sure to post new issues in new
+patches can be submitted as attachments.  Be sure to post new issues in new
 threads.  You can also post Bug Reports and Feature Requests at Source Forge.
 However, the web site contact form remains available if you would rather not
 post on the public forums.
@@ -169,11 +168,12 @@ Q. I can't extract this zip file that I just downloaded.  I get
 A. Please make sure that you made the transfer in binary mode.  Check
    in particular that your copy has exactly the same size as the original.
    Note that the above message also may actually mean you have only part
-   of a multi-part archive.  Also note that UnZip 5.x does not and UnZip 6.0
-   probably won't have multi-disk (split) archive support.  A work around
+   of a multi-part archive.  Also note that UnZip 5.x and UnZip 6.0
+   don't have multi-disk (split) archive support.  A work around
    is to use Zip 3.0 or later to convert the split archive to a single-file
-   archive then use UnZip on that archive.  As a last result, if there's
-   something readable in what you have, zip -FF should be able to recover it.
+   archive then use UnZip on that archive.  We are planning to add split
+   support to UnZip 6.1.  As a last result, if there's something readable
+   in what you have, zip -FF should be able to recover it.
 
 
 Q. When running unzip, I get a message about "End-of-central-directory

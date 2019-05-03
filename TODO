@@ -1,6 +1,61 @@
-Todo list (last updated 31 March 2009).
+Todo list (last updated 19 June 2010).
+
+Bug list:
+
+- -T does not handle commands with ' well.  (Mail 12 Mar 2010)
+
 
 Features for next official version:
+
+- Console Unicode handling on Windows.  (19 Apr 2010 EG, pulled
+  from forum "Info-ZIP Software Discussions and Feature Requests
+  › Info-ZIP Zip › Unicode paths and ZipNote" thread)
+- Trace the number of #if's and #endif's in zipfile.c.  (19 Apr 2010
+  EG, pulled from forum "Info-ZIP Software Discussions and Feature
+  Requests › Info-ZIP Zip › ZIPFILE.C v3" thread) - All the
+  #if #endif blocks seem to line up.  (6 May 2010)
+- Add a way to send log output to stdout or stderr.  (21 Apr 2010 EG,
+  pulled from forum "Info-ZIP Software Discussions and Feature Requests
+  › Info-ZIP Zip › less verbose logging" thread)  Added to Zip 3.1c.
+- Consider making the native Unicode option the default Unicode option
+  instead of using the extra fields for Zip 3.1.  (21 Apr 2010 EG,
+  based on discussion in forum "Info-ZIP Software Discussions and
+  Feature Requests › Info-ZIP Zip › Storage of directory names" thread)
+- Post binaries with public betas.  (21 Apr 2010 EG)
+- Check functioning of -$ volume label command.  (23 Apr 2010 EG,
+  from forum "Info-ZIP Software Discussions and Feature Requests ›
+  Info-ZIP Zip › Question about -@ command" thread)
+- Add option -Z to DLL interface to pass in compression method.  Check
+  that compression level is passed in using the DLL interface and used.
+  (From forum "Info-ZIP Software Discussions and Feature Requests ›
+  Info-ZIP Zip › Using bzip2 with DLL" thread)
+- Look at state of building a Unix lib.  (23 Apr 2010 EG, from forum
+  "Info-ZIP Software Discussions and Feature Requests › Info-ZIP Zip ›
+  Unzip / Zip librararies for Mac" thread)
+- Look at posting this TODO list public somewhere, maybe SourceForge.
+  (23 Apr 2010 EG)
+- Implement @filelist command.  (29 Apr 2010 EG, reminded by forum
+  Info-ZIP Software Discussions and Feature Requests › Info-ZIP Zip ›
+  Loading Filenames Into Zip From Text File" thread)
+- Implement ZpMain in api.h if reasonable.  This might allow accessing
+  the DLL using the command line format instead of the ZPOPT structure.
+  (2 May 2010 EG, based on seeing unimplemented note in api.h)
+- Create stats comparing add, update, freshen, and other modes.  Also
+  compression levels and methods, and encryption.  (2 May
+  2010 EG)
+- Add dot callback to DLL, allowing status during archiving and
+  cancelling of zipping in the middle of a possibly large file.
+  (8 May 2010 EG) - ProgressReport callback added to Zip 3.1c.
+- Verify that "zip -T archive" does what is expected.  (2 June 2010 EG,
+  from forum thread "Info-ZIP Bugs › Zip Bugs › ZIPped w/out errors,
+  but then SEEK error -OS/2 JFS")
+- Get around to enhancing zip -FF to fix damaged archive entries if
+  reasonable to do (a user took a stab at it a while back).  (2 June
+  2010 EG)
+
+
+
+
 
 - New -p option (or something similar) to set default directory for
       zipping (like doing a cd to that directory).  (7 Jan 2009 David

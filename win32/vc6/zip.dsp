@@ -89,7 +89,7 @@ LINK32=link.exe
 # PROP Intermediate_Dir "zip___Win32_Release"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /FD /c
-# ADD CPP /nologo /W3 /GX /O2 /D "NO_ASM" /D "WIN32" /FD /c
+# ADD CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NO_ASM" /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe

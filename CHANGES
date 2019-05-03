@@ -3858,3 +3858,216 @@ Initial work on Zip 3.0 by Ed Gordon and Rainer Nausedat
  2. Update WhatsNew.  WHATSNEW (Ed)
  3. Update announcement.  zip31b.ann (Ed)
  4. Update TODO.  TODO (Ed)
+------------------------ July 20th 2009 version 3.1c01 --------------------------
+ 1. Add -aa option to skip binary check.  Add global all_ascii. (Ed)
+ 2. Fixes to -aa and -MV options.  cmsmvs/cmsmvs.c, zip.c (Lutz)
+ 3. Use 64-bit zfseeko + zftello functions for large file support.
+    cmsmvs/cmsmvs.c (RBW)
+ 4. Add missing } and fix mvs_mode 1 and 2.  cmsmvs/cmsmvs.c (Ed)
+ 5. Change file size parameter in filetime() from long to zoff_t
+    to handle 64-bit values.  Add z/OS large file comment.  Add
+    cast to -1 for file size.  Initial changes to support Zip
+    64-bit calls, but some work still needs to be done.
+    cmsmvs/cmsmvs.c (RBW)
+ 6. Prevent double define of EBCDIC.  cmsmvs/cmsmvs.h (RBW)
+ 7. Update MVS makefile to set compile options for large file support; change
+    "$%" to "$@"; set maximum optimization option ("-O3").  Update compilation
+    options to add large file support to z/OS.  Change infor.zip(zip) to
+    infozip.load(zip).  cmsmvs/mvs.mki (RBW)
+ 8. Add comments.  cmsmvs/mvs.mki (Ed)
+ 9. Prevent display of garbage characters in filenames by skipping the attempt
+    to render the low 32 unprintable characters as printable.  The technique
+    does not work for EBCDIC.  Move display_string allocation to before use
+    for EBCDIC.  fileio.c (RBW)
+10. Set definitions needed for large file support under z/OS.  Add ifndef
+    for _LARGE_FILES.  Enable 64-bit functions for z/OS.  tailor.h (RBW)
+11. Create target for zos, which now works like the generic target; redirect
+    the os390 target to the zos target.  unix/Makefile (RBW)
+12. Detect z/OS or OS/390 system, and set appropriate flags; detect IBM C
+    compiler and set maximum optimization level (this produced a 3-4x speedup
+    in testing).  Add param.h to nonexistent include check.  Add SYSTEM check
+    for OS/390.  unix/configure (RBW)
+13. Guard against double define of _LARGE_FILES.  unix/osdep.h (RBW)
+14. Fix compile error under z/OS.  zip.c (RBW)
+15. Large file support fixes for z/OS.  zipfile.c (RBW)
+16. Add README.zOS.  README.ZOS (RBW)
+17. Add C++ EXPENTRY entries.  api.h.
+18. Add free(z->oname) to newname() and newnamew() to fix memory leak.
+    fileio.c
+19. Add help for new -aa option for EBCDIC not CMS_MVS.  zip.c (RBW)
+20. Add extended help for EBCDIC options -a and -aa.  zip.c (Ed)
+21. Add temp debug output showing int sizes.  zip.c (RBW)
+22. Add type cast to popen for ZOS.  zip.c (RBW)
+23. Change add_filter() to always save the full path in ex2in() by
+    setting pathput to 1 for just that call.  This should fix a
+    problem where patterns are not matching stored paths when the
+    -j option is used to strip the path.  zip.c (SMS)
+24. Change -aa from global to only for EBCDIC as some problems on
+    other ports and not needed except for EBCDIC.  (Lutz, Ed)
+25. Finish implementing -aa option (after users reminded it wasn't).
+    zip.c (Ed)
+26. Change EBCDIC messages from using printf() to zipmessage() so
+    message formats are standardized and logged (when logging
+    enabled).  zip.c (Ed)
+27. Add zoff_t cast to zfseeko() calls for z/OS (as it apparently
+    needs them).  zipfile.c (RBW)
+28. In readlocal(), initialize split_path to NULL and free it later
+    if not NULL.  zipfile.c (Ed, Kamers)
+29. Change warnings for "unable to seek in input file" errors to
+    include a "(zf-0x) identifier so that the particular error can
+    be determined.  zipfile.c (RBW)
+30. In scanzipf_regnew(), add check for cd_total_entries rollover
+    for archives from old zips that stored more entries than the old
+    structure could hold without rollover.  This should fix problem
+    where these archives were rejected as bad.  zipfile.c (Ed)
+31. In zipcopy(), initialize split_path to NULL and free later if
+    not NULL to fix memory leak.  zipfile.c (Ed, Kamers)
+----------------------- August 15th 2009 version 3.1c02 -------------------------
+ 1. Update EXPENTRY entries for DLL to fix compiler problem in VC6.
+    api.h (Ed)
+ 2. Add get_time_in_usec() to time zipping rate in microseconds.  Calls system
+    function gettimeofday() to get usec time.  fileio.c, zip.h (Ed)
+ 3. Add globals display_time, display_est_to_go, display_rate, clocktime,
+    start_zip_time, and current_time for new -dt, -de, and -dr options.  Create
+    new define ENABLE_ENTRY_TIMING to enable usec timing if system supports it.
+    zip.h, globals.c (Ed)
+ 4. Add -dt (--display_time), -de (--display_est_to_go), and -dr
+    (--display_rate) options.  Add extended help for -dt, -de, and -dr.  Option
+    -dt uses standard timing to second resolution, while -de and -dr use usec
+    resolution to get better rate estimates.  zip.c (Ed)
+ 5. Update manual to include -dt, -de, and -dr options.  man/zip.1, zip.txt (Ed)
+ 6. In configure, if gettimeofday() and long long are supported, define
+    ENABLE_ENTRY_TIMING to enable -de and -dr options.  unix/configure (Ed)
+ 7. Add sys/time.h include if ENABLE_ENTRY_TIMING is defined.  unix/unix.c (Ed)
+ 8. If LARGE_FILE_SUPPORT is enabled on Windows, define ENABLE_ENTRY_TIMING.
+    Add replacement for missing gettimeofday() on Windows based on code from
+    openasthra.com.  Define local version of get_time_in_usec() for Windows
+    using local gettimeofday().  win32/osdep.h, win32/win32.c (Ed)
+ 9. Update formatting of VB example files.  Implement UTF8 options.  Comment
+    out unimplemented fSuffix.  windll/examples/vbz64/vbzipbas.bas,
+    windll/examples/vbz64/vbzip.vbw, windll/examples/vb/vbzip.vbw (Ed)
+10. Add api.h and windll.h to dll project.  windll/vc6/dll/zip32z64.dsp (Ed)
+----------------------- April 14th 2010 version 3.1c03 -------------------------
+ 1. Add Fedora stack markings patch (exec-shield.patch) to prevent stack from
+    being executable, patch forwarded from Debian bug system.  See
+    http://cvs.fedoraproject.org/viewvc//devel/zip/exec-shield.patch?view=markup.
+    crc_i386.S, match.S (sanvila on forum, Kees Cook)
+ 2. Changed VMS wild() to avoid saving a user-specified version
+    (";1") when the user-specified file is a directory.  vms/vmszip.c (SMS)
+ 3. Changed VMS deletedir() to use (complex) $QIOW code instead
+    of (simple) system() with a "SET PROT" command, to eliminate annoying
+    %SET-E-PRONOTCHG messages when SET PROT failed during "zip -m"
+    directory deletions.  vms/vmszip.c (SMS)
+ 4. Add CRYPT defines around password code.  zip.c (SMS)
+ 5. Change instances of k used for comments to new comment_size with type
+    extent.  zip.c (SMS, Ed)
+ 6. Remove extra comment introducer.  zipfile.c (SMS)
+ 7. Add wchar.h and wctype.h includes to wide character check code.
+    unix/configure (SMS)
+ 8. Add checks for uname -m, uname -o, uname -p, uname -r, uname -s,
+    and uname -v and pass back to main code for version information.
+    unix/configure (SMS)
+ 9. Move __APPLE__ define.  Use UNAME defines.  unix.c (SMS)
+10. Add include for incl_bzip2_m to link executable.  Include (GLOBALS).
+    vms/build_zip.com, vms/descript.mms, vms/descript_src.mms (SMS)
+11. Update handling of exit codes for VMS.  vms/notes.txt, vms/vms.c (SMS)
+12. Define VAX Type-Cast to avoid compiler warnings.  vms/vmszip.c (SMS)
+13. Comment out sys/time.h include because prevents compiling on Windows
+    MSVS that does not have it.  fileio.c (Ed)
+14. Update some copyrights to 2010.  revision.h (Ed)
+----------------------- May 14th 2010 version 3.1c04 ---------------------------
+ 1. Format #if blocks to verify all blocks close in response to user question.
+    zipfile.c (Ed)
+ 2. Update structure _ZpVer to include option structure ZPOPT size and a new
+    string to provide a comma separated list of enabled features to the user,
+    currently set to NULL.  Add comments.  Add DLL support for -Z compression
+    method, by adding compression method name string to ZPOPT.  In ZPOPT change
+    fMisc to fUnicode in ZPOPT structure, removing unused suffix flag.  Add 8
+    long words of fluff at end of ZPOPT for future expansion.  All this makes
+    this ZPOPT not backward compatible, but will allow backward compatible
+    expansion in the future.  api.c, api.h (Ed)
+ 3. As Zip version is provided through Z_MAJORVER, Z_MINORVER, and Z_PATCHLEVEL,
+    starting with Zip 3.1c, DW_MAJORVER, DW_MINORVER, and DW_PATCHLEVEL defines
+    are frozen at 3, 1, and 0 (this version) unless the DLL interface changes
+    in a way that is not backward compatible.  api.c, api.h, revision.h (Ed)
+ 3. If logfile is specified as "-", send log output to stdout.  Forces -q to
+    avoid duplicate output to stdout.  Options -la (append to existing log)
+    and -v (verbose) are not allowed, as output is determined by the logging
+    code and the -li option.  Update -lf extended help.  zip.c (Ed)
+ 4. Update copyright date.  zip.h (Ed)
+ 5. If display_globaldots (-dg) is set, do not output a newline after each
+    file in DisplayRunningStats().  This newline kept the dots from staying
+    on the same line as intended.  zip.c (Ed)
+ 6. Clean up indentation of #if blocks.  zipfile.c
+ 7. Add Ignore_Export_Lib 0 for consistency.  win32/vc6bz2/zip.dsp (Ed)
+ 8. Add bzip2 enabled Windows DLL and LIB MSVS 6 projects.
+    windll/vc6bz2/readmev6bz2.txt, windll/vc6bz2/dll/zip32z64.dsp,
+    windll/vc6bz2/dll/zip32z64.dsw, windll/vc6bz2/lib/zip32z64.dsp,
+    windll/vc6bz2/lib/zip32z64.dsw (Ed)
+ 9. Update install.txt to note added bzip2 DLL and LIB capability for
+    Windows.  bzip2/install.txt (Ed)
+----------------------- June 14th 2010 version 3.1c05 --------------------------
+ 1. Allow negating -j as replacement for -p.  Provide warning when -p used that
+    it is deprecated.  Add note to extended help.  zip.c (SMS, Ed)
+ 2. Change | to & in UTF-8 option bit checks against fUnicode.  api.c (stu003
+    from forum thread "Wrong interpreting the UTF-8 settings in api.c")
+ 3. Add ProgressReport callback to WinDLL, enabled by ENABLE_DLL_PROGRESS
+    define.  Add szProgressSize to Options structure and use to set
+    progress_chunk_size.  Add feature list string to pVersion callback.  Items
+    in string are delimited by semicolons and have form ;xx; including first
+    and last items.  Some items have lists of valid values, as with
+    ";compmethods:store,deflate;" (compression method list when bzip2 not
+    enabled).  Add globals bytes_read_this_entry, bytes_expected_this_entry,
+    entry_name, progress_chunk_size, last_progress_chunk.  Progress report
+    calculations in zipup(), file_read(), filecompress(), bzfilecompress().
+    api.c, api.h, globals.c, zipup.c, win32/osdep.h (Ed) 
+ 4. Handle better bad compression level from DLL caller.  Add kluge around
+    not being able to support compression level 0 directly from DLL call.
+    Only allow fEncrypt flag to be 0 or 1.  Support separate ExcludeBeforeDate
+    and IncludeBeforeDate.  Remove fTemp from Options structure and just check
+    if szTempDir is NULL or empty instead.  Update comments.  api.c, api.h (Ed)
+ 5. Add comments.  crypt.c (Ed)
+ 6. Change vms_zip_command() to return unsigned int instead of ulg.  Related
+    updates.  Add new file zip_cli.rnh.  vms/commandline.c, vms/zip_cli.cld,
+    zip.h, vms/zip_cli.rnh (SMS)
+ 7. Update bzip2 install.txt to note WinDLL now supports.  bzip2/install.txt (Ed)
+ 8. Add note that readme file needs updating.  windll/windll.txt (Ed)
+ 9. Update WinDLL examples.  Resize VB example form.  Add ProgressReport
+    callback to VB example and update to latest api structures.  Update VB
+    form to display percent archive and entry completions in title bar.
+    windll/examples/example.c, windll/examples/example.h,
+    windll/examples/vb/readmevb.txt, windll/examples/vbz64/readvb64.txt,
+    windll/examples/vbz64/vbzip.vbw, windll/examples/vbz64/vbzipbas.bas,
+    windll/examples/vbz64/vbzipfrm.frm (Ed)
+10. Copy old vbz64 to vbz54_30.  This will probably be deleted shortly.
+    windll/examples/vbz64_30/readvbz64_30.txt,
+    windll/examples/vbz64_30/vbzip.vpb, windll/examples/vbz64_30/vbzip.vbw,
+    windll/examples/vbz64_30/vbzipbas.bas,
+    windll/examples/vbz64_30/vbzipfrm.frm (Ed)
+11. Add readcex.txt.  windll/examples/vc6/readcex.txt (Ed)
+12. Update MSVS project.  windll/vcc6bz2/dll/zip32z64.dps (Ed)
+----------------------- June 14th 2010 version 3.1c06 --------------------------
+ 1. Change incorrect bytes_read_so_far to bytes_so_far.  zipup.c (SMS, Ed)
+ 2. Delete zip_cli.rnh.  vms/zip_cli.rnh (SMS)
+ 3. Update Zip CLI help noting change from /JUNK to /NOFULL_PATH.  Add <NEXT>
+    in many places.  vms/zip_cli.help (SMS)
+----------------------- June 17th 2010 version 3.1c07 --------------------------
+ 1. Change incorrect bytes_read_so_far to bytes_so_far in filecompress() and
+    bzfilecompress().  zipup.c (Ed)
+ 2. Change strftime() to sprintf() as older VMS does not support strftime().
+    zip.c (SMS, Ed)
+----------------------- June 21st 2010 version 3.1c08 --------------------------
+ 1. Add zero to day of display time -dt display.  zip.c (SMS, Ed)
+ 2. Add license version to license option output.  revision.h (Ed)
+ 3. Version ID file updated.  file_id.diz (Ed)
+ 4. Update Install information.  INSTALL (Ed)
+ 5. Update Readme.  README (Ed)
+ 6. Update TODO.  TODO (Ed)
+ 7. Update WhatsNew.  WHATSNEW (Ed)
+ 8. Add announcement file for Zip 3.1c.  zip31c.ann (Ed)
+ 9. Update WinDLL examples readme.  windll/examples/readmeex.txt (Ed)
+10. Update C Sharp readme.  windll/examples/csharp/readmecs.txt (Ed)
+11. Update C examples readme.  windll/examples/vc6/readcex.txt (Ed)
+12. Update VC6 examples readme.  windll/examples/vc6/readmev6.txt (Ed)
+----------------------- June 22nd 2010 version 3.1c --------------------------
+ 1. Include <sys/time.h> for Tru64 to define timeval.  fileio.c (SMS)

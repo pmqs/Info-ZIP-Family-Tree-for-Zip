@@ -30,10 +30,10 @@ Define	Verb		ZIP
 	Qualifier	EXTRA_FIELDS, Negatable, VALUE(type=EXTRA_OPTS)
 	Qualifier	FILESYNC, NonNegatable
 	Qualifier	FIX_ARCHIVE, NonNegatable, VALUE(type=FIX_OPTS)
-	Qualifier	FULL_PATH, Negatable, Default
+	Qualifier	FULL_PATH, Negatable
 	Qualifier	GROW, NonNegatable
 	Qualifier	HELP, NonNegatable, VALUE(type=HELP_OPTS)
-	Qualifier	JUNK, NonNegatable
+	Qualifier	JUNK, Negatable
 	Qualifier	KEEP_VERSION, Negatable
 	Qualifier	LATEST, NonNegatable
 	Qualifier	LEVEL, VALUE(type=$NUMBER,required)

@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2010 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2007-Mar-4 or later
+  See the accompanying file LICENSE, version 2009-Jan-02 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -31,7 +31,7 @@
  */
 #if 0
 # define module_name VMS_ZIP_CMDLINE
-# define module_ident "02-006"
+# define module_ident "02-008"
 #endif /* 0 */
 
 /*
@@ -50,6 +50,11 @@
 **
 **  Modified by:
 **
+**      02-008          Steven Schweda          21-MAY-2010
+**              Changed /JUNK to /[NO]JUNK, combined its code with that
+**              for /[NO]FULL_PATH, and replaced (no-op) "-p" with "-j-
+**              for (/NOJUNK and) /FULL_PATH in the generated options.
+**              Changed "long" types to "int".  Removed "register".
 **      02-007          Steven Schweda          09-FEB-2005
 **              Added /PRESERVE_CASE.
 **      02-006          Onno van der Linden,
@@ -194,12 +199,12 @@ $DESCRIPTOR(cli_filesync,       "FILESYNC");            /* -FS */
 $DESCRIPTOR(cli_fix_archive,    "FIX_ARCHIVE");         /* -F[F] */
 $DESCRIPTOR(cli_fix_normal,     "FIX_ARCHIVE.NORMAL");  /* -F */
 $DESCRIPTOR(cli_fix_full,       "FIX_ARCHIVE.FULL");    /* -FF */
-$DESCRIPTOR(cli_full_path,      "FULL_PATH");           /* -p */
+$DESCRIPTOR(cli_full_path,      "FULL_PATH");           /* -j-, -j */
 $DESCRIPTOR(cli_grow,           "GROW");                /* -g */
 $DESCRIPTOR(cli_help,           "HELP");                /* -h */
 $DESCRIPTOR(cli_help_normal,    "HELP.NORMAL");         /* -h */
 $DESCRIPTOR(cli_help_extended,  "HELP.EXTENDED");       /* -h2 */
-$DESCRIPTOR(cli_junk,           "JUNK");                /* -j */
+$DESCRIPTOR(cli_junk,           "JUNK");                /* -j, -j- */
 $DESCRIPTOR(cli_keep_version,   "KEEP_VERSION");        /* -w */
 $DESCRIPTOR(cli_latest,         "LATEST");              /* -o */
 $DESCRIPTOR(cli_level,          "LEVEL");               /* -[0-9] */
@@ -272,7 +277,7 @@ extern void *zip_clitable;
 globalref void *zip_clitable;
 #endif
 
-/* extern unsigned long LIB$GET_INPUT(void), LIB$SIG_TO_RET(void); */
+/* extern unsigned int LIB$GET_INPUT(void), LIB$SIG_TO_RET(void); */
 
 #ifndef __STARLET_LOADED
 #ifndef sys$bintim
@@ -293,16 +298,16 @@ extern int sys$numtim ();
 #ifndef cli$get_value
 #  define cli$get_value CLI$GET_VALUE
 #endif
-extern unsigned long cli$dcl_parse ();
-extern unsigned long cli$present ();
-extern unsigned long cli$get_value ();
+extern unsigned int cli$dcl_parse ();
+extern unsigned int cli$present ();
+extern unsigned int cli$get_value ();
 
-unsigned long vms_zip_cmdline (int *, char ***);
-static unsigned long get_list (struct dsc$descriptor_s *,
-                               struct dsc$descriptor_d *, int,
-                               char **, unsigned long *, unsigned long *);
-static unsigned long get_time (struct dsc$descriptor_s *qual, char *timearg);
-static unsigned long check_cli (struct dsc$descriptor_s *);
+unsigned int vms_zip_cmdline (int *, char ***);
+static unsigned int get_list (struct dsc$descriptor_s *,
+                              struct dsc$descriptor_d *, int,
+                              char **, unsigned int *, unsigned int *);
+static unsigned int get_time (struct dsc$descriptor_s *qual, char *timearg);
+static unsigned int check_cli (struct dsc$descriptor_s *);
 static int verbose_command = 0;
 
 
@@ -327,7 +332,7 @@ main(int argc, char **argv)     /* Main program. */
 #endif /* def TEST */
 
 
-unsigned long
+unsigned int 
 vms_zip_cmdline (int *argc_p, char ***argv_p)
 {
 /*
@@ -357,13 +362,14 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 **      SS$_ABORT       - Bad time value
 **
 */
-    register unsigned long status;
+    int flag;
+    unsigned int status;
     char options[ 64];
     char *the_cmd_line;                 /* buffer for argv strings */
-    unsigned long cmdl_size;            /* allocated size of buffer */
-    unsigned long cmdl_len;             /* used size of buffer */
+    unsigned int cmdl_size;             /* allocated size of buffer */
+    unsigned int cmdl_len;              /* used size of buffer */
     char *ptr;
-    int  x, len;
+    int x, len;
 
     int new_argc;
     char **new_argv;
@@ -466,7 +472,7 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     if (status & 1) {
         /* /LEVEL = value */
 
-        unsigned long binval;
+        unsigned int binval;
 
         status = cli$get_value(&cli_level, &work_str);
         status = ots$cvt_tu_l(&work_str, &binval);
@@ -757,6 +763,45 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
         *ptr++ = 'j';
 
     /*
+    **  Store full path or not.  (/[NO]FULL_PATH, /[NO]JUNK.)
+    */
+#define OPT_J "-j"
+#define OPT_JN "-j-"
+
+    flag = 0;
+
+    /* /[NO]FULL_PATH */
+    status = cli$present(&cli_full_path);
+    if (status == CLI$_PRESENT)
+        flag = 1;
+    else if (status == CLI$_NEGATED)
+        flag = -1;
+
+    /* /[NO]JUNK */
+    status = cli$present(&cli_junk);
+    if (status == CLI$_PRESENT)
+        flag = -1;
+    else if (status == CLI$_NEGATED)
+        flag = 1;
+
+    if (flag > 0)
+    {
+        /* /FULL_PATH, /NOJUNK, -j- */
+        x = cmdl_len;
+        cmdl_len += strlen( OPT_JN)+ 1;
+        CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+        strcpy( &the_cmd_line[ x], OPT_JN);
+    }
+    else if (flag < 0)
+    {
+        /* /NOFULL_PATH, /JUNK, -j */
+        x = cmdl_len;
+        cmdl_len += strlen( OPT_J)+ 1;
+        CHECK_BUFFER_ALLOCATION( the_cmd_line, cmdl_size, cmdl_len)
+        strcpy( &the_cmd_line[ x], OPT_J);
+    }
+
+    /*
     **  Simulate zip file made by PKZIP.
     */
     status = cli$present(&cli_pkzip);
@@ -792,17 +837,6 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
     if (status & 1)
         /* /LATEST */
         *ptr++ = 'o';
-
-    /*
-    **  Store full path (default).
-    */
-    status = cli$present(&cli_full_path);
-    if (status == CLI$_PRESENT)
-        /* /FULL_PATH */
-        *ptr++ = 'p';
-    else if (status == CLI$_NEGATED)
-        /* /NOFULL_PATH */
-        *ptr++ = 'j';
 
     /*
     **  Junk Zipfile prefix (SFX stub etc.).
@@ -1559,9 +1593,9 @@ vms_zip_cmdline (int *argc_p, char ***argv_p)
 
 
 
-static unsigned long
+static unsigned int 
 get_list (struct dsc$descriptor_s *qual, struct dsc$descriptor_d *rawtail,
-          int delim, char **p_str, unsigned long *p_size, unsigned long *p_end)
+          int delim, char **p_str, unsigned int *p_size, unsigned int *p_end)
 {
 /*
 **  Routine:    get_list
@@ -1584,7 +1618,7 @@ get_list (struct dsc$descriptor_s *qual, struct dsc$descriptor_d *rawtail,
 **
 */
 
-    register unsigned long status;
+    unsigned int status;
     struct dsc$descriptor_d work_str;
 
     init_dyndesc(work_str);
@@ -1592,8 +1626,8 @@ get_list (struct dsc$descriptor_s *qual, struct dsc$descriptor_d *rawtail,
     status = cli$present(qual);
     if (status & 1) {
 
-        unsigned long len, old_len;
-        long ind, sind;
+        unsigned int len, old_len;
+        int ind, sind;
         int keep_case;
         char *src, *dst; int x;
 
@@ -1649,7 +1683,7 @@ get_list (struct dsc$descriptor_s *qual, struct dsc$descriptor_d *rawtail,
 }
 
 
-static unsigned long
+static unsigned int 
 get_time (struct dsc$descriptor_s *qual, char *timearg)
 {
 /*
@@ -1668,11 +1702,11 @@ get_time (struct dsc$descriptor_s *qual, char *timearg)
 **
 */
 
-    register unsigned long status;
+    unsigned int status;
     struct dsc$descriptor_d time_str;
     struct quadword {
-        long high;
-        long low;
+        int high;
+        int low;
     } bintimbuf = {0,0};
 #ifdef __DECC
 #pragma member_alignment save
@@ -1719,7 +1753,7 @@ get_time (struct dsc$descriptor_s *qual, char *timearg)
 }
 
 
-static unsigned long
+static unsigned int 
 check_cli (struct dsc$descriptor_s *qual)
 {
 /*

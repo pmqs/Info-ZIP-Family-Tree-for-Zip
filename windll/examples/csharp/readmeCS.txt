@@ -1,7 +1,8 @@
-Note:  This project has not yet been updated to work with Zip 3.0.
+Note:  This project has not yet been updated to work with Zip 3.0
+or Zip 3.1.
 
 Ed Gordon
-27 February 2009
+19 June 2010
 
 
 On Windows open this file in WordPad.

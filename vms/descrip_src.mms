@@ -1,4 +1,4 @@
-#                                               1 March 2009.  SMS.
+#                                               30 November 2009.  SMS.
 #
 #    Zip 3.1 for VMS - MMS (or MMK) Source Description File.
 #
@@ -199,6 +199,7 @@ NON_VAX_CMPL = 1
 .IFDEF IZ_BZIP2                 # IZ_BZIP2
 CDEFS_BZ = , BZIP2_SUPPORT
 CFLAGS_INCL = /INCLUDE = ([], [.VMS])
+INCL_BZIP2_M = , ZBZ2ERR
 LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2_NS.OLB /library,
 .ENDIF                          # IZ_BZIP2
 

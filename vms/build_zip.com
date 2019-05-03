@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     Last revised:  2009-03-01  SMS.
+$!     Last revised:  2009-11-30  SMS.
 $!
 $!     Command arguments:
 $!     - suppress C compilation (re-link): "NOCOMPILE"
@@ -621,9 +621,9 @@ $! Link the executable.
 $!
 $     link /executable = [.'dest']'ZIPX_UNX'.EXE -
        SYS$DISK:[.'dest']ZIP.OBJ, -
-       SYS$DISK:[.'dest']ZIP.OLB /library, -
+       SYS$DISK:[.'dest']ZIP.OLB -
+       /include = (GLOBALS 'incl_bzip2_m') /library, -
        'lib_bzip2_opts' -
-       SYS$DISK:[.'dest']ZIP.OLB /library, -
        'lib_zlib_opts' -
        'opts' -
        SYS$DISK:[.VMS]ZIP.OPT /options
@@ -674,9 +674,9 @@ $!
 $     link /executable = [.'dest']'ZIPX_CLI'.EXE -
        SYS$DISK:[.'dest']ZIPCLI.OBJ, -
        SYS$DISK:[.'dest']ZIPCLI.OLB /library, -
-       SYS$DISK:[.'dest']ZIP.OLB /library, -
+       SYS$DISK:[.'dest']ZIP.OLB -
+       /include = (GLOBALS 'incl_bzip2_m') /library, -
        'lib_bzip2_opts' -
-       SYS$DISK:[.'dest']ZIP.OLB /library, -
        'lib_zlib_opts' -
        'opts' -
        SYS$DISK:[.VMS]ZIP.OPT /options

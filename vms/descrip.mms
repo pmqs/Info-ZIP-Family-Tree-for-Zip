@@ -1,4 +1,4 @@
-#                                               1 March 2009.  SMS.
+#                                               28 November 2009.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -291,9 +291,8 @@ $(OPT_FILE) :
 
 $(ZIP) : [.$(DEST)]ZIP.OBJ $(LIB_ZIP) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
-	 $(LIB_ZIP) /library,  -
+	 $(LIB_ZIP) /include = (GLOBALS $(INCL_BZIP2_M)) /library,  -
 	 $(LIB_BZIP2_OPTS) -
-	 $(LIB_ZIP) /library,  -
 	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
@@ -304,9 +303,8 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
              $(LIB_ZIPCLI) $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPCLI) /library, -
-	 $(LIB_ZIP) /library, -
+	 $(LIB_ZIP) /include = (GLOBALS $(INCL_BZIP2_M)) /library, -
 	 $(LIB_BZIP2_OPTS) -
-	 $(LIB_ZIP) /library, -
 	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
@@ -317,7 +315,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
                          $(LIB_ZIPUTILS) \
                          $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
-	 $(LIB_ZIPUTILS) /library, -
+	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
 	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
@@ -326,7 +324,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
                         $(LIB_ZIPUTILS) \
                         $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
-	 $(LIB_ZIPUTILS) /library, -
+	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
@@ -334,7 +332,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
                          $(LIB_ZIPUTILS) \
                          $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
-	 $(LIB_ZIPUTILS) /library, -
+	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
