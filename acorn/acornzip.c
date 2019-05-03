@@ -81,9 +81,9 @@ local int wild_recurse(whole, wildtail) char *whole; char *wildtail;
     if ((subwild = strchr(wildtail + 1, '.')) != NULL) {
         /* this "+ 1" dodges the   ^^^ hole left by *glue == 0 */
         *(subwild++) = 0;               /* wildtail = one component pattern */
-        newlen = strlen(whole) + strlen(subwild) + 32;
+        newlen = strlen(whole) + strlen(subwild) + MAXFILENAMELEN;
     } else
-        newlen = strlen(whole) + 31;
+        newlen = strlen(whole) + MAXFILENAMELEN;
     if (!dir || !(newwhole = malloc(newlen))) {
         if (glue)
             *glue = plug;
@@ -99,7 +99,7 @@ local int wild_recurse(whole, wildtail) char *whole; char *wildtail;
         goto ohforgetit;
     }
 
-    while (name = readd(dir)) {
+    while ((name = readd(dir)) != 0) {
         if (MATCH(wildtail, name, 0)) {
             strcpy(newwhole + newlen, name);
             if (subwild) {

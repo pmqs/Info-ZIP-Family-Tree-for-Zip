@@ -346,10 +346,10 @@ local void version_info()
   puts("ZipSplit special compilation options:");
   for (i = 0; (int)i < (int)(sizeof(comp_opts)/sizeof(char *) - 1); i++)
   {
-    printf("\t%s\n",comp_opts[i]);
+    printf("        %s\n",comp_opts[i]);
   }
   if (i == 0)
-      puts("\t[none]");
+      puts("        [none]");
 }
 
 
@@ -533,7 +533,6 @@ char **argv;            /* command line tokens */
 #ifdef AMIGA
   char tailchar;         /* temporary variable used in name generation below */
 #endif
-  char errbuf[5000];
 
 #ifdef THEOS
   setlocale(LC_CTYPE, "I");

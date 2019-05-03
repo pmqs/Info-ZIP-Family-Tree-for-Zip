@@ -1,10 +1,10 @@
 /*
-  Copyright (c) 1990-1999 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 1999-Oct-05 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
-  If, for some reason, both of these files are missing, the Info-ZIP license
-  also may be found at:  ftp://ftp.cdrom.com/pub/infozip/license.html
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
 */
 /*
  A very simplistic example of how to load the zip dll and make a call into it.
@@ -27,7 +27,7 @@
 #include <direct.h>
 #endif
 #include "example.h"
-#include "zipver.h"
+#include "revision.h"
 
 #ifdef WIN32
 #include <commctrl.h>
@@ -37,7 +37,7 @@
 #endif
 
 #ifdef WIN32
-#define ZIP_DLL_NAME "ZIP32.DLL\0"
+#define ZIP_DLL_NAME "ZIP32Z64.DLL\0"
 #else
 #define ZIP_DLL_NAME "ZIP16.DLL\0"
 #endif
@@ -66,7 +66,6 @@ HINSTANCE hZipDll;
 /* Forward References */
 _DLL_ZIP ZipArchive;
 _ZIP_USER_FUNCTIONS ZipInit;
-ZIPSETOPTIONS ZipSetOptions;
 
 void FreeUpMemory(void);
 int WINAPI DummyPassword(LPSTR, int, LPCSTR, LPCSTR);
@@ -104,7 +103,11 @@ OFSTRUCT ofs;
 HANDLE  hMem;         /* handle to mem alloc'ed */
 
 if (argc < 3)
+   {
+   printf("usage: %s [-options] <zipfile> [entry1 [entry2 [...]]] [-xi list]",
+          "example");
    return 0;           /* Exits if not proper number of arguments */
+   }
 
 hZUF = GlobalAlloc( GPTR, (DWORD)sizeof(ZIPUSERFUNCTIONS));
 if (!hZUF)
@@ -179,7 +182,7 @@ if (dwVerInfoSize)
               &cchVer);
    if (!fRet || !fRetName ||
       (lstrcmpi(lszVer, ZIP_DLL_VERSION) != 0) ||
-      (lstrcmpi(lszVerName, COMPANY_NAME) != 0))
+      (lstrcmpi(lszVerName, IZ_COMPANY_NAME) != 0))
       {
       wsprintf (str, DLL_VERSION_WARNING, ZIP_DLL_NAME);
       printf("%s\n", str);
@@ -209,8 +212,7 @@ if (hZipDll != NULL)
 #endif
    {
    (_DLL_ZIP)ZipArchive = (_DLL_ZIP)GetProcAddress(hZipDll, "ZpArchive");
-   (ZIPSETOPTIONS)ZipSetOptions = (ZIPSETOPTIONS)GetProcAddress(hZipDll, "ZpSetOptions");
-   if (!ZipArchive || !ZipSetOptions)
+   if (!ZipArchive)
       {
       char str[256];
       wsprintf (str, "Could not get entry point to %s", ZIP_DLL_NAME);
@@ -245,6 +247,7 @@ if (!(*ZipInit)(lpZipUserFunctions))
    }
 
 /* Here is where the action starts */
+memset(&ZpOpt, 0, sizeof(ZpOpt));
 ZpOpt.fSuffix = FALSE;        /* include suffixes (not yet implemented) */
 ZpOpt.fEncrypt = FALSE;       /* true if encryption wanted */
 ZpOpt.fSystem = FALSE;        /* true to include system/hidden files */
@@ -272,6 +275,7 @@ ZpOpt.fDeleteEntries = FALSE; /* true if deleting files from archive */
 ZpOpt.fRecurse = 0;           /* subdir recursing mode: 1 = "-r", 2 = "-R" */
 ZpOpt.fRepair = 0;            /* archive repair mode: 1 = "-F", 2 = "-FF" */
 ZpOpt.Date = NULL;            /* Not using, set to NULL pointer */
+ZpOpt.fLevel = '6';           /* Default deflate compression level */
 getcwd(szFullPath, PATH_MAX); /* Set directory to current directory */
 ZpOpt.szRootDir = szFullPath;
 
@@ -300,11 +304,8 @@ for (i = 0; i < ZpZCL.argc; i++)
     }
 ZpZCL.FNV = (char **)szFileList;  /* list of files to archive */
 
-/* Set the options */
-ZipSetOptions(&ZpOpt);
-
 /* Go zip 'em up */
-retcode = ZipArchive(ZpZCL);
+retcode = ZipArchive(ZpZCL, &ZpOpt);
 if (retcode != 0)
    printf("Error in archiving\n");
 
@@ -335,11 +336,11 @@ else
    {
    if(GetVersion() < 0x80000000)
       {
-      (BOOL)dwPlatformId = TRUE;
+      dwPlatformId = TRUE;
       }
    else
       {
-      (BOOL)dwPlatformId = FALSE;
+      dwPlatformId = FALSE;
       }
     }
 return dwPlatformId;

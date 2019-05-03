@@ -1,4 +1,4 @@
-#                                               23 February 2007.  SMS.
+#                                               28 July 2008.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Source Description File.
 #
@@ -71,22 +71,17 @@ UNK_DEST = 1
 
 .IFDEF IM                       # IM
 DESTI = I
-.ELSE                           # IM
-DESTI =
 .ENDIF                          # IM
 
 .IFDEF LARGE                    # LARGE
 .IFDEF __VAX__                      # __VAX__
-DESTL =
 .ELSE                               # __VAX__
 DESTL = L
 .ENDIF                              # __VAX__
-.ELSE                           # LARGE
-DESTL =
 .ENDIF                          # LARGE
 
 DEST = $(DESTM)$(DESTI)$(DESTL)
-SEEK_BZ = $(DESTM)$(DESTL)
+SEEK_BZ = $(DESTM)
 
 # Library module name suffix for XXX_.OBJ with GNU C.
 
@@ -117,11 +112,15 @@ NON_VAX_CMPL = 1
 .ENDIF                              # VAXC_OR_FORCE_VAXC
 .ENDIF                          # __VAX__
 
-# Complain if warranted.  Otherwise, show destination directory.
-# Make the destination directory, if necessary.
-				
-.IFDEF UNK_DEST                 # UNK_DEST
+# Complain about any problems (and die) if warranted.  Otherwise, show
+# optional package directories being used, and the destination
+# directory.  Make the destination directory, if necessary.
+
 .FIRST
+.IFDEF __MMK__                  # __MMK__
+	@ write sys$output ""
+.ENDIF                          # __MMK__
+.IFDEF UNK_DEST                 # UNK_DEST
 	@ write sys$output -
  "   Unknown system architecture."
 .IFDEF __MMK__                      # __MMK__
@@ -139,62 +138,81 @@ NON_VAX_CMPL = 1
 	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
 .ELSE                           # UNK_DEST
 .IFDEF VAX_MULTI_CMPL               # VAX_MULTI_CMPL
-.FIRST
 	@ write sys$output -
  "   Macro ""GNUC"" is incompatible with ""VAXC"" or ""FORCE_VAXC""."
 	@ write sys$output ""
 	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
 .ELSE                               # VAX_MULTI_CMPL
 .IFDEF NON_VAX_CMPL                     # NON_VAX_CMPL
-.FIRST
 	@ write sys$output -
  "   Macros ""GNUC"", ""VAXC"", and ""FORCE_VAXC"" are valid only on VAX."
 	@ write sys$output ""
 	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
 .ELSE                                   # NON_VAX_CMPL
 .IFDEF LARGE_VAX                            # LARGE_VAX
-.FIRST
 	@ write sys$output -
  "   Macro ""LARGE"" is invalid on VAX."
 	@ write sys$output ""
 	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
 .ELSE                                       # LARGE_VAX
 .IFDEF IZ_BZIP2                                 # IZ_BZIP2
-CDEFS_BZ = , BZIP2_SUPPORT
-CFLAGS_INCL = /INCLUDE = ([], [.VMS])
-INCL_BZIP2_M = , ZBZ2ERR
-LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2_NS.OLB /library,
-.FIRST
-	@ define incl_bzip2 $(IZ_BZIP2)
 	@ @[.VMS]FIND_BZIP2_LIB.COM $(IZ_BZIP2) $(SEEK_BZ) -
 	   LIBBZ2_NS.OLB lib_bzip2
-	@ write sys$output ""
-	@ if (f$trnlnm( "lib_bzip2") .nes. "") then -
-	   write sys$output "   BZIP2 dir: ''f$trnlnm( "lib_bzip2")'"
 	@ if (f$trnlnm( "lib_bzip2") .eqs. "") then -
 	   write sys$output "   Can not find BZIP2 object library."
-	@ write sys$output ""
+	@ if (f$trnlnm( "lib_bzip2") .eqs. "") then -
+	   write sys$output ""
 	@ if (f$trnlnm( "lib_bzip2") .eqs. "") then -
 	   I_WILL_DIE_NOW.  /$$$$INVALID$$$$
-	@ write sys$output "   Destination: [.$(DEST)]"
+	@ write sys$output "   BZIP2 dir: ''f$trnlnm( "lib_bzip2")'"
 	@ write sys$output ""
-	if (f$search( "$(DEST).DIR;1") .eqs. "") then -
-	 create /directory [.$(DEST)]
-.ELSE                                           # IZ_BZIP2
-CDEFS_BZ =
-CFLAGS_INCL = /include = []
-INCL_BZIP2_M = , ZBZ2ERR
-LIB_BZIP2_OPTS =
-.FIRST
-	@ write sys$output "   Destination: [.$(DEST)]"
-	@ write sys$output ""
-	if (f$search( "$(DEST).DIR;1") .eqs. "") then -
-	 create /directory [.$(DEST)]
+	@ define incl_bzip2 $(IZ_BZIP2)
 .ENDIF                                          # IZ_BZIP2
+.IFDEF IZ_ZLIB                                  # IZ_ZLIB
+	@ @[.VMS]FIND_BZIP2_LIB.COM $(IZ_ZLIB) $(SEEK_BZ) LIBZ.OLB lib_zlib
+	@ if (f$trnlnm( "lib_zlib") .eqs. "") then -
+	   write sys$output "   Can not find ZLIB object library."
+	@ if (f$trnlnm( "lib_zlib") .eqs. "") then -
+	   write sys$output ""
+	@ if (f$trnlnm( "lib_zlib") .eqs. "") then -
+	   I_WILL_DIE_NOW.  /$$$$INVALID$$$$
+	@ write sys$output "   ZLIB dir:  ''f$trnlnm( "lib_zlib")'"
+	@ write sys$output ""
+	@ define incl_zlib $(IZ_ZLIB)
+.ENDIF                                          # IZ_ZLIB
+	@ write sys$output "   Destination: [.$(DEST)]"
+	@ write sys$output ""
+	if (f$search( "$(DEST).DIR;1") .eqs. "") then -
+	 create /directory [.$(DEST)]
 .ENDIF                                      # LARGE_VAX
 .ENDIF                                  # NON_VAX_CMPL
 .ENDIF                              # VAX_MULTI_CMPL
 .ENDIF                          # UNK_DEST
+
+# BZIP2 options.
+
+.IFDEF IZ_BZIP2                 # IZ_BZIP2
+CDEFS_BZ = , BZIP2_SUPPORT
+CFLAGS_INCL = /INCLUDE = ([], [.VMS])
+INCL_BZIP2_M = , ZBZ2ERR
+LIB_BZIP2_OPTS = LIB_BZIP2:LIBBZ2_NS.OLB /library,
+.ENDIF                          # IZ_BZIP2
+
+# ZLIB options.
+
+.IFDEF IZ_ZLIB                  # IZ_ZLIB
+CDEFS_ZL = , USE_ZLIB
+.IFDEF CFLAGS_INCL                  # CFLAGS_INCL
+.ELSE                               # CFLAGS_INCL
+CFLAGS_INCL = /include = ([], [.VMS])
+.ENDIF                              # CFLAGS_INCL
+LIB_ZLIB_OPTS = LIB_ZLIB:LIBZ.OLB /library,
+.ELSE                           # IZ_ZLIB
+.IFDEF CFLAGS_INCL                  # CFLAGS_INCL
+.ELSE                               # CFLAGS_INCL
+CFLAGS_INCL = /include = []
+.ENDIF                              # CFLAGS_INCL
+.ENDIF                          # IZ_ZLIB
 
 # DBG options.
 
@@ -202,7 +220,6 @@ LIB_BZIP2_OPTS =
 CFLAGS_DBG = /debug /nooptimize
 LINKFLAGS_DBG = /debug /traceback
 .ELSE                           # DBG
-CFLAGS_DBG =
 LINKFLAGS_DBG = /notraceback
 .ENDIF                          # DBG
 
@@ -210,27 +227,21 @@ LINKFLAGS_DBG = /notraceback
 
 .IFDEF IM                       # IM
 CDEFS_IM = , VMS_IM_EXTRA
-.ELSE                           # IM
-CDEFS_IM =
 .ENDIF                          # IM
 
 # Large-file options.
 
 .IFDEF LARGE                    # LARGE
 CDEFS_LARGE = , LARGE_FILE_SUPPORT
-.ELSE                           # LARGE
-CDEFS_LARGE =
 .ENDIF                          # LARGE
 
 # C compiler defines.
 
 .IFDEF LOCAL_ZIP
 C_LOCAL_ZIP = , $(LOCAL_ZIP)
-.ELSE
-C_LOCAL_ZIP =
 .ENDIF
 
-CDEFS = VMS $(CDEFS_BZ) $(CDEFS_IM) $(CDEFS_LARGE) $(C_LOCAL_ZIP)
+CDEFS = VMS $(CDEFS_BZ) $(CDEFS_IM) $(CDEFS_LARGE) $(CDEFS_ZL) $(C_LOCAL_ZIP)
 
 CDEFS_UNX = /define = ($(CDEFS))
 
@@ -253,6 +264,8 @@ VAXC = 1
 CFLAGS_ARCH =
 .ENDIF                                      # FORCE_VAXC
 .ENDIF                                  # DECC
+
+# LINK options.
 
 .IFDEF VAXC_OR_FORCE_VAXC               # VAXC_OR_FORCE_VAXC
 OPT_FILE = [.$(DEST)]VAXCSHR.OPT

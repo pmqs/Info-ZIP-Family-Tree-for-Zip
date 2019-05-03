@@ -29,6 +29,7 @@ CPP = /lib/cpp
 E =
 
 # probably can change this to 'install' if you have it
+INSTALL = cp
 INSTALL_PROGRAM = cp
 # probably can change this to 'install -d' if you have it
 # XXX NextStep 3.3 and Openstep 4.x don't know about -p !
@@ -100,6 +101,7 @@ zip.o zipup.o crypt.o ttyio.o zipcloak.o crypt_.o: crypt.h
 zip.o zipup.o zipnote.o zipcloak.o zipsplit.o: revision.h
 zip.o crypt.o ttyio.o zipcloak.o crypt_.o: ttyio.h
 zipup.o: unix/zipup.h
+fileio.o fileio_.o unix.o unix_.o zipup.o : unix/macosx.h
 
 match.o: match.S
 	$(CPP) match.S > _match.s
@@ -161,13 +163,13 @@ install:        $(ZIPS)
 	$(INSTALL_PROGRAM) $(ZIPS) $(BINDIR)
 	-cd $(BINDIR); $(CHMOD) $(BINFLAGS) $(ZIPS)
 	-$(INSTALL_D) $(MANDIR)
-	$(INSTALL_PROGRAM) man/zip.1 $(MANDIR)/zip.$(MANEXT)
+	$(INSTALL) man/zip.1 $(MANDIR)/zip.$(MANEXT)
 	$(CHMOD) $(MANFLAGS) $(MANDIR)/zip.$(MANEXT)
-	$(INSTALL_PROGRAM) man/zipcloak.1 $(MANDIR)/zipcloak.$(MANEXT)
+	$(INSTALL) man/zipcloak.1 $(MANDIR)/zipcloak.$(MANEXT)
 	$(CHMOD) $(MANFLAGS) $(MANDIR)/zipcloak.$(MANEXT)
-	$(INSTALL_PROGRAM) man/zipnote.1 $(MANDIR)/zipnote.$(MANEXT)
+	$(INSTALL) man/zipnote.1 $(MANDIR)/zipnote.$(MANEXT)
 	$(CHMOD) $(MANFLAGS) $(MANDIR)/zipnote.$(MANEXT)
-	$(INSTALL_PROGRAM) man/zipsplit.1 $(MANDIR)/zipsplit.$(MANEXT)
+	$(INSTALL) man/zipsplit.1 $(MANDIR)/zipsplit.$(MANEXT)
 	$(CHMOD) $(MANFLAGS) $(MANDIR)/zipsplit.$(MANEXT)
 
 uninstall:

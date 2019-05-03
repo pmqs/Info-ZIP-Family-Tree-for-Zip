@@ -1,4 +1,9 @@
-Todo list (last updated 12 June 2008).
+Todo list (last updated 8 August 2008).
+
+Added after release of Zip 3.0:
+
+- -FF does not handle Unicode bit 11.  9 August 2008 (EG)
+
 
 Features for next official version:
 

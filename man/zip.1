@@ -11,9 +11,9 @@
 .\" updated by E. Gordon for Zip 3.0 (8 May 2005, 24 December 2006,
 .\" 4 February 2007, 27 May 2007, 4 June 2007 by EG; 12 June 2007 by CS;
 .\" 30 August 2007, 27 April 2008, 25 May 2008, 27 May 2008 by EG,
-.\" 7 June 2008 by SMS and EG; 12 June 2008 by EG)
+.\" 7 June 2008 by SMS and EG; 12 June 2008 by EG; 7 September 2008 by EG)
 .\"
-.TH ZIP 1L "16 June 2008 (v3.0)" Info-ZIP
+.TH ZIP 1L "7 September 2008 (v3.1)" Info-ZIP
 .SH NAME
 zip \- package and compress (archive) files
 .SH SYNOPSIS
@@ -68,7 +68,7 @@ and PKZIP and PKUNZIP can work with archives produced by
 but recent changes in the zip file standard may facilitate
 better compatibility).
 .I zip
-version 3.0 is compatible with PKZIP 2.04 and also supports
+version 3.1 is compatible with PKZIP 2.04 and also supports
 the Zip64 extensions of PKZIP 4.5 which allow archives
 as well as files to exceed the previous 2 GB limit (4 GB in
 some cases).  \fIzip\fP also now supports \fBbzip2\fP compression
@@ -106,8 +106,8 @@ support for the data descriptor format \fIzip\fP uses).
 \fBMac OS X.\fP  Though previous Mac versions had their own \fIzip\fP port,
 \fIzip\fP supports Mac OS X as part of the Unix port and most Unix features
 apply.  References to "MacOS" below generally refer to MacOS versions older
-than OS X.  Support for some Mac OS features in the Unix Mac OS X port, such
-as resource forks, is expected in the next \fIzip\fP release.
+than OS X.  Mac OS X features supported by the Unix port, such
+as resource forks, are identified as UNIX APPLE features.
 
 .PP
 For a brief help on \fIzip\fP and \fIunzip\fP,
@@ -587,6 +587,15 @@ and \fB\-DF\fP to create a differential archive.
 
 .TP
 .PD 0
+.B \-as
+.TP
+.PD
+.B \-\-sequester
+[UNIX APPLE]  Save Apple Double resource files in a sequestered directory,
+instead of in the directory where the data fork file is.
+
+.TP
+.PD 0
 .B \-B
 .TP
 .PD
@@ -770,8 +779,8 @@ also defaults to 10 MB) and this rate is also controlled by \fB-ds\fR.
 .TP
 .PD
 .B \-\-datafork
-[MacOS] Include only data-fork of files zipped into the archive.
-Good for exporting files to foreign operating-systems.
+[MacOS, UNIX APPLE] Include only data-fork of files zipped into
+the archive.  Good for exporting files to foreign operating-systems.
 Resource-forks will be ignored at all.
 
 .TP
@@ -2403,7 +2412,7 @@ deflation is controlled.
 .TP
 .PD
 .B \-\-use\-privileges
-[WIN32] Use priviliges (if granted) to obtain all aspects of WinNT security.
+[WIN32] Use privileges (if granted) to obtain all aspects of WinNT security.
 .TP
 .PD 0
 .B \-@

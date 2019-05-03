@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2002 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2000-Apr-09 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -13,8 +13,6 @@
 #include <string.h>
 #include "zip.h"
 #include "riscos.h"
-
-#define MAXEXT 256
 
 /* External globals */
 extern int scanimage;
@@ -177,8 +175,8 @@ char *f;                /* file to delete */
 /* Delete the file *f, returning non-zero on failure. */
 {
  os_error *er;
- char canon[256];
- int size=255;
+ char canon[MAXFILENAMELEN];
+ int size=MAXFILENAMELEN-1;
 
  er=SWI_OS_FSControl_37(f,canon,&size);
  if (er==NULL) {
@@ -217,8 +215,8 @@ int deletedir(char *d)
 
  if (er=SWI_OS_File_6(s),er!=NULL) {
    /* maybe this is a problem with the DDEUtils module, try to canonicalise the path */
-   char canon[256];
-   int size=255;
+   char canon[MAXFILENAMELEN];
+   int size=MAXFILENAMELEN-1;
 
    if (er=SWI_OS_FSControl_37(s,canon,&size),er!=NULL) {
      free(s);
@@ -246,7 +244,7 @@ int chmod(char *file, int mode)
 
 void setfiletype(char *fname,int ftype)
 {
- char str[256];
+ char str[MAXFILENAMELEN+32];
  sprintf(str,"SetType %s &%3.3X",fname,ftype);
  SWI_OS_CLI(str);
 }
@@ -321,7 +319,7 @@ void remove_prefix(void)
 
 void set_prefix(void)
 {
- char *pref;
+ char *pref=0;
  int size=0;
 
  if (SWI_OS_FSControl_37("@",pref,&size)!=NULL)

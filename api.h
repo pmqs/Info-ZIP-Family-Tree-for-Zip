@@ -119,6 +119,8 @@ BOOL fOffsets;          /* Update archive offsets for SFX files */
 BOOL fPrivilege;        /* Use privileges (WIN32 only) */
 BOOL fEncryption;       /* TRUE if encryption supported, else FALSE.
                            this is a read only flag */
+BOOL fUTF8_No;          /* No UTF-8 */
+BOOL fUTF8_Native;      /* Store UTF-8 as native character set */
 LPSTR szSplitSize;      /* This string contains the size that you want to
                            split the archive into. i.e. 100 for 100 bytes,
                            2K for 2 k bytes, where K is 1024, m for meg

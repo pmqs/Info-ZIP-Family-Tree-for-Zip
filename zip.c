@@ -530,14 +530,14 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
   if (noisy) {
     if (mesg_line_started)
       fprintf(mesg, "\n");
-    fprintf(mesg, "\tzip warning: %s%s\n", a, b);
+    fprintf(mesg, "        zip warning: %s%s\n", a, b);
     mesg_line_started = 0;
     fflush(mesg);
   }
   if (logfile) {
     if (logfile_line_started)
       fprintf(logfile, "\n");
-    fprintf(logfile, "\tzip warning: %s%s\n", a, b);
+    fprintf(logfile, "        zip warning: %s%s\n", a, b);
     logfile_line_started = 0;
     fflush(logfile);
   }
@@ -666,9 +666,12 @@ local void help()
 #endif /* ?AMIGA */
 #ifdef RISCOS
 ,"  -h2  show more help               -I   don't scan thru Image files"
-#else
+#else /* def RISCOS */
+#  if defined( UNIX) && defined( __APPLE__)
+,"  -as  sequester AppleDouble files  -df  save Mac data fork only"
+#  endif /* defined( UNIX) && defined( __APPLE__) [else] */
 ,"  -h2  show more help"
-#endif
+#endif /* def RISCOS [else] */
 #endif /* ?MACOS */
 #ifdef VMS
 ,"  (Must quote upper-case options, like \"-V\", unless SET PROC/PARSE=EXTEND)"
@@ -1195,7 +1198,7 @@ local void version_info()
 
   puts("Zip special compilation options:");
 #if WSIZE != 0x8000
-  printf("\tWSIZE=%u\n", WSIZE);
+  printf("        WSIZE=%u\n", WSIZE);
 #endif
 
   /* Fill in bzip2 version.  (32-char limit valid as of bzip 1.0.3.) */
@@ -1210,18 +1213,18 @@ local void version_info()
 
   for (i = 0; (int)i < (int)(sizeof(comp_opts)/sizeof(char *) - 1); i++)
   {
-    printf("\t%s\n",comp_opts[i]);
+    printf("        %s\n",comp_opts[i]);
   }
 #ifdef USE_ZLIB
   if (strcmp(ZLIB_VERSION, zlibVersion()) == 0)
-    printf("\tUSE_ZLIB [zlib version %s]\n", ZLIB_VERSION);
+    printf("        USE_ZLIB             (zlib version %s)\n", ZLIB_VERSION);
   else
-    printf("\tUSE_ZLIB [compiled with version %s, using version %s]\n",
+    printf("        USE_ZLIB             (compiled with version %s, using %s)\n",
       ZLIB_VERSION, zlibVersion());
   i++;  /* zlib use means there IS at least one compilation option */
 #endif
 #if CRYPT
-  printf("\t[encryption, version %d.%d%s of %s] (modified for Zip 3)\n\n",
+  printf("        [encryption, version %d.%d%s of %s] (modified for Zip 3)\n\n",
             CR_MAJORVER, CR_MINORVER, CR_BETA_VER, CR_VERSION_DATE);
   for (i = 0; i < sizeof(cryptnote)/sizeof(char *); i++)
   {
@@ -1231,7 +1234,7 @@ local void version_info()
   ++i;  /* crypt support means there IS at least one compilation option */
 #endif /* CRYPT */
   if (i == 0)
-      puts("\t[none]");
+      puts("        [none]");
 
   puts("\nZip environment options:");
   for (i = 0; i < sizeof(zipenv_names)/sizeof(char *); i++)
@@ -1942,6 +1945,9 @@ int set_filetype(out_path)
 #ifdef UNICODE_TEST
 #define o_sC            0x146
 #endif
+#if defined( UNIX) && defined( __APPLE__)
+#define o_as            0x147
+#endif /* defined( UNIX) && defined( __APPLE__) */
 
 
 /* the below is mainly from the old main command line
@@ -1972,6 +1978,9 @@ struct option_struct far options[] = {
     {"AC", "archive-clear", o_NO_VALUE,     o_NOT_NEGATABLE, o_AC, "clear DOS archive bit of included files"},
     {"AS", "archive-set", o_NO_VALUE,       o_NOT_NEGATABLE, o_AS, "include only files with archive bit set"},
 #endif
+#if defined( UNIX) && defined( __APPLE__)
+    {"as", "sequester",   o_NO_VALUE,       o_NEGATABLE,     o_as, "sequester AppleDouble files in __MACOSX"},
+#endif /* defined( UNIX) && defined( __APPLE__) */
     {"b",  "temp-path",   o_REQUIRED_VALUE, o_NOT_NEGATABLE, 'b',  "dir to use for temp archive"},
     {"c",  "entry-comments", o_NO_VALUE,    o_NOT_NEGATABLE, 'c',  "add comments for each entry"},
 #ifdef VMS
@@ -1987,9 +1996,9 @@ struct option_struct far options[] = {
     {"ds", "dot-size",     o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_ds, "set progress dot size - default 10M bytes"},
     {"du", "display-usize", o_NO_VALUE,     o_NEGATABLE,     o_du, "display uncompressed size in bytes"},
     {"dv", "display-volume", o_NO_VALUE,    o_NEGATABLE,     o_dv, "display volume (disk) number"},
-#ifdef MACOS
-    {"df", "datafork",    o_NO_VALUE,       o_NOT_NEGATABLE, o_df, "save datafork"},
-#endif /* MACOS */
+#if defined( MACOS) || (defined( UNIX) && defined( __APPLE__))
+    {"df", "datafork",    o_NO_VALUE,       o_NEGATABLE,     o_df, "save data fork only"},
+#endif /* defined( MACOS) || (defined( UNIX) && defined( __APPLE__)) */
     {"D",  "no-dir-entries", o_NO_VALUE,    o_NOT_NEGATABLE, 'D',  "no entries for dirs themselves (-x */)"},
     {"DF", "difference-archive",o_NO_VALUE, o_NOT_NEGATABLE, o_DF, "create diff archive with changed/new files"},
     {"e",  "encrypt",     o_NO_VALUE,       o_NOT_NEGATABLE, 'e',  "encrypt entries, ask for password"},
@@ -2151,12 +2160,9 @@ char **argv;            /* command line tokens */
   FILE *x /*, *y */;    /* input and output zip files (y global) */
   struct zlist far *z;  /* steps through zfiles linked list */
   int bad_open_is_error = 0; /* if read fails, 0=warning, 1=error */
-#if 0
-  /* does not seem used */
 #ifdef WINDLL
   int retcode;          /* return code for dll */
 #endif /* WINDLL */
-#endif
 #if (!defined(VMS) && !defined(CMS_MVS))
   char *zipbuf;         /* stdio buffer for the zip file */
 #endif /* !VMS && !CMS_MVS */
@@ -2463,13 +2469,13 @@ char **argv;            /* command line tokens */
   filter_match_case = 1;      /* default is to match case when matching archive entries */
   allow_fifo = 0;             /* 1=allow reading Unix FIFOs, waiting if pipe open */
 
-#if !defined(MACOS) && !defined(USE_ZIPMAIN)
+#if defined(WINDLL)
   retcode = setjmp(zipdll_error_return);
   if (retcode) {
     return retcode;
   }
-#endif /* !MACOS */
-#endif /* MACOS || WINDLL */
+#endif /* WINDLL */
+#endif /* MACOS || WINDLL || USE_ZIPMAIN */
 
 #if !defined(ALLOW_REGEX) && (defined(MSDOS) || defined(WIN32))
   allow_regex = 0;        /* 1 = allow [list] matching (regex) */
@@ -2678,7 +2684,16 @@ char **argv;            /* command line tokens */
              directories for the paths as needed. */
           dirnames = 0;
           only_archive_set = 1; break;
-#endif /* MSDOS || OS2 || WIN32 */
+#endif /* defined(WIN32) */
+#if defined( UNIX) && defined( __APPLE__)
+        case o_as:
+          /* sequester Apple Double resource files */
+          if (negated)
+            sequester = 0;
+          else
+            sequester = 1;
+          break;
+#endif /* defined( UNIX) && defined( __APPLE__) */
         case 'b':   /* Specify path for temporary file */
           tempdir = 1;
           tempath = value;
@@ -2698,7 +2713,15 @@ char **argv;            /* command line tokens */
         case o_df:
           MacZip.DataForkOnly = true;
           break;
-#endif /* MACOS */
+#endif /* def MACOS */
+#if defined( UNIX) && defined( __APPLE__)
+        case o_df:
+          if (negated)
+            data_fork_only = 0;
+          else
+            data_fork_only = 1;
+          break;
+#endif /* defined( UNIX) && defined( __APPLE__) */
         case o_db:
           if (negated)
             display_bytes = 0;
@@ -3816,6 +3839,13 @@ char **argv;            /* command line tokens */
   if (aflag==ASCII && bflag)
     ZIPERR(ZE_PARMS, "can't use -a with -B");
 #endif
+#if defined( UNIX) && defined( __APPLE__)
+  if (data_fork_only && sequester)
+    {
+      zipwarn("can't use -as with -df, -as ignored", "");
+      sequester = 0;
+    }
+#endif /* defined( UNIX) && defined( __APPLE__) */
 #ifdef VMS
   if (!extra_fields && vms_native)
     {
@@ -4451,7 +4481,11 @@ char **argv;            /* command line tokens */
       }
     }
     tf = 0;
-    if (action != DELETE && action != FRESHEN) {
+    if ((action != DELETE) && (action != FRESHEN)
+#if defined( UNIX) && defined( __APPLE__)
+     && (f->flags == 0)
+#endif /* defined( UNIX) && defined( __APPLE__) */
+     ) {
 #if defined(UNICODE_SUPPORT) && defined(WIN32)
       if (!no_win32_wide)
         tf = filetimew(f->namew, (ulg *)NULL, (zoff_t *)&usize, NULL);
@@ -4463,7 +4497,12 @@ char **argv;            /* command line tokens */
     }
 
     if (action == DELETE || action == FRESHEN ||
-        tf == 0 ||
+        ((tf == 0)
+#if defined( UNIX) && defined( __APPLE__)
+        /* Don't bother an AppleDouble file. */
+        && (f->flags == 0)
+#endif /* defined( UNIX) && defined( __APPLE__) */
+        ) ||
         tf < before || (after && tf >= after) ||
         (namecmp(f->zname, zipfile) == 0 && !zip_to_stdout)
        )
@@ -5534,6 +5573,10 @@ char **argv;            /* command line tokens */
     z->znamew = f->znamew;
     f->znamew = NULL;
 #endif
+#if defined( UNIX) && defined( __APPLE__)
+    z->flags = f->flags;
+#endif /* defined( UNIX) && defined( __APPLE__) */
+
     z->ext = z->cext = z->com = 0;
     z->extra = z->cextra = NULL;
     z->mark = 1;

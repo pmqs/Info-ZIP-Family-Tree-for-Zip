@@ -1,8 +1,11 @@
-Zip 3.0 is the first Zip update adding large file support.  For now Zip 2.3x
-remains available and supported, but users should switch to this new release.
+Zip 3.1a is a BETA version.  Do not distribute.
 
-Testing for Zip 3.0 has focused mainly on Unix, VMS, Max OS X, and Win32,
-and some other ports may not be fully supported yet.  If you find your
+Zip 3.1 is the latest Zip update of Zip 3.x with large file and split archive
+support.  For now Zip 2.3x remains available and supported, but users should
+switch to Zip 3.x at some point.
+
+Testing for Zip 3.x so far has focused mainly on Unix, VMS, Max OS X, and
+Win32, and some other ports may not be fully supported yet.  If you find your
 favorite port is broke, send us the details or, better, send bug fixes.  It's
 possible that support for some older ports may be dropped in the future.
 
@@ -17,7 +20,7 @@ ftp://ftp.info-zip.org/pub/infozip/license.html and
 http://www.info-zip.org/pub/infozip/license.html.
 
 
-Zip 3.0 is a compression and file packaging utility.  It is compatible with
+Zip 3.1 is a compression and file packaging utility.  It is compatible with
 PKZIP 2.04g (Phil Katz ZIP) for MSDOS systems.  There is a companion to zip
 called unzip (of course) which you should be able to find in the same place
 you got zip.  See the file 'WHERE' for details on ftp sites and mail
@@ -33,7 +36,7 @@ extended file attributes; conversion from Unix to MSDOS text file format; and,
 of course, the ability to run on most of your favorite operating systems.  And
 it's free.
 
-See the file zip30.ann for a summary of new features in Zip 3.0 and WhatsNew
+See the file zip31a.ann for a summary of new features in Zip 3.1a and WhatsNew
 for the detailed list of new features and changes since Zip 2.32.  The file
 CHANGES details all day-to-day changes during development.
 
@@ -41,7 +44,7 @@ Notes:
 
 Multi-volume support.  This version does not support multi-volume spanned
 archives as in pkzip 2.04g, and there is no intention at this point to support
-spanned archives, but Zip 3.0 supports split archives.  A split archive is an
+spanned archives, but Zip 3.1 supports split archives.  A split archive is an
 archive split into a set of files, each file a piece of the archive and each
 file using an extension, such as .z02 as in the file name archive.z02, that
 provides the order of the splits.  In contrast, a spanned archive is the
@@ -68,15 +71,15 @@ character calls are supported (not Win 9x unless Unicode support has been
 added) all files (including paths with illegal characters in the current
 character set) should now be readable by zip.  Unicode support is provided
 using a new set of UTF-8 path and comment extra fields and a new UTF-8 bit
-for flagging when the current character set is already UTF-8.  Zip 3.0
+for flagging when the current character set is already UTF-8.  Zip 3.1
 maintains backward compatibility with older archives and is mostly compliant
 with the new Unicode additions in the latest PKWare AppNote.  The exception
 is UTF-8 comments, which are not supported if UTF-8 is not the native
 character set, but should be fully implemented in Zip 3.1.
 
-16-bit OS support.  Though Zip 3.0 is designed to support the latest zip
+16-bit OS support.  Though Zip 3.1 is designed to support the latest zip
 standards and modern OS, some effort has been made to maintain support
-for older and smaller systems.  If you find Zip 3.0 does not fit on or
+for older and smaller systems.  If you find Zip 3.1 does not fit on or
 otherwise does not work well on a particular OS, send in the details and
 we might be able to help.
 
@@ -85,7 +88,8 @@ Zip now can use the bzip2 compression format using the bzip2 library.  Though
 bzip2 compression generally takes longer, in many cases using bzip2 results
 in much better compression.  However, many unzips may not yet support
 bzip2 compressed entries in archives, so test your unzip first before using
-bzip2 compression.
+bzip2 compression.  We may add additional compression methods if there is
+interest.
 
 Installation.  Please read the file INSTALL for information on how to compile
 and install zip, zipsplit, zipcloak, and zipnote and please read the manual
@@ -98,12 +102,14 @@ DOS line ends (CR LF) or extract the distribution contents using unzip -a.
 Utilities.  At this point zipsplit, zipcloak, and zipnote should work with
 large files, but they currently do not handle split archives.  A work around
 is to use zip to convert a split archive to a single file archive and then use
-the utilities on that archive.
+the utilities on that archive.  We hope to look at adding split archive
+support to the utilities in Zip 3.1 as appropriate.
 
 Encryption.  This version supports standard zip encryption.  Until recently
 the encryption code was distributed separately because of the US export
 regulations but now is part of the main distribution.  See crypt.c for
 details.  Decryption can be made with unzip 5.0p1 or later, or with zipcloak.
+We plan to add AES strong encryption to Zip 3.1 before release.
 
 Bug reports.  All bug reports or patches should go to zip-bugs via the web
 site contact form at http://www.info-zip.org/zip-bug.html (we have discontinued
@@ -112,16 +118,15 @@ and suggestions for new features can be submitted there also (although we don't
 promise to use all of them).  We also are on SourceForge at
 http://sourceforge.net/projects/infozip/ and now automatically get Bug Reports
 and Feature Requests submitted there.  In addition, a new Info-ZIP discussion
-forum is available as well.  See below.  Though bug reports can be posted there,
-we don't have automatic monitoring of all postings set up yet so you may want
-to use the web form or SoureForge for a quicker response.  A good approach may
-be to post the details on the forum so others can benefit from the posting,
+forum is available as well.  See below.  Bug reports can also be posted there,
+and we now get automatic notification of new threads created.  A good approach
+may be to post the details on the forum so others can benefit from the posting,
 then use the web reply form to let us know you did that if you don't get a
 reply in a reasonable time.
 
-Ports.  If you're considering a port, please check in with zip-bugs FIRST,
-since the code is constantly being updated behind the scenes.  We'll
-arrange to give you access to the latest source.
+Ports.  If you're considering a port to a new system or compiler, please check
+in with zip-bugs FIRST, since the code is constantly being updated behind the
+scenes.  We'll arrange to give you access to the latest source.
 
 Discussion group.  If you'd like to keep up to date with our Zip (and companion
 UnZip utility) development, join the ranks of BETA testers, add your own
@@ -134,11 +139,11 @@ amounts of spam.  The new discussion forum is now available at
 http://www.info-zip.org/board/board.pl (thanks again to Hunter Goatley) and
 can be used to discuss issues, request features, and is one place new betas
 and releases are announced.  It also is a place to post bug reports, and
-patches can be submitted as attachments.  However, we don't yet get
-automatic notification of all postings there so try one of the other methods
-if you don't get a response.  You can also post Bug Reports and Feature
-Requests at Source Forge.  However, the web site contact form remains
-available if you would rather not post on the public forums.
+patches can be submitted as attachments.  We also now get automatic
+notification of new threads created, so be sure to post new issues in new
+threads.  You can also post Bug Reports and Feature Requests at Source Forge.
+However, the web site contact form remains available if you would rather not
+post on the public forums.
 
 Frequently asked questions on zip and unzip:
 
@@ -162,7 +167,7 @@ A. Please make sure that you made the transfer in binary mode.  Check
    Note that the above message also may actually mean you have only part
    of a multi-part archive.  Also note that UnZip 5.x does not and UnZip 6.0
    probably won't have multi-disk (split) archive support.  A work around
-   is to use Zip 3.0 to convert the split archive to a single-file archive
+   is to use Zip 3.1 to convert the split archive to a single-file archive
    then use UnZip on that archive.  As a last result, if there's something
    readable in what you have, zip -FF should be able to recover it.
 

@@ -1,4 +1,4 @@
-#                                               23 February 2007.  SMS.
+#                                               26 July 2008.  SMS.
 #
 #    Zip 3.0 for VMS - MMS (or MMK) Description File.
 #
@@ -28,6 +28,14 @@
 #                   be in a "[.dest]" directory under that one
 #                   ("dev:[dir.ALPHAL]", for example), or in that
 #                   directory itself.
+#
+#    IZ_ZLIB=dev:[dir]  Use ZLIB compression library instead of internal
+#                       compression routines.  The value of the MMS
+#                   macro IZ_ZLIB ("dev:[dir]", or a suitable logical
+#                   name) tells where to find "zlib.h".  The ZLIB object
+#                   library (LIBZ.OLB) is expected to be in a "[.dest]"
+#                   directory under that one ("dev:[dir.ALPHAL]", for
+#                   example), or in that directory itself.
 #
 #    LARGE=1        Enable large-file (>2GB) support.  Non-VAX only.
 #
@@ -278,6 +286,7 @@ $(ZIP) : [.$(DEST)]ZIP.OBJ $(LIB_ZIP) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIP) /include = (GLOBALS $(INCL_BZIP2_M)) /library,  -
 	 $(LIB_BZIP2_OPTS) -
+	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
@@ -289,6 +298,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
 	 $(LIB_ZIPCLI) /library, -
 	 $(LIB_ZIP) /include = (GLOBALS $(INCL_BZIP2_M)) /library, -
 	 $(LIB_BZIP2_OPTS) -
+	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 
@@ -299,6 +309,7 @@ $(ZIP_CLI) : [.$(DEST)]ZIPCLI.OBJ \
                          $(OPT_ID) $(OPT_FILE)
 	$(LINK) $(LINKFLAGS) $(MMS$SOURCE), -
 	 $(LIB_ZIPUTILS) /include = (GLOBALS) /library, -
+	 $(LIB_ZLIB_OPTS) -
 	 $(LFLAGS_ARCH) -
 	 $(OPT_ID) /options
 

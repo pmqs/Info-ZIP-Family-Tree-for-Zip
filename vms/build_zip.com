@@ -2,7 +2,7 @@ $! BUILD_ZIP.COM
 $!
 $!     Build procedure for VMS versions of Zip.
 $!
-$!     last revised:  2007-03-15  SMS.
+$!     Last revised:  2008-07-29  SMS.
 $!
 $!     Command arguments:
 $!     - suppress help file processing: "NOHELP"
@@ -34,6 +34,11 @@ $!       (or a suitable logical name) tells where to find "bzlib.h".
 $!       The BZIP2 object library (LIBBZ2_NS.OLB) is expected to be in
 $!       a "[.dest]" directory under that one ("dev:[dir.ALPHAL]", for
 $!       example), or in that directory itself.
+$!     - use ZLIB compression library: "IZ_ZLIB=dev:[dir]", where
+$!       "dev:[dir]" (or a suitable logical name) tells where to find
+$!       "zlib.h".  The ZLIB object library (LIBZ.OLB) is expected to be
+$!       in a "[.dest]" directory under that one ("dev:[dir.ALPHAL]",
+$!       for example), or in that directory itself.
 $!
 $!     To specify additional options, define the global symbol
 $!     LOCAL_ZIP as a comma-separated list of the C macros to be
@@ -116,6 +121,7 @@ $ zipx_cli = "ZIP_CLI"
 $!
 $ CCOPTS = ""
 $ IZ_BZIP2 = ""
+$ IZ_ZLIB = ""
 $ LINKOPTS = "/notraceback"
 $ LINK_ONLY = 0
 $ LISTING = " /nolist"
@@ -141,11 +147,19 @@ $         CCOPTS = f$extract( (eq+ 1), 1000, opts)
 $         goto argloop_end
 $     endif
 $!
-$     if f$extract( 0, 7, curr_arg) .eqs. "IZ_BZIP"
+$     if (f$extract( 0, 7, curr_arg) .eqs. "IZ_BZIP")
 $     then
 $         opts = f$edit( curr_arg, "COLLAPSE")
 $         eq = f$locate( "=", opts)
 $         IZ_BZIP2 = f$extract( (eq+ 1), 1000, opts)
+$         goto argloop_end
+$     endif
+$!
+$     if (f$extract( 0, 7, curr_arg) .eqs. "IZ_ZLIB")
+$     then
+$         opts = f$edit( curr_arg, "COLLAPSE")
+$         eq = f$locate( "=", opts)
+$         IZ_ZLIB = f$extract( (eq+ 1), 1000, opts)
 $         goto argloop_end
 $     endif
 $!
@@ -313,9 +327,9 @@ $         defs = "''LOCAL_ZIP' VMS"
 $         if ((.not. HAVE_VAXC_VAX .and. MAY_HAVE_GNUC) .or. MAY_USE_GNUC)
 $         then
 $             cc = "gcc"
-$             opts = "GNU_CC:[000000]GCCLIB.OLB /LIBRARY,"
 $             dest = "''dest'G"
 $             cmpl = "GNU C"
+$             opts = "GNU_CC:[000000]GCCLIB.OLB /LIBRARY,"
 $         else
 $             if (HAVE_DECC_VAX)
 $             then
@@ -337,8 +351,7 @@ $ dest = dest+ desti
 $ seek_bz = arch
 $ if (LARGE_FILE .ne. 0)
 $ then
-$     dest = dest+ "L"
-$     seek_bz = seek_bz+ "L"
+$     dest = "''dest'L"
 $ endif
 $!
 $! If BZIP2 support was selected, find the object library.
@@ -358,10 +371,34 @@ $     then
 $         say "Can't find BZIP2 object library.  Can't link."
 $         goto error
 $     else
-$         say "BZIP2 dir = ''f$trnlnm( "lib_bzip2")'"
+$         say "BZIP2 dir: ''f$trnlnm( "lib_bzip2")'"
 $         incl_bzip2_m = ", ZBZ2ERR"
 $         lib_bzip2_opts = "lib_bzip2:''bz2_olb' /library, "
 $         cc_incl = cc_incl+ ", [.VMS]"
+$     endif
+$ endif
+$!
+$! If ZLIB use was selected, find the object library.
+$! Complain if things fail.
+$!
+$ lib_zlib_opts = ""
+$ if (IZ_ZLIB .nes. "")
+$ then
+$     zlib_olb = "LIBZ.OLB"
+$     define incl_zlib 'IZ_ZLIB'
+$     defs = "''defs', USE_ZLIB"
+$     @ [.VMS]FIND_BZIP2_LIB.COM 'IZ_ZLIB' 'seek_bz' 'zlib_olb' lib_zlib
+$     if (f$trnlnm( "lib_zlib") .eqs. "")
+$     then
+$         say "Can't find ZLIB object library.  Can't link."
+$         goto error
+$     else
+$         say "ZLIB dir:  ''f$trnlnm( "lib_zlib")'"
+$         lib_zlib_opts = "lib_zlib:''zlib_olb' /library, "
+$         if (f$locate( "[.VMS]", cc_incl) .ge. f$length( cc_incl))
+$         then
+$             cc_incl = cc_incl+ ", [.VMS]"
+$         endif
 $     endif
 $ endif
 $!
@@ -467,8 +504,7 @@ $! Create the message source file first, if it's not found.
 $!
 $         if (f$search( "[.VMS]ZIP_MSG.MSG") .eqs. "")
 $         then
-$             cc /include = [] /object = [.'dest']VMS_MSG_GEN.OBJ -
-               [.VMS]VMS_MSG_GEN.C
+$             cc /object = [.'dest']VMS_MSG_GEN.OBJ [.VMS]VMS_MSG_GEN.C
 $             link /executable = [.'dest']VMS_MSG_GEN.EXE -
                [.'dest']VMS_MSG_GEN.OBJ
 $             create /fdl = [.VMS]STREAM_LF.FDL [.VMS]ZIP_MSG.MSG
@@ -498,12 +534,9 @@ $     cc 'DEF_UNX' /object = [.'dest']UTIL.OBJ UTIL.C
 $     cc 'DEF_UNX' /object = [.'dest']ZBZ2ERR.OBJ ZBZ2ERR.C
 $     cc 'DEF_UNX' /object = [.'dest']ZIPFILE.OBJ ZIPFILE.C
 $     cc 'DEF_UNX' /object = [.'dest']ZIPUP.OBJ ZIPUP.C
-$     cc /include = [] 'DEF_UNX' /object = [.'dest']VMS.OBJ -
-       [.VMS]VMS.C
-$     cc /include = [] 'DEF_UNX' /object = [.'dest']VMSMUNCH.OBJ -
-       [.VMS]VMSMUNCH.C
-$     cc /include = [] 'DEF_UNX' /object = [.'dest']VMSZIP.OBJ -
-       [.VMS]VMSZIP.C
+$     cc 'DEF_UNX' /object = [.'dest']VMS.OBJ [.VMS]VMS.C
+$     cc 'DEF_UNX' /object = [.'dest']VMSMUNCH.OBJ [.VMS]VMSMUNCH.C
+$     cc 'DEF_UNX' /object = [.'dest']VMSZIP.OBJ [.VMS]VMSZIP.C
 $!
 $! Create the object library.
 $!
@@ -534,6 +567,7 @@ $ link /executable = [.'dest']'ZIPX_UNX'.EXE -
    [.'dest']ZIP.OBJ, -
    [.'dest']ZIP.OLB /include = (GLOBALS 'incl_bzip2_m') /library, -
    'lib_bzip2_opts' -
+   'lib_zlib_opts' -
    'opts' -
    SYS$DISK:[.VMS]ZIP.OPT /options
 $!
@@ -556,8 +590,7 @@ $!
 $! Compile the CLI sources.
 $!
 $     cc 'DEF_CLI' /object = [.'dest']ZIPCLI.OBJ ZIP.C
-$     cc /include = [] 'DEF_CLI' /object = [.'dest']CMDLINE.OBJ -
-       [.VMS]CMDLINE.C
+$     cc 'DEF_CLI' /object = [.'dest']CMDLINE.OBJ [.VMS]CMDLINE.C
 $!
 $! Create the command definition object file.
 $!
@@ -582,6 +615,7 @@ $ link /executable = [.'dest']'ZIPX_CLI'.EXE -
    [.'dest']ZIPCLI.OLB /library, -
    [.'dest']ZIP.OLB /include = (GLOBALS 'incl_bzip2_m') /library, -
    'lib_bzip2_opts' -
+   'lib_zlib_opts' -
    'opts' -
    SYS$DISK:[.VMS]ZIP.OPT /options
 $!
@@ -597,11 +631,11 @@ $     cc 'DEF_UTIL' /object = [.'dest']CRYPT_.OBJ CRYPT.C
 $     cc 'DEF_UTIL' /object = [.'dest']FILEIO_.OBJ FILEIO.C
 $     cc 'DEF_UTIL' /object = [.'dest']UTIL_.OBJ UTIL.C
 $     cc 'DEF_UTIL' /object = [.'dest']ZIPFILE_.OBJ ZIPFILE.C
-$     cc 'DEF_UTIL' /include = [] /object = [.'dest']VMS_.OBJ [.VMS]VMS.C
+$     cc 'DEF_UTIL' /object = [.'dest']VMS_.OBJ [.VMS]VMS.C
 $!
 $! Create the Zip utilities object library.
 $!
-$     if f$search( "[.''dest']ZIPUTILS.OLB") .eqs. "" then -
+$     if (f$search( "[.''dest']ZIPUTILS.OLB") .eqs. "") then -
        libr /object /create [.'dest']ZIPUTILS.OLB
 $!
 $     libr /object /replace [.'dest']ZIPUTILS.OLB -
@@ -628,6 +662,7 @@ $!
 $ link /executable = [.'dest']ZIPCLOAK.EXE -
    [.'dest']ZIPCLOAK.OBJ, -
    [.'dest']ZIPUTILS.OLB /include = (GLOBALS) /library, -
+   'lib_zlib_opts' -
    'opts' -
    SYS$DISK:[.VMS]ZIP.OPT /options
 $!
@@ -643,7 +678,22 @@ $ LINK /EXECUTABLE = [.'DEST']ZIPSPLIT.EXE -
    'opts' -
    SYS$DISK:[.VMS]ZIP.OPT /options
 $!
-$!----------------------- Logical name removal section -----------------------
+$!------------------------------ Symbols section -----------------------------
+$!
+$ there = here- "]"+ ".''dest']"
+$!
+$! Define the foreign command symbols.  Similar commands may be useful
+$! in SYS$MANAGER:SYLOGIN.COM and/or users' LOGIN.COM.
+$!
+$ zip      == "$''there'''ZIPEXEC'.exe"
+$ zipcloak == "$''there'zipcloak.exe"
+$ zipnote  == "$''there'zipnote.exe"
+$ zipsplit == "$''there'zipsplit.exe"
+$!
+$! Deassign the temporary process logical names, restore the original
+$! default directory, and restore the DCL verify status.
+$!
+$ error:
 $!
 $ if (IZ_BZIP2 .nes. "")
 $ then
@@ -657,21 +707,17 @@ $         deassign lib_bzip2
 $     endif
 $ endif
 $!
-$!------------------------------ Symbols section -----------------------------
-$!
-$ there = here- "]"+ ".''dest']"
-$!
-$! Define the foreign command symbols.  Similar commands may be useful
-$! in SYS$MANAGER:SYLOGIN.COM and/or users' LOGIN.COM.
-$!
-$ zip      == "$''there'''ZIPEXEC'.exe"
-$ zipcloak == "$''there'zipcloak.exe"
-$ zipnote  == "$''there'zipnote.exe"
-$ zipsplit == "$''there'zipsplit.exe"
-$!
-$! Restore the original default directory and DCL verify status.
-$!
-$ error:
+$ if (IZ_ZLIB .nes. "")
+$ then
+$     if (f$trnlnm( "incl_zlib", "LNM$PROCESS_TABLE") .nes. "")
+$     then
+$         deassign incl_zlib
+$     endif
+$     if (f$trnlnm( "lib_zlib", "LNM$PROCESS_TABLE") .nes. "")
+$     then
+$         deassign lib_zlib
+$     endif
+$ endif
 $!
 $ if (f$type( here) .nes. "")
 $ then

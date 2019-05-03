@@ -470,6 +470,16 @@ if (Options.fUpdate) /* Update zip file--overwrite only if newer -u */
     if (AllocMemory(argCee, "-u", "Update", FALSE) != ZE_OK)
         return ZE_MEM;
     }
+if (Options.fUTF8_No) /* No UTF-8 */
+    {
+    if (AllocMemory(argCee, "-UN=N", "UTF-8 No", FALSE) != ZE_OK)
+        return ZE_MEM;
+    }
+if (Options.fUTF8_Native) /* Native UTF-8 */
+    {
+    if (AllocMemory(argCee, "-UN=U", "UTF-8 Native", FALSE) != ZE_OK)
+        return ZE_MEM;
+    }
 if (Options.fVerbose)  /* Mention oddities in zip file structure -v */
     {
     if (AllocMemory(argCee, "-v", "Verbose", FALSE) != ZE_OK)

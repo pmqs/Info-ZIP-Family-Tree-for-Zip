@@ -28,6 +28,10 @@ char errbuf[FNMAX+4081];
 int recurse = 0;        /* 1=recurse into directories encountered */
 int dispose = 0;        /* 1=remove files after put in zip file */
 int pathput = 1;        /* 1=store path with name */
+#if defined( UNIX) && defined( __APPLE__)
+int data_fork_only = 0; /* 1=no AppleDouble supplement file. */
+int sequester = 0;      /* 1=sequester AppleDouble files in __MACOSX. */
+#endif /* defined( UNIX) && defined( __APPLE__) */
 #ifdef RISCOS
 int scanimage = 1;      /* 1=scan through image files */
 #endif

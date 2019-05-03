@@ -1,11 +1,47 @@
-# Makefile for Zip, ZipCloak, ZipNote and ZipSplit for
-# djgpp 2.x
+# Makefile for Zip, ZipCloak, ZipNote and ZipSplit using DJGPP v2.03 or higher.
+# (c) Info-ZIP.                                   Last updated: 2008-Jul-21
+
 VPATH=.;msdos
+
+# configuration switches supported:
+#   NOASMCRC=1  disable assembler crc32 code, the generic C source code
+#               is used instead.
+#   NOASMATCH=1 disable assembler match code for deflate.
+#   NOASM=1     disable crc32 and match assembler code.
+#   OPT_P6=1    add "modern gcc" tuning option for PentiumPro family CPU
+#   USEBZ2=1    activate integrated compilation of bzip2 compression support,
+#               this requires the bzip2 sources present in the bzip2 subfolder.
+
+ifdef NOASM
+NOASMATCH=1
+NOASMCRC=1
+endif
+
+ifdef NOASMCRC
+USE_ASMCRC=
+else
+USE_ASMCRC=1
+endif
+
+ifdef NOASMATCH
+USE_ASMATCH=
+else
+USE_ASMATCH=1
+endif
+
+ifdef OPT_P6
+TUNE_CPU=-mtune=_pentiumpro_
+endif
+
+.PHONY : clean
+
 # ------------- djgpp -------------
-CPPFLAGS=-I. -DDOS -DASM_CRC $(LOCAL_ZIP)
+CPPFLAGS=-I. $(INC_BZ2LIB) -DDOS $(ASMFLG) $(LOCAL_ZIP)
 ASFLAGS=$(CPPFLAGS)
-CFLAGS=-Wall -O2 $(CPPFLAGS)
+CFLG_OPT=-Wall -O3 $(TUNE_CPU)
+CFLAGS=$(CFLG_OPT) $(CPPFLAGS)
 UTILFLAGS=-c -DUTIL $(CFLAGS) -o
+CFLAGS_BZ=$(CFLG_OPT) -DBZ_NO_STDIO
 CC=gcc
 LD=gcc
 LDFLAGS=-s
@@ -25,16 +61,49 @@ DJP=upx -qq --best
 
 # variables
 
-#set CRC32 to crc_gcc.o or nothing, depending on whether ASM_CRC is defined:
+# defaults for crc32 stuff and system dependent headers
+ifdef USE_ASMCRC
+ASCRC_FLG = -DASM_CRC
 CRCA_O = crc_gcc.o
+else
+ASCRC_FLG =
+CRCA_O =
+endif
+
+# defaults for match32 assembler code in deflate algorithm
+ifdef USE_ASMATCH
+NOAS_FLG =
+MATCH_O = match.o
+else
+NOAS_FLG = -DNO_ASM
+MATCH_O =
+endif
+
+# the assembler preprocessor switches must be combined in this sequence:
+ASMFLG = $(NOAS_FLG) $(ASCRC_FLG)
+
+# optional inclusion of bzip2 compression
+IZ_BZIP2 = bzip2
+ifdef USEBZ2
+INC_BZ2LIB = -I$(IZ_BZIP2)
+LOCAL_ZIP:=-DBZIP2_SUPPORT $(LOCAL_ZIP)
+LD_BZ2LIB = -L$(IZ_BZIP2) -lbz2
+LIBBZIP2 = $(IZ_BZIP2)/libbz2.a
+else
+INC_BZ2LIB =
+LD_BZ2LIB =
+LIBBZIP2 =
+endif
 
 OBJZ = zip.o crypt.o ttyio.o zipfile.o zipup.o fileio.o util.o \
 	crc32.o $(CRCA_O) globals.o
-OBJI = deflate.o trees.o match.o msdos.o
+OBJI = deflate.o trees.o $(MATCH_O) zbz2err.o msdos.o
 OBJU = zipfile_.o fileio_.o util_.o globals.o msdos_.o
 OBJN = zipnote.o $(OBJU)
 OBJC = zipcloak.o crc32_.o crypt_.o ttyio.o $(OBJU)
 OBJS = zipsplit.o $(OBJU)
+
+OBJECTS_ALL = $(sort $(OBJZ) $(OBJI) $(OBJN) $(OBJC) $(OBJS) crc_gcc$O)
 
 ZIP_H = zip.h ziperr.h tailor.h msdos/osdep.h
 
@@ -73,6 +142,8 @@ crypt.o:      crypt.c $(ZIP_H) crypt.h crc32.h ttyio.h
 
 ttyio.o:      ttyio.c $(ZIP_H) crypt.h ttyio.h
 
+zbz2err.o:    zbz2err.c $(ZIP_H)
+
 msdos.o:      msdos/msdos.c $(ZIP_H)
 
 zipcloak.o:   zipcloak.c $(ZIP_H) revision.h crc32.h crypt.h ttyio.h
@@ -82,30 +153,30 @@ zipnote.o:    zipnote.c $(ZIP_H) revision.h
 zipsplit.o:   zipsplit.c $(ZIP_H) revision.h
 
 zipfile_.o:   zipfile.c $(ZIP_H) crc32.h
-	$(CC) $(UTILFLAGS) $@ zipfile.c
+	$(CC) $(UTILFLAGS) $@ $<
 
 fileio_.o:    fileio.c $(ZIP_H) crc32.h
-	$(CC) $(UTILFLAGS) $@ fileio.c
+	$(CC) $(UTILFLAGS) $@ $<
 
 util_.o:      util.c $(ZIP_H)
-	$(CC) $(UTILFLAGS) $@ util.c
+	$(CC) $(UTILFLAGS) $@ $<
 
 crc32_.o:     crc32.c $(ZIP_H) crc32.h
-	$(CC) $(UTILFLAGS) $@ crc32.c
+	$(CC) $(UTILFLAGS) $@ $<
 
 crypt_.o:     crypt.c $(ZIP_H) crypt.h crc32.h ttyio.h
-	$(CC) $(UTILFLAGS) $@ crypt.c
+	$(CC) $(UTILFLAGS) $@ $<
 
 msdos_.o:     msdos/msdos.c $(ZIP_H)
-	$(CC) $(UTILFLAGS) $@ msdos/msdos.c
+	$(CC) $(UTILFLAGS) $@ $<
 
 
 match.o:      match.S
-	$(CC) $(ASFLAGS) -x assembler-with-cpp -c -o $@ match.S
+	$(CC) $(ASFLAGS) -x assembler-with-cpp -c -o $@ $<
 
-zip.exe: $(OBJZ) $(OBJI)
+zip.exe: $(OBJZ) $(OBJI) $(LIBBZIP2)
 	echo $(OBJZ) > zip.rsp
-	echo $(OBJI) >> zip.rsp
+	echo $(OBJI) $(LD_BZ2LIB) >> zip.rsp
 	$(LD) $(LDFLAGS) -o $@ @zip.rsp
 	del zip.rsp
 #	stubedit $@ dpmi=cwsdpmi.exe
@@ -125,6 +196,29 @@ zipsplit.exe: $(OBJS)
 	$(LD) $(LDFLAGS) $(OBJS) -o $@
 #	stubedit $@ dpmi=cwsdpmi.exe
 #	$(DJP) $@
+
+# create/update the library for the optional bzip2 support:
+# Info: The generic makefile provided by the bzip2 source distribution applies
+#       some helper commands which are unavailable on MS-DOS. However, these
+#       commands are not mandatory to build a valid libbz2.a library.  So,
+#       instead of taking the additional trouble of supplying an adapted
+#       Makefile, we simply use the -i "ignore errors" switch for Make to
+#       skip over the non-working supplementary commands.
+$(IZ_BZIP2)/libbz2.a:
+	@echo "Building bzip2 object library..."
+	$(MAKE) -i -C $(IZ_BZIP2) CC="$(CC)" CFLAGS="$(CFLAGS_BZ)" \
+	 RM="$(RM)" libbz2.a
+	@echo "   bzip2 object library created."
+
+clean:
+	-$(MAKE) -C $(IZ_BZIP2) CC="$(CC)" RM="$(RM)" clean
+ifeq ($(firstword $(RM)), del)
+	$(RM) *.o
+	$(RM) *.~
+	$(RM) *.exe
+else
+	$(RM) $(OBJECTS_ALL) *.~ *.exe
+endif
 
 # These stand alone executables require dpmi services to run.  When
 # running in a DOS window under windows 3.1 or later, the dpmi server

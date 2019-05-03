@@ -4,39 +4,39 @@ HOW TO INSTALL ZIP
      wide range of systems:  Unix, VMS, MSDOS, OS/2, NT, Amiga, Atari,
      BeOS, VM/CMS, ...  You will need Unzip 5.0p1 or later (under any
      system) or PKUNZIP 2.04g or later (under MSDOS) to unpack the
-     distribution file, in this case zip30.zip.  But since you read this,
+     distribution file, in this case zip31.zip.  But since you read this,
      you have unpacked it already, or you cheated and got a tar.Z file...
 
-     Note:  Zip 3.0 distribution kits (unlike previously distributed
-     Zip 2.x kits) are created with a top-level directory ("zip30") in
+     Note:  Zip 3.x distribution kits (unlike previously distributed
+     Zip 2.x kits) are created with a top-level directory ("zip31") in
      the archive, making the creating of the zipsrc directory optional.
 
 Installation on Unix (see below for installation on other systems)
 
      Let's assume that you start from scratch and have not yet unpacked
      the sources.  First step, then, is to unpack Zip.  The following
-     assumes that you have zip30.zip in the current directory.
+     assumes that you have zip31.zip in the current directory.
 
      For example, to extract to a new zipsrc directory (assuming
-     zip30.zip is in the current directory):
+     zip31.zip is in the current directory):
 
           mkdir zipsrc
           cd zipsrc
-          cp ../zip30.zip .
-          unzip zip30.zip
-          cd zip30
+          cp ../zip31.zip .
+          unzip zip31.zip
+          cd zip31
 
      To extract in an existing directory, such as /usr/local/src/zip:
 
           cd /usr/local/src/zip
-          (copy zip30.zip here)
-          unzip zip30.zip
-          cd zip30
+          (copy zip31.zip here)
+          unzip zip31.zip
+          cd zip31
 
      The first extracts all source files and documentation to the
-     directory "zipsrc/zip30".  The second places the zip30 directory
+     directory "zipsrc/zip31".  The second places the zip31 directory
      in the "/usr/local/src/zip" directory.  Both then cd in to the
-     zip30 directory where Zip will be built.
+     zip31 directory where Zip will be built.
 
      Note:  This release now includes the standard encryption code
      previously in the separate package zcrypt29.zip, but you still
@@ -110,10 +110,10 @@ Installation on Unix (see below for installation on other systems)
      with:
 
           cd ..
-          rm -r zip30
+          rm -r zip31
 
-     This will remove the directory zip30 and its contents created
-     by unzip.  You should keep the zip30.zip file around though,
+     This will remove the directory zip31 and its contents created
+     by unzip.  You should keep the zip31.zip file around though,
      in case you need to build it again or want to give it to a
      colleague.
 
