@@ -1,7 +1,7 @@
 /*
   fileio.c - Zip 3.1
 
-  Copyright (c) 1990-2017 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2019 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -70,10 +70,26 @@ extern int errno;
 /* for locale, codepage support */
 # include <locale.h>
 # include <mbctype.h>
+
+/* for Unicode comments */
+# include <io.h>
+# include <fcntl.h>
+# include <string.h>
+# include <windows.h>
 #endif
 
 #ifdef HAVE_ICONV
 # include <iconv.h>
+#endif
+
+/* for getcwd, chdir */
+#ifdef CHANGE_DIRECTORY
+# ifdef WIN32
+#  include <direct.h>
+# endif
+# ifdef UNIX
+#  include <unistd.h>
+# endif
 #endif
 
 #if defined(VMS) || defined(TOPS20)
@@ -178,11 +194,14 @@ void display_dot(condition, size)
 
 #ifndef UTIL    /* the companion #endif is a bit of ways down ... */
 
+#if 0
+/* old name sort */
 local int fqcmp  OF((ZCONST zvoid *, ZCONST zvoid *));
 /* old iname sort */
-#if 0
 local int fqcmpz OF((ZCONST zvoid *, ZCONST zvoid *));
 #endif
+/* new name sort */
+local int fqcmp_icfirst OF((ZCONST zvoid *, ZCONST zvoid *));
 /* new iname sort */
 local int fqcmpz_icfirst OF((ZCONST zvoid *, ZCONST zvoid *));
 
@@ -232,9 +251,6 @@ char *getnam(fp, null_term)
   int c;                /* last character read */
   char *p;              /* pointer into name area */
   char name2[GETNAM_MAX + 1];
-  int name_start;
-  int name_end;
-  unsigned char uc;
   int i;
 
 
@@ -282,6 +298,9 @@ char *getnam(fp, null_term)
 #endif
     *p = 0;
 
+    /* Trimming ends up more controversial than expected, so we
+       don't do it. */
+#if 0
     if (!null_term) {
       /* trimming and quotes */
 
@@ -307,12 +326,15 @@ char *getnam(fp, null_term)
       name2[i - name_start] = '\0';
     }
     else {
+#endif
       /* null terminated, just copy what got */
       for (i = 0; name[i]; i++) {
         name2[i] = name[i];
       }
       name2[i] = '\0';
+#if 0
     }
+#endif
 
     /* if we end up with an empty string, just loop and try again */
     if (name2[0])
@@ -344,6 +366,8 @@ struct flist far *f;    /* entry to delete */
     free((zvoid *)(f->zname));
   if (f->iname != NULL)
     free((zvoid *)(f->iname));
+  if (f->oname != NULL)
+    free((zvoid *)(f->oname));
 #ifdef UNICODE_SUPPORT
   if (f->uname)
     free((zvoid *)f->uname);
@@ -365,26 +389,57 @@ struct flist far *f;    /* entry to delete */
 /* ---------------------------------------------- */
 /* sort functions */
 
+/* Used by qsort() */
+
+#if 0
+/* fqcmp() was old name sort function, now replaced by fqcmp_icfirst(). */
 local int fqcmp(a, b)
   ZCONST zvoid *a, *b;          /* pointers to pointers to found entries */
-/* Used by qsort() to compare entries in the found list by name. */
 {
   return strcmp((*(struct flist far **)a)->name,
                 (*(struct flist far **)b)->name);
 }
 
 /* fqcmpz() was old iname sort function, now replaced by fqcmpz_icfirst(). */
-#if 0
-
 local int fqcmpz(a, b)
   ZCONST zvoid *a, *b;          /* pointers to pointers to found entries */
-/* Used by qsort() to compare entries in the found list by iname. */
 {
   return strcmp((*(struct flist far **)a)->iname,
                 (*(struct flist far **)b)->iname);
 }
 
 #endif
+
+
+/* New name sort function, replacing fqcmp(). */
+
+local int fqcmp_icfirst(a, b)
+  ZCONST zvoid *a, *b;          /* pointers to pointers to found entries */
+/* Used by qsort() to compare entries in the found list by name. */
+/* Sorts ignoring case first, but when strings match uses case.
+   This sorts uniquely, but similar to how Unix shell lists files. */
+/* Using strcmp() only here could be enough, but as the list may be provided
+   already sorted by fqcmpz_icfirst() (see procname() in unix.c), let's use
+   the same algorithm to avoid changing list order (performance penalty). */
+
+/* A port that has no ignore case compare can just use strcmp(). */
+{
+  int i;
+
+  /* first sort ignoring case */
+#ifdef WIN32
+  i = _stricmp((*(struct flist far **)a)->name,
+               (*(struct flist far **)b)->name);
+#else
+  i = strcasecmp((*(struct flist far **)a)->name,
+                 (*(struct flist far **)b)->name);
+#endif
+  if (i) return i;
+  /* if strings match ignoring case, use case */
+  return strcmp((*(struct flist far **)a)->name,
+                (*(struct flist far **)b)->name);
+}
+
 
 /* New iname sort function, replacing fqcmpz(). */
 
@@ -413,6 +468,7 @@ local int fqcmpz_icfirst(a, b)
 }
 
 /* ---------------------------------------------- */
+
 
 char *last(p, c)
   char *p;                /* sequence of path components */
@@ -706,7 +762,7 @@ int check_dup_sort(sort_found_list)
     for (j = 0, f = found; f != NULL; f = f->nxt)
       s[j++] = f;
     /* Check names as given (f->name) */
-    qsort((char *)s, fcount, sizeof(struct flist far *), fqcmp);
+    qsort((char *)s, fcount, sizeof(struct flist far *), fqcmp_icfirst);
     for (k = j = fcount - 1; j > 0; j--)
       if (strcmp(s[j - 1]->name, s[j]->name) == 0)
         /* remove duplicate entry from list */
@@ -742,7 +798,7 @@ int check_dup_sort(sort_found_list)
           /* save the actual path to restore it after sort */
           nodup[j]->saved_iname = nodup[j]->iname;
           /* make copy to alter so sorts where we want */
-          iname = string_dup(nodup[j]->iname, "Unix Apple sort", 0);
+          iname = string_dup(nodup[j]->iname, "Unix Apple sort", NO_FLUFF);
           iname_len = (int)strlen(iname);
           /* sequestered paths */
           if (strncmp(iname, "__MACOSX/", 9) == 0) {
@@ -820,18 +876,16 @@ int check_dup_sort(sort_found_list)
       {
         char tempbuf[ERRBUF_SIZE + 1];  /* was FNMAX+4081 */
 
-        sprintf(errbuf, "  first full name: %s\n", nodup[j - 1]->name);
-        sprintf(tempbuf, " second full name: %s\n", nodup[j]->name);
-        strcat(errbuf, "                     ");
+        sprintf(errbuf, "first full name:  %s\n", nodup[j - 1]->name);
+        sprintf(tempbuf, "second full name: %s\n", nodup[j]->name);
         strcat(errbuf, tempbuf);
 #ifdef EBCDIC
         strtoebc(nodup[j]->iname, nodup[j]->iname);
 #endif
         sprintf(tempbuf, "name in zip file repeated: %s", nodup[j]->iname);
-        strcat(errbuf, "                     ");
         strcat(errbuf, tempbuf);
         if (pathput == 0) {
-          strcat(errbuf, "\n                     this may be a result of using -j");
+          strcat(errbuf, "\nthis may be a result of using -j");
         }
 #ifdef EBCDIC
         strtoasc(nodup[j]->iname, nodup[j]->iname);
@@ -1158,7 +1212,7 @@ int newnamew(namew, zflags, casesensitive)
   /* first look for UTF-8 in zlist, as paths in new archives
      should be UTF-8 */
   path = zuname;                /* UTF-8 version of zname */
-  if (((z = zsearch(zuname)) == NULL) && !strcmp(zuname, zname)) {
+  if (((z = zsearch(zuname)) == NULL) && strcmp(zuname, zname)) {
     /* if not found, look for local version of name, as
        an old archive might be using local paths */
     /* this should also catch escaped Unicode */
@@ -1809,13 +1863,13 @@ ulg a;                  /* Attributes returned by filetime() */
    /* There is no need for dos2unixtime() in the ZipUtils' code. */
 #  define ZP_NEED_GEN_D2U_TIME
 #endif
-#if ((defined(OS2) || defined(VMS)) && defined(ZP_NEED_GEN_D2U_TIME))
-   /* OS/2 and VMS use a special solution to handle time-stams of files. */
+#if (defined(OS2) && defined(ZP_NEED_GEN_D2U_TIME))
+   /* OS/2 uses a special solution to handle timestamps of files. */
 #  undef ZP_NEED_GEN_D2U_TIME
 #endif
 #if (defined(W32_STATROOT_FIX) && !defined(ZP_NEED_GEN_D2U_TIME))
    /* The Win32 stat()-bandaid to fix stat'ing root directories needs
-    * dos2unixtime() to calculate the time-stamps. */
+    * dos2unixtime() to calculate the timestamps. */
 #  define ZP_NEED_GEN_D2U_TIME
 #endif
 
@@ -2261,7 +2315,7 @@ char *tempname(zip)
 #   ifdef NO_MKTEMP
   {
     char *p = t + strlen(t);
-    sprintf(p, "%08lx", (ulg)time(NULL));
+    sprintf(p, "zi%08lx", (ulg)time(NULL));
     return t;
   }
 #   else
@@ -2655,6 +2709,8 @@ int bfcopy(n)
 
     if ((des || n != (uzoff_t)(-1L)) && m < n && feof(in_file)) {
       /* open next split */
+      int is_split = 0;
+
       current_in_disk++;
 
       if (current_in_disk >= total_disks) {
@@ -2671,12 +2727,32 @@ int bfcopy(n)
       } else {
         /* other disks are archive.z01, archive.z02, ... */
         split_path = get_in_split_path(in_path, current_in_disk);
+        is_split = 1;
       }
 
       fclose(in_file);
 
       /* open the split */
-      while ((in_file = zfopen(split_path, FOPR)) == NULL) {
+      in_file = zfopen(split_path, FOPR);
+
+      if (in_file == NULL && is_split) {
+        /* can't open split - check if WinZip split */
+        char *winzip_split_path = NULL;
+
+        if ((winzip_split_path = malloc(strlen(split_path) + 2)) != NULL) {
+          strcpy(winzip_split_path + 1, split_path);
+          winzip_split_path[0] = 'z';
+          winzip_split_path[1] = 'x';
+          if ((in_file = zfopen(winzip_split_path, FOPR)) != NULL) {
+            free(split_path);
+            split_path = winzip_split_path;
+          } else {
+            free(winzip_split_path);
+          }
+        }
+      }
+
+      while (in_file == NULL) {
         int r = 0;
 
         /* could not open split */
@@ -2733,6 +2809,76 @@ int bfcopy(n)
   return ZE_OK;
 }
 
+
+#ifdef CHANGE_DIRECTORY
+/* change_to_working_dir
+ *
+ * If working_dir set, change to working_dir.
+ */
+void change_to_working_dir() {
+  if (working_dir) {
+# ifdef UNICODE_SUPPORT_WIN32
+    if (_wchdir(working_dirw)) {
+      sprintf(errbuf, "changing to working dir: '%S' - %s", working_dirw, strerror(errno));
+      ZIPERR(ZE_PARMS, errbuf);
+    }
+# else /* not UNICODE_SUPPORT_WIN32 */
+    if (CHDIR(working_dir)) {
+      sprintf(errbuf, "changing to working dir: '%s' - %s", working_dir, strerror(errno));
+      ZIPERR(ZE_PARMS, errbuf);
+    }
+# endif /* def UNICODE_SUPPORT_WIN32 else */
+  }
+}
+
+/* change_to_start_dir
+ *
+ * If working_dir set, change to startup_dir.
+ */
+void change_to_startup_dir() {
+  if (working_dir) {
+
+# ifdef UNICODE_SUPPORT_WIN32
+    if (_wchdir(startup_dirw)) {
+      sprintf(errbuf, "changing to startup dir: '%S' - %s", startup_dirw, strerror(errno));
+      ZIPERR(ZE_PARMS, errbuf);
+    }
+# else /* not UNICODE_SUPPORT_WIN32 */
+    if (CHDIR(startup_dir)) {
+      sprintf(errbuf, "changing to startup dir: '%s' - %s", startup_dir, strerror(errno));
+      ZIPERR(ZE_PARMS, errbuf);
+    }
+# endif /* def UNICODE_SUPPORT_WIN32 else */
+  }
+}
+
+void show_current_dir()
+{
+  if (noisy) {
+# ifdef UNICODE_SUPPORT_WIN32
+    wchar_t *current_dirw = NULL;
+      
+    if ((current_dirw = _wgetcwd(NULL, 0)) == NULL) {
+      sprintf(errbuf, "getting current dir: %s", strerror(errno));
+      ZIPERR(ZE_PARMS, errbuf);
+    }
+    sprintf(errbuf, "current directory set to: %S", current_dirw);
+    zipmessage(errbuf, "");
+    free(current_dirw);
+# else /* not UNICODE_SUPPORT_WIN32 */
+    char *current_dir = NULL;
+      
+    if ((current_dir = GETCWD(NULL, 0)) == NULL) {
+      sprintf(errbuf, "getting current dir: %s", strerror(errno));
+      ZIPERR(ZE_PARMS, errbuf);
+    }
+    sprintf(errbuf, "current directory set to: %s", current_dir);
+    zipmessage(errbuf, "");
+    free(current_dir);
+# endif /* def UNICODE_SUPPORT_WIN32 else */
+  }
+}
+#endif /* CHANGE_DIRECTORY */
 
 
 #ifdef NO_RENAME
@@ -3482,7 +3628,7 @@ size_t bfwrite(buffer, size, count, mode)
 
       if (split_method == 2 && split_bell) {
         /* bell when pause to ask for next split */
-        putc('\007', mesg);
+        putc('\a', mesg);
         fflush(mesg);
       }
 
@@ -3534,9 +3680,20 @@ size_t bfwrite(buffer, size, count, mode)
             sprintf(errbuf, "sd: Temp file (0u): %s", tempzip);
             zipmessage(errbuf, "");
           }
+# ifdef CHANGE_DIRECTORY
+          if (out_to_start_dir) {
+            /* if using working_dir and -ci, change to orig dir for opening out file */
+            change_to_startup_dir();
+          }
+# endif
           if ((y = fdopen(yd, FOPW_TMP)) == NULL) {
             ZIPERR(ZE_TEMP, tempzip);
           }
+# ifdef CHANGE_DIRECTORY
+          if (out_to_start_dir) {
+            change_to_working_dir();
+          }
+# endif
         }
 #else
         if ((tempzip = tempname(out_path)) == NULL) {
@@ -3688,10 +3845,12 @@ int set_locale()
     (setlocale was already being executed above.) */
 
   { /* locale detection block */
+    int locale_debug = 0;
+#ifdef UNIX
     char *loc = NULL;
     char *codeset = NULL;
-    int locale_debug = 0;
     int charsetlen = 0;
+#endif
 
 #ifdef HAVE_SETLOCALE
   /* For Unix, we either need to be working in some UTF-8 environment or we
@@ -3739,11 +3898,13 @@ int set_locale()
      and the code page is set to UTF-8 (chcp 65001), then most Western
      characters should be visible, but languages like Japanese probably will
      not display correctly (showing small boxes instead of the right characters).
+     Windows 10 seems to have resolved many Unicode console output issues.  On
+     Windows 7, PowerShell seems to have good Unicode support.
 
      As of Zip 3.1, Windows console output uses print_utf8(), which calls
      write_consolew(), which does not need a UTF-8 console to output Unicode.
      This still displays boxes for Japanese and similar fonts, though, as that
-     is a font support issue of Windows consoles.
+     is a font support issue of Windows consoles (Windows 7 and earlier).
 
      For the IBM ports (z/OS and related), this gets more complex than the Unix
      case as those ports are EBCDIC based.  While one can work with UTF-8 via
@@ -3991,12 +4152,38 @@ int set_locale()
 /* ===================================================================== */
 
 
+/* get_comment_line
+ *
+ * Reads one line of comment either from WIN32 console or if CYGWIN input
+ * pipe detected uses fgets().
+ */
+#ifdef UNICODE_SUPPORT_WIN32
+char *get_comment_line()
+{
+  char buf[MAXCOMLINE + 1];
+  char *eline;
 
+  if (ISATTY(2) == 1) {
+    /* Windows */
+    eline = read_utf8_line_from_console(MAXCOMLINE);
+  } else {
+    /* CYGWIN */
+    if ((eline = fgets(buf, MAXCOMLINE, comment_stream)) != NULL) {
+      eline = string_dup(buf, "get_comment_line", NO_FLUFF);
+    }
+  }
+  return eline;
+}
+#endif
+
+
+/* get_entry_comment
+ *
+ * Get the comment for an entry.
+ */
 int get_entry_comment(z)
   struct zlist far *z;
 {
-  char e[MAX_COM_LEN + 1];
-  char eline[MAXCOMLINE + 1];
   char *p;
   int comlen;
   int eline_len;
@@ -4020,62 +4207,141 @@ int get_entry_comment(z)
       print_utf8(errbuf);
     }
   }
-  if (fgets(e, MAXCOMLINE+1, comment_stream) != NULL)
+#ifdef UNICODE_SUPPORT_WIN32
+  fflush(mesg);
   {
-    if (strlen(e) > 1) {
-      if (strlen(e) == 2 && e[0] == '\t') {
-        /* remove the comment */
-        e[0] = '\0';
-      }
-      if (strlen(e) == 2 && e[0] == ' ') {
-        /* get multi-line comment */
-        e[0] = '\0';
-        sprintf(errbuf, "\nEnter multi-line comment for %s:\n", z->oname);
-        print_utf8(errbuf);
-        sprintf(errbuf, "(Enter line with just \".\" to end)\n ");
-        print_utf8(errbuf);
-        comlen = 0;
-        while (fgets(eline, MAXCOMLINE+1, comment_stream) != NULL)
-        {
-          if (strlen(eline) == 2 && eline[0] == '.')
-            break;
-          eline_len = (int)strlen(eline);
-          if (comlen + eline_len > MAX_COM_LEN) {
-            /* limit total comment length to MAX_COM_LEN */
-            eline_len = MAX_COM_LEN - comlen;
-            eline[eline_len] = '\0';
-          }
-          strcat(e, eline);
-          comlen = (int)strlen(e);
-          if (comlen >= MAX_COM_LEN) {
-            sprintf(errbuf, "Max comment length reached (%d)", MAX_COM_LEN);
-            zipwarn(errbuf, "");
-            break;
-          }
-          zfprintf(mesg, " ");
+    char e[MAX_COM_LEN + 1];
+    char *eline;
+
+    if ((eline = get_comment_line()) != NULL)
+    {
+      if (strlen(eline) > 0) {
+        if (strlen(eline) == 1 && eline[0] == '\t') {
+          /* remove the comment */
+          eline[0] = '\0';
         }
-      } /* multi-line comment */
-      /* get space for new comment */
-      if ((p = (char *)malloc((comment_size = strlen(e))+1)) == NULL)
-      {
-        ZIPERR(ZE_MEM, "was reading comment lines (s2)");
+        strcpy(e, eline);
+        if (strlen(eline) == 1 && eline[0] == ' ') {
+          /* get multi-line comment */
+          free(eline);
+          eline = NULL;
+          sprintf(errbuf, "\nEnter multi-line comment for %s:\n", z->oname);
+          print_utf8(errbuf);
+          sprintf(errbuf, "(Enter line with just \".\" to end)\n ");
+          print_utf8(errbuf);
+          comlen = 0;
+          while ((eline = get_comment_line()) != NULL)
+          {
+            if (strlen(eline) == 1 && eline[0] == '.')
+              break;
+            eline_len = (int)strlen(eline);
+            if (comlen + eline_len > MAX_COM_LEN) {
+              /* limit total comment length to MAX_COM_LEN */
+              eline_len = MAX_COM_LEN - comlen;
+              eline[eline_len] = '\0';
+            }
+            strcat(e, "\n");
+            strcat(e, eline);
+            free(eline);
+            eline = NULL;
+            comlen = (int)strlen(e);
+            if (comlen >= MAX_COM_LEN) {
+              sprintf(errbuf, "Max comment length reached (%ld)", MAX_COM_LEN);
+              zipwarn(errbuf, "");
+              break;
+            }
+            zfprintf(mesg, " ");
+          }
+        } /* multi-line comment */
+        /* get space for new comment */
+        if ((p = (char *)malloc((comment_size = strlen(e))+1)) == NULL)
+        {
+          ZIPERR(ZE_MEM, "was reading comment lines (s2)");
+        }
+        strcpy(p, e);
+        if (p[comment_size - 1] == '\n')
+          p[--comment_size] = 0;
+        if (z->com && z->comment) {
+          free(z->comment);
+          z->com = 0;
+        }
+        z->comment = p;
+        if (comment_size == 0) {
+          free(z->comment);
+          z->comment = NULL;
+        }
+        /* zip64 support 09/05/2003 R.Nausedat */
+        z->com = (ush)comment_size;
       }
-      strcpy(p, e);
-      if (p[comment_size - 1] == '\n')
-        p[--comment_size] = 0;
-      if (z->com && z->comment) {
-        free(z->comment);
-        z->com = 0;
+      if (eline) {
+        free(eline);
+        eline = NULL;
       }
-      z->comment = p;
-      if (comment_size == 0) {
-        free(z->comment);
-        z->comment = NULL;
-      }
-      /* zip64 support 09/05/2003 R.Nausedat */
-      z->com = (ush)comment_size;
     }
   }
+#else
+  {
+    char e[MAX_COM_LEN + 1];
+    char eline[MAXCOMLINE + 1];
+
+    if (fgets(e, MAXCOMLINE, comment_stream) != NULL)
+    {
+      if (strlen(e) > 1) {
+        if (strlen(e) == 2 && e[0] == '\t') {
+          /* remove the comment */
+          e[0] = '\0';
+        }
+        if (strlen(e) == 2 && e[0] == ' ') {
+          /* get multi-line comment */
+          e[0] = '\0';
+          sprintf(errbuf, "\nEnter multi-line comment for %s:\n", z->oname);
+          print_utf8(errbuf);
+          sprintf(errbuf, "(Enter line with just \".\" to end)\n ");
+          print_utf8(errbuf);
+          comlen = 0;
+          while (fgets(eline, MAXCOMLINE, comment_stream) != NULL)
+          {
+            if (strlen(eline) == 2 && eline[0] == '.')
+              break;
+            eline_len = (int)strlen(eline);
+            if (comlen + eline_len > MAX_COM_LEN) {
+              /* limit total comment length to MAX_COM_LEN */
+              eline_len = MAX_COM_LEN - comlen;
+              eline[eline_len] = '\0';
+            }
+            strcat(e, eline);
+            comlen = (int)strlen(e);
+            if (comlen >= MAX_COM_LEN) {
+              sprintf(errbuf, "Max comment length reached (%ld)", MAX_COM_LEN);
+              zipwarn(errbuf, "");
+              break;
+            }
+            zfprintf(mesg, " ");
+          }
+        } /* multi-line comment */
+        /* get space for new comment */
+        if ((p = (char *)malloc((comment_size = strlen(e))+1)) == NULL)
+        {
+          ZIPERR(ZE_MEM, "was reading comment lines (s2)");
+        }
+        strcpy(p, e);
+        if (p[comment_size - 1] == '\n')
+          p[--comment_size] = 0;
+        if (z->com && z->comment) {
+          free(z->comment);
+          z->com = 0;
+        }
+        z->comment = p;
+        if (comment_size == 0) {
+          free(z->comment);
+          z->comment = NULL;
+        }
+        /* zip64 support 09/05/2003 R.Nausedat */
+        z->com = (ush)comment_size;
+      }
+    }
+  }
+#endif /* UNICODE_SUPPORT_WIN32 */
 
   return z->com;
 }
@@ -4152,6 +4418,56 @@ char *trim_string(instring)
 
 
 
+/* string_cat - concatenate strings
+ *
+ * left_string    = left string
+ * right_string   = right string
+ * error_message  = error message if memory can't be allocated
+ * fluff          = extra bytes to allocate
+ *
+ * Returns string with left prepended to right, or NULL.
+ */
+#ifndef NO_PROTO
+char *string_cat(ZCONST char *left_string, ZCONST char *right_string, ZCONST char *error_message, int fluff)
+#else
+char *string_cat(left_string, right_string, error_message, fluff)
+  ZCONST char *left_string;
+  ZCONST char *right_string;
+  char *error_message;
+  int fluff;
+#endif
+{
+  char *out_string;
+  size_t len;
+
+  if (left_string == NULL  && right_string == NULL)
+    return NULL;
+
+  if (fluff < 0)
+    return NULL;
+
+  if (left_string == NULL) {
+    return string_dup(right_string, "string_cat", fluff);
+  }
+
+  if (right_string == NULL) {
+    return string_dup(left_string, "string_cat", fluff);
+  }
+
+  len = strlen(left_string) + strlen(right_string);
+
+  if ((out_string = (char *)malloc((len + fluff + 1) * sizeof(char))) == NULL) {
+    sprintf(errbuf, "could not allocate memory in string_cat: %s", error_message);
+    ZIPERR(ZE_MEM, errbuf);
+  }
+
+  strcpy(out_string, left_string);
+  strcat(out_string, right_string);
+  return out_string;
+}
+
+
+
 /* string_dup - duplicate a string
  *
  * in_string      = string to duplicate
@@ -4161,7 +4477,7 @@ char *trim_string(instring)
  * Returns a duplicate of the string, or NULL.
  */
 #ifndef NO_PROTO
-char *string_dup(ZCONST char *in_string, char *error_message, int fluff)
+char *string_dup(ZCONST char *in_string, ZCONST char *error_message, int fluff)
 #else
 char *string_dup(in_string, error_message, fluff)
   ZCONST char *in_string;
@@ -4274,13 +4590,13 @@ char *string_replace(in_string, find, replace,
   replace_len = (int)strlen(replace);
 
   if (find_len == 0)
-    return string_dup(in_string, "string_replace", 0);
+    return string_dup(in_string, "string_replace 1", NO_FLUFF);
 
   /* calculate max length of out_string */
   possible_times = in_len/find_len + 1;
   if (possible_times < 0) {
     /* find won't fit in in_string */
-    return string_dup(in_string, "string_replace", 0);
+    return string_dup(in_string, "string_replace 2", NO_FLUFF);
   }
   if (replace_times && replace_times < possible_times)
     possible_times = replace_times;
@@ -4313,7 +4629,7 @@ char *string_replace(in_string, find, replace,
     }
   }
 
-  return_string = string_dup(out_string, "string_replace", 0);
+  return_string = string_dup(out_string, "string_replace 3", NO_FLUFF);
   free(out_string);
 
   return return_string;
@@ -4325,12 +4641,12 @@ char *string_replace(in_string, find, replace,
  * instring    - input string
  * findstring  - substring to find in instring
  * case_sens   - if 0, search is case insensitive (CASE_INS, CASE_SEN)
- * occurrence  - search for this many matches (LAST_MATCH (-1) for last)
+ * occurrence  - search for this many matches (FIND_LAST_MATCH (-1) for last)
  *
  * Matches can overlap, i.e. if instring = "aaa" and find = "aa", 2 matches
  * will be found.
  *
- * Returns the (zero-based) index of substring, or NO_MATCH (-1) if not found.
+ * Returns the (zero-based) index of substring, or FIND_NO_MATCH (-1) if not found.
  */
 #ifndef NO_PROTO
 int string_find (char *instring, char *find, int case_sens, int occurrence)
@@ -4349,7 +4665,7 @@ int string_find (instring, find, case_sens, occurrence)
   int match_start = 0;
 
   if (instring == NULL || find == NULL) {
-    return NO_MATCH;
+    return FIND_NO_MATCH;
   }
 
   instring_len = (int)strlen(instring);
@@ -4360,14 +4676,68 @@ int string_find (instring, find, case_sens, occurrence)
       match_start = start;
       matches++;
     }
-    if ((occurrence != LAST_MATCH) && (matches >= occurrence))
+    if ((occurrence != FIND_LAST_MATCH) && (matches >= occurrence))
       break;
   }
 
   if (matches == 0)
-    return NO_MATCH;
+    return FIND_NO_MATCH;
   else
     return match_start;
+}
+
+
+
+/* strip_rootdir - remove leading root dir from path
+ *
+ * used to handle converting LIB/DLL filter paths to relative
+ *
+ * in_path     - input path
+ * root_dir    - the root dir to remove from path
+ * case_ins    - if case insensitive matching is to be used
+ *
+ * returns malloc'd relative path string
+ */
+#ifndef NO_PROTO
+char *strip_rootdir(char *in_path, char *root_dir, int case_ins)
+#else
+char *strip_rootdir(in_path, root_dir, case_ins)
+  char *in_path;
+  char *root_dir;
+  int case_ins;
+#endif
+{
+  size_t match;
+  size_t start_rel_path;
+  char *root = string_dup(root_dir, "strip_rootdir", 1);
+  char *s;
+  char *r;
+  char *p;
+
+  if (root[strlen(root) - 1] != '/')
+    strcat(root, "/");
+
+  r = string_replace(root, "\\", "/", REPLACE_ALL, case_ins);
+  p = string_replace(in_path, "\\", "/", REPLACE_ALL, case_ins);
+
+  /* find root dir */
+  match = strmatch(p, r, case_ins, (int) strlen(r));
+
+  /* return everything after root_dir */
+  start_rel_path = strlen(r);
+
+  free(root);
+  free(r);
+  free(p);
+
+  if (!match) {
+    /* return original path */
+    s = string_dup(in_path, "strip_rootdir 1", NO_FLUFF);
+    return s;
+  }
+
+  s = string_dup(in_path + start_rel_path, "strip_rootdir 2", NO_FLUFF);
+  return s;
 }
 
 
@@ -4700,7 +5070,14 @@ int rename_split(temp_name, out_path)
   char *out_path;
 {
   int r;
-  /* Replace old zip file with new zip file, leaving only the new one */
+#ifdef CHANGE_DIRECTORY
+  if (out_to_start_dir) {
+    /* If use working_dir and -ci, change to start dir for
+       output operations. */
+    change_to_startup_dir();
+  }
+#endif
+  /* Rename temp split with final split name */
   if ((r = replace(out_path, temp_name)) != ZE_OK)
   {
     zipwarn("new zip file left as: ", temp_name);
@@ -4711,6 +5088,11 @@ int rename_split(temp_name, out_path)
   if (zip_attributes) {
     setfileattr(out_path, zip_attributes);
   }
+#ifdef CHANGE_DIRECTORY
+  if (out_to_start_dir) {
+    change_to_working_dir();
+  }
+#endif
   return ZE_OK;
 }
 
@@ -4769,10 +5151,10 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
 {
   /* As a and/or b may be using errbuf, provide zipmessage() with its
      own buffer. */
-  char ebuf[ERRBUF_SIZE + 1];
+  char *ebuf;
 
-  sprintf(ebuf, "%s%s\n", a, b);
-
+  ebuf = string_cat(a, b, "zipmessage", ADD_FLUFF(2));
+  strcat(ebuf, "\n");
   if (noisy) {
     if (mesg_line_started)
       zfprintf(mesg, "\n");
@@ -4791,6 +5173,7 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
     logfile_line_started = 0;
     fflush(logfile);
   }
+  free(ebuf);
 }
 
 
@@ -4800,15 +5183,12 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
    append elapsed time to end of message.  Always output to
    stderr in case output is piped. */
 {
-  char cbuf[ERRBUF_SIZE + 1];
-  char ebuf[ERRBUF_SIZE + 1];
+  char *ebuf;
+#ifdef ENABLE_ENTRY_TIMING
   char timebuf[100];
+#endif
 
-  cbuf[0] = '\0';
-
-  if (b) {
-    strcpy(cbuf, b);
-  }
+  ebuf = string_cat(a, b, "sdmessage", ADD_FLUFF(100));
 
 #ifdef ENABLE_ENTRY_TIMING
   if (performance_time) {
@@ -4819,11 +5199,11 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
     delta = current_time - start_time;
     secs = (double)delta / 1000000;
     sprintf(timebuf, "   (%5.3f secs)", secs);
-    strcat(cbuf, timebuf);
+    strcat(ebuf, timebuf);
   }
 #endif
 
-  sprintf(ebuf, "%s%s\n", a, cbuf);
+  strcat(ebuf, "\n");
 
   if (noisy) {
     if (mesg_line_started)
@@ -4846,74 +5226,105 @@ ZCONST char *a, *b;     /* message strings juxtaposed in output */
 #if 0
   zipmessage(a, cbuf);
 #endif
-
+  free(ebuf);
 }
 
 
 /* Print a warning message to mesg (usually stderr) and return,
  * with or without indentation.
  */
-void zipwarn_i(mesg_prefix, indent, a, b)
+void zipwarn_i(mesg_prefix, indent, a, b, nl)
   char *mesg_prefix;      /* message prefix string */
   int indent;
   ZCONST char *a, *b;     /* message strings juxtaposed in output */
+  int nl;                 /* add nl at end */
 /* Print a warning message to mesg (usually stderr) and return. */
+/* Embedded \n now break message across multiple lines, second on indented. */
 {
   char *prefix;
   char *warning;
-  char ebuf[ERRBUF_SIZE + 1];
+  char *message;
+  char prebuf[ERRBUF_SIZE + 1];
+  char *linebuf;
+  char *startspot;
+  char *endspot;
 
-  if (indent)
-    prefix = "      ";
-  else
-    prefix = "";
+  message = string_cat((char *)a, (char *)b, "zipwarn_i", NO_FLUFF);
 
-  if (a == NULL)
-  {
-    a = "";
-    warning = "            ";
-  }
-  else
-  {
-    warning = mesg_prefix;
-  }
+  /* break up message at newlines */
+  startspot = message;
 
-  sprintf(ebuf, "%s%s %s%s\n", prefix, warning, a, b);
+  while (1) {
+    endspot = strchr(startspot, '\n');
+    if (endspot) {
+      *endspot = '\0';
+    }
 
-  if (mesg_line_started)
-    zfprintf(mesg, "\n");
+    if (indent)
+      prefix = "      ";
+    else
+      prefix = "";
+
+    if (startspot != message)
+    {
+      warning = "            ";
+    }
+    else
+    {
+      warning = mesg_prefix;
+    }
+
+    sprintf(prebuf, "%s%s ", prefix, warning);
+    linebuf = string_cat(prebuf, startspot, "zipwarn_i", ADD_FLUFF(2));
+    if (nl) {
+      strcat(linebuf, "\n");
+    }
+
+    if (mesg_line_started) {
+      zfprintf(mesg, "\n");
+    }
 #if defined(UNICODE_SUPPORT_WIN32) && !defined(ZIP_DLL_LIB)
-  print_utf8(ebuf);
+    print_utf8(linebuf);
 # if 0
-  zfprintf(mesg, "%s%s %s%s\n", prefix, warning, a, b);
+    zfprintf(mesg, "%s%s %s%s\n", prefix, warning, a, b);
 # endif
 #else
-  zfprintf(mesg, "%s", ebuf);
+    zfprintf(mesg, "%s", linebuf);
 #endif
-  mesg_line_started = 0;
+    mesg_line_started = 0;
 #ifndef WINDLL
-  fflush(mesg);
+    fflush(mesg);
 #endif
 
-  if (logfile) {
-    if (logfile_line_started)
-      zfprintf(logfile, "\n");
+    if (logfile) {
+      if (logfile_line_started)
+        zfprintf(logfile, "\n");
 #if 0
-    zfprintf(logfile, "%s%s %s%s\n", prefix, warning, a, b);
+      zfprintf(logfile, "%s%s %s%s\n", prefix, warning, a, b);
 #endif
-    zfprintf(logfile, "%s", ebuf);
-    logfile_line_started = 0;
-    fflush(logfile);
-  }
+      zfprintf(logfile, "%s", linebuf);
+      logfile_line_started = 0;
+      fflush(logfile);
+    }
 
 #ifdef ZIP_DLL_LIB
-  if (*lpZipUserFunctions->error != NULL) {
+    if (*lpZipUserFunctions->error != NULL) {
 #if 0
-    sprintf(buf, "%s%s %s%s\n", prefix, warning, a, b);
+      sprintf(buf, "%s%s %s%s\n", prefix, warning, a, b);
 #endif
-    (*lpZipUserFunctions->error)(ebuf);
-  }
+      (*lpZipUserFunctions->error)(linebuf);
+    }
 #endif /* ZIP_DLL_LIB */
+
+    free(linebuf);
+
+    if (endspot) {
+      startspot = endspot + 1;
+    } else {
+      break;
+    }
+  }
+  free(message);
 }
 
 
@@ -5026,7 +5437,7 @@ void print_utf8_stderr(message)
 int is_ascii_stringw(wchar_t *wstring);
 int is_ascii_string(char *mbstring);
 
-zwchar *wchar_to_wide_string(wchar_t *wchar_string);
+zwchar *wchar_to_wide_stringz(wchar_t *wchar_string);
 
 char *wchar_to_local_string(wchar_t *wstring);
 
@@ -5037,18 +5448,18 @@ zwchar escape_string_to_wide(char *escape_string);
 char *wide_char_to_escape_string(zwchar wide_char);
 char *local_to_escape_string(char *local_string);
 char *utf8_to_escape_string(char *utf8_string);
-char *wide_to_escape_string(zwchar *wide_string);
+char *wide_to_escape_stringz(zwchar *wide_string);
 
 char *local_to_display_string(char *local_string);
 
-zwchar *local_to_wide_string(char *local_string);
-char *wide_to_local_string(zwchar *wide_string);
+zwchar *local_to_wide_stringz(char *local_string);
+char *wide_to_local_stringz(zwchar *wide_string);
 
 char *local_to_utf8_string(char *local_string);
-char *utf8_to_local_string(char *utf8_string);
+char *utf8_to_local_stringz(char *utf8_string);
 
 char *wide_to_utf8_string(zwchar *wide_string);
-zwchar *utf8_to_wide_string(char *utf8_string);
+zwchar *utf8_to_wide_stringz(char *utf8_string);
 #endif
 
 
@@ -5093,7 +5504,13 @@ int is_utf8_string(instring, has_bom, count, ascii_count, utf8_count)
   int is_utf8;
   int b1, b2, b3;
   int string_has_bom = 0;
-  int len = (int)strlen(instring);
+  int len;
+  
+  if (!instring) {
+    return 0;
+  }
+
+  len = (int)strlen(instring);
 
 #if 0
   printf("len = %d\n", len);
@@ -5283,14 +5700,14 @@ int is_utf8_file(FILE *infile, int *has_bom, int *count, int *ascii_count, int *
 
   has_utf8_bom = read_utf8_bom(infile);
 
-#if 0
+# if 0
   /* If we trust the BOM, we can report the file as UTF-8 without going
      further.  But we don't.  We look for ourselves to make sure that
      there is at least one UTF-8 char and no bad UTF-8 chars. */
   if (has_bom) {
     return 1;
   }
-#endif
+# endif
 
   /* Run through bytes, looking for good and bad UTF-8 characters. */
   for (;;)
@@ -5303,9 +5720,9 @@ int is_utf8_file(FILE *infile, int *has_bom, int *count, int *ascii_count, int *
 
     char_count++;
     if (char_count >= (MAX_INCLUDE_FILE_SIZE)) {
-#if 0
+# if 0
       printf("max count\n");
-#endif
+# endif
       break;
     }
 
@@ -5317,9 +5734,9 @@ int is_utf8_file(FILE *infile, int *has_bom, int *count, int *ascii_count, int *
     }
     else if (lead < 0xC0) {
       bad_utf8 = 1;       /* error: trailing byte without lead byte */
-#if 0
+# if 0
       printf("no lead\n");
-#endif
+# endif
       break;
     }
     else if (lead < 0xE0)
@@ -5351,9 +5768,9 @@ int is_utf8_file(FILE *infile, int *has_bom, int *count, int *ascii_count, int *
 
       if (uc < 0x80 || uc >= 0xC0) {
         bad_utf8 = 1;     /* error: not enough valid trailing bytes */
-#if 0
+# if 0
         printf("short trail\n");
-#endif
+# endif
         break;
       }
     } /* for */
@@ -5375,10 +5792,10 @@ int is_utf8_file(FILE *infile, int *has_bom, int *count, int *ascii_count, int *
       is_utf8 = 0;
   }
 
-#if 0
+# if 0
   printf("is_utf8_file:  has bom %d  count %d  ascii7 %d  utf8 %d  = is UTF-8 %d\n",
          has_utf8_bom, char_count, ascii_char_count, utf8_char_count, is_utf8);
-#endif
+# endif
 
   if (has_bom)
     *has_bom = has_utf8_bom;
@@ -5401,11 +5818,13 @@ int is_utf8_file(FILE *infile, int *has_bom, int *count, int *ascii_count, int *
  */
 wchar_t *utf8_to_wchar_string(ZCONST char *utf8_string)
 {
-#ifdef WIN32
+# ifdef WIN32
 
   return utf8_to_wchar_string_windows(utf8_string);
 
-#else /* not WIN32 */
+# else /* not WIN32 */
+
+#   ifdef UNICODE_WCHAR
 
   if (sizeof(wchar_t) == 4)
   {
@@ -5417,11 +5836,11 @@ wchar_t *utf8_to_wchar_string(ZCONST char *utf8_string)
     if (utf8_string == NULL)
       return NULL;
 
-    wide_string = utf8_to_wide_string(utf8_string);
+    wide_string = utf8_to_wide_stringz(utf8_string);
     if (wide_string == NULL)
       return NULL;
     
-    wchar_string = wide_to_wchar_string(wide_string);
+    wchar_string = wide_to_wchar_stringz(wide_string);
 
     free(wide_string);
 
@@ -5429,7 +5848,9 @@ wchar_t *utf8_to_wchar_string(ZCONST char *utf8_string)
   }
   else
 
-# ifdef HAVE_ICONV
+#   endif
+
+#   ifdef UNICODE_ICONV
   {
     iconv_t  cd;     /* conversion descriptor */
     size_t   iconv_result;
@@ -5461,7 +5882,7 @@ wchar_t *utf8_to_wchar_string(ZCONST char *utf8_string)
     coutbuf = (char *)outbuf;
     strcpy(coutbuf, "z\0y\0\0\0");
 
-    inp = string_dup(utf8_string, "utf8_to_wchar_string", 0);
+    inp = string_dup(utf8_string, "utf8_to_wchar_string", NO_FLUFF);
     outp = coutbuf;
 
     inbytesleft = utf8_string_len;
@@ -5495,13 +5916,13 @@ wchar_t *utf8_to_wchar_string(ZCONST char *utf8_string)
     return outbuf;
   }
 
-#  else /* not HAVE_ICONV */
+#   else /* not UNICODE_ICONV */
 
   ZIPERR(ZE_COMPILE, "utf8_to_wchar_string has no appropriate implementation");
 
-#  endif
+#   endif /* UNICODE_ICONV */
 
-#  if 0
+#   if 0
   /* This version only works if the locale is UTF-8. */
 
   size_t len;
@@ -5521,9 +5942,9 @@ wchar_t *utf8_to_wchar_string(ZCONST char *utf8_string)
   len = mbstowcs(w_string, utf8_string, MAX_PATH_SIZE);
 
   return w_string;
-#  endif
+#   endif
 
-#endif /* not WIN32 */
+# endif /* not WIN32 */
 }
 
 
@@ -5535,26 +5956,32 @@ wchar_t *utf8_to_wchar_string(ZCONST char *utf8_string)
  */
 char *wchar_to_utf8_string(wchar_t *wchar_string)
 {
-#ifdef WIN32
+# ifdef WIN32
 
   return wchar_to_utf8_string_windows(wchar_string);
 
-#else /* not WIN32 */
+# else /* not WIN32 */
 
-  if (sizeof(wchar_t) == 42)
+#   ifdef UNICODE_WCHAR
+  /* Assume __STDC_ISO_10646__ was set and so wchar_t encoding is Unicode. */
+
+  if (sizeof(wchar_t) == 4)
   {
     /* This works if don't use surrogate pairs (wchar_t is 4 bytes) */
   
-    zwchar *wide_string = wchar_to_wide_string(wchar_string);
-    char *local_string = wide_to_utf8_string(wide_string);
+    zwchar *wide_string = wchar_to_wide_stringz(wchar_string);
+    char *utf8_string = wide_to_utf8_string(wide_string);
 
     free(wide_string);
 
-    return local_string;
+    return utf8_string;
   }
   else
+#   endif  /* UNICODE_WCHAR */
 
-# ifdef HAVE_ICONV
+#   ifdef UNICODE_ICONV
+    /* Use iconv for the UTF-8 <--> wchar_t conversions . */
+
   {
     iconv_t  cd;     /* conversion descriptor */
     size_t   iconv_result;
@@ -5603,20 +6030,20 @@ char *wchar_to_utf8_string(wchar_t *wchar_string)
       ZIPERR(ZE_LOGIC, "error opening iconv");
     }
 
-#if 0
+#     if 0
     printf("in:  '%ls'\n", inp);
     printf("      1234567890123456789012345678901234567890\n");
-#endif
+#     endif
 
-#if 0
+#     if 0
     printf("  iconv  inleft %d  outleft %d\n", inbytesleft, outbytesleft);
-#endif
+#     endif
 
     iconv_result = iconv(cd, &inp, &inbytesleft, &outp, &outbytesleft);
 
-#if 0
+#     if 0
     printf("  iconv  inleft %d  outleft %d\n", inbytesleft, outbytesleft);
-#endif
+#     endif
 
     close_result = iconv_close(cd);
 
@@ -5638,13 +6065,15 @@ char *wchar_to_utf8_string(wchar_t *wchar_string)
     return outbuf;
   }
 
-# else /* not HAVE_ICONV */
+#   else /* not UNICODE_ICONV */
 
   ZIPERR(ZE_COMPILE, "wchar_to_utf8_string has no appropriate implementation");
 
-# endif
+  return NULL;
 
-# if 0
+#   endif /* not UNICODE_ICONV */
+
+#   if 0
   /* This only works if the locale is UTF-8. */
   size_t len;
   char *utf8_string;
@@ -5663,68 +6092,334 @@ char *wchar_to_utf8_string(wchar_t *wchar_string)
   len = wcstombs(utf8_string, wchar_string, MAX_PATH_SIZE);
 
   return utf8_string;
-# endif
+#   endif
 
-#endif /* not WIN32 */
+# endif /* not WIN32 */
 }
 
 
-/* wchar_to_wide_string
+/* wchar_to_wide_stringz
  *
  * Convert wchar_t string to zwchar (4 byte) string.
  *
- * This version does not account for multi-word chars (surrogate pairs).
- * It should only be used when wchar_t is 4 bytes (unless someone wants
- * to add surrogate support).
+ * If __STDC_ISO_10646__, character codes should map directly.
+ * If not, need to convert wchar_t to Unicode using iconv.
  *
  * Returns allocated zwchar string.
  */
-zwchar *wchar_to_wide_string(wchar_t *wchar_string)
+zwchar *wchar_to_wide_stringz(wchar_t *wchar_string)
 {
+# ifdef WIN32
+  /* Let Windows handle the conversion to UTF-8, which should handle
+  surrogates, then convert that to wide. */
+
+  char *utf8_string;
+  zwchar *wide_string;
+
+  utf8_string = wchar_to_utf8_string_windows(wchar_string);
+  wide_string = utf8_to_wide_stringz(utf8_string);
+  free(utf8_string);
+
+  return wide_string;
+
+# else /* not WIN32 */
+
+#   ifdef UNICODE_WCHAR
+
+/* This version does not account for multi-word chars (surrogate pairs).
+ * It should only be used when wchar_t is 4 bytes (unless someone wants
+ * to add surrogate support).  For now it really just copies the integers
+ * from one 4-byte array to another.
+ */
+
   int i;
   int wchar_len;
   zwchar *wide_string;
 
-  wchar_len = (int)wcslen(wchar_string);
+  if (sizeof(wchar_t) == 4)
+  {
+    wchar_len = (int)wcslen(wchar_string);
 
-  if ((wide_string = (zwchar *)malloc((wchar_len + 1) * sizeof(zwchar))) == NULL) {
-    ZIPERR(ZE_MEM, "wchar_to_wide_string");
+    if ((wide_string = (zwchar *)malloc((wchar_len + 1) * sizeof(zwchar))) == NULL) {
+      ZIPERR(ZE_MEM, "wchar_to_wide_stringz");
+    }
+    for (i = 0; i <= wchar_len; i++) {
+      wide_string[i] = wchar_string[i];
+    }
+
+    return wide_string;
   }
-  for (i = 0; i <= wchar_len; i++) {
-    wide_string[i] = wchar_string[i];
+  else
+
+#   endif /* UNICODE_WCHAR */
+
+#   ifdef UNICODE_ICONV
+
+  {
+    iconv_t  cd;     /* conversion descriptor */
+    size_t   iconv_result;
+    int      close_result;
+
+    size_t wchar_string_len;
+    size_t wchar_byte_len;
+
+    char *outbuf;
+    size_t outbuf_size;
+
+    zwchar *zwoutbuf;
+
+    size_t inbytesleft;
+    size_t outbytesleft;
+
+    char *fromcode = "WCHAR_T";
+    char *tocode   = "UCS4LE";
+
+    char *inp;
+    char *outp;
+
+    size_t outlen;
+
+    wchar_string_len = wcslen(wchar_string);
+    wchar_byte_len = wchar_string_len * sizeof(wchar_t);
+
+    /* assume output string will take no more than 6x input string */
+    outbuf_size = (6 * wchar_string_len + 40) * sizeof(wchar_t);
+
+    if ((outbuf = (char *)malloc(outbuf_size)) == NULL) {
+      ZIPERR(ZE_MEM, "wchar_to_utf8_string");
+    }
+
+    /* This is a debugging aid. */
+    strcpy(outbuf, "1234567890123456789012345678901234567890\0");
+
+    inp = (char *)wchar_string;
+    outp = (char *)outbuf;
+
+    inbytesleft = wchar_byte_len;
+    outbytesleft = outbuf_size;
+
+    cd = iconv_open(tocode, fromcode);
+    if (cd == (iconv_t)-1) {
+      zperror("iconv_open");
+      free(outbuf);
+      ZIPERR(ZE_LOGIC, "error opening iconv");
+    }
+
+#     if 0
+    printf("in:  '%ls'\n", inp);
+    printf("      1234567890123456789012345678901234567890\n");
+#     endif
+
+#     if 0
+    printf("  iconv  inleft %d  outleft %d\n", inbytesleft, outbytesleft);
+#     endif
+
+    iconv_result = iconv(cd, &inp, &inbytesleft, &outp, &outbytesleft);
+
+#     if 0
+    printf("  iconv  inleft %d  outleft %d\n", inbytesleft, outbytesleft);
+#     endif
+
+    close_result = iconv_close(cd);
+
+    if (iconv_result == (size_t)-1) {
+      zperror("iconv");
+      free(outbuf);
+      return NULL;
+    }
+
+    if (close_result == -1) {
+      zperror("iconv_close");
+      free(outbuf);
+      ZIPERR(ZE_LOGIC, "error closing iconv");
+    }
+
+    outlen = outbuf_size - outbytesleft;
+    outbuf[outlen] = '\0';
+
+    zwoutbuf = (zwchar *)outbuf;
+
+    return zwoutbuf;
   }
 
-  return wide_string;
+#   else /* not UNICODE_ICONV */
+
+  ZIPERR(ZE_COMPILE, "wchar_to_wide_stringz has no appropriate implementation");
+
+#   endif /* not UNICODE_ICONV */
+
+# endif /* not WIN32 */
+
 }
 
 
-/* wide_to_wchar_string
+/* wide_to_wchar_stringz
  *
  * Convert zwchar (4 byte) string to wchar_t string.
  *
  * This version does not account for multi-word chars (surrogate pairs).
  * It should only be used when wchar_t is 4 bytes or it is known no
  * surrogate pairs are needed (unless someone wants to add surrogate support).
+ * For now it really just copies integers from one 4-byte array to another.
  *
  * Returns allocated wchar_t string.
  */
-wchar_t *wide_to_wchar_string(zwchar *wide_string)
+wchar_t *wide_to_wchar_stringz(zwchar *wide_string)
 {
+# ifdef WIN32
+  /* Convert to UTF-8, then let Windows handle the conversion from UTF-8
+     to wchar_t, which should handle surrogates. */
+
+  char *utf8_string;
+  wchar_t *wchar_string;
+
+  utf8_string = wide_to_utf8_string(wide_string);
+  wchar_string = utf8_to_wchar_string_windows(utf8_string);
+  free(utf8_string);
+
+  return wchar_string;
+
+# else /* not WIN32 */
+
+#   ifdef UNICODE_WCHAR
+
   int i;
   int wide_len;
   wchar_t *wchar_string;
 
-  wide_len = zwchar_string_len(wide_string);
+  if (sizeof(wchar_t) == 4)
+  {
+    wide_len = zwchar_string_len(wide_string);
 
-  if ((wchar_string = (wchar_t *)malloc((wide_len + 1) * sizeof(wchar_t))) == NULL) {
-    ZIPERR(ZE_MEM, "wide_to_wchar_string");
+    /* wchar is Unicode, so we can just copy it over. */
+
+    if ((wchar_string = (wchar_t *)malloc((wide_len + 1) * sizeof(wchar_t))) == NULL) {
+      ZIPERR(ZE_MEM, "wide_to_wchar_stringz");
+    }
+    /* this is not UTF-16 aware - should be fixed */
+    for (i = 0; i <= wide_len; i++) {
+      wchar_string[i] = (wchar_t)wide_string[i];
+    }
+
+    return wchar_string;
   }
-  /* this is not UTF-16 aware - should be fixed */
-  for (i = 0; i <= wide_len; i++) {
-    wchar_string[i] = (wchar_t)wide_string[i];
+  else
+
+#   endif /* UNICODE_WCHAR */
+
+#   ifdef UNICODE_ICONV
+  /* We can't trust wchar_t encoding, so use iconv. */
+
+    /* iconv per character version */
+
+  iconv_t  cd;     /* conversion descriptor */
+  size_t   iconv_result;
+  int      close_result;
+
+  size_t wide_string_len;
+  size_t wide_byte_len;
+
+  char *outbuf;
+  size_t outbuf_size;
+
+  size_t inbytesleft;
+  size_t outbytesleft;
+
+  char *fromcode = "UCS-4LE";    /* should be equivalent to zwchar */
+  char *tocode   = "WCHAR_T";
+
+  char *inp;
+  char *outp; 
+
+  int i;
+  int k;
+  char *escape_string;
+  zwchar wc;
+
+
+  wide_string_len = zwchar_string_len(wide_string);
+  wide_byte_len = wide_string_len * sizeof(zwchar);
+
+  /* assume local string will take no more than 8x input string */
+  outbuf_size = (8 * wide_string_len + 40) * sizeof(char);
+
+  if ((outbuf = (char *)malloc(outbuf_size)) == NULL) {
+    ZIPERR(ZE_MEM, "wide_to_wchar_stringz");
   }
 
-  return wchar_string;
+  strcpy(outbuf, "1234567890123456789012345678901234567890");
+
+  inp = (char *)wide_string;
+  outp = outbuf;
+
+#     if 0
+  zprintf("in:  '%ls'\n", wide_string);
+  zprintf("in:  '1234567890123456789012345678901234567890'\n");
+#     endif
+
+  inbytesleft = wide_byte_len;
+  outbytesleft = outbuf_size;
+
+  cd = iconv_open(tocode, fromcode);
+  if (cd == (iconv_t)-1) {
+    zperror("iconv_open");
+    free(outbuf);
+    ZIPERR(ZE_LOGIC, "error opening iconv");
+  }
+
+#     if 0
+  zprintf("  iconv  inleft %d  outleft %d\n", inbytesleft, outbytesleft);
+#     endif
+
+  for (i = 0; i < wide_string_len; i++) {
+#     if 0
+    wc = wide_string[i];
+    zprintf("\n  i: %d  wsl: %d  wc: %lx\n", i, wide_string_len, wc);
+#     endif
+    inbytesleft = 4;
+    iconv_result = iconv(cd, &inp, &inbytesleft, &outp, &outbytesleft);
+    if (iconv_result == (size_t)-1) {
+      if (errno == EILSEQ) {
+        wc = wide_string[i];
+        escape_string = wide_char_to_escape_string(wc);
+#     if 0
+        zprintf("\nBad char - escape: %lx '%s'\n", wc, escape_string);
+#     endif
+        /* escapes are no more then 8 bytes (#L123456) */
+        /* write bytes to output */
+        strcpy(outp, escape_string);
+        /* update pointer */
+        outp += strlen(escape_string);
+      }
+      else
+      {
+        zperror("iconv");
+      }
+    }
+  }
+
+#     if 0
+  zprintf("  iconv  inleft %d  outleft %d\n", inbytesleft, outbytesleft);
+#     endif
+
+  close_result = iconv_close(cd);
+
+  if (close_result == -1) {
+    zperror("iconv_close");
+    free(outbuf);
+    ZIPERR(ZE_LOGIC, "error closing iconv");
+  }
+
+  return (wchar_t *)outbuf;
+
+#   else /* not UNICODE_ICONV */
+
+  ZIPERR(ZE_COMPILE, "z has no appropriate implementation");
+
+#   endif /* not UNICODE_ICONV */
+
+# endif /* not WIN32 */
+
 }
 
 
@@ -5786,8 +6481,11 @@ char *local_to_utf8_string(char *local_string)
 
   if (local_string == NULL)
     return NULL;
-
-  wide_string = local_to_wide_string(local_string);
+#   ifdef UNICODE_SUPPORT_WIN32
+  wide_string = local_to_wide_string_windows(local_string);
+#   else
+  wide_string = local_to_wide_stringz(local_string);
+#   endif
   if (wide_string == NULL)
     return NULL;
 
@@ -5816,6 +6514,9 @@ char *local_to_utf8_string(char *local_string)
    is a 3-byte wide with bytes 0x12, 0x34, and 0x56.
    On Windows, wide that need two wide characters as a surrogate pair
    to represent them need to be converted to a single number.
+
+   Note that zwchar is always Unicode and typically based off
+   UTF-8.
   */
 
  /* set this to the max bytes an escape can be */
@@ -5887,7 +6588,10 @@ zwchar *char_to_wide_string(char *char_string)
 }
 
 
-/* returns the wide character represented by the escape string */
+/* returns the wide character represented by the escape string
+ *
+ * zwchar is always Unicode (UCS4).
+ */
 zwchar escape_to_wide_char(char *escape_string)
 {
   int i;
@@ -6079,11 +6783,11 @@ wchar_t *escapes_to_wchar_string(wchar_t *wchar_escaped_string){
   zwchar *wide_string;
   wchar_t *wchar_string = NULL;
 
-  escaped_wide_string = wchar_to_wide_string(wchar_escaped_string);
+  escaped_wide_string = wchar_to_wide_stringz(wchar_escaped_string);
   wide_string = escapes_to_wide_string(escaped_wide_string);
   free(escaped_wide_string);
   if (wide_string) {
-    wchar_string = wide_to_wchar_string(wide_string);
+    wchar_string = wide_to_wchar_stringz(wide_string);
     free(wide_string);
   }
   return wchar_string;
@@ -6101,7 +6805,7 @@ char *escapes_to_utf8_string(char *escaped_string)
   zwchar *wide_string;
   char *utf8_string = NULL;
 
-  escaped_wide_string = utf8_to_wide_string(escaped_string);
+  escaped_wide_string = utf8_to_wide_stringz(escaped_string);
 
   wide_string = escapes_to_wide_string(escaped_wide_string);
 
@@ -6141,11 +6845,15 @@ char *local_to_escape_string(char *local_string)
   if (local_string == NULL)
     return NULL;
 
-  wide_string = local_to_wide_string(local_string);
+# ifdef UNICODE_SUPPORT_WIN32
+  wide_string = local_to_wide_string_windows(local_string);
+# else
+  wide_string = local_to_wide_stringz(local_string);
+# endif
   if (wide_string == NULL)
     return NULL;
   
-  escape_string = wide_to_escape_string(wide_string);
+  escape_string = wide_to_escape_stringz(wide_string);
 
   free(wide_string);
 
@@ -6169,11 +6877,15 @@ char *wchar_to_local_string(wchar_t *wstring)
   if (wstring == NULL)
     return NULL;
 
-  wide_string = wchar_to_wide_string(wstring);
+  wide_string = wchar_to_wide_stringz(wstring);
   if (wide_string == NULL)
     return NULL;
   
-  local_string = wide_to_local_string(wide_string);
+# ifdef WIN32
+  local_string = wide_to_local_string_windows(wide_string);
+# else
+  local_string = wide_to_local_stringz(wide_string);
+# endif
 
   free(wide_string);
 
@@ -6181,18 +6893,21 @@ char *wchar_to_local_string(wchar_t *wstring)
 }
 
 
-#ifndef WIN32   /* The Win32 port uses a system-specific variant. */
-
-/* wide_to_local_string - convert wide character string to multi-byte string
+/* wide_to_local_stringz - convert wide character string to multi-byte string
  *
  * This has been updated to not TRANSLIT chars, so if a character does
  * not have a counterpart in the local charset, a Unicode escape is used.
  * The results of allowing char substitution as from TRANSLIT were marginal
  * at best.
  */
-char *wide_to_local_string(zwchar *wide_string)
+char *wide_to_local_stringz(zwchar *wide_string)
 {
-# ifdef UNICODE_WCHAR
+# ifdef WIN32
+/* The Win32 port uses a system-specific variant. */
+  return wide_to_local_string_windows(wide_string);
+# else
+
+#   ifdef UNICODE_WCHAR
 
   int i;
   wchar_t wc;
@@ -6213,7 +6928,7 @@ char *wide_to_local_string(zwchar *wide_string)
     max_bytes = MAX_ESCAPE_BYTES;
 
   if ((buffer = (char *)malloc(wsize * max_bytes + 1)) == NULL) {
-    ZIPERR(ZE_MEM, "wide_to_local_string");
+    ZIPERR(ZE_MEM, "wide_to_local_stringz");
   }
 
   /* convert it */
@@ -6262,16 +6977,16 @@ char *wide_to_local_string(zwchar *wide_string)
   }
   if ((local_string = (char *)malloc(strlen(buffer) + 1)) == NULL) {
     free(buffer);
-    ZIPERR(ZE_MEM, "wide_to_local_string");
+    ZIPERR(ZE_MEM, "wide_to_local_stringz");
   }
   strcpy(local_string, buffer);
   free(buffer);
 
   return local_string;
 
-# else /* not UNICODE_WCHAR */
+#   else /* not UNICODE_WCHAR */
 
-#  ifdef HAVE_ICONV
+#     ifdef UNICODE_ICONV
 
   /* iconv per character version */
 
@@ -6294,6 +7009,7 @@ char *wide_to_local_string(zwchar *wide_string)
   char *inp;
   char *outp; 
 
+  int outlen;
   int i;
   int k;
   char *escape_string;
@@ -6307,7 +7023,7 @@ char *wide_to_local_string(zwchar *wide_string)
   outbuf_size = (8 * wide_string_len + 40) * sizeof(char);
 
   if ((outbuf = (char *)malloc(outbuf_size)) == NULL) {
-    ZIPERR(ZE_MEM, "wide_to_local_string");
+    ZIPERR(ZE_MEM, "wide_to_local_stringz");
   }
 
   strcpy(outbuf, "1234567890123456789012345678901234567890");
@@ -6315,10 +7031,10 @@ char *wide_to_local_string(zwchar *wide_string)
   inp = (char *)wide_string;
   outp = outbuf;
 
-#if 0
+#       if 0
   zprintf("in:  '%ls'\n", wide_string);
   zprintf("in:  '1234567890123456789012345678901234567890'\n");
-#endif
+#       endif
 
   inbytesleft = wide_byte_len;
   outbytesleft = outbuf_size;
@@ -6330,24 +7046,24 @@ char *wide_to_local_string(zwchar *wide_string)
     ZIPERR(ZE_LOGIC, "error opening iconv");
   }
 
-#if 0
+#       if 0
   zprintf("  iconv  inleft %d  outleft %d\n", inbytesleft, outbytesleft);
-#endif
+#       endif
 
   for (i = 0; i < wide_string_len; i++) {
-#if 0
+#       if 0
     wc = wide_string[i];
     zprintf("\n  i: %d  wsl: %d  wc: %lx\n", i, wide_string_len, wc);
-#endif
+#       endif
     inbytesleft = 4;
     iconv_result = iconv(cd, &inp, &inbytesleft, &outp, &outbytesleft);
     if (iconv_result == (size_t)-1) {
       if (errno == EILSEQ) {
         wc = wide_string[i];
         escape_string = wide_char_to_escape_string(wc);
-#if 0
+#       if 0
         zprintf("\nBad char - escape: %lx '%s'\n", wc, escape_string);
-#endif
+#       endif
         /* escapes are no more then 8 bytes (#L123456) */
         /* write bytes to output */
         strcpy(outp, escape_string);
@@ -6361,9 +7077,9 @@ char *wide_to_local_string(zwchar *wide_string)
     }
   }
 
-#if 0
+#       if 0
   zprintf("  iconv  inleft %d  outleft %d\n", inbytesleft, outbytesleft);
-#endif
+#       endif
 
   close_result = iconv_close(cd);
 
@@ -6373,22 +7089,28 @@ char *wide_to_local_string(zwchar *wide_string)
     ZIPERR(ZE_LOGIC, "error closing iconv");
   }
 
+  outlen = outbuf_size - outbytesleft;
+  outbuf[outlen] = '\0';
+  
   return outbuf;
 
-#  else /* not HAVE_ICONV */
+#     else /* not UNICODE_ICONV */
 
-  ZIPERR(ZE_COMPILE, "wide_to_local_string has no appropriate implementation");
+  ZIPERR(ZE_COMPILE, "wide_to_local_stringz has no appropriate implementation");
 
-#  endif /* not HAVE_ICONV */
+#     endif /* not UNICODE_ICONV */
 
-# endif /* not UNICODE_WCHAR */
+#   endif /* not UNICODE_WCHAR */
 
+# endif /* not WIN32 */
 }
-#endif /* not WIN32 */
 
 
-/* convert wide character string to escaped string */
-char *wide_to_escape_string(zwchar *wide_string)
+/* convert wide character string to escaped string
+ *
+ * zwchar is always Unicode (UCS4)
+ */
+char *wide_to_escape_stringz(zwchar *wide_string)
 {
   int i;
   int wsize = 0;
@@ -6402,7 +7124,7 @@ char *wide_to_escape_string(zwchar *wide_string)
   for (wsize = 0; wide_string[wsize]; wsize++) ;
 
   if ((buffer = (char *)malloc(wsize * MAX_ESCAPE_BYTES + 1)) == NULL) {
-    ZIPERR(ZE_MEM, "wide_to_escape_string");
+    ZIPERR(ZE_MEM, "wide_to_escape_stringz");
   }
 
   /* convert it */
@@ -6422,7 +7144,7 @@ char *wide_to_escape_string(zwchar *wide_string)
     }
   }
   if ((escape_string = (char *)malloc(strlen(buffer) + 1)) == NULL) {
-    ZIPERR(ZE_MEM, "wide_to_escape_string");
+    ZIPERR(ZE_MEM, "wide_to_escape_stringz");
   }
   strcpy(escape_string, buffer);
   free(buffer);
@@ -6553,37 +7275,40 @@ char *local_to_display_string(local_string)
 
 #ifdef UNICODE_SUPPORT
 
-/* utf8_to_local_string
+/* utf8_to_local_stringz
  *
  * The iconv code is old.  We no longer TRANSLIT the charset conversion
  * as the result is unpredictable.  All chars that are not a direct match
  * are now replaced by Unicode escapes.  This provides predictable
  * translations.  The best guess transliterations were marginally useful
- * at best anyway.  See wide_to_local_string().  Should do iconv conversion
+ * at best anyway.  See wide_to_local_stringz().  Should do iconv conversion
  * one char at a time (without TRANSLIT) and check result each time instead.
  * A non-converted char gets escaped.
  */
-char *utf8_to_local_string(char *utf8_string)
+char *utf8_to_local_stringz(char *utf8_string)
 {
-  /* Let wide_to_local_string() choose either WCHAR or ICONV conversion. */
-#if defined(UNICODE_WCHAR) || defined(HAVE_ICONV)
+  /* Let wide_to_local_stringz() choose either WCHAR or ICONV conversion. */
+#if defined(UNICODE_WCHAR) || defined(UNICODE_ICONV)
   zwchar *wide_string;
   char *loc;
   
   if (utf8_string == NULL)
     return NULL;
 
-  wide_string = utf8_to_wide_string(utf8_string);
+  wide_string = utf8_to_wide_stringz(utf8_string);
   if (wide_string == NULL)
     return NULL;
 
-  loc = wide_to_local_string(wide_string);
+  loc = wide_to_local_stringz(wide_string);
   if (wide_string)
     free(wide_string);
   
   return loc;
 
 #else
+
+#if 0
+  /* Don't try if UNICODE_WCHAR or UNICODE_ICONV not set */
 
 # ifdef HAVE_ICONV
   iconv_t  cd;     /* conversion descriptor */
@@ -6622,7 +7347,7 @@ char *utf8_to_local_string(char *utf8_string)
   outbuf_size = (8 * utf8_string_len + 40) * sizeof(char);
 
   if ((outbuf = (char *)malloc(outbuf_size)) == NULL) {
-    ZIPERR(ZE_MEM, "utf8_to_local_string");
+    ZIPERR(ZE_MEM, "utf8_to_local_stringz");
   }
 
   strcpy(outbuf, "1234567890123456789012345678901234567890");
@@ -6688,11 +7413,14 @@ char *utf8_to_local_string(char *utf8_string)
 
 # else /* not HAVE_ICONV */
 
-  ZIPERR(ZE_COMPILE, "utf8_to_local_string has no appropriate implementation");
+  ZIPERR(ZE_COMPILE, "utf8_to_local_stringz has no appropriate implementation");
 
-# endif /* not HAVE_ICONV */
+# endif /* not UNICODE_ICONV */
+#endif /* 0 */
 
-#endif /* not UNICODE_WCHAR */
+    ZIPERR(ZE_COMPILE, "utf8_to_local_stringz has no appropriate implementation");
+
+#endif /* not UNICODE_WCHAR or UNICODE_ICONV */
 
 }
 
@@ -6701,18 +7429,26 @@ char *utf8_to_local_string(char *utf8_string)
  */
 char *utf8_to_escape_string(char *utf8_string)
 {
-  zwchar *wide_string = utf8_to_wide_string(utf8_string);
-  char *escape_string = wide_to_escape_string(wide_string);
+  zwchar *wide_string = utf8_to_wide_stringz(utf8_string);
+  char *escape_string = wide_to_escape_stringz(wide_string);
   free(wide_string);
   return escape_string;
 }
 
-#ifndef WIN32   /* The Win32 port uses a system-specific variant. */
 
-/* convert multi-byte character string to wide character string */
-zwchar *local_to_wide_string(char *local_string)
+/* convert multi-byte character string to wide character string
+ *
+ * This should work for UNICODE_ICONV also, as we are requiring
+ * working wchar_t functions.
+ */
+zwchar *local_to_wide_stringz(char *local_string)
 {
-# ifdef UNICODE_WCHAR
+#ifdef UNICODE_SUPPORT_WIN32
+
+  return local_to_wide_string_windows(local_string);
+
+#else
+# if defined(UNICODE_WCHAR) || defined(UNICODE_ICONV)
   int wsize;
   wchar_t *wc_string;
   zwchar *wide_string;
@@ -6726,7 +7462,7 @@ zwchar *local_to_wide_string(char *local_string)
 
   /* convert it */
   if ((wc_string = (wchar_t *)malloc((wsize + 1) * sizeof(wchar_t))) == NULL) {
-    ZIPERR(ZE_MEM, "local_to_wide_string");
+    ZIPERR(ZE_MEM, "local_to_wide_stringz");
   }
   /* Fix by kellner, from forum, 12 Feb 2009 */
   wsize = mbstowcs(wc_string, local_string, wsize + 1);
@@ -6734,7 +7470,7 @@ zwchar *local_to_wide_string(char *local_string)
 
   /* in case wchar_t is not zwchar */
   if ((wide_string = (zwchar *)malloc((wsize + 1) * sizeof(zwchar))) == NULL) {
-    ZIPERR(ZE_MEM, "local_to_wide_string");
+    ZIPERR(ZE_MEM, "local_to_wide_stringz");
   }
   for (wsize = 0; (wide_string[wsize] = (zwchar)wc_string[wsize]); wsize++) ;
   wide_string[wsize] = (zwchar)0;
@@ -6742,7 +7478,11 @@ zwchar *local_to_wide_string(char *local_string)
 
   return wide_string;
 
-# else /* not UNICODE_WCHAR */
+# else /* not UNICODE_WCHAR or UNICODE_ICONV */
+
+#if 0
+  /* Rely on the wchar_t functions.  They should work fine, even if
+     the underlying character code mapping is not Unicode. */
 
 #  ifdef HAVE_ICONV
   iconv_t  cd;     /* conversion descriptor */
@@ -6769,7 +7509,7 @@ zwchar *local_to_wide_string(char *local_string)
   outbuf_size = (4 * local_string_len + 40) * sizeof(zwchar);
 
   if ((outbuf = (zwchar *)malloc(outbuf_size)) == NULL) {
-    ZIPERR(ZE_MEM, "local_to_wide_string");
+    ZIPERR(ZE_MEM, "local_to_wide_stringz");
   }
 
   inp = local_string;
@@ -6818,15 +7558,24 @@ zwchar *local_to_wide_string(char *local_string)
 
 #  else /* not HAVE_ICONV */
 
-  ZIPERR(ZE_COMPILE, "local_to_wide_string has no appropriate implementation");
+  ZIPERR(ZE_COMPILE, "local_to_wide_stringz has no appropriate implementation");
 
 #  endif /* not HAVE_ICONV */
+#endif /* 0 */
 
-# endif /* not UNICODE_WCHAR */
+    ZIPERR(ZE_COMPILE, "local_to_wide_stringz has no appropriate implementation");
+
+# endif /* not UNICODE_WCHAR or UNICODE_ICONV */
+#endif /* UNICODE_SUPPORT_WIN32 */
 }
 
 
 wchar_t *local_to_wchar_string(ZCONST char *local_string) {
+#ifdef UNICODE_SUPPORT_WIN32
+
+  return local_to_wchar_string_windows(local_string);
+
+#else
   int local_len;
   int wchar_len;
   wchar_t *wchar_string;
@@ -6849,10 +7598,9 @@ wchar_t *local_to_wchar_string(ZCONST char *local_string) {
   wchar_string[wchar_len] = (wchar_t)'\0';
 
   return wchar_string;
+
+#endif /* UNICODE_SUPPORT_WIN32 */
 }
-
-
-#endif /* not WIN32 */
 
 
 /* All wchar functions are only used by Windows and are
@@ -6867,7 +7615,7 @@ wchar_t *local_to_wchar_string(ZCONST char *local_string) {
 # ifndef WIN32
 char *wchar_to_utf8_string(wchar_t *wstring)
 {
-  zwchar *wide_string = wchar_to_wide_string(wstring);
+  zwchar *wide_string = wchar_to_wide_stringz(wstring);
   char *local_string = wide_to_utf8_string(wide_string);
 
   free(wide_string);
@@ -6890,7 +7638,7 @@ char *wide_to_utf8_string(zwchar *wide_string)
 #if 0
   int i;
   wchar_t *wchar_string;
-  wchar_string = wide_to_wchar_string(wide_string);
+  wchar_string = wide_to_wchar_stringz(wide_string);
 
   printf("wide_string ");
   for (i = 0; wide_string[i]; i++)
@@ -6913,11 +7661,11 @@ char *wide_to_utf8_string(zwchar *wide_string)
 }
 
 
-/* utf8_to_wide_string
+/* utf8_to_wide_stringz
  *
  * Convert UTF-8 string to wide string.
  */
-zwchar *utf8_to_wide_string(ZCONST char *utf8_string)
+zwchar *utf8_to_wide_stringz(ZCONST char *utf8_string)
 {
   int wcount;
   zwchar *wide_string;
@@ -6926,7 +7674,7 @@ zwchar *utf8_to_wide_string(ZCONST char *utf8_string)
   if (wcount == -1)
     return NULL;
   if ((wide_string = (zwchar *) malloc((wcount + 2) * sizeof(zwchar))) == NULL) {
-    ZIPERR(ZE_MEM, "utf8_to_wide_string");
+    ZIPERR(ZE_MEM, "utf8_to_wide_stringz");
   }
   wcount = utf8_to_ucs4_string(utf8_string, wide_string, wcount + 1);
 
@@ -6947,8 +7695,8 @@ zwchar *utf8_to_wide_string(ZCONST char *utf8_string)
  *
  * zprintf() returns what printf() would return.
  *
- * The NO_PROTO case for zprintf() and zfprintf() is broke (can't handle
- * arguments).
+ * The NO_PROTO case for zprintf() and zfprintf() may be able to
+ * handle arguments now.
  */
 
 /* zprintf */
@@ -7100,14 +7848,14 @@ void zperror(parm1)
 /*---------------------------------------------------------------
  *  Long option support
  *
- *  Defines function get_option() to get and process the command
+ *  Defines function get_optionz() to get and process the command
  *  line options and arguments from argv[].  The caller calls
- *  get_option() in a loop to get either one option and possible
+ *  get_optionz() in a loop to get either one option and possible
  *  value or a non-option argument each loop.
  *
  *  This version includes argument file support so should not be used
- *  directly on argv.  Generally best to use copy_args() to create a
- *  malloc'd copy of the args and pass that to get_option().
+ *  directly on argv.  Generally best to use copy_argsz() to create a
+ *  malloc'd copy of the args and pass that to get_optionz().
  *
  *  Supports short and long options as defined in the array options[]
  *  in zip.c, multiple short options in an argument (like -jlv), long
@@ -7120,9 +7868,12 @@ void zperror(parm1)
  *  non-option non-value argument in form @path gets substituted with the
  *  white space separated arguments in the text file at path).
  *
- *  As of Zip 3.1, argument file support has been restored.
+ *  As of Zip 3.1, argument file support has been restored, but it must be
+ *  enabled with the -AF option.  This avoids issues with files starting
+ *  with @ similar to users complaining about [] processing, the [list]
+ *  feature now requiring the -RE option to enable.
  *
- *  get_option() and the command line processing code below was written from
+ *  get_optionz() and the command line processing code below was written from
  *  scratch by E. Gordon and donated to Info-ZIP.
  *
  *  E. Gordon
@@ -7143,7 +7894,7 @@ void zperror(parm1)
 
 /* For now stay with multi-byte characters.  Wide character support for
    Windows now added to Zip, but the wide command line arguments are converted
-   to UTF-8 so that the multi-byte get_option() code can be used with them.
+   to UTF-8 so that the multi-byte get_optionz() code can be used with them.
  */
 
 /* multibyte character set support
@@ -7321,7 +8072,7 @@ int dump_args(arrayname, args)
 }
 
 
-/* copy_args
+/* copy_argsz
  *
  * Copy arguments in args, allocating storage with malloc.
  * Copies until a NULL argument is found or until max_args args
@@ -7330,10 +8081,10 @@ int dump_args(arrayname, args)
  *
  * Any argument in the returned args can be freed with free().  Any
  * freed argument should be replaced with either another string
- * allocated with malloc or by NULL if last argument so that free_args
+ * allocated with malloc or by NULL if last argument so that free_argsz
  * will properly work.
  */
-char **copy_args(args, max_args)
+char **copy_argsz(args, max_args)
   char **args;
   int max_args;
 {
@@ -7360,7 +8111,7 @@ char **copy_args(args, max_args)
   {
     if ((new_args[ j] = malloc( strlen( args[ j])+ 1)) == NULL)
     {
-      free_args(new_args);
+      free_argsz(new_args);
       /* a failed malloc should probably be fatal - propagating
          the failure elsewhere may be misleading */
       oWARN("memory - ca.2");
@@ -7376,11 +8127,11 @@ char **copy_args(args, max_args)
 }
 
 
-/* arg_count
+/* arg_countz
  *
  * Return argc for args.
  */
-int arg_count(args)
+int arg_countz(args)
   char **args;
 {
   int i;
@@ -7391,11 +8142,11 @@ int arg_count(args)
 }
 
 
-/* free_args
+/* free_argsz
  *
  * Free args created with one of these functions.
  */
-int free_args(args)
+int free_argsz(args)
   char **args;
 {
   int i;
@@ -7412,7 +8163,7 @@ int free_args(args)
 }
 
 
-/* insert_arg
+/* insert_argz
  *
  * Insert the argument arg into the array args before argument at_arg.
  * Return the new count of arguments (argc).
@@ -7422,7 +8173,7 @@ int free_args(args)
  * argv but only on args allocated with malloc.
  */
 
-int insert_arg(pargs, arg, at_arg, free_args)
+int insert_argz(pargs, arg, at_arg, free_args)
    char ***pargs;
    ZCONST char *arg;
    int at_arg;
@@ -7482,7 +8233,7 @@ int insert_arg(pargs, arg, at_arg, free_args)
    newargs[newargnum] = NULL;
 
    /* free old args array but not component strings - this assumes that
-      args was allocated with malloc as copy_args does.  DO NOT DO THIS
+      args was allocated with malloc as copy_argsz does.  DO NOT DO THIS
       on the original argv.
     */
    if (free_args)
@@ -7499,12 +8250,12 @@ int insert_arg(pargs, arg, at_arg, free_args)
  * Insert args from file into the array args, replacing argument at_arg.
  *
  * Input args array pargs points to must be NULL terminated.  It must
- * be allocated with malloc (as with copy_args), not original argv.
+ * be allocated with malloc (as with copy_argsz), not original argv.
  *
  * Return the new count of arguments (argc).  Return -1 if error, though
  * most errors (like can't allocate memory) call ZIPERR directly.
  *
- * This should only be used on args[] created by copy_args() where the
+ * This should only be used on args[] created by copy_argsz() where the
  * arguments can be freed.  The old array will be freed and replaced
  * with the new array.
  *
@@ -7546,7 +8297,6 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
   int has_space;
   char *quote_start;
   int i;
-  int argc = 0;
   int comment_line = 0;
   int line_number = 0;
   int unmatched_quote = 0;
@@ -7723,6 +8473,8 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
 
 #ifdef UNICODE_SUPPORT
 # if 0
+  /* UTF-8 is now processed element by element, so labeling a file
+     as UTF-8 or not is no longer useful. */
   /* check for UTF-8 */
   if (is_utf8_file(argfile, NULL, NULL, NULL, NULL)) {
     zipmessage("argfile is UTF-8", "");
@@ -7809,6 +8561,7 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
             sprintf(errbuf, "unmatched quote on line %d in %s",
                     line_number, argfilename);
             zipwarn(errbuf, "");
+            fclose(argfile);
             return -1;
           }
           if (!has_space) {
@@ -7841,6 +8594,7 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
             /* get space for new arg */
             size = (argsize + 1) * sizeof(char);
             if ((newarg = (char *)malloc(size)) == NULL) {
+              fclose(argfile);
               ZIPERR(ZE_MEM, "iaff (1)");
             }
             for (a = argstart, i = 0; a < c; a++, i++) {
@@ -7912,6 +8666,7 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
            "max arg file depth (%d) would be exceeded:  %s at line %d in %s",
                         MAX_ARGFILE_DEPTH, newarg, line_number, argfilename);
                 zipwarn(errbuf, "");
+                fclose(argfile);
                 return -1;
               }
 
@@ -7928,6 +8683,7 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
                 sprintf(errbuf, "error processing arg file:  %s%s", indent,
                         iargfilename);
                 zipwarn(errbuf, "");
+                fclose(argfile);
                 return -1;
               }
 
@@ -7942,6 +8698,7 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
                 maxargs += iargcnt + ADD_ARGS_DELTA;
                 size = (maxargs + 1) * sizeof(char *);
                 if ((newargs = (char **)realloc(newargs, size)) == NULL) {
+                  fclose(argfile);
                   ZIPERR(ZE_MEM, "iaff (2a)");
                 }
               }
@@ -7966,6 +8723,7 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
                 maxargs += ADD_ARGS_DELTA;
                 size = (maxargs + 1) * sizeof(char *);
                 if ((newargs = (char **)realloc(newargs, size)) == NULL) {
+                  fclose(argfile);
                   ZIPERR(ZE_MEM, "iaff (3a)");
                 }
               }
@@ -8018,6 +8776,8 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
     } /* !comment_line */
 
   } /* while(!eof(argfile)) */
+
+  fclose(argfile);
 
   /* insert new args into args */
 
@@ -8677,34 +9437,34 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
  * Main interface for user.  Use this function to get options, values and
  * non-option arguments from a command line provided in argv form.
  *
- * To use get_option() first define valid options by setting
+ * To use get_optionz() first define valid options by setting
  * the global variable options[] to an array of option_struct.  Also
  * either change defaults below or make variables global and set elsewhere.
  * Zip uses below defaults.
  *
- * Call get_option() to get an option (like -b or --temp-file) and any
+ * Call get_optionz() to get an option (like -b or --temp-file) and any
  * value for that option (like filename for -b) or a non-option argument
  * (like archive name) each call.  If *value* is not NULL after calling
- * get_option() it is a returned value and the caller should either store
- * the char pointer or free() it before calling get_option() again to avoid
- * leaking memory.  If a non-option non-value argument is returned get_option()
+ * get_optionz() it is a returned value and the caller should either store
+ * the char pointer or free() it before calling get_optionz() again to avoid
+ * leaking memory.  If a non-option non-value argument is returned get_optionz()
  * returns o_NON_OPTION_ARG and value is set to the entire argument.
- * When there are no more arguments get_option() returns 0.
+ * When there are no more arguments get_optionz() returns 0.
  *
  * The parameters argnum (after set to 0 on initial call),
  * optchar, first_nonopt_arg, option_num, and depth (after initial
- * call) are set and maintained by get_option() and should not be
+ * call) are set and maintained by get_optionz() and should not be
  * changed.  The parameters argc, negated, and value are outputs and
- * can be used by the calling program.  get_option() returns either the
+ * can be used by the calling program.  get_optionz() returns either the
  * option_ID for the current option, a special value defined in
  * zip.h, or 0 when no more arguments.
  *
- * The value returned by get_option() is the ID value in the options
+ * The value returned by get_optionz() is the ID value in the options
  * table.  This value can be duplicated in the table if different
  * options are really the same option.  The index into the options[]
  * table is given by option_num, though the ID should be used as
  * option numbers change when the table is changed.  The ID must
- * not be 0 for any option as this ends the table.  If get_option()
+ * not be 0 for any option as this ends the table.  If get_optionz()
  * finds an option not in the table it calls oERR to post an
  * error and exit.  Errors also result if the option requires a
  * value that is missing, a value is present but the option does
@@ -8739,22 +9499,22 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
  * but takes a value then the - will start the value.  If permuting then
  * argnum and first_nonopt_arg are unreliable and should not be used.
  *
- * Command line is read from left to right.  As get_option() finds non-option
+ * Command line is read from left to right.  As get_optionz() finds non-option
  * arguments (arguments not starting with - and that are not values to options)
  * it moves later options and values in front of the non-option arguments.
  * This permuting is turned off by setting enable_permute to 0.  Then
- * get_option() will return options and non-option arguments in the order
+ * get_optionz() will return options and non-option arguments in the order
  * found.  Currently permuting is only done after an argument is completely
  * processed so that any value can be moved with options they go with.  All
  * state information is stored in the parameters argnum, optchar,
  * first_nonopt_arg and option_num.  You should not change these after the
- * first call to get_option().  If you need to back up to a previous arg then
+ * first call to get_optionz().  If you need to back up to a previous arg then
  * set argnum to that arg (remembering that args may have been permuted) and
  * set optchar = 0 and first_nonopt_arg to the first non-option argument if
- * permuting.  After all arguments are returned the next call to get_option()
- * returns 0.  The caller can then call free_args(args) if appropriate.
+ * permuting.  After all arguments are returned the next call to get_optionz()
+ * returns 0.  The caller can then call free_argsz(args) if appropriate.
  *
- * get_option() accepts arguments in the following forms:
+ * get_optionz() accepts arguments in the following forms:
  *  short options
  *       of 1 and 2 characters, e.g. a, b, cc, d, and ba, after a single
  *       leading -, as in -abccdba.  In this example if 'b' is followed by 'a'
@@ -8872,8 +9632,8 @@ local unsigned long get_longopt(args, argnum, optchar, negated, value,
  *
  */
 
-unsigned long get_option(pargs, argc, argnum, optchar, value, negated,
-                         first_nonopt_arg, option_num, recursion_depth)
+unsigned long get_optionz(pargs, argc, argnum, optchar, value, negated,
+                          first_nonopt_arg, option_num, recursion_depth)
   char ***pargs;
   int *argc;
   int *argnum;
@@ -9017,7 +9777,7 @@ unsigned long get_option(pargs, argc, argnum, optchar, value, negated,
         /* this is only needed for argument files */
         /* but is also good for show command line so command lines with lists
            can always be read back in */
-        argcnt = insert_arg(&args, "@", first_nonoption_arg, 1);
+        argcnt = insert_argz(&args, "@", first_nonoption_arg, 1);
         argn++;
         if (first_nonoption_arg > -1) {
           first_nonoption_arg++;
@@ -9216,7 +9976,7 @@ unsigned long get_option(pargs, argc, argnum, optchar, value, negated,
       if (argfilename) {
         /*
          * Previous arg files code processed each arg file depth as it was
-         * encountered.  So get_option() would be called as each arg file
+         * encountered.  So get_optionz() would be called as each arg file
          * was opened.
          *
          * insert_args_from_file() now takes care of any arg file recursion,

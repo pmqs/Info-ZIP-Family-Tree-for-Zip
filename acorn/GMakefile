@@ -1,106 +1,885 @@
-# Makefile for Zip, ZipNote, ZipCloak and ZipSplit
-
-# add -g to CC to debug
-# add -d to BIND to debug
-CC   = gcc
-BIND = $(CC)
-ASM  = $(CC) -mhard-float -xassembler-with-cpp -c
-E    = 
-
-# flags
-#   CFLAGS    flags for C compile
-#   LFLAGS1   flags after output file spec, before obj file list
-#   LFLAGS2   flags after obj file list (libraries, etc)
-#   ASMFLAGS  flags for assembler
+#-----------------------------------------------------------------------
+#    acorn/GMakefile -- RISC OS, GCC            Revised: 2019-03-30
+#    For Zip, ZipCloak, ZipNote, and ZipSplit
 #
-CFLAGS   = -mthrowback -mlibscl -I. -O2 -Wall
-LFLAGS1  = -mlibscl
-LFLAGS2  =
-ASMFLAGS = -mthrowback
+# Copyright (c) 2004-2019 Info-ZIP.  All rights reserved.
+#
+# See the accompanying file LICENSE, version 2009-Jan-2 or later (the
+# contents of which are also included in zip.h) for terms of use.  If,
+# for some reason, all these files are missing, the Info-ZIP license may
+# also be found at: ftp://ftp.info-zip.org/pub/infozip/license.html
+#-----------------------------------------------------------------------
 
-# Uncomment the following line to enable support for Unix
-# Extra Field (Timezone)
-#CFLAGS  = $(CFLAGS) -DUSE_EF_UT_TIME
+#-----------------------------------------------------------------------
+#
+#    INSTRUCTIONS
+#
+# unzip -/c:h:S:s zip31/zip             Extract the files from the Zip
+#                                          source kit, with the required
+#                                          name transformations.
+#
+# make -f acorn/GMakefile               Make Zip programs with
+#                                          typical optional features.
+# make -f acorn/GMakefile help          Advice on building, and
+#                                          control of optional features.
+#
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#
+# "make" macros for users:
+#
+#    C compiler options
+#    ------------------
+#       CFLAGS      Default: optimization, warnings.
+#       CF_NOOPT    Default: some required items, and any user-specified
+#                   LOCAL_ZIP value.
+#       CF_MACH     Default: machine/architecture-related.
+#
+#    Link options
+#    ------------
+#       LF1, LF2    Link options, early and late.
+#
+#
+#    Optional feature control
+#    ------------------------
+#       ICONV_MAPPING   Enable use of iconv.
+#
+#       NO_AES_WG       Disable AES_WG encryption.
+#
+#       NO_ASM          Use C instead of assembly modules.
+#
+#       NO_IZ_BZIP2     Disable bzip2 compression.
+#
+#       NO_LZMA         Disable LZMA compression.
+#
+#       NO_PPMD         Disable PPMd compression.
+#
+#       NO_TRAD         Disable Traditional zip encryption.
+#
+#-----------------------------------------------------------------------
+#
+#    Notes
+#
+#    This "make" file resembles unix/Makefile, but does not use a
+# "configure" script.  Instead, relying on GNU "make" conditionals,
+# "make" macros control optional features directly.
+#
+#-----------------------------------------------------------------------
 
-# object file lists
-OBJZ = zip.o zipfile.o zipup.o fileio.o util.o globals.o crypt.o ttyio.o \
-	crc32.o riscos.o acornzip.o swiven.o
+# Product file directory.  Default is the current directory, "@".
+PROD = @
 
-OBJI = deflate.o trees.o
-OBJA = 
-OCRCU8 = 
-OCRCTB = crc32_.o
-OBJU = zipfile_.o fileio_.o util_.o globals.o riscos.o acornzip_.o swiven.o \
-	$(OCRCUB)
-OBJN = zipnote.o  $(OBJU)
-OBJC = zipcloak.o $(OBJU) $(OCRCTB) crypt_.o ttyio.o
-OBJS = zipsplit.o $(OBJU)
+#-----------------------------------------------------------------------
+#    Tools
+#-----------------------------------------------------------------------
+CC      = gcc
+AR      = ar qc
+AS      = $(CC) -c
+LD      = $(CC)
+RANLIB  = ranlib
 
-ifndef NOASM
-OBJA = match.o sendbits.o
-CFLAGS += -DASMV
+#-----------------------------------------------------------------------
+# Object library names, options.
+#    LIB_xxx = base name.
+#    AA_xxx = OS path to "/a" file.
+#    AR_xxx = GNU "make" path to ".a" file.
+#-----------------------------------------------------------------------
+
+# Object library: AES_WG encryption
+LIB_AES_WG = aes_wg
+AA_AES_WG  = $(PROD).lib$(LIB_AES_WG)/a
+AR_AES_WG  = $(PROD)/lib$(LIB_AES_WG).a
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Object library: BZIP2 compression
+LIB_BZIP2  = bz2
+AA_BZIP2   = $(PROD).lib$(LIB_BZIP2)/a
+AR_BZIP2   = $(PROD)/lib$(LIB_BZIP2).a
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Object library: LZMA compression
+LIB_LZMA   = iz_lzma
+AA_LZMA    = $(PROD).lib$(LIB_LZMA)/a
+AR_LZMA    = $(PROD)/lib$(LIB_LZMA).a
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Object library: PPMd compression
+LIB_PPMD   = iz_ppmd
+AA_PPMD    = $(PROD).lib$(LIB_PPMD)/a
+AR_PPMD    = $(PROD)/lib$(LIB_PPMD).a
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# object library: Callable Zip
+LIB_ZIP     = izzip
+AA_ZIP      = $(PROD).lib$(LIB_ZIP)/a
+AR_ZIP      = $(PROD)/lib$(LIB_ZIP).a
+LIB_OPT_ZIP = -L$(PROD) -l$(LIB_ZIP)
+
+#-----------------------------------------------------------------------
+# Optional feature macro processing.
+#-----------------------------------------------------------------------
+
+# AES_WG encryption (default).
+
+ifeq "$(NO_AES_WG)" ""
+AR_AES_WG_ = $(AR_AES_WG)                               # Lib dependency
+CFEAT_AES_WG = -DCRYPT_AES_WG #                         # CC opts
+LIB_OPT_AES_WG = -l$(LIB_AES_WG) #                      # Link options
 endif
 
-ZIP_H = zip.h ziperr.h tailor.h acorn/osdep.h acorn/riscos.h acorn/swiven.h
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-all:      zips
+# Assembly-language modules used (default).
 
-VPATH = .:acorn
+ifeq "$(NO_ASM)" ""
+CFEAT_ASM = -DASMV #                                    # CC opts
+O_ASM = $(PROD)/match.o $(PROD)/sendbits.o              # Object list
+#                                               # These follow "deflate.c".
+endif
 
-# suffix rules
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# BZIP2 compression (default).
+
+ifeq "$(NO_IZ_BZIP2)" ""
+AR_BZIP2_ = $(AR_BZIP2)                                 # Lib dependency
+CFEAT_BZIP2 = -Ibzip2 -DBZIP2_SUPPORT #                 # CC opts
+CF_BZ = -Wall -Winline -O2 $(CF_MACH) -DBZ_NO_STDIO -DBZIP2_SUPPORT
+LIB_OPT_BZIP2 = -l$(LIB_BZIP2) #                        # Link options
+endif
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# ICONV name mapping.
+
+ifneq "$(ICONV_MAPPING)" ""
+CFEAT_ICONV_MAPPING = -DICONV_MAPPING #                 # CC opts (all)
+LF1_ICONV_MAPPING = -liconv #                           # Link options
+endif
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# LZMA compression (default).
+
+ifeq "$(NO_LZMA)" ""
+AR_LZMA_ = $(AR_LZMA)                                   # Lib dependency
+CFEAT_LZMA = -DLZMA_SUPPORT #                           # CC opts
+LIB_OPT_LZMA = -l$(LIB_LZMA) #                          # Link options
+endif
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# PPMd compression (default).
+
+ifeq "$(NO_PPMD)" ""
+AR_PPMD_ = $(AR_PPMD)                                   # Lib dependency
+CFEAT_PPMD = -DPPMD_SUPPORT #                           # CC opts
+LIB_OPT_PPMD = -l$(LIB_PPMD) #                          # Link options
+endif
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Traditional zip encryption (default).
+
+ifneq "$(NO_TRAD)" ""
+CFEAT_TRAD = -DNO_CRYPT_TRAD #                          # CC opts
+endif
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Combined compiler options.
+
+CFEAT = -DNO_USER_PROGRESS \
+ $(CFEAT_AES_WG) $(CFEAT_ASM) $(CFEAT_BZIP2) \
+ $(CFEAT_ICONV_MAPPING) $(CFEAT_LZMA) $(CFEAT_PPMD) \
+ $(CFEAT_TRAD)
+
+#-----------------------------------------------------------------------
+# C compiler (and assembler) options.
+#-----------------------------------------------------------------------
+
+# Assembler options.
+
+### AFLAGS   = -mhard-float -mthrowback -xassembler-with-cpp
+AFLAGS   = -mlibscl -mthrowback -xassembler-with-cpp
+
+# Machine/architecture compiler options.
+
+CF_MACH = -mlibscl -mthrowback
+
+# General compiler options.
+
+CF_NOOPT = -I. $(CF_MACH) $(LOCAL_ZIP) #        # Not related to optimization.
+CFLAGS   = -O2 -Wall
+
+CF       = $(CFLAGS) $(CF_NOOPT) $(CFEAT) #     # C compiler flags.
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Linker and linker options (early and late).
+
+LF1     = -mlibscl $(LF1_ICONV_MAPPING)
+LF2     = -s
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Optional object library link options.
+
+LIB_OPTS = -L$(PROD) $(LIB_OPT_AES_WG) $(LIB_OPT_BZIP2) \
+ $(LIB_OPT_LZMA) $(LIB_OPT_PPMD)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Executable program name extension.  (None.)
+PGMEXT =
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Popular "make" targets.  ### ("test" would be nice.)
+MISC_TARGETS = clean  dashv  help
+
+#-----------------------------------------------------------------------
+#  Build configuration: Executable programs
+#-----------------------------------------------------------------------
+
+PGM_CLOAK  = zipcloak$(PGMEXT)
+PGM_NOTE   = zipnote$(PGMEXT)
+PGM_SPLIT  = zipsplit$(PGMEXT)
+PGM_ZIP    = zip$(PGMEXT)
+PGM_ZXMPL  = izzip_example$(PGMEXT)
+
+PPGM_CLOAK = $(PROD)/$(PGM_CLOAK)
+PPGM_NOTE  = $(PROD)/$(PGM_NOTE)
+PPGM_SPLIT = $(PROD)/$(PGM_SPLIT)
+PPGM_ZIP   = $(PROD)/$(PGM_ZIP)
+PPGM_ZXMPL = $(PROD)/$(PGM_ZXMPL)
+
+ZIP_PPGMU  = $(PPGM_CLOAK) \
+             $(PPGM_NOTE)  \
+             $(PPGM_SPLIT)
+
+ZIP_PPGMS  = $(PPGM_ZIP) \
+             $(ZIP_PPGMU)
+
+#-----------------------------------------------------------------------
+
+# Binaries build list (executables and/or object library).
+# - Default: main program and utilities.  See below.
+BINS = MU
+
+#-----------------------------------------------------------------------
+
+# Default target.
+
+all: prod_dir $(BINS)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Binaries build list (BINS) options:
+L:          $(AR_ZIP) $(PPGM_ZXMPL)
+LM:         $(AR_ZIP) $(PPGM_ZXMPL) $(PPGM_ZIP)
+LMU:        $(AR_ZIP) $(PPGM_ZXMPL) $(ZIP_PPGMS)
+LU:         $(AR_ZIP) $(PPGM_ZXMPL) $(ZIP_PPGMU)
+M:          $(PPGM_ZIP)
+MU:         $(ZIP_PPGMS)
+U:          $(ZIP_PPGMU)
+
+#-----------------------------------------------------------------------
+
+# Create product directory.  (Required before any use of $(PROD).)
+
+prod_dir:
+	%cdir $(PROD)
+
+#-----------------------------------------------------------------------
+# Source file lists.
+#-----------------------------------------------------------------------
+
+# OS-dependent source files.
+
+OSDEP_H    = acorn/osdep.h  \
+             acorn/riscos.h \
+             acorn/swiven.h \
+             acorn/zipup.h
+
+# OS-dependent object files.
+
+#  Zip utilities.
+OSDEP_OCU  = $(PROD)/acornzip.o \
+             $(PROD)/riscos.o   \
+             $(PROD)/swiven.o
+
+OSDEP_OSU  =
+
+#  Zip main program.
+OSDEP_OCZ  = $(OSDEP_OCU)
+
+OSDEP_OSZ  = $(O_ASM)
+
+#  Zip object library
+OSDEP_OCL  = $(PROD)/acornzip_l.o \
+             $(PROD)/riscos_l.o   \
+             $(PROD)/swiven_l.o
+
+OSDEP_OSL  = $(O_ASM)
+
+#-----------------------------------------------------------------------
+#  Build configuration: header files
+#-----------------------------------------------------------------------
+
+# OSDEP_H is system-dependent.
+
+# C header files: zip
+H_ZIP    = zip.h            \
+           control.h        \
+           tailor.h         \
+           ziperr.h         \
+           $(OSDEP_H)
+
+H_ZIPL = api.h $(H_ZIP)
+
+# C header files: AES_WG encryption
+H_AES_WG = aes_wg/aes.h     \
+           aes_wg/aesopt.h  \
+           aes_wg/fileenc.h \
+           aes_wg/hmac.h    \
+           aes_wg/prng.h    \
+           aes_wg/pwd2key.h \
+           aes_wg/sha1.h
+
+# C header files: LZMA compression
+H_LZMA   = szip/LzFind.h    \
+           szip/LzHash.h    \
+           szip/LzmaEnc.h   \
+           szip/Types.h   \
+           szip/SzVersion.h
+
+# C header files: PPMd compression
+H_PPMD   = szip/Ppmd.h      \
+           szip/Ppmd8.h     \
+           szip/Types.h     \
+           szip/SzVersion.h
+
+#-----------------------------------------------------------------------
+#  Build configuration: object files
+#-----------------------------------------------------------------------
+
+# File names ending in "_" are for the utilities (including zip).
+# File names ending in "_l" are for the library.
+
+# object files: zip base files (common to zip and object library)
+O_ZIPB   = $(PROD)/crc32.o      \
+           $(PROD)/crypt.o      \
+           $(PROD)/deflate.o    \
+           $(PROD)/globals.o    \
+           $(PROD)/trees.o      \
+           $(PROD)/ttyio.o      \
+           $(PROD)/util.o       \
+           $(PROD)/zbz2err.o    \
+           $(PROD)/zipfile.o    \
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# object files: zip application
+O_ZIP    = $(O_ZIPB)            \
+           $(PROD)/zip.o        \
+           $(PROD)/zipup.o      \
+           $(PROD)/fileio.o     \
+           $(OSDEP_OCZ)         \
+           $(OSDEP_OSZ)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# object files: zip library and example program
+O_ZIPL   = $(O_ZIPB)            \
+           $(PROD)/api.o        \
+           $(PROD)/zip_l.o      \
+           $(PROD)/zipup_l.o    \
+           $(PROD)/fileio_l.o   \
+           $(OSDEP_OCL)         \
+           $(OSDEP_OSL)
+
+O_ZXMPL  = $(PROD)/izzip_example.o
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# object files: zipcloak
+O_CLOAK  = $(PROD)/zipcloak.o   \
+           $(PROD)/crc32.o      \
+           $(PROD)/crypt_.o     \
+           $(PROD)/fileio_.o    \
+           $(PROD)/globals.o    \
+           $(PROD)/ttyio.o      \
+           $(PROD)/util_.o      \
+           $(PROD)/zipfile_.o   \
+           $(OSDEP_OCU:.o=_.o)  \
+           $(OSDEP_OSU)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# object files: zipnote
+O_NOTE   = $(PROD)/zipnote.o    \
+           $(PROD)/crc32.o      \
+           $(PROD)/fileio_.o    \
+           $(PROD)/globals.o    \
+           $(PROD)/util_.o      \
+           $(PROD)/zipfile_.o   \
+           $(OSDEP_OCU:.o=_.o)  \
+           $(OSDEP_OSU)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# object files: zipsplit
+O_SPLIT  = $(PROD)/zipsplit.o   \
+           $(PROD)/crc32.o      \
+           $(PROD)/fileio_.o    \
+           $(PROD)/globals.o    \
+           $(PROD)/util_.o      \
+           $(PROD)/zipfile_.o   \
+           $(OSDEP_OCU:.o=_.o)  \
+           $(OSDEP_OSU)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# object files: AES_WG encryption
+O_AES_WG = $(PROD)/aescrypt.o \
+           $(PROD)/aeskey.o   \
+           $(PROD)/aestab.o   \
+           $(PROD)/fileenc.o  \
+           $(PROD)/hmac.o     \
+           $(PROD)/prng.o     \
+           $(PROD)/pwd2key.o  \
+           $(PROD)/sha1.o
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# object files: LZMA compression
+O_LZMA   = $(PROD)/LzFind.o   \
+           $(PROD)/LzmaEnc.o
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# object files: PPMd compression
+O_PPMD   = $(PROD)/Ppmd8.o    \
+           $(PROD)/Ppmd8Enc.o
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# object files: BZIP2 compression
+O_BZIP2   = $(PROD)/blocksort.o  \
+            $(PROD)/bzlib.o      \
+            $(PROD)/compress.o   \
+            $(PROD)/crctable.o   \
+            $(PROD)/decompress.o \
+            $(PROD)/huffman.o    \
+            $(PROD)/randtable.o
+
+#-----------------------------------------------------------------------
+#  Build rules: File suffixes
+#  - Disable all built-in rules.
+#  - Only explicit 1:1 rules are used.
+#-----------------------------------------------------------------------
 .SUFFIXES:
-.SUFFIXES: _.o .o .c .s
-.c_.o:
-	$(CC) -c $(CFLAGS) -DUTIL -o $@ $<
 
-.c.o:
-	$(CC) -c $(CFLAGS) $<
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-.s.o:
-	$(ASM) $(ASMFLAGS) -o $@ $<
+# Compile Zip assembly files.  (Corresponding C code is in deflate.c.)
 
-# rules for zip, zipnote, zipcloak, zipsplit, and the Zip MANUALs.
-$(OBJZ): $(ZIP_H)
-$(OBJI): $(ZIP_H)
-$(OBJN): $(ZIP_H)
-$(OBJS): $(ZIP_H)
-$(OBJC): $(ZIP_H)
-zip.o zipup.o zipfile.o fileio.o crc32.o crypt.o: crc32.h
-zipcloak.o zipfile_.o fileio_.o crc32_.o crypt_.o: crc32.h
-zip.o zipup.o crypt.o ttyio.o zipcloak.o crypt_.o: crypt.h
-zip.o zipup.o zipnote.o zipcloak.o zipsplit.o: revision.h
-zip.o crypt.o ttyio.o zipcloak.o crypt_.o: ttyio.h
-zipup.o: unix/zipup.h
+$(PROD)/match.o:     acorn/match.s
+	$(AS) $(AFLAGS) -o $@ $<
 
-ZIPS = zip$E zipcloak$E zipnote$E zipsplit$E
+$(PROD)/sendbits.o:  acorn/sendbits.s
+	$(AS) $(AFLAGS) -o $@ $<
 
-zips: $(ZIPS)
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-zip$E: $(OBJZ) $(OBJI) $(OBJA) $(LIB_BZ)
-	$(BIND) -o zip$E $(LFLAGS1) $(OBJZ) $(OBJI) $(OBJA) $(LFLAGS2)
-zipnote$E: $(OBJN)
-	$(BIND) -o zipnote$E $(LFLAGS1) $(OBJN) $(LFLAGS2)
-zipcloak$E: $(OBJC) $(OCRCTB)
-	$(BIND) -o zipcloak$E $(LFLAGS1) $(OBJC) $(LFLAGS2)
-zipsplit$E: $(OBJS)
-	$(BIND) -o zipsplit$E $(LFLAGS1) $(OBJS) $(LFLAGS2)
+# Compile Zip C files.
 
-# install
-install:  %.zip %.zipnote %.zipsplit %.zipcloak \
-          zip zipnote zipsplit zipcloak acorn/zipsfx
-	$(SQUEEZE) zip %.zip
-	$(SQUEEZE) zipnote %.zipnote
-	$(SQUEEZE) zipsplit %.zipsplit
-	$(SQUEEZE) zipcloak %.zipcloak
-	copy acorn.zipsfx %.zipsfx ~CVF
+$(PROD)/zip.o:       zip.c      $(H_ZIP) crc32.h crypt.h revision.h ttyio.h
+	$(CC) -c $(CF) -o $@ zip.c
 
-# clean up after making stuff and installing it
-clean:
-	remove zip
-	remove zipcloak
-	remove zipsplit
-	remove zipnote
-	create o.!fake! 0
-	wipe o.* ~cf
+$(PROD)/crc32.o:     crc32.c    $(H_ZIP) crc32.h
+	$(CC) -c $(CF) -o $@ crc32.c
+
+$(PROD)/crypt.o:     crypt.c    $(H_ZIP) crc32.h crypt.h ttyio.h
+	$(CC) -c $(CF) -o $@ crypt.c
+
+$(PROD)/deflate.o:   deflate.c  $(H_ZIP)
+	$(CC) -c $(CF) -o $@ deflate.c
+
+$(PROD)/fileio.o:    fileio.c   $(H_ZIP) crc32.h
+	$(CC) -c $(CF) -o $@ fileio.c
+
+$(PROD)/globals.o:   globals.c  $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
+	$(CC) -c $(CF) -o $@ globals.c
+
+$(PROD)/trees.o:     trees.c    $(H_ZIP)
+	$(CC) -c $(CF) -o $@ trees.c
+
+$(PROD)/ttyio.o:     ttyio.c    $(H_ZIP) $(H_CLOAK) crypt.h ttyio.h
+	$(CC) -c $(CF) -o $@ ttyio.c
+
+$(PROD)/util.o:      util.c     $(H_ZIP)
+	$(CC) -c $(CF) -o $@ util.c
+
+$(PROD)/zbz2err.o:   zbz2err.c  $(H_ZIP)
+	$(CC) -c $(CF) -o $@ zbz2err.c
+
+$(PROD)/zipfile.o:   zipfile.c  $(H_ZIP) crc32.h
+	$(CC) -c $(CF) -o $@ zipfile.c
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Compile system-specific Zip C files.
+
+$(PROD)/acornzip.o:     acorn/acornzip.c $(ZIP_H)
+	$(CC) -c $(CF) -o $@ acorn/acornzip.c
+
+$(PROD)/riscos.o:       acorn/riscos.c $(ZIP_H)
+	$(CC) -c $(CF) -o $@ acorn/riscos.c
+
+$(PROD)/swiven.o:       acorn/swiven.c
+	$(CC) -c $(CF) -o $@ acorn/swiven.c
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Compile Zip object library C files.
+
+$(PROD)/api.o:       api.c      $(H_ZIP) api.h crc32.h crypt.h revision.h
+	$(CC) -c $(CF) -DZIPLIB -o $@ api.c
+
+$(PROD)/zip_l.o:     zip.c      $(H_ZIP) crc32.h crypt.h revision.h ttyio.h
+	$(CC) -c $(CF) -DZIPLIB -o $@ zip.c
+
+$(PROD)/zipup_l.o:   zipup.c    $(H_ZIP) crc32.h crypt.h revision.h unix/zipup.h
+	$(CC) -c $(CF) -DZIPLIB -o $@ zipup.c
+
+$(PROD)/fileio_l.o:  fileio.c   $(H_ZIP) crc32.h crypt.h revision.h ttyio.h
+	$(CC) -c $(CF) -DZIPLIB -o $@ fileio.c
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Compile system-specific Zip object library C files
+
+$(PROD)/acornzip_l.o:   acorn/acornzip.c $(ZIP_H)
+	$(CC) -c $(CF) -DDLL -o $@ acorn/acornzip.c
+
+$(PROD)/riscos_l.o:     acorn/riscos.c $(ZIP_H)
+	$(CC) -c $(CF) -DDLL -o $@ acorn/riscos.c
+
+$(PROD)/swiven_l.o:     acorn/swiven.c $(ZIP_H)
+	$(CC) -c $(CF) -DDLL -o $@ acorn/swiven.c
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Compile Zip utilities main-program C files
+
+$(PROD)/zipcloak.o:  zipcloak.c $(H_ZIP) $(H_CLOAK) crc32.h crypt.h \
+                     revision.h ttyio.h
+	$(CC) -c $(CF) -DUTIL -o $@ zipcloak.c
+
+$(PROD)/zipnote.o:   zipnote.c  $(H_ZIP) $(H_NOTE) revision.h
+	$(CC) -c $(CF) -DUTIL -o $@ zipnote.c
+
+$(PROD)/zipsplit.o:  zipsplit.c $(H_ZIP) $(H_SPLIT) revision.h
+	$(CC) -c $(CF) -DUTIL -o $@ zipsplit.c
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Compile Zip C files for utilities
+
+$(PROD)/crc32_.o:   crc32.c     $(H_ZIP) $(H_CLOAK) crc32.h
+	$(CC) -c $(CF) -DUTIL -o $@ crc32.c
+
+$(PROD)/crypt_.o:   crypt.c     $(H_ZIP) $(H_CLOAK) crc32.h crypt.h ttyio.h
+	$(CC) -c $(CF) -DUTIL -o $@ crypt.c
+
+$(PROD)/fileio_.o:  fileio.c    $(H_ZIP) $(H_CLOAK) $(H_NOTE) \
+                                $(H_SPLIT) crc32.h
+	$(CC) -c $(CF) -DUTIL -o $@ fileio.c
+
+$(PROD)/util_.o:    util.c      $(H_ZIP) $(H_CLOAK) $(H_NOTE) $(H_SPLIT)
+	$(CC) -c $(CF) -DUTIL -o $@ util.c
+
+$(PROD)/zipfile_.o: zipfile.c   $(H_ZIP) $(H_CLOAK) $(H_NOTE) \
+                                $(H_SPLIT) crc32.h
+	$(CC) -c $(CF) -DUTIL -o $@ zipfile.c
+
+$(PROD)/zipup.o:     zipup.c    $(H_ZIP) crc32.h crypt.h revision.h unix/zipup.h
+	$(CC) -c $(CF) -o $@ zipup.c
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Compile system-specific Zip C files for utilities
+
+$(PROD)/acornzip_.o:     acorn/acornzip.c $(ZIP_H)
+	$(CC) -c $(CF) -DUTIL -o $@ acorn/acornzip.c
+
+$(PROD)/riscos_.o:       acorn/riscos.c $(ZIP_H)
+	$(CC) -c $(CF) -DUTIL -o $@ acorn/riscos.c
+
+$(PROD)/swiven_.o:       acorn/swiven.c
+	$(CC) -c $(CF) -DUTIL -o $@ acorn/swiven.c
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Compile Zip object library, example program C files.
+
+$(PROD)/izzip_example.o:   izzip_example.c $(H_ZIP)
+	$(CC) -c $(CF) -DZIPLIB -o $@ izzip_example.c
+
+#-----------------------------------------------------------------------
+
+# Compile AES_WG encryption C files.
+
+$(PROD)/aescrypt.o: aes_wg/aescrypt.c $(H_AES)
+	$(CC) -c $(CF) -o $@ wrap/aescrypt.c
+
+$(PROD)/aeskey.o:   aes_wg/aeskey.c   $(H_AES)
+	$(CC) -c $(CF) -o $@ wrap/aeskey.c
+
+$(PROD)/aestab.o:   aes_wg/aestab.c   $(H_AES)
+	$(CC) -c $(CF) -o $@ wrap/aestab.c
+
+$(PROD)/fileenc.o:  aes_wg/fileenc.c  $(H_AES)
+	$(CC) -c $(CF) -o $@ wrap/fileenc.c
+
+$(PROD)/hmac.o:     aes_wg/hmac.c     $(H_AES)
+	$(CC) -c $(CF) -o $@ wrap/hmac.c
+
+$(PROD)/prng.o:     aes_wg/prng.c     $(H_AES)
+	$(CC) -c $(CF) -o $@ wrap/prng.c
+
+$(PROD)/pwd2key.o:  aes_wg/pwd2key.c  $(H_AES)
+	$(CC) -c $(CF) -o $@ wrap/pwd2key.c
+
+$(PROD)/sha1.o:     aes_wg/sha1.c     $(H_AES)
+	$(CC) -c $(CF) -o $@ wrap/sha1.c
+
+#-----------------------------------------------------------------------
+
+# Compile BZIP2 compression C files.
+
+$(PROD)/blocksort.o : bzip2/blocksort.c
+	$(CC) -c $(CF_BZ) -o $@ bzip2/blocksort.c
+
+$(PROD)/bzlib.o : bzip2/bzlib.c
+	$(CC) -c $(CF_BZ) -o $@ bzip2/bzlib.c
+
+$(PROD)/compress.o : bzip2/compress.c
+	$(CC) -c $(CF_BZ) -o $@ bzip2/compress.c
+
+$(PROD)/crctable.o : bzip2/crctable.c
+	$(CC) -c $(CF_BZ) -o $@ bzip2/crctable.c
+
+$(PROD)/decompress.o : bzip2/decompress.c
+	$(CC) -c $(CF_BZ) -o $@ bzip2/decompress.c
+
+$(PROD)/huffman.o : bzip2/huffman.c
+	$(CC) -c $(CF_BZ) -o $@ bzip2/huffman.c
+
+$(PROD)/randtable.o : bzip2/randtable.c
+	$(CC) -c $(CF_BZ) -o $@ bzip2/randtable.c
+
+#-----------------------------------------------------------------------
+
+# Compile LZMA compression C files.
+
+$(PROD)/LzFind.o:   szip/LzFind.c     $(H_LZMA)
+	$(CC) -c $(CF) -o $@ wrap/LzFind.c
+
+$(PROD)/LzmaEnc.o:  szip/LzmaEnc.c    $(H_LZMA)
+	$(CC) -c $(CF) -o $@ wrap/LzmaEnc.c
+
+#-----------------------------------------------------------------------
+
+# Compile PPMd compression C files.
+
+$(PROD)/Ppmd8.o:    szip/Ppmd8.c      $(H_PPMD)
+	$(CC) -c $(CF) -o $@ wrap/Ppmd8.c
+
+$(PROD)/Ppmd8Enc.o: szip/Ppmd8Enc.c   $(H_PPMD)
+	$(CC) -c $(CF) -o $@ wrap/Ppmd8Enc.c
+
+#-----------------------------------------------------------------------
+#  Build rules: Object libraries (.o -> .a)
+#-----------------------------------------------------------------------
+
+# AES_WG object library.
+
+$(AR_AES_WG): $(O_AES_WG)
+	@%echo 'Building/updating AES_WG object library...'
+	%IfThere $(AA_AES_WG) Then %remove $(AA_AES_WG)
+	$(AR) $@ $(O_AES_WG)
+	-$(RANLIB) $@
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# BZIP2 object library.
+
+$(AR_BZIP2): $(O_BZIP2)
+	@%echo 'Building/updating BZIP2 object library...'
+	%IfThere $(AA_BZIP2) Then %remove $(AA_BZIP2)
+	$(AR) $@ $(O_BZIP2)
+	-$(RANLIB) $@
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# LZMA object library.
+
+$(AR_LZMA): $(O_LZMA)
+	@%echo 'Building/updating LZMA object library...'
+	%IfThere $(AA_LZMA) Then %remove $(AA_LZMA)
+	$(AR) $@ $(O_LZMA)
+	-$(RANLIB) $@
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# PPMd object library.
+
+$(AR_PPMD): $(O_PPMD)
+	@%echo 'Building/updating PPMd object library...'
+	%IfThere $(AA_PPMD) Then %remove $(AA_PPMD)
+	$(AR) $@ $(O_PPMD)
+	-$(RANLIB) $@
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Zip object library.
+
+$(AR_ZIP): $(O_ZIPL) $(O_AES_WG) $(O_LZMA) $(O_PPMD)
+	@%echo 'Building/updating Callable Zip object library...'
+	%IfThere $(AA_ZIP) Then %remove $(AA_ZIP)
+	$(AR) $@ $(O_ZIPL) $(O_AES_WG) $(O_LZMA) $(O_PPMD)
+	-$(RANLIB) $@
+
+#-----------------------------------------------------------------------
+#  Build rules: Link programs (.o -> executables)
+#
+#  Note: Utility programs (ZipCloak, ZipNote, ZipSplit) don't all really
+#  depend on all the optional libraries, $(LIB_*), but the rules do,
+#  because $(LF2) may include "-l" options for all of them, and some
+#  linkers complain/fail if the corresponding libraries can't be found.
+#-----------------------------------------------------------------------
+
+# Link rule: zip
+
+#
+# 2019-03-28 SMS.  Complete mystery:
+# Simple, normal rule:
+#         $(LD) -o $@ $(LF1) $(O_ZIP) $(LIB_OPTS) $(LF2)
+# fails with spurious message:
+# /SDFS::RISCOSpi.$/apps/Development/!GCC/bin/ld: unrecognised emulation
+# mode: libscl
+# Supported emulations: armelf_riscos
+#
+# An executable name other than "zip" works as expected.
+#
+
+$(PPGM_ZIP): $(O_ZIP) $(AR_AES_WG_) $(AR_BZIP2_) \
+             $(AR_LZMA_) $(AR_PPMD_) $(AR_Z_)
+	@%echo 'Linking $@ as $@_fred'
+	$(LD) -o $@_fred $(LF1) $(O_ZIP) $(LIB_OPTS) $(LF2)
+	%IfThere $(PROD).$(PGM_ZIP) Then %remove $(PROD).$(PGM_ZIP)
+	%rename $(PROD).$(PGM_ZIP)_fred $(PROD).$(PGM_ZIP)
+	@%echo ''
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Link rule: zipcloak
+
+$(PPGM_CLOAK): $(O_CLOAK) $(AR_AES_WG_) $(AR_BZIP2_) \
+               $(AR_LZMA_) $(AR_PPMD_) $(AR_Z_)
+	$(LD) -o $@ $(LF1) $(O_CLOAK) $(LIB_OPTS) $(LF2)
+	@%echo ''
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Link rule: zipnote
+
+$(PPGM_NOTE): $(O_NOTE) $(AR_AES_WG_) $(AR_BZIP2_) \
+              $(AR_LZMA_) $(AR_PPMD_) $(AR_Z_)
+	$(LD) -o $@ $(LF1) $(O_NOTE) $(LIB_OPTS) $(LF2)
+	@%echo ''
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Link rule: zipsplit
+
+$(PPGM_SPLIT): $(O_SPLIT) $(AR_AES_WG_) $(AR_BZIP2_) \
+               $(AR_LZMA_) $(AR_PPMD_) $(AR_Z_)
+	$(LD) -o $@ $(LF1) $(O_SPLIT) $(LIB_OPTS) $(LF2)
+	@%echo ''
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Link izzip_example.
+
+$(PPGM_ZXMPL): $(O_ZXMPL) $(AR_ZIP) $(AR_BZIP2_)
+	$(LD) -o $@ $(LF1) $(O_ZXMPL) $(LIB_OPT_ZIP) \
+        $(LIB_OPT_BZIP2) $(LF2)
+
+#-----------------------------------------------------------------------
+
+#### Target: install
+###    Does this make any sense now?  "squeeze" is not part of the GCC
+###    tools.
+### 
+### SQUEEZE = squeeze -v
+### 
+### install:  $(ZIP_PPGMS)
+### 	$(SQUEEZE) $(PROD).$(PGM_CLOAK) %.$(PGM_CLOAK)
+### 	$(SQUEEZE) $(PROD).$(PGM_NOTE) %.$(PGM_NOTE)
+### 	$(SQUEEZE) $(PROD).$(PGM_SPLIT) %.$(PGM_SPLIT)
+### 	$(SQUEEZE) $(PROD).$(PGM_ZIP) %.$(PGM_ZIP)
+
+
+#-----------------------------------------------------------------------
+
+# Target: clean
+# Remove programs, object libraries, object files.
+
+clean: prod_dir
+	-remove $(PROD).$(PGM_CLOAK)
+	-remove $(PROD).$(PGM_NOTE)
+	-remove $(PROD).$(PGM_SPLIT)
+	-remove $(PROD).$(PGM_ZIP)
+	-wipe $(PROD).*/a ~cf
+	-cdir $(PROD).o
+	-create $(PROD).o.!fake! 0
+	-wipe $(PROD).o.* ~cf
+
+#-----------------------------------------------------------------------
+
+# Target: dashv
+# Show "zip -v" report for the local Zip program.
+# ("%" stops "make" from hiding the action line if $(PROD) is "@".)
+
+dashv:
+	%$(PROD).$(PGM_ZIP) -v
+
+#-----------------------------------------------------------------------
+
+# Target: help
+# Show instructions for this "make" file.
+#
+# Between GNU "make" and the RISC OS command interpreter, arbitrary text
+# formatting here (using "%echo") ranges from inconvenient to
+# impossible, hence the separate text file.
+#
+help:
+	@%echo
+	@%echo The default target (all) builds the main program (Zip)
+	@%echo and utilities (ZipCloak, ZipNote, ZipSplit).
+	@%echo
+	@%echo Additional make targets include:
+	@%echo
+	@%echo | | | $(MISC_TARGETS)
+	@%type acorn.Gmakefile/help
+
+#-----------------------------------------------------------------------
 
 # end of Makefile

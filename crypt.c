@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2019 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -112,7 +112,9 @@ local int testkey OF((__GPRO__ int hd_len, ZCONST uch *h,
                       ZCONST char *key));
 #  endif /* ndef FUNZIP */
 # else /* def UNZIP */          /* moved to globals.h for UnZip */
+#  ifdef IZ_CRYPT_TRAD
 local z_uint4 keys[3];          /* keys defining the pseudo-random sequence */
+#  endif /* def IZ_CRYPT_TRAD */
 # endif /* def UNZIP [else] */
 
 # ifndef Trace
@@ -246,7 +248,7 @@ void crypthead(passwd, crc)
     if (calls == 0)
     {
 #ifndef IZ_CRYPT_SKIP_SRAND
-        srand((unsigned)time(NULL) ^ ZCR_SEED2);
+        srand((unsigned)time(NULL) ^ (unsigned)(ZCR_SEED2));
 #endif /* ndef IZ_CRYPT_SKIP_SRAND */
         calls = 1;
     }
@@ -754,7 +756,9 @@ int zipbare(z, passwd)
     zoff_t size;          /* size of input data */
     struct zlist far *localz; /* local header */
     uch buf[1024];        /* write buffer */
+#   ifdef IZ_CRYPT_AES_WG
     zoff_t z_siz;
+#   endif
     int passwd_ok;
     int r;                /* size of encryption header */
     int res;              /* return code */
@@ -773,11 +777,12 @@ int zipbare(z, passwd)
 #   else /* def IZ_CRYPT_AES_WG */
 #    define HEAD_LEN RAND_HEAD_LEN      /* Constant trad. header length. */
 #   endif /* def IZ_CRYPT_AES_WG [else] */
-
+#   ifdef IZ_CRYPT_AES_WG
     ush vers = 0;               /* AES encryption version (1 or 2). */
     ush vend = 0;               /* AES encryption vendor (should be "AE" (LE: x4541)). */
     zoff_t pos_local = 0;       /* Local header position. */
     zoff_t pos = 0;             /* End data position. */
+#   endif
 #   if defined(IZ_CRYPT_AES_WG) || defined(IZ_CRYPT_AES_WG_NEW)
     ulg crc;                    /* To calculate CRC. */
 #   endif
@@ -898,8 +903,9 @@ int zipbare(z, passwd)
     /* Good password.  Proceed to decrypt the entry. */
     z->siz -= HEAD_LEN;         /* Subtract the encryption header length. */
     localz->siz = z->siz;       /* Local, too. */
+#   ifdef IZ_CRYPT_AES_WG
     z_siz = z->siz;             /* Save z->siz as Use z_siz for I/O later. */
-
+#   endif
     localz->flg = z->flg &= ~9;         /* Clear the encryption and */
     z->lflg = localz->lflg &= ~9;       /* data-descriptor flags. */
 
@@ -918,6 +924,7 @@ int zipbare(z, passwd)
         localz->how = aes_mthd; /* Set the compression method value(s) */
         z->how = aes_mthd;      /* to the value from the AES extra block. */
         z->thresh_mthd = aes_mthd;
+        localz->thresh_mthd = aes_mthd;
 
         /* Subtract the MAC size from the compressed size(s). */
         localz->siz -= MAC_LENGTH( aes_mode);
@@ -948,7 +955,11 @@ int zipbare(z, passwd)
     }
 #   endif /* def IZ_CRYPT_AES_WG */
 
+#   ifdef IZ_CRYPT_AES_WG
     pos_local = zftello(y);
+#   else
+    zftello(y);
+#   endif
 
     /* Put out the (modified) local extra field. */
     if ((res = putlocal(localz, PUTLOCAL_WRITE)) != ZE_OK)

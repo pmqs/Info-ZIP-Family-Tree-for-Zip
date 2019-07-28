@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2018 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -13,6 +13,17 @@
 #define NO_FCNTL_H
 #define NO_UNISTD_H
 #define NO_MKTEMP
+
+/* aSc problem undefined reference to uname/ttyname/getpid in c/zip */
+#ifndef NO_USER_PROGRESS
+# define NO_USER_PROGRESS
+#endif
+
+/* aSc problem undefined reference to popen/pclose in c/zip */
+#define NO_CHECK_UNZIP
+
+/* chdir, getcwd?  <unistd.h>? */
+#define NO_CHANGE_DIRECTORY
 
 #define PROCNAME(n) (action == ADD || action == UPDATE ? wild(n) : \
                      procname(n, 1))

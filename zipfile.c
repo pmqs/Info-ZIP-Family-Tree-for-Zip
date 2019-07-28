@@ -1,7 +1,7 @@
 /*
   zipfile.c - Zip 3.1
 
-  Copyright (c) 1990-2016 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2019 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -162,7 +162,9 @@
  local int add_local_zip64_extra_field OF((struct zlist far *));
 #endif /* ZIP64_SUPPORT */
 
+#ifdef USE_ZIP64_PLACEHOLDER
  local int add_local_zip64_placeholder_extra_field OF((struct zlist far *));
+#endif
 
 #ifdef UNICODE_SUPPORT
  local int add_Unicode_Path_local_extra_field OF((struct zlist far *));
@@ -213,10 +215,17 @@ local void write_ulong_to_mem OF((ulg, char *));
 #ifdef ZIP64_SUPPORT
  local void write_int64_to_mem OF((uzoff_t, char *));
 #endif /* def ZIP64_SUPPORT */
+#if defined(UNICODE_SUPPORT) || defined(IZ_CRYPT_AES_WG) || defined(STREAM_COMMENTS)
 local void write_string_to_mem OF((char *, char *));
+#endif
 
+#ifdef IZ_CRYPT_AES_WG
 local void read_ushort_from_mem OF((ush *, char *));
+#endif
+#if 0
+/* not currently used */
 local void read_ulong_from_mem OF((ulg *, char *));
+#endif
 
 #if 0
  local char *get_extra_field OF((ush, char *, unsigned));           /* zip64 */
@@ -388,9 +397,8 @@ struct zlist far *zsearch(n)
     if ((p = search(n, (ZCONST zvoid far **)zsort, zcount, zbcmp)) != NULL)
       return *(struct zlist far **)p;
 # ifdef UNICODE_SUPPORT
-    /* unicode_mismatch = 3 means ignore Unicode. */
     /* Currently Unicode is not trusted for fix mode 2 (option -FF). */
-    else if (unicode_mismatch != 3 && fix != 2 &&
+    else if (fix != 2 &&
         (p = search(n, (ZCONST zvoid far **)zusort, zcount, zubcmp)) != NULL)
       return *(struct zlist far **)p;
 # endif
@@ -537,6 +545,7 @@ local void write_int64_to_mem(l64Value, pPtr)
 
 #endif /* def ZIP64_SUPPORT */
 
+#if defined(UNICODE_SUPPORT) || defined(IZ_CRYPT_AES_WG) || defined(STREAM_COMMENTS)
 /* Write a string to memory */
 local void write_string_to_mem(strValue, pPtr)
   char *strValue;
@@ -551,37 +560,42 @@ local void write_string_to_mem(strValue, pPtr)
     }
   }
 }
+#endif
 
-
-#ifndef NO_PROTO
+#ifdef IZ_CRYPT_AES_WG
+# ifndef NO_PROTO
 local void read_ushort_from_mem(ush *usValue,
                                 char *pPtr)
-#else
+# else
 local void read_ushort_from_mem(usValue,
                                 pPtr)
   ush *usValue;
   char *pPtr;
-#endif
+# endif
 {
   *usValue  = (ush)(*pPtr++);
   *usValue |= ((ush)(*pPtr)) << 8;
 }
+#endif
 
-#ifndef NO_PROTO
+#if 0
+/* not currently used */
+# ifndef NO_PROTO
 local void read_ulong_from_mem(ulg *uValue,
                                char *pPtr)
-#else
+# else
 local void read_ulong_from_mem(uValue,
                                 pPtr)
   ulg *uValue;
   char *pPtr;
-#endif
+# endif
 {
   *uValue  = (ulg)(*pPtr++);
   *uValue |= ((ulg)(*pPtr++)) << 8;
   *uValue |= ((ulg)(*pPtr++)) << 16;
   *uValue |= ((ulg)(*pPtr++)) << 24;
 }
+#endif
 
 
 /* same as above but allocate memory as needed and keep track of current end
@@ -922,12 +936,12 @@ local void read_Unicode_Path_entry(pZipListEntry)
    */
   if (chksum != iname_chksum) {
     zprintf("unicode_mismatch = %d\n", unicode_mismatch);
-    if (unicode_mismatch == 1) {
+    if (unicode_mismatch == UNICODE_MISMATCH_WARN) {
       /* warn and continue */
       zipwarn("Unicode does not match path - ignoring Unicode: ", pZipListEntry->oname);
-    } else if (unicode_mismatch == 2) {
+    } else if (unicode_mismatch == UNICODE_MISMATCH_IGNORE) {
       /* ignore and continue */
-    } else if (unicode_mismatch == 0) {
+    } else if (unicode_mismatch == UNICODE_MISMATCH_ERROR) {
       /* error */
       sprintf(errbuf, "Unicode does not match path:  %s\n", pZipListEntry->oname);
       strcat(errbuf,
@@ -1026,12 +1040,12 @@ local void read_Unicode_Path_local_entry(pZipListEntry)
    * the Unicode Path is no longer valid
    */
   if (chksum != iname_chksum) {
-    if (unicode_mismatch == 1) {
+    if (unicode_mismatch == UNICODE_MISMATCH_WARN) {
       /* warn and continue */
       zipwarn("Unicode does not match path - ignoring Unicode: ", pZipListEntry->oname);
-    } else if (unicode_mismatch == 2) {
+    } else if (unicode_mismatch == UNICODE_MISMATCH_IGNORE) {
       /* ignore and continue */
-    } else if (unicode_mismatch == 0) {
+    } else if (unicode_mismatch == UNICODE_MISMATCH_ERROR) {
       /* error */
       sprintf(errbuf, "Unicode does not match path:  %s\n", pZipListEntry->oname);
       strcat(errbuf,
@@ -1512,6 +1526,7 @@ local int add_local_zip64_extra_field(pZEntry)
   return ZE_OK;
 }
 
+# ifdef USE_ZIP64_PLACEHOLDER
 /* add_local_zip64_placeholder_extra_field - add no-op extra field to reserve space
  *
  * pZEntry - pointer to the zlist entry.
@@ -1628,6 +1643,7 @@ local int add_local_zip64_placeholder_extra_field(pZEntry)
 
   return ZE_OK;
 }
+# endif /* USE_ZIP64_PLACEHOLDER */
 
 #endif /* ZIP64_SUPPORT */
 
@@ -2212,9 +2228,63 @@ int read_crypt_aes_cen_extra_field(pZEntry,
     * 8        1        Integer mode value indicating AES encryption strength
     * 9        2        The actual compression method used to compress the file
     */
-  read_ushort_from_mem(aes_vendor_version, pExtra);
+  read_ushort_from_mem(aes_vendor_version, pExtra + 4);
   *aes_strength = *(pExtra + 8);
-  read_ushort_from_mem(comp_method, pExtra);
+  read_ushort_from_mem(comp_method, pExtra + 9);
+
+  return 1;
+}
+
+
+/* read_crypt_aes_loc_extra_field - get values from AES extra field
+ *
+ * Returns 1 on success, 0 on fail.
+ */
+#ifndef NO_PROTO
+int read_crypt_aes_loc_extra_field(struct zlist far *pZEntry,
+                                   ush *aes_vendor_version,
+                                   int *aes_strength,
+                                   ush *comp_method)
+#else
+int read_crypt_aes_loc_extra_field(pZEntry,
+                                   aes_vendor_version,
+                                   aes_strength,
+                                   comp_method)
+  struct zlist far *pZEntry;
+  ush *aes_vendor_version;
+  int *aes_strength;
+  ush *comp_method;
+#endif
+{
+  char  *pExtra;
+
+  /* find start of AES_WG extra field */
+  if (pZEntry->ext == 0 || pZEntry->extra == NULL) {
+    return 0;
+  }
+
+  /* check if we have existing AES_WG extra field ... */
+  pExtra = get_extra_field(EF_AES_WG, pZEntry->extra, pZEntry->ext);
+  if (pExtra == NULL) {
+    /* not found */
+    return 0;
+  }
+
+  /* found it - get the stored values */
+
+  /* AES_WG extra field members
+    *
+    * offset   size     content
+    * 0        2        Extra field header ID (0x9901)
+    * 2        2        Data size (currently 7, but subject to possible increase in the future)
+    * 4        2        Integer version number specific to the zip vendor
+    * 6        2        2-character vendor ID
+    * 8        1        Integer mode value indicating AES encryption strength
+    * 9        2        The actual compression method used to compress the file
+    */
+  read_ushort_from_mem(aes_vendor_version, pExtra + 4);
+  *aes_strength = *(pExtra + 8);
+  read_ushort_from_mem(comp_method, pExtra + 9);
 
   return 1;
 }
@@ -2491,9 +2561,9 @@ zoff_t ffile_size(file)
 FILE *file;
 {
   int sts;
-  size_t siz;
   zoff_t ofs;
   char waste[4];
+  size_t r;
 
   /* Seek to actual EOF. */
   sts = zfseeko( file, 0, SEEK_END);
@@ -2525,8 +2595,8 @@ FILE *file;
       else
       {
         /* Read a byte at apparent EOF.  Should set EOF flag. */
-        siz = fread( waste, 1, 1, file);
-        if (feof( file) == 0)
+        r = fread( waste, 1, 1, file);
+        if (r > 0 || feof( file) == 0)
         {
           /* Not at EOF, but should be.  File too big. */
           ofs = EOF;
@@ -2986,17 +3056,20 @@ int readlocal(localz, z)
 {
   char buf[LOCHEAD + 1];
   struct zlist far *locz;
+#if defined(UNICODE_SUPPORT) || defined(WIN32)
   int utf8 = 0;
+#endif
 
   /* Other work needs to be done to enable split support for utilities,
      and this needs to be coordinated with UnZip as crypt.c is shared. */
 #ifndef UTIL
   ulg start_disk = 0;
-  uzoff_t start_offset = 0;
+  /* uzoff_t start_offset = 0; */
   char *split_path = NULL;
 
+  /* assign to vars to document what the values are */
   start_disk = z->dsk;
-  start_offset = z->off;
+  /* start_offset = z->off; */
 
   /* don't assume reading the right disk */
 
@@ -3109,7 +3182,7 @@ int readlocal(localz, z)
     utf8 = 1;
   }
   else
-  if (unicode_mismatch != 3)
+  if (!unicode_dont_use)
     read_Unicode_Path_local_entry(locz);
 #endif
 #ifdef WIN32
@@ -3292,8 +3365,9 @@ local int scanzipf_reg(f)
     }
     free(buf);
     if (!found) {
-      zipwarn("missing end signature--probably not a zip file (did you", "");
-      zipwarn("remember to use binary mode when you transferred it?)", "");
+      strcpy(errbuf, "missing end signature--probably not a zip file (did you\n");
+      strcat(errbuf, "remember to use binary mode when you transferred it?)");
+      zipwarn(errbuf, "");
       return ZE_FORM;
     }
 
@@ -3314,8 +3388,9 @@ local int scanzipf_reg(f)
     }
     /* first 4 bytes are the signature if there */
     if (LG(b) == ZIP64_EOCDL_SIG) {
-      zipwarn("found Zip64 signature - this may be a Zip64 archive", "");
-      zipwarn("PKZIP 4.5 or later needed - set ZIP64_SUPPORT in Zip 3", "");
+      strcpy(errbuf, "found Zip64 signature - this may be a Zip64 archive\n");
+      strcat(errbuf, "PKZIP 4.5 or later needed - set ZIP64_SUPPORT in Zip 3");
+      zipwarn(errbuf, "");
       return ZE_ZIP64;
     }
 
@@ -3680,11 +3755,11 @@ zprintf("start of central directory cenbeg %ld\n", cenbeg);
         z->mark = 0;
         z->trash = 0;
 # ifdef UNICODE_SUPPORT
-        if (unicode_mismatch != 3) {
+        if (!unicode_dont_use) {
           read_Unicode_Path_entry(z);
           if (z->uname) {
             /* match based on converted Unicode name */
-            z->name = utf8_to_local_string(z->uname);
+            z->name = utf8_to_local_stringz(z->uname);
 #  ifdef EBCDIC
             /* z->zname is used for printing and must be coded in native charset */
             strtoebc(z->zname, z->name);
@@ -4063,15 +4138,16 @@ local int scanzipf_fixnew()
 
   int r = 0;                  /* zipcopy return */
   uzoff_t s;                  /* size of data, start of central */
-  struct zlist far * far *x;  /* pointer last entry's link */
+  struct zlist far * far *x = NULL;  /* pointer last entry's link */
   struct zlist far *z;        /* current zip entry structure */
   int plen;
   char *in_path_ext;
   int in_central_directory = 0; /* found a central directory record */
   struct zlist far *cz;
-  uzoff_t cd_total_entries = 0; /* number of entries according to EOCDR */
+  /* these are assigned to document what the values are */
+  /* uzoff_t cd_total_entries = 0; */ /* number of entries according to EOCDR */
   ulg     in_cd_start_disk;     /* central directory start disk */
-  uzoff_t in_cd_start_offset;   /* offset of start of cd on cd start disk */
+  /* uzoff_t in_cd_start_offset; */   /* offset of start of cd on cd start disk */
 
 
   total_disks = 1000000;
@@ -4096,8 +4172,8 @@ local int scanzipf_fixnew()
       (plen == 4 || (in_path_ext[4] >= '0' && in_path_ext[4] <= '9'))) {
     /* This may be a split but not the end split */
     strcpy(errbuf, "if archive to fix is split archive, need to provide\n");
-    strcat(errbuf, "      path of the last split with .zip extension,\n");
-    strcat(errbuf, "      even if it doesn't exist (zip will ask for splits)");
+    strcat(errbuf, "path of the last split with .zip extension,\n");
+    strcat(errbuf, "even if it doesn't exist (zip will ask for splits)");
     zipwarn(errbuf, "");
     return ZE_FORM;
   }
@@ -4143,7 +4219,7 @@ local int scanzipf_fixnew()
     if (!find_signature(in_file, "PK\05\06")) {
       /* No End Of Central Directory Record */
       strcpy(errbuf, "Missing end (EOCDR) signature - either this archive\n");
-      strcat(errbuf, "                     is not readable or the end is damaged");
+      strcat(errbuf, "is not readable or the end is damaged");
       zipwarn(errbuf, "");
     }
     else
@@ -4211,7 +4287,7 @@ local int scanzipf_fixnew()
 
         /* Central Directory disk, offset, and total entries */
         in_cd_start_disk = (ulg)SH(scbuf + 2);
-        in_cd_start_offset = (uzoff_t)LG(scbuf + 12);
+        /* in_cd_start_offset = (uzoff_t)LG(scbuf + 12); */
         cd_total_entries = (uzoff_t)SH(scbuf + 6);
 
         /* the in_cd_start_disk should always be less than the total_disks,
@@ -4458,6 +4534,7 @@ local int scanzipf_fixnew()
         z->off = 0;
         z->dosflag = 0;
         z->thresh_mthd = 0;
+        z->is_stdin = 0;
 
         /* Initialize all fields pointing to malloced data to NULL */
         z->zname = z->name = z->iname = z->extra = z->cextra = z->comment = NULL;
@@ -4561,8 +4638,9 @@ local int scanzipf_fixnew()
          */
 
         if (fread(scbuf, CENHEAD, 1, in_file) != 1) {
-          zipwarn("reading central directory: ", strerror(errno));
-          zipwarn("bad archive - error reading central directory", "");
+          sprintf(errbuf, "reading central directory: %s\n", strerror(errno));
+          strcat(errbuf, "bad archive - error reading central directory");
+          zipwarn(errbuf, "");
           zipwarn("skipping this entry...", "");
           continue;
         }
@@ -4662,14 +4740,14 @@ local int scanzipf_fixnew()
           z->dosflag = cz->dosflag;
 
 # ifdef UNICODE_SUPPORT
-          if (unicode_mismatch != 3 && z->uname == NULL) {
+          if (z->uname == NULL) {
             if (z->flg & UTF8_BIT) {
               /* path is UTF-8 */
               if ((z->uname = malloc(strlen(z->iname) + 1)) == NULL) {
                 ZIPERR(ZE_MEM, "reading archive");
               }
               strcpy(z->uname, z->iname);
-            } else {
+            } else if (!unicode_dont_use) {
               /* check for UTF-8 path extra field */
               read_Unicode_Path_entry(z);
             }
@@ -4691,10 +4769,17 @@ local int scanzipf_fixnew()
 # endif /* EBCDIC */
 # ifdef WIN32
           /* Comment may be OEM */
+          if (z->com)
           {
+            int utf8 = 0;
             unsigned hostver = (z->vem & 0xff);
-            Ext_ASCII_TO_Native(z->comment, (z->vem >> 8), hostver,
-                                ((z->atx & 0xffff0000L) != 0), FALSE);
+#   ifdef UNICODE_SUPPORT
+            utf8 = is_utf8_string(z->comment, NULL, NULL, NULL, NULL);
+#   endif
+            if (!utf8) {
+              Ext_ASCII_TO_Native(z->comment, (z->vem >> 8), hostver,
+                                  ((z->atx & 0xffff0000L) != 0), FALSE);
+            }
           }
 # endif
 
@@ -4912,8 +4997,10 @@ local int scanzipf_regnew()
   int skip_disk = 0;          /* 1 if user asks to skip current disk */
   int skipped_disk = 0;       /* 1 if skipped start disk and start offset is useless */
 
+#ifdef ZIP64_SUPPORT
   uzoff_t s;                  /* size of data, start of central */
-  struct zlist far * far *x;  /* pointer last entry's link */
+#endif
+  struct zlist far * far *x = NULL;  /* pointer last entry's link */
   struct zlist far *z;        /* current zip entry structure */
 
 
@@ -4965,14 +5052,16 @@ local int scanzipf_regnew()
     fclose(in_file);
     in_file = NULL;
     if (fix == 1) {
-      zipwarn("bad archive - missing end signature", "");
-      zipwarn("(If downloaded, was binary mode used?  If not, the", "");
-      zipwarn(" archive may be scrambled and not recoverable)", "");
-      zipwarn("Can't use -F to fix (try -FF)", "");
+      strcpy(errbuf, "bad archive - missing end signature\n");
+      strcat(errbuf, "(If downloaded, was binary mode used?  If not, the\n");
+      strcat(errbuf, "archive may be scrambled and not recoverable)\n\n");
+      strcat(errbuf, "Can't use -F to fix (try -FF)");
+      zipwarn(errbuf, "");
     } else{
-      zipwarn("missing end signature--probably not a zip file (did you", "");
-      zipwarn("remember to use binary mode when you transferred it?)", "");
-      zipwarn("(if you are trying to read a damaged archive try -F)", "");
+      strcpy(errbuf, "missing end signature--probably not a zip file (did you\n");
+      strcat(errbuf, "remember to use binary mode when you transferred it?)\n");
+      strcat(errbuf, "(if you are trying to read a damaged archive try -F)");
+      zipwarn(errbuf, "");
     }
     return ZE_FORM;
   }
@@ -5018,7 +5107,11 @@ local int scanzipf_regnew()
   }
 
   /* read the EOCDR */
+#ifdef ZIP64_SUPPORT
   s = fread(scbuf, 1, ENDHEAD, in_file);
+#else
+  fread(scbuf, 1, ENDHEAD, in_file);
+#endif
 
   /* the first field should be number of this (the last) disk */
   eocdr_disk = (ulg)SH(scbuf);
@@ -5133,8 +5226,9 @@ local int scanzipf_regnew()
         fclose(in_file);
         in_file = NULL;
         if (fix == 1) {
-          zipwarn("could not seek back to start of central directory: ", strerror(errno));
-          zipwarn("(try -FF)", "");
+          sprintf(errbuf, "could not seek back to start of central directory: %s\n", strerror(errno));
+          strcat(errbuf, "(try -FF)");
+          zipwarn(errbuf, "");
         } else {
           zipwarn("reading archive fseek: ", strerror(errno));
         }
@@ -5145,8 +5239,9 @@ local int scanzipf_regnew()
         /* Should now be after first central directory header signature in archive */
         adjust_offset = zftello(in_file) - 4 - in_cd_start_offset;
       } else {
-        zipwarn("central dir not where expected - could not adjust offsets", "");
-        zipwarn("(try -FF)", "");
+        strcpy(errbuf, "central dir not where expected - could not adjust offsets\n");
+        strcat(errbuf, "(try -FF)");
+        zipwarn(errbuf, "");
         return ZE_FORM;
       }
     } else {
@@ -5173,8 +5268,9 @@ local int scanzipf_regnew()
         fclose(in_file);
         in_file = NULL;
         if (fix == 1) {
-          zipwarn("could not seek back to Zip64 EOCDL: ", strerror(errno));
-          zipwarn("(try -FF)", "");
+          sprintf(errbuf, "could not seek back to Zip64 EOCDL: %s\n", strerror(errno));
+          strcat(errbuf, "(try -FF)");
+          zipwarn(errbuf, "");
         } else {
           zipwarn("reading archive fseek: ", strerror(errno));
         }
@@ -5185,9 +5281,10 @@ local int scanzipf_regnew()
       {
         fclose(in_file);
         in_file = NULL;
-        zipwarn("found Zip64 signature - this may be a Zip64 archive", "");
-        zipwarn("Need PKZIP 4.5 or later compatible zip", "");
-        zipwarn("Set ZIP64_SUPPORT in Zip 3", "");
+        strcpy(errbuf, "found Zip64 signature - this may be a Zip64 archive\n");
+        strcat(errbuf, "Need PKZIP 4.5 or later compatible zip\n");
+        strcat(errbuf, "Set ZIP64_SUPPORT in Zip 3");
+        zipwarn(errbuf, "");
         return ZE_ZIP64;
       }
 #else /* ZIP64_SUPPORT */
@@ -5216,8 +5313,9 @@ local int scanzipf_regnew()
 
         /* For now no split archives */
         if (total_disks != 1) {
-          zipwarn("Adjusting split archives not supported:  ", in_path);
-          zipwarn("(try -FF)", "");
+          sprintf(errbuf, "Adjusting split archives not supported:  %s\n", in_path);
+          strcat(errbuf, "(try -FF)");
+          zipwarn(errbuf, "");
           return ZE_FORM;
         }
 
@@ -5240,8 +5338,9 @@ local int scanzipf_regnew()
             fclose(in_file);
             in_file = NULL;
             if (fix == 1) {
-              zipwarn("could not seek back to Zip64 EOCDR: ", strerror(errno));
-              zipwarn("(try -FF)", "");
+              sprintf(errbuf, "could not seek back to Zip64 EOCDR: %s\n", strerror(errno));
+              strcat(errbuf, "(try -FF)");
+              zipwarn(errbuf, "");
             } else {
               zipwarn("reading archive fseek: ", strerror(errno));
             }
@@ -5251,8 +5350,9 @@ local int scanzipf_regnew()
             /* Should now be after Zip64 EOCDR signature in archive */
             adjust_offset = zftello(in_file) - 4 - z64eocdr_offset;
           } else {
-            zipwarn("Could not determine offset of entries", "");
-            zipwarn("(try -FF)", "");
+            strcpy(errbuf, "Could not determine offset of entries\n");
+            strcat(errbuf, "(try -FF)");
+            zipwarn(errbuf, "");
             return ZE_FORM;
           }
         }
@@ -5291,8 +5391,9 @@ local int scanzipf_regnew()
     fclose(in_file);
     in_file = NULL;
     if (fix == 1) {
-      zipwarn("bad archive - could not seek back to Zip64 EOCDL: ", strerror(errno));
-      zipwarn("(try -FF)", "");
+      sprintf(errbuf, "bad archive - could not seek back to Zip64 EOCDL: %s\n", strerror(errno));
+      strcat(errbuf, "(try -FF)");
+      zipwarn(errbuf, "");
     } else {
       zipwarn("reading archive fseek: ", strerror(errno));
     }
@@ -5303,9 +5404,10 @@ local int scanzipf_regnew()
   {
     fclose(in_file);
     in_file = NULL;
-    zipwarn("found Zip64 signature - this may be a Zip64 archive", "");
-    zipwarn("Need PKZIP 4.5 or later compatible zip", "");
-    zipwarn("Set ZIP64_SUPPORT in Zip 3", "");
+    strcpy(errbuf, "found Zip64 signature - this may be a Zip64 archive\n");
+    strcat(errbuf, "Need PKZIP 4.5 or later compatible zip\n");
+    strcat(errbuf, "Set ZIP64_SUPPORT in Zip 3");
+    zipwarn(errbuf, "");
     return ZE_ZIP64;
   }
 #else /* ZIP64_SUPPORT */
@@ -5386,8 +5488,9 @@ local int scanzipf_regnew()
         fclose(in_file);
         in_file = NULL;
         if (fix == 1) {
-          zipwarn("bad archive - could not seek back to Zip64 EOCDR: ", strerror(errno));
-          zipwarn("(try -FF)", "");
+          sprintf(errbuf, "bad archive - could not seek back to Zip64 EOCDR: %s\n", strerror(errno));
+          strcat(errbuf, "(try -FF)");
+          zipwarn(errbuf, "");
         } else {
           zipwarn("reading archive fseek: ", strerror(errno));
         }
@@ -5396,14 +5499,16 @@ local int scanzipf_regnew()
       if (find_next_signature(in_file) && is_signature(sigbuf, "PK\06\06")) {
         /* Should now be after Zip64 EOCDR signature in archive */
         adjust_offset = zftello(in_file) - 4 - z64eocdr_offset;
-        zipwarn("Zip64 EOCDR not found where expected - compensating", "");
-        zipwarn("(try -A to adjust offsets)", "");
+        strcpy(errbuf, "Zip64 EOCDR not found where expected - compensating\n");
+        strcat(errbuf, "(try -A to adjust offsets)");
+        zipwarn(errbuf, "");
       } else {
         fclose(in_file);
         in_file = NULL;
         if (fix == 1) {
-          zipwarn("bad archive - Zip64 EOCDR not found in split:  ", in_path);
-          zipwarn("(try -FF)", "");
+          sprintf(errbuf, "bad archive - Zip64 EOCDR not found in split:  %s\n", in_path);
+          strcat(errbuf, "(try -FF)");
+          zipwarn(errbuf, "");
         } else {
           zipwarn("Zip64 End Of Central Directory Record not found:  ", in_path);
         }
@@ -5443,8 +5548,9 @@ local int scanzipf_regnew()
     s = fread(scbuf, 1, EC64REC, in_file);
     if (s < EC64REC) {
       if (fix == 1) {
-        zipwarn("bad archive - Zip64 EOCDR bad or truncated", "");
-        zipwarn("(try -FF)", "");
+        strcpy(errbuf, "bad archive - Zip64 EOCDR bad or truncated\n");
+        strcat(errbuf, "(try -FF)");
+        zipwarn(errbuf, "");
       } else {
         zipwarn("Zip64 EOCD Record bad or truncated", "");
       }
@@ -5467,10 +5573,10 @@ local int scanzipf_regnew()
     if (version_needed > 46) {
       int major = version_needed / 10;
       int minor = version_needed - (major * 10);
-      sprintf(errbuf, "This archive requires version %d.%d", major, minor);
+      sprintf(errbuf, "This archive requires version %d.%d\n", major, minor);
+      strcat(errbuf, "Zip currently only supports up to version 4.6 archives\n");
+      strcat(errbuf, "(up to 4.5 if bzip2 is not compiled in)");
       zipwarn(errbuf, "");
-      zipwarn("Zip currently only supports up to version 4.6 archives", "");
-      zipwarn("(up to 4.5 if bzip2 is not compiled in)", "");
       if (fix == 1)
         zipwarn("If -F fails try -FF to try to salvage something", "");
       else if (fix == 2)
@@ -5622,9 +5728,9 @@ local int scanzipf_regnew()
         } else {
           sprintf(errbuf, "unexpected signature on disk %lu at %s\n",
                   current_in_disk, zip_fzofft(current_in_offset - 4, NULL, "u"));
+          sprintf(errbuf, "%sarchive not in correct format: %s\n", errbuf, split_path);
+          strcat(errbuf, "(try -F to attempt recovery)");
           zipwarn(errbuf, "");
-          zipwarn("archive not in correct format: ", split_path);
-          zipwarn("(try -F to attempt recovery)", "");
           fclose(in_file);
           in_file = NULL;
           return ZE_FORM;
@@ -5760,30 +5866,28 @@ local int scanzipf_regnew()
       z->iname[z->nam] = '\0';                  /* terminate name */
 #ifdef UNICODE_SUPPORT
       z->utf8_path = 0;
-      if (unicode_mismatch != 3) {
-        if (z->flg & UTF8_BIT) {
-          char *iname;
-          /* path is UTF-8 */
-          if ((z->uname = malloc(strlen(z->iname) + 1)) == NULL) {
-            zipwarn("could not allocate memory: scanzipf_reg", "");
-            return ZE_MEM;
-          }
-          strcpy(z->uname, z->iname);
-          /* Create a local name.  If UTF-8 system this should also be UTF-8 */
-          iname = utf8_to_local_string(z->uname);
-          if (iname) {
-            free(z->iname);
-            z->iname = iname;
-          }
-          else
-            zipwarn("illegal UTF-8 name: ", z->uname);
-        } else {
-          /* check for UTF-8 path extra field */
-          read_Unicode_Path_entry(z);
+      if (z->flg & UTF8_BIT) {
+        char *iname;
+        /* path is UTF-8 */
+        if ((z->uname = malloc(strlen(z->iname) + 1)) == NULL) {
+          zipwarn("could not allocate memory: scanzipf_reg", "");
+          return ZE_MEM;
         }
-        if (z->uname) {
-          z->utf8_path = 1;
+        strcpy(z->uname, z->iname);
+        /* Create a local name.  If UTF-8 system this should also be UTF-8 */
+        iname = utf8_to_local_stringz(z->uname);
+        if (iname) {
+          free(z->iname);
+          z->iname = iname;
         }
+        else
+          zipwarn("illegal UTF-8 name: ", z->uname);
+      } else if (!unicode_dont_use) {
+        /* check for UTF-8 path extra field */
+        read_Unicode_Path_entry(z);
+      }
+      if (z->uname) {
+        z->utf8_path = 1;
       }
 #endif
 
@@ -5791,8 +5895,14 @@ local int scanzipf_regnew()
       /* Input path may be OEM */
       {
         unsigned hostver = (z->vem & 0xff);
-        Ext_ASCII_TO_Native(z->iname, (z->vem >> 8), hostver,
-                            ((z->atx & 0xffff0000L) != 0), FALSE);
+        int utf8 = 0;
+# ifdef UNICODE_SUPPORT
+        utf8 = (z->flg & UTF8_BIT);
+# endif
+        if (!utf8) {
+          Ext_ASCII_TO_Native(z->iname, (z->vem >> 8), hostver,
+                              ((z->atx & 0xffff0000L) != 0), FALSE);
+        }
       }
 #endif
 
@@ -5804,8 +5914,14 @@ local int scanzipf_regnew()
       /* Comment may be OEM */
       {
         unsigned hostver = (z->vem & 0xff);
-        Ext_ASCII_TO_Native(z->comment, (z->vem >> 8), hostver,
-                            ((z->atx & 0xffff0000L) != 0), FALSE);
+        int utf8 = 0;
+# ifdef UNICODE_SUPPORT
+        utf8 = (z->flg & UTF8_BIT);
+# endif
+        if (!utf8) {
+          Ext_ASCII_TO_Native(z->comment, (z->vem >> 8), hostver,
+                              ((z->atx & 0xffff0000L) != 0), FALSE);
+        }
       }
 #endif
 
@@ -5853,101 +5969,99 @@ local int scanzipf_regnew()
       z->znamew = NULL;
 # endif
 
-      if (unicode_mismatch != 3) {
-        if (z->uname) {
-          /* create zuname which is alternate zname for matching based on
-             converted Unicode name */
-          char *name;
+      if (z->uname) {
+        /* create zuname which is alternate zname for matching based on
+           converted Unicode name */
+        char *name;
 
-          /* Convert UTF-8 to current local character set */
-          name = utf8_to_local_string(z->uname);
+        /* Convert UTF-8 to current local character set */
+        name = utf8_to_local_stringz(z->uname);
 
-          if (name == NULL) {
+        if (name == NULL) {
 # if 0
-            zipwarn("illegal UTF-8 name: ", z->uname);
+          zipwarn("illegal UTF-8 name: ", z->uname);
 # endif /* 0 */
-            /* not able to convert name, so use iname */
-            if ((name = malloc(strlen(z->iname) + 1)) == NULL) {
-              zipwarn("could not allocate memory: scanzipf_reg", "");
-              return ZE_MEM;
-            }
-            strcpy(name, z->iname);
-          }
-
-# ifdef EBCDIC
-          /* z->zname is used for printing and must be coded in native charset */
-          strtoebc(z->zuname, name);
-# else /* !EBCDIC */
-          if ((z->zuname = malloc(strlen(name) + 1)) == NULL) {
+          /* not able to convert name, so use iname */
+          if ((name = malloc(strlen(z->iname) + 1)) == NULL) {
             zipwarn("could not allocate memory: scanzipf_reg", "");
             return ZE_MEM;
           }
-          strcpy(z->zuname, name);
-          /* For output to terminal */
-          if (unicode_escape_all || unicode_show) {
-            char *ouname;
-            /* Escape anything not 7-bit ASCII */
-            ouname = utf8_to_escape_string(z->uname);
-            if (ouname)
-              z->ouname = ouname;
-            else {
-              if ((z->ouname = malloc(strlen(name) + 1)) == NULL) {
-                zipwarn("could not allocate memory: scanzipf_reg", "");
-                return ZE_MEM;
-              }
-              strcpy(z->ouname, name);
-            }
-#  if 0
-          } else if (unicode_show) {
-              z->ouname = string_dup(z->uname, "ouname");
-#  endif
-          } else {
+          strcpy(name, z->iname);
+        }
+
+# ifdef EBCDIC
+        /* z->zname is used for printing and must be coded in native charset */
+        strtoebc(z->zuname, name);
+# else /* !EBCDIC */
+        if ((z->zuname = malloc(strlen(name) + 1)) == NULL) {
+          zipwarn("could not allocate memory: scanzipf_reg", "");
+          return ZE_MEM;
+        }
+        strcpy(z->zuname, name);
+        /* For output to terminal */
+        if (unicode_escape_all || unicode_show) {
+          char *ouname;
+          /* Escape anything not 7-bit ASCII */
+          ouname = utf8_to_escape_string(z->uname);
+          if (ouname)
+            z->ouname = ouname;
+          else {
             if ((z->ouname = malloc(strlen(name) + 1)) == NULL) {
               zipwarn("could not allocate memory: scanzipf_reg", "");
               return ZE_MEM;
             }
             strcpy(z->ouname, name);
           }
-#  ifdef WIN32
-
-          if (!no_win32_wide) {
-            z->inamew = utf8_to_wchar_string(z->uname);
-            z->znamew = in2exw(z->inamew); /* convert to external name */
-            if (z->znamew == NULL)
-              return ZE_MEM;
-          }
-
-          local_to_oem_string(z->ouname, z->ouname);
-          /* For matching.  There seems to be something lost
-             in the translation from displaying a name in a
-             console window using zip -su on Win32 and using
-             that name in a command line to match what's in
-             the archive.  This is klugy though.
-          */
-          if ((z->wuname = malloc(strlen(z->ouname) + 1)) == NULL) {
+#  if 0
+        } else if (unicode_show) {
+            z->ouname = string_dup(z->uname, "ouname", NO_FLUFF);
+#  endif
+        } else {
+          if ((z->ouname = malloc(strlen(name) + 1)) == NULL) {
             zipwarn("could not allocate memory: scanzipf_reg", "");
             return ZE_MEM;
           }
-          strcpy(z->wuname, z->ouname);
-          oem_to_local_string(z->wuname, z->wuname);
+          strcpy(z->ouname, name);
+        }
+#  ifdef WIN32
+
+        if (!no_win32_wide) {
+          z->inamew = utf8_to_wchar_string(z->uname);
+          z->znamew = in2exw(z->inamew); /* convert to external name */
+          if (z->znamew == NULL)
+            return ZE_MEM;
+        }
+
+        local_to_oem_string(z->ouname, z->ouname);
+        /* For matching.  There seems to be something lost
+           in the translation from displaying a name in a
+           console window using zip -su on Win32 and using
+           that name in a command line to match what's in
+           the archive.  This is klugy though.
+        */
+        if ((z->wuname = malloc(strlen(z->ouname) + 1)) == NULL) {
+          zipwarn("could not allocate memory: scanzipf_reg", "");
+          return ZE_MEM;
+        }
+        strcpy(z->wuname, z->ouname);
+        oem_to_local_string(z->wuname, z->wuname);
 #  endif /* WIN32 */
 # endif /* ?EBCDIC */
-        } else {
-          /* no uname */
+      } else {
+        /* no uname */
 # ifdef WIN32
-          if (!no_win32_wide) {
-            z->inamew = local_to_wchar_string(z->iname);
-            z->znamew = in2exw(z->inamew); /* convert to external name */
-            if (z->znamew == NULL)
-              return ZE_MEM;
-          }
-# endif
+        if (!no_win32_wide) {
+          z->inamew = local_to_wchar_string(z->iname);
+          z->znamew = in2exw(z->inamew); /* convert to external name */
+          if (z->znamew == NULL)
+            return ZE_MEM;
         }
+# endif
       }
 #else /* !(UNICODE_SUPPORT && !UTIL) */
 # ifdef UTIL
 /* We only need z->iname in the utils */
-      z->name = z->iname;
+      z->name = string_dup(z->iname, "scanzipf_regnew z->name 1", NO_FLUFF);
 #  ifdef EBCDIC
 /* z->zname is used for printing and must be coded in native charset */
       if ((z->zname = malloc(z->nam+1)) ==  NULL) {
@@ -5962,7 +6076,7 @@ local int scanzipf_regnew()
       z->zname = in2ex(z->iname);       /* convert to external name */
       if (z->zname == NULL)
         return ZE_MEM;
-      z->name = z->zname;
+      z->name = string_dup(z->zname, "scanzipf_regnew z->name 2", NO_FLUFF);
 # endif /* ?UTIL */
       if ((z->oname = malloc(strlen(z->zname) + 1)) == NULL) {
         zipwarn("could not allocate memory: scanzipf_reg", "");
@@ -6267,7 +6381,10 @@ int read_inc_file(inc_file)
   FILE *f;              /* zip file */
   int retval;           /* return code */
   int readable;         /* 1 if zipfile exists and is readable */
+#if 0
+  /* aSc this is not used anywhere */
   char *oldzipfile = NULL; /* the original path in zipfile */
+#endif
 
   /* Initialize zip file info */
   zipbeg = 0;
@@ -6446,6 +6563,10 @@ local ush get_aes_vendor_version( z)
 
 
 #ifndef USE_PORT_CASE_CONV
+
+/* These should work as long as a valid UTF-8 <--> wchar_t conversion
+   is used and the wchar_t functions work. */
+
 # if defined(UNICODE_SUPPORT) && defined(USE_WCHAR_CASE_CONV)
 /* --------------------------------------------------------------- */
 /* ustring_upper_lower - convert UTF-8 string to upper or lower case
@@ -6645,7 +6766,10 @@ int putlocal(z, rewrite)
   char *uname = NULL;   /* UTF-8 name to write to header */
 #endif
   ush how = z->how;     /* how stored (may be 99 for AES) */
+#if 0
+  /* aSc the code where this is used is disabled below */
   ush thresh_mthd = z->thresh_mthd; /* mthd used for Zip64 threshold */
+#endif
 #ifdef IZ_CRYPT_AES_WG
   ush aes_vendor_version;       /* AES_WG encryption strength. */
 #endif /* def IZ_CRYPT_AES_WG */
@@ -6892,7 +7016,7 @@ int putlocal(z, rewrite)
         free(uname);
         uname = converted_uname;
         free(iname);
-        iname = utf8_to_local_string(uname);
+        iname = utf8_to_local_stringz(uname);
         newnam = (ush)strlen(iname);
         tempzn += newnam - nam;
         nam = newnam;
@@ -7003,7 +7127,7 @@ int putlocal(z, rewrite)
   if (use_uname) {
     /* path is UTF-8 or utf8_native */
     free(iname);
-    iname = string_dup(uname, "putlocal uname->iname", 0);
+    iname = string_dup(uname, "iname (putlocal)", NO_FLUFF);
     nam = (ush)strlen(iname);
     /* iname = z->uname; */
   }
@@ -7159,7 +7283,7 @@ int putlocal(z, rewrite)
   /* last mod file date time */
   append_ulong_to_mem(z->tim, &block, &offset, &blocksize);
   /* crc-32 */
-  if (purposely_corrupt_local_crc) {
+  if (purposely_corrupt_loc_crc) {
     append_ulong_to_mem(z->crc + 1, &block, &offset, &blocksize);
   } else {
     append_ulong_to_mem(z->crc, &block, &offset, &blocksize);
@@ -7172,10 +7296,18 @@ int putlocal(z, rewrite)
     /* uncompressed size */
     append_ulong_to_mem(0xFFFFFFFF, &block, &offset, &blocksize);
   } else {
+    ulg siz = (ulg)z->siz;
+    ulg len = (ulg)z->len;
+    if (purposely_corrupt_loc_csize) {
+      siz += 1;
+    }
+    if (purposely_corrupt_loc_usize) {
+      len += 1;
+    }
     /* compressed size */
-    append_ulong_to_mem((ulg)z->siz, &block, &offset, &blocksize);
+    append_ulong_to_mem(siz, &block, &offset, &blocksize);
     /* uncompressed size */
-    append_ulong_to_mem((ulg)z->len, &block, &offset, &blocksize);
+    append_ulong_to_mem(len, &block, &offset, &blocksize);
   }
 #else
   /* compressed size */
@@ -7275,22 +7407,32 @@ int putextended(z)
   char *block = NULL;   /* mem block to write to */
   extent offset = 0;    /* offset into block */
   extent blocksize = 0; /* size of block */
+#ifdef ZIP64_SUPPORT
+  ulg siz = (ulg)z->siz;
+  ulg len = (ulg)z->len;
+#endif
 
   /* extended local signature */
   append_ulong_to_mem(EXTLOCSIG, &block, &offset, &blocksize);
   /* crc-32 */
-  if (purposely_corrupt_local_crc) {
+  if (purposely_corrupt_loc_crc) {
     append_ulong_to_mem(z->crc + 1, &block, &offset, &blocksize);
   } else {
     append_ulong_to_mem(z->crc, &block, &offset, &blocksize);
   }
 #ifdef ZIP64_SUPPORT
+  if (purposely_corrupt_loc_csize) {
+    siz += 1;
+  }
+  if (purposely_corrupt_loc_usize) {
+    len += 1;
+  }
   if (zip64_entry) {
     /* use Zip64 entries */
     /* compressed size */
-    append_int64_to_mem(z->siz, &block, &offset, &blocksize);
+    append_int64_to_mem(siz, &block, &offset, &blocksize);
     /* uncompressed size */
-    append_int64_to_mem(z->len, &block, &offset, &blocksize);
+    append_int64_to_mem(len, &block, &offset, &blocksize);
     /* This is rather klugy as the AppNote handles this poorly.  Typically
        we don't know at this point if we are writing a Zip64 archive or not,
        unless a file has needed Zip64.  This is particularly annoying here
@@ -7426,7 +7568,13 @@ int putcentral(z)
 #ifdef ZIP64_SUPPORT        /* zip64 support 09/02/2003 R.Nausedat */
   int iRes;
 #endif
+#if defined(IZ_CRYPT_AES_WG) /* SMSd. || defined(ZIP64_SUPPORT) */
   ush how = z->how;
+#endif
+#ifdef ZIP64_SUPPORT
+  ulg siz = (ulg)z->siz;
+  ulg len = (ulg)z->len;
+#endif
 
   /* Make copies of z->iname and z->uname to write to header.  These
      copies may be modified by prefixing and/or case changing. */
@@ -7473,7 +7621,7 @@ int putcentral(z)
         free(uname);
         uname = converted_uname;
         free(iname);
-        iname = utf8_to_local_string(uname);
+        iname = utf8_to_local_stringz(uname);
         newnam = (ush)strlen(iname);
         tempzn += newnam - nam;
         nam = newnam;
@@ -7574,7 +7722,7 @@ int putcentral(z)
   if (use_uname) {
     /* path is UTF-8 or utf8_native */
     free(iname);
-    iname = string_dup(uname, "putcentral uname->iname", 0);
+    iname = string_dup(uname, "iname (putcentral)", NO_FLUFF);
     nam = (ush)strlen(iname);
     /* iname = z->uname; */
   }
@@ -7665,10 +7813,16 @@ int putcentral(z)
   /* last mod file date time */
   append_ulong_to_mem(z->tim, &block, &offset, &blocksize);
   /* crc-32 */
-  if (purposely_corrupt_central_crc) {
+  if (purposely_corrupt_cen_crc) {
     append_ulong_to_mem(z->crc + 1, &block, &offset, &blocksize);
   } else {
     append_ulong_to_mem(z->crc, &block, &offset, &blocksize);
+  }
+  if (purposely_corrupt_cen_csize) {
+    siz += 1;
+  }
+  if (purposely_corrupt_cen_usize) {
+    len += 1;
   }
   if (z->siz > ZIP_UWORD32_MAX)
   {
@@ -7679,7 +7833,7 @@ int putcentral(z)
   else
   {
     /* compressed size */
-    append_ulong_to_mem((ulg)z->siz, &block, &offset, &blocksize);
+    append_ulong_to_mem(siz, &block, &offset, &blocksize);
   }
   /* if forcing Zip64 just force first ef field */
   if (z->len > ZIP_UWORD32_MAX || (force_zip64 == 1))
@@ -7691,7 +7845,7 @@ int putcentral(z)
   else
   {
     /* uncompressed size */
-    append_ulong_to_mem((ulg)z->len, &block, &offset, &blocksize);
+    append_ulong_to_mem(len, &block, &offset, &blocksize);
   }
   /* file name length */
   append_ushort_to_mem(nam, &block, &offset, &blocksize);
@@ -7809,8 +7963,12 @@ int putcentral(z)
   }
   if (z->com) {
 #ifdef WIN32_OEM
+    int utf8 = 0;
+# ifdef UNICODE_SUPPORT
+    utf8 = (z->flg & UTF8_BIT);
+# endif
     /* store comment in OEM character set in archive */
-    if ((z->vem & 0xff00) == 0)
+    if (!utf8 && (z->vem & 0xff00) == 0)
     {
       char *oem;
 
@@ -8008,6 +8166,7 @@ int putend( OFT(uzoff_t) n,
 #endif
   if (m) {
     /* PKWare defines the archive comment to be ASCII only so no OEM conversion */
+    /* However, Zip 3.1 now allows UTF-8 in the zipfile comment. */
     append_string_to_mem(z, (int)m, &block, &offset, &blocksize);
   }
 
@@ -8253,46 +8412,51 @@ int zipcopy(z)
     localz->com = z->com;
   }
 
+  /* archives to fix should be static and not include entry read from stdin */
+  if (fix) {
+    localz->is_stdin = 0;
+  } 
+
   localz->vem = 0;
   if (fix != 2) {
     /* Need vem to determine if iname is Win32 OEM name */
     localz->vem = z->vem;
+  }
 
 #ifdef UNICODE_SUPPORT
-    if (unicode_mismatch != 3) {
-      if (z->flg & UTF8_BIT) {
-        char *iname;
-        /* path is UTF-8 */
-        localz->uname = localz->iname;
-        iname = utf8_to_local_string(localz->uname);
-        if (iname == NULL) {
-          /* a bad UTF-8 character in name likely - go with (probably messed up) uname */
-          if ((localz->iname = malloc(strlen(localz->uname) + 1)) == NULL) {
-            return ZE_MEM;
-          }
-          strcpy(localz->iname, localz->uname);
-        } else {
-          /* go with local character set iname */
-          localz->iname = iname;
-        }
-      } else {
-        /* check for UTF-8 path extra field */
-        read_Unicode_Path_local_entry(localz);
+  if (z->flg & UTF8_BIT) {
+    char *iname;
+    /* path is UTF-8 */
+    localz->uname = localz->iname;
+    iname = utf8_to_local_stringz(localz->uname);
+    if (iname == NULL) {
+      /* a bad UTF-8 character in name likely - go with (probably messed up) uname */
+      if ((localz->iname = malloc(strlen(localz->uname) + 1)) == NULL) {
+        return ZE_MEM;
       }
+      strcpy(localz->iname, localz->uname);
+    } else {
+      /* go with local character set iname */
+      localz->iname = iname;
     }
+  } else if (!unicode_dont_use) {
+    /* check for UTF-8 path extra field */
+    read_Unicode_Path_local_entry(localz);
+  }
 #endif
 
-#ifdef WIN32_OEM
-      /* If fix == 2 and reading local headers first, vem is not in the local
-         header so we don't know when to do OEM translation, as the ver field
-         is set to MSDOS (0) by all unless something specific is needed.
-         However, if local header has a Unicode path extra field, we can get
-         the real file name from there. */
-    if ((z->vem & 0xff00) == 0)
-      /* assume archive name is OEM if from DOS */
-      oem_to_local_string(localz->iname, localz->iname);
-#endif
+#if defined(UNICODE_SUPPORT) && defined(WIN32_OEM)
+  /* If fix == 2 and reading local headers first, vem is not in the local
+      header so we don't know when to do OEM translation, as the ver field
+      is set to MSDOS (0) by all unless something specific is needed.
+      However, if local header has a Unicode path extra field, we can get
+      the real file name from there.  OEM translation should not be done
+      if UTF-8 bit set. */
+  if (!(z->flg & UTF8_BIT) && localz->uname == NULL && (z->vem & 0xff00) == 0) {
+    /* assume archive name is OEM if from DOS */
+    oem_to_local_string(localz->iname, localz->iname);
   }
+#endif
 
   if (fix == 2) {
 #ifdef UNICODE_SUPPORT_WIN32
@@ -8375,8 +8539,8 @@ int zipcopy(z)
     free(localz->uname);
     free(z->uname);
     if (is_utf8_string(z->iname, NULL, NULL, NULL, NULL)) {
-      localz->uname = string_dup(z->iname, "localz->uname", 0);
-      z->uname = string_dup(z->iname, "z->uname", 0);
+      localz->uname = string_dup(z->iname, "localz->uname (zipcopy)", NO_FLUFF);
+      z->uname = string_dup(z->iname, "z->uname (zipcopy)", NO_FLUFF);
     }
     else {
       localz->uname = local_to_utf8_string(z->iname);
@@ -8384,8 +8548,8 @@ int zipcopy(z)
     }
 #else
 # if 0
-    localz->uname = string_dup(z->iname, "localz->uname");
-    z->uname = string_dup(z->iname, "z->uname");
+    localz->uname = string_dup(z->iname, "localz->uname 2 (zipcopy)", NO_FLUFF);
+    z->uname = string_dup(z->iname, "z->uname 2 (zipcopy)",NO_FLUFF);
 # endif
 #endif
   }
@@ -8429,27 +8593,63 @@ int zipcopy(z)
 
   /* Output name */
   if (fix == 2) {
-    if ((z->oname = malloc(strlen(localz->iname) + 1)) == NULL) {
-      return ZE_MEM;
-    }
-    strcpy(z->oname, localz->iname);
+#ifdef UNICODE_SUPPORT
+    z->uname = string_dup(localz->uname, "localz->uname", NO_FLUFF);
+#endif
+    z->oname = string_dup(localz->iname, "localz->iname", NO_FLUFF);
 #ifndef UTIL
 # ifdef WIN32
     /* Win9x console always uses OEM character coding, and
-       WinNT console is set to OEM charset by default, too */
-    _INTERN_OEM(z->oname);
+       WinNT console is set to OEM charset by default, too.
+       Never OEM convert UTF-8. */
+    if (!(z->flg & UTF8_BIT)) {
+      _INTERN_OEM(z->oname);
+    }
 # endif
 #endif
-    sprintf(errbuf, " copying: %s ", z->oname);
-    zipmessage_nl(errbuf, 0);
+#ifdef UNICODE_SUPPORT
+    if (z->uname) {
+      sprintf(errbuf, " copying: %s ", z->uname);
+      print_utf8(errbuf);
+    } else {
+#endif
+      sprintf(errbuf, " copying: %s ", z->oname);
+      zipmessage_nl(errbuf, 0);
+#ifdef UNICODE_SUPPORT
+    }
+#endif
   }
 
-  if (fix == 2)
+  if (fix == 2) {
     z->crc = localz->crc;
-  else
-    localz->crc = z->crc;
 
-  localz->encrypt_method = z->encrypt_method;
+#ifdef IZ_CRYPT_AES_WG
+    /* AES encryption */
+    if (localz->how == 99) {
+      ush aes_vendor_version = 0;
+      int aes_strength = 0;
+      ush comp_method = 0;
+      int result;
+
+      /* read the AES_WG extra field */
+      result = read_crypt_aes_loc_extra_field(localz,
+                                              &aes_vendor_version,
+                                              &aes_strength,
+                                              &comp_method);
+      if (result == 0) {
+        /* no AES_WG extra field */
+        zipwarn("file AES WG encrypted, but missing extra field: ", z->oname);
+      }
+    } /* 99 */
+    localz->encrypt_method = aes_strength;
+    z->encrypt_method = localz->encrypt_method;
+#endif
+  }
+  else {
+    localz->crc = z->crc;
+    localz->encrypt_method = z->encrypt_method;
+  }
+
 
   if ((localz->oname = malloc(strlen(z->oname) + 1)) == NULL) {
     return ZE_MEM;

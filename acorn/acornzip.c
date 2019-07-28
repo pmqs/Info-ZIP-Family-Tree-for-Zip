@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2016 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -132,7 +132,7 @@ char *p;
   int toret;
 
   /* special handling of stdin request */
-  if (strcmp(p, "-") == 0)   /* if compressing stdin */
+  if (is_stdin || (!no_stdin && strcmp(p, "-") == 0))   /* if compressing stdin */
     return newname(p, 0, 0);
 
   path=p;
@@ -166,7 +166,7 @@ int caseflag;           /* true to force case-sensitive match */
   struct stat s;        /* result of stat() */
   struct zlist far *z;  /* steps through zfiles list */
 
-  if (strcmp(n, "-") == 0)   /* if compressing stdin */
+  if (is_stdin || (!no_stdin && strcmp(n, "-") == 0))   /* if compressing stdin */
     return newname(n, 0, caseflag);
   else if (LSSTAT(n, &s))
   {
@@ -447,7 +447,7 @@ iztimes *t;             /* return value: access, modific. and creation times */
     name[len - 1] = '\0';
   /* not all systems allow stat'ing a file with / appended */
 
-  if (strcmp(f, "-") == 0) {
+  if (is_stdin || (!no_stdin && strcmp(f, "-") == 0)) {
   /* forge stat values for stdin since Amiga and RISCOS have no fstat() */
     s.st_mode = (S_IREAD|S_IWRITE|S_IFREG);
     s.st_size = -1;
@@ -591,3 +591,68 @@ void version_local()
       );
 
 } /* end function version_local() */
+
+
+# ifdef IZ_CRYPT_AES_WG
+
+/* 2011-04-24 SMS.
+ *
+ *       entropy_fun().
+ *
+ *    Fill the user's buffer with stuff.
+ */
+
+/* #  include <unistd.h> */
+#  include <time.h>
+
+int entropy_fun( unsigned char *buf, unsigned int len)
+{
+    int len_ret;
+
+#if 0
+
+    int fd;
+    static int i = -1;
+    char *rnd_dev_names[] = { "/dev/urandom", "/dev/random", NULL };
+
+    if (i < 0)
+    {
+        fd = -1;
+        while ((fd < 0) && (rnd_dev_names[ ++i] != NULL))
+        {
+            fd = open( rnd_dev_names[ i], O_RDONLY);
+        }
+    }
+    else
+    {
+        fd = open( rnd_dev_names[ i], O_RDONLY);
+    }
+
+    len_ret = 0;
+    if (fd >= 0)
+    {
+        len_ret = read( fd, buf, len);
+        close( fd);
+    }
+    else
+
+#endif /* 0 */
+
+    {
+        /* Good sources failed us.  Fall back to a lame source, namely
+         * rand(), using time()^ getpid() as a seed.
+         */
+        int tbuf;
+
+        srand( time( NULL) /* ^ getpid() */ );
+        tbuf = rand();
+
+        /* Move the results into the user's buffer. */
+        len_ret = IZ_MIN( 4, len);
+        memcpy( buf, &tbuf, len_ret);
+    }
+
+    return len_ret;
+}
+
+# endif /* def IZ_CRYPT_AES_WG */

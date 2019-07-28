@@ -1,0 +1,33 @@
+
+"make" macros to control various optional features:
+
+    NO_AES_WG=1       Disable AES_WG encryption.
+    BINS=[L][M][U]    Binaries build list (alphabetical order):
+                       L: object library (libizzip.a)
+                       M: main program (Zip)
+                       U: utility programs (ZipCloak, ZipNote, ZipSplit)
+                       Default: MU.
+    NO_IZ_BZIP2=1     Disable bzip2 compression.
+    LOCAL_ZIP=opts    Add C compiler options, "opts".
+    NO_LZMA=1         Disable LZMA compression.
+    NO_PPMD=1         Disable PPMd compression.
+    PROD=subdir       Build product files in "subdir", not ".".
+    NO_TRAD=1         Disable Traditional encryption.
+
+Example:
+
+    Make Zip programs without LZMA or PPMd compression:
+        make -f acorn/GMakefile NO_LZMA=1 NO_PPMD=1
+
+Use the "clean" target to delete any product files before
+building with different options.  (Or, specify an empty
+PROD directory.)
+
+After Zip has been built, use the "dashv" target  to get
+a "zip -v" report from the created Zip executable.
+
+        make -f acorn/GMakefile [ PROD=subdir ...] dashv
+
+See the files INSTALL, docs.zip/txt, and acorn.GMakefile for
+more information.
+

@@ -1,7 +1,7 @@
 /*
   zip.c - Zip 3.1
 
-  Copyright (c) 1990-2018 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2019 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -446,6 +446,16 @@ local void freeup()
     free(startup_dir);
     startup_dir = NULL;
   }
+# ifdef UNICODE_SUPPORT_WIN32
+  if (working_dirw) {
+    free(working_dirw);
+    working_dirw = NULL;
+  }
+  if (startup_dirw) {
+    free(startup_dirw);
+    startup_dirw = NULL;
+  }
+# endif
 #endif
 
   /* If args still has args, free them */
@@ -676,10 +686,10 @@ ZCONST char *h;         /* message about how it happened */
   /* LIB and DLL error callback */
   if (*lpZipUserFunctions->error != NULL) {
     if (PERR(c)) {
-      sprintf(ebuf, "zip I/O error: %s", strerror(errno));
+      sprintf(ebuf, "zip I/O error: %s\n", strerror(errno));
       (*lpZipUserFunctions->error)(ebuf);
     }
-    sprintf(ebuf, "zip error: %s (%s)", ZIPERRORS(c), message);
+    sprintf(ebuf, "zip error: %s (%s)\n", ZIPERRORS(c), message);
     (*lpZipUserFunctions->error)(ebuf);
   }
 #endif
@@ -1204,7 +1214,7 @@ local void help_extended()
 "    -x pattern1 pattern2 ...   exclude files that match a pattern",
 "  Patterns are paths with optional wildcards and match entire paths",
 "  relative to the current directory (which might have been changed",
-"  using the -cd option).  For example, on Unix aa/bb/* will match",
+"  using the -cd or -ci options).  For example, on Unix aa/bb/* will match",
 "  aa/bb/file.c, aa/bb/cc/file.txt, and so on.  (This syntax also works",
 "  on Windows, where \\ and / are both handled as directory separators.",
 "  Patterns should be in the local file system syntax.  For example, on",
@@ -2271,6 +2281,13 @@ local void help_extended()
 "              Equivalent to changing current dir before calling zip, except",
 "              current dir of caller not impacted.  On Windows, if dir",
 "              includes different drive letter, zip changes to that drive.",
+"              Archive contents will be relative to dir.",
+"",
+"    -ci idir  change current input directory",
+"              Same as -cd, except only paths of input files are impacted.",
+"              zip still looks for existing archives and include files in",
+"              current dir and writes archive to current dir.  Archive",
+"              contents will be relative to idir.",
 "",
 "    -b dir    put temp archive file in directory dir",
 "              Specifies where to put the temp file that will become",
@@ -4980,7 +4997,7 @@ char *replace_newline_escapes(instr)
   char *instr;
 #endif
 {
-  int len;
+  size_t len;
   char *buf;
   int i;
   int j;
@@ -5024,17 +5041,17 @@ char *replace_newline_escapes(instr)
 
 
 #ifndef NO_PROTO
-char *check_archive_comment(char *zcomment, int zcomlen)
+char *check_archive_comment(char *zcomment, size_t zcomlen)
 #else
 char *check_archive_comment(zcomment, zcomlen)
   char *zcomment;
-  int zcomlen;
+  size_t zcomlen;
 #endif
 {
-  int len;
+  size_t len;
   char *buf;
-  int i;
-  int j;
+  size_t i;
+  size_t j;
   char lastc;
   char c;
 
@@ -5045,7 +5062,7 @@ char *check_archive_comment(zcomment, zcomlen)
   zcomment[zcomlen] = '\0';
   len = strlen(zcomment);
   if (len < zcomlen) {
-    zcomlen = len;
+    zcomlen = (ush)len;
   }
 
   /* Check for binary. */
@@ -6172,96 +6189,97 @@ void check_path(path, option_name)
 #define o_BT            0x112
 #define o_cc            0x113
 #define o_cd            0x114
-#define o_C2            0x115
-#define o_C5            0x116
-#define o_CO            0x117
-#define o_Cl            0x118
-#define o_Cu            0x119
-#define o_db            0x120
-#define o_dc            0x121
-#define o_dd            0x122
-#define o_de            0x123
-#define o_des           0x124
-#define o_df            0x125
-#define o_DF            0x126
-#define o_DI            0x127
-#define o_dg            0x128
-#define o_dr            0x129
-#define o_ds            0x130
-#define o_dt            0x131
-#define o_du            0x132
-#define o_dv            0x133
-#define o_EA            0x134
-#define o_fc            0x135
-#define o_FF            0x136
-#define o_FI            0x137
-#define o_FS            0x138
-#define o_h2            0x139
-#define o_ic            0x140
-#define o_jj            0x141
-#define o_kf            0x142
-#define o_la            0x143
-#define o_lf            0x144
-#define o_lF            0x145
-#define o_li            0x146
-#define o_ll            0x147
-#define o_lu            0x148
-#define o_mm            0x149
-#define o_MM            0x150
-#define o_MV            0x151
-#define o_nw            0x152
-#define o_p0            0x153
-#define o_pa            0x154
-#define o_pn            0x155
-#define o_pp            0x156
-#define o_ps            0x157
-#define o_pt            0x158
-#define o_pu            0x159
-#define o_RE            0x160
-#define o_sb            0x161
-#define o_sc            0x162
-#define o_sC            0x163
-#define o_sd            0x164
-#define o_sf            0x165
-#define o_sF            0x166
-#define o_si            0x167
-#define o_SI            0x168
-#define o_so            0x169
-#define o_sp            0x170
-#define o_sP            0x171
-#define o_ss            0x172
-#define o_SS            0x173
-#define o_st            0x174
-#define o_ST            0x175
-#define o_su            0x176
-#define o_sU            0x177
-#define o_sv            0x178
-#define o_td            0x179
-#define o_tn            0x180
-#define o_tt            0x181
-#define o_TT            0x182
-#define o_TU            0x183
-#define o_TV            0x184
-#define o_UD            0x185
-#define o_UE            0x186
-#define o_UL            0x187
-#define o_UN            0x188
-#define o_US            0x189
-#define o_UT            0x190
-#define o_ve            0x191
-#define o_vq            0x192
-#define o_VV            0x193
-#define o_wl            0x194
-#define o_ws            0x195
-#define o_ww            0x196
-#define o_yy            0x197
-#define o_z64           0x198
-#define o_zc            0x199
-#define o_zz            0x200
-#define o_atat          0x201
-#define o_vn            0x202
-#define o_et            0x203
-#define o_exex          0x204
+#define o_ci            0x115
+#define o_C2            0x116
+#define o_C5            0x117
+#define o_CO            0x118
+#define o_Cl            0x119
+#define o_Cu            0x120
+#define o_db            0x121
+#define o_dc            0x122
+#define o_dd            0x123
+#define o_de            0x124
+#define o_des           0x125
+#define o_df            0x126
+#define o_DF            0x127
+#define o_DI            0x128
+#define o_dg            0x129
+#define o_dr            0x130
+#define o_ds            0x131
+#define o_dt            0x132
+#define o_du            0x133
+#define o_dv            0x134
+#define o_EA            0x135
+#define o_fc            0x136
+#define o_FF            0x137
+#define o_FI            0x138
+#define o_FS            0x139
+#define o_h2            0x140
+#define o_ic            0x141
+#define o_jj            0x142
+#define o_kf            0x143
+#define o_la            0x144
+#define o_lf            0x145
+#define o_lF            0x146
+#define o_li            0x147
+#define o_ll            0x148
+#define o_lu            0x149
+#define o_mm            0x150
+#define o_MM            0x151
+#define o_MV            0x152
+#define o_nw            0x153
+#define o_p0            0x154
+#define o_pa            0x155
+#define o_pn            0x156
+#define o_pp            0x157
+#define o_ps            0x158
+#define o_pt            0x159
+#define o_pu            0x160
+#define o_RE            0x161
+#define o_sb            0x162
+#define o_sc            0x163
+#define o_sC            0x164
+#define o_sd            0x165
+#define o_sf            0x166
+#define o_sF            0x167
+#define o_si            0x168
+#define o_SI            0x169
+#define o_so            0x170
+#define o_sp            0x171
+#define o_sP            0x172
+#define o_ss            0x173
+#define o_SS            0x174
+#define o_st            0x175
+#define o_ST            0x176
+#define o_su            0x177
+#define o_sU            0x178
+#define o_sv            0x179
+#define o_td            0x180
+#define o_tn            0x181
+#define o_tt            0x182
+#define o_TT            0x183
+#define o_TU            0x184
+#define o_TV            0x185
+#define o_UD            0x186
+#define o_UE            0x187
+#define o_UL            0x188
+#define o_UN            0x189
+#define o_US            0x190
+#define o_UT            0x191
+#define o_ve            0x192
+#define o_vq            0x193
+#define o_VV            0x194
+#define o_wl            0x195
+#define o_ws            0x196
+#define o_ww            0x197
+#define o_yy            0x198
+#define o_z64           0x199
+#define o_zc            0x200
+#define o_zz            0x201
+#define o_atat          0x202
+#define o_vn            0x203
+#define o_et            0x204
+#define o_exex          0x205
 
 
 /* the below is mainly from the old main command line
@@ -6320,6 +6338,7 @@ struct option_struct far options[] = {
     {"c",  "entry-comments",o_OPT_EQ_VALUE, o_NOT_NEGATABLE, 'c',  "add comments for each entry"},
     {"cc", "entry-comment-file",o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_cc, "add entry comments from file"},
     {"cd", "chdir",       o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_cd, "set current dir for paths"},
+    {"ci", "chindir",     o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_ci, "set current dir for input paths"},
     {"",   "corrupt",     o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_CO, "corrupt things for testing"},
 #ifdef VMS
     {"C",  "preserve-case", o_NO_VALUE,     o_NEGATABLE,     'C',  "Preserve (C-: down-) case all on VMS"},
@@ -6559,11 +6578,6 @@ char **argv;            /* command line tokens */
   uzoff_t n;            /* total of entry len's */
 
   int o;                /* true if there were any ZE_OPEN errors */
-#if 0
-#if !defined(ZIPLIB) && !defined(ZIPDLL)
-  char *p;              /* steps through option arguments */
-#endif
-#endif
   char *pp;             /* temporary pointer */
   int r;                /* temporary variable */
   int s;                /* flag to read names from stdin */
@@ -6894,6 +6908,7 @@ char **argv;            /* command line tokens */
 
   startup_dir = NULL;     /* dir that Zip starts in (current dir ".") */
   working_dir = NULL;     /* dir user asked to change to for zipping */
+  out_to_start_dir = 0;   /* 1 = if use working_dir, out to startup_dir */
 
   hidden_files = 0;       /* process hidden and system files */
   volume_label = 0;       /* add volume label */
@@ -7187,8 +7202,14 @@ char **argv;            /* command line tokens */
 #  ifndef VALID_TIMEZONE
 #     define VALID_TIMEZONE(tmp) \
              (((tmp = getenv("TZ")) != NULL) && (*tmp != '\0'))
+  {
+    char *p;
+    zp_tz_is_valid = VALID_TIMEZONE(p);
+  }
+#else
+  /* Currently only Amiga defines VALID_TIMEZONE and doesn't use a temp var */
+  zp_tz_is_valid = VALID_TIMEZONE();
 #  endif
-  zp_tz_is_valid = VALID_TIMEZONE(p);
 #if (defined(AMIGA) || defined(DOS))
   if (!zp_tz_is_valid)
     extra_fields = 0;     /* disable storing "UT" time stamps */
@@ -7861,6 +7882,16 @@ char **argv;            /* command line tokens */
 #else
           ZIPERR(ZE_PARMS, "-cd not enabled");
 #endif
+        case o_ci:  /* Change default input directory */
+#ifdef CHANGE_DIRECTORY
+          if (working_dir)
+            free(working_dir);
+          working_dir = value;
+          out_to_start_dir = 1;
+          break;
+#else
+          ZIPERR(ZE_PARMS, "-ci not enabled");
+#endif
         case o_CO:  /* Purposely corrupt CRCs (to test UnZip) */
           /* Other things may be added to this list. */
           if (value) {
@@ -8464,6 +8495,12 @@ char **argv;            /* command line tokens */
             option_flag *flags = NULL;
 
             cnt = get_flags(value, &flags);
+            if (cnt == -1) {
+              sprintf(errbuf, "error parsing -sF option flags (%s)", value);
+              zipwarn(errbuf, "");
+              free(value);
+              ZIPERR(ZE_PARMS, "-sF (--sf-params) could not parse flags");
+            }
             for (i = 0; flags[i].flag_name; i++) {
               /* process option flags */
               if (strcmp(flags[i].flag_name, "-") == 0 ||
@@ -8490,6 +8527,13 @@ char **argv;            /* command line tokens */
                   sf_comment = 0;
                 } else {
                   sf_comment = 1;
+                }
+              }
+              else if (abbrevmatch("zcomment", flags[i].flag_name, CASE_INS, MIN_ABBREV_MATCH(1))) {
+                if (flags[i].negated) {
+                  sf_zcomment = 0;
+                } else {
+                  sf_zcomment = 1;
                 }
               }
               else {
@@ -9053,7 +9097,6 @@ char **argv;            /* command line tokens */
             ZIPERR(ZE_PARMS, "-zz requires a file path");
           } else {
             FILE *f;
-            int len = 0;
             char linebuf[MAXCOMLINE + 1];
             char combuf[MAX_COM_LEN + 1];
 
@@ -9694,95 +9737,53 @@ char **argv;            /* command line tokens */
   if (working_dir) {
 
 # ifdef UNICODE_SUPPORT_WIN32
-
-    int working_dir_utf8 = is_utf8_string(working_dir, NULL, NULL, NULL, NULL);
-
-    /* save startup dir */
-    if (startup_dirw)
+    /* save wide startup dir */
+    if (startup_dirw) {
       free(startup_dirw);
+    }
     if ((startup_dirw = _wgetcwd(NULL, 0)) == NULL) {
       sprintf(errbuf, "saving dir: %S\n  %s", startup_dirw, strerror(errno));
-      free(working_dir);
-      working_dir = NULL;
+      /* let freeup() free things */
       ZIPERR(ZE_PARMS, errbuf);
     }
 
-    /* change to working dir */
-    if (working_dir_utf8) {
-      /* UTF-8 working_dir */
-      working_dirw = utf8_to_wchar_string(working_dir);
-      if (working_dirw == NULL) {
-        ZIPERR(ZE_PARMS, "converting working_dir to wide");
-      }
-      if (_wchdir(working_dirw)) {
-        sprintf(errbuf, "changing to dir: %S\n  %s", working_dirw, strerror(errno));
-        free(working_dirw);
-        working_dirw = NULL;
-        free(working_dir);
-        working_dir = NULL;
-        ZIPERR(ZE_PARMS, errbuf);
-      }
+    /* save wide working dir */
+    if (working_dirw) {
+      free(working_dirw);
     }
-
-    else
-    {
-      /* local charset working_dir */
-      if (CHDIR(working_dir)) {
-        sprintf(errbuf, "changing to dir: %s\n  %s", working_dir, strerror(errno));
-        free(working_dir);
-        working_dir = NULL;
-        ZIPERR(ZE_PARMS, errbuf);
-      }
+    working_dirw = utf8_to_wchar_string(working_dir);
+    if (working_dirw == NULL) {
+      ZIPERR(ZE_PARMS, "converting working_dir to wide");
     }
-
-    if (noisy) {
-      wchar_t *current_dirw = NULL;
-      
-      if ((current_dirw = _wgetcwd(NULL, 0)) == NULL) {
-        sprintf(errbuf, "getting current dir: %s", strerror(errno));
-        ZIPERR(ZE_PARMS, errbuf);
-      }
-      sprintf(errbuf, "current directory set to: %S", current_dirw);
-      zipmessage(errbuf, "");
-      free(current_dirw);
-    }
-
 # else /* not UNICODE_SUPPORT_WIN32 */
     /* save startup dir */
-    if (startup_dir)
+    if (startup_dir) {
       free(startup_dir);
+    }
     if ((startup_dir = GETCWD(NULL, 0)) == NULL) {
       sprintf(errbuf, "saving dir: %s\n  %s", startup_dir, strerror(errno));
-      free(working_dir);
-      working_dir = NULL;
       ZIPERR(ZE_PARMS, errbuf);
-    }
-
-    /* change to working dir */
-    if (CHDIR(working_dir)) {
-      sprintf(errbuf, "changing to dir: %s\n  %s", working_dir, strerror(errno));
-      free(working_dir);
-      working_dir = NULL;
-      ZIPERR(ZE_PARMS, errbuf);
-    }
-
-    if (noisy) {
-      char *current_dir = NULL;
-      
-      if ((current_dir = GETCWD(NULL, 0)) == NULL) {
-        sprintf(errbuf, "getting current dir: %s", strerror(errno));
-        ZIPERR(ZE_PARMS, errbuf);
-      }
-      sprintf(errbuf, "current directory set to: %s", current_dir);
-      zipmessage(errbuf, "");
-      free(current_dir);
     }
 # endif /* def UNICODE_SUPPORT_WIN32 else */
 
+
+    /* change to working dir */
+    change_to_working_dir();
+
+    if (noisy) {
+      show_current_dir();
+    }
   }
 #endif /* CHANGE_DIRECTORY */
 
-  
+#ifdef CHANGE_DIRECTORY
+  if (out_to_start_dir) {
+    /* If use working_dir and -ci, change to start dir for
+        backup operations and reading old archive. */
+    change_to_startup_dir();
+  }
+#endif
+
 #ifdef BACKUP_SUPPORT
 
   /* ----------------------------------------- */
@@ -9861,6 +9862,11 @@ char **argv;            /* command line tokens */
               backup_control_path);
       ZIPERR(ZE_OPEN, errbuf);
     }
+#ifdef CHANGE_DIRECTORY
+    if (out_to_start_dir) {
+      change_to_working_dir();
+    }
+#endif
 
     /* read backup control file */
     if ((linebuf = (char *)malloc((FNMAX + 101) * sizeof(char))) == NULL) {
@@ -10236,6 +10242,18 @@ char **argv;            /* command line tokens */
       sprintf(errbuf, "sd: out_path NULL");
     }
     sdmessage(errbuf, "");
+#ifdef CHANGE_DIRECTORY
+    if (out_to_start_dir) {
+# ifdef UNICODE_SUPPORT_WIN32
+      char *u = wchar_to_utf8_string(startup_dirw);
+      sprintf(errbuf, "sd: startup_dir '%s'", u);
+      free(u);
+# else
+      sprintf(errbuf, "sd: startup_dir '%s'", startup_dir);
+# endif
+      sdmessage(errbuf, "");
+    }
+#endif
   }
 
 
@@ -10505,6 +10523,13 @@ char **argv;            /* command line tokens */
   } /* !show_files */
   /* ----------------- */
 #endif /* def IZ_CRYPT_ANY */
+
+#ifdef CHANGE_DIRECTORY
+  if (out_to_start_dir) {
+    /* revert back to working dir */
+    change_to_working_dir();
+  }
+#endif
 
   /* Check path prefix */
   if (path_prefix) {
@@ -11108,10 +11133,11 @@ char **argv;            /* command line tokens */
   /* Only read the central directory and build zlist */
 
 #ifdef BACKUP_SUPPORT
-      if (backup_type == BACKUP_DIFF || backup_type == BACKUP_INCR) {
-        zipmessage("Scanning full backup archive:  ", backup_full_path);
-      }
+  if (backup_type == BACKUP_DIFF || backup_type == BACKUP_INCR) {
+    zipmessage("Scanning full backup archive:  ", backup_full_path);
+  }
 #endif /* BACKUP_SUPPORT */
+
 
   if (!zipfile) {
     if (show_what_doing) {
@@ -11130,6 +11156,12 @@ char **argv;            /* command line tokens */
     }
 
     /* read zipfile if exists */
+#ifdef CHANGE_DIRECTORY
+    if (out_to_start_dir) {
+      /* change back to startup dir to read archive */
+      change_to_startup_dir();
+    }
+#endif
 #ifdef BACKUP_SUPPORT
     if (backup_type == BACKUP_FULL) {
       /* skip reading archive, even if exists, as replacing */
@@ -11142,6 +11174,11 @@ char **argv;            /* command line tokens */
     if (show_what_doing) {
       sdmessage("sd: Archive read or no archive", "");
     }
+#ifdef CHANGE_DIRECTORY
+    if (out_to_start_dir) {
+      change_to_working_dir();
+    }
+#endif
   }
 
   if (show_zip_comment) {
@@ -11149,7 +11186,7 @@ char **argv;            /* command line tokens */
       sdmessage("showing zipfile comment", "");
     }
     if (zcomment) {
-      fwrite(zcomment, 1, zcomlen, mesg);
+      print_utf8(zcomment);
       if (zcomment[zcomlen-1] != '\n') {
         putc('\n', mesg);
       }
@@ -11192,6 +11229,13 @@ char **argv;            /* command line tokens */
 
   if (noisy_splits && split_size > 0)
     zipmessage("splitsize = ", zip_fuzofft(split_size, NULL, NULL));
+#endif
+
+#ifdef CHANGE_DIRECTORY
+  if (out_to_start_dir) {
+    /* done reading archive, return to working dir */
+    change_to_working_dir();
+  }
 #endif
 
   /* so disk display starts at 1, will be updated when entries are read */
@@ -11369,6 +11413,7 @@ char **argv;            /* command line tokens */
   } /* filelist */
 
 #ifdef IZ_CRYPT_AES_WG
+
   if (encryption_method >= AES_MIN_ENCRYPTION) {
     /*
     time_t pool_init_start;
@@ -11387,6 +11432,7 @@ char **argv;            /* command line tokens */
 
     /* initialize the random number pool */
     aes_rnp.entropy = entropy_fun;
+    /* to aSc - this is in a IZ_CRYPT_AES_WG block and should not need CRYPT_AES_WG */
     prng_init(aes_rnp.entropy, &aes_rnp);
     /* and the salt */
 # if 0
@@ -11397,7 +11443,8 @@ char **argv;            /* command line tokens */
 # endif
 
     /* We now allow using a "fake" salt for debugging purposes (ONLY). */
-    salt_len = SALT_LENGTH(encryption_method - (AES_MIN_ENCRYPTION - 1));
+    /*                Note: v-- No parentheses in SALT_LENGTH def'n.  --v */
+    salt_len = SALT_LENGTH( (encryption_method - (AES_MIN_ENCRYPTION - 1)));
     if ((zsalt = malloc(salt_len)) == NULL) {
       ZIPERR(ZE_MEM, "Getting memory for salt");
     }
@@ -11634,7 +11681,7 @@ char **argv;            /* command line tokens */
  * size they are at the moment.  2015-08-04 EG */
 
   if (show_what_doing) {
-    sprintf(errbuf, "sd: zcount = %ld", (ulg) zcount);
+    sprintf(errbuf, "sd: zcount = %s", zip_fuzofft(zcount, NULL, NULL));
     sdmessage(errbuf, "");
   }
 
@@ -11944,7 +11991,7 @@ char **argv;            /* command line tokens */
 
   /* Remove entries from found list that do not exist or are too old */
   if (show_what_doing) {
-    sprintf(errbuf, "sd: fcount = %lu", (ulg)fcount);
+    sprintf(errbuf, "sd: fcount = %s", zip_fuzofft(fcount, NULL, NULL));
     sdmessage(errbuf, "");
   }
 
@@ -12825,6 +12872,28 @@ char **argv;            /* command line tokens */
         }
       }
     }
+    if (sf_zcomment) {
+      zprintf("\nzipfile comment:\n");
+      if (logfile) {
+        fprintf(logfile, "\nzipfile comment:\n");
+      }
+      if (zcomment) {
+        print_utf8("----------\n");
+        print_utf8(zcomment);
+        if (zcomment[zcomlen-1] != '\n') {
+          print_utf8("\n");
+        }
+        print_utf8("----------\n");
+        if (logfile) {
+          fwrite("----------\n", 1, 11, logfile);
+          fwrite(zcomment, 1, zcomlen, logfile);
+          if (zcomment[zcomlen-1] != '\n') {
+            putc('\n', logfile);
+          }
+          fwrite("----------\n", 1, 11, logfile);
+        }
+      }
+    }
 #ifdef ZIP_DLL_LIB
     if (*lpZipUserFunctions->finish != NULL) {
       char susize[100];
@@ -12926,6 +12995,14 @@ char **argv;            /* command line tokens */
   orig_argv = NULL;
 
 
+#ifdef CHANGE_DIRECTORY
+  if (out_to_start_dir) {
+    /* If use working_dir and -ci, change to start dir for
+        output operations. */
+    change_to_startup_dir();
+  }
+#endif
+
   /* Before we get carried away, make sure zip file is writeable. This
    * has the undesired side effect of leaving one empty junk file on a WORM,
    * so when the zipfile does not exist already and when -b is specified,
@@ -12939,6 +13016,7 @@ char **argv;            /* command line tokens */
 #ifdef BACKUP_SUPPORT
       if (backup_type) have_out = 1;
 #endif
+
 #ifdef UNICODE_SUPPORT_WIN32
       x = (have_out || (zfiles == NULL && zipbeg == 0)) ?
               zfopen(out_path, FOPW) :
@@ -13121,6 +13199,13 @@ char **argv;            /* command line tokens */
     }
 #endif /* defined(UNIX) && !defined(NO_MKSTEMP) */
   }
+
+#ifdef CHANGE_DIRECTORY
+  if (out_to_start_dir) {
+    change_to_working_dir();
+  }
+#endif
+
 
 #if (!defined(VMS) && !defined(CMS_MVS))
   /* Use large buffer to speed up stdio: */
@@ -14450,9 +14535,9 @@ char **argv;            /* command line tokens */
   {
     char entry_comment_buf[MAX_COM_LEN + 1];
     char entry_comment_line[MAXCOMLINE + 1];
-    int entry_comment_len = 0;
-    int line_len;
-    int new_len;
+    size_t entry_comment_len = 0;
+    size_t line_len;
+    size_t new_len;
 
 #endif
     {
@@ -14478,9 +14563,21 @@ char **argv;            /* command line tokens */
     /* If set, use this path for entry comments being set */
     if (global_entry_comment_path) {
       FILE *entry_comment_file;
+#ifdef CHANGE_DIRECTORY
+      if (out_to_start_dir) {
+        /* If use working_dir and -ci, change to start dir for
+            reading comment file. */
+        change_to_startup_dir();
+      }
+#endif
       if ((entry_comment_file = zfopen(global_entry_comment_path, "r")) == NULL) {
         ZIPERR(ZE_OPEN, global_entry_comment_path);
       }
+#ifdef CHANGE_DIRECTORY
+      if (out_to_start_dir) {
+        change_to_working_dir();
+      }
+#endif
       entry_comment_buf[0] = '\0';
       while (!feof(entry_comment_file)) {
         if (fgets(entry_comment_line, MAXCOMLINE, entry_comment_file) == NULL) {
@@ -14490,7 +14587,7 @@ char **argv;            /* command line tokens */
         new_len = entry_comment_len + line_len;
         if (new_len > MAX_COM_LEN) {
           fclose(entry_comment_file);
-          sprintf(errbuf, "entry comment read from file too big:  %d", new_len);
+          sprintf(errbuf, "entry comment read from file too big:  %ld", (ulg)new_len);
           ZIPERR(ZE_BIG, errbuf);
         }
         strcat(entry_comment_buf, entry_comment_line);
@@ -14531,19 +14628,17 @@ char **argv;            /* command line tokens */
         else if (comadd)
 #endif /* AMIGA || MACOS */
         {
-#if defined(ZIPLIB) || defined(ZIPDLL)
-          ecomment(z);
-#else
-
-
           /* If set, use this path for entry comments being set */
           if (global_entry_comment) {
             z->comment = string_dup(global_entry_comment, "global entry comment", NO_FLUFF);
-            z->com = strlen(global_entry_comment);
+            z->com = (ush) strlen(global_entry_comment);
           } else {
+#if defined(ZIPLIB) || defined(ZIPDLL)
+            ecomment(z);
+#else
             get_entry_comment(z);
-          }
 #endif /* defined(ZIPLIB) || defined(ZIPDLL) */
+          }
 
 #if 0
           if (noisy)
@@ -14645,11 +14740,11 @@ char **argv;            /* command line tokens */
       {
         /* Display old archive comment, if any. */
         fputs("Current zip file comment:\n", mesg);
-        fputs("----------\n", mesg);
-        fwrite(zcomment, 1, zcomlen, mesg);
+        print_utf8("----------\n");
+        print_utf8(zcomment);
         if (zcomment[zcomlen-1] != '\n')
-          putc('\n', mesg);
-        fputs("----------\n", mesg);
+          print_utf8("\n");
+        print_utf8("----------\n");
       }
 
       comment_from_tty = ISATTY(fileno(comment_stream));
@@ -14874,7 +14969,7 @@ char **argv;            /* command line tokens */
         /* Display old archive comment, if any. */
         zfprintf(mesg, "Current zip file comment is:\n");
         zfprintf(mesg, "----------\n");
-        zfprintf(mesg, "%s", zcomment);
+        print_utf8(zcomment);
         if (zcomment[zcomlen-1] != '\n')
           zfprintf(mesg, "\n");
         zfprintf(mesg, "----------\n");
@@ -14883,13 +14978,13 @@ char **argv;            /* command line tokens */
         free(zcomment);
       }
       zcomment = zcomment_new;
-      zcomlen = strlen(zcomment);
+      zcomlen = (ush) strlen(zcomment);
     }
 
     new_zcomment = check_archive_comment(zcomment, zcomlen);
     free(zcomment);
     zcomment = new_zcomment;
-    zcomlen = strlen(zcomment);
+    zcomlen = (ush) strlen(zcomment);
 
 #if 0
     /* Check for binary. */
@@ -14910,7 +15005,7 @@ char **argv;            /* command line tokens */
           zfprintf(mesg, "New zip file comment:\n");
         }
         zfprintf(mesg, "----------\n");
-        zfprintf(mesg, "%s", zcomment);
+        print_utf8(zcomment);
         if (zcomment[zcomlen-1] != '\n') {
           /* Add line end at end if needed. */
           zfprintf(mesg, "\n");
@@ -15033,6 +15128,13 @@ char **argv;            /* command line tokens */
 #endif
 
 
+#ifdef CHANGE_DIRECTORY
+  if (out_to_start_dir) {
+    /* Input done, so switch back to startup dir where zipfile path relative to */
+    change_to_startup_dir();
+  }
+#endif
+
 #ifdef TEST_ZIPFILE
   /* Test new zip file before overwriting old one or removing input files */
   /* Split archives tested below after rename.  If --out used, also test
@@ -15113,7 +15215,7 @@ char **argv;            /* command line tokens */
     FILE *fcontrol;
     struct tm *now;
     time_t clocktime;
-    char end_datetime[20];
+    char end_datetime[100];
 
     if (show_what_doing) {
       sdmessage("sd: Creating -BT control file", "");
@@ -15195,6 +15297,12 @@ char **argv;            /* command line tokens */
 #ifdef WIN32
   /* All looks good so, if requested, clear the DOS archive bits */
   if (clear_archive_bits) {
+# ifdef CHANGE_DIRECTORY
+    if (out_to_start_dir) {
+      /* Well, almost done with input.  Input paths relative to -ci dir. */
+      change_to_working_dir();
+    }
+# endif
     if (noisy)
       zipmessage("Clearing archive bits...", "");
     for (z = zfiles; z != NULL; z = z->nxt)
@@ -15217,6 +15325,11 @@ char **argv;            /* command line tokens */
       }
 # endif
     }
+# ifdef CHANGE_DIRECTORY
+    if (out_to_start_dir) {
+      change_to_startup_dir();
+    }
+# endif
   }
 #endif /* WIN32 */
 

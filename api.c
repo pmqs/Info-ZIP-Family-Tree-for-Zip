@@ -1,7 +1,7 @@
 /*
   api.c - Zip 3
 
-  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2019 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -12,19 +12,32 @@
 
   api.c
 
-  This module supplies a Zip DLL engine for use directly from C/C++
-  and other programs.  See api.h for more information.  This module was
-  originally used only by the Windows DLL, but has been adapted for more
-  general use with the LIB interface of some ports.  See api.h for more.
+  This module supplies a Zip LIB/DLL engine for use directly from C/C++
+  and other programs.  This module was originally used only by the Windows
+  and OS2 DLLs, but has been adapted for more general use with the LIB
+  interface of some ports.  See api.h for more information.
+
+  zip32 is compiled as 32 bit.  zip64 is compiled as 64 bit.  zip32 should
+  work on 32-bit and 64-bit systems.  zip64 is for 64-bit systems only.
 
   The entry points are:
 
-    void EXPENTRY ZpVersion()
-    int  EXPENTRY ZpInit()
-    int  EXPENTRY ZpZip()
+    void ZIPEXPENTRY ZpVersion()              - get version information
+    int  ZIPEXPENTRY ZpZip()                  - call Zip with command line
+    int  ZIPEXPENTRY ZpZipArgs()              - call Zip with argv, argc
+    int  ZIPEXPENTRY ZpStringCopy()           - copy string to provided memory
 
-  Obsolete:
-    int  EXPENTRY ZpArchive()
+  Deprecated/Obsolete:
+    int  ZIPEXPENTRY ZpInit()                 - init function structure
+    int  ZIPEXPENTRY ZpArchive()              - call Zip with Options structure
+
+  For testing:
+    int   ZIPEXPENTRY ZpTestComParse()        - test command line parsing
+    void  ZIPEXPENTRY ZpTestCallback()        - test callback
+    void  ZIPEXPENTRY ZpTestCallbackStruct()  - test callback structure
+    int   ZIPEXPENTRY ZpZipTest()             - test the main Zip callbacks
+
+  See api.h and below comments for additional details.
 
   ---------------------------------------------------------------------------*/
 #define __API_C
@@ -94,7 +107,13 @@ char szTempDir[PATH_MAX];
     Local functions
   ---------------------------------------------------------------------------*/
 
+#ifndef NO_PROTO
 int ParseString(LPSTR s, unsigned int ArgC)
+#else
+int ParseString(s, ArgC)
+  LPSTR s;
+  unsigned int ArgC;
+#endif
 {
 unsigned int i;
 int root_flag, m, j;
@@ -153,6 +172,7 @@ while ((str2 = strchr(str1, '\"')) != NULL)
     if ((argVee = (char **)realloc(argVee, size + sizeof(char *))) == NULL)
         {
         fprintf(stdout, "Unable to allocate memory in zip dll\n");
+        free(str1);
         return ZE_MEM;
         }
     /* argCee is incremented in AllocMemory */
@@ -217,6 +237,7 @@ while ((str2[0] != '\0') && (str3[0] != '@'))
     if ((argVee = (char **)realloc(argVee, size + sizeof(char *))) == NULL)
         {
         fprintf(stdout, "Unable to allocate memory in zip dll\n");
+        free(str1);
         return ZE_MEM;
         }
     if (AllocMemory(i, str2, "Creating file list from string", TRUE) != ZE_OK)
@@ -232,11 +253,19 @@ free(str1);
 return ZE_OK;
 }
 
-int AllocMemory(unsigned int i, char *cmd, char *str, BOOL IncrementArgCee)
+#ifndef NO_PROTO
+int AllocMemory(unsigned int i, char *cmd, char *str, BOOL incrementArgCee)
+#else
+int AllocMemory(i, cmd, str, incrementArgCee)
+  unsigned int i;
+  char *cmd;
+  char *str;
+  BOOL incrementArgCee;
+#endif
 {
 if ((argVee[i] = (char *) malloc( sizeof(char) * strlen(cmd)+1 )) == NULL)
    {
-   if (IncrementArgCee)
+   if (incrementArgCee)
        argCee++;
    FreeArgVee();
    fprintf(stdout, "Unable to allocate memory in zip library at %s\n", str);
@@ -260,11 +289,18 @@ for (i = 0; i < argCee; i++)
 /* Then free the array itself */
 free(argVee);
 
+#ifdef CHANGE_DIRECTORY
+
 /* Restore the original working directory */
-chdir(szOrigDir);
-#ifdef __BORLANDC__
-setdisk(toupper(szOrigDir[0]) - 'A');
-#endif
+if (CHDIR(szOrigDir) == -1)
+  {
+  return;
+  }
+# ifdef __BORLANDC__
+  setdisk(toupper(szOrigDir[0]) - 'A');
+# endif
+
+#endif /* def CHANGE_DIRECTORY */
 
 }
 
@@ -276,18 +312,23 @@ setdisk(toupper(szOrigDir[0]) - 'A');
 
 /* ZpInit - Call first to initialize the LIB or DLL
  *
+ * This is deprecated.  Use ZpZip and ZpZipArgs, which does it all in one
+ * call.
+ *
  * This can be used in a LIB application to set up function callbacks
  * before calling zipmain().
  *
- * This entry point is mainly replaced by ZpZip, which does it all in one
- * call.
- *
  * Avoid using ZpInit with DLL as it doesn't share.  It's use can also
  * cause a race condition in the DLL environment.  DLL users should only
- * use ZpZip.
+ * use ZpZip or ZpZipArgs.
  */
 
+#ifndef NO_PROTO
 int ZIPEXPENTRY ZpInit(LPZIPUSERFUNCTIONS lpZipUserFunc)
+#else
+int ZIPEXPENTRY ZpInit(lpZipUserFunc)
+  LPZIPUSERFUNCTIONS lpZipUserFunc;
+#endif
 {
 #if 0
 ZipUserFunctions = *lpZipUserFunc;
@@ -326,12 +367,20 @@ return TRUE;
 
 /* ZpArchive - Call to pass in options and actually do work
  *
- * This is replaced by ZpZip.  This entry point remains as older
- * application code is being converted to use ZpZip.
+ * This call is deprecated and is replaced by ZpZip and ZpZipArgs.  This entry
+ * point remains as older application code is being converted to use ZpZip and
+ * ZpZipArgs.  Note that the Opts structure has not been updated to include
+ * any recent changes or additions to Zip.
  */
 
+#ifndef NO_PROTO
 int ZIPEXPENTRY ZpArchive(ZCL C, LPZPOPT Opts)
-/* Add, update, freshen, or delete zip entries in a zip file.  See the
+#else
+int ZIPEXPENTRY ZpArchive(C, Opts)
+  ZCL C;
+  LPZPOPT Opts;
+#endif
+  /* Add, update, freshen, or delete zip entries in a zip file.  See the
    command help in help() zip.c */
 {
 int k, j, m;
@@ -347,41 +396,50 @@ if (ZipOpts.szExcludeList) lstrcpy(szExcludeList, ZipOpts.szExcludeList);
 if (ZipOpts.szIncludeList) lstrcpy(szIncludeList, ZipOpts.szIncludeList);
 if (ZipOpts.szTempDir) lstrcpy(szTempDir, ZipOpts.szTempDir);
 
-getcwd(szOrigDir, PATH_MAX); /* Save current drive and directory */
+#ifdef CHANGE_DIRECTORY
+
+if (GETCWD(szOrigDir, PATH_MAX) == NULL) { /* Save current drive and directory */
+    return ZE_PATH;
+}
 
 if (szRootDir[0] != '\0')
-   {
+    {
 #ifdef WIN32
-   char c;
+    char c;
 
-   /* Make sure there isn't a trailing slash */
-   c = szRootDir[lstrlen(szRootDir)-1];
-   if (c == '\\' || c == '/')
-       szRootDir[lstrlen(szRootDir)-1] = '\0';
+    /* Make sure there isn't a trailing slash */
+    c = szRootDir[lstrlen(szRootDir)-1];
+    if (c == '\\' || c == '/')
+        szRootDir[lstrlen(szRootDir)-1] = '\0';
 #endif
 
-   chdir(szRootDir);
+    if (CHDIR(szRootDir) == -1)
+        {
+        return ZE_PARMS;
+        }
 #ifdef __BORLANDC__
-   setdisk(toupper(szRootDir[0]) - 'A');
+        setdisk(toupper(szRootDir[0]) - 'A');
 #endif
-   }
+    }
+
+#endif /* def CHANGE_DIRECTORY */
 
 argCee = 0;
 
 /* malloc additional 40 to allow for additional command line arguments. Note
-   that we are also adding in the count for the include lists as well as the
-   exclude list. */
+    that we are also adding in the count for the include lists as well as the
+    exclude list. */
 if ((argVee = (char **)malloc((C.argc+40)*sizeof(char *))) == NULL)
-   {
-   fprintf(stdout, "Unable to allocate memory in zip dll\n");
-   return ZE_MEM;
-   }
+    {
+    fprintf(stdout, "Unable to allocate memory in zip dll\n");
+    return ZE_MEM;
+    }
 if ((argVee[argCee] = (char *) malloc( sizeof(char) * strlen("wiz.exe")+1 )) == NULL)
-   {
-   free(argVee);
-   fprintf(stdout, "Unable to allocate memory in zip dll\n");
-   return ZE_MEM;
-   }
+    {
+    free(argVee);
+    fprintf(stdout, "Unable to allocate memory in zip dll\n");
+    return ZE_MEM;
+    }
 
 strcpy( argVee[argCee], "wiz.exe" );
 argCee++;
@@ -394,7 +452,7 @@ if (AllocMemory(argCee, "-0", "Compression", FALSE) != ZE_OK)
     return ZE_MEM;
 
 /* Check to see if the compression level is set to a valid value. If
- not, then set it to the default.
+  not, then set it to the default.
 */
 if ((ZipOpts.fLevel < '0') || (ZipOpts.fLevel > '9'))
     {
@@ -428,48 +486,48 @@ if ((ZipOpts.szCompMethod != NULL) && (ZipOpts.szCompMethod[0] != '\0'))
     }
 
 if (ZipOpts.fOffsets)    /* Update offsets for SFX prefix */
-   {
-   if (AllocMemory(argCee, "-A", "Offsets", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-A", "Offsets", FALSE) != ZE_OK)
         return ZE_MEM;
     }
 if (ZipOpts.fDeleteEntries)    /* Delete files from zip file -d */
-   {
-   if (AllocMemory(argCee, "-d", "Delete", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-d", "Delete", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 if (ZipOpts.fNoDirEntries) /* Do not add directory entries -D */
-   {
+    {
         if (AllocMemory(argCee, "-D", "No Dir Entries", FALSE) != ZE_OK)
             return ZE_MEM;
-   }
+    }
 if (ZipOpts.fFreshen) /* Freshen zip file--overwrite only -f */
-   {
-   if (AllocMemory(argCee, "-f", "Freshen", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-f", "Freshen", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 if (ZipOpts.fRepair)  /* Fix archive -F or -FF */
-   {
-   if (ZipOpts.fRepair == 1)
+    {
+    if (ZipOpts.fRepair == 1)
       {
       if (AllocMemory(argCee, "-F", "Repair", FALSE) != ZE_OK)
           return ZE_MEM;
       }
-   else
+    else
       {
       if (AllocMemory(argCee, "-FF", "Repair", FALSE) != ZE_OK)
         return ZE_MEM;
       }
-   }
+    }
 if (ZipOpts.fGrow) /* Allow appending to a zip file -g */
-   {
-   if (AllocMemory(argCee, "-g", "Appending", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-g", "Appending", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 if (ZipOpts.fJunkDir) /* Junk directory names -j */
-   {
-   if (AllocMemory(argCee, "-j", "Junk Dir Names", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-j", "Junk Dir Names", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 
 /* fEncrypt */
 if ((ZipOpts.fEncrypt < 0) || (ZipOpts.fEncrypt > 1)) {
@@ -477,94 +535,94 @@ if ((ZipOpts.fEncrypt < 0) || (ZipOpts.fEncrypt > 1)) {
           "Only Encrypt method 1 currently supported, ignoring %d\n", ZipOpts.fEncrypt);
 } else
 if (ZipOpts.fEncrypt == 1) /* encrypt -e */
-   {
-   if (AllocMemory(argCee, "-e", "Encrypt", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-e", "Encrypt", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 
 if (ZipOpts.fJunkSFX) /* Junk sfx prefix */
-   {
-   if (AllocMemory(argCee, "-J", "Junk SFX", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-J", "Junk SFX", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 
 if (ZipOpts.fForce) /* Make entries using DOS names (k for Katz) -k */
-   {
-   if (AllocMemory(argCee, "-k", "Force DOS", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-k", "Force DOS", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 
 if (ZipOpts.fLF_CRLF) /* Translate LF_CRLF -l */
-   {
-   if (AllocMemory(argCee, "-l", "LF-CRLF", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-l", "LF-CRLF", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 if (ZipOpts.fCRLF_LF) /* Translate CR/LF to LF -ll */
-   {
-   if (AllocMemory(argCee, "-ll", "CRLF-LF", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-ll", "CRLF-LF", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 if (ZipOpts.fMove) /* Delete files added to or updated in zip file -m */
-   {
-   if (AllocMemory(argCee, "-m", "Move", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-m", "Move", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 
 if (ZipOpts.fLatestTime) /* Set zip file time to time of latest file in it -o */
-   {
-   if (AllocMemory(argCee, "-o", "Time", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-o", "Time", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 
 if (ZipOpts.fComment) /* Add archive comment "-z" */
-   {
-   if (AllocMemory(argCee, "-z", "Comment", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-z", "Comment", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 
 if (ZipOpts.fQuiet) /* quiet operation -q */
-   {
-   if (AllocMemory(argCee, "-q", "Quiet", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-q", "Quiet", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 if (ZipOpts.fRecurse == 1) /* recurse into subdirectories -r */
-   {
-   if (AllocMemory(argCee, "-r", "Recurse -r", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-r", "Recurse -r", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 else if (ZipOpts.fRecurse == 2) /* recurse into subdirectories -R */
-   {
-   if (AllocMemory(argCee, "-R", "Recurse -R", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-R", "Recurse -R", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 if (ZipOpts.fSystem)  /* include system and hidden files -S */
-   {
-   if (AllocMemory(argCee, "-S", "System", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-S", "System", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 if ((ZipOpts.ExcludeBeforeDate) &&
-     (ZipOpts.ExcludeBeforeDate[0] != '\0'))    /* Exclude files newer than specified date -tt */
-   {
-     if (ZipOpts.ExcludeBeforeDate[0] != '\0')
+      (ZipOpts.ExcludeBeforeDate[0] != '\0'))    /* Exclude files newer than specified date -tt */
+    {
+      if (ZipOpts.ExcludeBeforeDate[0] != '\0')
         {
         if (AllocMemory(argCee, "-tt", "Date", FALSE) != ZE_OK)
             return ZE_MEM;
         if (AllocMemory(argCee, ZipOpts.ExcludeBeforeDate, "Date", FALSE) != ZE_OK)
             return ZE_MEM;
         }
-   }
+    }
 
 if ((ZipOpts.IncludeBeforeDate) &&
-     (ZipOpts.IncludeBeforeDate[0] != '\0'))    /* Include files newer than specified date -t */
-   {
-     if (ZipOpts.IncludeBeforeDate[0] != '\0')
+      (ZipOpts.IncludeBeforeDate[0] != '\0'))    /* Include files newer than specified date -t */
+    {
+      if (ZipOpts.IncludeBeforeDate[0] != '\0')
         {
         if (AllocMemory(argCee, "-t", "Date", FALSE) != ZE_OK)
             return ZE_MEM;
-       if (AllocMemory(argCee, ZipOpts.IncludeBeforeDate, "Date", FALSE) != ZE_OK)
+        if (AllocMemory(argCee, ZipOpts.IncludeBeforeDate, "Date", FALSE) != ZE_OK)
             return ZE_MEM;
         }
-   }
+    }
 
 if (ZipOpts.fUpdate) /* Update zip file--overwrite only if newer -u */
     {
@@ -608,10 +666,10 @@ if (lpZipUserFunctions->split != NULL)   /* Turn on archive split destinations s
     }
 #ifdef WIN32
 if (ZipOpts.fPrivilege)  /* Use privileges -! */
-   {
-   if (AllocMemory(argCee, "-!", "Privileges", FALSE) != ZE_OK)
+    {
+    if (AllocMemory(argCee, "-!", "Privileges", FALSE) != ZE_OK)
         return ZE_MEM;
-   }
+    }
 #endif
 if (ZipOpts.fExtra)  /* Exclude extra attributes -X */
     {
@@ -688,7 +746,7 @@ if (ZipOpts.ExcludeList != NULL)  /* Exclude file list -x */
                 return ZE_MEM;
             k++;
             }
-   if (AllocMemory(argCee, "@", "End of Exclude List", FALSE) != ZE_OK)
+    if (AllocMemory(argCee, "@", "End of Exclude List", FALSE) != ZE_OK)
         return ZE_MEM;
     }
 
@@ -738,7 +796,7 @@ if (AllocMemory(argCee, C.lpszZipFN, "Zip file name", FALSE) != ZE_OK)
 if (szRootDir[0] != '\0')
     {
     if (szRootDir[lstrlen(szRootDir)-1] != '\\')
-         lstrcat(szRootDir, "\\"); /* append trailing \\ */
+          lstrcat(szRootDir, "\\"); /* append trailing \\ */
     if (C.FNV != NULL)
         {
         for (k = 0; k < C.argc; k++)
@@ -779,8 +837,8 @@ argVee[argCee] = NULL;
 ZipRet = zipmain(argCee, argVee);
 
 /* Free the arguments in the array. Note this also restores the
-   current directory
- */
+    current directory
+  */
 FreeArgVee();
 
 return ZipRet;
@@ -789,6 +847,7 @@ return ZipRet;
 #ifdef IZ_CRYPT_ANY
 
 #if 0
+/* Version used by UnZip. */
 int encr_passwd(int modeflag, char *pwbuf, int size, const char *zfn)
     {
     return (*lpZipUserFunctions->password)(pwbuf, size, ((modeflag == ZP_PW_VERIFY) ?
@@ -799,13 +858,20 @@ int encr_passwd(int modeflag, char *pwbuf, int size, const char *zfn)
 
 /* Zip does not understand passwords for individual files (as UnZip does), so
    passing the Zip file name (zfn) does not make sense and is, in fact,
-   misleading, as passwords are generic and not associated with a particular file
-   in Zip.  If the caller uses both the Zip and UnZip DLLs, they will need to
-   supply separate password functions to each. */
+   misleading, as passwords are generic and not associated with a particular
+   file in Zip (though entries copied from an existing archive retain their
+   passwords).  If the caller uses both the Zip and UnZip DLLs, they will
+   need to supply separate password functions to each. */
 
+#ifndef NO_PROTO
 int simple_encr_passwd(int modeflag, char *pwbuf, size_t bufsize)
+#else
+int simple_encr_passwd(modeflag, pwbuf, bufsize)
+  int modeflag;
+  char *pwbuf;
+  size_t bufsize;
+#endif
 {
-  char *password = NULL;
   char passwordbuf[MAX_PASSWORD_LEN + 1];
 	char prompt[20];
 	long ret;
@@ -831,7 +897,7 @@ int simple_encr_passwd(int modeflag, char *pwbuf, size_t bufsize)
     ZIPERR(ZE_PARMS, "-e used to request password but no callback");
   }
 
-return strlen(pwbuf);
+return (int)strlen(pwbuf);
 }
 
 #endif /* def IZ_CRYPT_ANY */
@@ -861,7 +927,13 @@ return strlen(pwbuf);
 
 /* Test the parsing of the input command line. */
 
+#ifndef NO_PROTO
 int ZIPEXPENTRY ZpTestComParse(char *commandline, char *parsedline)
+#else
+int ZIPEXPENTRY ZpTestComParse(commandline, parsedline)
+  char *commandline;
+  char *parsedline;
+#endif
 {
   int argc;
   char **argv;
@@ -891,7 +963,13 @@ int ZIPEXPENTRY ZpTestComParse(char *commandline, char *parsedline)
 
 /* Simple callback test. */
 
-void ZIPEXPENTRY ZpTestCallback(long cbAddress) {
+#ifndef NO_PROTO
+void ZIPEXPENTRY ZpTestCallback(long cbAddress)
+#else
+void ZIPEXPENTRY ZpTestCallback(cbAddress)
+  long cbAddress;
+#endif
+{
   /* Takes a callback address and returns a string to the
    * caller.  VS 2010 works with char * and does not need
    * the string arguments to be BSTR.
@@ -925,7 +1003,13 @@ void ZIPEXPENTRY ZpTestCallback(long cbAddress) {
  * addresses.
  */
 
-void ZIPEXPENTRY ZpTestCallbackStruct(LPZpTESTFUNCTION lpTestFuncStruct) {
+#ifndef NO_PROTO
+void ZIPEXPENTRY ZpTestCallbackStruct(LPZpTESTFUNCTION lpTestFuncStruct)
+#else
+void ZIPEXPENTRY ZpTestCallbackStruct(lpTestFuncStruct)
+  LPZpTESTFUNCTION lpTestFuncStruct
+#endif
+{
   /* typedef void (__stdcall *FUNCPTR)(BSTR pbstr); */
   typedef void (__stdcall *FUNCPTR)(char *pstr);
   FUNCPTR CallbackFunc;
@@ -952,7 +1036,14 @@ void ZIPEXPENTRY ZpTestCallbackStruct(LPZpTESTFUNCTION lpTestFuncStruct) {
 
 /* Test the main Zip callbacks. */
 
+#ifndef NO_PROTO
 int ZIPEXPENTRY ZpZipTest(char *CommandLine, char *CurrentDir, LPZIPUSERFUNCTIONS lpZipUserFunc)
+#else
+int ZIPEXPENTRY ZpZipTest(CommandLine, CurrentDir, lpZipUserFunc)
+  char *CommandLine;
+  char *CurrentDir;
+  LPZIPUSERFUNCTIONS lpZipUserFunc;
+#endif
 {
   char msg[4000];
   long comlen;
@@ -1076,11 +1167,18 @@ int ZIPEXPENTRY ZpZipTest(char *CommandLine, char *CurrentDir, LPZIPUSERFUNCTION
 /* ZpErrorMessage()
  *
  * This is called when an error occurs in the below DLL interfaces.  Nothing
- * displays when an error occurs unless the user has provided a PRINT callback,
- * an ERROR callback, or both.
+ * is returned to the caller when an error occurs unless the user has provided
+ * a PRINT callback, an ERROR callback, or both.  It would be up to the caller
+ * to display the error message.
  */
 
+#ifndef NO_PROTO
 long ZpErrorMessage(int errcode, char *message)
+#else
+long ZpErrorMessage(errcode, message)
+  int errcode;
+  char *message;
+#endif
 {
   /* output message to stdout (probably redirected to PRINT callback) */
   zprintf("%s", message);
@@ -1101,7 +1199,7 @@ long ZpErrorMessage(int errcode, char *message)
  *
  * CommandLine       - Command line to Zip that it's to execute.
  * CurrentDir        - Dir to set as current dir.  Must be set for DLL.  Can
- *                     be NULL for LIB (if NULL, app Current Dir used.)
+ *                     be NULL for LIB (if NULL, app's current directory used).
  * lpZipUserFunc     - Structure that caller sets callback addresses in.
  *                     Make sure any unused callback is set to NULL.
  * ProgressChunkSize - If progress callback is used, this must be set to the
@@ -1113,31 +1211,46 @@ long ZpErrorMessage(int errcode, char *message)
  *
  * Note that, on Windows, CommandLine can contain UTF-8 strings (if Unicode
  * support is enabled), which Zip will detect and convert to wide character
- * Unicode strings for processing.  On other ports, CommandLine should be in
- * the current character set.  If that character set is UTF-8, then UTF-8 is
- * supported.
+ * Unicode strings for processing.  If your application is dealing with wide
+ * character paths and strings, likely this will mean using the standard
+ * wide to UTF-8 conversion to get the UTF-8 strings that you would then pass
+ * to ZpZip.  On other ports, CommandLine should be in the current character
+ * set.  If that character set is UTF-8, then UTF-8 is supported.
  */
 
-int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
-                       LPZIPUSERFUNCTIONS lpZipUserFunc, char *ProgressChunkSize)
+#ifndef NO_PROTO
+int ZIPEXPENTRY ZpZip(char *commandLine,
+                      char *currentDir,
+                      LPZIPUSERFUNCTIONS lpZipUserFunc,
+                      char *progressChunkSize)
+#else
+int ZIPEXPENTRY ZpZip(commandLine,
+                      currentDir,
+                      lpZipUserFunc,
+                      progressChunkSize)
+  char *commandLine;
+  char *currentDir;
+  LPZIPUSERFUNCTIONS lpZipUserFunc;
+  char *progressChunkSize;
+#endif
 {
   int ZipReturn = 0;
   int argc;
-  char **argv;
-  DWORD ret = 0;
+  char **args;
 #if 0
+  DWORD ret = 0;
   char msg[MAX_ZIP_ARG_SIZE + 1];
   int i;
   char arg[MAX_ZIP_ARG_SIZE + 1];
-  char parsed[MAX_ZIP_ARG_SIZE + 1];
-  char parsedcommandline[MAX_ZIP_ARG_SIZE + 1];
+  char parsed[MAX_ZIP_COMMAND_STRING_SIZE + 1];
+  char parsedcommandline[MAX_ZIP_COMMAND_STRING_SIZE + 1];
   char OrigDir[MAX_ZIP_ARG_SIZE + 1];
 #endif
 
   mesg = stdout;
 
 #if 0
-  sprintf(msg, "In ZpZip\nCommandLine = '%s'\nCurrentDir = '%s'\n", CommandLine, CurrentDir);
+  sprintf(msg, "In ZpZip\ncommandLine = '%s'\ncurrentDir = '%s'\n", commandLine, currentDir);
   MessageBoxA(NULL, msg, "ZpZip",
                 MB_OK | MB_ICONINFORMATION);
 #endif
@@ -1159,19 +1272,28 @@ int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
   /* The DLL does not know the app's current dir, so must be told.  The
      LIB, however, has the same current dir as the caller, so its OK
      for CurrentDir to be NULL on a LIB call. */
-  if (CurrentDir == NULL || strlen(CurrentDir) == 0)
+  if (currentDir == NULL || strlen(currentDir) == 0)
   {
     return ZpErrorMessage(ZE_PARMS,
            "ZpZip Error:  Empty current directory to ZpZip - aborting");
   }
 #endif
 
+  /* used to convert full paths to relative paths */
+  ZpZip_root_dir = string_dup(currentDir, "ZpZip_root_dir (ZpZip)", NO_FLUFF);
+  ZpZip_root_dirw = NULL;
+#ifdef UNICODE_SUPPORT_WIN32
+  if (is_utf8_string(currentDir, NULL, NULL, NULL, NULL)) {
+    ZpZip_root_dirw = utf8_to_wchar_string(currentDir);
+  }
+#endif
+
   if (ZipUserFunctions.progress != NULL) {
-    if (ProgressChunkSize == NULL) {
+    if (progressChunkSize == NULL) {
       return ZpErrorMessage(ZE_PARMS,
              "ZpZip Error:  ProgressReport callback provided but ProgressChunkSize empty");
     }
-    progress_chunk_size = ReadNumString(ProgressChunkSize);
+    progress_chunk_size = ReadNumString(progressChunkSize);
     if (progress_chunk_size < 1024) {
       return ZpErrorMessage(ZE_PARMS,
              "ZpZip Error:  Bad ProgressChunkSize - must be >= 1k");
@@ -1179,7 +1301,7 @@ int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
   }
 
   /* convert string command line to argv array */
-  argc = commandline_to_argv(CommandLine, &argv);
+  argc = commandline_to_argv(commandLine, &args);
 
 #if 0
   /* convert argv back to string and pass back to caller to
@@ -1195,9 +1317,258 @@ int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
     }
   }
 
-  strcpy(parsedcommandline, "CommandLine as seen by DLL:  ");
+  strcpy(parsedcommandline, "commandLine as seen by DLL:  ");
   strcat(parsedcommandline, parsed);
   MessageBoxA(NULL, parsedcommandline, "ZpZip",
+                MB_OK | MB_ICONINFORMATION);
+#endif /* 0 */
+
+#if 0
+  ret = GetCurrentDirectory(MAX_ZIP_ARG_SIZE, OrigDir);
+  if ( ret == 0 )
+  {
+    sprintf(msg, "ZpZip:  GetCurrentDirectory failed (%d)", GetLastError());
+    return ZpErrorMessage(ZE_PARMS, msg);
+  }
+  if (ret > MAX_ZIP_ARG_SIZE)
+  {
+    sprintf(msg, "ZpZip:  GetCurrentDirectory buffer too small; need %d characters\n", ret);
+    return ZpErrorMessage(ZE_PARMS, msg);
+  }
+#endif /* 0 */
+
+#if 0
+  printf("ZpZip:  DLL original directory:  '%s'\n", OrigDir);
+#endif /* 0 */
+
+#ifdef CHANGE_DIRECTORY
+
+  if (currentDir) {
+# ifdef UNICODE_SUPPORT_WIN32
+    int dir_utf8 = is_utf8_string(currentDir, NULL, NULL, NULL, NULL);
+    wchar_t *dirw;
+
+    if (dir_utf8) {
+      /* UTF-8 currentDir */
+      dirw = utf8_to_wchar_string(currentDir);
+      if (dirw == NULL) {
+        ZIPERR(ZE_PARMS, "converting currentDir to wide");
+      }
+      if (_wchdir(dirw)) {
+        sprintf(errbuf, "changing to dir: %S\n  %s", dirw, strerror(errno));
+        free(dirw);
+        ZIPERR(ZE_PARMS, errbuf);
+      }
+    }
+    else {
+      /* local charset CurrentDir */
+      if (CHDIR(currentDir)) {
+        sprintf(errbuf, "changing to dir: %s\n  %s", currentDir, strerror(errno));
+        ZIPERR(ZE_PARMS, errbuf);
+      }
+    }
+# else /* not UNICODE_SUPPORT_WIN32 */
+    if (CHDIR(currentDir)) {
+      sprintf(errbuf, "changing to dir: %s\n  %s", currentDir, strerror(errno));
+      ZIPERR(ZE_PARMS, errbuf);
+    }
+# endif /* def UNICODE_SUPPORT_WIN32 else */
+  }
+
+#endif /* def CHANGE_DIRECTORY */
+
+#if 0
+    if( !SetCurrentDirectory(currentDir) )
+    {
+      sprintf(msg, "ZpZip:  SetCurrentDirectory failed (%d)\n", GetLastError());
+      return ZpErrorMessage(ZE_PARMS, msg);
+    }
+  }
+#endif /* 0 */
+
+  /* call Zip to do the work */
+  ZipReturn = zipmain(argc, args);
+
+#if 0
+  sprintf(msg, "Leaving ZpZip\n");
+  MessageBoxA(NULL, msg, "ZpZip",
+                MB_OK | MB_ICONINFORMATION);
+#endif /* 0 */
+
+  if (ZpZip_root_dir) {
+    free(ZpZip_root_dir);
+    ZpZip_root_dir = NULL;
+  }
+  if (ZpZip_root_dirw) {
+    free(ZpZip_root_dirw);
+    ZpZip_root_dirw = NULL;
+  }
+  if (args) {
+    free_argsz(args);
+    args = NULL;
+  }
+  
+  return ZipReturn;
+
+} /* ZpZip */
+
+
+/* ZpZipArgs()
+ *
+ * This is the same as ZpZip(), but user provides array of args instead of
+ * combined command string.
+ *
+ * args[]            - Same command line args that would be passed to Zip from
+ *                     the OS.
+ * argc              - Count of args in args[].
+ * currentDir        - Dir to set as current dir.  Must be set for DLL.  Can
+ *                     be NULL for LIB (if NULL, app's current directory used).
+ * lpZipUserFunc     - Structure that caller sets callback addresses in.
+ *                     Make sure any unused callback is set to NULL.
+ * progressChunkSize - If progress callback is used, this must be set to the
+ *                     number of bytes you want to process before getting the
+ *                     next progress report (call of progress callback).  This
+ *                     is set as a string in the same form as used elsewhere in
+ *                     Zip, e.g. 50m for 50 MiB.  This can be NULL if the progress
+ *                     callback is not used.
+ *
+ * Note that, on Windows, CommandLine can contain UTF-8 strings (if Unicode
+ * support is enabled), which Zip will detect and convert to wide character
+ * Unicode strings for processing.  If your application is dealing with wide
+ * character paths and strings, likely this will mean using the standard
+ * wide to UTF-8 conversion to get the UTF-8 strings that you would then pass
+ * to ZpZip.  On other ports, CommandLine should be in the current character
+ * set.  If that character set is UTF-8, then UTF-8 is supported.
+ */
+
+#ifndef NO_PROTO
+/* The Windows DLL only supports this PROTO version. */
+int ZIPEXPENTRY ZpZipArgs(char *args[],
+                          int argc,
+                          char *currentDir,
+                          LPZIPUSERFUNCTIONS lpZipUserFunc,
+                          char *progressChunkSize)
+#else
+/* This is provided mainly for other ports. */
+int ZpZipArgs(args, argc, currentDir, lpZipUserFunc, progressChunkSize)
+  char *args[];
+  int argc;
+  char *currentDir;
+  LPZIPUSERFUNCTIONS lpZipUserFunc;
+  char *progressChunkSize;
+#endif
+{
+  int ZipReturn = 0;
+#if 0
+  DWORD ret = 0;
+  char msg[MAX_ZIP_ARG_SIZE + 1];
+  int i;
+  char arg[MAX_ZIP_ARG_SIZE + 1];
+  char parsed[MAX_ZIP_COMMAND_STRING_SIZE + 1];
+  char parsedcommandline[MAX_ZIP_COMMAND_STRING_SIZE + 1];
+  char OrigDir[MAX_ZIP_ARG_SIZE + 1];
+  int total_args_size = 0;
+  char *dialog_message;
+  char tempbuf[100];
+#endif /* 0 */
+
+  mesg = stdout;
+
+#if 0
+  {
+
+    for (i = 0; i < argc; i++) {
+      total_args_size += strlen(args[i]) + 10;
+    }
+
+    total_args_size += 100 + strlen(currentDir);
+
+    if (total_args_size > MAX_ZIP_COMMAND_STRING_SIZE) {
+      printf("Can't display args, too big (%i)\n", total_args_size);
+    }
+    else {
+      sprintf(dialog_message, "ZpZipArgs:\n");
+      for (i = 0; i < argc; i++) {
+        sprintf(tempbuf, "  arg[%i]: '", i);
+        strcat(dialog_message, tempbuf);
+        strcat(dialog_message, args[i]);
+        strcat(dialog_message, "'\n");
+      }
+      strcat(dialog_message, "Current Dir:  ");
+      strcat(dialog_message, currentDir);
+      strcat(dialog_message, "\n");
+
+      MessageBoxA(NULL, dialog_message, "ZpZipArgs",
+                    MB_OK | MB_ICONINFORMATION);
+    }
+  }
+#endif /* 0 */
+
+  /* copy function pointers to global structure */
+  ZipUserFunctions.print = lpZipUserFunc->print;
+  ZipUserFunctions.ecomment = lpZipUserFunc->ecomment;
+  ZipUserFunctions.acomment = lpZipUserFunc->acomment;
+  ZipUserFunctions.password = lpZipUserFunc->password;
+  ZipUserFunctions.service = lpZipUserFunc->service;
+  ZipUserFunctions.service_no_int64 = lpZipUserFunc->service_no_int64;
+  ZipUserFunctions.progress = lpZipUserFunc->progress;
+  ZipUserFunctions.error = lpZipUserFunc->error;
+  ZipUserFunctions.finish = lpZipUserFunc->finish;
+
+  lpZipUserFunctions = &ZipUserFunctions;
+
+#ifdef ZIPDLL
+  /* The DLL does not know the app's current dir, so must be told.  The
+     LIB, however, has the same current dir as the caller, so its OK
+     for CurrentDir to be NULL on a LIB call. */
+  if (currentDir == NULL || strlen(currentDir) == 0)
+  {
+    return ZpErrorMessage(ZE_PARMS,
+           "ZpZip Error:  Empty current directory to ZpZip - aborting");
+  }
+#endif
+
+  /* used to convert full paths to relative paths */
+  ZpZip_root_dir = string_dup(currentDir, "ZpZip_root_dir (ZpZipArgs)", NO_FLUFF);
+  ZpZip_root_dirw = NULL;
+#ifdef UNICODE_SUPPORT_WIN32
+  if (is_utf8_string(currentDir, NULL, NULL, NULL, NULL)) {
+    ZpZip_root_dirw = utf8_to_wchar_string(currentDir);
+  }
+#endif
+
+  if (ZipUserFunctions.progress != NULL) {
+    if (progressChunkSize == NULL) {
+      return ZpErrorMessage(ZE_PARMS,
+             "ZpZip Error:  ProgressReport callback provided but ProgressChunkSize empty");
+    }
+    progress_chunk_size = ReadNumString(progressChunkSize);
+    if (progress_chunk_size < 1024) {
+      return ZpErrorMessage(ZE_PARMS,
+             "ZpZip Error:  Bad ProgressChunkSize - must be >= 1k");
+    }
+  }
+
+  /* convert string command line to argv array */
+  // argc = commandline_to_argv(CommandLine, &argv);
+
+#if 0
+  /* convert argv back to string and pass back to caller to
+     see representative command line */
+  parsed[0] = '\0';
+  if (argc) {
+    for (i = 0; i < argc; i++) {
+      sprintf(arg, "\"%s\"", argv[i]);
+      if (i > 0) {
+        strcat(parsed, "  ");
+      }
+      strcat(parsed, arg);
+    }
+  }
+
+  strcpy(parsedcommandline, "CommandLine as seen by DLL:  ");
+  strcat(parsedcommandline, parsed);
+  MessageBoxA(NULL, parsedcommandline, "ZpZipArgs",
                 MB_OK | MB_ICONINFORMATION);
 #endif
 
@@ -1219,16 +1590,18 @@ int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
   printf("ZpZip:  DLL original directory:  '%s'\n", OrigDir);
 #endif
 
-  if (CurrentDir) {
+#ifdef CHANGE_DIRECTORY
+
+  if (currentDir) {
 # ifdef UNICODE_SUPPORT_WIN32
-    int dir_utf8 = is_utf8_string(CurrentDir, NULL, NULL, NULL, NULL);
+    int dir_utf8 = is_utf8_string(currentDir, NULL, NULL, NULL, NULL);
     wchar_t *dirw;
 
     if (dir_utf8) {
-      /* UTF-8 CurrentDir */
-      dirw = utf8_to_wchar_string(CurrentDir);
+      /* UTF-8 currentDir */
+      dirw = utf8_to_wchar_string(currentDir);
       if (dirw == NULL) {
-        ZIPERR(ZE_PARMS, "converting CurrentDir to wide");
+        ZIPERR(ZE_PARMS, "converting currentDir to wide");
       }
       if (_wchdir(dirw)) {
         sprintf(errbuf, "changing to dir: %S\n  %s", dirw, strerror(errno));
@@ -1237,54 +1610,71 @@ int ZIPEXPENTRY ZpZip(char *CommandLine, char *CurrentDir,
       }
     }
     else {
-      /* local charset CurrentDir */
-      if (CHDIR(CurrentDir)) {
-        sprintf(errbuf, "changing to dir: %s\n  %s", CurrentDir, strerror(errno));
+      /* local charset currentDir */
+      if (CHDIR(currentDir)) {
+        sprintf(errbuf, "changing to dir: %s\n  %s", currentDir, strerror(errno));
         ZIPERR(ZE_PARMS, errbuf);
       }
     }
 # else /* not UNICODE_SUPPORT_WIN32 */
-    if (CHDIR(CurrentDir)) {
-      sprintf(errbuf, "changing to dir: %s\n  %s", CurrentDir, strerror(errno));
+    if (CHDIR(currentDir)) {
+      sprintf(errbuf, "changing to dir: %s\n  %s", currentDir, strerror(errno));
       ZIPERR(ZE_PARMS, errbuf);
     }
 # endif /* def UNICODE_SUPPORT_WIN32 else */
   }
 
+#endif /* def CHANGE_DIRECTORY */
+
 #if 0
-    if( !SetCurrentDirectory(CurrentDir) )
+    if( !SetCurrentDirectory(currentDir) )
     {
       sprintf(msg, "ZpZip:  SetCurrentDirectory failed (%d)\n", GetLastError());
       return ZpErrorMessage(ZE_PARMS, msg);
     }
   }
-#endif
+#endif /* 0 */
 
   /* call Zip to do the work */
-  ZipReturn = zipmain(argc, argv);
+  ZipReturn = zipmain(argc, args);
 
 #if 0
   sprintf(msg, "Leaving ZpZip\n");
   MessageBoxA(NULL, msg, "ZpZip",
                 MB_OK | MB_ICONINFORMATION);
-#endif
+#endif /* 0 */
+
+  if (ZpZip_root_dir) {
+    free(ZpZip_root_dir);
+    ZpZip_root_dir = NULL;
+  }
+  if (ZpZip_root_dirw) {
+    free(ZpZip_root_dirw);
+    ZpZip_root_dirw = NULL;
+  }
 
   return ZipReturn;
-}
+
+} /* ZpZipArgs */
 
 
 
 /* ZpVersion()
  *
  * The user calls this to get version information.  This should be done before
- * calling ZpZip() to make sure the current DLL is compatible.
+ * calling ZpZip() or ZpZipArgs() to make sure the current DLL is compatible.
  */
 
 #define FEATURE_LIST_SIZE 1000   /* Make sure this is big enough to hold
                                     everything.  If you change it here,
                                     may need to update example apps. */
 
-void ZIPEXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct */
+#ifndef NO_PROTO
+void ZIPEXPENTRY ZpVersion(ZpVer far *p)   /* should be pointer to const struct */
+#else
+void ZIPEXPENTRY ZpVersion(p)   /* should be pointer to const struct */
+  ZpVer far * p;
+#endif
 {
     char tempstring[100];       /* size of biggest entry */
     char featurelist[FEATURE_LIST_SIZE + 1];     
@@ -1384,7 +1774,7 @@ void ZIPEXPENTRY ZpVersion(ZpVer far * p)   /* should be pointer to const struct
 #ifdef WIN32_OEM
     strcat(featurelist, "win32_oem;");
 #endif
-    strcpy(tempstring, "compmethods:store,deflate");
+    strcpy(tempstring, "compmethods:store,deflate,cd_only");
 #ifdef BZIP2_SUPPORT
     strcat(tempstring, ",bzip2");
 #endif
@@ -1507,7 +1897,12 @@ void comment(unsigned int comlen)
 
 
 /* acomment() - Get the archive comment. */
+#ifndef NO_PROTO
 void acomment(long comlen)
+#else
+void acomment(comlen)
+  long comlen;
+#endif
 {
   long ret;
   long maxcomlen = MAX_COM_LEN;
@@ -1524,7 +1919,7 @@ void acomment(long comlen)
     *zcomment = '\0';
     comlen = 0;
   } else {
-    /* make sure zcomment is NULL terminated */
+    /* make sure zcomment is NUL terminated */
     zcomment[comlen] = '\0';
   }
 
@@ -1561,14 +1956,18 @@ void acomment(long comlen)
 
 
 /* ecomment() - Get a comment for an entry. */
+#ifndef NO_PROTO
 void ecomment(struct zlist far *z)
+#else
+void ecomment(z)
+  struct zlist far *z;
+#endif
 {
   long maxcomlen = MAX_COM_LEN;
   long newcomlen = 0;
-  char *newcomment = NULL;
 
   /* The entire record must be less than 65535, so the comment length needs to
-   be kept well below that. */
+   be kept well below that.  Current comment limit 32765. */
 
   if (z->com == 0 || z->comment == NULL) {
     /* create zero length string to pass to callback */
@@ -1578,7 +1977,7 @@ void ecomment(struct zlist far *z)
     z->com = 0;
     z->comment[0] = '\0';
   } else {
-    /* make sure entry comment is NULL terminated */
+    /* make sure entry comment is NUL terminated */
     z->comment[z->com] = '\0';
   }
 
@@ -1631,7 +2030,8 @@ void ecomment(struct zlist far *z)
 
 /* ZpStringCopy()
  *
- * Copy the source string to the destination.
+ * Copy the source string to the destination.  Destination must already
+ * be allocated.
  *
  * This function does not check if the space allocated in the
  * destination string is sufficient for holding the source string.
@@ -1642,21 +2042,28 @@ void ecomment(struct zlist far *z)
  * Returns the number of bytes in the destination.
  */
 
+#ifndef NO_PROTO
 int ZIPEXPENTRY ZpStringCopy(char *deststring, char *sourcestring, int maxlength)
+#else
+int ZIPEXPENTRY ZpStringCopy(deststring, sourcestring, maxlength)
+  char *deststring;
+  char *sourcestring;
+  int maxlength;
+#endif
 {
   int length = 0;
 
   if (deststring == NULL || sourcestring == NULL)
     return -1;
 
-  length = strlen(sourcestring);
+  length = (int)strlen(sourcestring);
   if (length > maxlength - 1)
     length = maxlength - 1;
 
   strncpy(deststring, sourcestring, length);
   deststring[length] = '\0';
 
-  return strlen(deststring);
+  return (int)strlen(deststring);
 }
 
 
@@ -1671,28 +2078,39 @@ int ZIPEXPENTRY ZpStringCopy(char *deststring, char *sourcestring, int maxlength
  * command line.  Assume the character encoding does not include whitespace or quotes
  * in multi-byte sequences (UTF-8 meets this).
  *
- * Input is a string that is the command line to parse.  Currently this is assumed
- * to be a byte string, though it can be a multibyte string.  Zip currently does not
- * handle wide character command lines.
+ * Embedded double quotes are kept.  Start and end double quotes are removed.
  *
- * Created NULL terminated argv[] returned as argument.
+ * Input is a string that is the command line to parse.  Currently this is assumed
+ * to be a byte string, though it can be a multibyte string.
+ *
+ * The Zip DLL/LIB currently does not handle wide character command lines.  All input
+ * to the DLL/LIB should be UTF-8.
+ *
+ * NULL terminated argv[] returned as argument.
  * Returns argc.  If empty or NULL commandline, returns 0.
  *
- * EG 2014-03-14
+ * EG 2017-07-09
  */
+#ifndef NO_PROTO
 int commandline_to_argv(char *commandline, char ***pargv)
+#else
+int commandline_to_argv(commandline, pargv)
+  char *commandline;
+  char ***pargv;
+#endif
 {
   int i;
   int argc = 0;
   char *arg;
   char *c;
+  unsigned char uc;
   char *a;
   char *argstart;
+  char *argend;
   int argsize;
   char **args = NULL;
   char *arg0 = "zip";
-  int has_space;
-  char *quote_start;
+  int in_quote = 0;
 
   /* first arg */
   /* allocate space for args[0] and initial termination (args[1]) */
@@ -1717,89 +2135,63 @@ int commandline_to_argv(char *commandline, char ***pargv)
   
   c = commandline;
   
-  /* skip any leading whitespace */
-  while (*c && isspace(*c)) {
-    c++;
-  }
-  argstart = c;
 
   while (1) {
-    /* skip over double quoted string if has space */
-    if (*c == '"') {
-      /* starting double quote */
-      has_space = 0;
-      quote_start = c;
-      while (*c) {
-        c++;
-        if (isspace(*c))
-          has_space = 1;
-        if (*c == '"') {
-          c++;
-          break;
-        }
-      }
-      if (!has_space) {
-        /* no need for quotes, so remove */
-        /* replace end quote with space */
-        c--;
-        *c = ' ';
-        /* replace start quote with space */
-        c = quote_start;
-        *c = ' ';
-        c++;
-        /* reprocess */
-        continue;
-      }
+    /* skip any leading whitespace */
+    while (*c && isspace((uc = *c))) {
+      c++;
     }
-    else
-    {
-      /* not a double quote */
-    
-      if (*c == '\0' || isspace(*c)) {
-        /* end of arg */
-        
-        /* add arg to args[] */
-        argc++;
+    argstart = c;
+
+    if (*c == '\0')
+      break;
+
+    /* find end of arg */
+    while (*c && (!isspace((uc = *c)) || in_quote)) {
+      if (*c == '\"') {
+        if (in_quote)
+          in_quote = 0;
+        else
+          in_quote = 1;
+      }
+      c++;
+    }
+
+    argsize = (int)(c - argstart);
+    if (argsize == 0)
+      break;
+
+    /* add arg to args[] */
+    argc++;
   
-        /* additional arg */
-        if ((args = (char **)realloc(args, (argc + 1) * sizeof(char *))) == NULL) {
-          ZIPERR(ZE_MEM, "parsing command line (3)");
-        }
+    argend = c;
 
-        argsize = c - argstart;
-        if ((arg = (char *)malloc((argsize + 1) * sizeof(char))) == NULL) {
-          ZIPERR(ZE_MEM, "parsing command line (4)");
-        }
-        for (a = argstart, i=0; a < c; a++, i++) {
-          arg[i] = *a;
-        }
-        arg[i] = '\0';
-        args[argc - 1] = arg;
+    /* remove end quotes */
+    if ((*argstart == '\"') && (c > (argstart + 1) && *(c - 1) == '\"')) {
+      argstart++;
+      argend--;
+      argsize -= 2;
+    }
+
+    /* additional arg */
+    if ((args = (char **)realloc(args, (argc + 1) * sizeof(char *))) == NULL) {
+      ZIPERR(ZE_MEM, "parsing command line (3)");
+    }
+
+    if ((arg = (char *)malloc((argsize + 1) * sizeof(char))) == NULL) {
+      ZIPERR(ZE_MEM, "parsing command line (4)");
+    }
+    for (a = argstart, i = 0; a < argend; a++, i++) {
+      arg[i] = *a;
+    }
+    arg[i] = '\0';
+    args[argc - 1] = arg;
     
-        args[argc] = NULL;
-
-        /* skip whitespace */
-        while (*c && isspace(*c)) {
-          c++;
-        }
-
-        argstart = c;
-
-        if (*c == '\0') {
-          break;
-        }
-      }
-      else
-      {
-        /* skip over non-space char */
-        c++;
-      }
-    } /* not double quote */
-    
+    args[argc] = NULL;
   } /* while */
 
   *pargv = args;
- 
+
   return argc;
 }
 
@@ -1814,7 +2206,13 @@ int commandline_to_argv(char *commandline, char ***pargv)
  *
  * 2014-07-12 EG
  */
-char *argv_to_commandlinestring(int argc, char *argv[])
+#ifndef NO_PROTO
+char * ZIPEXPENTRY ZpArgvToCommandlineString(int argc, char *argv[])
+#else
+char * ZIPEXPENTRY ZpArgvToCommandlineString(argc, argv)
+  int argc;
+  char *argv[];
+#endif
 {
   int i;
   char *commandline = NULL;
@@ -1822,12 +2220,13 @@ char *argv_to_commandlinestring(int argc, char *argv[])
   int j;
   int has_space;
   char c;
+  unsigned char uc;
 
   /* add up total length needed */
   for (i = 1; (!argc || i < argc) && argv[i]; i++)
   {
     /* add size of arg and 2 for double quotes */
-    total_size += (strlen(argv[i]) + 2) * sizeof(char);
+    total_size += (int)(strlen(argv[i]) + 2) * sizeof(char);
     if (i > 1)
     {
       /* add 1 for space between args */
@@ -1838,7 +2237,7 @@ char *argv_to_commandlinestring(int argc, char *argv[])
   total_size += 1 * sizeof(char);
 
   /* allocate space for string */
-  if ((commandline = malloc(total_size)) == NULL) {
+  if ((commandline = (char *)malloc(total_size)) == NULL) {
     return NULL;
   }
 
@@ -1854,7 +2253,7 @@ char *argv_to_commandlinestring(int argc, char *argv[])
     has_space = 0;
     for (j = 0; (c = argv[i][j]); j++)
     {
-      if (isspace(c))
+      if (isspace((uc = c)))
         has_space = 1;
     }
     if (has_space)
