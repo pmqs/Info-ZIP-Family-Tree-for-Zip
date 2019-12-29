@@ -336,7 +336,7 @@ klibc:
 	AS="gcc -Zomf" \
 	ASFLAGS="-Di386" \
 	LDFLAGS="-o ./" \
-	LDFLAGS2="-Zomf -Zargs-resp $(LDFLAGS)" \
+	LDFLAGS2="-Zomf -Zargs-resp $(LDFLAGS) -lcx" \
 	OUT="-o" \
 	OBJ=".o" \
 	CRC32="crc_gcc" \
