@@ -92,6 +92,10 @@ DIR *dirp;
 #define closedir(dirp) fclose(dirp)
 #endif /* NO_DIR */
 
+#ifdef NO_SCANDIR
+/* TODO Port the FreeBSD libc version */
+#error "We need scandir now."
+#endif
 
 local char *readd(d)
 DIR *d;                 /* directory stream to read from */
@@ -111,12 +115,14 @@ int caseflag;           /* true to force case-sensitive match */
    an error code in the ZE_ class. */
 {
   char *a;              /* path and name for recursion */
-  DIR *d;               /* directory stream from opendir() */
-  char *e;              /* pointer to name from readd() */
+  char *e;              /* pointer to name from scandir() */
+  int c;                /* number of entries from scandir() */
+  int i;                /* entry index */
   int m;                /* matched flag */
   char *p;              /* path for recursion */
   z_stat s;             /* result of stat() */
   struct zlist far *z;  /* steps through zfiles list */
+  struct dirent **namelist;
 
   if (strcmp(n, "-") == 0)   /* if compressing stdin */
     return newname(n, 0, caseflag);
@@ -176,14 +182,16 @@ int caseflag;           /* true to force case-sensitive match */
       }
     }
     /* recurse into directory */
-    if (recurse && (d = opendir(n)) != NULL)
+    if (recurse && (c = scandir(n, &namelist, NULL, alphasort)) >= 0)
     {
-      while ((e = readd(d)) != NULL) {
+      for (i = 0; i < c; i++) {
+        e = namelist[i]->d_name;
         if (strcmp(e, ".") && strcmp(e, ".."))
         {
           if ((a = malloc(strlen(p) + strlen(e) + 1)) == NULL)
           {
-            closedir(d);
+            for (; i < c; i++) free(namelist[i]);
+            free(namelist);
             free((zvoid *)p);
             return ZE_MEM;
           }
@@ -197,8 +205,9 @@ int caseflag;           /* true to force case-sensitive match */
           }
           free((zvoid *)a);
         }
+        free(namelist[i]);
       }
-      closedir(d);
+      free(namelist);
     }
     free((zvoid *)p);
   } /* (s.st_mode & S_IFDIR) */
