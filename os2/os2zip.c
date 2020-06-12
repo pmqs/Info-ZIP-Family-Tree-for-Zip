@@ -1130,11 +1130,7 @@ void version_local()
     printf(CompiledWith,
 
 #ifdef __GNUC__
-#  ifdef __EMX__  /* __EMX__ is defined as "1" only (sigh) */
-      "emx+gcc ", __VERSION__,
-#  else
-      "gcc/2 ", __VERSION__,
-#  endif
+      "gcc ", __VERSION__,
 #elif defined(__IBMC__)
       "IBM ",
 #  if (__IBMC__ < 200)
@@ -1199,7 +1195,7 @@ void version_local()
       " (16-bit)",
 #  endif
 #else
-      " 2.x/3.x (32-bit)",
+      " and OS/2 based systems",
 #endif
 
 #ifdef __DATE__
