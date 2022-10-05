@@ -11,7 +11,7 @@ ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
 a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 
-Copyright (c) 1990-2016 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2021 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -86,9 +86,12 @@ freely, subject to the above disclaimer and the following restrictions:
 
 /* Types centralized here for easy modification */
 #define local static            /* More meaningful outside functions */
+#ifndef BASIC_ZTYPES_DEFINED
 typedef unsigned char uch;      /* unsigned 8-bit value */
 typedef unsigned short ush;     /* unsigned 16-bit value */
 typedef unsigned long ulg;      /* unsigned 32-bit value */
+# define BASIC_ZTYPES_DEFINED
+#endif /* not BASIC_ZTYPES_DEFINED */
 
 /* This little macro compiles (with no code) if condition is false, but fails
  * to compile if condition is true (non-zero).  Can be used to abort a compile
@@ -106,6 +109,8 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 
 /* Set up portability */
 #include "tailor.h"
+
+#define ISATTY(fd) (isatty(fd) || (stdinout_tty && (fd == 0 || fd == 1)))
 
 #ifdef USE_ZLIB
 #  include "zlib.h"
@@ -217,7 +222,6 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 
 #ifdef WIN32
 /* For Windows we need to define S_ISLNK as Windows does not define it (or
-
    use it), but we need it. */
 # ifdef SYMLINKS
 #  ifndef S_ISLNK
@@ -295,6 +299,12 @@ typedef unsigned long ulg;      /* unsigned 32-bit value */
 # endif /* def NO_CRYPT_TRAD [else] */
 
 #endif /* def NO_CRYPT [else] */
+
+#ifdef NO_CRYPT_AES_WG
+# ifdef CRYPT_AES_WG
+#  undef CRYPT_AES_WG
+# endif
+#endif
 
 #if defined(ETWODD_SUPPORT) && !defined(IZ_CRYPT_TRAD)
   /* Disable ETWODD if no Traditional encryption. */
@@ -512,21 +522,27 @@ typedef struct iztimes {
 
 /* GENERAL LIMITS */
 
-#define MAX_COM_LEN (32766)
-/* The entire record must be less than 65535, so the comment length needs to
+#define MAX_COM_LEN (32766L)
+/* The entire extra field must be less than 65535, so the comment length needs to
    be kept well below that.  Changed 65534L to 32766L. */
+
+#define MAXCOMLINE (256)
+/* Maximum one-line comment size */
 
 #define MAX_PASSWORD_LEN (1024)
 /* This is for sizing storage for the returned password.  The max size for
    TRADITIONAL is about 256 and for AES about 128. */
 
-#define MAX_ZIP_ARG_SIZE (8192)
-/* Max size of command line arguments to Zip.  Used by API. */
-
 #define MAX_PATH_SIZE (32768)
 /* Max size (in bytes) of a path.  This is used for creating storage.  Usually
    FNMAX or MAX_PATH (or similar) is the limiting factor.  Also used by
    getnam(). */
+
+#define MAX_ZIP_ARG_SIZE (8192)
+/* Max size of any argument to ZpZip or ZpZipArgs.  Used by API. */
+
+#define MAX_ZIP_COMMAND_STRING_SIZE (32768)
+/* Max size of entire command line string to ZpZip.  Used by API. */
 
 #define MAX_EXTRA_FIELD_BLOCK_SIZE (65535)
 /* Max size of extra field block. */
@@ -549,7 +565,7 @@ typedef struct iztimes {
 #define ADD_ARGS_DELTA  100
 /* How far to extend newargs when needed. */
 
-#define MAX_ARGFILE_LINE  MAX_ZIP_ARG_SIZE
+#define MAX_ARGFILE_LINE  MAX_ZIP_COMMAND_STRING_SIZE
 /* Max length of line in arg file. */
 
 #define MAX_ARGFILE_DEPTH  4
@@ -585,7 +601,9 @@ typedef struct iztimes {
  */
 
 #ifndef NO_USE_ZIP64_PLACEHOLDER
-# define USE_ZIP64_PLACEHOLDER
+# ifdef ZIP64_SUPPORT
+#  define USE_ZIP64_PLACEHOLDER
+# endif
 #endif
 
 /* Zip64 thresholds - The below margins are subtracted from 4 GiB
@@ -667,9 +685,20 @@ typedef struct iztimes {
 #define MAX_UNZIP_FEATURE_BIT  15
 
 
+/* zipedit settings */
+#define PROMPT_FOR_ARCHIVE_COMMENT 1
+#define ARCHIVE_COMMENT_PARAMETER 2
+
+/* Unicode mismatch */
+#define UNICODE_MISMATCH_ERROR       0
+#define UNICODE_MISMATCH_WARN        1
+#define UNICODE_MISMATCH_IGNORE      2
+
+
 /* --------------------------------------- */
 
 /* Structures for in-memory file information */
+
 struct zlist {
   /* See central header in zipfile.c for what vem..off are */
   /* Do not rearrange these as less than smart coding in zipfile.c
@@ -718,6 +747,7 @@ struct zlist {
   int is_stdin;                 /* Set if input file is stdin */   
   struct zlist far *nxt;        /* Pointer to next header in list */
 };
+
 struct flist {
   char *name;                   /* Raw internal file name */
   char *iname;                  /* Internal file name after cleanup */
@@ -742,6 +772,7 @@ struct flist {
   char *saved_iname;
 #endif
 };
+
 /* When adding elements that have storage to flist, be sure to add the freeing
    of that storage to fexpel() IF used by found list.  Note that saved_iname
    is not used by found list, just by nodup[]. */
@@ -751,6 +782,13 @@ struct plist {
   char *duzname;                /* De-escaped uzname (Unicode escapes converted back) */
   int select;                   /* Selection flag ('i' or 'x') */
 };
+
+/* This structure is used by get_flags() */
+struct option_flag_struct {
+  char *flag_name;
+  int negated;
+};
+typedef struct option_flag_struct option_flag;
 
 
 /* --------------------------------------- */
@@ -825,8 +863,9 @@ struct plist {
 
 /* ASCII definitions for line terminators in text files: */
 #define LF     10        /* '\n' on ASCII machines; must be 10 due to EBCDIC */
-#define CR     13        /* '\r' on ASCII machines; must be 13 due to EBCDIC */
+#define CR_IZ  13        /* '\r' on ASCII machines; must be 13 due to EBCDIC */
 #define CTRLZ  26        /* DOS & OS/2 EOF marker (used in fileio.c, vms.c) */
+/* aSc reports conflict using CR on MSYS2 (mingw64), so renamed to CR_IZ. */
 
 
 /* return codes of password fetches (negative: user abort; positive: error) */
@@ -860,11 +899,11 @@ struct plist {
 #define DOSTIME_2038_01_18      ((ulg)0x74320000L)
 
 
-#define MAXCOMLINE 256       /* Maximum one-line comment size */
-
 extern int comadd;           /* 1=add comments for new files */
 extern extent comment_size;  /* comment size */
 extern FILE *comment_stream; /* set to stderr if anything is read from stdin */
+extern char *global_entry_comment; /* If set, use this for entry comments being set */
+extern char *global_entry_comment_path; /* If set, use this path for entry comments being set */
 
 
 /* Public globals */
@@ -899,11 +938,11 @@ extern char errbuf[];           /* Handy place to build error messages */
 extern int recurse;             /* Recurse into directories encountered */
 extern int dispose;             /* Remove files after put in zip file */
 extern int pathput;             /* Store path with name */
-extern int null_term_names;     /* 1=getnam() reads NULL terminated names */
+extern int nul_term_names;      /* 1=getnam() reads NUL terminated names */
 
 #ifdef UNIX_APPLE
-extern int data_fork_only;
-extern int sequester;
+extern int data_fork_only;      /* -df/--datafork. */
+extern int sequester;           /* -as/--sequester. */
 #endif /* UNIX_APPLE */
 
 #ifdef RISCOS
@@ -918,9 +957,7 @@ extern int scanimage;           /* Scan through image files */
 #define PPMD 98                 /* PPMd compression method */
 #define AESWG 99                /* AES WinZip/Gladman encryption */
 #define COPYING 9998            /* Used by z->threshold_mthd to flag using zipcopy() */
-#ifdef CD_ONLY_SUPPORT
-# define CD_ONLY 9999           /* Only store cd (not a real compression) */
-#endif
+#define CD_ONLY 9999           /* Only store cd (not a real compression) */
 
 #define LAST_KNOWN_COMPMETHOD   DEFLATE
 #ifdef BZIP2_SUPPORT
@@ -988,11 +1025,119 @@ _rar:_rz:_tbz2:_tgz:_tlz:_txz:_xz:_Z:_zip:_zipx:_zoo:_zz"
 # endif /* ndef QDOS [else] */
 #else /* ndef RISCOS */
     /* RISCOS */
-# define MTHD_SUFX_0 "68E:D96:DDC";
+# define MTHD_SUFX_0 "68E:D96:DDC"
 #endif /* ndef RISCOS [else] */
 
 
-/* -------------------------------------------------------------- */
+
+/* ============================================================================ */
+
+/* DLL, LIB, and ZIPMAIN
+
+   The following macros determine how this interface is compiled:
+     WINDLL               - Compile for WIN32 DLL, mainly for MS Visual Studio
+                            WINDLL implies WIN32 and ZIPDLL
+                            Set by the build environment
+     WIN32                - Running on WIN32
+                            The compiler usually sets this
+     ZIPDLL               - Compile the Zip DLL (WINDLL implies this)
+                            Set by the build environment
+     WIN32 && ZIPDLL      - A DLL for WIN32 (except MSVS - use WINDLL instead)
+                             - this is used for creating DLLs for other ports
+                            (such as OS2), but only the MSVS version is currently
+                            supported
+     USE_ZIPMAIN          - Use zipmain() instead of main() - for DLL and LIB, but
+                             could also be used to compile the source into another
+                             application directly
+                            Deprecated.
+     ZIPLIB               - Compile as static library (LIB)
+                            For MSVS, WINDLL and ZIPLIB are both defined to create
+                             the LIB
+     ZIP_DLL_LIB          - Automatically set when ZIPDLL or ZIPLIB is defined and
+                             is used to include the API interface code
+     NO_ZPARCHIVE         - Set if not using ZpArchive - used with ZIPLIB (DLL has
+                             to call an established entry point)
+                            Deprecated.
+
+   DLL_ZIPAPI is deprecated.  USE_ZIPMAIN && DLL_ZIPAPI for UNIX and VMS is
+   replaced by ZIPLIB && NO_ZPARCHIVE (as they call zipmain() directly instead).
+   These are now also deprecated.  ZIPDLL or ZIPLIB should be enough now.
+*/
+
+/* WINDLL implies WIN32 && ZIPDLL */
+# ifdef WINDLL
+#  ifndef ZIPDLL
+#   define ZIPDLL
+#  endif
+#  ifndef ENABLE_DLL_PROGRESS
+#    define ENABLE_DLL_PROGRESS
+#  endif
+# endif
+
+
+# if defined(ZIPDLL) || defined(ZIPLIB)
+#  ifndef ZIP_DLL_LIB
+#   define ZIP_DLL_LIB
+#  endif
+# endif
+
+#if defined(UNIX) && defined(ZIPLIB)
+# define UNIXLIB
+#endif
+
+
+/* Enable zipfile testing */
+#if !defined(ZIP_DLL_LIB) && !defined(NO_TEST_ZIPFILE)
+# define TEST_ZIPFILE
+#endif
+
+/* Enable checking UnZip version before doing -T test */
+#if defined(TEST_ZIPFILE) && !defined(NO_CHECK_UNZIP)
+# define CHECK_UNZIP
+#endif
+
+
+/* Win32 wide command line */
+#if defined(UNICODE_SUPPORT_WIN32) && defined(AT_LEAST_WINXP)
+
+/* Do not get wide command line if getting command line from DLL/LIB. */
+# ifndef ZIP_DLL_LIB
+#  ifndef WIN32_WIDE_CMD_LINE
+#   ifndef NO_WIN32_WIDE_CMD_LINE
+#    define WIN32_WIDE_CMD_LINE
+#   endif
+#  endif
+# endif
+#endif
+
+
+/* --------------------------------------- */
+
+/* The filesize type used for API (LIB/DLL) calls defaults to
+   unsigned long long.  A port can override this by setting it
+   here (or in osdep.h). */
+
+#ifdef ZIP_DLL_LIB
+# ifndef API_FILESIZE_T
+#  define API_FILESIZE_T unsigned long long
+# endif
+#endif
+
+
+#ifdef ZIP_DLL_LIB
+/*---------------------------------------------------------------------------
+    Prototypes for public Zip API (DLL and LIB) functions.
+  ---------------------------------------------------------------------------*/
+# include "api.h"
+
+#ifndef USE_ZIPMAIN
+# define USE_ZIPMAIN
+#endif
+
+#endif /* ZIP_DLL_LIB */
+
+/* ============================================================================ */
+
 
 #define AESENCRED 99            /* AES (WG) encrypted */
 
@@ -1100,9 +1245,12 @@ extern int using_utf8;        /* 1 if current character set is UTF-8 */
    comment are in UTF-8 */
 #define UTF8_BIT (1 << 11)
 
-extern int purposely_corrupt_local_crc; /* used for testing only */
-extern int purposely_corrupt_central_crc; /* used for testing only */
-extern int purposely_corrupt_local_usize; /* used for testing only */
+extern int purposely_corrupt_loc_crc; /* used for testing only */
+extern int purposely_corrupt_cen_crc; /* used for testing only */
+extern int purposely_corrupt_loc_csize; /* used for testing only */
+extern int purposely_corrupt_loc_usize; /* used for testing only */
+extern int purposely_corrupt_cen_csize; /* used for testing only */
+extern int purposely_corrupt_cen_usize; /* used for testing only */
 
 /* 10/20/04 */
 extern zoff_t dot_size;         /* if not 0 then display dots every size buffers */
@@ -1151,6 +1299,7 @@ extern int use_wide_to_mb_default;/* use the default MB char instead of escape *
 
 extern char *startup_dir;       /* dir that Zip starts in (current dir ".") */
 extern char *working_dir;       /* dir user asked to change to for zipping */
+extern int out_to_start_dir;    /* 1 = if use working_dir, out to startup_dir */
 #ifdef UNICODE_SUPPORT_WIN32
 extern wchar_t *startup_dirw;  /* dir that Zip starts in (current dir ".") */
 extern wchar_t *working_dirw;  /* dir user asked to change to for zipping */
@@ -1190,10 +1339,16 @@ extern uzoff_t total_cd_total_entries; /* num entries across all archives */
 extern int sort_apple_double;   /* 1=sort Zip added "._" files after primary files */
 extern int sort_apple_double_all;/* 1=ignore AppleDouble zflag and sort all "._" files */
 
+#ifdef APPLE_XATTR                      /* -ax/--apple-ext-attr
+extern char **apl_dbl_xattr_ignore;     /* Names of ext attrs to ignore. */
+extern int apl_dbl_xattr_ignore_cnt;    /* Number of ext attrs to ignore. */
+#endif /* def APPLE_XATTR */
+
 #if defined(WIN32)
 extern int only_archive_set;    /* only include if DOS archive bit set */
 extern int clear_archive_bits;  /* clear DOS archive bit of included files */
 #endif
+
 extern int linkput;             /* Store symbolic links as such (-y) */
 #define FOLLOW_ALL 2
 #define FOLLOW_NORMAL 1
@@ -1201,10 +1356,12 @@ extern int linkput;             /* Store symbolic links as such (-y) */
 extern int follow_mount_points; /* 0=skip mount points (-yy), 1=follow normal, 2=follow all (-yy-) */
 extern int noisy;               /* False for quiet operation */
 extern int extra_fields;        /* 0=create minimum, 1=don't copy old, 2=keep old */
+
 #ifdef NTSD_EAS
  extern int use_privileges;     /* use security privilege overrides */
  extern int no_security;        /* 1=exclude security information (ACLs) */
 #endif
+
 extern int no_universal_time;   /* 1=do not store UT extra field */
 extern int no_access_time;      /* 1=do not store Access Time component of UT */
 extern int skip_file_scan;      /* 1=skip directory searches and initial stats */
@@ -1215,11 +1372,13 @@ extern int allow_empty_archive; /* if no files, create empty archive anyway */
 extern int copy_only;           /* 1 = copy archive with no changes */
 extern int zip_to_stdout;       /* output to stdout */
 extern int output_seekable;     /* 1 = output seekable 3/13/05 EG */
+
 #ifdef ZIP64_SUPPORT            /* zip64 globals 10/4/03 E. Gordon */
  extern int force_zip64;        /* force use of zip64 when streaming from stdin */
  extern int zip64_entry;        /* current entry needs Zip64 */
  extern int zip64_archive;      /* at least 1 entry needs zip64 */
 #endif
+
 extern int allow_fifo;          /* Allow reading Unix FIFOs, waiting if pipe open */
 extern int show_files;          /* show files to operate on and exit (=2 log only) */
 extern int include_stream_ef;   /* 1=include stream ef that allows full stream extraction */
@@ -1227,6 +1386,7 @@ extern int cd_only;             /* 1=create cd_only compression archive (central
 
 extern int sf_usize;            /* include usize in -sf listing */
 extern int sf_comment;          /* include entry comments in -sf listing */
+extern int sf_zcomment;         /* include zipfile comment in -sf listing */
 
 extern char *tempzip;           /* temp file name */
 extern FILE *y;                 /* output file now global for splits */
@@ -1237,7 +1397,9 @@ extern FILE *y;                 /* output file now global for splits */
 #ifdef UNICODE_SUPPORT_WIN32
  extern int win32_utf8_argv;    /* 1=got UTF-8 from win32 wide command line */
 #endif
+
 extern int unicode_escape_all;  /* 1=escape all non-ASCII characters in paths */
+extern int unicode_dont_use;    /* 1=don't use Unicode */
 extern int unicode_mismatch;    /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
 extern int unicode_show;        /* show unicode on the console (requires console support) */
 
@@ -1252,6 +1414,7 @@ extern uzoff_t scan_count;      /* Used for "Scanning files..." message */
 
 extern ulg before;              /* 0=ignore, else exclude files before this time */
 extern ulg after;               /* 0=ignore, else exclude files newer than this time */
+extern ulg time_diff;           /* 0=ignore, else also test time plus this */
 
 /* in split globals */
 
@@ -1300,6 +1463,10 @@ extern char *unicode_entry_name; /* Unicode version of entry name, if any, or NU
 extern uzoff_t progress_chunk_size;  /* how many bytes before next progress report */
 extern uzoff_t last_progress_chunk;  /* used to determine when to send next report */
 
+#ifdef ZIP_DLL_LIB
+extern char *ZpZip_root_dir;     /* root dir used by ZpZip and ZpZipArgs */
+extern wchar_t *ZpZip_root_dirw; /* wide version root dir used by ZpZip and ZpZipArgs */
+#endif
 
 /* User-triggered (Ctrl/T, SIGUSR1) progress.  (Expects localtime_r().) */
 
@@ -1397,6 +1564,8 @@ extern char *out_path;          /* Name of output file, usually same as zipfile 
 extern int zip_attributes;
 extern char *old_in_path;       /* used to save in_path when doing incr archives */
 
+extern int stdinout_tty;        /* assume stdin and stdout are ttys */
+
 /* zip64 support 08/31/2003 R.Nausedat */
 extern uzoff_t zipbeg;          /* Starting offset of zip structures */
 extern uzoff_t cenbeg;          /* Starting offset of central directory */
@@ -1415,6 +1584,7 @@ extern extent zcount;           /* Number of files in zip file */
 extern int zipfile_exists;      /* 1 if zipfile exists */
 extern ush zcomlen;             /* Length of zip file comment */
 extern char *zcomment;          /* Zip file comment (not zero-terminated) (may be now) */
+extern char *zcomment_new;      /* new zipfile comment (as from -z="new comment") */
 extern struct flist far **fsort;/* List of files sorted by name */
 extern struct zlist far **zsort;/* List of files sorted by name */
 #ifdef UNICODE_SUPPORT
@@ -1508,114 +1678,6 @@ void zperror OF((const char *));
 #define izc_realloc izz_realloc
 
 
-/* ============================================================================ */
-
-/* DLL, LIB, and ZIPMAIN
-
-   The following macros determine how this interface is compiled:
-     WINDLL               - Compile for WIN32 DLL, mainly for MS Visual Studio
-                            WINDLL implies WIN32 and ZIPDLL
-                            Set by the build environment
-     WIN32                - Running on WIN32
-                            The compiler usually sets this
-     ZIPDLL               - Compile the Zip DLL (WINDLL implies this)
-                            Set by the build environment
-     WIN32 && ZIPDLL      - A DLL for WIN32 (except MSVS - use WINDLL instead)
-                             - this is used for creating DLLs for other ports
-                            (such as OS2), but only the MSVS version is currently
-                            supported
-     USE_ZIPMAIN          - Use zipmain() instead of main() - for DLL and LIB, but
-                             could also be used to compile the source into another
-                             application directly
-                            Deprecated.
-     ZIPLIB               - Compile as static library (LIB)
-                            For MSVS, WINDLL and ZIPLIB are both defined to create
-                             the LIB
-     ZIP_DLL_LIB          - Automatically set when ZIPDLL or ZIPLIB is defined and
-                             is used to include the API interface code
-     NO_ZPARCHIVE         - Set if not using ZpArchive - used with ZIPLIB (DLL has
-                             to call an established entry point)
-                            Deprecated.
-
-   DLL_ZIPAPI is deprecated.  USE_ZIPMAIN && DLL_ZIPAPI for UNIX and VMS is
-   replaced by ZIPLIB && NO_ZPARCHIVE (as they call zipmain() directly instead).
-   These are now also deprecated.
-*/
-
-/* WINDLL implies WIN32 && ZIPDLL */
-# ifdef WINDLL
-#  ifndef ZIPDLL
-#   define ZIPDLL
-#  endif
-#  ifndef ENABLE_DLL_PROGRESS
-#    define ENABLE_DLL_PROGRESS
-#  endif
-# endif
-
-
-# if defined(ZIPDLL) || defined(ZIPLIB)
-#  ifndef ZIP_DLL_LIB
-#   define ZIP_DLL_LIB
-#  endif
-# endif
-
-#if defined(UNIX) && defined(ZIPLIB)
-# define UNIXLIB
-#endif
-
-
-/* Enable zipfile testing */
-#if !defined(ZIP_DLL_LIB) && !defined(NO_TEST_ZIPFILE)
-# define TEST_ZIPFILE
-#endif
-
-/* Enable checking UnZip version before doing -T test */
-#if defined(TEST_ZIPFILE) && !defined(NO_CHECK_UNZIP)
-# define CHECK_UNZIP
-#endif
-
-
-/* Win32 wide command line */
-#if defined(UNICODE_SUPPORT_WIN32) && defined(AT_LEAST_WINXP)
-
-/* Do not get wide command line if getting command line from DLL/LIB. */
-# ifndef ZIP_DLL_LIB
-#  ifndef WIN32_WIDE_CMD_LINE
-#   ifndef NO_WIN32_WIDE_CMD_LINE
-#    define WIN32_WIDE_CMD_LINE
-#   endif
-#  endif
-# endif
-#endif
-
-
-/* --------------------------------------- */
-
-/* The filesize type used for API (LIB/DLL) calls defaults to
-   unsigned long long.  A port can override this by setting it
-   here (or in osdep.h). */
-
-#ifdef ZIP_DLL_LIB
-# ifndef API_FILESIZE_T
-#  define API_FILESIZE_T unsigned long long
-# endif
-#endif
-
-
-#ifdef ZIP_DLL_LIB
-/*---------------------------------------------------------------------------
-    Prototypes for public Zip API (DLL and LIB) functions.
-  ---------------------------------------------------------------------------*/
-# include "api.h"
-
-#ifndef USE_ZIPMAIN
-# define USE_ZIPMAIN
-#endif
-
-#endif /* ZIP_DLL_LIB */
-
-/* ============================================================================ */
-
 
 /* Public function prototypes */
 
@@ -1640,7 +1702,9 @@ extern int bflag;
  void zipmessage(ZCONST char *, ZCONST char *);
  void sdmessage(ZCONST char *, ZCONST char *);
  void zipwarn(ZCONST char *, ZCONST char *);
- void zipwarn_i(char *, int, ZCONST char *, ZCONST char *);
+ void zipwarn_i(char *, int, ZCONST char *, ZCONST char *, int nl);
+ void zipwarn_indent(ZCONST char *, ZCONST char *);
+ void show_env(int);
  void ziperr(int, ZCONST char *);
  void print_utf8(ZCONST char *);
  void print_utf8_stderr(ZCONST char *);
@@ -1709,6 +1773,11 @@ extern int bflag;
 #endif /* !UTIL */
 char *ziptyp OF((char *));
 int readzipfile OF((void));
+/*#ifdef LCC_WIN32*/
+#ifndef NO_PROTO
+int zread_file(struct zlist far *z, int l);
+int open_for_append(FILE *y);
+#endif
 #ifndef NO_PROTO
 int putlocal(struct zlist far *z, int rewrite);
 #else
@@ -1753,7 +1822,13 @@ void display_dot OF((int, int));
    struct flist far *fexpel OF((struct flist far *));
    char *last OF((char *, int));
 # ifdef UNICODE_SUPPORT
+   /* Assume this change was for LCC.  Second parameter is the
+      separator character, and so is wchar_t. */
+#  ifdef LCC_WIN32
+   wchar_t *lastw OF((wchar_t *, int));
+#  else
    wchar_t *lastw OF((wchar_t *, wchar_t));
+#  endif
 # endif
    char *msname OF((char *));
 # ifdef UNICODE_SUPPORT_WIN32
@@ -1809,6 +1884,12 @@ int set_filetype OF((char *));
 int bfcopy OF((uzoff_t));
 
 int fcopy OF((FILE *, FILE *, uzoff_t));
+
+#ifdef CHANGE_DIRECTORY
+void change_to_working_dir();
+void change_to_startup_dir();
+void show_current_dir();
+#endif
 
 #ifdef ZMEM
    char *memset OF((char *, int, unsigned int));
@@ -1898,9 +1979,10 @@ uzoff_t ReadNumString OF((char *numstring));
 
 /* string functions */
 
-/* for abbrevmatch and strmatch */
+/* for abbrevmatch, strmatch, string_dup, string_find, string_replace */
 #define CASE_INS 0
 #define CASE_SEN 1
+#define MIN_ABBREV_MATCH(n) n
 
 /* for strmatch */
 #define ENTIRE_STRING 0
@@ -1910,18 +1992,35 @@ uzoff_t ReadNumString OF((char *numstring));
 #define REPLACE_ALL 0
 
 /* for string_find */
-#define LAST_MATCH -1
-#define NO_MATCH -1
+#define FIND_FIRST_MATCH 1
+#define FIND_LAST_MATCH -1
+#define FIND_NO_MATCH -1
 
 /* for check_zipfile */
 #define TESTING_TEMP 1
 #define TESTING_FINAL_NAME 0
 
+#define ADD_NL 1
+#define NO_NL 0
+
+/* for string_dup */
+#define NO_FLUFF 0
+/* below allows for things like string_dup(str, "error messg", ADD_FLUFF(1)) */
+#define ADD_FLUFF(n) n
+
+
         /* in fileio.c */
+
+/* Concatenate two strings */
+#ifndef NO_PROTO
+char *string_cat(ZCONST char *left_string, ZCONST char *right_string, ZCONST char *error_message, int fluff);
+#else
+char *string_cat OF((ZCONST char *, char *, char *, int));
+#endif
 
 /* Make copy of string */
 #ifndef NO_PROTO
-char *string_dup(ZCONST char *in_string, char *error_message, int fluff);
+char *string_dup(ZCONST char *in_string, ZCONST char *error_message, int fluff);
 #else
 char *string_dup OF((ZCONST char *, char *, int));
 #endif
@@ -1952,6 +2051,12 @@ int string_find (char *instring, char *find, int case_sens, int occurrence);
 int string_find OF((char *, char *, int, int));
 #endif
 
+#ifndef NO_PROTO
+char *strip_rootdir(char *in_path, char *root_dir, int case_ins);
+#else
+char *strip_rootdir OF((char *, char *, int));
+#endif
+
         /* in util.c */
 
 /* returns true if abbrev is abbreviation for matchstring */
@@ -1968,6 +2073,22 @@ int strmatch (char *s1, char *s2, int case_sensitive, int maxmatch);
 int strmatch OF((char *, char *, int, int));
 #endif
 
+
+/* parses a comma-separated list of flags
+ * returns number of flags found, or -1 if error
+ */
+#ifndef NO_PROTO
+int get_flags (char *instring, option_flag *flags[]);
+#else
+int get_flags OF((char *, option_flag *[]));
+#endif
+
+/* free flags array */
+#ifndef NO_PROTO
+void free_flags (option_flag *flags[]);
+#else
+int free_flags OF((option_flag *[]));
+#endif
 
 
 void init_upper    OF((void));
@@ -1992,9 +2113,9 @@ void envargs       OF((int *, char ***, char *, char *));
 void expand_args   OF((int *, char ***));
 
 #ifndef NO_PROTO
-  int  is_text_buf(ZCONST char *buf_ptr, unsigned buf_size);
+  int  is_text_buf(ZCONST char *buf_ptr, size_t buf_size);
 #else
-  int  is_text_buf OF((ZCONST char *buf_ptr, unsigned buf_size));
+  int  is_text_buf OF((ZCONST char *buf_ptr, size_t buf_size));
 #endif
 
 /* this is no longer used ...
@@ -2149,12 +2270,14 @@ void     bi_init      OF((char *, unsigned int, int));
 # define NO_USE_WINDOWS_FILE
 #endif
 
-/* this needs to be global for LZMA */
-#ifndef NO_PROTO
+#if defined(BZIP2_SUPPORT) && !defined(UTIL)
+ /* this needs to be global for LZMA */
+# ifndef NO_PROTO
   local unsigned iz_file_read_bt(char *buf, unsigned size);
-#else
+# else
   local unsigned iz_file_read_bt OF((char *, unsigned));
-#endif
+# endif
+#endif /* defined(BZIP2_SUPPORT) && !defined(UTIL) */
 
 
 /* Case conversion options - used with -Cl and -Cu */
@@ -2190,19 +2313,43 @@ void     bi_init      OF((char *, unsigned int, int));
   int is_ascii_string(char *mbstring);
   int is_ascii_stringw(wchar_t *wstring);
 
-  zwchar *wchar_to_wide_string(wchar_t *wchar_string);
-  wchar_t *wide_to_wchar_string(zwchar *wide_string);
+  zwchar *wchar_to_wide_stringz(wchar_t *wchar_string);
+  wchar_t *wide_to_wchar_stringz(zwchar *wide_string);
 
-  char *utf8_to_local_string(char *utf8_string);
+  char *utf8_to_local_stringz(char *utf8_string);
   char *local_to_utf8_string(char *local_string);
 
-  zwchar *utf8_to_wide_string(ZCONST char *utf8_string);
+  zwchar *utf8_to_wide_stringz(ZCONST char *utf8_string);
   char *wide_to_utf8_string(zwchar *wide_string);
 
-  char *wide_to_local_string(zwchar *wide_string);
-  zwchar *local_to_wide_string(char *local_string);
+#ifdef WIN32
+  char **get_win32_utf8_argv();
+  char *read_utf8_line_from_console(int max_chars);
+  wchar_t *utf8_to_wchar_string_windows(ZCONST char *utf8_string);
+  char *wchar_to_utf8_string_windows(wchar_t *wchar_string);
 
-  char *wide_to_escape_string(zwchar *wide_string);
+  unsigned long write_console(FILE *outfile, ZCONST char *instring);
+  unsigned long write_consolew(FILE *outfile, wchar_t *instringw);
+# if 0
+  long write_consolew2(wchar_t *instringw);
+# endif
+
+  wchar_t *local_to_wchar_string_windows(ZCONST char *local_string);
+  char *wide_to_local_string_windows(zwchar *wide_string);
+  zwchar *local_to_wide_string_windows(char *local_string);
+#endif
+
+  char *wchar_to_local_string(wchar_t *wstring);
+
+  /* convert escape string to wide character */
+  zwchar escape_string_to_wide_char(char *);
+  wchar_t *escapes_to_wchar_string(wchar_t *);
+
+
+  char *wide_to_local_stringz(zwchar *wide_string);
+  zwchar *local_to_wide_stringz(char *local_string);
+
+  char *wide_to_escape_stringz(zwchar *wide_string);
   char *local_to_escape_string(char *local_string);
   char *utf8_to_escape_string(char *utf8_string);
 
@@ -2222,23 +2369,6 @@ void     bi_init      OF((char *, unsigned int, int));
 
   zwchar *escapes_to_wide_string(zwchar *);
   char *escapes_to_utf8_string(char *escaped_string);
-
-#ifdef WIN32
-  char **get_win32_utf8_argv();
-  wchar_t *utf8_to_wchar_string_windows(ZCONST char *utf8_string);
-  char *wchar_to_utf8_string_windows(wchar_t *wchar_string);
-
-  char *wchar_to_local_string(wchar_t *);
-
-  unsigned long write_console(FILE *outfile, ZCONST char *instring);
-  unsigned long write_consolew(FILE *outfile, wchar_t *instringw);
-# if 0
-  long write_consolew2(wchar_t *instringw);
-# endif
-  /* convert escape string to wide character */
-  zwchar escape_string_to_wide_char(char *);
-  wchar_t *escapes_to_wchar_string(wchar_t *);
-#endif
 
 # if defined(__STDC_UTF_16__)
 #  define UTFSIZE 16
@@ -2283,7 +2413,7 @@ size_t bfwrite OF((ZCONST void *buffer, size_t size, size_t count,
     See fileio.c
   --------------------------------------------------------------------*/
 
-/* Option value types.  See get_option() in fileio.c for details. */
+/* Option value types.  See get_optionz() in fileio.c for details. */
 
 /* value_type - value is always returned as a string. */
 #define o_NO_VALUE        0   /* this option does not take a value */
@@ -2354,21 +2484,21 @@ extern struct option_struct far options[];
 /* function prototypes */
 
 /* get the next option from args */
-unsigned long get_option OF((char ***pargs, int *argc, int *argnum, int *optchar,
-                             char **value, int *negated, int *first_nonopt_arg,
-                             int *option_num, int recursion_depth));
+unsigned long get_optionz OF((char ***pargs, int *argc, int *argnum, int *optchar,
+                              char **value, int *negated, int *first_nonopt_arg,
+                              int *option_num, int recursion_depth));
 
 /* copy args - copy an args array, allocating space as needed */
-char **copy_args OF((char **args, int max_args));
+char **copy_argsz OF((char **args, int max_args));
 
 /* arg count - return argc of args */
-int arg_count OF((char **args));
+int arg_countz OF((char **args));
 
 /* free args - free args created with one of these functions */
-int free_args OF ((char **args));
+int free_argsz OF ((char **args));
 
 /* insert arg - copy an arg into args */
-int insert_arg OF ((char ***args, ZCONST char *arg, int insert_at,
+int insert_argz OF ((char ***args, ZCONST char *arg, int insert_at,
                     int free_args));
 
 

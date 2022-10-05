@@ -1,7 +1,7 @@
 /*
   zip.c - Zip 3.1
 
-  Copyright (c) 1990-2019 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2021 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -73,15 +73,15 @@
 extern void globals_dummy( void);
 #endif /* def VMS */
 
-#include <signal.h>
-#include <stdio.h>
-
-#include <string.h>
-
 #ifdef UNICODE_EXTRACT_TEST
 # ifdef WIN32
 #  include <direct.h>
 # endif
+#endif
+
+/* aSc added,  Missing prototype for wcslen, ... */
+#ifdef LCC_WIN32
+# include <wchar.h>
 #endif
 
 #ifdef BZIP2_SUPPORT
@@ -121,6 +121,20 @@ local int tempdir = 0;  /* 1=use temp directory (-b) */
 local int junk_sfx = 0; /* 1=junk the sfx prefix */
 local int show_zip_comment = 0; /* 1=show zipfile comment and exit */
 
+/* aSc added for lcc */
+#ifdef LCC_WIN32
+local char *quote_arg(char *instring);
+local char *parse_TT_string(char *unzip_string, char *temp_zip_path, char *passwd, char *keyfile, char *key, int *unzip_being_used);
+# ifdef CHECK_UNZIP
+local void get_unzip_features(char *unzippath, float *version, ulg *features);
+local char *unzip_feature(unsigned int bit_mask);
+# endif
+local char *build_unzip_command(char *unzip_path, char *temp_zip_path, char *passwd, char *keyfile);
+local void warn_unzip_return(int status);
+local ulg get_needed_unzip_features();
+local long add_apath(char *path);
+local ulg datetime(ZCONST char *arg, ZCONST time_t curtime);
+#endif
 
 /* list of unzip features needed to test archive */
 /* this is 0 when uninitialized */
@@ -467,6 +481,23 @@ local void freeup()
     free_argsz(orig_argv);
   }
 
+#ifdef APPLE_XATTR
+  /* Free AppleDouble attribute name storage ("-ax/--apple-ext-attr" options).
+   * (NULL tests should be pointless.)
+   */
+  for (j = 0; j < apl_dbl_xattr_ignore_cnt; j++)
+  {
+    if (apl_dbl_xattr_ignore[ j] != NULL)
+    {
+      free( apl_dbl_xattr_ignore[ j]);  /* Individual attribute name. */
+    }
+  }
+  if (apl_dbl_xattr_ignore != NULL)
+  {
+    free( apl_dbl_xattr_ignore);        /* Attribute name pointer array. */
+  }
+#endif /* def APPLE_XATTR */
+
 #ifdef VMSCLI
   if (argv_cli != NULL)
   {
@@ -709,6 +740,7 @@ ZCONST char *h;         /* message about how it happened */
       logfile_line_started = 0;
     }
   }
+
   if (tempzip != NULL)
   {
     if (tempzip != zipfile) {
@@ -981,7 +1013,8 @@ local void help_extended()
 "Extended Help for Zip 3.1",
 "",
 "This is a quick summary of most features of Zip.  See the Zip Manual for",
-"more detailed help.",
+"more detailed help.  Also see the -so option for a list of available",
+"options.",
 "",
 "",
 "Zip stores files in zip archives.  The default action is to add or replace",
@@ -1181,8 +1214,9 @@ local void help_extended()
 "  Argfiles can contain most any valid options or arguments separated by",
 "  white space.  Inserted contents are not evaluated until complete command",
 "  line is built.  Enclose args containing white space in \"double quotes\".",
-"  Use -sc to see final command line before executing it.  Comments in",
-"  argfiles start with the \"#\" arg and must not have any non-space",
+"  Use -sc to see final command line before executing it:",
+"    zip  -sc  -AF  myzipfile  @myfiles",
+"  Comments in argfiles start with \"#\" arg and must not have any non-space",
 "  characters around it:",
 "    # this is a comment",
 "    file1.txt  file2.txt  -ll  #  another comment",
@@ -1191,10 +1225,19 @@ local void help_extended()
 "  between # and echo), that outputs message when that line is processed:",
 "    #echo   Starting arg file 1",
 "",
-"  Note that @file in -i (include) or -x (exclude) lists is taken as part of",
-"  the -i or -x option and not read as argfiles.  These instead are read as",
-"  include files with one path or pattern a line:",
+"  @file in -i (include) or -x (exclude) list is taken as part of -i or -x",
+"  option and not read as argfile.  These instead are read as include files",
+"  with one path or pattern a line:",
 "    zip foo -r . -i @include.lst @include2.lst",
+"  Note that -i@list.txt (and -i=@list) is single value, while -i @list.txt",
+"  (space between -i and @) starts a list.  Lists end at @ or end of line.",
+"  So, if a.args has a.txt, b.args has b.txt and c.args has c.txt, then:"
+"    zip foo * -i @a.args @b.args @ c.args",
+"  would include a.txt and b.txt.  c.args is handled as another input file,",
+"  which in this case is not in -i list and so is excluded.  In contrast:",
+"    zip foo * -i@a.args @b.args c.args",
+"  will only include a.txt.  If argfiles enabled, args in b.args will be",
+"  added to command line."
 "",
 "  Argfiles support a max recursion depth of 4, so @1 can call @2 can call @3",
 "  can call @4.  If 4 tries to open an argfile, Zip exits with an error.",
@@ -3584,7 +3627,7 @@ local char* quote_quotes(instring)
 # endif /* 0 */
 
 
-void warn_unzip_return(status)
+local void warn_unzip_return(status)
   int status;
 {
   /* Output warning appropriate for UnZip return code. */
@@ -5242,7 +5285,7 @@ int set_filetype(out_path)
 
 #define DT_BAD ((ulg)-1)        /* Bad return value. */
 
-static ulg datetime(arg, curtime)
+local ulg datetime(arg, curtime)
   ZCONST char *arg;
   ZCONST time_t curtime;
 {
@@ -6178,12 +6221,13 @@ void check_path(path, option_name)
 #define o_aa            0x101
 #define o_ad            0x102
 #define o_as            0x103
-#define o_AC            0x104
-#define o_AF            0x105
-#define o_AS            0x106
-#define o_BC            0x107
-#define o_BD            0x108
-#define o_BF            0x109
+#define o_ax            0x104
+#define o_AC            0x105
+#define o_AF            0x106
+#define o_AS            0x107
+#define o_BC            0x108
+#define o_BD            0x109
+#define o_BF            0x10a
 #define o_BL            0x110
 #define o_BN            0x111
 #define o_BT            0x112
@@ -6319,7 +6363,10 @@ struct option_struct far options[] = {
 #endif
 #ifdef UNIX_APPLE
     {"as", "sequester",   o_NO_VALUE,       o_NEGATABLE,     o_as, "sequester AppleDouble files in __MACOSX"},
-#endif
+# ifdef APPLE_XATTR
+    {"ax", "apple-ext-attr", o_REQUIRED_VALUE, o_NOT_NEGATABLE, o_ax, "Exclude Apple extended atribute"},
+# endif /* def APPLE_XATTR */
+#endif /* def UNIX_APPLE */
 #ifdef CMS_MVS
     {"B",  "binary",      o_NO_VALUE,       o_NOT_NEGATABLE, 'B',  "binary"},
 #endif /* CMS_MVS */
@@ -7207,7 +7254,8 @@ char **argv;            /* command line tokens */
     zp_tz_is_valid = VALID_TIMEZONE(p);
   }
 #else
-  /* Currently only Amiga defines VALID_TIMEZONE and doesn't use a temp var */
+  /* Currently only Amiga defines its own VALID_TIMEZONE and doesn't use a
+     temp var */
   zp_tz_is_valid = VALID_TIMEZONE();
 #  endif
 #if (defined(AMIGA) || defined(DOS))
@@ -7768,6 +7816,13 @@ char **argv;            /* command line tokens */
           break;
 #endif
 #ifdef UNIX_APPLE
+# ifdef APPLE_XATTR
+        case o_ax:
+          /* Exclude Apple extended attribute. */
+          apl_dbl_xattr_ignore_add( value);
+          break;
+# endif /* def APPLE_XATTR */
+
         case o_as:
           /* sequester Apple Double resource files */
           if (negated)
@@ -11391,7 +11446,9 @@ char **argv;            /* command line tokens */
           ZIPERR(ZE_PARMS, "can't use -et (--etwodd) with input from stdin");
         }
 #endif
-        if ((r = PROCNAME(filelist->name)) != ZE_OK) {
+        r = PROCNAME(filelist->name);
+        if (r != ZE_OK) {
+
           if (r == ZE_MISS) {
             if (bad_open_is_error) {
               zipwarn("name not matched: ", filelist->name);
@@ -11829,8 +11886,8 @@ char **argv;            /* command line tokens */
 #else /* !USE_EF_UT_TIME */
 #       define z_tim  z->tim
 #endif /* ?USE_EF_UT_TIME */
-        z_timp = z_tim + time_diff;
-        z_timm = z_tim - time_diff;
+        z_timp = z_tim + time_diff;  /* plus */
+        z_timm = z_tim - time_diff;  /* minus */
         if ((z_tim < before && (!time_diff || z_timp < before)) ||
             (after && (z_tim >= after && (!time_diff || z_timm >= after)))) {
           /* include in archive */
@@ -12051,7 +12108,7 @@ char **argv;            /* command line tokens */
     no_stdin = 1;
 
     tf = 0;
-    usize = -1;
+    usize = (uzoff_t)-1;
     if (skip_file_scan) {
       /* We skip getting the file size to avoid the performance penalty.  So
          all the file sizes are set to zero and any operations using file
@@ -12680,9 +12737,10 @@ char **argv;            /* command line tokens */
           c = string_cat("    ", tempc, "sf_comment", NO_FLUFF);
           free(tempc);
 
-          if (noisy)
+          if (noisy) {
             print_utf8(c);
             zfprintf(mesg, "\n");
+          }
           if (logfile)
             zfprintf(logfile, "    %s\n", c);
           free(c);
@@ -14533,11 +14591,6 @@ char **argv;            /* command line tokens */
   if (comadd)
 # endif
   {
-    char entry_comment_buf[MAX_COM_LEN + 1];
-    char entry_comment_line[MAXCOMLINE + 1];
-    size_t entry_comment_len = 0;
-    size_t line_len;
-    size_t new_len;
 
 #endif
     {
@@ -14578,23 +14631,31 @@ char **argv;            /* command line tokens */
         change_to_working_dir();
       }
 #endif
-      entry_comment_buf[0] = '\0';
-      while (!feof(entry_comment_file)) {
-        if (fgets(entry_comment_line, MAXCOMLINE, entry_comment_file) == NULL) {
-          break;
+      {
+        char entry_comment_buf[MAX_COM_LEN + 1];
+        char entry_comment_line[MAXCOMLINE + 1];
+        size_t entry_comment_len = 0;
+        size_t line_len;
+        size_t new_len;
+
+        entry_comment_buf[0] = '\0';
+        while (!feof(entry_comment_file)) {
+          if (fgets(entry_comment_line, MAXCOMLINE, entry_comment_file) == NULL) {
+            break;
+          }
+          line_len = strlen(entry_comment_line);
+          new_len = entry_comment_len + line_len;
+          if (new_len > MAX_COM_LEN) {
+            fclose(entry_comment_file);
+            sprintf(errbuf, "entry comment read from file too big:  %ld", (ulg)new_len);
+            ZIPERR(ZE_BIG, errbuf);
+          }
+          strcat(entry_comment_buf, entry_comment_line);
+          entry_comment_len = strlen(entry_comment_buf);
         }
-        line_len = strlen(entry_comment_line);
-        new_len = entry_comment_len + line_len;
-        if (new_len > MAX_COM_LEN) {
-          fclose(entry_comment_file);
-          sprintf(errbuf, "entry comment read from file too big:  %ld", (ulg)new_len);
-          ZIPERR(ZE_BIG, errbuf);
-        }
-        strcat(entry_comment_buf, entry_comment_line);
-        entry_comment_len = strlen(entry_comment_buf);
+        fclose(entry_comment_file);
+        global_entry_comment = string_dup(entry_comment_buf, "entry comment", NO_FLUFF);
       }
-      fclose(entry_comment_file);
-      global_entry_comment = string_dup(entry_comment_buf, "entry comment", NO_FLUFF);
     }
 
     if (global_entry_comment) {
@@ -14610,8 +14671,9 @@ char **argv;            /* command line tokens */
     }
 
     for (z = zfiles; z != NULL; z = z->nxt)
-      if (z->mark)
+      if (z->mark) {
 #if defined(AMIGA) || defined(MACOS)
+        char *p;
         if (filenotes && (p = GetComment(z->zname)))
         {
           if (z->comment = malloc(k = strlen(p)+1))
@@ -14624,6 +14686,7 @@ char **argv;            /* command line tokens */
             free((zvoid *)e);
             ZIPERR(ZE_MEM, "was reading filenotes");
           }
+          GetComment(NULL);
         }
         else if (comadd)
 #endif /* AMIGA || MACOS */
@@ -14659,6 +14722,7 @@ char **argv;            /* command line tokens */
           }
 #endif
         }
+      }
 #ifdef MACOS
     if (noisy) zfprintf(mesg, "\n...done");
 #endif

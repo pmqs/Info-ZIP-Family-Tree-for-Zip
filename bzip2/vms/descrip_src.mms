@@ -1,4 +1,4 @@
-#                                               29 November 2010.  SMS.
+#                                               08 June 2022.  SMS.
 #
 #    BZIP2 1.0 for VMS - MMS (or MMK) Source Description File.
 #
@@ -12,40 +12,62 @@ $$$$ THIS DESCRIPTION FILE IS NOT INTENDED TO BE USED THIS WAY.
 .ENDIF
 
 
-# Define MMK architecture macros when using MMS.
+# Define old MMK architecture macros when using MMS.
 
-.IFDEF __MMK__                  # __MMK__
-.ELSE                           # __MMK__
+.IFDEF MMS$ARCH_NAME            # MMS$ARCH_NAME
 ALPHA_X_ALPHA = 1
 IA64_X_IA64 = 1
 VAX_X_VAX = 1
-.IFDEF $(MMS$ARCH_NAME)_X_ALPHA     # $(MMS$ARCH_NAME)_X_ALPHA
+X86_64_X_X86_64 = 1
+.IFDEF ARCH                         # ARCH
+ARCH_NAME = $(ARCH)
+.ELSE                               # ARCH
+ARCH_NAME = $(MMS$ARCH_NAME)
+.ENDIF                              # ARCH
+.IFDEF $(ARCH_NAME)_X_ALPHA         # $(ARCH_NAME)_X_ALPHA
 __ALPHA__ = 1
-.ENDIF                              # $(MMS$ARCH_NAME)_X_ALPHA
-.IFDEF $(MMS$ARCH_NAME)_X_IA64      # $(MMS$ARCH_NAME)_X_IA64
+.ENDIF                              # $(ARCH_NAME)_X_ALPHA
+.IFDEF $(ARCH_NAME)_X_IA64          # $(ARCH_NAME)_X_IA64
 __IA64__ = 1
-.ENDIF                              # $(MMS$ARCH_NAME)_X_IA64
-.IFDEF $(MMS$ARCH_NAME)_X_VAX       # $(MMS$ARCH_NAME)_X_VAX
+.ENDIF                              # $(ARCH_NAME)_X_IA64
+.IFDEF $(ARCH_NAME)_X_VAX           # $(ARCH_NAME)_X_VAX
 __VAX__ = 1
-.ENDIF                              # $(MMS$ARCH_NAME)_X_VAX
-.ENDIF                          # __MMK__
+.ENDIF                              # $(ARCH_NAME)_X_VAX
+.IFDEF $(ARCH_NAME)_X_X86_64        # $(ARCH_NAME)_X_X86_64
+__X86_64__ = 1
+.ENDIF                              # $(ARCH_NAME)_X_X86_64
+.ELSE                           # MMS$ARCH_NAME
+.IFDEF __MMK__                      # __MMK__
+.IFDEF ARCH                             # ARCH
+.IFDEF __$(ARCH)__                          # __$(ARCH)__
+.ELSE                                       # __$(ARCH)__
+__$(ARCH)__ = 1
+.ENDIF                                      # __$(ARCH)__                      
+.ENDIF                                  # ARCH
+.ENDIF                              # __MMK__
+.ENDIF                          # MMS$ARCH_NAME
 
 # Analyze architecture-related and option macros.
-
-.IFDEF __ALPHA__                # __ALPHA__
-DESTM = ALPHA
-.ELSE                           # __ALPHA__
+# (Sense x86_64 before IA64 for old MMK and/or x86_64 cross tools.)
+				
+.IFDEF __X86_64__               # __X86_64__
+DESTM = X86_64
+.ELSE                           # __X86_64__
 .IFDEF __IA64__                     # __IA64__
 DESTM = IA64
 .ELSE                               # __IA64__
-.IFDEF __VAX__                          # __VAX__
+.IFDEF __ALPHA__                        # __ALPHA__
+DESTM = ALPHA
+.ELSE                                   # __ALPHA__
+.IFDEF __VAX__                              # __VAX__
 DESTM = VAX
-.ELSE                                   # __VAX__
+.ELSE                                       # __VAX__
 DESTM = UNK
 UNK_DEST = 1
-.ENDIF                                  # __VAX__
+.ENDIF                                      # __VAX__
+.ENDIF                                  # __ALPHA__
 .ENDIF                              # __IA64__
-.ENDIF                          # __ALPHA__
+.ENDIF                          # __X86_64__
 
 .IFDEF LARGE                    # LARGE
 .IFDEF __VAX__                      # __VAX__
@@ -69,22 +91,17 @@ LARGE_VAX = 1
 
 # Complain if warranted.  Otherwise, show destination directory.
 # Make the destination directory, if necessary.
-				
+
 .IFDEF UNK_DEST                 # UNK_DEST
 .FIRST
 	@ write sys$output -
  "   Unknown system architecture."
-.IFDEF __MMK__                      # __MMK__
-	@ write sys$output -
- "   MMK on IA64?  Try adding ""/MACRO = __IA64__""."
-.ELSE                               # __MMK__
-	@ write sys$output -
- "   MMS too old?  Try adding ""/MACRO = MMS$ARCH_NAME=ALPHA"","
-	@ write sys$output -
- "   or ""/MACRO = MMS$ARCH_NAME=IA64"", or ""/MACRO = MMS$ARCH_NAME=VAX"","
-	@ write sys$output -
- "   as appropriate.  (Or try a newer version of MMS.)"
-.ENDIF                              # __MMK__
+        @ write sys$output -
+ "   Old/obsolete MMK or MMS?  Try adding ""/MACRO = ARCH=xxxx"","
+        @ write sys$output -
+ "   where ""xxxx" is ""ALPHA"", ""IA64"", ""VAX"", or ""X86_64"","
+        @ write sys$output -
+ "   as appropriate.  (Or try a newer version of MMK or MMS.)"
 	@ write sys$output ""
 	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
 .ELSE                           # UNK_DEST
@@ -96,6 +113,10 @@ LARGE_VAX = 1
 	I_WILL_DIE_NOW.  /$$$$INVALID$$$$
 .ELSE                               # LARGE_VAX
 .FIRST
+.IFDEF COM1                             # COM1
+	@$(COM1)
+	@ write sys$output ""
+.ENDIF                                  # COM1
 	@ write sys$output "   Destination: [.$(DEST)]"
 	@ write sys$output ""
 	if (f$search( "$(DEST).DIR;1") .eqs. "") then -
@@ -174,31 +195,31 @@ LINKFLAGS = \
 #    Primary object library, [].
 
 MODS_OBJS_LIB_BZ2_N = \
- blocksort=[.$(DEST)]BLOCKSORT.OBJ \
- bzlib=[.$(DEST)]BZLIB.OBJ \
- compress=[.$(DEST)]COMPRESS.OBJ \
- crctable=[.$(DEST)]CRCTABLE.OBJ \
- decompress=[.$(DEST)]DECOMPRESS.OBJ \
- huffman=[.$(DEST)]HUFFMAN.OBJ \
- randtable=[.$(DEST)]RANDTABLE.OBJ
+ BLOCKSORT=[.$(DEST)]BLOCKSORT.OBJ \
+ BZLIB=[.$(DEST)]BZLIB.OBJ \
+ COMPRESS=[.$(DEST)]COMPRESS.OBJ \
+ CRCTABLE=[.$(DEST)]CRCTABLE.OBJ \
+ DECOMPRESS=[.$(DEST)]DECOMPRESS.OBJ \
+ HUFFMAN=[.$(DEST)]HUFFMAN.OBJ \
+ RANDTABLE=[.$(DEST)]RANDTABLE.OBJ
 
 #    Primary object library, [.vms].
 
 MODS_OBJS_LIB_BZ2_V = \
- vms_misc=[.$(DEST)]VMS_MISC.OBJ
+ VMS_MISC=[.$(DEST)]VMS_MISC.OBJ
 
 MODS_OBJS_LIB_BZ2 = $(MODS_OBJS_LIB_BZ2_N) $(MODS_OBJS_LIB_BZ2_V)
 
 #    Variant (BZ_NO_STDIO) object library, [].
 
 MODS_OBJS_LIB_BZ2_NS_N = \
- blocksort=[.$(DEST)]BLOCKSORT_.OBJ \
- bzlib=[.$(DEST)]BZLIB_.OBJ \
- compress=[.$(DEST)]COMPRESS_.OBJ \
- crctable=[.$(DEST)]CRCTABLE_.OBJ \
- decompress=[.$(DEST)]DECOMPRESS_.OBJ \
- huffman=[.$(DEST)]HUFFMAN_.OBJ \
- randtable=[.$(DEST)]RANDTABLE_.OBJ
+ BLOCKSORT=[.$(DEST)]BLOCKSORT_.OBJ \
+ BZLIB=[.$(DEST)]BZLIB_.OBJ \
+ COMPRESS=[.$(DEST)]COMPRESS_.OBJ \
+ CRCTABLE=[.$(DEST)]CRCTABLE_.OBJ \
+ DECOMPRESS=[.$(DEST)]DECOMPRESS_.OBJ \
+ HUFFMAN=[.$(DEST)]HUFFMAN_.OBJ \
+ RANDTABLE=[.$(DEST)]RANDTABLE_.OBJ
 
 MODS_OBJS_LIB_BZ2_NS = $(MODS_OBJS_LIB_BZ2_NS_N)
 
@@ -209,7 +230,7 @@ BZIP2_EXE = [.$(DEST)]BZIP2.EXE
 
 BZIP2RECOVER_EXE = [.$(DEST)]BZIP2RECOVER.EXE
 
-BZIPUTILS = $(BZIP2RECOVER_EXE)
+BZIPUTILS_EXE = $(BZIP2RECOVER_EXE)
 
 # MY_MODULE_NAME source file.
 

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2022 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -492,6 +492,9 @@ void version_local()
 #  elif defined( __ia64) /* defined( __alpha) */
       "OpenVMS",
       (sprintf( buf, " (%s IA64)", vms_vers), buf),
+#  elif defined( __x86_64) /* defined( __x86_64) */
+      "OpenVMS",
+      (sprintf( buf, " (%s x86_64)", vms_vers), buf),
 #  else /* defined( __alpha) */
       (ver_maj >= 6) ? "OpenVMS" : "VMS",
       (sprintf( buf, " (%s VAX)", vms_vers), buf),

@@ -1,7 +1,7 @@
 /*
   fileio.c - Zip 3.1
 
-  Copyright (c) 1990-2019 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2021 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -59,7 +59,6 @@ extern int errno;
 /* -----------------------
    For zfprintf
    ----------------------- */
-#include <stdlib.h>
 #ifdef NO_PROTO
 # include <varargs.h>
 #else
@@ -92,6 +91,13 @@ extern int errno;
 # endif
 #endif
 
+/* aSc added missing include needed for lcc else error in line 509 (now 514) */
+#ifdef LCC_WIN32
+# ifdef UNICODE_SUPPORT_WIN32
+#  include <wchar.h>
+# endif
+#endif
+
 #if defined(VMS) || defined(TOPS20)
 #  define PAD 5
 #else
@@ -107,6 +113,9 @@ int rename OF((ZCONST char *, ZCONST char *));
 local int optionerr OF((char *, ZCONST char *, int, int));
 local unsigned long get_shortopt OF((char **, int, int *, int *, char **, int *, int));
 local unsigned long get_longopt OF((char **, int, int *, int *, char **, int *, int));
+
+/* aSc added, lcc warning  Missing prototype for display_dot_char */
+local void display_dot_char(int chr);
 
 #ifdef UNICODE_SUPPORT
 local int utf8_char_bytes OF((ZCONST char *utf8));
@@ -428,8 +437,8 @@ local int fqcmp_icfirst(a, b)
 
   /* first sort ignoring case */
 #ifdef WIN32
-  i = _stricmp((*(struct flist far **)a)->name,
-               (*(struct flist far **)b)->name);
+  i = STRCASECMP((*(struct flist far **)a)->name,
+                 (*(struct flist far **)b)->name);
 #else
   i = strcasecmp((*(struct flist far **)a)->name,
                  (*(struct flist far **)b)->name);
@@ -455,8 +464,8 @@ local int fqcmpz_icfirst(a, b)
 
   /* first sort ignoring case */
 #ifdef WIN32
-  i = _stricmp((*(struct flist far **)a)->iname,
-               (*(struct flist far **)b)->iname);
+  i = STRCASECMP((*(struct flist far **)a)->iname,
+                 (*(struct flist far **)b)->iname);
 #else
   i = strcasecmp((*(struct flist far **)a)->iname,
                  (*(struct flist far **)b)->iname);
@@ -1468,7 +1477,10 @@ int newname(name, zflags, casesensitive)
       return ZE_MEM;
 
     if ((name_flsys = malloc( strlen( name)+ sizeof( APL_DBL_SUFX))) == NULL)
+    {
+      free(name_archv);
       return ZE_MEM;
+    }
 
     /* Construct in-archive AppleDouble file name. */
     name_archv_p = name_archv;
@@ -1865,7 +1877,7 @@ ulg a;                  /* Attributes returned by filetime() */
 #endif
 #if (defined(OS2) && defined(ZP_NEED_GEN_D2U_TIME))
    /* OS/2 uses a special solution to handle timestamps of files. */
-#  undef ZP_NEED_GEN_D2U_TIME
+/*#  undef ZP_NEED_GEN_D2U_TIME*/
 #endif
 #if (defined(W32_STATROOT_FIX) && !defined(ZP_NEED_GEN_D2U_TIME))
    /* The Win32 stat()-bandaid to fix stat'ing root directories needs
@@ -2707,7 +2719,7 @@ int bfcopy(n)
     if (des)
       continue;
 
-    if ((des || n != (uzoff_t)(-1L)) && m < n && feof(in_file)) {
+    if ((n != (uzoff_t)(-1L)) && m < n && feof(in_file)) {
       /* open next split */
       int is_split = 0;
 
@@ -3070,7 +3082,9 @@ int ask_for_split_read_path(current_disk)
       }
     }
     fflush(mesg);
-    fgets(buf, SPLIT_MAXPATH, stdin);
+    if (fgets(buf, SPLIT_MAXPATH, stdin) == NULL) {
+      ZIPERR(ZE_PATH, "split path");
+    }
     /* remove any newline */
     for (i = 0; buf[i]; i++) {
       if (buf[i] == '\n') {
@@ -3093,7 +3107,9 @@ int ask_for_split_read_path(current_disk)
       zfprintf(mesg, "\nEnter path where this split is (ENTER = same dir, . = current dir)");
       zfprintf(mesg, "\n: ");
       fflush(mesg);
-      fgets(buf, SPLIT_MAXPATH, stdin);
+      if (fgets(buf, SPLIT_MAXPATH, stdin) == NULL) {
+        ZIPERR(ZE_PATH, "split path");
+      }
       is_readable = 0;
       /* remove any newline */
       for (i = 0; buf[i]; i++) {
@@ -3276,7 +3292,9 @@ int ask_for_split_write_path(current_disk)
   for (;;) {
     zfprintf(mesg, "\nPath (or hit ENTER to continue): ");
     fflush(mesg);
-    fgets(buf, FNMAX, stdin);
+    if (fgets(buf, FNMAX, stdin) == NULL) {
+      ZIPERR(ZE_PATH, "split path");
+    }
     /* remove any newline */
     for (i = 0; buf[i]; i++) {
       if (buf[i] == '\n') {
@@ -3755,7 +3773,7 @@ size_t bfwrite(buffer, size, count, mode)
       /* could let flush_outbuf() handle error but bfwrite() is called for
          headers also */
       if (ferror(y))
-        ziperr(ZE_WRITE, "write error on zip file");
+        ziperr(ZE_WRITE, "write error on zip file (1)");
     }
   }
 
@@ -5846,8 +5864,11 @@ wchar_t *utf8_to_wchar_string(ZCONST char *utf8_string)
 
     return wchar_string;
   }
-  else
+  
+#   endif
 
+#   if defined(UNICODE_WCHAR) && defined(UNICODE_ICONV)
+  else
 #   endif
 
 #   ifdef UNICODE_ICONV
@@ -5916,10 +5937,6 @@ wchar_t *utf8_to_wchar_string(ZCONST char *utf8_string)
     return outbuf;
   }
 
-#   else /* not UNICODE_ICONV */
-
-  ZIPERR(ZE_COMPILE, "utf8_to_wchar_string has no appropriate implementation");
-
 #   endif /* UNICODE_ICONV */
 
 #   if 0
@@ -5942,7 +5959,9 @@ wchar_t *utf8_to_wchar_string(ZCONST char *utf8_string)
   len = mbstowcs(w_string, utf8_string, MAX_PATH_SIZE);
 
   return w_string;
-#   endif
+#   endif /* 0 */
+
+  ZIPERR(ZE_COMPILE, "utf8_to_wchar_string has no appropriate implementation");
 
 # endif /* not WIN32 */
 }
@@ -8001,6 +8020,8 @@ static ZCONST char Far long_op_not_sup_err[] = "long option '%s' not supported";
 static ZCONST char Far no_arg_files_err[] = "argument files not enabled\n";
 #endif
 static ZCONST char Far bad_arg_file_err[] = "error processing argument file";
+static ZCONST char Far unattached_at_err[] = "'@' not associated with list";
+static ZCONST char Far at_without_argfile_err[] = "'@' missing arg file name";
 
 
 /* below removed as only used for processing argument files */
@@ -9778,6 +9799,7 @@ unsigned long get_optionz(pargs, argc, argnum, optchar, value, negated,
         /* but is also good for show command line so command lines with lists
            can always be read back in */
         argcnt = insert_argz(&args, "@", first_nonoption_arg, 1);
+        *pargs = args;
         argn++;
         if (first_nonoption_arg > -1) {
           first_nonoption_arg++;
@@ -9958,6 +9980,14 @@ unsigned long get_optionz(pargs, argc, argnum, optchar, value, negated,
     */
 
 
+    } else if (arg[0] == '@' && arg[1] == '\0') {
+      /* '@' not ending a list or specifying an arg file */
+      if (allow_arg_files) {
+        oERR(ZE_PARMS, at_without_argfile_err);
+      } else {
+        oERR(ZE_PARMS, unattached_at_err);
+      }
+
     } else if (allow_arg_files && arg[0] == '@') {
       /* arg file */
 #if 0
@@ -9990,6 +10020,7 @@ unsigned long get_optionz(pargs, argc, argnum, optchar, value, negated,
          */
         /* dump_args("args before insert", args); */
         argcnt = insert_args_from_file(&args, argfilename, argn, recursion_depth);
+        *pargs = args;
         if (argcnt == -1) {
           sprintf(errbuf, "error processing arg file:  %s", argfilename);
           zipwarn(errbuf, "");

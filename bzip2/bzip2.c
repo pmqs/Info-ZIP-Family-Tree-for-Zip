@@ -7,8 +7,8 @@
    This file is part of bzip2/libbzip2, a program and library for
    lossless, block-sorting data compression.
 
-   bzip2/libbzip2 version 1.0.6 of 6 September 2010
-   Copyright (C) 1996-2010 Julian Seward <jseward@bzip.org>
+   bzip2/libbzip2 version 1.0.8 of 13 July 2019
+   Copyright (C) 1996-2019 Julian Seward <jseward@acm.org>
 
    Please read the WARNING, DISCLAIMER and PATENTS sections in the 
    README file.
@@ -28,8 +28,8 @@
 #if defined(__VMS)
 #undef  BZ_UNIX
 #define BZ_VMS       1
-#define VERSION_SUFFIX "a"
-/* Accomodation for /NAMES = AS_IS with old header files. */
+#define VERSION_SUFFIX "c"
+/* Accommodation for /NAMES = AS_IS with old header files. */
 #define cma$tis_errno_get_addr CMA$TIS_ERRNO_GET_ADDR
 #endif /* defined(__VMS) */
 
@@ -50,11 +50,16 @@
 #endif
 
 
+/* Define mode and option args for fopen() of input files, and
+ * fopen_output_safely().
+ */ 
 #if BZ_VMS
 #   define FOPEN_INPUT( name) \
      fopen( name, "rb", "ctx=stm", "acc", acc_cb, &fopr_id)
+#   define F_O_S_MODE "w"
 #else /* BZ_VMS */
 #   define FOPEN_INPUT( name) fopen( name, "rb")
+#   define F_O_S_MODE "wb"
 #endif /* BZ_VMS */
 
 #ifndef VERSION_SUFFIX
@@ -198,6 +203,7 @@
 #   define MY_S_ISREG  S_ISREG
 #   define MY_S_ISDIR  S_ISDIR
 
+#   define APPEND_FILESPEC_FLAG_DIFFER
 #   define APPEND_FILESPEC( root, name) \
       root = append_vms_filespec( (root), (name))
 
@@ -219,19 +225,19 @@
 #   define HAVE_UTIME 1
 #   include <io.h>
 #   include <fcntl.h>
-#   include <sys\stat.h>
+#   include <sys/stat.h>
 
 #   define NORETURN       /**/
 #   define PATH_SEP       '\\'
-#   define MY_LSTAT       _stat
-#   define MY_STAT        _stat
+#   define MY_LSTAT       _stati64
+#   define MY_STAT        _stati64
 #   define MY_S_ISREG(x)  ((x) & _S_IFREG)
 #   define MY_S_ISDIR(x)  ((x) & _S_IFDIR)
 
 #   define APPEND_FLAG(root, name) \
       root=snocString((root), (name))
 
-#   define APPEND_FILESPEC(root, name) \
+#   define APPEND_FILESPEC(root, name)                \
       root = snocString ((root), (name))
 
 #   define SET_BINARY_MODE(fd)                        \
@@ -645,7 +651,7 @@ static
 Bool testStream ( FILE *zStream )
 {
    BZFILE* bzf = NULL;
-   Int32   bzerr, bzerr_dummy, ret, nread, streamNo, i;
+   Int32   bzerr, bzerr_dummy, ret, streamNo, i;
    UChar   obuf[5000];
    UChar   unused[BZ_MAX_UNUSED];
    Int32   nUnused;
@@ -668,7 +674,7 @@ Bool testStream ( FILE *zStream )
       streamNo++;
 
       while (bzerr == BZ_OK) {
-         nread = BZ2_bzRead ( &bzerr, bzf, obuf, 5000 );
+         BZ2_bzRead ( &bzerr, bzf, obuf, 5000 );
          if (bzerr == BZ_DATA_ERROR_MAGIC) goto errhandler;
       }
       if (bzerr != BZ_STREAM_END) goto errhandler;
@@ -839,8 +845,8 @@ void panic ( const Char* s )
    fprintf ( stderr,
              "\n%s: PANIC -- internal consistency error:\n"
              "\t%s\n"
-             "\tThis is a BUG.  Please report it to me at:\n"
-             "\tjseward@bzip.org\n",
+             "\tThis is a BUG.  Please report it to:\n"
+             "\tbzip2-devel@sourceware.org\n",
              progName, s );
    showFileNames();
    cleanUpAndFail( 3 );
@@ -920,7 +926,7 @@ void mySIGSEGVorSIGBUScatcher ( IntNative n )
       "   The user's manual, Section 4.3, has more info on (1) and (2).\n"
       "   \n"
       "   If you suspect this is a bug in bzip2, or are unsure about (1)\n"
-      "   or (2), feel free to report it to me at: jseward@bzip.org.\n"
+      "   or (2), feel free to report it to: bzip2-devel@sourceware.org.\n"
       "   Section 4.3 of the user's manual describes the info a useful\n"
       "   bug report should have.  If the manual is available on your\n"
       "   system, please try and read it before mailing me.  If you don't\n"
@@ -943,7 +949,7 @@ void mySIGSEGVorSIGBUScatcher ( IntNative n )
       "   The user's manual, Section 4.3, has more info on (2) and (3).\n"
       "   \n"
       "   If you suspect this is a bug in bzip2, or are unsure about (2)\n"
-      "   or (3), feel free to report it to me at: jseward@bzip.org.\n"
+      "   or (3), feel free to report it to: bzip2-devel@sourceware.org.\n"
       "   Section 4.3 of the user's manual describes the info a useful\n"
       "   bug report should have.  If the manual is available on your\n"
       "   system, please try and read it before mailing me.  If you don't\n"
@@ -1030,7 +1036,7 @@ void copyFileName ( Char* to, Char* from )
 static 
 Bool fileExists ( Char* name )
 {
-   FILE *tmp   = FOPEN_INPUT( name);
+   FILE *tmp   = FOPEN_INPUT ( name );
    Bool exists = (tmp != NULL);
    if (tmp != NULL) fclose ( tmp );
    return exists;
@@ -1048,28 +1054,25 @@ Bool fileExists ( Char* name )
    security issues, simple this simply behaves like fopen.
 */
 static
-FILE* fopen_output_safely ( Char* name)
+FILE* fopen_output_safely ( Char* name, const char* mode )
 {
 #  if BZ_UNIX | BZ_VMS
    FILE*     fp;
    IntNative fh;
 
 #     if BZ_VMS
-#        define MODE "w"
 #        define OPEN_OPTS , "ctx=stm", "acc", acc_cb, &fopw_id
 #     else /* BZ_VMS */
-#        define MODE "wb"
 #        define OPEN_OPTS
 #     endif /* BZ_VMS [else] */
 
    fh = open(name, O_WRONLY|O_CREAT|O_EXCL, S_IWUSR|S_IRUSR OPEN_OPTS);
    if (fh == -1) return NULL;
-
-   fp = fdopen(fh, MODE);
+   fp = fdopen(fh, mode);
    if (fp == NULL) close(fh);
    return fp;
 #  else
-   return fopen(name, "wb");
+   return fopen(name, mode);
 #  endif
 }
 
@@ -1219,53 +1222,54 @@ Bool containsDubiousChars ( Char* name )
 #  define BZ_N_SUFFIX_PAIRS 4
 #endif /* ACCEPT_VMS_SUFFIXES [else] */
 
-Char* zSuffix[BZ_N_SUFFIX_PAIRS]
+const Char* zSuffix[BZ_N_SUFFIX_PAIRS] 
    = {
 #if ACCEPT_VMS_SUFFIXES
        "-bz2", "-bz",
 #endif /* ACCEPT_VMS_SUFFIXES */
        ".bz2", ".bz", ".tbz2", ".tbz" };
 
-Char* unzSuffix[BZ_N_SUFFIX_PAIRS]
+const Char* unzSuffix[BZ_N_SUFFIX_PAIRS] 
    = {
 #if ACCEPT_VMS_SUFFIXES
        "", "",
 #endif /* ACCEPT_VMS_SUFFIXES */
        "", "", ".tar", ".tar" };
 
+#if BZ_VMS
+   /* On VMS, avoid including the file version in the suffix test, and
+    * use a case-insensitive comparison.
+    */
 static 
 Bool hasSuffix ( Char* s, const Char* suffix )
 {
    Int32 ns;
    Int32 nx;
+   Char *snv;
    Bool sts = False;
 
-   /* On VMS, avoid including the file version in the suffix test. */
-
-#if BZ_VMS
-#   define FILE_NAME_CMP strcasecmp
-#   define S snv
-   Char *snv;
-
-    snv = strdup( s);
-    if (snv == NULL) outOfMemory ();
-    trimFileNameVersion( snv);
-#else /* BZ_VMS */
-#   define FILE_NAME_CMP strcmp
-#   define S s
-#endif /* BZ_VMS */
-
-   ns = strlen(S);
-   nx = strlen(suffix);
+   snv = strdup( s);
+   if (snv == NULL) outOfMemory ();
+   trimFileNameVersion( snv);
+   ns = strlen( snv);
+   nx = strlen( suffix);
    if (ns >= nx) {
-      sts = (FILE_NAME_CMP(S + ns - nx, suffix) == 0);
+      sts = (strcasecmp( snv + ns - nx, suffix) == 0);
    }
-#if BZ_VMS
    free( snv);
-#endif /* BZ_VMS */
    return sts;
 }
-
+#else /* BZ_VMS */
+static 
+Bool hasSuffix ( Char* s, const Char* suffix )
+{
+   Int32 ns = strlen(s);
+   Int32 nx = strlen(suffix);
+   if (ns < nx) return False;
+   if (strcmp(s + ns - nx, suffix) == 0) return True;
+   return False;
+}
+#endif /* BZ_VMS [else] */
 
 static 
 Bool mapSuffix ( Char* name, 
@@ -1402,7 +1406,7 @@ void compress ( Char *name )
          break;
 
       case SM_F2O:
-         inStr = FOPEN_INPUT( inName);
+         inStr = FOPEN_INPUT ( inName );
          outStr = stdout;
          if ( isatty ( fileno ( stdout ) ) ) {
             fprintf ( stderr,
@@ -1423,8 +1427,8 @@ void compress ( Char *name )
          break;
 
       case SM_F2F:
-         inStr = FOPEN_INPUT( inName);
-         outStr = fopen_output_safely ( outName );
+         inStr = FOPEN_INPUT ( inName );
+         outStr = fopen_output_safely ( outName, F_O_S_MODE );
          if ( outStr == NULL) {
             fprintf ( stderr, "%s: Can't create output file %s: %s.\n",
                       progName, outName, strerror(errno) );
@@ -1597,7 +1601,7 @@ void uncompress ( Char *name )
          break;
 
       case SM_F2O:
-         inStr = FOPEN_INPUT( inName);
+         inStr = FOPEN_INPUT ( inName );
          outStr = stdout;
          if ( inStr == NULL ) {
             fprintf ( stderr, "%s: Can't open input file %s:%s.\n",
@@ -1609,8 +1613,8 @@ void uncompress ( Char *name )
          break;
 
       case SM_F2F:
-         inStr = FOPEN_INPUT( inName);
-         outStr = fopen_output_safely ( outName );
+         inStr = FOPEN_INPUT ( inName );
+         outStr = fopen_output_safely ( outName, F_O_S_MODE );
          if ( outStr == NULL) {
             fprintf ( stderr, "%s: Can't create output file %s: %s.\n",
                       progName, outName, strerror(errno) );
@@ -1739,7 +1743,7 @@ void testf ( Char *name )
          break;
 
       case SM_F2O: case SM_F2F:
-         inStr = FOPEN_INPUT( inName);
+         inStr = FOPEN_INPUT ( inName );
          if ( inStr == NULL ) {
             fprintf ( stderr, "%s: Can't open input file %s:%s.\n",
                       progName, inName, strerror(errno) );
@@ -1777,11 +1781,11 @@ void license ( void )
     "bzip2, a block-sorting file compressor.  "
     "Version %s%s, %s.\n"
     "   \n"
-    "   Copyright (C) 1996-2010 by Julian Seward.\n"
+    "   Copyright (C) 1996-2019 by Julian Seward.\n"
     "   \n"
     "   This program is free software; you can redistribute it and/or modify\n"
     "   it under the terms set out in the LICENSE file, which is included\n"
-    "   in the bzip2-1.0.6 source distribution.\n"
+    "   in the bzip2 source distribution.\n"
     "   \n"
     "   This program is distributed in the hope that it will be useful,\n"
     "   but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
@@ -2027,9 +2031,10 @@ IntNative main ( IntNative argc, Char *argv[] )
    /*-- Copy flags from env var BZIP2, and 
         expand filename wildcards in arg list.
    --*/
+
    /* On VMS, use BZIP_OPTS or BZIP2_OPTS to avoid colliding with a
-      foreign command symbol.  (As in the Info-ZIP [Un]Zip programs.)
-   */
+    * foreign-command symbol.  (As in the Info-ZIP [Un]Zip programs.)
+    */
 #if BZ_VMS
 #define ENV2 "BZIP2_OPTS"
 #define ENV1 "BZIP_OPTS"
@@ -2041,15 +2046,27 @@ IntNative main ( IntNative argc, Char *argv[] )
    argList = NULL;
    addFlagsFromEnvVar ( &argList,  (Char*)ENV2 );
    addFlagsFromEnvVar ( &argList,  (Char*)ENV1 );
+#ifdef APPEND_FILESPEC_FLAG_DIFFER
+   /* On VMS (at least), file specs get special handling. */
    decode = True;
    for (i = 1; i <= argc-1; i++)
    {
-      if (strcmp( argv[ i], "--") == 0) { decode = False; continue; }
+      if (strcmp( argv[ i], "--") == 0)
+      {
+         decode = False;                        /* Henceforth, no flags. */
+         APPEND_FLAG( argList, argv[i]);        /* Preserve the "--" flag. */
+         continue;
+      }
       if (decode && *argv[ i] == '-')
          APPEND_FLAG( argList, argv[i]);
       else
          APPEND_FILESPEC( argList, argv[i]);
    }
+#else /* def APPEND_FILESPEC_FLAG_DIFFER */
+   for (i = 1; i <= argc-1; i++)
+      APPEND_FILESPEC(argList, argv[i]);
+#endif /* def APPEND_FILESPEC_FLAG_DIFFER [else] */
+
 
    /*-- Find the length of the longest filename --*/
    longestFileName = 7;
@@ -2223,12 +2240,14 @@ IntNative main ( IntNative argc, Char *argv[] )
             testf ( aa->name );
 	 }
       }
-      if (testFailsExist && noisy) {
-         fprintf ( stderr,
-           "\n"
-           "You can use the `bzip2recover' program to attempt to recover\n"
-           "data from undamaged sections of corrupted files.\n\n"
-         );
+      if (testFailsExist) {
+	 if (noisy) {
+            fprintf ( stderr,
+               "\n"
+               "You can use the `bzip2recover' program to attempt to recover\n"
+               "data from undamaged sections of corrupted files.\n\n"
+            );
+	 }
          setExit(2);
          exit(exitValue);
       }

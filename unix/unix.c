@@ -1,7 +1,7 @@
 /*
   unix/unix.c - Zip 3
 
-  Copyright (c) 1990-2015 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2019 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2009-Jan-2 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -59,6 +59,10 @@
 #else
    int utime OF((char *, time_t *));
 #endif
+#ifdef FTS_SUPPORT
+#  include <fts.h>
+#  include <errno.h>
+#endif
 
 local ulg label_time = 0;
 local ulg label_mode = 0;
@@ -71,15 +75,15 @@ local char *readd OF((DIR *));
 
 /* get_apl_dbl_info()
  * Look for data which require an AppleDouble ("._name") file.
- * Return zero if any are found.  Qualifying data:
- *    Non-zero Finder info
- *    Resource fork (size > 0)
- *    Extended attributes (non-null list, where available)
+ * Return non-zero if any are found.  Bit, qualifying data:
+ *    0x01: Non-zero Finder info
+ *    0x02: Resource fork (size > 0)
+ *    0x04: Extended attributes (non-null list, where available)
  */
 static int get_apl_dbl_info( char *name)
 {
   int sts;
-  int ret = 1;                  /* Assume failure. */
+  int ret = 0;                  /* Assume none. */
 
   /* Attribute request structures for getattrlist(). */
   struct attrlist attr_list_fndr;
@@ -116,48 +120,45 @@ static int get_apl_dbl_info( char *name)
     if (fior != 0)
     {
       /* Non-zero Finder info. */
-      ret = 0;
+      ret |= 0x01;
     }
-    else
+
+    /* Check resource fork size. */
+
+    /* Clear attribute list structure. */
+    memset( &attr_list_rsrc, 0, sizeof( attr_list_rsrc));
+    /* Set attribute list bits for resource fork size. */
+    attr_list_rsrc.bitmapcount = ATTR_BIT_MAP_COUNT;
+    attr_list_rsrc.fileattr = ATTR_FILE_RSRCLENGTH;
+						
+    sts = getattrlist( name,                    /* Path. */
+                       &attr_list_rsrc,         /* Attrib list. */
+                       &attr_bufr_rsrc,         /* Dest buffer. */
+                       sizeof( attr_bufr_rsrc), /* Dest buffer size. */
+                       0);                      /* Options. */
+
+    if ((sts == 0) && (attr_bufr_rsrc.size > 0))
     {
-      /* Check resource fork size. */
-      /* Clear attribute list structure. */
-      memset( &attr_list_rsrc, 0, sizeof( attr_list_rsrc));
-      /* Set attribute list bits for resource fork size. */
-      attr_list_rsrc.bitmapcount = ATTR_BIT_MAP_COUNT;
-      attr_list_rsrc.fileattr = ATTR_FILE_RSRCLENGTH;
-
-      sts = getattrlist( name,                      /* Path. */
-                         &attr_list_rsrc,           /* Attrib list. */
-                         &attr_bufr_rsrc,           /* Dest buffer. */
-                         sizeof( attr_bufr_rsrc),   /* Dest buffer size. */
-                         0);                        /* Options. */
-
-      if ((sts == 0) && (attr_bufr_rsrc.size > 0))
-      {
-        /* Non-zero-size resource fork. */
-        ret = 0;
-      }
-# ifdef APPLE_XATTR
-      else
-      {
-        /* Check extended attribute list length.
-         * Note: If we decide to filter extended attributes, then a more
-         * complex test would be needed here.
-         */
-        sts = listxattr( name,                  /* Real file name. */
-                         NULL,                  /* Name list buffer. */
-                         0,                     /* Name list buffer size. */
-                         XATTR_NOFOLLOW);       /* Options. */
-
-        if (sts > 0)
-        {
-          /* Non-null list of extended attributes. */
-          ret = 0;
-        }
-      }
-# endif /* def APPLE_XATTR */
+      /* Non-zero-size resource fork. */
+      ret |= 0x02;
     }
+
+# ifdef APPLE_XATTR
+    /* Check extended attribute list length.
+     * Note: If we decide to filter extended attributes, then a more
+     * complex test would be helpful here.
+     */
+    sts = listxattr( name,                      /* Real file name. */
+                     NULL,                      /* Name list buffer. */
+                     0,                         /* Name list buffer size. */
+                     XATTR_NOFOLLOW);           /* Options. */
+
+    if (sts > 0)
+    {
+      /* Non-null list of extended attributes. */
+      ret |= 0x04;
+    }
+# endif /* def APPLE_XATTR */
   }
   return ret;
 }
@@ -166,18 +167,85 @@ static int get_apl_dbl_info( char *name)
 unsigned char *apl_dbl_hdr;             /* AppleDouble header buffer. */
 int apl_dbl_hdr_alloc;                  /* Allocated size of apl_dbl_hdr. */
 
-# ifdef APPLE_XATTR
-char *apl_dbl_xattr_ignore[] =
- { "com.apple.FinderInfo", "com.apple.ResourceFork", NULL };
-# endif /* def APPLE_XATTR */
 
+# ifdef APPLE_XATTR
+
+/* Apple extended attributes to ignore.
+ * Returns zero for success, non-zero for failure.
+ * Simple, rather than fancy/efficient, but used only infrequently.
+ * Allocated storage free()'d in zip.c:freeup().
+ */
+
+/* Save excluded extended attribute name.  "-ax/--apple-ext-attr" options. */
+
+int apl_dbl_xattr_ignore_add( char *name)
+{
+  int sts = 0;
+  char *new_name;
+
+  if (name == NULL)
+  {
+    sts = 1;                            /* Invalid (null) argument. */
+  }
+  else
+  {
+    if (strlen( name) <= 0)
+    {
+      sts = 2;                          /* Invalid (blank) argument. */
+    }
+    else
+    {
+      new_name = malloc( strlen( name)+ 1);
+      if (new_name == NULL)
+      {
+        sts = 3;                        /* Memory alloc failure (name). */
+      }
+      else
+      {
+        strcpy( new_name, name);
+ 
+        apl_dbl_xattr_ignore = realloc( apl_dbl_xattr_ignore,
+         (apl_dbl_xattr_ignore_cnt+ 1)* sizeof( apl_dbl_xattr_ignore));
+        if (apl_dbl_xattr_ignore == NULL)
+        {
+          sts = 4;                      /* Memory allloc failure (array). */
+        }
+        else
+        {
+          apl_dbl_xattr_ignore[ apl_dbl_xattr_ignore_cnt++] = new_name;
+        }
+      }
+    }
+  }
+  return sts;
+}
+
+
+/* Accept/reject AppleDouble extended attributes. */
+int apl_dbl_attr_select( char *name)
+{
+  int j;
+  int sts;              /* sts == 0: Process; sts != 0: Ignore. */
+
+  sts = 0;
+  for (j = 0; j < apl_dbl_xattr_ignore_cnt; j++)
+  {
+    if (strcmp( apl_dbl_xattr_ignore[ j], name) == 0)
+    {
+      sts = 1;
+      break;
+    }
+  }
+  return sts; 
+}
+
+# endif /* def APPLE_XATTR */
 
 
 int make_apl_dbl_header( char *name, int *hdr_size)
 {
 
   char btrbslash;               /* Saved character had better be a slash. */
-  int j;                        /* Misc. counter. */
   int sts;
   struct attrlist attr_list_fndr;
   struct attrlist attr_list_rsrc;
@@ -258,16 +326,8 @@ int make_apl_dbl_header( char *name, int *hdr_size)
             xan_ptr = xan_buf;              /* Attribute name pointer. */
             while (xan_ptr < xan_buf+ xan_len)
             {
-              sts = 0;
-              for (j = 0; apl_dbl_xattr_ignore[ j] != NULL; j++)
-              {
-                if (strcmp( apl_dbl_xattr_ignore[ j], xan_ptr) == 0)
-                {
-                  sts = 1;
-                  break;
-                }
-              }
-
+              /* Recognize/skip attributes which we don't want. */
+              sts = apl_dbl_attr_select( xan_ptr);
               if (sts == 0)
               {
                 xa_cnt++;                       /* Count the attributes. */
@@ -386,6 +446,7 @@ int make_apl_dbl_header( char *name, int *hdr_size)
      attr_bufr_rsrc.size);
 
 # ifdef APPLE_XATTR
+
     if (xan_len > 0)
     {
       int ofs = APL_DBL_SIZE_HDR;   /* After end of Finder info. */
@@ -443,16 +504,7 @@ int make_apl_dbl_header( char *name, int *hdr_size)
       while (xan_ptr < xan_buf+ xan_len)
       {
         /* Recognize attributes which we don't want. */
-        sts = 0;
-        for (j = 0; apl_dbl_xattr_ignore[ j] != NULL; j++)
-        {
-          if (strcmp( apl_dbl_xattr_ignore[ j], xan_ptr) == 0)
-          {
-            sts = 1;
-            break;
-          }
-        }
-
+        sts = apl_dbl_attr_select( xan_ptr);
         if (sts == 0)
         {
           /* Not one of the unwanted attributes.  Process it. */
@@ -560,6 +612,83 @@ DIR *d;                 /* directory stream to read from */
   return e == NULL ? (char *) NULL : e->d_name;
 }
 
+#ifdef FTS_SUPPORT
+#  ifdef FTSCONST_SUPPORT
+#    define FTSCONST const
+#  else
+#    define FTSCONST
+#  endif /* FTSCONST_SUPPORT */
+
+/* Same sort function as used to sort the found list in fileio.c.
+   We will sort on the fly each list produced by procname()
+   (almost no performance penalty) so that sort made by
+   check_dup_sort() will be much faster.
+   Note that due to this, in some cases, we could certainly avoid
+   the sort made by check_dup_sort() which could then be useless. */
+
+/* This should be merged with main version.  Having this here could result
+   in changes to the main sort function not being made here. */
+
+/* FTS sorts without the directory trailing slash, whereas check_dup_sort()
+   does.  Therefore we must add the trailing slash here so we sort exactly
+   the same way as the main sort. */
+
+local int fqcmpz_icfirst(const FTSENT *FTSCONST *a, const FTSENT *FTSCONST *b)
+{
+  int i;
+  FTSENT **af = (FTSENT **)a;
+  int alen = (*af)->fts_namelen;
+  char *aa;
+  int aatofree=0;
+  FTSENT **bf = (FTSENT **)b;
+  int blen = (*bf)->fts_namelen;
+  char *bb;
+  int bbtofree = 0;
+
+  if((((*af)->fts_info == FTS_D)   ||
+      ((*af)->fts_info == FTS_DC)  ||
+      ((*af)->fts_info == FTS_DNR) ||
+      ((*af)->fts_info == FTS_DP)
+     ) && ((*af)->fts_name[alen-1] != '/'))
+  {
+    aa = string_dup((*af)->fts_name, "fqcmpz_icfirst a", ADD_FLUFF(1));
+    strcat(aa, "/");
+    aatofree = 1;
+  }
+  else {
+    aa = (*af)->fts_name;
+  }
+
+  if((((*bf)->fts_info == FTS_D)   ||
+      ((*bf)->fts_info == FTS_DC)  ||
+      ((*bf)->fts_info == FTS_DNR) ||
+      ((*bf)->fts_info == FTS_DP)
+     ) && ((*bf)->fts_name[blen-1] != '/'))
+  {
+    bb = string_dup((*bf)->fts_name, "fqcmpz_icfirst b", ADD_FLUFF(1));
+    strcat(bb, "/");
+    bbtofree = 1;
+  }
+  else {
+    bb = (*bf)->fts_name;
+  }
+
+  /* first sort ignoring case */
+  i = strcasecmp(aa, bb);
+  if (!i) {
+    /* if strings match ignoring case, use case */
+    i = strcmp(aa, bb);
+  }
+
+  if (aatofree)
+    free(aa);
+  if (bbtofree)
+    free(bb);
+  
+  return i;
+}
+#endif /* FTS_SUPPORT */
+
 
 int procname(n, caseflag)
 char *n;                /* name to process */
@@ -567,107 +696,214 @@ int caseflag;           /* true to force case-sensitive match */
 /* Process a name or sh expression to operate on (or exclude).  Return
    an error code in the ZE_ class. */
 {
-  char *a;              /* path and name for recursion */
+  char *p;              /* path operations */
+  char *a;              /* path last character */
+  int m;                /* matched flag */
+  struct zlist far *z;  /* steps through zfiles list */
+#ifndef FTS_SUPPORT
   DIR *d;               /* directory stream from opendir() */
   char *e;              /* pointer to name from readd() */
-  int m;                /* matched flag */
-  char *p;              /* path for recursion */
   z_stat s;             /* result of stat() */
-  struct zlist far *z;  /* steps through zfiles list */
+#endif /* no FTS_SUPPORT */
+#ifdef FTS_SUPPORT
+  FTS *tree;      /* pointer to top of FTS hierarchy */
+  FTSENT *entry;  /* FTS node */
+  int ftsoptions; /* FTS options */
+  char *paths[2]; /* FTS path to traverse */
 
-  if (strcmp(n, "-") == 0) { /* if compressing stdin */
+  if (linkput) {
+    ftsoptions = FTS_PHYSICAL; /* return info for symlinks themselves */
+  } else {
+    ftsoptions = FTS_LOGICAL; /* return info for symlinks targets */
+  }
+  ftsoptions |= FTS_NOSTAT;  /* avoid performance penalty, zipup() will stat */
+  ftsoptions |= FTS_NOCHDIR; /* tests show that fts is faster with this */
+  
+  paths[0] = n;
+  paths[1] = NULL;
+#endif /* FTS_SUPPORT */
+
+  if (is_stdin || (!no_stdin && strcmp(n, "-") == 0)) { /* if compressing stdin */
     return newname(n, 0, caseflag);
   }
+#ifndef FTS_SUPPORT
   else if (LSSTAT(n, &s))
   {
-    /* Not a file or directory--search for shell expression in zip file */
-    p = ex2in(n, 0, (int *)NULL);       /* shouldn't affect matching chars */
-    m = 1;
-    for (z = zfiles; z != NULL; z = z->nxt) {
-      if (MATCH(p, z->iname, caseflag))
-      {
-        z->mark = pcount ? filter(z->zname, caseflag) : 1;
-        if (verbose)
-            zfprintf(mesg, "zip diagnostic: %scluding %s\n",
-               z->mark ? "in" : "ex", z->name);
-        m = 0;
-#if 0
-        zprintf(" {in procname:  match 1 (%s)}", z->name);
-#endif
-      }
-    }
-
-#ifdef UNICODE_SUPPORT
-    if (m) {
-      /* also check de-escaped Unicode name */
-      char *pu = escapes_to_utf8_string(p);
-#if 0
-      zprintf(" {in procname:  pu (%s)}", pu);
-#endif
-
-      for (z = zfiles; z != NULL; z = z->nxt) {
-        if (z->zuname) {
-          if (MATCH(pu, z->zuname, caseflag))
-          {
-            z->mark = pcount ? filter(z->zuname, caseflag) : 1;
-            if (verbose) {
-                zfprintf(mesg, "zip diagnostic: %scluding %s\n",
-                   z->mark ? "in" : "ex", z->oname);
-                zfprintf(mesg, "     Escaped Unicode:  %s\n",
-                   z->ouname);
-            }
-            m = 0;
-#if 0
-            zprintf(" {in procname:  match 2 (%s)}", z->zuname);
-#endif
-          }
-        }
-      } /* for */
-      free(pu);
-    }
-#endif
-
-    free((zvoid *)p);
-    return m ? ZE_MISS : ZE_OK;
+#endif /* no FTS_SUPPORT */
+#ifdef FTS_SUPPORT
+  errno=0;
+  tree = fts_open(paths, ftsoptions, fqcmpz_icfirst);
+  if (tree == NULL) {
+    zipwarn("error opening fts: ", strerror(errno));
+    return ZE_LOGIC;
   }
 
+  while (errno = 0, (entry = fts_read(tree)) != NULL) {
+    switch (entry->fts_info) {
+
+    case FTS_DP: /* a directory being visited in post-order */
+      continue;
+      break;
+
+    case FTS_NS: /* a file for which no stat(2) information was available */
+      if (strcmp(entry->fts_path, n)) {
+        zipwarn("unreadable file: ", entry->fts_path);
+        return ZE_READ;
+        break;
+      }
+#endif /* FTS_SUPPORT */
+      /* Not a file or directory--search for shell expression in zip file */
+      p = ex2in(n, 0, (int *)NULL);       /* shouldn't affect matching chars */
+      m = 1;
+      for (z = zfiles; z != NULL; z = z->nxt) {
+        if (MATCH(p, z->iname, caseflag))
+        {
+          z->mark = pcount ? filter(z->zname, caseflag) : 1;
+          if (verbose)
+              zfprintf(mesg, "zip diagnostic: %scluding %s\n",
+                 z->mark ? "in" : "ex", z->name);
+          m = 0;
 #if 0
-  zprintf(" {in procname:  live name}");
+          zprintf(" {in procname:  match 1 (%s)}", z->name);
+#endif
+        }
+      }
+
+#ifdef UNICODE_SUPPORT
+      if (m) {
+        /* also check de-escaped Unicode name */
+        char *pu = escapes_to_utf8_string(p);
+#if 0
+        zprintf(" {in procname:  pu (%s)}", pu);
+#endif
+        for (z = zfiles; z != NULL; z = z->nxt) {
+          if (z->zuname) {
+            if (MATCH(pu, z->zuname, caseflag))
+            {
+              z->mark = pcount ? filter(z->zuname, caseflag) : 1;
+              if (verbose) {
+                  zfprintf(mesg, "zip diagnostic: %scluding %s\n",
+                     z->mark ? "in" : "ex", z->oname);
+                  zfprintf(mesg, "     Escaped Unicode:  %s\n",
+                     z->ouname);
+              }
+              m = 0;
+#if 0
+              zprintf(" {in procname:  match 2 (%s)}", z->zuname);
+#endif
+            }
+          }
+        } /* for */
+        free(pu);
+      }
+#endif /* UNICODE_SUPPORT */
+
+      free((zvoid *)p);
+      return m ? ZE_MISS : ZE_OK;
+
+#if 0
+    zprintf(" {in procname:  live name}");
 #endif
 
-  /* Live name.  Recurse if directory.  Use if file or symlink (or fifo?). */
-  if (S_ISREG(s.st_mode) || S_ISLNK(s.st_mode))
-  {
-    /* Regular file or symlink.  Add or remove name of file. */
-    if ((m = newname(n, 0, caseflag)) != ZE_OK)
-      return m; 
+#ifndef FTS_SUPPORT
+    }
+    /* Live name.  Recurse if directory.  Use if file or symlink (or fifo?). */
+    if (S_ISREG(s.st_mode) || S_ISLNK(s.st_mode))
+    {
+      /* Regular file or symlink.  Add or remove name of file. */
+      if ((m = newname(n, 0, caseflag)) != ZE_OK)
+        return m; 
 
 #ifdef __APPLE__
-
-    /* If saving AppleDouble files, process one for this file. */
-    if (data_fork_only <= 0)
-    {
-      /* Check for non-null Finder info and resource fork. */
-      m = get_apl_dbl_info( n);
-      if (m == 0)
+      /* If saving AppleDouble files, process one for this file. */
+      if (data_fork_only <= 0)
       {
-        /* Process the AppleDouble file. */
-        if ((m = newname(n, ZFLAG_APLDBL, caseflag)) != ZE_OK)
-          return m;
+        /* Check for non-null Finder info and/or resource fork. */
+        m = get_apl_dbl_info( n);
+        if (m != 0)
+        {
+          /* Process the AppleDouble file. */
+          if ((m = newname(n, ZFLAG_APLDBL, caseflag)) != ZE_OK)
+            return m;
+        }
       }
-    }
 #endif /* def __APPLE__ */
 
-  } /* S_ISREG( s.st_mode) || S_ISLNK( s.st_mode) */
-  else if (S_ISDIR(s.st_mode))
-  {
-    /* Directory.  Add trailing / to the directory name. */
-    if ((p = malloc(strlen(n)+2)) == NULL)
-      return ZE_MEM;
-    if (strcmp(n, ".") == 0) {
-      *p = '\0';  /* avoid "./" prefix and do not create zip entry */
-    } else {
-      strcpy(p, n);
+    } /* S_ISREG( s.st_mode) || S_ISLNK( s.st_mode) */
+    else if (S_ISDIR(s.st_mode))
+    {
+      /* Directory.  Add trailing / to the directory name. */
+      if ((p = malloc(strlen(n)+2)) == NULL)
+        return ZE_MEM;
+      if (strcmp(n, ".") == 0) {
+        *p = '\0';  /* avoid "./" prefix and do not create zip entry */
+      } else {
+        strcpy(p, n);
+        a = p + strlen(p);
+        if (a[-1] != '/')
+          strcpy(a, "/");
+        if (dirnames && (m = newname(p, ZFLAG_DIR, caseflag)) != ZE_OK) {
+          free((zvoid *)p);
+          return m;
+        }
+      }
+      /* recurse into directory */
+      if (recurse && (d = opendir(n)) != NULL)
+      {
+        while ((e = readd(d)) != NULL) {
+          if (strcmp(e, ".") && strcmp(e, ".."))
+          {
+            if ((a = malloc(strlen(p) + strlen(e) + 1)) == NULL)
+            {
+              closedir(d);
+              free((zvoid *)p);
+              return ZE_MEM;
+            }
+            strcat(strcpy(a, p), e);
+            if ((m = procname(a, caseflag)) != ZE_OK)   /* recurse on name */
+            {
+              if (m == ZE_MISS)
+                zipwarn("name not matched: ", a);
+              else
+                ziperr(m, a);
+            }
+            free((zvoid *)a);
+          }
+        }
+        closedir(d);
+      }
+      free((zvoid *)p);
+    } /* S_ISDIR( s.st_mode) [else if] */
+    else if (S_ISFIFO(s.st_mode))
+    {
+      /* FIFO (Named Pipe) - handle as normal file by adding
+       * name of FIFO.  As of Zip 3.1, a named pipe is always
+       * included.  Zip will stop if FIFO is open and wait for
+       * pipe to be fed and closed, but only if -FI.
+       *
+       * Skipping read of FIFO is now done in zipup().
+       */
+      if (noisy) {
+        if (allow_fifo)
+          zipwarn("reading FIFO (Named Pipe): ", n);
+        else
+          zipwarn("skipping read of FIFO (Named Pipe) - use -FI to read: ", n);
+      }
+      if ((m = newname(n, ZFLAG_FIFO, caseflag)) != ZE_OK)
+        return m;
+    } /* S_ISFIFO( s.st_mode) [else if] */
+    else
+    {
+      zipwarn("ignoring special file: ", n);
+    } /* S_IS<whatever>( s.st_mode) [else] */
+#endif /* no FTS_SUPPORT */
+#ifdef FTS_SUPPORT
+      break;
+
+    case FTS_D: /* a directory (no . or ..) being visited in pre-order */
+      if ((p = malloc(strlen(entry->fts_path)+2)) == NULL)
+        return ZE_MEM;
+      strcpy(p, entry->fts_path);
       a = p + strlen(p);
       if (a[-1] != '/')
         strcpy(a, "/");
@@ -675,56 +911,58 @@ int caseflag;           /* true to force case-sensitive match */
         free((zvoid *)p);
         return m;
       }
-    }
-    /* recurse into directory */
-    if (recurse && (d = opendir(n)) != NULL)
-    {
-      while ((e = readd(d)) != NULL) {
-        if (strcmp(e, ".") && strcmp(e, ".."))
+      free((zvoid *)p);
+      if (!recurse)
+        fts_set(tree, entry, FTS_SKIP);
+      break;
+
+    case FTS_F: /* a regular file */
+    case FTS_SL: /* a symbolic link */
+    case FTS_NSOK: /* a file for which no stat(2) information was requested */
+    case FTS_DEFAULT: /* a file type not explicitly described */
+      if ((m = newname(entry->fts_path, 0, caseflag)) != ZE_OK)
+        return m;
+#ifdef __APPLE__
+      /* If saving AppleDouble files, process one for this file. */
+      if (data_fork_only <= 0)
+      {
+        /* Check for non-null Finder info and/or resource fork. */
+        m = get_apl_dbl_info(entry->fts_path);
+        if (m != 0)
         {
-          if ((a = malloc(strlen(p) + strlen(e) + 1)) == NULL)
-          {
-            closedir(d);
-            free((zvoid *)p);
-            return ZE_MEM;
-          }
-          strcat(strcpy(a, p), e);
-          if ((m = procname(a, caseflag)) != ZE_OK)   /* recurse on name */
-          {
-            if (m == ZE_MISS)
-              zipwarn("name not matched: ", a);
-            else
-              ziperr(m, a);
-          }
-          free((zvoid *)a);
+          /* Process the AppleDouble file. */
+          m = newname(entry->fts_path, ZFLAG_APLDBL, caseflag);
+          if (m != ZE_OK)
+            return m;
         }
       }
-      closedir(d);
-    }
-    free((zvoid *)p);
-  } /* S_ISDIR( s.st_mode) [else if] */
-  else if (S_ISFIFO(s.st_mode))
-  {
-    /* FIFO (Named Pipe) - handle as normal file by adding
-     * name of FIFO.  As of Zip 3.1, a named pipe is always
-     * included.  Zip will stop if FIFO is open and wait for
-     * pipe to be fed and closed, but only if -FI.
-     *
-     * Skipping read of FIFO is now done in zipup().
-     */
-    if (noisy) {
-      if (allow_fifo)
-        zipwarn("reading FIFO (Named Pipe): ", n);
-      else
-        zipwarn("skipping read of FIFO (Named Pipe) - use -FI to read: ", n);
-    }
-    if ((m = newname(n, ZFLAG_FIFO, caseflag)) != ZE_OK)
-      return m;
-  } /* S_ISFIFO( s.st_mode) [else if] */
-  else
-  {
-    zipwarn("ignoring special file: ", n);
-  } /* S_IS<whatever>( s.st_mode) [else] */
+#endif /* def __APPLE__ */
+      break;
+
+    case FTS_SLNONE: /* a symbolic link with a nonexistent target */
+      zipwarn("name not matched: ", entry->fts_path);
+      break;
+
+    case FTS_DNR: /* a directory which cannot be read */
+      zipwarn("unreadable directory: ", entry->fts_path);
+      return ZE_READ;
+      break;
+
+    case FTS_ERR: /* an error return */
+      zipwarn("unreadable element: ", entry->fts_path);
+      return ZE_READ;
+      break;
+
+    } /* end switch */
+  } /* end while */
+
+  if (errno) {
+    zipwarn("error reading fts: ", strerror(errno));
+    return ZE_LOGIC;
+  }
+
+  fts_close(tree);
+#endif /* FTS_SUPPORT */
   return ZE_OK;
 }
 
@@ -867,7 +1105,7 @@ ulg filetime(f, a, n, t)
   if (name[len - 1] == '/')
     name[len - 1] = '\0';
 
-  if (strcmp(f, "-") == 0) {
+  if (is_stdin || (!no_stdin && strcmp(f, "-") == 0)) {
     /* stdin */
     /* Generally this is either a character special device
        (terminal directly in as stdin) or a FIFO (pipe). */
@@ -938,7 +1176,7 @@ ulg filetime(f, a, n, t)
     }
   }
   if (n != NULL) {
-    if (strcmp(f, "-") == 0)
+    if (is_stdin || (!no_stdin && strcmp(f, "-") == 0))
       /* stdin relabeled above as regular, but flag no file size yet */
       *n = -1L;
     else
@@ -987,7 +1225,10 @@ int set_new_unix_extra_field(z, s)
   if ((extra = (char *)malloc(z->ext + 4 + ef_data_size)) == NULL)
     return ZE_MEM;
   if ((cextra = (char *)malloc(z->ext + 4 + ef_data_size)) == NULL)
+  {
+    free(extra);
     return ZE_MEM;
+  }
 
   if (z->ext)
     memcpy(extra, z->extra, z->ext);
@@ -1094,6 +1335,8 @@ int set_extra_field(z, z_utim)
   z_stat s;
   char *name;
   int len = strlen(z->name);
+  int i;
+  int j;
 
   /* For the full sized UT local field including the UID/GID fields, we
    * have to stat the file again. */
@@ -1146,19 +1389,35 @@ int set_extra_field(z, z_utim)
   if ((z->cextra = (char *)malloc(EF_C_UNIX_SIZE)) == NULL)
     return ZE_MEM;
 
-  z->extra[0]  = 'U';
-  z->extra[1]  = 'T';
-  z->extra[2]  = (char)EB_UT_LEN(2);    /* length of data part of local e.f. */
-  z->extra[3]  = 0;
-  z->extra[4]  = EB_UT_FL_MTIME | EB_UT_FL_ATIME;    /* st_ctime != creation */
-  z->extra[5]  = (char)(s.st_mtime);
-  z->extra[6]  = (char)(s.st_mtime >> 8);
-  z->extra[7]  = (char)(s.st_mtime >> 16);
-  z->extra[8]  = (char)(s.st_mtime >> 24);
-  z->extra[9]  = (char)(s.st_atime);
-  z->extra[10] = (char)(s.st_atime >> 8);
-  z->extra[11] = (char)(s.st_atime >> 16);
-  z->extra[12] = (char)(s.st_atime >> 24);
+  i = 0;
+  if (!no_universal_time) {
+    z->extra[i++]  = 'U';
+    z->extra[i++]  = 'T';
+    if (no_access_time) {
+      z->extra[i++]  = (char)EB_UT_LEN(1);    /* length of data part of local e.f. */
+    }
+    else {
+      z->extra[i++]  = (char)EB_UT_LEN(2);    /* length of data part of local e.f. */
+    }
+    z->extra[i++]  = 0;
+    if (no_access_time) {
+      z->extra[i++]  = EB_UT_FL_MTIME;    /* st_ctime != creation */
+    }
+    else {
+      z->extra[i++]  = EB_UT_FL_MTIME | EB_UT_FL_ATIME;    /* st_ctime != creation */
+    }
+    z->extra[i++]  = (char)(s.st_mtime);
+    z->extra[i++]  = (char)(s.st_mtime >> 8);
+    z->extra[i++]  = (char)(s.st_mtime >> 16);
+    z->extra[i++]  = (char)(s.st_mtime >> 24);
+    if (!no_access_time) {
+      z->extra[i++]  = (char)(s.st_atime);
+      z->extra[i++] = (char)(s.st_atime >> 8);
+      z->extra[i++] = (char)(s.st_atime >> 16);
+      z->extra[i++] = (char)(s.st_atime >> 24);
+    }
+  }
+  j = i;
 
 #ifndef UIDGID_NOT_16BIT
   /* 7855 */
@@ -1166,29 +1425,48 @@ int set_extra_field(z, z_utim)
   /* Only store the UID and GID in the old Ux extra field if the runtime
      system provides them in 16-bit wide variables.  */
   if (UIDGID_ARE_16B) {
-    z->extra[13] = 'U';
-    z->extra[14] = 'x';
-    z->extra[15] = (char)EB_UX2_MINLEN; /* length of data part of local e.f. */
-    z->extra[16] = 0;
-    z->extra[17] = (char)(s.st_uid);
-    z->extra[18] = (char)(s.st_uid >> 8);
-    z->extra[19] = (char)(s.st_gid);
-    z->extra[20] = (char)(s.st_gid >> 8);
+    z->extra[i++] = 'U';
+    z->extra[i++] = 'x';
+    z->extra[i++] = (char)EB_UX2_MINLEN; /* length of data part of local e.f. */
+    z->extra[i++] = 0;
+    z->extra[i++] = (char)(s.st_uid);
+    z->extra[i++] = (char)(s.st_uid >> 8);
+    z->extra[i++] = (char)(s.st_gid);
+    z->extra[i++] = (char)(s.st_gid >> 8);
   }
 #endif /* !UIDGID_NOT_16BIT */
 
+  z->ext = i;
+#if 0
   z->ext = EF_L_UNIX_SIZE;
+#endif
 
-  memcpy(z->cextra, z->extra, EB_C_UT_SIZE);
-  z->cextra[EB_LEN] = (char)EB_UT_LEN(1);
+  if (!no_universal_time) {
+    memcpy(z->cextra, z->extra, EB_C_UT_SIZE);
+    z->cextra[EB_LEN] = (char)EB_UT_LEN(1);
+    z->cext = EB_C_UT_SIZE;
+  }
+  else {
+    z->cext = 0;
+  }
+
 #ifndef UIDGID_NOT_16BIT
   if (UIDGID_ARE_16B) {
-    /* Copy header of Ux extra field from local to central */
+#if 0
     memcpy(z->cextra+EB_C_UT_SIZE, z->extra+EB_L_UT_SIZE, EB_C_UX2_SIZE);
-    z->cextra[EB_LEN+EB_C_UT_SIZE] = 0;
+#endif
+    /* Copy header of Ux extra field from local to central */
+    if (no_universal_time) {
+      memcpy(z->cextra, z->extra, EB_C_UX2_SIZE);
+      z->cextra[EB_LEN] = 0;
+    }
+    else {
+      memcpy(z->cextra+EB_C_UT_SIZE, z->extra+j, EB_C_UX2_SIZE);
+      z->cextra[EB_LEN+EB_C_UT_SIZE] = 0;
+    }
+    z->cext += EB_C_UX2_SIZE;
   }
 #endif
-  z->cext = EF_C_UNIX_SIZE;
 
 #if 0  /* UID/GID presence is now signaled by central EF_IZUNIX2 field ! */
   /* lower-middle external-attribute byte (unused until now):
@@ -1366,7 +1644,7 @@ int wild(w)
     zprintf(" {in wild: %s}\n", w);
 #endif
     /* special handling of stdin request */
-    if (strcmp(w, "-") == 0)   /* if compressing stdin */
+    if (is_stdin || (!no_stdin && strcmp(w, "-") == 0))   /* if compressing stdin */
         return newname(w, 0, 0);
 
     /* Allocate and copy pattern, leaving room to add "." if needed */

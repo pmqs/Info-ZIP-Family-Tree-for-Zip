@@ -100,6 +100,14 @@
 # define ETWODD_SUPPORT
 #endif /* ndef NO_ETWODD_SUPPORT */
 
+
+/* Function prototypes. */
+
+#ifdef APPLE_XATTR
+int apl_dbl_xattr_ignore_add( char *name);
+#endif /* def APPLE_XATTR */
+
+
 /* None of this may be needed now. */
 /* These should go away next beta. */
 #if 0

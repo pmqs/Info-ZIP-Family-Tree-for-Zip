@@ -2,10 +2,10 @@ $! BUILD_ZIP.COM
 $!
 $!     Zip 3.1 for VMS -- DCL Build procedure.
 $!
-$!     Last revised:  2016-04-22  SMS.
+$!     Last revised:  2022-07-16  SMS.
 $!
 $!----------------------------------------------------------------------
-$! Copyright (c) 2004-2016 Info-ZIP.  All rights reserved.
+$! Copyright (c) 2004-2022 Info-ZIP.  All rights reserved.
 $!
 $! See the accompanying file LICENSE, version 2009-Jan-2 or later (the
 $! contents of which are also included in zip.h) for terms of use.  If,
@@ -18,6 +18,7 @@ $!     - Suppress C compilation (re-link): "NOCOMPILE"
 $!     - Suppress linking executables: "NOLINK"
 $!     - Suppress help file processing: "NOHELP"
 $!     - Suppress message file processing: "NOMSG"
+$!     - Specify hardware architecture manually: "ARCH=<hw_arch>"
 $!     - Define DCL symbols: "SYMBOLS"  (Was default before Zip 3.1.)
 $!     - Select compiler environment: "VAXC", "DECC", "GNUC"
 $!     - Disable AES_WG encryption support: "NOAES_WG"
@@ -41,9 +42,9 @@ $!     - Disable PPMd compression support: "NOPPMD"
 $!     - Enable large-file (>2GB) support: "LARGE"
 $!       Disable large-file (>2GB) support: "NOLARGE"
 $!       Large-file support is always disabled on VAX.  It is enabled by
-$!       default on IA64, and on Alpha systems which are modern enough
-$!       to allow it.  Specify NOLARGE=1 explicitly to disable support
-$!       (and to skip the test on Alpha).
+$!       default on non-VAX systems which are modern enough to allow it. 
+$!       Specify NOLARGE=1 explicitly to disable support (and to skip
+$!       the test on Alpha).
 $!     - Select compiler listings: "LIST"  Note that the whole argument
 $!       is added to the compiler command, so more elaborate options
 $!       like "LIST/SHOW=ALL" (quoted or space-free) may be specified.
@@ -90,16 +91,16 @@ $!     example:
 $!             $ LOCAL_ZIP = "VMS_IM_EXTRA"
 $!
 $!     Note that on a Unix system, LOCAL_ZIP contains compiler
-$!     options, such as "-g" or "-DNO_CRYPT", but on a VMS system,
-$!     LOCAL_ZIP contains only C macros, such as "NO_CRYPT", and CCOPTS
-$!     is used for any other kinds of compiler options, such as
-$!     "/ARCHITECTURE".  Unix compilers accept multiple "-D" options,
-$!     but VMS compilers consider only the last /DEFINE qualifier, so
-$!     the C macros must be handled differently from other compiler
-$!     options on VMS.  Thus, when using the generic installation
-$!     instructions as a guide for controlling various optional
-$!     features, some adjustment may be needed to adapt them to a VMS
-$!     build environment.
+$!     options, such as "-g" or "-DCRYPT_AES_WG_SFX", but on a VMS
+$!     system, LOCAL_ZIP contains only C macros, such as
+$!     "CRYPT_AES_WG_SFX", and CCOPTS is used for any other kinds of
+$!     compiler options, such as "/ARCHITECTURE".  Unix compilers accept
+$!     multiple "-D" options, but VMS compilers consider only the last
+$!     /DEFINE qualifier, so the C macros must be handled differently
+$!     from other compiler options on VMS.  Thus, when using the generic
+$!     installation instructions as a guide for controlling various
+$!     optional features, some adjustment may be needed to adapt them to
+$!     a VMS build environment.
 $!
 $!     This command procedure always generates both the "default" Zip
 $!     program with the UNIX style command interface and the "VMSCLI"
@@ -114,10 +115,10 @@ $! directory above where this procedure is situated (which had better be
 $! the main distribution directory).
 $!
 $ here = f$environment( "default")
-$ here = "SYS$DISK:"+ f$parse( here, , , "directory")
+$ here = f$parse( here, , , "device")+ f$parse( here, , , "directory")
 $!
 $ proc = f$environment( "procedure")
-$ proc_dir = "SYS$DISK:"+ f$parse( proc, , , "directory")
+$ proc_dir = f$parse( proc, , , "device")+ f$parse( proc, , , "directory")
 $ set default 'proc_dir'
 $ set default [-]
 $!
@@ -125,8 +126,7 @@ $ on error then goto error
 $ on control_y then goto error
 $ OLD_VERIFY = f$verify( 0)
 $!
-$ arch = ""                     ! Prepare for early abort.
-$ edit := edit                  ! Override customized edit commands.
+$ edit := edit                  ! override customized edit commands
 $ say := write sys$output
 $!
 $! Get LOCAL_ZIP symbol options.
@@ -182,8 +182,10 @@ $!
 $! Analyze command-line options.
 $!
 $ AES_WG = 0
+$ ARCH = ""
 $ BUILD_BZIP2 = 0
 $ CCOPTS = ""
+$ CCOPTS_INT = ""
 $ DASHV = 0
 $ IZ_BZIP2 = ""
 $ IZ_ZLIB = ""
@@ -217,6 +219,14 @@ $!
 $     if (f$extract( 0, 6, curr_arg) .eqs. "AES_WG")
 $     then
 $         AES_WG = 1
+$         goto argloop_end
+$     endif
+$!
+$     if (f$extract( 0, 4, curr_arg) .eqs. "ARCH")
+$     then
+$         opts = f$edit( curr_arg, "COLLAPSE")
+$         eq = f$locate( "=", opts)
+$         ARCH = f$edit( f$extract( (eq+ 1), 1000, opts), "UPCASE")
 $         goto argloop_end
 $     endif
 $!
@@ -419,18 +429,29 @@ $ endif
 $!
 $! Build.
 $!
-$! Sense the host architecture (Alpha, Itanium, VAX, or other).
+$! Sense the host architecture (Alpha, Itanium, VAX, or x86_64).
 $!
-$ if (f$getsyi( "HW_MODEL") .lt. 1024)
+$ if (ARCH .eqs. "")
 $ then
-$     arch = "VAX"
+$     if (f$getsyi( "HW_MODEL") .gt. 0) .and. -
+       (f$getsyi( "HW_MODEL") .lt. 1024)
+$     then
+$         arch = "VAX"
+$     else
+$         if (f$getsyi( "ARCH_TYPE") .eq. 2)
+$         then
+$             arch = "ALPHA"
+$         else
+$             arch = f$edit( f$getsyi( "ARCH_NAME"), "UPCASE")
+$         endif
+$     endif
 $ else
-$     arch = f$edit( f$getsyi( "ARCH_NAME"), "UPCASE")
+$     arch_bz = "ARCH=''ARCH'"
 $ endif
 $!
 $ destl = ""
 $ destm = arch
-$ cmpl = "DEC/Compaq/HP C"
+$ cmpl = "DEC/Compaq/HP/VSI C"
 $ opts = ""
 $ vaxc = 0
 $ if (arch .nes. "VAX")
@@ -442,7 +463,7 @@ $     if (MAY_USE_GNUC)
 $     then
 $         say ""
 $         say "GNU C is not supported for ''arch'."
-$         say "You must use DEC/Compaq/HP C to build Zip."
+$         say "You must use DEC/Compaq/HP/VSI C to build Zip."
 $         goto error
 $     endif
 $!
@@ -450,11 +471,11 @@ $     if (.not. MAY_USE_DECC)
 $     then
 $         say ""
 $         say "VAX C is not supported for ''arch'."
-$         say "You must use DEC/Compaq/HP C to build Zip."
+$         say "You must use DEC/Compaq/HP/VSI C to build Zip."
 $         goto error
 $     endif
 $!
-$     cc = "cc /standard = relax /prefix = all /ansi"
+$     CCOPTS_INT = " /standard = relax /prefix = all /ansi"
 $     defs = "''LOCAL_ZIP' VMS"
 $     if (LARGE_FILE .ge. 0)
 $     then
@@ -472,6 +493,7 @@ $     then
 $        say "LZMA is not available on VAX."
 $        NOLZMA = 1
 $     endif
+$!
 $     HAVE_DECC_VAX = (f$search( "SYS$SYSTEM:DECC$COMPILER.EXE") .nes. "")
 $     HAVE_VAXC_VAX = (f$search( "SYS$SYSTEM:VAXC.EXE") .nes. "")
 $     MAY_HAVE_GNUC = (f$trnlnm( "GNU_CC") .nes. "")
@@ -479,7 +501,7 @@ $     if (HAVE_DECC_VAX .and. MAY_USE_DECC)
 $     then
 $         ! We use DECC:
 $         USE_DECC_VAX = 1
-$         cc = "cc /decc /prefix = all"
+$         CCOPTS_INT = " /decc /prefix = all"
 $         defs = "''LOCAL_ZIP' VMS"
 $     else
 $         ! We use VAXC (or GNU C):
@@ -494,9 +516,7 @@ $             opts = "GNU_CC:[000000]GCCLIB.OLB /LIBRARY,"
 $         else
 $             if (HAVE_DECC_VAX)
 $             then
-$                 cc = "cc /vaxc"
-$             else
-$                 cc = "cc"
+$                 CCOPTS_INT = " /vaxc"
 $             endif
 $             destm = "''destm'V"
 $             cmpl = "VAC C"
@@ -591,7 +611,7 @@ $ libzip_opt = "[.''dest']LIB_IZZIP.OPT"
 $!
 $! If DASHV was requested, then run "zip -v" (and exit).
 $!
-$ if (DASHV)
+$ if (dashv)
 $ then
 $     mcr [.'dest']zip -v
 $     goto error
@@ -599,7 +619,7 @@ $ endif
 $!
 $! If SLASHV was requested, then run "zip_cli /verbose" (and exit).
 $!
-$ if (SLASHV)
+$ if (slashv)
 $ then
 $     mcr [.'dest']zip_cli /verbose
 $     goto error
@@ -651,7 +671,7 @@ $         define incl_bzip2 'IZ_BZIP2'
 $         if (BUILD_BZIP2 .and. (IZ_BZIP2 .eqs. "SYS$DISK:[.BZIP2]"))
 $         then
 $             set def [.BZIP2]
-$             @buildbz2.com
+$             @ buildbz2.com 'arch_bz'
 $             set def [-]
 $         endif
 $     endif
@@ -738,7 +758,12 @@ $     endif
 $!
 $! Define compiler command.
 $!
-$     cc = cc+ " /include = (''cc_incl')"+ LISTING+ CCOPTS
+$     if (f$type( CC) .eqs. "")
+$     then
+$         cc = "cc"
+$     endif
+$!
+$     cc = cc+ " /include = (''cc_incl')"+ CCOPTS_INT+ LISTING+ CCOPTS
 $!
 $ endif
 $!
@@ -761,6 +786,7 @@ $! Show interesting facts.
 $!
 $ say ""
 $ say "   architecture = ''arch' (destination = [.''dest'])"
+$!
 $ if (MAKE_OBJ)
 $ then
 $     say "   cc = ''cc'"
@@ -806,23 +832,6 @@ $!--------------------------- Zip section ------------------------------
 $!
 $ if (MAKE_HELP)
 $ then
-$!
-$! Ensure that [.vms] exists at the start of a search-list SYS$DISK.
-$! (Used for VMS_ZIP.RNH copy here, and ZIP_CLI.HELP below.)
-$!
-$     vms_dest_dir = f$parse( "SYS$DISK:", , , "device") + "[]vms.dir"
-$     if (f$search( vms_dest_dir) .eqs "")
-$     then
-$         create /directory /log [.vms]
-$     endif
-$!
-$! Accommodate an ODS2+NFS encoded ".RNH" source file name.
-$!
-$     if ((f$search( "[.VMS]VMS_ZIP.RNH") .eqs. "") .and. -
-       (f$search( "[.VMS]$VMS_ZIP.RNH") .nes. ""))
-$     then
-$         copy [.VMS]$VMS_ZIP.RNH SYS$DISK:[.VMS]VMS_ZIP.RNH
-$     endif
 $!
 $! Process the Unix-style help file.
 $!
@@ -930,9 +939,10 @@ $! Create the callable library link options file, if needed.
 $!
 $     if (LIBZIP .ne. 0)
 $     then
+$         def_dev_dir_orig = f$environment( "default")
 $         set default [.'dest']
 $         def_dev_dir = f$environment( "default")
-$         set default [-]
+$         set default 'def_dev_dir_orig'
 $         create /fdl = [.VMS]STREAM_LF.FDL 'libzip_opt'
 $         open /append opt_file_lib 'libzip_opt'
 $         write opt_file_lib "! DEFINE LIB_IZZIP ''def_dev_dir'"
@@ -1046,24 +1056,21 @@ $ endif
 $!
 $!------------------------ Zip (CLI interface) section -----------------------
 $!
+$! Process the CLI help file, if desired.
+$!
 $ if (MAKE_HELP)
 $ then
-$!
-$! Process the CLI help file.
-$!
 $     set default [.VMS]
 $     edit /tpu /nosection /nodisplay /command = cvthelp.tpu -
-       'f$search( "ZIP_CLI.HELP")' /output = SYS$DISK:[]
+       'f$search( "zip_cli.help")'  /output = SYS$DISK:[]
 $     set default [-]
 $     runoff /output = ZIP_CLI.HLP [.VMS]ZIP_CLI.RNH
-$!
 $ endif
+$!
+$! Make the CLI help output text file, if desired.
 $!
 $ if (MAKE_HELP .and. MAKE_HELP_TEXT)
 $ then
-$!
-$! Make the CLI help output text file.
-$!
 $     help_temp_name = "help_temp_"+ f$getjpi( 0, "PID")
 $     if (f$search( help_temp_name+ ".HLB") .nes. "") then -
        delete 'help_temp_name'.HLB;*
@@ -1076,7 +1083,6 @@ $     open /append help_temp ZIP_CLI.HTX
 $     copy 'help_temp_name'.OUT help_temp
 $     close help_temp
 $     delete 'help_temp_name'.OUT;*
-$!
 $ endif
 $!
 $ if (MAKE_OBJ)
@@ -1112,7 +1118,7 @@ $     libr /object /replace 'lib_zipcli' -
 $!
 $ endif
 $!
-$! Link the CLI executable.
+$! Link the CLI executable, if desired.
 $!
 $ if (MAKE_EXE)
 $ then
@@ -1131,10 +1137,10 @@ $ endif
 $!
 $!--------------------------- Zip utilities section --------------------------
 $!
+$! Compile the variant Zip utilities library sources, if desired.
+$!
 $ if (MAKE_OBJ)
 $ then
-$!
-$! Compile the variant Zip utilities library sources.
 $!
 $     cc 'DEF_UTIL' /object = [.'dest']CRYPT_.OBJ CRYPT.C
 $     cc 'DEF_UTIL' /object = [.'dest']FILEIO_.OBJ FILEIO.C
@@ -1150,10 +1156,10 @@ $     cc 'DEF_UTIL' /object = [.'dest']ZIPSPLIT.OBJ ZIPSPLIT.C
 $!
 $ endif
 $!
+$! Create the Zip utilities object library, if desired.
+$!
 $ if (MAKE_EXE)
 $ then
-$!
-$! Create the Zip utilities object library.
 $!
 $     if (f$search( lib_ziputils) .eqs. "") then -
        libr /object /create 'lib_ziputils'
@@ -1198,7 +1204,7 @@ $     endif
 $!
 $ endif
 $!
-$! Link the Zip utilities executables.
+$! Link the Zip utilities executables, if desired.
 $!
 $ if (MAKE_EXE)
 $ then
