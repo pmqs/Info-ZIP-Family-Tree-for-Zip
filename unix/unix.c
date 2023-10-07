@@ -427,8 +427,8 @@ ulg filetime(f, a, n, t)
     }
   }
   if (n != NULL)
-#ifdef S_ISDIR
-    *n = S_ISDIR(s.st_mode) ? s.st_size : -1L;
+#ifdef S_ISREG
+    *n = S_ISREG(s.st_mode) ? s.st_size : -1L;
 #else
     *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1L;
 #endif
