@@ -2121,7 +2121,8 @@ int ask_for_split_read_path(current_disk)
       }
     }
     fflush(mesg);
-    fgets(buf, SPLIT_MAXPATH, stdin);
+    if (fgets(buf, SPLIT_MAXPATH, stdin) == NULL)
+	    return ZE_ABORT;
     /* remove any newline */
     for (i = 0; buf[i]; i++) {
       if (buf[i] == '\n') {
