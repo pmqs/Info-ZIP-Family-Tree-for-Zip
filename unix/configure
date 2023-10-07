@@ -688,7 +688,7 @@ rm -f a.out conftest.c conftest.o conftest null
 
 echo CC=\"${CC}\" CFLAGS=\"${CFLAGS}\"  CPP=\"${CPP}\" OBJA=\"${OBJA}\" \
        OCRCU8=\"${OCRCU8}\" OCRCTB=\"${OCRCTB}\" \
-       BINDIR=${BINDIR} MANDIR=${MANDIR} LFLAGS1=\"${LFLAGS1}\" \
+       BINDIR=${BINDIR} MANDIR=${MANDIR} LFLAGS1=\"${LFLAGS1} ${LD_OPTIONS}\" \
        LFLAGS2=\"${LFLAGS2}\" LN=\"${LN}\" \
        CC_BZ=\"${CC_BZ}\" CFLAGS_BZ=\"${CFLAGS_BZ}\" \
        IZ_BZIP2=\"${IZ_BZIP2}\" LIB_BZ=\"${LIB_BZ}\" > flags
