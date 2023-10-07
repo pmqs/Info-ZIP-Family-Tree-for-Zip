@@ -1020,7 +1020,7 @@ void version_local()
 
 
 /* Define the compile date string */
-#ifdef __DATE__
+#if 0
 #  define COMPILE_DATE " on " __DATE__
 #else
 #  define COMPILE_DATE ""
