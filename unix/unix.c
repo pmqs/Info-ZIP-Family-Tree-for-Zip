@@ -140,7 +140,7 @@ int caseflag;           /* true to force case-sensitive match */
   }
 
   /* Live name--use if file, recurse if directory */
-#ifdef OS390
+#if defined(S_ISREG) && defined(S_ISLINK)
   if (S_ISREG(s.st_mode) || S_ISLNK(s.st_mode))
 #else
 #  ifdef S_IFLNK
@@ -154,7 +154,7 @@ int caseflag;           /* true to force case-sensitive match */
     if ((m = newname(n, 0, caseflag)) != ZE_OK)
       return m;
   }
-#ifdef OS390
+#ifdef S_ISDIR
   else if (S_ISDIR(s.st_mode))
 #else
   else if ((s.st_mode & S_IFDIR) == S_IFDIR)
@@ -202,7 +202,7 @@ int caseflag;           /* true to force case-sensitive match */
     }
     free((zvoid *)p);
   } /* (s.st_mode & S_IFDIR) */
-#ifdef OS390
+#ifdef S_ISFIFO
   else if (S_ISFIFO(s.st_mode))
 #else
   else if ((s.st_mode & S_IFIFO) == S_IFIFO)
@@ -418,12 +418,20 @@ ulg filetime(f, a, n, t)
     *a = ((ulg)legacy_modes << 16) | !(s.st_mode & S_IWRITE);
     }
 #endif
+#ifdef S_ISDIR
+    if (S_ISDIR(s.st_mode)) {
+#else
     if ((s.st_mode & S_IFMT) == S_IFDIR) {
+#endif
       *a |= MSDOS_DIR_ATTR;
     }
   }
   if (n != NULL)
+#ifdef S_ISDIR
+    *n = S_ISDIR(s.st_mode) ? s.st_size : -1L;
+#else
     *n = (s.st_mode & S_IFMT) == S_IFREG ? s.st_size : -1L;
+#endif
   if (t != NULL) {
     t->atime = s.st_atime;
     t->mtime = s.st_mtime;

@@ -1114,6 +1114,9 @@ ulg a;                  /* Attributes returned by filetime() */
 /* Return true if the attributes are those of a symbolic link */
 {
 #ifndef QDOS
+#ifdef S_ISLNK
+  return S_ISLNK(a >> 16);
+#else
 #ifdef S_IFLNK
 #ifdef __human68k__
   int *_dos_importlnenv(void);
@@ -1125,6 +1128,7 @@ ulg a;                  /* Attributes returned by filetime() */
 #else /* !S_IFLNK */
   return (int)a & 0;    /* avoid warning on unused parameter */
 #endif /* ?S_IFLNK */
+#endif /* ?S_ISLNK */
 #else
   return 0;
 #endif
