@@ -311,9 +311,11 @@ extern ZCONST uch ebcdic[256];
 /* Are these ever used?  6/12/05 EG */
 #ifdef IZ_ISO2OEM_ARRAY         /* ISO 8859-1 (Win CP 1252) --> OEM CP 850 */
 extern ZCONST uch Far iso2oem[128];
+extern ZCONST uch Far iso2oem_2[128];
 #endif
 #ifdef IZ_OEM2ISO_ARRAY         /* OEM CP 850 --> ISO 8859-1 (Win CP 1252) */
 extern ZCONST uch Far oem2iso[128];
+extern ZCONST uch Far oem2iso_2[128];
 #endif
 
 extern char errbuf[FNMAX+4081]; /* Handy place to build error messages */
@@ -342,6 +344,8 @@ extern int des_good;            /* Good data descriptor found */
 extern ulg des_crc;             /* Data descriptor CRC */
 extern uzoff_t des_csize;       /* Data descriptor csize */
 extern uzoff_t des_usize;       /* Data descriptor usize */
+extern int winify;              /* file names will be converted from IBM PC CP 850 to ISO8859-1 */
+extern int iso8859_2;           /* ISO8859-2 will be used instead of ISO8859-1 */
 extern int dosify;              /* Make new entries look like MSDOS */
 extern char *special;           /* Don't compress special suffixes */
 extern int verbose;             /* Report oddities in zip file structure */

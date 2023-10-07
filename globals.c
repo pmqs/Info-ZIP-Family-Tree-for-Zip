@@ -32,6 +32,8 @@ int pathput = 1;        /* 1=store path with name */
 int scanimage = 1;      /* 1=scan through image files */
 #endif
 int method = BEST;      /* one of BEST, DEFLATE (only), or STORE (only) */
+int winify = 0;         /* 1=file names will be converted from IBM PC CP 850 to ISO8859-1 */
+int iso8859_2 = 0;      /* 1=ISO8859-2 will be used instead of ISO8859-1 */
 int dosify = 0;         /* 1=make new entries look like MSDOS */
 int verbose = 0;        /* 1=report oddities in zip file structure */
 int fix = 0;            /* 1=fix the zip file, 2=FF, 3=ZipNote */
