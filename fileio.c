@@ -696,6 +696,7 @@ int newnamew(namew, isdir, casesensitive)
         return ZE_MEM;
       }
       strcpy(z->name, name);
+      if (z->oname) free(z->oname);
       z->oname = oname;
       oname = NULL;
       z->dosflag = dosflag;
@@ -959,6 +960,7 @@ int newname(name, isdir, casesensitive)
         return ZE_MEM;
       }
       strcpy(z->name, name);
+      if (z->oname) free(z->oname);
       z->oname = oname;
       z->dosflag = dosflag;
 

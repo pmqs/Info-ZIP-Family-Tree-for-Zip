@@ -2166,7 +2166,7 @@ int readlocal(localz, z)
 #ifndef UTIL
   ulg start_disk = 0;
   uzoff_t start_offset = 0;
-  char *split_path;
+  char *split_path = NULL;
 
   start_disk = z->dsk;
   start_offset = z->off;
@@ -2197,6 +2197,7 @@ int readlocal(localz, z)
       split_path = get_in_split_path(in_path, start_disk);
     }
   }
+  if (split_path) free(split_path);
 #endif
 
   /* For utilities assume archive is on one disk for now */
@@ -6014,7 +6015,7 @@ int zipcopy(z)
   ulg e = 0;            /* extended local header size */
   ulg start_disk = 0;
   uzoff_t start_offset = 0;
-  char *split_path;
+  char *split_path = NULL;
   char buf[LOCHEAD + 1];
   struct zlist far *localz;
   int r;
@@ -6063,6 +6064,7 @@ int zipcopy(z)
         split_path = get_in_split_path(in_path, start_disk);
       }
     }
+    if (split_path) free(split_path);
 
     if (zfseeko(in_file, start_offset, SEEK_SET) != 0) {
       fclose(in_file);

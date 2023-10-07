@@ -3450,6 +3450,7 @@ char **argv;            /* command line tokens */
                 }
               }
               */
+              free(value);  /* Added by Polo from forum */
               if (kk == 3) {
                 first_listarg = argnum;
                 kk = 4;
