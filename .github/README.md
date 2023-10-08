@@ -80,17 +80,6 @@ These sites below either contain binaries only or have made changes to the infoz
 | https://gitlab.com/FreeDOS/archiver/unzip | FreeDOS | 3.0
 | https://gitlab.com/WestCoastRomS/android_external_zip | Android build | 3.0
 
-## Reference
-
-
-
-| Distribution  | Site | Bugs |
-|--- | ---| --- |
-| Arch Linux | https://gitlab.archlinux.org/archlinux/packaging/packages/zip | https://bugs.archlinux.org/?project=1&string=zip |
-| Debian | https://packages.debian.org/source/sid/zip | https://bugs.debian.org/cgi-bin/pkgreport.cgi?src=zip |
-| Ubuntu | https://launchpad.net/ubuntu/+source/zip | https://launchpad.net/ubuntu/+source/zip/+bugs |
-| openSUSE | https://build.opensuse.org/package/show/Archiving/unzip | https://bugzilla.opensuse.org/buglist.cgi?quicksearch=zip |
-
 
 # AUTHOR
 
