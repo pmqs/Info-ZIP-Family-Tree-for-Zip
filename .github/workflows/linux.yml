@@ -13,7 +13,8 @@ jobs:
     strategy:
       matrix:
         branch:
-          - develop
+
+          # - develop
 
           # main linux distros
           - aix
