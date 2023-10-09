@@ -25,6 +25,10 @@ jobs:
           - slackware
           - ubuntu
 
+          # zip beta releases
+
+          # other forks
+
     name: Build with '${{ matrix.branch }};
     steps:
 
