@@ -1,9 +1,11 @@
 name: MacOS Build
 
+# disable
+
 on:
   workflow_dispatch:
-  push:
-  pull_request:
+  # push:
+  # pull_request:
 
 jobs:
   build:
