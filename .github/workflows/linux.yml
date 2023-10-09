@@ -26,6 +26,11 @@ jobs:
           - ubuntu
 
           # zip beta releases
+          - 3.1a
+          - 3.1b
+          - 3.1c
+          - 3.1d
+          - 3.1e21
 
           # other forks
 
