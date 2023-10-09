@@ -33,7 +33,8 @@ jobs:
     steps:
 
     - uses: actions/checkout@v4
-      ref: ${{ matrix.branch }}
+      with:
+        ref: ${{ matrix.branch }}
 
     - name: Configure & build
       run: make -f unix/Makefile generic
