@@ -37,7 +37,7 @@ jobs:
         ref: ${{ matrix.branch }}
 
     - name: Configure & build
-      run: make -f unix/Makefile macosx
+      run: make -f unix/Makefile generic
 
     - name: Run zip -v
       run: ./zip -v
