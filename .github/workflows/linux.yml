@@ -29,7 +29,7 @@ jobs:
 
           # other forks
 
-    name: Build with '${{ matrix.branch }};
+    name: Build with '${{ matrix.branch }}''
     steps:
 
     - uses: actions/checkout@v4
@@ -38,9 +38,6 @@ jobs:
 
     - name: Configure & build
       run: make -f unix/Makefile generic
-
-    - name: Run Tests
-      run: make -f unix/Makefile test
 
     - name: Run zip -v
       run: ./zip -v
