@@ -1,0 +1,43 @@
+name: Linux Build
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        branch:
+
+          # - develop
+
+          # main linux distros
+          - centos
+          - debian
+          - fedora
+          - opensuse
+          - oracle
+          - slackware
+          - ubuntu
+
+          # zip beta releases
+
+          # other forks
+
+    name: Build with '${{ matrix.branch }}''
+    steps:
+
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ matrix.branch }}
+
+    - name: Configure & build
+      run: make -f unix/Makefile macosx
+
+    - name: Run zip -v
+      run: ./zip -v
