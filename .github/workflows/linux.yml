@@ -35,9 +35,10 @@ jobs:
 
           # other forks
           - Redfoxymoon-infozip
-          # - distropatches-zip-master
-          # - distropatches-zip-opensuse
-          # - distropatches-zip-orig
+          - luadist-zip
+          - distropatches-zip-master
+          - distropatches-zip-opensuse
+          - distropatches-zip-orig
 
     name: Build with '${{ matrix.branch }}''
     steps:
@@ -47,16 +48,18 @@ jobs:
         ref: ${{ matrix.branch }}
 
     - name: Configure & build
-      if: matrix.branch != 'Redfoxymoon-infozip'
+      if: matrix.branch != 'Redfoxymoon-infozip' && matrix.branch != 'luadist-zip' && ! startsWith(matrix.branch, 'distropatches')
       run: make -f unix/Makefile generic
 
     - name: Configure & build
       if: matrix.branch == 'Redfoxymoon-infozip'
       run: make
 
-
-        # cmake .
-        # cmake --build .
+    - name: Configure & build
+      if: matrix.branch == 'luadist-zip' || startsWith(matrix.branch, 'distropatches')
+      run: |
+        cmake .
+        cmake --build .
 
     - name: Run zip -v
       run: ./zip -v
