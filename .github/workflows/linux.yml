@@ -31,10 +31,10 @@ jobs:
           - '3.1c'
           - '3.1d'
           # doesn't build
-          - '3.1e21'
+          # - '3.1e21'
 
           # other forks
-          # - Redfoxymoon-infozip
+          - Redfoxymoon-infozip
           # - distropatches-zip-master
           # - distropatches-zip-opensuse
           # - distropatches-zip-orig
@@ -47,7 +47,12 @@ jobs:
         ref: ${{ matrix.branch }}
 
     - name: Configure & build
+      if: matrix.branch != 'Redfoxymoon-infozip'
       run: make -f unix/Makefile generic
+
+      - name: Configure & build
+      if: matrix.branch == 'Redfoxymoon-infozip'
+      run: make -
 
     - name: Run zip -v
       run: ./zip -v
