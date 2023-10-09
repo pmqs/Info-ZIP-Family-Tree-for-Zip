@@ -50,9 +50,13 @@ jobs:
       if: matrix.branch != 'Redfoxymoon-infozip'
       run: make -f unix/Makefile generic
 
-      - name: Configure & build
+    - name: Configure & build
       if: matrix.branch == 'Redfoxymoon-infozip'
-      run: make -
+      run: make
+
+
+        # cmake .
+        # cmake --build .
 
     - name: Run zip -v
       run: ./zip -v
