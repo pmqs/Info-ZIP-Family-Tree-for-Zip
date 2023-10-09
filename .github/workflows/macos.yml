@@ -43,3 +43,9 @@ jobs:
 
     - name: Run zip -v
       run: ./zip -v
+
+    - name: Run zip -h
+      run: ./zip -h
+
+    - name: Run zip -h2
+      run: ./zip -h2
