@@ -17,7 +17,6 @@ jobs:
           # - develop
 
           # main linux distros
-          - aix
           - centos
           - debian
           - fedora
