@@ -30,7 +30,10 @@ jobs:
           - '3.1b'
           - '3.1c'
           - '3.1d'
-          - '3.1e21'
+          # doesn't build
+          # - '3.1e21'
+          # hash below is e14
+          - '170645c64912952040642d94b40017b48b9b875d'
 
           # other forks
 
