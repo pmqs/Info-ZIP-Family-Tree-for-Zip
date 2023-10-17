@@ -51,7 +51,7 @@ Each distribution is checked into a branch that matches the distribution name. A
 | oracle | https://github.com/oracle/solaris-userland/tree/master/components/zip | 3.0 |
 | opensuse | https://build.opensuse.org/package/show/Archiving/zip | 3.0 |
 | slackware | https://slackware.osuosl.org/slackware-14.2/patches/source/infozip/ | 3.0 |
-
+| openbsd |  https://github.com/openbsd/ports/tree/master/archivers/zip | 3.0 |
 
 ## Miscellaneous Distributions
 
