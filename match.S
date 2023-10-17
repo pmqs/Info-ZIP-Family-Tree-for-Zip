@@ -18,6 +18,8 @@
 /* This file is NOT used in conjunction with zlib. */
 #ifndef USE_ZLIB
 
+#error "do not use assembly code"
+
 /* Preprocess with -DNO_UNDERLINE if your C compiler does not prefix
  * external symbols with an underline character '_'.
  */
