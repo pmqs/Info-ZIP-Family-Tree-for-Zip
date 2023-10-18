@@ -23,7 +23,7 @@ LN = ln -s
 
 # (to use the GNU compiler, change cc to gcc in CC)
 CC = cc
-BIND = $(CC)
+BIND = $(CC) $(LDFLAGS)
 AS = $(CC) -c
 CPP = /lib/cpp
 E =
