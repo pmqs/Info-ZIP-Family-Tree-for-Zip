@@ -109,8 +109,12 @@ typedef struct {
   off_t         size;
 } attr_bufr_rsrc_t;
 
-/* Temporary Disable */
-/* #  pragma options align=reset */
+/* From https://stackoverflow.com/questions/19504726/error-too-many-pragma-options-align-reset-on-mac-with-gcc-4-8 */
+#ifdef __clang__
+#  pragma options align=reset
+#else
+#  pragma pack()
+#endif
 
 /* Buffer for AppleDouble header (including Finder info). */
 extern
