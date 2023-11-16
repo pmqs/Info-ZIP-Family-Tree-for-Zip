@@ -1769,6 +1769,7 @@ int bfcopy OF((uzoff_t));
 
 int fcopy OF((FILE *, FILE *, uzoff_t));
 
+#include <string.h>
 #if 0
 #ifdef ZMEM
    char *memset OF((char *, int, unsigned int));
