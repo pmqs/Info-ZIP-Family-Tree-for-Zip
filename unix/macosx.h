@@ -109,7 +109,8 @@ typedef struct {
   off_t         size;
 } attr_bufr_rsrc_t;
 
-// #  pragma options align=reset
+/* Temporary Disable */
+/* #  pragma options align=reset */
 
 /* Buffer for AppleDouble header (including Finder info). */
 extern
