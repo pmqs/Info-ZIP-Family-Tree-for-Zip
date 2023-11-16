@@ -100,9 +100,9 @@ jobs:
             os: macos-12
             compiler: clang-14
 
-          - name: MacOS + clang
+          - name: MacOS + clang-13
             os: macos-11
-            compiler: clang-13
+            compiler: clang
 
 
         #   - name: Ubuntu 20.04 GCC
