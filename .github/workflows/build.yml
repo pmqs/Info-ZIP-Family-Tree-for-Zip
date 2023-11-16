@@ -21,10 +21,10 @@ jobs:
             compiler: gcc-12
             # packages: gcc-12
 
-        #   - name: Ubuntu GCC-11
-        #     os: ubuntu-latest
-        #     compiler: gcc-11
-        #     packages: gcc-11
+          - name: Ubuntu GCC-11
+            os: ubuntu-latest
+            compiler: gcc-11
+            packages: gcc-11
 
           - name: Ubuntu GCC-10
             os: ubuntu-latest
@@ -38,6 +38,17 @@ jobs:
 
 
           # CLANG Versions on Ubuntu
+
+          - name: Ubuntu clang-17
+            os: ubuntu-latest
+            compiler: clang-17
+            packages: clang-17
+
+          - name: Ubuntu clang-16
+            os: ubuntu-latest
+            compiler: clang-16
+            packages: clang-16
+
           - name: Ubuntu clang-15
             os: ubuntu-latest
             compiler: clang-15
