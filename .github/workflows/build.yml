@@ -9,6 +9,8 @@ jobs:
       matrix:
         include:
 
+          # GCC Versions on Ubuntu
+
           - name: Ubuntu GCC-13
             os: ubuntu-latest
             compiler: gcc-13
@@ -33,6 +35,25 @@ jobs:
             os: ubuntu-latest
             compiler: gcc-9
             # packages: gcc-9
+
+
+          # CLANG Versions on Ubuntu
+          - name: Ubuntu clang-15
+            os: ubuntu-latest
+            compiler: clang-15
+            # packages: clang-15
+
+          - name: Ubuntu clang-14
+            os: ubuntu-latest
+            compiler: clang-14
+            # packages: clang-14
+
+          - name: Ubuntu clang-13
+            os: ubuntu-latest
+            compiler: clang-13
+            # packages: clang-13
+
+
 
         #   - name: Ubuntu 20.04 GCC
         #     os: ubuntu-20.04
