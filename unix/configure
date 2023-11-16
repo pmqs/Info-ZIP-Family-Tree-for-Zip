@@ -2544,7 +2544,10 @@ rm -f "${temp_file}" conftest.err
 
 # Check for memset().
 echon 'Check for memset()...'
-echo "int main(){ char k; memset(&k,0,0); return 0; }" > conftest.c
+cat > conftest.c << _EOF_
+#include <string.h>
+int main(){ char k; memset(&k,0,0); return 0; }
+_EOF_
 # $CC_TST $CFLAGS -o conftest conftest.c >/dev/null 2>/dev/null
 $CC_TST $CFLAGS -o conftest conftest.c
 status=$?
