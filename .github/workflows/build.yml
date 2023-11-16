@@ -92,13 +92,13 @@ jobs:
 
           # clang Versions on MacOS
 
-          - name: MacOS + clang
+          - name: MacOS + clang 14
             os: macos-latest
             compiler: clang
 
-          - name: MacOS + clang-14
-            os: macos-12
-            compiler: clang-14
+        #   - name: MacOS + clang-14
+        #     os: macos-12
+        #     compiler: clang-14
 
           - name: MacOS + clang-13
             os: macos-11
