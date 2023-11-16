@@ -54,22 +54,55 @@ jobs:
             compiler: clang-13
             # packages: clang-13
 
+          - name: Ubuntu + clang-12
+            os: ubuntu-20.04
+            compiler: clang-12
+            # packages: clang-12
+
+          - name: Ubuntu + clang-11
+            os: ubuntu-20.04
+            compiler: clang-11
+            # packages: clang-11
+
+          - name: Ubuntu + clang-10
+            os: ubuntu-20.04
+            compiler: clang-10
+            # packages: clang-10
+
           # GCC Versions on MacOS
 
           - name: MacOS + gcc-13
-            os: oacos-latest
+            os: macos-latest
             compiler: gcc-13
             # packages: gcc-13
 
           - name: MacOS + gcc-12
-            os: oacos-latest
+            os: macos-latest
             compiler: gcc-12
             # packages: gcc-12
 
           - name: MacOS + gcc-11
-            os: oacos-latest
+            os: macos-latest
             compiler: gcc-11
             # packages: gcc-11
+
+          - name: MacOS + gcc-10
+            os: macos-11
+            compiler: gcc-10
+
+          # clang Versions on MacOS
+
+          - name: MacOS + clang
+            os: macos-latest
+            compiler: clang
+
+          - name: MacOS + clang-14
+            os: macos-12
+            compiler: clang-14
+
+          - name: MacOS + clang
+            os: macos-11
+            compiler: clang-13
 
 
         #   - name: Ubuntu 20.04 GCC
