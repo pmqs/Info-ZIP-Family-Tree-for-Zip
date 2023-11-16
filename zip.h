@@ -429,7 +429,7 @@ typedef struct iztimes {
 #define GPBF_12_ENH_COMPRESSION    0x1000
 
 /* Bit 13:
-     Set when encrypting the Central Directory to indicate 
+     Set when encrypting the Central Directory to indicate
      selected data values in the Local Header are masked to
      hide their actual values.
  */
@@ -452,12 +452,12 @@ typedef struct iztimes {
 #define IATTR_00_TEXT_FILE           0x0001
 
 /* Bit 1:
-     4 byte variable record length control field precedes each 
-     logical record indicating the length of the record. The 
+     4 byte variable record length control field precedes each
+     logical record indicating the length of the record. The
      record length control field is stored in little-endian byte
-     order.  This flag is independent of text control characters, 
-     and if used in conjunction with text data, includes any 
-     control characters in the total length of the record. This 
+     order.  This flag is independent of text control characters,
+     and if used in conjunction with text data, includes any
+     control characters in the total length of the record. This
      value is provided for mainframe data transfer support.
  */
 #define IATTR_01_REC_CONTROL_FIELDS  0x0002
@@ -1002,9 +1002,9 @@ extern int levell;              /* Compression level, adjusted by mthd, sufx. */
 #define MAX_METHOD_STRING 100
 #define MAX_INFO_STRING 100
 
-extern char action_string[];    /* action string, such as "Freshen" */           
-extern char method_string[];    /* method string, such as "Deflate" */           
-extern char info_string[];      /* additional info, such as "AES256" */           
+extern char action_string[];    /* action string, such as "Freshen" */
+extern char method_string[];    /* method string, such as "Deflate" */
+extern char info_string[];      /* additional info, such as "AES256" */
 
 /* Normally Traditional Zip encryption processes the entry in one pass,
    resulting in the CRC.  However at this point the entry is encrypted, so
@@ -1769,11 +1769,13 @@ int bfcopy OF((uzoff_t));
 
 int fcopy OF((FILE *, FILE *, uzoff_t));
 
+#if 0
 #ifdef ZMEM
    char *memset OF((char *, int, unsigned int));
    char *memcpy OF((char *, char *, unsigned int));
    int memcmp OF((char *, char *, unsigned int));
 #endif /* ZMEM */
+#endif
 
         /* in system dependent fileio code (<system>.c) */
 #ifndef UTIL
@@ -2025,7 +2027,7 @@ void     bi_init      OF((char *, unsigned int, int));
    /* True if a real symlink. */
    int isWinSymlink(char *path);
    int isWinSymlinkw(wchar_t *wpath);
-   
+
    /* Returns information about a Windows directory object, such as a file,
       directory or reparse point such as a symlink. */
    int WinDirObjectInfo(wchar_t *wpath,
