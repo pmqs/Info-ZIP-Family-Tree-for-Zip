@@ -140,16 +140,33 @@ jobs:
 
     - name: configure & build
       run: |
-        make -f unix/Makefile generic CC=${{ matrix.compiler }} ${{ matrix.configure-args }}
+        make -f unix/Makefile generic CC=${{ matrix.compiler }} 
 
 
     - name: Run zip --help
       run: ./zip --help
-      working-directory: ${{ matrix.build-dir }}
 
     - name: Run zip -v
       run: ./zip -v
-      working-directory: ${{ matrix.build-dir }}
+
+    - name: Run zipcloak --help
+      run: ./zipcloak --help
+
+    - name: Run zipcloak -v
+      run: ./zipcloak -v
+
+    - name: Run zipnote --help
+      run: ./zipnote --help
+
+    - name: Run zipnote -v
+      run: ./zipnote -v
+
+    - name: Run zipsplit --help
+      run: ./zipsplit --help
+
+    - name: Run zipsplit -v
+      run: ./zipsplit -v
+
 
     # - name: Upload build errors
     #   uses: actions/upload-artifact@v3
