@@ -2498,7 +2498,7 @@ for func in $FUNCS
 do
   echon "Check for ${func}()..."
   echo "int main(){ $func(); return 0; }" > conftest.c
-  $CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+  $CC_TST $CFLAGS $BIF_TST -o conftest conftest.c 
   status=$?
   if [ $status -ne 0 ]; then
     ucname=` echo ${func} | tr '[a-z]' '[A-Z]' `
