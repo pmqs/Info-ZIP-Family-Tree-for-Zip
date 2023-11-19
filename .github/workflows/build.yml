@@ -14,12 +14,10 @@ jobs:
           - name: Ubuntu + gcc-13
             os: ubuntu-latest
             compiler: gcc-13
-            # packages: gcc-13
 
           - name: Ubuntu + gcc-12
             os: ubuntu-latest
             compiler: gcc-12
-            # packages: gcc-12
 
           - name: Ubuntu + gcc-11
             os: ubuntu-latest
@@ -29,12 +27,10 @@ jobs:
           - name: Ubuntu + gcc-10
             os: ubuntu-latest
             compiler: gcc-10
-            # packages: gcc-10
 
           - name: Ubuntu + gcc-9
             os: ubuntu-latest
             compiler: gcc-9
-            # packages: gcc-9
 
           - name: Ubuntu + gcc-8
             os: ubuntu-20.04
@@ -45,38 +41,36 @@ jobs:
             os: ubuntu-20.04
             compiler: gcc-7
             packages: gcc-7
-            
+
+          - os: ubuntu-20.04 + gcc-6
+            compiler: gcc-6
+            packages: gcc-6
+
           # CLANG Versions on Ubuntu
 
           - name: Ubuntu + clang-15
             os: ubuntu-latest
             compiler: clang-15
-            # packages: clang-15
 
           - name: Ubuntu + clang-14
             os: ubuntu-latest
             compiler: clang-14
-            # packages: clang-14
 
           - name: Ubuntu + clang-13
             os: ubuntu-latest
             compiler: clang-13
-            # packages: clang-13
 
           - name: Ubuntu + clang-12
             os: ubuntu-20.04
             compiler: clang-12
-            # packages: clang-12
 
           - name: Ubuntu + clang-11
             os: ubuntu-20.04
             compiler: clang-11
-            # packages: clang-11
 
           - name: Ubuntu + clang-10
             os: ubuntu-20.04
             compiler: clang-10
-            # packages: clang-10
 
           # GCC Versions on MacOS
 
