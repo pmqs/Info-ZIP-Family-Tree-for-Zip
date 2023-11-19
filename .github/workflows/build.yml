@@ -44,11 +44,6 @@ jobs:
 
           # CLANG Versions on Ubuntu
 
-          - name: Ubuntu + clang-16
-            os: ubuntu-latest
-            compiler: clang-16
-            packages: clang-16
-
           - name: Ubuntu + clang-15
             os: ubuntu-latest
             compiler: clang-15
