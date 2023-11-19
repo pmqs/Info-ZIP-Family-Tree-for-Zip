@@ -73,6 +73,11 @@ jobs:
             compiler: clang-9
             packages: clang-9
 
+          - name: Ubuntu + clang-8
+            os: ubuntu-20.04
+            compiler: clang-8
+            packages: clang-8
+
           # GCC Versions on MacOS
 
           - name: MacOS + gcc-13
