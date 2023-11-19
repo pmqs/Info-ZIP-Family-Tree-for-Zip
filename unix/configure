@@ -2491,17 +2491,14 @@ fi
 
 # Check for missing functions.
 # - add NO_'function_name' to flags if missing.
-FUNCS='chmod chown fchmod fchown lchown localtime_r mktemp mktime mkstemp'
+FUNCS='chmod chown fchmod fchown lchown localtime_r mktemp mkstemp'
 FUNCS="${FUNCS} nl_langinfo rename rmdir strchr strrchr"
 #echo "Check for expected functions..."
 for func in $FUNCS
 do
   echon "Check for ${func}()..."
-  cat > conftest.c << _EOF_
-  #include <time.h>
-  int main(){ $func(); return 0; }
-_EOF_
-  $CC_TST $CFLAGS $BIF_TST -o conftest conftest.c
+  echo "int main(){ $func(); return 0; }" > conftest.c
+  $CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
   status=$?
   if [ $status -ne 0 ]; then
     ucname=` echo ${func} | tr '[a-z]' '[A-Z]' `
@@ -2513,6 +2510,21 @@ _EOF_
   fi
 done
 
+# Test mktime separately to deal with On MacOS + clang
+echon "Check for mktime()..."
+cat > conftest.c << _EOF_
+#include <time.h>
+struct tm tm;
+int main(){ mktime(&tm); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_MKTIME)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_MKTIME"
+else
+  echo '  Yes.'
+fi
 
 # Check (seriously) for a working lchmod().
 # On GNU/Linux (Clang, GCC) look for a compile-time warning like
