@@ -2775,7 +2775,7 @@ fi
 echon 'Check for errno declaration...'
 cat > conftest.c << _EOF_
 #include <errno.h>
-main()
+int main()
 {
   errno = 0;
   return 0;
@@ -2810,6 +2810,7 @@ fi
 # Check for directory traversal libraries.
 echon 'Check for directory traversal libraries (ndir, dirent, bsd, ...)...'
 cat > conftest.c << _EOF_
+#include <dirent.h>
 int main() { return closedir(opendir(".")); }
 _EOF_
 $CC_TST $CFLAGS -o conftest conftest.c >/dev/null 2>/dev/null
