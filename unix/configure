@@ -2305,6 +2305,7 @@ else
 #include <stdio.h>
 #include <langinfo.h>
 #include <locale.h>
+#include <string.h>
 int main()
 {
   char *codeset = NULL;
@@ -2370,6 +2371,7 @@ else
   cat > conftest.c << _EOF_
 #include <stdio.h>
 #include <iconv.h>
+#include <string.h>
 int main()
 {
    iconv_t  cd;     /* conversion descriptor */
@@ -2491,37 +2493,217 @@ fi
 
 # Check for missing functions.
 # - add NO_'function_name' to flags if missing.
-FUNCS='chmod chown fchmod fchown lchown localtime_r mktemp mkstemp'
-FUNCS="${FUNCS} nl_langinfo rename rmdir strchr strrchr"
-#echo "Check for expected functions..."
-for func in $FUNCS
-do
-  echon "Check for ${func}()..."
-  echo "int main(){ $func(); return 0; }" > conftest.c
-  $CC_TST $CFLAGS $BIF_TST -o conftest conftest.c 
-  status=$?
-  if [ $status -ne 0 ]; then
-    ucname=` echo ${func} | tr '[a-z]' '[A-Z]' `
-    mname="NO_${ucname}"
-    echo "  No (${mname})."
-    CFLAGS_TST="${CFLAGS_TST} -D${mname}"
-  else
-    echo '  Yes.'
-  fi
-done
 
-# Test mktime separately to deal with On MacOS + clang
+# Check for chmod
+echon "Check for chmod()..."
+cat > conftest.c << _EOF_
+#include <sys/stat.h>
+int main(){ chmod("abc", 1); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_CHMOD)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_CHMOD"
+else
+  echo '  Yes.'
+fi
+
+# Check for chown
+echon "Check for chown()..."
+cat > conftest.c << _EOF_
+#include <unistd.h>
+int main(){ chown("abc", 1, 2); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_CHOWN)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_CHOWN"
+else
+  echo '  Yes.'
+fi
+
+# Check for fchmod
+echon "Check for fchmod()..."
+cat > conftest.c << _EOF_
+#include <sys/stat.h>
+int main(){ fchmod(1, 1); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_FCHMOD)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_FCHMOD"
+else
+  echo '  Yes.'
+fi
+
+# Check for fchown
+echon "Check for fchown()..."
+cat > conftest.c << _EOF_
+#include <unistd.h>
+int main(){ fchown(1, 2, 3); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_FCHOWN)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_FCHOWN"
+else
+  echo '  Yes.'
+fi
+
+# Check for lchown
+echon "Check for lchown()..."
+cat > conftest.c << _EOF_
+#include <unistd.h>
+int main(){ lchown("abc", 1, 2); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_LCHOWN)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_LCHOWN"
+else
+  echo '  Yes.'
+fi
+
+# Check for localtime_r
+echon "Check for localtime_r()..."
+cat > conftest.c << _EOF_
+#include <time.h>
+const time_t *t1;
+struct tm *t2;
+int main(){ localtime_r(t1, t2); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_LOCALTIME_R)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_LOCALTIME_R"
+else
+  echo '  Yes.'
+fi
+
+# Check for mktemp
+echon "Check for mktemp()..."
+cat > conftest.c << _EOF_
+#include <stdlib.h>
+int main(){ mktemp("abc"); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_MKTEMP)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_MKTEMP"
+else
+  echo '  Yes.'
+fi
+
+# Check for mkstemp
+echon "Check for mkstemp()..."
+cat > conftest.c << _EOF_
+#include <stdlib.h>
+int main(){ mkstemp("abc"); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_MKSTEMP)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_MKSTEMP"
+else
+  echo '  Yes.'
+fi
+
+# Check for mktime
 echon "Check for mktime()..."
 cat > conftest.c << _EOF_
 #include <time.h>
-struct tm tm;
-int main(){ mktime(&tm); return 0; }
+struct tm *t;
+int main(){ mktime(t); return 0; }
 _EOF_
 $CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
 status=$?
 if [ $status -ne 0 ]; then
   echo "  No (NO_MKTIME)."
   CFLAGS_TST="${CFLAGS_TST} -DNO_MKTIME"
+else
+  echo '  Yes.'
+fi
+
+# Check for nl_langinfo
+echon "Check for nl_langinfo()..."
+cat > conftest.c << _EOF_
+#include <langinfo.h>
+nl_item i;
+int main(){ nl_langinfo(i); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_NL_LANGINFO)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_NL_LANGINFO"
+else
+  echo '  Yes.'
+fi
+
+# Check for rename
+echon "Check for rename()..."
+cat > conftest.c << _EOF_
+#include <stdio.h>
+int main(){ rename("abc", "def"); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_RENAME)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_RENAME"
+else
+  echo '  Yes.'
+fi
+
+# Check for rmdir
+echon "Check for rmdir()..."
+cat > conftest.c << _EOF_
+#include <unistd.h>
+int main(){ rmdir("abc"); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_RMDIR)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_RMDIR"
+else
+  echo '  Yes.'
+fi
+
+# Check for strchr
+echon "Check for strchr()..."
+cat > conftest.c << _EOF_
+#include <string.h>
+int main(){ strchr("abc", 1); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_STRCHR)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_STRCHR"
+else
+  echo '  Yes.'
+fi
+
+# Check for strrchr
+echon "Check for strrchr()..."
+cat > conftest.c << _EOF_
+#include <string.h>
+int main(){ strrchr("abc", 1); return 0; }
+_EOF_
+$CC_TST $CFLAGS $BIF_TST -o conftest conftest.c >/dev/null 2>/dev/null
+status=$?
+if [ $status -ne 0 ]; then
+  echo "  No (NO_STRRCHR)."
+  CFLAGS_TST="${CFLAGS_TST} -DNO_STRRCHR"
 else
   echo '  Yes.'
 fi
@@ -2853,10 +3035,11 @@ done
 # Needed for AIX (and others ?) when mmap is used.
 echon 'Check for valloc()...'
 cat > conftest.c << _EOF_
-main()
+#include <stdlib.h>
+int main()
 {
 #ifdef MMAP
-    valloc();
+    valloc(1);
 #endif
 }
 _EOF_
