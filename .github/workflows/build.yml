@@ -36,6 +36,10 @@ jobs:
             compiler: gcc-9
             # packages: gcc-9
 
+          - name: Ubuntu + gcc-8
+            os: ubuntu-20.04
+            compiler: gcc-8
+            packages: gcc-8
 
           # CLANG Versions on Ubuntu
 
