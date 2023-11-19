@@ -42,7 +42,8 @@ jobs:
             compiler: gcc-7
             packages: gcc-7
 
-          - os: ubuntu-20.04 + gcc-6
+          - name: Ubuntu + gcc-6
+            os: ubuntu-20.04
             compiler: gcc-6
             packages: gcc-6
 
