@@ -116,9 +116,9 @@ jobs:
 
         # # CLANG Versions on Windows
 
-        #   - name: Windows + clang
-        #     os: windows-latest
-        #     compiler: clang
+          - name: Windows + gcc
+            os: windows-latest
+            compiler: gcc
 
     steps:
     - name: Checkout repository
@@ -140,7 +140,7 @@ jobs:
 
     - name: configure & build
       run: |
-        make -f unix/Makefile generic CC=${{ matrix.compiler }} 
+        make -f unix/Makefile generic CC=${{ matrix.compiler }}
 
 
     - name: Run zip --help
