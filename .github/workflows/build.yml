@@ -161,7 +161,12 @@ jobs:
         choco install ${{ matrix.packages }}
 
     - name: Display ${{ matrix.compiler }} veresion
+      if: matrix.compiler != 'cl'
       run: ${{ matrix.compiler }} -v
+
+    - name: Display ${{ matrix.compiler }} veresion
+      if: matrix.compiler == 'cl'
+      run: ${{ matrix.compiler }}
 
     - name: fetch iz_aes_wg10.zip
       run: |
