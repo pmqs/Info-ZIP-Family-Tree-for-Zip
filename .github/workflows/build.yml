@@ -114,11 +114,19 @@ jobs:
             os: macos-11
             compiler: clang
 
-        # # CLANG Versions on Windows
+        # gcc Versions on Windows
 
           - name: Windows + gcc
             os: windows-latest
             compiler: gcc
+            choco: wget unzip
+
+        # CLANG Versions on Windows
+
+          - name: Windows + gcc
+            os: windows-latest
+            compiler: clang
+            choco: llvm wget unzip
 
     steps:
 
@@ -138,13 +146,11 @@ jobs:
       run: ${{ matrix.compiler }} -v
 
     - name: windows needs wget
-      if: runner.os == 'Windows'
+      if: runner.os == 'Windows' && ${{ matrix.choco }}
       run: |
-        choco install wget
-        choco install unzip
+        choco install ${{ matrix.choco }}
 
     - name: fetch iz_aes_wg10.zip
-    #   if: runner.os != 'Windows'
       run: |
         wget ftp://ftp.info-zip.org/pub/infozip/src/iz_aes_wg10.zip
         unzip iz_aes_wg10.zip
