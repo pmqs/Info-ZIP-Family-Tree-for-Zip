@@ -137,6 +137,7 @@ jobs:
       run: |
         wget ftp://ftp.info-zip.org/pub/infozip/src/iz_aes_wg10.zip
         unzip iz_aes_wg10.zip
+      shell: bash
 
     - name: configure & build
       run: |
