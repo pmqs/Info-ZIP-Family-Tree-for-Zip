@@ -303,7 +303,7 @@ local uzoff_t isize;         /* input file size. global only for debugging */
    binary/text decision is made based on file_binary.  file_binary_final
    is set based on all buffers, and is updated as each buffer is read.
    file_binary_final confirms validity of initial binary/text decision.
-   
+
    In the case of deflate, set_file_type() in trees.c sets the final
    value of the binary/text flag. */
 
@@ -671,7 +671,7 @@ struct zlist far *z;    /* zip entry to compress */
   uzoff_t bytetotal;
 #endif
 
-#if defined(ZIP_DLL_LIB) && defined(WIN32) 
+#if defined(ZIP_DLL_LIB) && defined(WIN32)
   /* This kluge is only for VB 6 (and may not be needed for that). */
 # ifdef ZIP64_SUPPORT
   extern uzoff_t filesize64;
@@ -1063,7 +1063,7 @@ struct zlist far *z;    /* zip entry to compress */
 #endif
 
 
-  
+
 #ifdef ALLOW_TEXT_BIN_RESTART
   /* If we are converting line ends or character set using -l, -ll or -a,
      and a file labeled as "text" using first buffers is later found to
@@ -1860,7 +1860,7 @@ Restart_As_Binary:
         /* Binary restart.  Seek back to start of this entry, jump back
            earlier in zipup(), and start again as binary.  The Store
            (not compressing) case is handled farther down.
-           
+
            We do not yet support restarting if writing split archives.  In
            that case we stick with the above warning and leave the file
            corrupted. */
@@ -1880,7 +1880,7 @@ Restart_As_Binary:
             bytes_read_this_entry = 0;
             tempzn = saved_tempzn;
             /* need to jump to disk with start of this entry here */
-        
+
             zipmessage("    remarking text file as binary and redoing...", "");
             restart_as_binary = 1;
             /* reset flag - will be set to binary in iz_file_read() */
@@ -2030,7 +2030,7 @@ Restart_As_Binary:
         /* Binary restart.  Seek back to start of this entry, jump back
            earlier in zipup(), and start again as binary.  The compressing
            (not Store) case is handled above.
-           
+
            We do not yet support restarting if writing split archives.  In
            that case we stick with the above warning and leave the file
            corrupted. */
@@ -2050,7 +2050,7 @@ Restart_As_Binary:
             bytes_read_this_entry = 0;
             tempzn = saved_tempzn;
             /* need to jump to disk with start of this entry here */
-        
+
             zipmessage("    remarking text file as binary and redoing...", "");
             restart_as_binary = 1;
             /* reset flag - will be set to binary in iz_file_read() */
@@ -2543,7 +2543,7 @@ zfprintf( stderr, " Done.          crc = %08x .\n", crc);
     }
   }
 #endif /* ZIP_DLL_LIB */
-  
+
   return ZE_OK;
 }
 
@@ -2741,7 +2741,7 @@ local unsigned iz_file_read(buf, size)
             char c;
 
             if ((c = *b++) == '\n') {
-               *buf++ = CR; *buf++ = LF; len++;
+               *buf++ = CR_eol; *buf++ = LF_eol; len++;
             } else {
               *buf++ = (char)ascii[(uch)c];
             }
@@ -2751,7 +2751,7 @@ local unsigned iz_file_read(buf, size)
 #endif /* EBCDIC */
       {
          do {
-            if ((*buf++ = *b++) == '\n') *(buf-1) = CR, *buf++ = LF, len++;
+            if ((*buf++ = *b++) == '\n') *(buf-1) = CR_eol, *buf++ = LF_eol, len++;
          } while (--size != 0);
       }
       buf -= len;
@@ -2916,7 +2916,7 @@ local unsigned iz_file_read(buf, size)
             if ((c = *b++) == '\r' && *b == '\n') {
                len--;
             } else {
-               *buf++ = (char)(c == '\n' ? LF : ascii[(uch)c]);
+               *buf++ = (char)(c == '\n' ? LF_eol : ascii[(uch)c]);
             }
          } while (--size != 0);
       }
@@ -2924,7 +2924,7 @@ local unsigned iz_file_read(buf, size)
 #endif /* EBCDIC */
       {
          do {
-            if (( *buf++ = *b++) == CR && *b == LF) buf--, len--;
+            if (( *buf++ = *b++) == CR_eol && *b == LF_eol) buf--, len--;
          } while (--size != 0);
       }
 #if 0
@@ -2934,7 +2934,7 @@ local unsigned iz_file_read(buf, size)
          bytes_read_this_entry += len;
 #ifdef EBCDIC
          if (aflag == FT_ASCII_TXT) {
-            *buf = (char)(*buf == '\n' ? LF : ascii[(uch)(*buf)]);
+            *buf = (char)(*buf == '\n' ? LF_eol : ascii[(uch)(*buf)]);
          }
 #endif
       } else {
@@ -2945,7 +2945,7 @@ local unsigned iz_file_read(buf, size)
       buf -= len;
 
       /* Should be OK if it is a text file. */
-      if (buf[len-1] == CTRLZ) len--; /* suppress final ^Z */
+      if (buf[len-1] == CTRLZ_eof) len--; /* suppress final ^Z */
     }
   } /* translate_eol == 2 */
 
@@ -2960,7 +2960,7 @@ local unsigned iz_file_read(buf, size)
   if ((zoff_t)isize < (zoff_t)isize_prev) {
     ZIPERR(ZE_BIG, "overflow in byte count");
   }
-  
+
 #ifdef ZIP_DLL_LIB
   /* If progress_chunk_size is defined and ProgressReport() exists,
      see if time to send user progress information. */
@@ -3604,7 +3604,7 @@ int *cmpr_method;
 
 
                     /* bzip2 */
-                    
+
                     /* display dots */
                     if (!display_globaldots)
                     {

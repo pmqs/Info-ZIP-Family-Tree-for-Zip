@@ -808,9 +808,9 @@ struct plist {
 
 
 /* ASCII definitions for line terminators in text files: */
-#define LF     10        /* '\n' on ASCII machines; must be 10 due to EBCDIC */
-/* #define CR     13  */      /* '\r' on ASCII machines; must be 13 due to EBCDIC */
-#define CTRLZ  26        /* DOS & OS/2 EOF marker (used in fileio.c, vms.c) */
+#define LF_eol     10        /* '\n' on ASCII machines; must be 10 due to EBCDIC */
+#define CR_eol     13        /* '\r' on ASCII machines; must be 13 due to EBCDIC */
+#define CTRLZ_eof  26        /* DOS & OS/2 EOF marker (used in fileio.c, vms.c) */
 
 
 /* return codes of password fetches (negative: user abort; positive: error) */
