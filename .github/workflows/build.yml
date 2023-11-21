@@ -122,9 +122,6 @@ jobs:
 
     steps:
 
-    - name: Display ${{ matrix.compiler }} veresion
-      run: ${{ matrix.compiler }} -v
-
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
@@ -136,6 +133,9 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y ${{ matrix.packages }}
+
+    - name: Display ${{ matrix.compiler }} veresion
+      run: ${{ matrix.compiler }} -v
 
     - name: windows needs wget
       if: runner.os == 'Windows'
