@@ -116,21 +116,21 @@ jobs:
           - name: Windows + gcc
             os: windows-latest
             compiler: gcc
-            packages: wget unzip nmake
+            packages: wget unzip
 
         # CLANG Versions on Windows
 
           - name: Windows + clang
             os: windows-latest
             compiler: clang
-            packages: llvm wget unzip nmake
+            packages: llvm wget unzip
 
         # win32/gcc on Windows
 
           - name: Windows + win32/makefile.gcc
             os: windows-latest
             compiler: gcc
-            packages: wget unzip nmake
+            packages: wget unzip
             mfile: win32/makefile.gcc
 
         # # win32/w32 on Windows
@@ -146,7 +146,7 @@ jobs:
           - name: Windows + win32/makefile.a64
             os: windows-latest
             compiler: cl
-            packages: wget unzip nmake
+            packages: wget unzip
             mfile: win32/makefile.a64
 
     steps:
@@ -172,18 +172,18 @@ jobs:
       run: |
         choco install ${{ matrix.packages }}
 
-    - name: Display ${{ matrix.compiler }} veresion
+    - name: Display ${{ matrix.compiler }} version
       if: matrix.compiler != 'cl'
       run: ${{ matrix.compiler }} -v
 
-    - name: Display ${{ matrix.compiler }} veresion
+    - name: Display ${{ matrix.compiler }} version
       if: matrix.compiler == 'cl'
       run: ${{ matrix.compiler }}
       shell: cmd
 
     - name: fetch iz_aes_wg10.zip
       run: |
-        wget ftp://ftp.info-zip.org/pub/infozip/src/iz_aes_wg10.zip
+        wget -q ftp://ftp.info-zip.org/pub/infozip/src/iz_aes_wg10.zip
         unzip iz_aes_wg10.zip
 
     - name: configure & build (unix/Makefile)
@@ -191,10 +191,10 @@ jobs:
       run: |
         make -f unix/Makefile generic CC=${{ matrix.compiler }}
 
-    - name: build (win32/makefile.gcc/w32/a64)
+    - name: build (win32/makefile.*)
       if: matrix.mfile
       run: |
-        nmake -f ${{ matrix.mfile }}
+        make -f ${{ matrix.mfile }}
       shell: cmd
 
     - name: Run zip --help
