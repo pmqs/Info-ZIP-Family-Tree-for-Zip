@@ -131,7 +131,7 @@ jobs:
             os: windows-latest
             compiler: gcc
             packages: wget unzip
-            makefile: win32/makefile.gcc
+            mfile: win32/makefile.gcc
 
         # win32/gcc on Windows
 
@@ -139,7 +139,7 @@ jobs:
             os: windows-latest
             compiler: cl
             packages: wget unzip
-            makefile: win32/makefile.w32
+            mfile: win32/makefile.w32
 
     steps:
 
@@ -169,14 +169,14 @@ jobs:
         unzip iz_aes_wg10.zip
 
     - name: configure & build (unix/Makefile)
-      if: ! matrix.makefile
+      if: ! matrix.mfile
       run: |
         make -f unix/Makefile generic CC=${{ matrix.compiler }}
 
     - name: build (win32/makefile.gcc/w32)
-      if:  matrix.makefile
+      if:  matrix.mfile
       run: |
-        make -f ${{ matrix.makefile }}
+        make -f ${{ matrix.mfile }}
 
     - name: Run zip --help
       run: ./zip --help
