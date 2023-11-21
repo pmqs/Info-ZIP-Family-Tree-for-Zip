@@ -120,7 +120,7 @@ jobs:
 
         # CLANG Versions on Windows
 
-          - name: Windows + gcc
+          - name: Windows + clang
             os: windows-latest
             compiler: clang
             packages: llvm wget unzip
