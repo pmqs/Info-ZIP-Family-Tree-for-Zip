@@ -133,13 +133,21 @@ jobs:
             packages: wget unzip
             mfile: win32/makefile.gcc
 
-        # win32/gcc on Windows
+        # win32/w32 on Windows
 
           - name: Windows + win32/makefile.w32
             os: windows-latest
-            compiler: cl
+            compiler: cl.exe
             packages: wget unzip
             mfile: win32/makefile.w32
+
+        # win32/w32 on Windows
+
+          - name: Windows + win32/makefile.a64
+            os: windows-latest
+            compiler: cl.exe
+            packages: wget unzip
+            mfile: win32/makefile.a64
 
     steps:
 
@@ -161,12 +169,13 @@ jobs:
         choco install ${{ matrix.packages }}
 
     - name: Display ${{ matrix.compiler }} veresion
-      if: matrix.compiler != 'cl'
+      if: matrix.compiler != 'cl.exe'
       run: ${{ matrix.compiler }} -v
 
     - name: Display ${{ matrix.compiler }} veresion
-      if: matrix.compiler == 'cl'
+      if: matrix.compiler == 'cl.exe'
       run: ${{ matrix.compiler }}
+      shell: cmd
 
     - name: fetch iz_aes_wg10.zip
       run: |
@@ -178,10 +187,11 @@ jobs:
       run: |
         make -f unix/Makefile generic CC=${{ matrix.compiler }}
 
-    - name: build (win32/makefile.gcc/w32)
+    - name: build (win32/makefile.gcc/w32/a64)
       if: matrix.mfile
       run: |
         make -f ${{ matrix.mfile }}
+      shell: cmd
 
     - name: Run zip --help
       run: ./zip --help
