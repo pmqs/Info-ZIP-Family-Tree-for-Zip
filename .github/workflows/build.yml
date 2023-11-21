@@ -157,6 +157,9 @@ jobs:
         show-progress: 'false'
         ref: build
 
+    - name: setup cli compilers on Windows
+      uses: ilammy/msvc-dev-cmd@v1
+
     - name: Install packages (Ubuntu)
       if: runner.os == 'Linux' && matrix.packages
       run: |
