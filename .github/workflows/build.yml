@@ -169,12 +169,12 @@ jobs:
         unzip iz_aes_wg10.zip
 
     - name: configure & build (unix/Makefile)
-      if: ! matrix.mfile
+      if: matrix.mfile == ''
       run: |
         make -f unix/Makefile generic CC=${{ matrix.compiler }}
 
     - name: build (win32/makefile.gcc/w32)
-      if:  matrix.mfile
+      if: matrix.mfile
       run: |
         make -f ${{ matrix.mfile }}
 
