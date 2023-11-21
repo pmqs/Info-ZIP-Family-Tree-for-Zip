@@ -133,15 +133,15 @@ jobs:
             packages: wget unzip
             mfile: win32/makefile.gcc
 
-        # win32/w32 on Windows
+        # # win32/w32 on Windows
 
-          - name: Windows + win32/makefile.w32
-            os: windows-latest
-            compiler: cl.exe
-            packages: wget unzip
-            mfile: win32/makefile.w32
+        #   - name: Windows + win32/makefile.w32
+        #     os: windows-latest
+        #     compiler: cl.exe
+        #     packages: wget unzip
+        #     mfile: win32/makefile.w32
 
-        # win32/w32 on Windows
+        # win32/a64 on Windows
 
           - name: Windows + win32/makefile.a64
             os: windows-latest
