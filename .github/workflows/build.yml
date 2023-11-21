@@ -88,17 +88,14 @@ jobs:
           - name: MacOS + gcc-13
             os: macos-latest
             compiler: gcc-13
-            # packages: gcc-13
 
           - name: MacOS + gcc-12
             os: macos-latest
             compiler: gcc-12
-            # packages: gcc-12
 
           - name: MacOS + gcc-11
             os: macos-latest
             compiler: gcc-11
-            # packages: gcc-11
 
           - name: MacOS + gcc-10
             os: macos-11
@@ -119,14 +116,14 @@ jobs:
           - name: Windows + gcc
             os: windows-latest
             compiler: gcc
-            choco: wget unzip
+            packages: wget unzip
 
         # CLANG Versions on Windows
 
           - name: Windows + gcc
             os: windows-latest
             compiler: clang
-            choco: llvm wget unzip
+            packages: llvm wget unzip
 
     steps:
 
@@ -142,13 +139,13 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y ${{ matrix.packages }}
 
+    - name: Install packages (Windows)
+      if: runner.os == 'Windows' && ${{ matrix.packages }}
+      run: |
+        choco install ${{ matrix.packages }}
+
     - name: Display ${{ matrix.compiler }} veresion
       run: ${{ matrix.compiler }} -v
-
-    - name: windows needs wget
-      if: runner.os == 'Windows' && ${{ matrix.choco }}
-      run: |
-        choco install ${{ matrix.choco }}
 
     - name: fetch iz_aes_wg10.zip
       run: |
@@ -158,7 +155,6 @@ jobs:
     - name: configure & build
       run: |
         make -f unix/Makefile generic CC=${{ matrix.compiler }}
-
 
     - name: Run zip --help
       run: ./zip --help
