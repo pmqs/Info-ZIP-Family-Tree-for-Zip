@@ -125,6 +125,14 @@ jobs:
             compiler: clang
             packages: llvm wget unzip
 
+        # win32/gcc on Windows
+
+          - name: Windows + win32/makefile.gcc
+            os: windows-latest
+            compiler: gcc
+            packages: wget unzip
+            base: win32
+
     steps:
 
     - name: Checkout repository
@@ -152,9 +160,15 @@ jobs:
         wget ftp://ftp.info-zip.org/pub/infozip/src/iz_aes_wg10.zip
         unzip iz_aes_wg10.zip
 
-    - name: configure & build
+    - name: configure & build (unix/Makefile)
+      if: matrix.base != 'win32'
       run: |
         make -f unix/Makefile generic CC=${{ matrix.compiler }}
+
+    - name: configure & build (win32/makefile.gcc)
+      if:  matrix.base == 'win32'
+      run: |
+        make -f win32/makefile.gcc
 
     - name: Run zip --help
       run: ./zip --help
