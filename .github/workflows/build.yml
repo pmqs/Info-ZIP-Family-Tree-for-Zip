@@ -194,7 +194,7 @@ jobs:
     - name: build (win32/makefile.*)
       if: matrix.mfile
       run: |
-        make -f ${{ matrix.mfile }}
+        nmake -f ${{ matrix.mfile }}
       shell: cmd
 
     - name: Run zip --help
