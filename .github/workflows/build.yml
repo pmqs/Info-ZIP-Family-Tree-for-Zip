@@ -9,107 +9,107 @@ jobs:
       matrix:
         include:
 
-          # # GCC Versions on Ubuntu
+          # GCC Versions on Ubuntu
 
-          # - name: Ubuntu + gcc-13
-          #   os: ubuntu-latest
-          #   compiler: gcc-13
+          - name: Ubuntu + gcc-13
+            os: ubuntu-latest
+            compiler: gcc-13
 
-          # - name: Ubuntu + gcc-12
-          #   os: ubuntu-latest
-          #   compiler: gcc-12
+          - name: Ubuntu + gcc-12
+            os: ubuntu-latest
+            compiler: gcc-12
 
-          # - name: Ubuntu + gcc-11
-          #   os: ubuntu-latest
-          #   compiler: gcc-11
-          #   packages: gcc-11
+          - name: Ubuntu + gcc-11
+            os: ubuntu-latest
+            compiler: gcc-11
+            packages: gcc-11
 
-          # - name: Ubuntu + gcc-10
-          #   os: ubuntu-latest
-          #   compiler: gcc-10
+          - name: Ubuntu + gcc-10
+            os: ubuntu-latest
+            compiler: gcc-10
 
-          # - name: Ubuntu + gcc-9
-          #   os: ubuntu-latest
-          #   compiler: gcc-9
+          - name: Ubuntu + gcc-9
+            os: ubuntu-latest
+            compiler: gcc-9
 
-          # - name: Ubuntu + gcc-8
-          #   os: ubuntu-20.04
-          #   compiler: gcc-8
-          #   packages: gcc-8
+          - name: Ubuntu + gcc-8
+            os: ubuntu-20.04
+            compiler: gcc-8
+            packages: gcc-8
 
-          # - name: Ubuntu + gcc-7
-          #   os: ubuntu-20.04
-          #   compiler: gcc-7
-          #   packages: gcc-7
+          - name: Ubuntu + gcc-7
+            os: ubuntu-20.04
+            compiler: gcc-7
+            packages: gcc-7
 
-          # # CLANG Versions on Ubuntu
+          # CLANG Versions on Ubuntu
 
-          # - name: Ubuntu + clang-15
-          #   os: ubuntu-latest
-          #   compiler: clang-15
+          - name: Ubuntu + clang-15
+            os: ubuntu-latest
+            compiler: clang-15
 
-          # - name: Ubuntu + clang-14
-          #   os: ubuntu-latest
-          #   compiler: clang-14
+          - name: Ubuntu + clang-14
+            os: ubuntu-latest
+            compiler: clang-14
 
-          # - name: Ubuntu + clang-13
-          #   os: ubuntu-latest
-          #   compiler: clang-13
+          - name: Ubuntu + clang-13
+            os: ubuntu-latest
+            compiler: clang-13
 
-          # - name: Ubuntu + clang-12
-          #   os: ubuntu-20.04
-          #   compiler: clang-12
+          - name: Ubuntu + clang-12
+            os: ubuntu-20.04
+            compiler: clang-12
 
-          # - name: Ubuntu + clang-11
-          #   os: ubuntu-20.04
-          #   compiler: clang-11
+          - name: Ubuntu + clang-11
+            os: ubuntu-20.04
+            compiler: clang-11
 
-          # - name: Ubuntu + clang-10
-          #   os: ubuntu-20.04
-          #   compiler: clang-10
+          - name: Ubuntu + clang-10
+            os: ubuntu-20.04
+            compiler: clang-10
 
-          # - name: Ubuntu + clang-9
-          #   os: ubuntu-20.04
-          #   compiler: clang-9
-          #   packages: clang-9
+          - name: Ubuntu + clang-9
+            os: ubuntu-20.04
+            compiler: clang-9
+            packages: clang-9
 
-          # - name: Ubuntu + clang-8
-          #   os: ubuntu-20.04
-          #   compiler: clang-8
-          #   packages: clang-8
+          - name: Ubuntu + clang-8
+            os: ubuntu-20.04
+            compiler: clang-8
+            packages: clang-8
 
-          # - name: Ubuntu + clang-7
-          #   os: ubuntu-20.04
-          #   compiler: clang-7
-          #   packages: clang-7
+          - name: Ubuntu + clang-7
+            os: ubuntu-20.04
+            compiler: clang-7
+            packages: clang-7
 
-          # # GCC Versions on MacOS
+          # GCC Versions on MacOS
 
-          # - name: MacOS + gcc-13
-          #   os: macos-latest
-          #   compiler: gcc-13
+          - name: MacOS + gcc-13
+            os: macos-latest
+            compiler: gcc-13
 
-          # - name: MacOS + gcc-12
-          #   os: macos-latest
-          #   compiler: gcc-12
+          - name: MacOS + gcc-12
+            os: macos-latest
+            compiler: gcc-12
 
-          # - name: MacOS + gcc-11
-          #   os: macos-latest
-          #   compiler: gcc-11
+          - name: MacOS + gcc-11
+            os: macos-latest
+            compiler: gcc-11
 
-          # - name: MacOS + gcc-10
-          #   os: macos-11
-          #   compiler: gcc-10
+          - name: MacOS + gcc-10
+            os: macos-11
+            compiler: gcc-10
 
-          # # clang Versions on MacOS
+          # clang Versions on MacOS
 
-          # - name: MacOS + clang 14
-          #   os: macos-latest
-          #   compiler: clang
+          - name: MacOS + clang 14
+            os: macos-latest
+            compiler: clang
 
-          # - name: MacOS + clang-13
-          #   os: macos-11
-          #   compiler: clang
+          - name: MacOS + clang-13
+            os: macos-11
+            compiler: clang
 
         # gcc Versions on Windows with MinGW
 
@@ -133,6 +133,15 @@ jobs:
             os: windows-latest
             compiler: clang
             packages: llvm wget unzip
+
+        # CLANG Versions on Windows with Cygwin
+
+          - name: Windows + Cygwin + gcc
+            os: windows-latest
+            compiler: clang
+            packages: wget unzip clang make
+            cygwin: 1
+            shell: C:\tools\cygwin\bin\bash.exe --login -o igncr '{0}'
 
         # win32/gcc on Windows
 
