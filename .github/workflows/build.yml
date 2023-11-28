@@ -142,6 +142,8 @@ jobs:
             packages: wget unzip
             makefile: win32/makefile.w32
             makecmd: nmake
+            # makeopts: NOASM=1
+            arch: x86
 
         # win32/a64 on Windows
 
@@ -151,6 +153,7 @@ jobs:
             packages: wget unzip
             makefile: win32/makefile.a64
             makecmd: nmake
+            arch: x64
 
     steps:
 
@@ -164,6 +167,8 @@ jobs:
     - name: setup cli compilers on Windows
       if: matrix.compiler == 'cl'
       uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: ${{ matrix.arch }}
 
     - name: Install packages (Ubuntu)
       if: runner.os == 'Linux' && matrix.packages
@@ -198,7 +203,7 @@ jobs:
     - name: build (win32/makefile.*)
       if: matrix.makefile
       run: |
-        ${{ matrix.makecmd }} -f ${{ matrix.makefile }}
+        ${{ matrix.makecmd }} -f ${{ matrix.makefile }} ${{ matrix.makeopts }}
       shell: cmd
 
     - name: Run zip --help
