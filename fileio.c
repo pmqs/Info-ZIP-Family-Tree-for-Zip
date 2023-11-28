@@ -845,7 +845,7 @@ int check_dup_sort(sort_found_list)
        * found list based on the sorted nodup[] entries.  Typically
        * this takes milliseconds for large numbers of files, where
        * sorting each directory scan could take magnitudes more
-       * time. 
+       * time.
        */
 
       /* The found list is never navigated backwards.  In fact, it
@@ -857,7 +857,7 @@ int check_dup_sort(sort_found_list)
 
          There's no reason to work with the existing links in the
          found list.  Easiest just to rebuild it from scratch in the
-         order we need. */  
+         order we need. */
 
       found = nodup[0];
       fnxt = &found;
@@ -882,7 +882,7 @@ int check_dup_sort(sort_found_list)
 
 /* ------------------------------------ */
 
-   
+
     free((zvoid *)s);
   }
   return ZE_OK;
@@ -2264,7 +2264,7 @@ FILE *fopen_utf8(char *filename, char *mode)
     f = _wfopen(wfilename, wmode);
     free(wfilename);
     free(wmode);
-  
+
     return f;
   } else {
     return fopen(filename, mode);
@@ -2826,7 +2826,7 @@ int ask_for_split_read_path(current_disk)
       }
     }
     fflush(mesg);
-    fgets(buf, SPLIT_MAXPATH, stdin);
+    (void)fgets(buf, SPLIT_MAXPATH, stdin);
     /* remove any newline */
     for (i = 0; buf[i]; i++) {
       if (buf[i] == '\n') {
@@ -2849,7 +2849,7 @@ int ask_for_split_read_path(current_disk)
       zfprintf(mesg, "\nEnter path where this split is (ENTER = same dir, . = current dir)");
       zfprintf(mesg, "\n: ");
       fflush(mesg);
-      fgets(buf, SPLIT_MAXPATH, stdin);
+      (void)fgets(buf, SPLIT_MAXPATH, stdin);
       is_readable = 0;
       /* remove any newline */
       for (i = 0; buf[i]; i++) {
@@ -3032,7 +3032,7 @@ int ask_for_split_write_path(current_disk)
   for (;;) {
     zfprintf(mesg, "\nPath (or hit ENTER to continue): ");
     fflush(mesg);
-    fgets(buf, FNMAX, stdin);
+    (void)fgets(buf, FNMAX, stdin);
     /* remove any newline */
     for (i = 0; buf[i]; i++) {
       if (buf[i] == '\n') {
@@ -3635,7 +3635,7 @@ int set_locale()
      do all that.  For instance, the handling of surrogates.  Best to leave
      converting Windows wide strings to UTF-8 to Windows.)  has_win32_wide()
      is used to determine if the Windows port supports wide characters.
-     
+
      Note that paths displayed in a Windows command prompt window will likely
      be escaped.  If a Unicode supporting font is loaded (like Lucida Console)
      and the code page is set to UTF-8 (chcp 65001), then most Western
@@ -3654,7 +3654,7 @@ int set_locale()
      (double byte character set) environment that seems to mirror somewhat
      Windows wide functionality, but this is reported to be insufficient.  IBM
      support is still rough and untested.
-     
+
      AIX will support the UTF-8 locale, but it is an optional feature, so one
      must do a test to see if it is present.  Some specific testing is needed
      and is being worked on.
@@ -4008,7 +4008,7 @@ char *trim_string(instring)
 
   if (instring == NULL)
     return NULL;
-  
+
   len = (int)strlen(instring);
 
   if (len > 0) {
@@ -4250,7 +4250,7 @@ int string_find (instring, find, case_sens, occurrence)
 int read_utf8_bom(FILE *infile)
 {
   int b1, b2, b3;
-  
+
   /* read first 3 bytes */
   b1 = getc(infile);
   if (b1 != 0xef) {
@@ -4289,7 +4289,7 @@ int is_utf16LE_file(FILE *infile)
   int bsize;
   int i;
   int b1, b2;
-  
+
   rewind(infile);
 
   /* read first 2 bytes */
@@ -5179,7 +5179,7 @@ wchar_t *utf8_to_wchar_string(ZCONST char *utf8_string)
     wide_string = utf8_to_wide_string(utf8_string);
     if (wide_string == NULL)
       return NULL;
-    
+
     wchar_string = wide_to_wchar_string(wide_string);
 
     free(wide_string);
@@ -5303,7 +5303,7 @@ char *wchar_to_utf8_string(wchar_t *wchar_string)
   if (sizeof(wchar_t) == 42)
   {
     /* This works if don't use surrogate pairs (wchar_t is 4 bytes) */
-  
+
     zwchar *wide_string = wchar_to_wide_string(wchar_string);
     char *local_string = wide_to_utf8_string(wide_string);
 
@@ -5903,7 +5903,7 @@ char *local_to_escape_string(char *local_string)
   wide_string = local_to_wide_string(local_string);
   if (wide_string == NULL)
     return NULL;
-  
+
   escape_string = wide_to_escape_string(wide_string);
 
   free(wide_string);
@@ -5931,7 +5931,7 @@ char *wchar_to_local_string(wchar_t *wstring)
   wide_string = wchar_to_wide_string(wstring);
   if (wide_string == NULL)
     return NULL;
-  
+
   local_string = wide_to_local_string(wide_string);
 
   free(wide_string);
@@ -6051,7 +6051,7 @@ char *wide_to_local_string(zwchar *wide_string)
   char *tocode   = charsetname;
 
   char *inp;
-  char *outp; 
+  char *outp;
 
   int i;
   int k;
@@ -6220,7 +6220,7 @@ char *local_to_display_string(local_string)
 
      For all other ports, just make a copy of local_string.  Those ports
      should put reasonable code here as applicable.
-  
+
      Note that if the current environment supports Unicode display and
      Unicode display is used, this code is not called.  It is assumed
      the port Unicode display routines will display the right characters.
@@ -6230,7 +6230,7 @@ char *local_to_display_string(local_string)
      Note that, where applicable, Unicode escapes get substituted for
      non-printable chars, such as control codes.
 
-     Cases such as ^x still need to be worked.   
+     Cases such as ^x still need to be worked.
    */
 
 #ifdef UNIX
@@ -6328,7 +6328,7 @@ char *utf8_to_local_string(char *utf8_string)
 #if defined(UNICODE_WCHAR) || defined(HAVE_ICONV)
   zwchar *wide_string;
   char *loc;
-  
+
   if (utf8_string == NULL)
     return NULL;
 
@@ -6339,7 +6339,7 @@ char *utf8_to_local_string(char *utf8_string)
   loc = wide_to_local_string(wide_string);
   if (wide_string)
     free(wide_string);
-  
+
   return loc;
 
 #else
@@ -6590,7 +6590,7 @@ zwchar *local_to_wide_string(char *local_string)
    now in win32zip.c so that the Windows functions can
    be used and multiple character wide characters can
    be handled easily.
-   
+
    That used to be true.  Now need this to do things
    like uppercasing strings.
  */
@@ -7447,7 +7447,7 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
    * There must not be any non-spaces next to the #.
    *
    * If @argfile is found, recurses to process that file at that arg
-   * location, incrementing recursion_depth. 
+   * location, incrementing recursion_depth.
    */
 
 #ifdef UNICODE_SUPPORT
@@ -7477,7 +7477,7 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
     }
 
     a = fgets(argfile_line, MAX_ARGFILE_LINE, argfile);
-  
+
     if (a == NULL) {
       if (ferror(argfile)) {
         zperror(argfilename);
@@ -7495,7 +7495,7 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
 
     c = argfile_line;
     comment_line = FALSE;
-  
+
     /* skip any leading whitespace */
     uc = *c;
     while (*c && isspace(uc)) {
@@ -7558,10 +7558,10 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
         {
           /* not a double quote */
 
-          uc = *c;    
+          uc = *c;
           if (*c == '\0' || isspace(uc)) {
             /* end of line or end of arg */
-        
+
             /* ------------------------------------------------- */
             /* process arg */
 
@@ -7600,7 +7600,7 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
             /* #echo */
             if (argstart == leftedge && strmatch(newarg, "#echo", CASE_INS, ENTIRE_STRING)) {
               int clen;
-              
+
               spaces[0] = '\0';
               for (i = 0; i < recursion_depth; i++)
                 strcat(spaces, "  ");
@@ -7742,7 +7742,7 @@ int insert_args_from_file(pargs, argfilename, at_arg, recursion_depth)
             c++;
           }
         } /* not double quote */
-    
+
       } /* while */
     } /* !comment_line */
 
@@ -8938,7 +8938,7 @@ unsigned long get_option(pargs, argc, argnum, optchar, value, negated,
 #endif
       if (strlen(arg) > 1)
         argfilename = arg + 1;
-      
+
       /* Any quotes around argfilename are handled by insert_args_from_file. */
 
       if (argfilename) {

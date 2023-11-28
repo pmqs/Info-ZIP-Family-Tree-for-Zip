@@ -628,7 +628,7 @@ char *getp(__G__ m, p, n)
         i = 0;
         echoff(f);
         do {                    /* read line, keeping n */
-            read(f, &c, 1);
+            (void)read(f, &c, 1);
             if (i <= n)
                 p[i++] = c;
         } while (c != '\n');
