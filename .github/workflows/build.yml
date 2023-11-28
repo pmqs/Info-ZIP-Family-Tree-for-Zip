@@ -118,12 +118,12 @@ jobs:
             compiler: gcc
             packages: wget unzip
 
-        # gcc Versions on Windows with MINGW
+        # gcc Versions on Windows with Cygwin
 
           - name: Windows + Cygwin + gcc
             os: windows-latest
             compiler: gcc
-            packages: wget unzip gcc
+            packages: wget unzip gcc make
             cygwin: 1
 
         # CLANG Versions on Windows with MINGW
