@@ -218,7 +218,7 @@ jobs:
     - name: Cygwin configure & build (unix/Makefile)
       if: matrix.makefile == '' &&  matrix.cygwin
       run: |
-        make -f unix/Makefile generic CC=${{ matrix.compiler }}
+        make -f unix\Makefile generic CC=${{ matrix.compiler }}
       shell: C:\tools\cygwin\bin\bash.exe --login -o igncr '{0}'
 
     - name: build (win32/makefile.*)
