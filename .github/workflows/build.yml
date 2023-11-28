@@ -188,7 +188,7 @@ jobs:
     - name: fetch iz_aes_wg10.zip
       run: |
         wget -q ftp://ftp.info-zip.org/pub/infozip/src/iz_aes_wg10.zip
-        unzip iz_aes_wg10.zip
+        unzip -o iz_aes_wg10.zip
 
     - name: configure & build (unix/Makefile)
       if: matrix.makefile == ''
