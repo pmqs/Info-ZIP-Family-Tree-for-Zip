@@ -132,14 +132,16 @@ jobs:
             compiler: gcc
             packages: wget unzip
             mfile: win32/makefile.gcc
+            # make: nmake
 
-        # # win32/w32 on Windows
+        # win32/w32 on Windows
 
-        #   - name: Windows + win32/makefile.w32
-        #     os: windows-latest
-        #     compiler: cl
-        #     packages: wget unzip
-        #     mfile: win32/makefile.w32
+          - name: Windows + win32/makefile.w32
+            os: windows-latest
+            compiler: cl
+            packages: wget unzip
+            mfile: win32/makefile.w32
+            # make: nmake
 
         # win32/a64 on Windows
 
@@ -148,6 +150,7 @@ jobs:
             compiler: cl
             packages: wget unzip
             mfile: win32/makefile.a64
+            # make: nmake
 
     steps:
 
@@ -170,7 +173,7 @@ jobs:
     - name: Install packages (Windows)
       if: runner.os == 'Windows' && matrix.packages
       run: |
-        choco install ${{ matrix.packages }}
+        choco -r install ${{ matrix.packages }}
 
     - name: Display ${{ matrix.compiler }} version
       if: matrix.compiler != 'cl'
