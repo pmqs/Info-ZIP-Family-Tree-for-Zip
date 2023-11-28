@@ -131,8 +131,8 @@ jobs:
             os: windows-latest
             compiler: gcc
             packages: wget unzip
-            mfile: win32/makefile.gcc
-            # make: nmake
+            makefile: win32/makefile.gcc
+            makecmd: make
 
         # win32/w32 on Windows
 
@@ -140,8 +140,8 @@ jobs:
             os: windows-latest
             compiler: cl
             packages: wget unzip
-            mfile: win32/makefile.w32
-            # make: nmake
+            makefile: win32/makefile.w32
+            makecmd: nmake
 
         # win32/a64 on Windows
 
@@ -149,8 +149,8 @@ jobs:
             os: windows-latest
             compiler: cl
             packages: wget unzip
-            mfile: win32/makefile.a64
-            # make: nmake
+            makefile: win32/makefile.a64
+            makecmd: nmake
 
     steps:
 
@@ -190,14 +190,14 @@ jobs:
         unzip iz_aes_wg10.zip
 
     - name: configure & build (unix/Makefile)
-      if: matrix.mfile == ''
+      if: matrix.makefile == ''
       run: |
         make -f unix/Makefile generic CC=${{ matrix.compiler }}
 
     - name: build (win32/makefile.*)
-      if: matrix.mfile
+      if: matrix.makefile
       run: |
-        nmake -f ${{ matrix.mfile }}
+        ${{ matrix.makecmd }} -f ${{ matrix.makefile }}
       shell: cmd
 
     - name: Run zip --help
