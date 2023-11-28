@@ -111,9 +111,9 @@ jobs:
           #   os: macos-11
           #   compiler: clang
 
-        # gcc Versions on Windows with MINGW
+        # gcc Versions on Windows with MinGW
 
-          - name: Windows + MINGW + gcc
+          - name: Windows + MinGW + gcc
             os: windows-latest
             compiler: gcc
             packages: wget unzip
@@ -125,10 +125,11 @@ jobs:
             compiler: gcc
             packages: wget unzip gcc make
             cygwin: 1
+            shell: C:\tools\cygwin\bin\bash.exe --login -o igncr '{0}'
 
-        # CLANG Versions on Windows with MINGW
+        # CLANG Versions on Windows with MinGW
 
-          - name: Windows + MINGW + clang
+          - name: Windows + MinGW + clang
             os: windows-latest
             compiler: clang
             packages: llvm wget unzip
@@ -210,14 +211,20 @@ jobs:
         unzip -o iz_aes_wg10.zip
 
     - name: configure & build (unix/Makefile)
-      if: matrix.makefile == ''
+      if: matrix.makefile == '' && ! matrix.cygwin
       run: |
         make -f unix/Makefile generic CC=${{ matrix.compiler }}
 
-    - name: build (win32/makefile.*)
-      if: matrix.makefile
+    - name: Cygwin configure & build (unix/Makefile)
+      if: matrix.makefile == '' &&  matrix.cygwin
       run: |
-        ${{ matrix.makecmd }} -f ${{ matrix.makefile }} ${{ matrix.makeopts }}
+        make -f unix/Makefile generic CC=${{ matrix.compiler }}
+      shell: C:\tools\cygwin\bin\bash.exe --login -o igncr '{0}'
+
+    - name: build (win32/makefile.*)
+      if: matrix.makefile && ! matrix.cygwin
+      run: |
+        ${{ matrix.makecmd }} -f ${{ matrix.makefile }}
       shell: cmd
 
     - name: Run zip --help
