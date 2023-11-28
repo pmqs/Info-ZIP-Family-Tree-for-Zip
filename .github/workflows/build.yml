@@ -193,7 +193,7 @@ jobs:
       if: runner.os == 'Windows' && matrix.cygwin
       uses: egor-tensin/setup-cygwin@v4
       with:
-        packages: {{ matrix.packages }}
+        packages: ${{ matrix.packages }}
 
     - name: Display ${{ matrix.compiler }} version
       if: matrix.compiler != 'cl'
