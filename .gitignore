@@ -1,0 +1,14 @@
+build/
+
+**/*.o
+**/*.a
+
+flags
+
+zip
+zipcloak
+zipnote
+zipsplit
+
+minizip.pc.cmakein
+flags_bz
