@@ -173,7 +173,7 @@ jobs:
     - name: Install packages (Windows)
       if: runner.os == 'Windows' && matrix.packages
       run: |
-        choco -r install ${{ matrix.packages }}
+        choco install -r ${{ matrix.packages }}
 
     - name: Display ${{ matrix.compiler }} version
       if: matrix.compiler != 'cl'
