@@ -159,7 +159,7 @@ jobs:
       with:
         show-progress: 'false'
         # ref: build
-        ref: "3.0"
+        ref: "3.1e21"
 
     - name: setup cli compilers on Windows
       if: matrix.compiler == 'cl'
