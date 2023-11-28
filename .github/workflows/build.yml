@@ -111,16 +111,24 @@ jobs:
           #   os: macos-11
           #   compiler: clang
 
-        # gcc Versions on Windows
+        # gcc Versions on Windows with MINGW
 
-          - name: Windows + gcc
+          - name: Windows + MINGW + gcc
             os: windows-latest
             compiler: gcc
             packages: wget unzip
 
-        # CLANG Versions on Windows
+        # gcc Versions on Windows with MINGW
 
-          - name: Windows + clang
+          - name: Windows + Cygwin + gcc
+            os: windows-latest
+            compiler: gcc
+            packages: wget unzip gcc
+            cygwin: 1
+
+        # CLANG Versions on Windows with MINGW
+
+          - name: Windows + MINGW + clang
             os: windows-latest
             compiler: clang
             packages: llvm wget unzip
@@ -177,9 +185,15 @@ jobs:
         sudo apt-get install -y ${{ matrix.packages }}
 
     - name: Install packages (Windows)
-      if: runner.os == 'Windows' && matrix.packages
+      if: runner.os == 'Windows' && matrix.packages && ! matrix.cygwin
       run: |
         choco install -r --no=progress ${{ matrix.packages }}
+
+    - name: Install Cygwin (Windows)
+      if: runner.os == 'Windows' && matrix.cygwin
+      uses: egor-tensin/setup-cygwin@v4
+      with:
+        packages: {{ matrix.packages }}
 
     - name: Display ${{ matrix.compiler }} version
       if: matrix.compiler != 'cl'
