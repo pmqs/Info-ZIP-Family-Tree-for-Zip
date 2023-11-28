@@ -111,14 +111,14 @@ jobs:
             os: macos-11
             compiler: clang
 
-        # gcc Versions on Windows with MinGW
+        # gcc on Windows with MinGW
 
           - name: Windows + MinGW + gcc
             os: windows-latest
             compiler: gcc
             packages: wget unzip
 
-        # gcc Versions on Windows with Cygwin
+        # gcc on Windows with Cygwin
 
           - name: Windows + Cygwin + gcc
             os: windows-latest
@@ -127,16 +127,16 @@ jobs:
             cygwin: 1
             shell: C:\tools\cygwin\bin\bash.exe --login -o igncr '{0}'
 
-        # CLANG Versions on Windows with MinGW
+        # CLANG on Windows with MinGW
 
           - name: Windows + MinGW + clang
             os: windows-latest
             compiler: clang
             packages: llvm wget unzip
 
-        # CLANG Versions on Windows with Cygwin
+        # CLANG on Windows with Cygwin
 
-          - name: Windows + Cygwin + gcc
+          - name: Windows + Cygwin + clang
             os: windows-latest
             compiler: clang
             packages: wget unzip clang make
@@ -145,7 +145,7 @@ jobs:
 
         # win32/gcc on Windows
 
-          - name: Windows + win32/makefile.gcc
+          - name: Windows + win32/makefile.gcc + gcc
             os: windows-latest
             compiler: gcc
             packages: wget unzip
@@ -154,7 +154,7 @@ jobs:
 
         # win32/w32 on Windows
 
-          - name: Windows + win32/makefile.w32
+          - name: Windows + win32/makefile.w32 + CL
             os: windows-latest
             compiler: cl
             packages: wget unzip
@@ -165,7 +165,7 @@ jobs:
 
         # win32/a64 on Windows
 
-          - name: Windows + win32/makefile.a64
+          - name: Windows + win32/makefile.a64 + CL
             os: windows-latest
             compiler: cl
             packages: wget unzip
