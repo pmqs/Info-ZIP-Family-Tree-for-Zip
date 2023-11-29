@@ -9,8 +9,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    strategy:
+        fail-fast: false
+        matrix:
+          include:
+
+            # GCC Versions on Ubuntu
+
+            - name: i386
+              os: i386
+
+            - name: amd64
+              os: amd64
+
     container:
-      image: i386/alpine
+      image: ${{ matrix.os }}/alpine
 
     steps:
       - name: install the Perl, gcc, make & zlib
