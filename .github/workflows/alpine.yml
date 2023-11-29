@@ -16,11 +16,23 @@ jobs:
 
             # GCC Versions on Ubuntu
 
-            - name: i386
+            - name: i386 + gcc
               os: i386
+              compiler: gcc
 
-            - name: amd64
+            - name: amd64 + gcc
               os: amd64
+              compiler: gcc
+
+            - name: i386 + clang
+              os: i386
+              compiler: clang
+              packages: clang
+
+            - name: amd64 + gcc
+              os: amd64
+              compiler: clang
+              packages: clang
 
     container:
       image: ${{ matrix.os }}/alpine
@@ -29,7 +41,7 @@ jobs:
       - name: install the Perl, gcc, make & zlib
         run: |
           apk update
-          apk add build-base perl perl-dev zlib-dev wget unzip
+          apk add build-base perl perl-dev zlib-dev wget unzip ${{ matrix.packages }}
 
       - uses: actions/checkout@v1
         with:
