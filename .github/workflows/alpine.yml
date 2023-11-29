@@ -18,9 +18,9 @@ jobs:
           apk update
           apk add build-base perl perl-dev zlib-dev wget unzip
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v1
         with:
-            show-progress: 'false'
+            # show-progress: 'false'
             ref: build
 
       - name: Display gcc version
