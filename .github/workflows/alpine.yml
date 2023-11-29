@@ -1,0 +1,60 @@
+name: Alpine 32-bit
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: i386/alpine
+
+    steps:
+      - name: install the Perl, gcc, make & zlib
+        run: |
+          apk update
+          apk add build-base perl perl-dev zlib-dev wget unzip
+
+      - uses: actions/checkout@v4
+        with:
+            show-progress: 'false'
+            ref: build
+
+      - name: Display gcc version
+        run: gcc -v
+
+      - name: fetch iz_aes_wg10.zip
+        run: |
+          wget -q ftp://ftp.info-zip.org/pub/infozip/src/iz_aes_wg10.zip
+          unzip -o iz_aes_wg10.zip
+
+      - name: configure & build (unix/Makefile)
+        run: |
+          make -f unix/Makefile generic CC=gcc
+
+      - name: Run zip --help
+        run: ./zip --help
+
+      - name: Run zip -v
+        run: ./zip -v
+
+      - name: Run zipcloak --help
+        run: ./zipcloak --help
+
+      - name: Run zipcloak -v
+        run: ./zipcloak -v
+
+      - name: Run zipnote --help
+        run: ./zipnote --help
+
+      - name: Run zipnote -v
+        run: ./zipnote -v
+
+      - name: Run zipsplit --help
+        run: ./zipsplit --help
+
+      - name: Run zipsplit -v
+        run: ./zipsplit -v
